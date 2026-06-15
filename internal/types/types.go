@@ -80,9 +80,9 @@ type TokenBalanceResponse struct {
 	Success        bool    `json:"success"`
 	Message        string  `json:"message,omitempty"`
 	RemainBalance  float64 `json:"remain_balance"`
-	RemainCredits  int     `json:"remain_credits"`
+	RemainCredits  float64 `json:"remain_credits"`
 	UsedBalance    float64 `json:"used_balance"`
-	UsedCredits    int     `json:"used_credits"`
+	UsedCredits    float64 `json:"used_credits"`
 	UnlimitedQuota bool    `json:"unlimited_quota"`
 }
 
