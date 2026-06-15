@@ -1,0 +1,10 @@
+{
+  "model": "gpt-image-2-official",
+  "prompt": "A serene mountain lake at sunrise, photorealistic",
+  "size": "3:1",
+  "resolution": "1k",
+  "quality": "low",
+  "output_format": "jpeg",
+  "output_compression": 85,
+  "n": 1
+}

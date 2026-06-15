@@ -1,0 +1,25 @@
+# APIMart CLI Configuration
+# Place this file at ~/.config/apimart/config.yaml
+# or pass --config /path/to/config.yaml at runtime
+
+# API key (can also be set via APIMART_API_KEY env var)
+api_key: "your-api-key-here"
+
+# API base URL (can also be set via APIMART_API_BASE env var)
+# base_url: "https://api.apimart.ai"
+
+# HTTP proxy (can also be set via APIMART_HTTP_PROXY env var, or --http-proxy CLI flag)
+# http_proxy: "http://127.0.0.1:7890"
+
+# Default values for generation parameters
+defaults:
+  model: "gpt-image-2-official"
+
+  # Most economical: 1536x512·Low → $0.00144/image
+  size: "3:1"           # 3:1 + 1k → 1881x836 / 1536x512
+  resolution: "1k"        # Lowest resolution tier
+  quality: "low"          # Fastest/cheapest quality tier
+
+  output_format: "png"
+  # n: 1
+  # output_compression: 85

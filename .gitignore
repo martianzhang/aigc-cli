@@ -1,0 +1,14 @@
+# Binaries
+apimart-cli
+apimart-cli.exe
+*.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
