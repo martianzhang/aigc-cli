@@ -17,10 +17,12 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://api.apimart.ai"
-	submitPath     = "/v1/images/generations"
-	uploadPath     = "/v1/uploads/images"
-	taskPath       = "/v1/tasks/%s"
+	defaultBaseURL    = "https://api.apimart.ai"
+	submitPath        = "/v1/images/generations"
+	uploadPath        = "/v1/uploads/images"
+	taskPath          = "/v1/tasks/%s"
+	tokenBalancePath  = "/v1/balance"
+	userBalancePath   = "/v1/user/balance"
 	// Default polling settings
 	pollInterval    = 3 * time.Second
 	initialDelay    = 10 * time.Second
@@ -237,6 +239,45 @@ func (c *Client) ResolveLocalImages(urls []string) ([]string, error) {
 		}
 	}
 	return resolved, nil
+}
+
+// GetTokenBalance queries the current token's balance.
+func (c *Client) GetTokenBalance() (*types.TokenBalanceResponse, error) {
+	return getBalance[types.TokenBalanceResponse](c, c.baseURL+tokenBalancePath)
+}
+
+// GetUserBalance queries the current user's balance.
+func (c *Client) GetUserBalance() (*types.UserBalanceResponse, error) {
+	return getBalance[types.UserBalanceResponse](c, c.baseURL+userBalancePath)
+}
+
+// getBalance is a generic helper for balance endpoints.
+func getBalance[T any](c *Client, url string) (*T, error) {
+	httpReq, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result T
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
 }
 
 // isLocalFile returns true if the path points to an existing file.

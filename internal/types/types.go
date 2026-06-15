@@ -35,25 +35,65 @@ type TaskResponse struct {
 	Data *TaskData  `json:"data"`
 }
 
-// TaskData contains the full task information.
+// TaskData contains the full task information from GET /v1/tasks/{task_id}.
 type TaskData struct {
-	ID         string       `json:"id"`
-	Status     string       `json:"status"`
-	Progress   int          `json:"progress"`
-	ActualTime float64      `json:"actual_time,omitempty"`
-	Cost       float64      `json:"cost,omitempty"`
-	Result     *TaskResult  `json:"result,omitempty"`
+	ID            string      `json:"id"`
+	Status        string      `json:"status"`
+	Progress      int         `json:"progress"`
+	Cost          float64     `json:"cost,omitempty"`
+	CreditsCost   float64     `json:"credits_cost,omitempty"`
+	ActualTime    int         `json:"actual_time,omitempty"`
+	EstimatedTime int         `json:"estimated_time,omitempty"`
+	Created       int64       `json:"created,omitempty"`
+	Completed     int64       `json:"completed,omitempty"`
+	Result        *TaskResult `json:"result,omitempty"`
+	Error         *TaskError  `json:"error,omitempty"`
 }
 
-// TaskResult contains the generated images.
+// TaskResult contains the generated images or videos.
 type TaskResult struct {
-	Images []ImageResult `json:"images"`
+	Images []ImageResult `json:"images,omitempty"`
+	Videos []VideoResult `json:"videos,omitempty"`
 }
 
 // ImageResult contains URLs for a generated image.
 type ImageResult struct {
 	URL       []string `json:"url"`
 	ExpiresAt int64    `json:"expires_at"`
+}
+
+// VideoResult contains URLs for a generated video.
+type VideoResult struct {
+	URL       []string `json:"url"`
+	ExpiresAt int64    `json:"expires_at"`
+}
+
+// TaskError contains error details for a failed task.
+type TaskError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Type    string `json:"type"`
+}
+
+// TokenBalanceResponse is the response from GET /v1/balance.
+type TokenBalanceResponse struct {
+	Success        bool    `json:"success"`
+	Message        string  `json:"message,omitempty"`
+	RemainBalance  float64 `json:"remain_balance"`
+	RemainCredits  int     `json:"remain_credits"`
+	UsedBalance    float64 `json:"used_balance"`
+	UsedCredits    int     `json:"used_credits"`
+	UnlimitedQuota bool    `json:"unlimited_quota"`
+}
+
+// UserBalanceResponse is the response from GET /v1/user/balance.
+type UserBalanceResponse struct {
+	Success       bool    `json:"success"`
+	Message       string  `json:"message,omitempty"`
+	RemainBalance float64 `json:"remain_balance"`
+	RemainCredits int     `json:"remain_credits"`
+	UsedBalance   float64 `json:"used_balance"`
+	UsedCredits   float64 `json:"used_credits"`
 }
 
 // UploadResponse is the response from POST /v1/uploads/images.
