@@ -80,8 +80,9 @@ apimart-cli image --prompt "一只猫在星空下"
 # 从文件读取（自动识别文件路径）
 apimart-cli image --prompt prompt.txt
 
-# 从 stdin 读取
-echo "赛博朋克城市夜景" | apimart-cli image --prompt -
+# 从 stdin 读取（--prompt 不传时默认读 stdin）
+echo "赛博朋克城市夜景" | apimart-cli image
+apimart-cli image < prompt.txt
 
 # 自动轮询并下载图片到当前目录
 apimart-cli image --prompt "..."
@@ -200,8 +201,9 @@ apimart-cli image --prompt "..." --http-proxy "socks5://127.0.0.1:1080"
 支持文生视频、图生视频、首尾帧、参考视频、音频视频等模式。
 
 ```bash
-# 文生视频
+# 文生视频（--prompt 不传时默认读 stdin）
 apimart-cli video --prompt "A kitten yawning at the camera"
+echo "A kitten yawning" | apimart-cli video
 
 # 指定分辨率及时长
 apimart-cli video --prompt "City nightscape" --resolution 720p --duration 8

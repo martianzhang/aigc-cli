@@ -24,7 +24,12 @@ description: Use "apimart-cli image" to generate images via the APIMart GPT-Imag
 ### 1. 基本文生图
 
 ```bash
+# 直接传提示词
 apimart-cli image --prompt "你的提示词"
+
+# --prompt 不传时默认读 stdin
+echo "你的提示词" | apimart-cli image
+apimart-cli image < prompt.txt
 ```
 
 提交后自动轮询，任务完成即下载图片到当前目录。
@@ -57,7 +62,7 @@ apimart-cli image --prompt prompt.txt
 或通过 stdin：
 
 ```bash
-echo "详细描述" | apimart-cli image --prompt -
+echo "详细描述" | apimart-cli image
 ```
 
 ### 4. JSON 输入
