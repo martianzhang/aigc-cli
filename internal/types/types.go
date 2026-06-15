@@ -91,7 +91,7 @@ type UserBalanceResponse struct {
 	Success       bool    `json:"success"`
 	Message       string  `json:"message,omitempty"`
 	RemainBalance float64 `json:"remain_balance"`
-	RemainCredits int     `json:"remain_credits"`
+	RemainCredits float64 `json:"remain_credits"`
 	UsedBalance   float64 `json:"used_balance"`
 	UsedCredits   float64 `json:"used_credits"`
 }

@@ -75,9 +75,9 @@ func runBalanceUser() error {
 
 	fmt.Println("User Balance:")
 	fmt.Printf("  Remain Balance: $%.4f\n", bal.RemainBalance)
-	fmt.Printf("  Remain Credits: %d\n", bal.RemainCredits)
+	fmt.Printf("  Remain Credits: %.4f\n", bal.RemainCredits)
 	fmt.Printf("  Used Balance:   $%.4f\n", bal.UsedBalance)
-	fmt.Printf("  Used Credits:   %.0f\n", bal.UsedCredits)
+	fmt.Printf("  Used Credits:   %.4f\n", bal.UsedCredits)
 	return nil
 }
 
