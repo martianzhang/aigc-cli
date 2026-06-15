@@ -11,6 +11,7 @@ description: Use "apimart-cli image" to generate images via the APIMart GPT-Imag
 
 1. 项目已安装 `apimart-cli`（`go install` 或 `make build`）
 2. 已配置 API Key（`~/.config/apimart/config.yaml` 或 `APIMART_API_KEY` 环境变量）
+   - 图片默认参数在 `defaults.image` 下配置
 
 ## 何时使用
 

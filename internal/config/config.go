@@ -56,11 +56,7 @@ func Load(customPath string) (*types.Config, error) {
 	return cfg, nil
 }
 
-// LoadDefaults extracts the ConfigDefaults from the config file.
-func LoadDefaults(customPath string) (*types.ConfigDefaults, error) {
-	cfg, err := Load(customPath)
-	if err != nil {
-		return nil, err
-	}
-	return cfg.Defaults, nil
+// LoadDefaults extracts the full Config from the config file.
+func LoadDefaults(customPath string) (*types.Config, error) {
+	return Load(customPath)
 }

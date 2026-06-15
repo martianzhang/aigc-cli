@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
+	"github.com/martianzhang/apimart-cli/internal/config"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -56,7 +57,12 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Apply defaults
+	// Merge config defaults
+	if cfg, err := config.LoadDefaults(cfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
+		cfg.Defaults.Video.MergeIntoVideo(req)
+	}
+
+	// Apply hardcoded defaults
 	if req.Model == "" {
 		req.Model = "doubao-seedance-2.0"
 	}

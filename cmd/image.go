@@ -61,11 +61,9 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	// ----- Step 2: Merge config defaults -----
-	defaults, err := config.LoadDefaults(cfgFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Note: could not load config defaults: %v\n", err)
+	if cfg, err := config.LoadDefaults(cfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
+		cfg.Defaults.Image.MergeIntoImage(req)
 	}
-	defaults.MergeInto(req)
 
 	// ----- Step 3: Apply hard-coded defaults for remaining empty fields -----
 	if req.Model == "" {

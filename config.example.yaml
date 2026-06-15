@@ -11,15 +11,20 @@ api_key: "your-api-key-here"
 # HTTP proxy (can also be set via APIMART_HTTP_PROXY env var, or --http-proxy CLI flag)
 # http_proxy: "http://127.0.0.1:7890"
 
-# Default values for generation parameters
+# Default values for generation parameters (per modality)
 defaults:
-  model: "gpt-image-2-official"
+  image:
+    model: "gpt-image-2-official"
+    # Most economical: 1536x512·Low → $0.00144/image
+    size: "3:1"           # 3:1 + 1k → 1881x836 / 1536x512
+    resolution: "1k"        # Lowest resolution tier
+    quality: "low"          # Fastest/cheapest quality tier
+    output_format: "png"
+    # n: 1
+    # output_compression: 85
 
-  # Most economical: 1536x512·Low → $0.00144/image
-  size: "3:1"           # 3:1 + 1k → 1881x836 / 1536x512
-  resolution: "1k"        # Lowest resolution tier
-  quality: "low"          # Fastest/cheapest quality tier
-
-  output_format: "png"
-  # n: 1
-  # output_compression: 85
+  video:
+    model: "doubao-seedance-2.0"
+    size: "16:9"
+    resolution: "480p"
+    # duration: 5

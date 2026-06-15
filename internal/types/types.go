@@ -147,8 +147,14 @@ type Config struct {
 	Defaults  *ConfigDefaults `mapstructure:"defaults" yaml:"defaults"`
 }
 
-// ConfigDefaults holds default values for generation parameters.
+// ConfigDefaults holds modality-specific default values.
 type ConfigDefaults struct {
+	Image *ImageDefaults `mapstructure:"image" yaml:"image"`
+	Video *VideoDefaults `mapstructure:"video" yaml:"video"`
+}
+
+// ImageDefaults holds default values for image generation.
+type ImageDefaults struct {
 	Model             string   `mapstructure:"model" yaml:"model"`
 	Size              string   `mapstructure:"size" yaml:"size"`
 	Resolution        string   `mapstructure:"resolution" yaml:"resolution"`
@@ -162,8 +168,8 @@ type ConfigDefaults struct {
 	MaskURL           string   `mapstructure:"mask_url" yaml:"mask_url"`
 }
 
-// MergeInto applies non-zero default values from d to the request.
-func (d *ConfigDefaults) MergeInto(req *GenerateRequest) {
+// MergeIntoImage applies non-zero default values to an image generation request.
+func (d *ImageDefaults) MergeIntoImage(req *GenerateRequest) {
 	if d == nil {
 		return
 	}
@@ -199,5 +205,44 @@ func (d *ConfigDefaults) MergeInto(req *GenerateRequest) {
 	}
 	if req.MaskURL == "" && d.MaskURL != "" {
 		req.MaskURL = d.MaskURL
+	}
+}
+
+// VideoDefaults holds default values for video generation.
+type VideoDefaults struct {
+	Model       string   `mapstructure:"model" yaml:"model"`
+	Size        string   `mapstructure:"size" yaml:"size"`
+	Resolution  string   `mapstructure:"resolution" yaml:"resolution"`
+	Duration    *int     `mapstructure:"duration" yaml:"duration"`
+	ImageURLs   []string `mapstructure:"image_urls" yaml:"image_urls"`
+	VideoURLs   []string `mapstructure:"video_urls" yaml:"video_urls"`
+	AudioURLs   []string `mapstructure:"audio_urls" yaml:"audio_urls"`
+}
+
+// MergeIntoVideo applies non-zero default values to a video generation request.
+func (d *VideoDefaults) MergeIntoVideo(req *VideoGenerateRequest) {
+	if d == nil {
+		return
+	}
+	if req.Model == "" && d.Model != "" {
+		req.Model = d.Model
+	}
+	if req.Size == "" && d.Size != "" {
+		req.Size = d.Size
+	}
+	if req.Resolution == "" && d.Resolution != "" {
+		req.Resolution = d.Resolution
+	}
+	if req.Duration == nil && d.Duration != nil {
+		req.Duration = d.Duration
+	}
+	if len(req.ImageURLs) == 0 && len(d.ImageURLs) > 0 {
+		req.ImageURLs = d.ImageURLs
+	}
+	if len(req.VideoURLs) == 0 && len(d.VideoURLs) > 0 {
+		req.VideoURLs = d.VideoURLs
+	}
+	if len(req.AudioURLs) == 0 && len(d.AudioURLs) > 0 {
+		req.AudioURLs = d.AudioURLs
 	}
 }
