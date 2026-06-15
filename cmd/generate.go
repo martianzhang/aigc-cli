@@ -86,17 +86,15 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		req.OutputFormat = "png"
 	}
 
-	// ----- Step 4: Print the request payload -----
-	prettyReq, _ := json.MarshalIndent(req, "", "  ")
-	fmt.Printf("Request:\n%s\n\n", string(prettyReq))
-
 	if genDryRun {
-		fmt.Println("# dry-run: 以上为本次将提交的完整请求参数，API 不会被调用。")
-		fmt.Println("# 等价 curl 命令：")
 		curl := buildCurl(req)
 		fmt.Println(curl)
 		return nil
 	}
+
+	// ----- Step 4: Print the request payload -----
+	prettyReq, _ := json.MarshalIndent(req, "", "  ")
+	fmt.Printf("Request:\n%s\n\n", string(prettyReq))
 
 	// ----- Step 5: Submit -----
 	c := client.New(apiKey, apiBase, httpProxy)
