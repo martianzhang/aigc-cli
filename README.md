@@ -47,11 +47,17 @@ api_key: "sk-xxx"
 http_proxy: "http://127.0.0.1:7890"
 
 defaults:
-  model: "gpt-image-2-official"
-  size: "3:1"
-  resolution: "1k"
-  quality: "low"
-  output_format: "png"
+  image:
+    model: "gpt-image-2-official"
+    size: "3:1"
+    resolution: "1k"
+    quality: "low"
+    output_format: "png"
+
+  video:
+    model: "doubao-seedance-2.0"
+    size: "16:9"
+    resolution: "480p"
 ```
 
 完整示例见 [config.example.yaml](config.example.yaml)。
@@ -186,8 +192,9 @@ apimart-cli image --prompt "..." \
 ## 代理
 
 ```bash
-# 命令行指定
+# 命令行指定（图片和视频通用）
 apimart-cli image --prompt "..." --http-proxy "http://127.0.0.1:7890"
+apimart-cli video --prompt "..." --http-proxy "http://127.0.0.1:7890"
 
 # 环境变量（支持 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY / NO_PROXY）
 export HTTP_PROXY="http://127.0.0.1:7890"
@@ -270,7 +277,11 @@ apimart-cli balance user
 打印即将提交的 curl 命令，不实际调用 API：
 
 ```bash
+# 图片 dry-run
 apimart-cli image --prompt "test" --size "16:9" --dry-run
+
+# 视频 dry-run
+apimart-cli video --prompt "test" --duration 4 --dry-run
 ```
 
 ## API 参考
