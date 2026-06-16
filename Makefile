@@ -1,9 +1,10 @@
 BINARY    ?= apimart-cli
 GO        ?= go
-GOFLAGS   ?= -ldflags="-s -w"
+VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+GOFLAGS   ?= -ldflags="-s -w -X github.com/martianzhang/apimart-cli/cmd.Version=$(VERSION)"
 OUTPUT    ?= $(BINARY)
 RELEASE_DIR   ?= dist
-RELEASE_FLAGS ?= -ldflags="-s -w" -trimpath
+RELEASE_FLAGS ?= -ldflags="-s -w -X github.com/martianzhang/apimart-cli/cmd.Version=$(VERSION)" -trimpath
 
 # Detect OS for output naming
 ifeq ($(OS),Windows_NT)

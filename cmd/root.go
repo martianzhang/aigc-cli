@@ -21,8 +21,8 @@ var (
 
 // rootCmd represents the base command.
 var rootCmd = &cobra.Command{
-	Use:   "apimart-cli",
-	Short: "CLI tool for APIMart image generation",
+	Use:     "apimart-cli",
+	Short:   "CLI tool for APIMart image generation",
 	Version: Version,
 	CompletionOptions: cobra.CompletionOptions{
 		HiddenDefaultCmd: true, // hide "completion" to avoid confusion with LLM completion
