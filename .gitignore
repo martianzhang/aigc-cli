@@ -13,8 +13,8 @@ apimart-cli.exe
 .DS_Store
 Thumbs.db
 
-# Local reference files (not committed)
-apimart-pricing.md
+# Release builds
+dist/
 
 # Downloaded artifacts and prompt files
 apimart_*.png

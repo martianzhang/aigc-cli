@@ -14,6 +14,11 @@ api_key: "your-api-key-here"
 # Verbose output: show full result JSON (can also use --verbose / -v CLI flag)
 # verbose: true
 
+# Save prompt text to apimart_{task_id}.md file (can also use --save-prompt CLI flag)
+# save_prompt: true
+
+
+
 # Default values for generation parameters (per modality)
 defaults:
   image:

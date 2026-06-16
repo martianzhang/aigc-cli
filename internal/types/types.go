@@ -31,8 +31,8 @@ type TaskSubmission struct {
 
 // TaskResponse is the response from GET /v1/tasks/{task_id}.
 type TaskResponse struct {
-	Code int        `json:"code"`
-	Data *TaskData  `json:"data"`
+	Code int       `json:"code"`
+	Data *TaskData `json:"data"`
 }
 
 // TaskData contains the full task information from GET /v1/tasks/{task_id}.
@@ -135,8 +135,8 @@ type ImageWithRole struct {
 
 // VideoGenerateResponse is the response from POST /v1/videos/generations.
 type VideoGenerateResponse struct {
-	Code int                `json:"code"`
-	Data []TaskSubmission   `json:"data"`
+	Code int              `json:"code"`
+	Data []TaskSubmission `json:"data"`
 }
 
 // ChatMessage represents a single message in a chat conversation.
@@ -161,35 +161,35 @@ type ChatRequest struct {
 
 // ChatResponse is the non-streaming response from chat completion.
 type ChatResponse struct {
-	ID      string         `json:"id"`
-	Object  string         `json:"object"`
-	Created int64          `json:"created"`
-	Model   string         `json:"model"`
-	Choices []ChatChoice   `json:"choices"`
-	Usage   *ChatUsage    `json:"usage,omitempty"`
+	ID      string       `json:"id"`
+	Object  string       `json:"object"`
+	Created int64        `json:"created"`
+	Model   string       `json:"model"`
+	Choices []ChatChoice `json:"choices"`
+	Usage   *ChatUsage   `json:"usage,omitempty"`
 }
 
 // ChatChoice represents a single choice in a chat response.
 type ChatChoice struct {
-	Index        int          `json:"index"`
-	Message      ChatMessage  `json:"message"`
+	Index        int         `json:"index"`
+	Message      ChatMessage `json:"message"`
 	FinishReason string      `json:"finish_reason"`
 }
 
 // ChatStreamChunk represents a single SSE chunk in streaming response.
 type ChatStreamChunk struct {
-	ID      string              `json:"id"`
-	Object  string              `json:"object"`
-	Created int64               `json:"created"`
-	Model   string              `json:"model"`
-	Choices []ChatStreamChoice  `json:"choices"`
+	ID      string             `json:"id"`
+	Object  string             `json:"object"`
+	Created int64              `json:"created"`
+	Model   string             `json:"model"`
+	Choices []ChatStreamChoice `json:"choices"`
 }
 
 // ChatStreamChoice represents a choice in a streaming chunk.
 type ChatStreamChoice struct {
 	Index        int             `json:"index"`
 	Delta        ChatStreamDelta `json:"delta"`
-	FinishReason string         `json:"finish_reason,omitempty"`
+	FinishReason string          `json:"finish_reason,omitempty"`
 }
 
 // ChatStreamDelta represents the delta content in a streaming chunk.
@@ -207,29 +207,29 @@ type ChatUsage struct {
 
 // MarketplaceResponse is the response from the public marketplace API.
 type MarketplaceResponse struct {
-	Success bool                `json:"success"`
-	Data    MarketplaceData     `json:"data"`
+	Success bool            `json:"success"`
+	Data    MarketplaceData `json:"data"`
 }
 
 type MarketplaceData struct {
-	Total    int               `json:"total"`
-	Page     int               `json:"page"`
-	PageSize int               `json:"page_size"`
+	Total    int                `json:"total"`
+	Page     int                `json:"page"`
+	PageSize int                `json:"page_size"`
 	Models   []MarketplaceModel `json:"models"`
 }
 
 type MarketplaceModel struct {
-	ID           int                 `json:"id"`
-	ModelName    string              `json:"model_name"`
-	DisplayName  string              `json:"display_name"`
-	Description  string              `json:"description"`
-	MediaType    string              `json:"media_type"`
-	DetailURL    string              `json:"detail_url"`
-	Tags         []string            `json:"tags"`
-	Vendor       *MarketplaceVendor  `json:"vendor"`
-	Pricing      MarketplacePricing  `json:"pricing"`
-	CallCount    int64               `json:"call_count"`
-	DiscountPct  int                 `json:"discount_percent"`
+	ID          int                `json:"id"`
+	ModelName   string             `json:"model_name"`
+	DisplayName string             `json:"display_name"`
+	Description string             `json:"description"`
+	MediaType   string             `json:"media_type"`
+	DetailURL   string             `json:"detail_url"`
+	Tags        []string           `json:"tags"`
+	Vendor      *MarketplaceVendor `json:"vendor"`
+	Pricing     MarketplacePricing `json:"pricing"`
+	CallCount   int64              `json:"call_count"`
+	DiscountPct int                `json:"discount_percent"`
 }
 
 type MarketplaceVendor struct {
@@ -239,41 +239,42 @@ type MarketplaceVendor struct {
 }
 
 type MarketplacePricing struct {
-	StartingPrice      float64 `json:"starting_price"`
-	DiscountRate       float64 `json:"discount_rate"`
-	CreditsPerGen      int     `json:"credits_per_generation"`
-	BillingType        string  `json:"billing_type"`
-	PriceUnit          string  `json:"price_unit"`
-	HasPrice           bool    `json:"has_price"`
-	InputPrice         float64 `json:"input_price,omitempty"`
-	OutputPrice        float64 `json:"output_price,omitempty"`
+	StartingPrice float64 `json:"starting_price"`
+	DiscountRate  float64 `json:"discount_rate"`
+	CreditsPerGen int     `json:"credits_per_generation"`
+	BillingType   string  `json:"billing_type"`
+	PriceUnit     string  `json:"price_unit"`
+	HasPrice      bool    `json:"has_price"`
+	InputPrice    float64 `json:"input_price,omitempty"`
+	OutputPrice   float64 `json:"output_price,omitempty"`
 }
 
 // ModelPricingResponse is the response from /api/pricing/model?model=xxx.
 type ModelPricingResponse struct {
-	Success bool               `json:"success"`
-	Data    ModelPricingData   `json:"data"`
+	Success bool             `json:"success"`
+	Data    ModelPricingData `json:"data"`
 }
 
 type ModelPricingData struct {
-	ModelName         string                `json:"model_name"`
-	BillingType       string                `json:"billing_type"`
-	ModelPrice        float64               `json:"model_price"`
-	DiscountRate      float64               `json:"discount_rate"`
-	ResolutionEnabled bool                  `json:"resolution_enabled"`
-	SupportedSizes    []string              `json:"supported_sizes"`
-	SupportedQualities []string             `json:"supported_qualities"`
-	SizeQualityPrices map[string]map[string]float64 `json:"size_quality_prices"`
-	ResolutionPrices  map[string]float64    `json:"resolution_prices"`
+	ModelName          string                        `json:"model_name"`
+	BillingType        string                        `json:"billing_type"`
+	ModelPrice         float64                       `json:"model_price"`
+	DiscountRate       float64                       `json:"discount_rate"`
+	ResolutionEnabled  bool                          `json:"resolution_enabled"`
+	SupportedSizes     []string                      `json:"supported_sizes"`
+	SupportedQualities []string                      `json:"supported_qualities"`
+	SizeQualityPrices  map[string]map[string]float64 `json:"size_quality_prices"`
+	ResolutionPrices   map[string]float64            `json:"resolution_prices"`
 }
 
 // Config represents the YAML configuration file structure.
 type Config struct {
-	APIKey    string           `mapstructure:"api_key" yaml:"api_key"`
-	BaseURL   string           `mapstructure:"base_url" yaml:"base_url"`
-	HTTPProxy string           `mapstructure:"http_proxy" yaml:"http_proxy"`
-	Verbose   bool             `mapstructure:"verbose" yaml:"verbose"`
-	Defaults  *ConfigDefaults  `mapstructure:"defaults" yaml:"defaults"`
+	APIKey     string          `mapstructure:"api_key" yaml:"api_key"`
+	BaseURL    string          `mapstructure:"base_url" yaml:"base_url"`
+	HTTPProxy  string          `mapstructure:"http_proxy" yaml:"http_proxy"`
+	Verbose    bool            `mapstructure:"verbose" yaml:"verbose"`
+	SavePrompt bool            `mapstructure:"save_prompt" yaml:"save_prompt"`
+	Defaults   *ConfigDefaults `mapstructure:"defaults" yaml:"defaults"`
 }
 
 // ConfigDefaults holds modality-specific default values.
@@ -347,13 +348,13 @@ func (d *ImageDefaults) MergeIntoImage(req *GenerateRequest) {
 
 // VideoDefaults holds default values for video generation.
 type VideoDefaults struct {
-	Model       string   `mapstructure:"model" yaml:"model"`
-	Size        string   `mapstructure:"size" yaml:"size"`
-	Resolution  string   `mapstructure:"resolution" yaml:"resolution"`
-	Duration    *int     `mapstructure:"duration" yaml:"duration"`
-	ImageURLs   []string `mapstructure:"image_urls" yaml:"image_urls"`
-	VideoURLs   []string `mapstructure:"video_urls" yaml:"video_urls"`
-	AudioURLs   []string `mapstructure:"audio_urls" yaml:"audio_urls"`
+	Model      string   `mapstructure:"model" yaml:"model"`
+	Size       string   `mapstructure:"size" yaml:"size"`
+	Resolution string   `mapstructure:"resolution" yaml:"resolution"`
+	Duration   *int     `mapstructure:"duration" yaml:"duration"`
+	ImageURLs  []string `mapstructure:"image_urls" yaml:"image_urls"`
+	VideoURLs  []string `mapstructure:"video_urls" yaml:"video_urls"`
+	AudioURLs  []string `mapstructure:"audio_urls" yaml:"audio_urls"`
 }
 
 // MergeIntoVideo applies non-zero default values to a video generation request.

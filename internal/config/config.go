@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/viper"
 	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/spf13/viper"
 )
 
 const (

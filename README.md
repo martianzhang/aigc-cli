@@ -64,14 +64,11 @@ defaults:
 
 ### 提示词文件
 
-每次生成任务完成后，会自动保存提示词到 `apimart_{task_id}.md` 文件，方便追溯：
+加 `--save-prompt` 可将提示词保存到 `apimart_{task_id}.md` 文件，方便追溯：
 
 ```bash
-# 默认保存
-apimart-cli image --prompt "A red fox"
-
-# 不保存
-apimart-cli image --prompt "A red fox" --no-save-prompt
+apimart-cli image --prompt "A red fox" --save-prompt
+apimart-cli video --prompt "..." --save-prompt
 ```
 
 完整示例见 [config.example.yaml](config.example.yaml)。
@@ -114,20 +111,21 @@ apimart-cli image --prompt "..."
 
 所有 GPT-Image-2 参数均支持：
 
-| 参数 | 说明 |
-|---|---|
-| `--prompt` | 文本描述（自动识别文件/stdin） |
-| `--model` | 模型名，默认 `gpt-image-2-official` |
-| `--size` | 宽高比，如 `16:9`、`1:1`，或像素如 `1024x1024` |
-| `--resolution` | 分辨率档：`1k`、`2k`、`4k` |
-| `--quality` | 质量：`auto`、`low`、`medium`、`high` |
-| `--background` | 背景：`auto`、`opaque`、`transparent` |
-| `--moderation` | 审核强度：`auto`、`low` |
-| `--output-format` | 输出格式：`png`、`jpeg`、`webp` |
-| `--output-compression` | 压缩率 0-100（jpeg/webp） |
-| `--n` | 生成数量 1-4 |
-| `--image-url` | 参考图片 URL（可重复） |
-| `--mask-url` | 蒙版图片 URL（inpainting） |
+| 参数 | 短参 | 说明 |
+|---|---|---|
+| `--prompt` | `-p` | 文本描述（自动识别文件/stdin） |
+| `--model` | `-m` | 模型名，默认 `gpt-image-2-official` |
+| `--size` | `-s` | 宽高比，如 `16:9`、`1:1`，或像素如 `1024x1024` |
+| `--resolution` | `-r` | 分辨率档：`1k`、`2k`、`4k` |
+| `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` |
+| `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp` |
+| `--output-compression` | | 压缩率 0-100（jpeg/webp） |
+| `--n` | | 生成数量 1-4 |
+| `--image-url` | | 参考图片 URL（可重复） |
+| `--mask-url` | | 蒙版图片 URL（inpainting） |
+| `--background` | | 背景：`auto`、`opaque`、`transparent` |
+| `--moderation` | | 审核强度：`auto`、`low` |
+| `--dry-run` | | 打印 curl 不调用 API |
 
 ```bash
 apimart-cli image --prompt "..." \
@@ -251,22 +249,23 @@ apimart-cli video --json request.json
 
 ### 视频参数
 
-| 参数 | 说明 |
-|---|---|
-| `--prompt` | 视频内容描述 |
-| `--model` | 模型名，默认 `grok-imagine-1.5-video-apimart`（$0.007）或 `doubao-seedance-2.0` |
-| `--duration` | 时长 4-15 秒，默认 5 |
-| `--size` | 宽高比：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`、`adaptive` |
-| `--resolution` | 分辨率：`480p`、`720p`、`1080p`，默认 `480p` |
-| `--seed` | 随机种子，用于复现 |
-| `--generate-audio` | 生成 AI 音频 |
-| `--return-last-frame` | 返回最后一帧用于续拍 |
-| `--image-url` | 参考图片 URL（可重复） |
-| `--first-frame` | 首帧图片 |
-| `--last-frame` | 尾帧图片 |
-| `--video-url` | 参考视频 URL（可重复） |
-| `--audio-url` | 参考音频 URL（可重复） |
-| `--tool` | 工具（如 `web_search`，可重复） |
+| 参数 | 短参 | 说明 |
+|---|---|---|
+| `--prompt` | `-p` | 视频内容描述 |
+| `--model` | `-m` | 模型名，默认 `grok-imagine-1.5-video-apimart` |
+| `--duration` | `-d` | 时长 4-15 秒，默认 5 |
+| `--size` | `-s` | 宽高比：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`、`adaptive` |
+| `--resolution` | `-r` | 分辨率：`480p`、`720p`、`1080p`，默认 `480p` |
+| `--generate-audio` | `-a` | 生成 AI 音频 |
+| `--dry-run` | | 打印 curl 不调用 API |
+| `--seed` | | 随机种子，用于复现 |
+| `--return-last-frame` | | 返回最后一帧用于续拍 |
+| `--image-url` | | 参考图片 URL（可重复） |
+| `--first-frame` | | 首帧图片 |
+| `--last-frame` | | 尾帧图片 |
+| `--video-url` | | 参考视频 URL（可重复） |
+| `--audio-url` | | 参考音频 URL（可重复） |
+| `--tool` | | 工具（如 `web_search`，可重复） |
 
 ## AI 对话
 

@@ -321,7 +321,7 @@ func downloadImages(images []types.ImageResult, taskID string) error {
 
 // savePromptFile saves the generation prompt to apimart_{taskID}.md.
 func savePromptFile(taskID, prompt string) {
-	if noSavePrompt || prompt == "" {
+	if !savePrompt || prompt == "" {
 		return
 	}
 	filename := filepath.Join(outputDir, fmt.Sprintf("apimart_%s.md", taskID))

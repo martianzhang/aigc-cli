@@ -202,7 +202,10 @@ var pricingCmd = &cobra.Command{
 		if d.BillingType == "size_quality" && len(d.SizeQualityPrices) > 0 {
 			fmt.Printf("\n  Size × Quality pricing (lowest):\n")
 			// Collect lowest price per size
-			type sq struct{ size, quality string; price float64 }
+			type sq struct {
+				size, quality string
+				price         float64
+			}
 			var cheapest []sq
 			for size, qMap := range d.SizeQualityPrices {
 				lowest := sq{size: size, price: 1e9}

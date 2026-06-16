@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/martianzhang/apimart-cli/internal/config"
+	"github.com/spf13/cobra"
 )
 
 var (
-	cfgFile       string
-	apiKey        string
-	apiBase       string
-	httpProxy     string
-	jsonInput     string
-	outputDir     string
-	verbose       bool
-	noSavePrompt  bool
+	cfgFile    string
+	apiKey     string
+	apiBase    string
+	httpProxy  string
+	jsonInput  string
+	outputDir  string
+	verbose    bool
+	savePrompt bool
 )
 
 // rootCmd represents the base command.
@@ -52,6 +52,9 @@ var rootCmd = &cobra.Command{
 			if !cmd.Flags().Changed("verbose") {
 				verbose = cfg.Verbose
 			}
+			if !cmd.Flags().Changed("save-prompt") {
+				savePrompt = cfg.SavePrompt
+			}
 		}
 		if apiKey == "" {
 			return fmt.Errorf("API key is required: set it via --api-key flag, APIMART_API_KEY env, or config.yaml")
@@ -77,5 +80,5 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&outputDir, "output", ".", "output directory for downloaded images")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output: show full result JSON")
-	rootCmd.PersistentFlags().BoolVar(&noSavePrompt, "no-save-prompt", false, "disable saving prompt to .md file")
+	rootCmd.PersistentFlags().BoolVar(&savePrompt, "save-prompt", false, "save prompt to .md file alongside results")
 }

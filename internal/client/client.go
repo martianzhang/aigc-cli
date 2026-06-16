@@ -19,14 +19,14 @@ import (
 )
 
 const (
-	defaultBaseURL     = "https://api.apimart.ai"
-	imageSubmitPath    = "/v1/images/generations"
-	videoSubmitPath    = "/v1/videos/generations"
-	chatPath           = "/v1/chat/completions"
-	uploadPath         = "/v1/uploads/images"
-	taskPath           = "/v1/tasks/%s"
-	tokenBalancePath   = "/v1/balance"
-	userBalancePath    = "/v1/user/balance"
+	defaultBaseURL   = "https://api.apimart.ai"
+	imageSubmitPath  = "/v1/images/generations"
+	videoSubmitPath  = "/v1/videos/generations"
+	chatPath         = "/v1/chat/completions"
+	uploadPath       = "/v1/uploads/images"
+	taskPath         = "/v1/tasks/%s"
+	tokenBalancePath = "/v1/balance"
+	userBalancePath  = "/v1/user/balance"
 	// Default polling settings
 	pollInterval    = 3 * time.Second
 	initialDelay    = 10 * time.Second
