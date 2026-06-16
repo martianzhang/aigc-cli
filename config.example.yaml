@@ -11,6 +11,9 @@ api_key: "your-api-key-here"
 # HTTP proxy (can also be set via APIMART_HTTP_PROXY env var, or --http-proxy CLI flag)
 # http_proxy: "http://127.0.0.1:7890"
 
+# Verbose output: show full result JSON (can also use --verbose / -v CLI flag)
+# verbose: true
+
 # Default values for generation parameters (per modality)
 defaults:
   image:

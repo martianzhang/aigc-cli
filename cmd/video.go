@@ -79,8 +79,10 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	prettyReq, _ := json.MarshalIndent(req, "", "  ")
-	fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+	if verbose {
+		prettyReq, _ := json.MarshalIndent(req, "", "  ")
+		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+	}
 
 	// Resolve local image files in image_urls
 	if len(req.ImageURLs) > 0 {

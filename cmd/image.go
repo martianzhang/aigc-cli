@@ -88,9 +88,11 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// ----- Step 4: Print the request payload -----
-	prettyReq, _ := json.MarshalIndent(req, "", "  ")
-	fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+	// ----- Step 4: Print the request payload (verbose only) -----
+	if verbose {
+		prettyReq, _ := json.MarshalIndent(req, "", "  ")
+		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+	}
 
 	// ----- Step 5: Resolve local image files (upload if needed) -----
 	if len(req.ImageURLs) > 0 {
