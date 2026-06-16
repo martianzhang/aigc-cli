@@ -128,6 +128,8 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\nTask result:\n%s\n", string(prettyResult))
 	}
 
+	fmt.Println()
+	savePromptFile(taskData.ID, req.Prompt)
 	if taskData.Result != nil && len(taskData.Result.Videos) > 0 {
 		if err := downloadVideos(taskData.Result.Videos, taskData.ID); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)

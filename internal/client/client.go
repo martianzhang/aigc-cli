@@ -263,23 +263,50 @@ func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
 	fmt.Printf("Waiting %v before first poll...\n", initialDelay)
 	time.Sleep(initialDelay)
 
+	isTTY := isTerminal()
+	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	si := 0
 	start := time.Now()
+
+	// Print initial progress line
+	if isTTY {
+		fmt.Print("  Progress: 0% ")
+	}
+
 	for {
 		if time.Since(start) > maxPollDuration {
+			if isTTY {
+				fmt.Println()
+			}
 			return nil, fmt.Errorf("polling timed out after %v", maxPollDuration)
 		}
 
 		task, err := c.GetTask(taskID)
 		if err != nil {
+			if isTTY {
+				fmt.Println()
+			}
 			return nil, fmt.Errorf("failed to query task: %w", err)
 		}
 
-		fmt.Printf("  Status: %s, Progress: %d%%\n", task.Status, task.Progress)
+		if isTTY {
+			bar := progressBar(task.Progress, 20)
+			fmt.Printf("\r  %s %s %d%% ", spinner[si%len(spinner)], bar, task.Progress)
+			si++
+		} else {
+			fmt.Printf("  Status: %s, Progress: %d%%\n", task.Status, task.Progress)
+		}
 
 		switch task.Status {
 		case "completed":
+			if isTTY {
+				fmt.Println()
+			}
 			return task, nil
 		case "failed":
+			if isTTY {
+				fmt.Println()
+			}
 			return nil, fmt.Errorf("task %s failed", taskID)
 		default:
 			// in_progress / submitted — keep polling
@@ -287,6 +314,27 @@ func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
 
 		time.Sleep(pollInterval)
 	}
+}
+
+func isTerminal() bool {
+	stat, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return (stat.Mode() & os.ModeCharDevice) != 0
+}
+
+func progressBar(pct, width int) string {
+	filled := pct * width / 100
+	var bar string
+	for i := 0; i < width; i++ {
+		if i < filled {
+			bar += "█"
+		} else {
+			bar += "░"
+		}
+	}
+	return bar
 }
 
 // GetTask retrieves a single task by ID.

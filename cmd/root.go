@@ -9,13 +9,14 @@ import (
 )
 
 var (
-	cfgFile    string
-	apiKey     string
-	apiBase    string
-	httpProxy  string
-	jsonInput  string
-	outputDir  string
-	verbose    bool
+	cfgFile       string
+	apiKey        string
+	apiBase       string
+	httpProxy     string
+	jsonInput     string
+	outputDir     string
+	verbose       bool
+	noSavePrompt  bool
 )
 
 // rootCmd represents the base command.
@@ -76,4 +77,5 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&outputDir, "output", ".", "output directory for downloaded images")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output: show full result JSON")
+	rootCmd.PersistentFlags().BoolVar(&noSavePrompt, "no-save-prompt", false, "disable saving prompt to .md file")
 }

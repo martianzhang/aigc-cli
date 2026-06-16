@@ -139,6 +139,9 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\nTask result:\n%s\n", string(prettyResult))
 	}
 
+	fmt.Println()
+	savePromptFile(taskData.ID, req.Prompt)
+
 	// ----- Step 8: Download images -----
 	if taskData.Result != nil && len(taskData.Result.Images) > 0 {
 		if err := downloadImages(taskData.Result.Images, taskData.ID); err != nil {
@@ -314,6 +317,19 @@ func downloadImages(images []types.ImageResult, taskID string) error {
 		}
 	}
 	return nil
+}
+
+// savePromptFile saves the generation prompt to apimart_{taskID}.md.
+func savePromptFile(taskID, prompt string) {
+	if noSavePrompt || prompt == "" {
+		return
+	}
+	filename := filepath.Join(outputDir, fmt.Sprintf("apimart_%s.md", taskID))
+	content := fmt.Sprintf("# %s\n\n%s\n", taskID, prompt)
+	if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save prompt file: %v\n", err)
+	}
+	fmt.Printf("Prompt saved: %s\n", filename)
 }
 
 // httpGet performs a simple GET request and returns the body bytes.

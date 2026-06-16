@@ -62,6 +62,18 @@ defaults:
     # duration: 5
 ```
 
+### 提示词文件
+
+每次生成任务完成后，会自动保存提示词到 `apimart_{task_id}.md` 文件，方便追溯：
+
+```bash
+# 默认保存
+apimart-cli image --prompt "A red fox"
+
+# 不保存
+apimart-cli image --prompt "A red fox" --no-save-prompt
+```
+
 完整示例见 [config.example.yaml](config.example.yaml)。
 
 ## 命令结构
