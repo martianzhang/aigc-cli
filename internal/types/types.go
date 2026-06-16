@@ -272,7 +272,8 @@ type Config struct {
 	APIKey    string           `mapstructure:"api_key" yaml:"api_key"`
 	BaseURL   string           `mapstructure:"base_url" yaml:"base_url"`
 	HTTPProxy string           `mapstructure:"http_proxy" yaml:"http_proxy"`
-	Defaults  *ConfigDefaults `mapstructure:"defaults" yaml:"defaults"`
+	Verbose   bool             `mapstructure:"verbose" yaml:"verbose"`
+	Defaults  *ConfigDefaults  `mapstructure:"defaults" yaml:"defaults"`
 }
 
 // ConfigDefaults holds modality-specific default values.

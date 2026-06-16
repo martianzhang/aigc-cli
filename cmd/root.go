@@ -48,6 +48,9 @@ var rootCmd = &cobra.Command{
 			if httpProxy == "" {
 				httpProxy = cfg.HTTPProxy
 			}
+			if !cmd.Flags().Changed("verbose") {
+				verbose = cfg.Verbose
+			}
 		}
 		if apiKey == "" {
 			return fmt.Errorf("API key is required: set it via --api-key flag, APIMART_API_KEY env, or config.yaml")
