@@ -237,7 +237,6 @@ func init() {
 // The following helpers are shared across image commands and aliases.
 
 // resolvePrompt resolves the prompt text from --prompt flag.
-// resolvePrompt resolves the prompt text.
 // Defaults to stdin when --prompt is not specified.
 func resolvePrompt() (string, error) {
 	input := genPrompt
