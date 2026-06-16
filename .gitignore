@@ -15,3 +15,10 @@ Thumbs.db
 
 # Local reference files (not committed)
 apimart-pricing.md
+
+# Downloaded artifacts (from --wait / task command)
+apimart_*.png
+apimart_*.jpg
+apimart_*.jpeg
+apimart_*.mp4
+apimart_*.webm
