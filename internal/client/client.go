@@ -2,6 +2,7 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/martianzhang/apimart-cli/internal/types"
@@ -20,6 +22,7 @@ const (
 	defaultBaseURL     = "https://api.apimart.ai"
 	imageSubmitPath    = "/v1/images/generations"
 	videoSubmitPath    = "/v1/videos/generations"
+	chatPath           = "/v1/chat/completions"
 	uploadPath         = "/v1/uploads/images"
 	taskPath           = "/v1/tasks/%s"
 	tokenBalancePath   = "/v1/balance"
@@ -100,6 +103,118 @@ func (c *Client) Submit(req *types.GenerateRequest) (*types.GenerateResponse, er
 	}
 
 	return &result, nil
+}
+
+// ChatCompletion sends a chat request and handles streaming/non-streaming response.
+// When req.Stream is true, it prints tokens as they arrive and returns the full response.
+// When req.Stream is false, it returns the full response as-is.
+func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+chatPath, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("API request failed: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Streaming (SSE)
+	if req.Stream {
+		return handleSSE(resp)
+	}
+
+	// Non-streaming
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var result types.ChatResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// handleSSE parses SSE stream and prints tokens progressively.
+func handleSSE(resp *http.Response) (*types.ChatResponse, error) {
+	defer resp.Body.Close()
+	scanner := bufio.NewScanner(resp.Body)
+	// Increase buffer for long lines
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	full := &types.ChatResponse{
+		Choices: []types.ChatChoice{{Message: types.ChatMessage{Role: "assistant"}}},
+	}
+
+	var firstContentPrinted bool
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// SSE data lines start with "data: "
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+
+		data := strings.TrimPrefix(line, "data: ")
+
+		// [DONE] signal
+		if data == "[DONE]" {
+			break
+		}
+
+		var chunk types.ChatStreamChunk
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			// Skip unparseable chunks
+			continue
+		}
+
+		for _, choice := range chunk.Choices {
+			content := choice.Delta.Content
+			if content != "" {
+				if !firstContentPrinted && choice.Delta.Role == "assistant" {
+					// don't print role
+				}
+				fmt.Print(content)
+				firstContentPrinted = true
+				full.Choices[0].Message.Content += content
+			}
+
+			if choice.FinishReason != "" {
+				full.Choices[0].FinishReason = choice.FinishReason
+			}
+		}
+
+		if chunk.ID != "" && full.ID == "" {
+			full.ID = chunk.ID
+		}
+		if chunk.Model != "" && full.Model == "" {
+			full.Model = chunk.Model
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("SSE read error: %w", err)
+	}
+
+	fmt.Println() // trailing newline after streaming output
+	return full, nil
 }
 
 // VideoSubmit sends a video generation request and returns the task submission.

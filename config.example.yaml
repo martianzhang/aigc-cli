@@ -29,3 +29,6 @@ defaults:
     # size: "16:9"
     # resolution: "480p"
     # duration: 5
+
+  chat:
+    model: "deepseek-v4-flash"                 # default chat model

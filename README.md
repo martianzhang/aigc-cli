@@ -1,6 +1,6 @@
 # apimart-cli
 
-APIMart API 的统一命令行工具。支持 **图片生成** 和 **视频生成**。
+APIMart API 的统一命令行工具。支持 **图片生成**、**视频生成** 和 **AI 对话**。
 
 ## 安装
 
@@ -70,6 +70,7 @@ defaults:
 apimart-cli
 ├── image             图片生成（文生图、图生图、Inpainting）
 ├── video             视频生成（文生视频、图生视频、首尾帧）
+├── chat              AI 对话（流式输出，默认 deepseek-v4-flash）
 ├── task               查询任务状态
 ├── balance            查询 Token 余额
 └── balance user       查询账号余额
@@ -254,6 +255,41 @@ apimart-cli video --json request.json
 | `--audio-url` | 参考音频 URL（可重复） |
 | `--tool` | 工具（如 `web_search`，可重复） |
 
+## AI 对话
+
+支持流式输出（默认），兼容 OpenAI 格式，可使用 GPT-5、Claude、Gemini、DeepSeek 等模型。
+
+```bash
+# 基本对话（流式输出）
+apimart-cli chat --message "你好，请介绍一下自己"
+
+# 系统提示词
+apimart-cli chat --system "你是一位诗人" --message "写一首关于AI的诗"
+
+# 多轮对话
+apimart-cli chat \
+  --message "什么是机器学习？" \
+  --message "能举个例子吗？"
+
+# 非流式输出
+echo "Explain Go in 3 words" | apimart-cli chat --no-stream
+
+# 指定模型
+apimart-cli chat --model gpt-5 --message "Hello"
+```
+
+### 对话参数
+
+| 参数 | 说明 |
+|---|---|
+| `--message` | 用户消息（可重复，实现多轮对话） |
+| `--system` | 系统提示词，设定 AI 角色 |
+| `--model` | 模型名，默认 `deepseek-v4-flash`（最便宜） |
+| `--temperature` | 采样温度 0-2，默认 1.0 |
+| `--max-tokens` | 最大生成 token 数 |
+| `--no-stream` | 关闭流式输出，等待完整响应 |
+| `--json` | JSON 输入 |
+
 ## 其他命令
 
 ### 查询任务状态
@@ -290,12 +326,13 @@ apimart-cli video --prompt "test" --duration 4 --dry-run
 
 | 端点 | 用途 | 状态 |
 |---|---|---|
+| `POST /v1/chat/completions` | AI 对话 | ✅ 已支持 |
 | `POST /v1/images/generations` | 文生图 | ✅ 已支持 |
+| `POST /v1/videos/generations` | 文生视频 | ✅ 已支持 |
+| `POST /v1/uploads/images` | 上传图片 | ✅ 已支持 |
 | `GET /v1/tasks/{task_id}` | 查询任务状态 | ✅ 已支持 |
 | `GET /v1/balance` | Token 余额查询 | ✅ 已支持 |
 | `GET /v1/user/balance` | 用户余额查询 | ✅ 已支持 |
-| `POST /v1/uploads/images` | 上传图片 | ✅ 已支持 |
-| `POST /v1/videos/generations` | 文生视频 | ✅ 已支持 |
 
 完整文档见 [docs.apimart.ai](https://docs.apimart.ai/en)。
 

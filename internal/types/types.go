@@ -139,6 +139,72 @@ type VideoGenerateResponse struct {
 	Data []TaskSubmission   `json:"data"`
 }
 
+// ChatMessage represents a single message in a chat conversation.
+type ChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// ChatRequest is the request body for chat completion.
+type ChatRequest struct {
+	Model            string        `json:"model"`
+	Messages         []ChatMessage `json:"messages"`
+	Stream           bool          `json:"stream,omitempty"`
+	Temperature      *float64      `json:"temperature,omitempty"`
+	MaxTokens        *int          `json:"max_tokens,omitempty"`
+	TopP             *float64      `json:"top_p,omitempty"`
+	FrequencyPenalty *float64      `json:"frequency_penalty,omitempty"`
+	PresencePenalty  *float64      `json:"presence_penalty,omitempty"`
+	Stop             []string      `json:"stop,omitempty"`
+	N                *int          `json:"n,omitempty"`
+}
+
+// ChatResponse is the non-streaming response from chat completion.
+type ChatResponse struct {
+	ID      string         `json:"id"`
+	Object  string         `json:"object"`
+	Created int64          `json:"created"`
+	Model   string         `json:"model"`
+	Choices []ChatChoice   `json:"choices"`
+	Usage   *ChatUsage    `json:"usage,omitempty"`
+}
+
+// ChatChoice represents a single choice in a chat response.
+type ChatChoice struct {
+	Index        int          `json:"index"`
+	Message      ChatMessage  `json:"message"`
+	FinishReason string      `json:"finish_reason"`
+}
+
+// ChatStreamChunk represents a single SSE chunk in streaming response.
+type ChatStreamChunk struct {
+	ID      string              `json:"id"`
+	Object  string              `json:"object"`
+	Created int64               `json:"created"`
+	Model   string              `json:"model"`
+	Choices []ChatStreamChoice  `json:"choices"`
+}
+
+// ChatStreamChoice represents a choice in a streaming chunk.
+type ChatStreamChoice struct {
+	Index        int             `json:"index"`
+	Delta        ChatStreamDelta `json:"delta"`
+	FinishReason string         `json:"finish_reason,omitempty"`
+}
+
+// ChatStreamDelta represents the delta content in a streaming chunk.
+type ChatStreamDelta struct {
+	Role    string `json:"role,omitempty"`
+	Content string `json:"content,omitempty"`
+}
+
+// ChatUsage represents token usage statistics.
+type ChatUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 // Config represents the YAML configuration file structure.
 type Config struct {
 	APIKey    string           `mapstructure:"api_key" yaml:"api_key"`
@@ -151,6 +217,14 @@ type Config struct {
 type ConfigDefaults struct {
 	Image *ImageDefaults `mapstructure:"image" yaml:"image"`
 	Video *VideoDefaults `mapstructure:"video" yaml:"video"`
+	Chat  *ChatDefaults  `mapstructure:"chat" yaml:"chat"`
+}
+
+// ChatDefaults holds default values for chat completion.
+type ChatDefaults struct {
+	Model       string  `mapstructure:"model" yaml:"model"`
+	Temperature float64 `mapstructure:"temperature" yaml:"temperature"`
+	MaxTokens   int     `mapstructure:"max_tokens" yaml:"max_tokens"`
 }
 
 // ImageDefaults holds default values for image generation.
