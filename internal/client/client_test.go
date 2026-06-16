@@ -1,6 +1,7 @@
 package client
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -40,6 +41,31 @@ func TestProgressBar_customWidth(t *testing.T) {
 	blockCount := strings.Count(got, "█")
 	if blockCount != 10 {
 		t.Errorf("progressBar(25, 40) should have 10 blocks, got %d", blockCount)
+	}
+}
+
+func TestIsLocalFile_exists(t *testing.T) {
+	tmp, _ := os.CreateTemp("", "testfile")
+	tmp.Close()
+	defer os.Remove(tmp.Name())
+
+	if !isLocalFile(tmp.Name()) {
+		t.Errorf("isLocalFile(%q) should be true", tmp.Name())
+	}
+}
+
+func TestIsLocalFile_notExists(t *testing.T) {
+	if isLocalFile("/tmp/nonexistent_file_xyz") {
+		t.Error("isLocalFile() should be false for nonexistent file")
+	}
+}
+
+func TestIsLocalFile_directory(t *testing.T) {
+	dir, _ := os.MkdirTemp("", "testdir")
+	defer os.Remove(dir)
+
+	if isLocalFile(dir) {
+		t.Error("isLocalFile() should be false for directory")
 	}
 }
 

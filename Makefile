@@ -10,7 +10,7 @@ ifeq ($(OS),Windows_NT)
 	OUTPUT := $(BINARY).exe
 endif
 
-.PHONY: all build clean run lint vet test fmt release help
+.PHONY: all build clean run lint vet test fmt cover release help
 
 all: build
 
@@ -32,8 +32,16 @@ lint: ## Run static analysis
 
 vet: lint
 
-test: ## Run tests (none yet)
+test: ## Run tests
 	$(GO) test ./... -v -count=1
+
+cover: ## Run tests with coverage report
+	$(GO) test ./... -cover -count=1
+	@echo ""
+	@echo "=== Detailed coverage ==="
+	$(GO) test ./... -coverprofile=coverage.out -count=1
+	$(GO) tool cover -func=coverage.out | tail -1
+	@rm -f coverage.out
 
 TARGETS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 

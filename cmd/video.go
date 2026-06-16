@@ -257,6 +257,10 @@ func downloadVideos(videos []types.VideoResult, taskID string) error {
 
 // extractExt returns the file extension from a URL, defaulting to .mp4.
 func extractExt(rawURL string) string {
+	// Strip query params
+	if idx := strings.Index(rawURL, "?"); idx != -1 {
+		rawURL = rawURL[:idx]
+	}
 	ext := filepath.Ext(rawURL)
 	if ext == "" {
 		return ".mp4"
