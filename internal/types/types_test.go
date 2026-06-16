@@ -15,10 +15,10 @@ func TestMergeIntoImage_nil(t *testing.T) {
 
 func TestMergeIntoImage_emptyRequest(t *testing.T) {
 	d := &ImageDefaults{
-		Model:     "gpt-image-2-official",
-		Size:      "3:1",
+		Model:      "gpt-image-2-official",
+		Size:       "3:1",
 		Resolution: "1k",
-		Quality:   "low",
+		Quality:    "low",
 	}
 	req := &GenerateRequest{}
 	d.MergeIntoImage(req)
@@ -38,8 +38,8 @@ func TestMergeIntoImage_emptyRequest(t *testing.T) {
 
 func TestMergeIntoImage_requestTakesPrecedence(t *testing.T) {
 	d := &ImageDefaults{
-		Model:     "default-model",
-		Size:      "1:1",
+		Model:      "default-model",
+		Size:       "1:1",
 		Resolution: "2k",
 	}
 	req := &GenerateRequest{

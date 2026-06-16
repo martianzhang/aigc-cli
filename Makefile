@@ -14,28 +14,35 @@ endif
 
 all: build
 
-fmt: ## Format all Go source code
+## Format all Go source code
+fmt: 
 	$(GO) fmt ./...
 
-build: fmt ## Build the binary
+## Build the binary
+build: fmt
 	$(GO) build $(GOFLAGS) -o $(OUTPUT) .
 
-run: ## Build and run with args (usage: make run ARGS="image --help")
+## Build and run with args (usage: make run ARGS="image --help")
+run: 
 	$(GO) run . $(ARGS)
 
-clean: ## Remove build artifacts
+## Remove build artifacts
+clean: 
 	rm -f $(BINARY) $(BINARY).exe
 	rm -rf $(RELEASE_DIR)
 
-lint: ## Run static analysis
+## Run static analysis
+lint: 
 	$(GO) vet ./...
 
 vet: lint
 
-test: ## Run tests
+## Run tests
+test: fmt
 	$(GO) test ./... -v -count=1
 
-cover: ## Run tests with coverage report
+## Run tests with coverage report
+cover: 
 	$(GO) test ./... -cover -count=1
 	@echo ""
 	@echo "=== Detailed coverage ==="
@@ -43,9 +50,10 @@ cover: ## Run tests with coverage report
 	$(GO) tool cover -func=coverage.out | tail -1
 	@rm -f coverage.out
 
-TARGETS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 
-release: ## Cross-compile for all targets into dist/
+## Cross-compile for all targets into dist/
+TARGETS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+release: 
 	@mkdir -p $(RELEASE_DIR)
 	@set -e; for target in $(TARGETS); do \
 		os=$$(echo $$target | cut -d/ -f1); \
@@ -60,6 +68,7 @@ release: ## Cross-compile for all targets into dist/
 	@echo "=== Release builds ready in $(RELEASE_DIR)/ ==="
 	@ls -lh $(RELEASE_DIR)/
 
-help: ## Show this help
+## Show this help
+help: 
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
