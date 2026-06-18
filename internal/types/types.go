@@ -1,6 +1,33 @@
 // Package types defines request/response data structures for the APIMart API.
 package types
 
+import (
+	"encoding/json"
+	"strconv"
+)
+
+// ErrCode handles API error codes that can be int or string in the response.
+type ErrCode int
+
+func (c *ErrCode) UnmarshalJSON(data []byte) error {
+	// Try int first
+	var i int
+	if err := json.Unmarshal(data, &i); err == nil {
+		*c = ErrCode(i)
+		return nil
+	}
+	// Try string
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		if n, err := strconv.Atoi(s); err == nil {
+			*c = ErrCode(n)
+			return nil
+		}
+	}
+	// Fallback: don't block the whole parse for a code format issue
+	return nil
+}
+
 // GenerateRequest is the request body for POST /v1/images/generations.
 type GenerateRequest struct {
 	Model             string   `json:"model" yaml:"model"`
@@ -70,9 +97,9 @@ type VideoResult struct {
 
 // TaskError contains error details for a failed task.
 type TaskError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Type    string `json:"type"`
+	Code    ErrCode `json:"code"`
+	Message string  `json:"message"`
+	Type    string  `json:"type"`
 }
 
 // TokenBalanceResponse is the response from GET /v1/balance.
