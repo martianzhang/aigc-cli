@@ -29,6 +29,7 @@ func (c *ErrCode) UnmarshalJSON(data []byte) error {
 }
 
 // GenerateRequest is the request body for POST /v1/images/generations.
+// Contains both OpenAI and APIMart fields; unused fields are omitted when marshalling.
 type GenerateRequest struct {
 	Model             string   `json:"model" yaml:"model"`
 	Prompt            string   `json:"prompt" yaml:"prompt"`
@@ -42,6 +43,23 @@ type GenerateRequest struct {
 	N                 *int     `json:"n,omitempty" yaml:"n,omitempty"`
 	ImageURLs         []string `json:"image_urls,omitempty" yaml:"image_urls,omitempty"`
 	MaskURL           string   `json:"mask_url,omitempty" yaml:"mask_url,omitempty"`
+	// OpenAI-specific fields
+	Style          string `json:"style,omitempty" yaml:"style,omitempty"`
+	ResponseFormat string `json:"response_format,omitempty" yaml:"response_format,omitempty"`
+}
+
+// OpenAIImageResponse is the synchronous response from OpenAI/OpenRouter-compatible
+// image generation endpoints.
+type OpenAIImageResponse struct {
+	Created int64             `json:"created"`
+	Data    []OpenAIImageData `json:"data"`
+}
+
+// OpenAIImageData represents a single generated image in sync mode.
+type OpenAIImageData struct {
+	URL           string `json:"url,omitempty"`
+	B64JSON       string `json:"b64_json,omitempty"`
+	RevisedPrompt string `json:"revised_prompt,omitempty"`
 }
 
 // GenerateResponse is the response from POST /v1/images/generations.
@@ -226,10 +244,12 @@ type ChatStreamDelta struct {
 }
 
 // ChatUsage represents token usage statistics.
+// Compatible with OpenAI and OpenRouter (which adds cost).
 type ChatUsage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
+	PromptTokens     int     `json:"prompt_tokens"`
+	CompletionTokens int     `json:"completion_tokens"`
+	TotalTokens      int     `json:"total_tokens"`
+	Cost             float64 `json:"cost,omitempty"` // OpenRouter-specific
 }
 
 // MarketplaceResponse is the response from the public marketplace API.
@@ -301,6 +321,7 @@ type Config struct {
 	HTTPProxy  string          `mapstructure:"http_proxy" yaml:"http_proxy"`
 	Verbose    bool            `mapstructure:"verbose" yaml:"verbose"`
 	SavePrompt bool            `mapstructure:"save_prompt" yaml:"save_prompt"`
+	Mode       string          `mapstructure:"mode" yaml:"mode"` // sync, async, or "" for auto
 	Defaults   *ConfigDefaults `mapstructure:"defaults" yaml:"defaults"`
 }
 
@@ -331,6 +352,8 @@ type ImageDefaults struct {
 	N                 *int     `mapstructure:"n" yaml:"n"`
 	ImageURLs         []string `mapstructure:"image_urls" yaml:"image_urls"`
 	MaskURL           string   `mapstructure:"mask_url" yaml:"mask_url"`
+	Style             string   `mapstructure:"style" yaml:"style"`
+	ResponseFormat    string   `mapstructure:"response_format" yaml:"response_format"`
 }
 
 // MergeIntoImage applies non-zero default values to an image generation request.
@@ -370,6 +393,12 @@ func (d *ImageDefaults) MergeIntoImage(req *GenerateRequest) {
 	}
 	if req.MaskURL == "" && d.MaskURL != "" {
 		req.MaskURL = d.MaskURL
+	}
+	if req.Style == "" && d.Style != "" {
+		req.Style = d.Style
+	}
+	if req.ResponseFormat == "" && d.ResponseFormat != "" {
+		req.ResponseFormat = d.ResponseFormat
 	}
 }
 

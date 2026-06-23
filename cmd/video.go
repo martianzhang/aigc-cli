@@ -244,7 +244,7 @@ func downloadVideos(videos []types.VideoResult, taskID string) error {
 				continue
 			}
 			ext := extractExt(url)
-			filename := filepath.Join(outputDir, fmt.Sprintf("apimart_%s_%d_%d%s", taskID, i, j, ext))
+			filename := filepath.Join(outputDir, fmt.Sprintf("video_%s_%d_%d%s", taskID, i, j, ext))
 			if err := os.WriteFile(filename, resp, 0644); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
 				continue

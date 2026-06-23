@@ -11,23 +11,26 @@ import (
 )
 
 const (
-	configDir  = ".config/apimart"
-	configFile = "config"
-	configExt  = "yaml"
-	envPrefix  = "APIMART"
+	configDir     = ".config/apimart"
+	configFile    = "config"
+	configExt     = "yaml"
+	envPrefix     = "APIMART"
+	defaultAPIURL = "https://api.apimart.ai"
 )
 
-// Load reads the YAML config from the standard path (~/.config/apimart/config.yaml)
-// or a custom path, and returns the parsed Config.
+// Load reads the YAML config from the standard paths (~/.config/apimart/config.yaml
+// or ~/.config/openai/config.yaml) or a custom path, and returns the parsed Config.
+// Supports both OPENAI_* and APIMART_* environment variables for compatibility.
 func Load(customPath string) (*types.Config, error) {
 	v := viper.New()
 	v.SetEnvPrefix(envPrefix)
 	v.AutomaticEnv()
 
-	// Bind well-known env vars to config keys
-	_ = v.BindEnv("api_key", "APIMART_API_KEY")
-	_ = v.BindEnv("base_url", "APIMART_API_BASE")
-	_ = v.BindEnv("http_proxy", "APIMART_HTTP_PROXY")
+	// Bind well-known env vars to config keys.
+	// Support both OPENAI_* (preferred) and APIMART_* (backward compat) prefixes.
+	_ = v.BindEnv("api_key", "OPENAI_API_KEY", "APIMART_API_KEY")
+	_ = v.BindEnv("base_url", "OPENAI_BASE_URL", "APIMART_API_BASE")
+	_ = v.BindEnv("http_proxy", "OPENAI_HTTP_PROXY", "APIMART_HTTP_PROXY", "HTTP_PROXY")
 
 	if customPath != "" {
 		v.SetConfigFile(customPath)
@@ -36,7 +39,9 @@ func Load(customPath string) (*types.Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot determine home directory: %w", err)
 		}
-		v.AddConfigPath(filepath.Join(home, configDir))
+		// Try ~/.config/openai/config.yaml first, then ~/.config/apimart/config.yaml
+		v.AddConfigPath(filepath.Join(home, ".config", "openai"))
+		v.AddConfigPath(filepath.Join(home, ".config", "apimart"))
 		v.SetConfigName(configFile)
 	}
 
@@ -51,6 +56,11 @@ func Load(customPath string) (*types.Config, error) {
 	cfg := &types.Config{}
 	if err := v.Unmarshal(cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshalling config: %w", err)
+	}
+
+	// Set default API base if not configured
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = defaultAPIURL
 	}
 
 	return cfg, nil

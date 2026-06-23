@@ -30,16 +30,19 @@ var (
 	genN            int
 	genImageURLs    []string
 	genMaskURL      string
+	genStyle        string
+	genResponseFmt  string
 	genDryRun       bool
 )
 
 // imageCmd represents the `apimart-cli image` command.
 var imageCmd = &cobra.Command{
 	Use:   "image",
-	Short: "Generate images via the APIMart API",
-	Long: `Generate images using the GPT-Image-2 model.
+	Short: "Generate images (supports OpenAI sync & APIMart async)",
+	Long: `Generate images via any OpenAI-compatible API.
 
 Supports text-to-image, image-to-image, and inpainting.
+Works with OpenAI, OpenRouter (sync), and APIMart (async task-based).
 
 You can specify parameters via flags, or pass a complete JSON request
 via the --json flag (file path, JSON string, or "-" for stdin).
@@ -72,9 +75,6 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	if req.Size == "" {
 		req.Size = "1:1"
 	}
-	if req.Resolution == "" {
-		req.Resolution = "1k"
-	}
 	if req.Quality == "" {
 		req.Quality = "auto"
 	}
@@ -95,25 +95,73 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	// ----- Step 5: Resolve local image files (upload if needed) -----
-	if len(req.ImageURLs) > 0 {
-		c := client.New(apiKey, apiBase, httpProxy)
-		resolved, err := c.ResolveLocalImages(req.ImageURLs)
-		if err != nil {
-			return fmt.Errorf("failed to resolve image-urls: %w", err)
+	c := client.New(apiKey, apiBase, httpProxy)
+	isAsync := isAPIMartProvider()
+	if isAsync {
+		if len(req.ImageURLs) > 0 {
+			resolved, err := c.ResolveLocalImages(req.ImageURLs)
+			if err != nil {
+				return fmt.Errorf("failed to resolve image-urls: %w", err)
+			}
+			req.ImageURLs = resolved
 		}
-		req.ImageURLs = resolved
-	}
-	if req.MaskURL != "" {
-		c := client.New(apiKey, apiBase, httpProxy)
-		resolved, err := c.ResolveLocalImages([]string{req.MaskURL})
-		if err != nil {
-			return fmt.Errorf("failed to resolve mask-url: %w", err)
+		if req.MaskURL != "" {
+			resolved, err := c.ResolveLocalImages([]string{req.MaskURL})
+			if err != nil {
+				return fmt.Errorf("failed to resolve mask-url: %w", err)
+			}
+			req.MaskURL = resolved[0]
 		}
-		req.MaskURL = resolved[0]
 	}
 
-	// ----- Step 6: Submit -----
-	c := client.New(apiKey, apiBase, httpProxy)
+	if isAsync {
+		return runAsyncImage(c, req)
+	}
+	return runSyncImage(c, req)
+}
+
+// runSyncImage handles OpenAI/OpenRouter-compatible synchronous image generation.
+func runSyncImage(c *client.Client, req *types.GenerateRequest) error {
+	syncResp, err := c.ImageGenerateSync(req)
+	if err != nil {
+		return fmt.Errorf("image generation failed: %w", err)
+	}
+
+	fmt.Printf("Created: %d\n", syncResp.Created)
+	for i, img := range syncResp.Data {
+		url := img.URL
+		if url == "" && img.B64JSON != "" {
+			url = "<base64 data>"
+		}
+		fmt.Printf("Image %d: %s\n", i+1, url)
+		if img.RevisedPrompt != "" {
+			fmt.Printf("  Revised prompt: %s\n", img.RevisedPrompt)
+		}
+		// Download if URL is present
+		if img.URL != "" {
+			body, err := httpGet(img.URL)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, err)
+				continue
+			}
+			ext := filepath.Ext(img.URL)
+			if ext == "" {
+				ext = ".png"
+			}
+			taskID := fmt.Sprintf("sync_%d", syncResp.Created)
+			filename := filepath.Join(outputDir, fmt.Sprintf("image_%s_%d%s", taskID, i, ext))
+			if err := os.WriteFile(filename, body, 0644); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
+				continue
+			}
+			fmt.Printf("Saved: %s\n", filename)
+		}
+	}
+	return nil
+}
+
+// runAsyncImage handles APIMart-compatible asynchronous (task-based) image generation.
+func runAsyncImage(c *client.Client, req *types.GenerateRequest) error {
 	resp, err := c.Submit(req)
 	if err != nil {
 		return fmt.Errorf("submission failed: %w", err)
@@ -142,7 +190,6 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	savePromptFile(taskData.ID, req.Prompt)
 
-	// ----- Step 8: Download images -----
 	if taskData.Result != nil && len(taskData.Result.Images) > 0 {
 		if err := downloadImages(taskData.Result.Images, taskData.ID); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
@@ -152,6 +199,33 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 		taskData.ActualTime, taskData.Cost, taskData.CreditsCost)
 	return nil
+}
+
+// isAPIMartProvider determines whether to use APIMart async mode.
+// Known APIMart domains: apimart.ai, apib.ai, aiuxu.com, aishuch.com
+// Known sync domains: openai.com, openrouter.ai
+// All other domains default to sync (OpenAI-compatible relay).
+func isAPIMartProvider() bool {
+	switch mode {
+	case "async":
+		return true
+	case "sync":
+		return false
+	default: // auto — detect from base URL
+		base := apiBase
+		if base == "" {
+			base = "https://api.apimart.ai"
+		}
+		// Check against known APIMart async domains
+		apimartDomains := []string{"apimart.ai", "apib.ai", "aiuxu.com", "aishuch.com"}
+		for _, d := range apimartDomains {
+			if strings.Contains(base, d) {
+				return true
+			}
+		}
+		// Everything else (openai.com, openrouter.ai, or any relay) → sync
+		return false
+	}
 }
 
 // buildImageRequest constructs a GenerateRequest from --json or individual flags.
@@ -166,16 +240,18 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 	}
 
 	req := &types.GenerateRequest{
-		Model:        genModel,
-		Prompt:       prompt,
-		Size:         genSize,
-		Resolution:   genResolution,
-		Quality:      genQuality,
-		Background:   genBackground,
-		Moderation:   genModeration,
-		OutputFormat: genOutputFormat,
-		ImageURLs:    genImageURLs,
-		MaskURL:      genMaskURL,
+		Model:          genModel,
+		Prompt:         prompt,
+		Size:           genSize,
+		Resolution:     genResolution,
+		Quality:        genQuality,
+		Background:     genBackground,
+		Moderation:     genModeration,
+		OutputFormat:   genOutputFormat,
+		ImageURLs:      genImageURLs,
+		MaskURL:        genMaskURL,
+		Style:          genStyle,
+		ResponseFormat: genResponseFmt,
 	}
 
 	if cmd.Flags().Changed("output-compression") {
@@ -217,15 +293,17 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVarP(&genModel, "model", "m", "", `Model name (default "gpt-image-2-official")`)
 	f.StringVarP(&genPrompt, "prompt", "p", "", "Text description (auto-reads from file if path exists, or \"-\" for stdin)")
 	f.StringVarP(&genSize, "size", "s", "", `Aspect ratio (e.g. "16:9", "1:1") or pixel dims (e.g. "1024x1024")`)
-	f.StringVarP(&genResolution, "resolution", "r", "", "Resolution tier: 1k, 2k, 4k")
+	f.StringVarP(&genResolution, "resolution", "r", "", "Resolution tier: 1k, 2k, 4k (APIMart only)")
 	f.StringVarP(&genQuality, "quality", "q", "", "Quality: auto, low, medium, high")
-	f.StringVar(&genBackground, "background", "", "Background mode: auto, opaque, transparent")
-	f.StringVar(&genModeration, "moderation", "", "Moderation strength: auto, low")
+	f.StringVar(&genBackground, "background", "", "Background mode: auto, opaque, transparent (APIMart only)")
+	f.StringVar(&genModeration, "moderation", "", "Moderation strength: auto, low (APIMart only)")
 	f.StringVarP(&genOutputFormat, "output-format", "f", "", "Output format: png, jpeg, webp")
-	f.IntVar(&genCompression, "output-compression", 0, "Output compression level 0-100 (jpeg/webp only)")
+	f.IntVar(&genCompression, "output-compression", 0, "Output compression level 0-100 (jpeg/webp only) (APIMart only)")
 	f.IntVar(&genN, "n", 0, "Number of images to generate (1-4)")
-	f.StringArrayVar(&genImageURLs, "image-url", nil, "Reference image URL (repeatable)")
-	f.StringVar(&genMaskURL, "mask-url", "", "Mask image URL for inpainting")
+	f.StringArrayVar(&genImageURLs, "image-url", nil, "Reference image URL (repeatable) (APIMart only)")
+	f.StringVar(&genMaskURL, "mask-url", "", "Mask image URL for inpainting (APIMart only)")
+	f.StringVar(&genStyle, "style", "", "Image style: vivid, natural (OpenAI only)")
+	f.StringVar(&genResponseFmt, "response-format", "", "Response format: url, b64_json (OpenAI/OpenRouter)")
 	f.BoolVar(&genDryRun, "dry-run", false, "Print request parameters without calling API")
 }
 
@@ -307,7 +385,7 @@ func downloadImages(images []types.ImageResult, taskID string) error {
 			if ext == "" {
 				ext = ".png"
 			}
-			filename := filepath.Join(outputDir, fmt.Sprintf("apimart_%s_%d_%d%s", taskID, i, j, ext))
+			filename := filepath.Join(outputDir, fmt.Sprintf("image_%s_%d_%d%s", taskID, i, j, ext))
 			if err := os.WriteFile(filename, resp, 0644); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
 				continue
@@ -323,7 +401,7 @@ func savePromptFile(taskID, prompt string) {
 	if !savePrompt || prompt == "" {
 		return
 	}
-	filename := filepath.Join(outputDir, fmt.Sprintf("apimart_%s.md", taskID))
+	filename := filepath.Join(outputDir, fmt.Sprintf("image_%s.md", taskID))
 	content := fmt.Sprintf("# %s\n\n%s\n", taskID, prompt)
 	if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to save prompt file: %v\n", err)

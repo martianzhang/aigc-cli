@@ -76,8 +76,12 @@ func runChat(cmd *cobra.Command, args []string) error {
 
 	// Usage stats
 	if result != nil && result.Usage != nil {
-		fmt.Fprintf(os.Stderr, "\n---\nTokens: %d prompt + %d completion = %d total\n",
+		report := fmt.Sprintf("\n---\nTokens: %d prompt + %d completion = %d total",
 			result.Usage.PromptTokens, result.Usage.CompletionTokens, result.Usage.TotalTokens)
+		if result.Usage.Cost > 0 {
+			report += fmt.Sprintf(" | Cost: $%.6f", result.Usage.Cost)
+		}
+		fmt.Fprintln(os.Stderr, report)
 	}
 
 	return nil

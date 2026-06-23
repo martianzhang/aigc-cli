@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/apimart-cli/internal/client"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -43,13 +44,18 @@ func runModels(cmd *cobra.Command, args []string) error {
 		mediaType = modelType
 	}
 
+	// Check if we should use APIMart marketplace or OpenAI-compatible /v1/models
+	if !isAPIMartProvider() {
+		return runModelsOpenAI()
+	}
+
 	base := apiBase
 	if base == "" {
 		base = "https://api.apimart.ai"
 	}
 	base = strings.TrimRight(base, "/")
 
-	client := httpProxyClient()
+	httpClient := httpProxyClient()
 	pageSize := 50
 	page := 1
 	var allModels []types.MarketplaceModel
@@ -61,7 +67,7 @@ func runModels(cmd *cobra.Command, args []string) error {
 			url += "&type=" + mediaType
 		}
 
-		resp, err := client.Get(url)
+		resp, err := httpClient.Get(url)
 		if err != nil {
 			return fmt.Errorf("failed to fetch models (page %d): %w", page, err)
 		}
@@ -140,6 +146,31 @@ func runModels(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println()
 	}
+	return nil
+}
+
+// runModelsOpenAI fetches and displays models from OpenAI-compatible /v1/models.
+func runModelsOpenAI() error {
+	c := client.New(apiKey, apiBase, httpProxy)
+	models, err := c.ListModelsOpenAI()
+	if err != nil {
+		return fmt.Errorf("failed to list models: %w", err)
+	}
+
+	if len(models) == 0 {
+		fmt.Println("No models found.")
+		return nil
+	}
+
+	fmt.Printf("\nAvailable models (%d):\n\n", len(models))
+	for _, m := range models {
+		line := fmt.Sprintf("  %s", m.ID)
+		if m.OwnedBy != "" && m.OwnedBy != "openai" {
+			line += fmt.Sprintf("  (by %s)", m.OwnedBy)
+		}
+		fmt.Println(line)
+	}
+	fmt.Println()
 	return nil
 }
 

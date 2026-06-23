@@ -1,4 +1,5 @@
-// Package client implements the APIMart API client for image generation.
+// Package client implements API client for image generation, chat, and more.
+// Supports OpenAI-compatible (sync) and APIMart (async task) backends.
 package client
 
 import (
@@ -27,6 +28,10 @@ const (
 	taskPath         = "/v1/tasks/%s"
 	tokenBalancePath = "/v1/balance"
 	userBalancePath  = "/v1/user/balance"
+	modelsPath       = "/v1/models"
+	// OpenRouter-specific header names
+	headerReferer = "HTTP-Referer"
+	headerTitle   = "X-OpenRouter-Title"
 	// Default polling settings
 	pollInterval    = 3 * time.Second
 	initialDelay    = 10 * time.Second
@@ -34,11 +39,13 @@ const (
 	uploadTimeout   = 60 * time.Second
 )
 
-// Client is the APIMart API client.
+// Client is the API client for image generation, chat, and more.
 type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
+	referer    string // OpenRouter: HTTP-Referer header
+	title      string // OpenRouter: X-OpenRouter-Title header
 }
 
 // New creates a new API client.
@@ -61,6 +68,9 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
 		apiKey:  apiKey,
+		// Read OpenRouter headers from env (optional)
+		referer: os.Getenv("OPENAI_REFERER"),
+		title:   os.Getenv("OPENAI_APP_TITLE"),
 		httpClient: &http.Client{
 			Transport: transport,
 			Timeout:   30 * time.Second,
@@ -120,6 +130,7 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	c.setOpenRouterHeaders(httpReq)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -482,6 +493,125 @@ func getBalance[T any](c *Client, url string) (*T, error) {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 	return &result, nil
+}
+
+// --- Provider detection ---
+
+// apimartDomains lists known APIMart-provided API domains that use async task model.
+var apimartDomains = []string{
+	"apimart.ai",
+	"apib.ai",
+	"aiuxu.com",
+	"aishuch.com",
+}
+
+// IsAPIMartProvider returns true if the base URL points to an APIMart-provided domain.
+func (c *Client) IsAPIMartProvider() bool {
+	return isAPIMartURL(c.baseURL)
+}
+
+// isAPIMartURL checks whether the given URL belongs to an APIMart-provided domain.
+func isAPIMartURL(baseURL string) bool {
+	for _, d := range apimartDomains {
+		if strings.Contains(baseURL, d) {
+			return true
+		}
+	}
+	return false
+}
+
+// --- Sync image generation (OpenAI / OpenRouter compatible) ---
+
+// ImageGenerateSync sends a synchronous image generation request compatible with
+// OpenAI and OpenRouter. Returns the response with image URLs directly.
+func (c *Client) ImageGenerateSync(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+imageSubmitPath, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	c.setOpenRouterHeaders(httpReq)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("API request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result types.OpenAIImageResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// --- Models (OpenAI-compatible) ---
+
+// OpenAIModel is a single model from GET /v1/models.
+type OpenAIModel struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	OwnedBy string `json:"owned_by"`
+}
+
+// ListModelsOpenAI fetches the model list from OpenAI-compatible /v1/models endpoint.
+func (c *Client) ListModelsOpenAI() ([]OpenAIModel, error) {
+	httpReq, err := http.NewRequest(http.MethodGet, c.baseURL+modelsPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Data []OpenAIModel `json:"data"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return result.Data, nil
+}
+
+// --- Helpers ---
+
+// setOpenRouterHeaders adds optional OpenRouter-specific headers.
+func (c *Client) setOpenRouterHeaders(req *http.Request) {
+	if c.referer != "" {
+		req.Header.Set(headerReferer, c.referer)
+	}
+	if c.title != "" {
+		req.Header.Set(headerTitle, c.title)
+	}
 }
 
 // isLocalFile returns true if the path points to an existing file.

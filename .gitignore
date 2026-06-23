@@ -17,9 +17,20 @@ Thumbs.db
 dist/
 
 # Downloaded artifacts and prompt files
+# Legacy apimart_ prefix (backward compatibility)
 apimart_*.png
 apimart_*.jpg
 apimart_*.jpeg
+apimart_*.webp
 apimart_*.mp4
 apimart_*.webm
 apimart_*.md
+
+# Generic image_ and video_ prefix (current)
+image_*.png
+image_*.jpg
+image_*.jpeg
+image_*.webp
+video_*.mp4
+video_*.webm
+image_*.md

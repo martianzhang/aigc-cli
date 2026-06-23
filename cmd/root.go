@@ -17,27 +17,19 @@ var (
 	outputDir  string
 	verbose    bool
 	savePrompt bool
+	mode       string
 )
 
 // rootCmd represents the base command.
 var rootCmd = &cobra.Command{
 	Use:     "apimart-cli",
-	Short:   "CLI tool for APIMart image generation",
+	Short:   "Unified CLI for OpenAI-compatible APIs (supports OpenAI, OpenRouter, APIMart)",
 	Version: Version,
 	CompletionOptions: cobra.CompletionOptions{
 		HiddenDefaultCmd: true, // hide "completion" to avoid confusion with LLM completion
 	},
-	Long: `APIMart API 的统一命令行工具。支持图片生成、任务查询、余额查询等操作。
-
-子命令：
-  image     图片生成（文生图、图生图、Inpainting）
-  video     视频生成（文生视频、图生视频）
-  chat      AI 对话（流式输出，默认 deepseek-v4-flash）
-  models    查询模型列表及定价（无需 API Key）
-  task      查询任务状态
-  balance   查询余额
-
-默认值可在 ~/.config/apimart/config.yaml 中配置。`,
+	Long: `Unified CLI for OpenAI-compatible APIs. Supports OpenAI, OpenRouter, APIMart and any
+OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Load config (optional) to resolve defaults not set via flags
 		if cfg, err := config.Load(cfgFile); err == nil {
@@ -56,9 +48,12 @@ var rootCmd = &cobra.Command{
 			if !cmd.Flags().Changed("save-prompt") {
 				savePrompt = cfg.SavePrompt
 			}
+			if mode == "" && cfg.Mode != "" {
+				mode = cfg.Mode
+			}
 		}
 		if apiKey == "" {
-			return fmt.Errorf("API key is required: set it via --api-key flag, APIMART_API_KEY env, or config.yaml")
+			return fmt.Errorf("API key is required: set it via --api-key flag, OPENAI_API_KEY env, or config.yaml")
 		}
 		return nil
 	},
@@ -73,11 +68,12 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "path to config file (default ~/.config/apimart/config.yaml)")
-	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "", "APIMart API key (env: APIMART_API_KEY)")
-	rootCmd.PersistentFlags().StringVar(&apiBase, "api-base", "", "API base URL (env: APIMART_API_BASE, default https://api.apimart.ai)")
-	rootCmd.PersistentFlags().StringVar(&httpProxy, "http-proxy", "", "HTTP proxy URL (env: APIMART_HTTP_PROXY, e.g. http://127.0.0.1:7890)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "path to config file (default ~/.config/openai/config.yaml or ~/.config/apimart/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "", "API key (env: OPENAI_API_KEY or APIMART_API_KEY)")
+	rootCmd.PersistentFlags().StringVar(&apiBase, "api-base", "", "API base URL (env: OPENAI_BASE_URL or APIMART_API_BASE)")
+	rootCmd.PersistentFlags().StringVar(&httpProxy, "http-proxy", "", "HTTP proxy URL (env: OPENAI_HTTP_PROXY or APIMART_HTTP_PROXY)")
 	rootCmd.PersistentFlags().StringVar(&jsonInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
+	rootCmd.PersistentFlags().StringVar(&mode, "mode", "", "Generation mode: auto (detect), sync, async (default: auto)")
 
 	rootCmd.PersistentFlags().StringVar(&outputDir, "output", ".", "output directory for downloaded images")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output: show full result JSON")
