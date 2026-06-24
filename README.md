@@ -5,6 +5,8 @@
 [![License](https://img.shields.io/github/license/martianzhang/apimart-cli)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/martianzhang/apimart-cli)](https://github.com/martianzhang/apimart-cli/releases)
 
+> ⚠️ **非官方声明**：这是一个**个人开源项目**，与 APIMart 官方无关。代码基于 [APIMart](https://apimart.ai) 和 [OpenAI](https://openai.com) 公开 API 开发，使用前请确保遵守各平台的服务条款。
+
 OpenAI 兼容 API 的统一命令行工具。支持 **图片生成**、**视频生成** 和 **AI 对话**。
 
 兼容 [OpenAI](https://openai.com)、[OpenRouter](https://openrouter.ai)、[APIMart](https://apimart.ai) 及任意 OpenAI 兼容的第三方中转服务。
