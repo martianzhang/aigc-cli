@@ -13,6 +13,7 @@ var (
 	apiKey     string
 	apiBase    string
 	httpProxy  string
+	model      string // global --model, each subcommand handles its own default
 	jsonInput  string
 	outputDir  string
 	verbose    bool
@@ -45,12 +46,6 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 			if !cmd.Flags().Changed("verbose") {
 				verbose = cfg.Verbose
 			}
-			if !cmd.Flags().Changed("save-prompt") {
-				savePrompt = cfg.SavePrompt
-			}
-			if mode == "" && cfg.Mode != "" {
-				mode = cfg.Mode
-			}
 			if !cmd.Flags().Changed("output") && cfg.OutputDir != "" {
 				outputDir = cfg.OutputDir
 			}
@@ -75,10 +70,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "", "API key (env: OPENAI_API_KEY or APIMART_API_KEY)")
 	rootCmd.PersistentFlags().StringVar(&apiBase, "api-base", "", "API base URL (env: OPENAI_BASE_URL or APIMART_API_BASE)")
 	rootCmd.PersistentFlags().StringVar(&httpProxy, "http-proxy", "", "HTTP proxy URL (env: OPENAI_HTTP_PROXY or APIMART_HTTP_PROXY)")
-	rootCmd.PersistentFlags().StringVar(&jsonInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	rootCmd.PersistentFlags().StringVar(&mode, "mode", "", "Generation mode: auto (detect), sync, async (default: auto)")
-
+	rootCmd.PersistentFlags().StringVarP(&model, "model", "m", "", "Model name (optional; subcommand applies its own default when omitted)")
 	rootCmd.PersistentFlags().StringVar(&outputDir, "output", ".", "output directory for downloaded images")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output: show full result JSON")
-	rootCmd.PersistentFlags().BoolVar(&savePrompt, "save-prompt", false, "save prompt to .md file alongside results")
 }

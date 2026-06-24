@@ -18,7 +18,6 @@ import (
 
 // Image-specific flag variables
 var (
-	genModel        string
 	genPrompt       string
 	genSize         string
 	genResolution   string
@@ -68,9 +67,9 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		cfg.Defaults.Image.MergeIntoImage(req)
 	}
 
-	// ----- Step 3: Apply hard-coded defaults for remaining empty fields -----
+	// ----- Step 3: Apply defaults for remaining empty fields -----
 	if req.Model == "" {
-		req.Model = "gpt-image-2-official"
+		return fmt.Errorf("model is required: set via --model flag or defaults.image.model in config.yaml")
 	}
 	if req.Size == "" {
 		req.Size = "1:1"
@@ -240,7 +239,7 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 	}
 
 	req := &types.GenerateRequest{
-		Model:          genModel,
+		Model:          model,
 		Prompt:         prompt,
 		Size:           genSize,
 		Resolution:     genResolution,
@@ -290,7 +289,6 @@ func buildImageCurl(req *types.GenerateRequest) string {
 // registerImageGenerateFlags adds the image generation flags to a command.
 func registerImageGenerateFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
-	f.StringVarP(&genModel, "model", "m", "", `Model name (default "gpt-image-2-official")`)
 	f.StringVarP(&genPrompt, "prompt", "p", "", "Text description (auto-reads from file if path exists, or \"-\" for stdin)")
 	f.StringVarP(&genSize, "size", "s", "", `Aspect ratio (e.g. "16:9", "1:1") or pixel dims (e.g. "1024x1024")`)
 	f.StringVarP(&genResolution, "resolution", "r", "", "Resolution tier: 1k, 2k, 4k (APIMart only)")
@@ -305,6 +303,9 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVar(&genStyle, "style", "", "Image style: vivid, natural (OpenAI only)")
 	f.StringVar(&genResponseFmt, "response-format", "", "Response format: url, b64_json (OpenAI/OpenRouter)")
 	f.BoolVar(&genDryRun, "dry-run", false, "Print request parameters without calling API")
+	f.StringVar(&jsonInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
+	f.StringVar(&mode, "mode", "", "Generation mode: auto (detect), sync, async (default: auto)")
+	f.BoolVar(&savePrompt, "save-prompt", false, "save prompt to .md file alongside results")
 }
 
 func init() {

@@ -59,9 +59,9 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 			imgCfg.MergeIntoImage(req)
 		}
 
-		// Apply CLI-level hard defaults for remaining empty fields
+		// Apply defaults for remaining empty fields
 		if req.Model == "" {
-			req.Model = "gpt-image-2-official"
+			return nil, fmt.Errorf("model is required: set model in request or defaults.image.model in config.yaml")
 		}
 		if req.Size == "" {
 			req.Size = "1:1"
@@ -184,7 +184,7 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		if req.Model == "" {
-			req.Model = "doubao-seedance-2.0"
+			return nil, fmt.Errorf("model is required: set model in request or defaults.video.model in config.yaml")
 		}
 		if req.Size == "" {
 			req.Size = "16:9"

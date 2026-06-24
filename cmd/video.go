@@ -16,7 +16,6 @@ import (
 
 // video flag variables
 var (
-	vidModel           string
 	vidPrompt          string
 	vidDuration        int
 	vidSize            string
@@ -62,9 +61,9 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		cfg.Defaults.Video.MergeIntoVideo(req)
 	}
 
-	// Apply hardcoded defaults
+	// Apply defaults for remaining empty fields
 	if req.Model == "" {
-		req.Model = "doubao-seedance-2.0"
+		return fmt.Errorf("model is required: set via --model flag or defaults.video.model in config.yaml")
 	}
 	if req.Size == "" {
 		req.Size = "16:9"
@@ -168,7 +167,7 @@ func buildVideoRequest(cmd *cobra.Command) (*types.VideoGenerateRequest, error) 
 	}
 
 	req := &types.VideoGenerateRequest{
-		Model:      vidModel,
+		Model:      model,
 		Prompt:     prompt,
 		Size:       vidSize,
 		Resolution: vidResolution,
@@ -270,7 +269,6 @@ func extractExt(rawURL string) string {
 
 func init() {
 	f := videoCmd.Flags()
-	f.StringVarP(&vidModel, "model", "m", "", `Model name (default "doubao-seedance-2.0")`)
 	f.StringVarP(&vidPrompt, "prompt", "p", "", "Video content description")
 	f.IntVarP(&vidDuration, "duration", "d", 0, "Video duration in seconds (4-15)")
 	f.StringVarP(&vidSize, "size", "s", "", `Aspect ratio: 16:9, 9:16, 1:1, 4:3, 3:4, 21:9, adaptive`)
@@ -285,6 +283,7 @@ func init() {
 	f.StringArrayVar(&vidAudioURLs, "audio-url", nil, "Reference audio URL (repeatable)")
 	f.StringArrayVar(&vidTools, "tool", nil, "Tool type (e.g. web_search, repeatable)")
 	f.BoolVar(&vidDryRun, "dry-run", false, "Print request parameters without calling API")
+	f.StringVar(&jsonInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 
 	rootCmd.AddCommand(videoCmd)
 }
