@@ -616,6 +616,35 @@ func (c *Client) ListModelsOpenAI() ([]OpenAIModel, error) {
 	return result.Data, nil
 }
 
+// GetModelOpenAI fetches a single model by ID from the OpenAI-compatible /v1/models/{model} endpoint.
+func (c *Client) GetModelOpenAI(modelID string) (*OpenAIModel, error) {
+	httpReq, err := http.NewRequest(http.MethodGet, c.baseURL+modelsPath+"/"+modelID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result OpenAIModel
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
 // --- Helpers ---
 
 // setOpenRouterHeaders adds optional OpenRouter-specific headers.
