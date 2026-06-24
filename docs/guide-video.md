@@ -38,7 +38,7 @@ apimart-cli video --json request.json
 | 参数 | 短参 | 说明 |
 |---|---|---|
 | `--prompt` | `-p` | 视频内容描述 |
-| `--model` | `-m` | 模型名，默认 `grok-imagine-1.5-video-apimart` |
+| `--model` | `-m` | 模型名（必填，可通过 `defaults.video.model` 在配置文件中设置默认值） |
 | `--duration` | `-d` | 时长 4-15 秒，默认 5 |
 | `--size` | `-s` | 宽高比：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`、`adaptive` |
 | `--resolution` | `-r` | 分辨率：`480p`、`720p`、`1080p`，默认 `480p` |
@@ -51,4 +51,5 @@ apimart-cli video --json request.json
 | `--last-frame` | | 尾帧图片 |
 | `--video-url` | | 参考视频 URL（可重复） |
 | `--audio-url` | | 参考音频 URL（可重复） |
+| `--json` | | JSON 输入（文件、字符串或 `-` 表示 stdin） |
 | `--tool` | | 工具（如 `web_search`，可重复） |

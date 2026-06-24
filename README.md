@@ -67,7 +67,7 @@ apimart-cli
 | [安装与配置](docs/installation.md) | 安装、API Key、配置文件、代理 |
 | [图片生成](docs/guide-image.md) | 全部参数、同步/异步模式、图生图、Inpainting |
 | [视频生成](docs/guide-video.md) | 全部参数、首尾帧、参考视频（APIMart） |
-| [AI 对话](docs/guide-chat.md) | 流式输出、多轮对话、参数说明 |
+| [AI 对话](docs/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
 | [其他命令](docs/guide-commands.md) | models、task、balance、dry-run、API 参考 |
 | [MCP 集成](docs/mcp.md) | AI 代理（Claude/Cursor）集成指南 |
 

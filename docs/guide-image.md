@@ -27,7 +27,7 @@ apimart-cli image < prompt.txt
 | 参数 | 短参 | 说明 | 适用 |
 |---|---|---|---|
 | `--prompt` | `-p` | 文本描述（自动识别文件/stdin） | 通用 |
-| `--model` | `-m` | 模型名，默认 `gpt-image-2-official` | 通用 |
+| `--model` | `-m` | 模型名（必填，可通过 `defaults.image.model` 在配置文件中设置默认值） | 通用 |
 | `--size` | `-s` | 宽高比，如 `16:9`、`1:1`，或像素如 `1024x1024` | 通用 |
 | `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` | 通用 |
 | `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp` | 通用 |
@@ -40,9 +40,11 @@ apimart-cli image < prompt.txt
 | `--output-compression` | | 压缩率 0-100（jpeg/webp） | APIMart |
 | `--image-url` | | 参考图片 URL（可重复） | APIMart |
 | `--mask-url` | | 蒙版图片 URL（inpainting） | APIMart |
+| `--json` | | JSON 输入（文件、字符串或 `-` 表示 stdin） | 通用 |
 | `--output` | | 下载目录（默认当前目录，支持相对/绝对路径） | 通用 |
+| `--save-prompt` | | 保存 prompt 到 `image_{task_id}.md` | 通用 |
+| `--mode` | | 强制指定模式：`auto`、`sync`、`async` | 通用 |
 | `--dry-run` | | 打印 curl 不调用 API | 通用 |
-| `--mode` | | 强制指定模式：`auto`、`sync`、`async` | 全局 |
 
 ### 模式自动检测规则
 
@@ -51,7 +53,7 @@ apimart-cli image < prompt.txt
 | `apimart.ai` / `apib.ai` / `aiuxu.com` / `aishuch.com` | async | APIMart 异步任务 |
 | `openai.com` / `openrouter.ai` 或其他 | sync | OpenAI 兼容同步 |
 
-可通过 `--mode sync|async` 或配置文件的 `mode` 字段强制指定。
+可通过 `apimart-cli image --mode sync|async` 强制指定。
 
 ```bash
 # 强制异步（即使连的是 OpenAI 兼容中转）

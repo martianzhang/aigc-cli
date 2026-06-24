@@ -8,28 +8,22 @@ api_key: "your-api-key-here"
 # API base URL (can also be set via OPENAI_BASE_URL or APIMART_API_BASE env var)
 # base_url: "https://api.apimart.ai"
 
-# Generation mode: auto (detect from base_url), sync, async
-# Default: auto
-# mode: "auto"
-
 # HTTP proxy (can also be set via OPENAI_HTTP_PROXY or APIMART_HTTP_PROXY env var, or --http-proxy CLI flag)
 # http_proxy: "http://127.0.0.1:7890"
 
 # Verbose output: show full result JSON (can also use --verbose / -v CLI flag)
 # verbose: true
 
-# Output directory for downloaded images (default: current directory ".")
+# Output directory for downloaded files (default: current directory ".")
 # Can also use --output CLI flag
 # output_dir: "./downloads"
-
-# Save prompt text to image_{task_id}.md file (can also use --save-prompt CLI flag)
-# save_prompt: true
 
 # OpenRouter app attribution (optional)
 # Set via env vars: OPENAI_REFERER="https://your-site.com" OPENAI_APP_TITLE="Your App"
 
 # Per-modality default values. Commented-out values use built-in defaults.
 # Uncomment only what you want to override.
+# Global --model flag overrides per-modality defaults.
 defaults:
   image:
     model: "gpt-image-2-official"
