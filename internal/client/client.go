@@ -20,15 +20,15 @@ import (
 )
 
 const (
-	defaultBaseURL   = "https://api.apimart.ai"
-	imageSubmitPath  = "/v1/images/generations"
-	videoSubmitPath  = "/v1/videos/generations"
-	chatPath         = "/v1/chat/completions"
-	uploadPath       = "/v1/uploads/images"
-	taskPath         = "/v1/tasks/%s"
-	tokenBalancePath = "/v1/balance"
-	userBalancePath  = "/v1/user/balance"
-	modelsPath       = "/v1/models"
+	defaultBaseURL   = "https://api.apimart.ai/v1"
+	imageSubmitPath  = "/images/generations"
+	videoSubmitPath  = "/videos/generations"
+	chatPath         = "/chat/completions"
+	uploadPath       = "/uploads/images"
+	taskPath         = "/tasks/%s"
+	tokenBalancePath = "/balance"
+	userBalancePath  = "/user/balance"
+	modelsPath       = "/models"
 	// OpenRouter-specific header names
 	headerReferer = "HTTP-Referer"
 	headerTitle   = "X-OpenRouter-Title"
@@ -52,10 +52,24 @@ type Client struct {
 // Pass empty strings for baseURL or proxyURL to use defaults.
 // proxyURL supports http://, https://, socks5:// schemes.
 // When proxyURL is empty, falls back to HTTP_PROXY / HTTPS_PROXY / ALL_PROXY / NO_PROXY env vars.
+//
+// baseURL should include the API version prefix (e.g. "https://api.apimart.ai/v1").
+// For backward compatibility, if baseURL doesn't end with a "/vN" path segment,
+// "/v1" is appended automatically (so "https://api.openai.com" → "https://api.openai.com/v1").
+// If it already includes a version (e.g. "https://relay.com/v2", "https://openrouter.ai/api/v1"),
+// the user-supplied value is respected as-is.
 func New(apiKey, baseURL, proxyURL string) *Client {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
+	// Normalize: if baseURL doesn't already end with a version path segment like
+	// /v1, /v2, /v3, append "/v1" as the default API version for backward
+	// compatibility (e.g. bare "https://api.openai.com" → "https://api.openai.com/v1").
+	baseURL = strings.TrimRight(baseURL, "/")
+	if !hasVersionSuffix(baseURL) {
+		baseURL += "/v1"
+	}
+
 	transport := &http.Transport{}
 	if proxyURL != "" {
 		if parsed, err := url.Parse(proxyURL); err == nil {
@@ -612,6 +626,25 @@ func (c *Client) setOpenRouterHeaders(req *http.Request) {
 	if c.title != "" {
 		req.Header.Set(headerTitle, c.title)
 	}
+}
+
+// hasVersionSuffix checks if urlStr ends with a version path segment like /v1, /v2, /v3.
+// Used to avoid duplicating the version when the user-supplied baseURL already includes it.
+func hasVersionSuffix(urlStr string) bool {
+	lastSlash := strings.LastIndex(urlStr, "/")
+	if lastSlash < 0 || lastSlash == len(urlStr)-1 {
+		return false
+	}
+	seg := urlStr[lastSlash+1:]
+	if len(seg) < 2 || seg[0] != 'v' {
+		return false
+	}
+	for i := 1; i < len(seg); i++ {
+		if seg[i] < '0' || seg[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // isLocalFile returns true if the path points to an existing file.

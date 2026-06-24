@@ -54,6 +54,7 @@ func runModels(cmd *cobra.Command, args []string) error {
 		base = "https://api.apimart.ai"
 	}
 	base = strings.TrimRight(base, "/")
+	base = strings.TrimSuffix(base, "/v1") // marketplace API doesn't use /v1 prefix
 
 	httpClient := httpProxyClient()
 	pageSize := 50

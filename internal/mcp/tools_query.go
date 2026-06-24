@@ -254,6 +254,7 @@ func fetchModels(baseURL, mediaType, proxy string) ([]types.MarketplaceModel, er
 		baseURL = "https://api.apimart.ai"
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
+	baseURL = strings.TrimSuffix(baseURL, "/v1") // marketplace API doesn't use /v1 prefix
 
 	// Build client
 	transport := &http.Transport{}

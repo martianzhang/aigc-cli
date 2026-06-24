@@ -222,10 +222,10 @@ func buildVideoCurl(req *types.VideoGenerateRequest) string {
 	body, _ := json.Marshal(req)
 	base := apiBase
 	if base == "" {
-		base = "https://api.apimart.ai"
+		base = "https://api.apimart.ai/v1" // matches client.defaultBaseURL
 	}
 	base = strings.TrimRight(base, "/")
-	url := base + "/v1/videos/generations"
+	url := base + "/videos/generations"
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
 	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", apiKey)
