@@ -55,6 +55,8 @@ apimart-cli chat --message "Hello"
 apimart-cli
 ├── image      图片生成（同步/异步）→  docs/guide-image.md
 ├── video      视频生成               →  docs/guide-video.md
+├── midjourney Midjourney 生成/编辑    →  docs/guide-midjourney.md
+│   └── mj     别名，同上
 ├── chat       AI 对话               →  docs/guide-chat.md
 ├── models     模型列表及定价
 ├── task       查询任务状态（APIMart）
@@ -69,6 +71,7 @@ apimart-cli
 | [安装与配置](docs/installation.md) | 安装、API Key、配置文件、代理 |
 | [图片生成](docs/guide-image.md) | 全部参数、同步/异步模式、图生图、Inpainting |
 | [视频生成](docs/guide-video.md) | 全部参数、首尾帧、参考视频（APIMart） |
+| [Midjourney 生成](docs/guide-midjourney.md) | 17 个子命令完整说明：imagine、blend、upscale 等 |
 | [AI 对话](docs/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
 | [其他命令](docs/guide-commands.md) | models、task、balance、dry-run、API 参考 |
 | [MCP 集成](docs/mcp.md) | AI 代理（Claude/Cursor）集成指南 |

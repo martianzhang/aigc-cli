@@ -42,5 +42,13 @@ defaults:
     # resolution: "480p"
     # duration: 5
 
+  midjourney:
+    # speed: "relax"              # relax (default) / fast / turbo
+    # version: "6.1"              # MJ 主版本：8.1, 7, 6.1, 5.2, 5.1
+    # style: "raw"                # 风格覆盖
+    # size: "16:9"                # 宽高比
+    # quality: "1"                # 质量：0.25, 0.5, 1, 2
+    # niji: false                 # Niji 模式
+
   chat:
     model: "deepseek-v4-flash"
