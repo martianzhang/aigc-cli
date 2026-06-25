@@ -32,26 +32,35 @@ var (
 	genStyle        string
 	genResponseFmt  string
 	genDryRun       bool
+	genEdit         bool // Grok Imagine 1.5 edit mode
 )
 
 // imageCmd represents the `apimart-cli image` command.
 var imageCmd = &cobra.Command{
-	Use:   "image",
-	Short: "Generate images (supports OpenAI sync & APIMart async)",
+	Use:          "image",
+	Short:        "Generate images (supports OpenAI sync & APIMart async)",
+	SilenceUsage: true,
 	Long: `Generate images via any OpenAI-compatible API.
 
-Supports text-to-image, image-to-image, and inpainting.
+Supports text-to-image, image-to-image, inpainting, and Grok image editing.
 Works with OpenAI, OpenRouter (sync), and APIMart (async task-based).
 
 You can specify parameters via flags, or pass a complete JSON request
 via the --json flag (file path, JSON string, or "-" for stdin).
+
+Edit mode (--edit):
+  Grok Imagine 1.5 Edit edits images based on a source image + prompt.
+  Requires --edit + --image-url + --prompt, forces async mode.
+  Model defaults to grok-imagine-1.5-edit-apimart.
 
 Examples:
   apimart-cli image --prompt "A cat under starry sky"
   apimart-cli image --prompt prompt.txt --size "16:9"
   echo "..." | apimart-cli image --prompt -
   apimart-cli image --json request.json
-  apimart-cli image --json '{"prompt":"a red fox","n":4}'`,
+  apimart-cli image --json '{"prompt":"a red fox","n":4}'
+  apimart-cli image --edit --prompt "Change background to starry sky" --image-url photo.jpg
+  apimart-cli image --edit --model "grok-imagine-1.5-edit-apimart" --prompt "Cyberpunk style" --image-url img.png --n 2`,
 	RunE: runImageGenerate,
 }
 
@@ -69,15 +78,19 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 
 	// ----- Step 3: Apply defaults for remaining empty fields -----
 	if req.Model == "" {
-		return fmt.Errorf("model is required: set via --model flag or defaults.image.model in config.yaml")
+		if genEdit {
+			req.Model = "grok-imagine-1.5-edit-apimart"
+		} else {
+			return fmt.Errorf("model is required: set via --model flag or defaults.image.model in config.yaml")
+		}
 	}
-	if req.Size == "" {
+	if req.Size == "" && !genEdit {
 		req.Size = "1:1"
 	}
-	if req.Quality == "" {
+	if req.Quality == "" && !genEdit {
 		req.Quality = "auto"
 	}
-	if req.OutputFormat == "" {
+	if req.OutputFormat == "" && !genEdit {
 		req.OutputFormat = "png"
 	}
 
@@ -85,6 +98,16 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		curl := buildImageCurl(req)
 		fmt.Println(curl)
 		return nil
+	}
+
+	// ----- Edit mode checks -----
+	if genEdit {
+		if len(req.ImageURLs) == 0 {
+			return fmt.Errorf("--image-url is required in edit mode")
+		}
+		if !isAPIMartProvider() {
+			return fmt.Errorf("edit mode requires an APIMart provider (apimart.ai / apib.ai / aiuxu.com / aishuch.com)")
+		}
 	}
 
 	// ----- Step 4: Print the request payload (verbose only) -----
@@ -303,6 +326,7 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVar(&genStyle, "style", "", "Image style: vivid, natural (OpenAI only)")
 	f.StringVar(&genResponseFmt, "response-format", "", "Response format: url, b64_json (OpenAI/OpenRouter)")
 	f.BoolVar(&genDryRun, "dry-run", false, "Print request parameters without calling API")
+	f.BoolVar(&genEdit, "edit", false, "Grok Imagine 1.5 Edit mode (requires --image-url)")
 	f.StringVar(&jsonInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&mode, "mode", "", "Generation mode: auto (detect), sync, async (default: auto)")
 	f.BoolVar(&savePrompt, "save-prompt", false, "save prompt to .md file alongside results")

@@ -178,6 +178,21 @@ type ImageWithRole struct {
 	Role string `json:"role"`
 }
 
+// VideoRemixRequest is the request body for POST /v1/videos/{task_id}/remix (VEO3 Remix).
+type VideoRemixRequest struct {
+	Model       string `json:"model"`
+	Prompt      string `json:"prompt"`
+	Raw         *bool  `json:"raw,omitempty"`
+	AspectRatio string `json:"aspect_ratio,omitempty"`
+	Resolution  string `json:"resolution,omitempty"`
+}
+
+// VideoRemixResponse is the response from POST /v1/videos/{task_id}/remix.
+type VideoRemixResponse struct {
+	Code int              `json:"code"`
+	Data []TaskSubmission `json:"data"`
+}
+
 // VideoGenerateResponse is the response from POST /v1/videos/generations.
 type VideoGenerateResponse struct {
 	Code int              `json:"code"`
@@ -328,9 +343,10 @@ type Config struct {
 
 // ConfigDefaults holds modality-specific default values.
 type ConfigDefaults struct {
-	Image *ImageDefaults `mapstructure:"image" yaml:"image"`
-	Video *VideoDefaults `mapstructure:"video" yaml:"video"`
-	Chat  *ChatDefaults  `mapstructure:"chat" yaml:"chat"`
+	Image      *ImageDefaults      `mapstructure:"image" yaml:"image"`
+	Video      *VideoDefaults      `mapstructure:"video" yaml:"video"`
+	Midjourney *MidjourneyDefaults `mapstructure:"midjourney" yaml:"midjourney"`
+	Chat       *ChatDefaults       `mapstructure:"chat" yaml:"chat"`
 }
 
 // ChatDefaults holds default values for chat completion.
@@ -412,6 +428,41 @@ type VideoDefaults struct {
 	ImageURLs  []string `mapstructure:"image_urls" yaml:"image_urls"`
 	VideoURLs  []string `mapstructure:"video_urls" yaml:"video_urls"`
 	AudioURLs  []string `mapstructure:"audio_urls" yaml:"audio_urls"`
+}
+
+// MidjourneyDefaults holds default values for Midjourney generation.
+type MidjourneyDefaults struct {
+	Speed   string `mapstructure:"speed" yaml:"speed"`
+	Version string `mapstructure:"version" yaml:"version"`
+	Style   string `mapstructure:"style" yaml:"style"`
+	Size    string `mapstructure:"size" yaml:"size"`
+	Quality string `mapstructure:"quality" yaml:"quality"`
+	Niji    *bool  `mapstructure:"niji" yaml:"niji"`
+}
+
+// MergeIntoImagine applies non-zero default values to an MJ imagine request.
+func (d *MidjourneyDefaults) MergeIntoImagine(req *MJImagineRequest) {
+	if d == nil {
+		return
+	}
+	if req.Speed == "" && d.Speed != "" {
+		req.Speed = d.Speed
+	}
+	if req.Version == "" && d.Version != "" {
+		req.Version = d.Version
+	}
+	if req.Style == "" && d.Style != "" {
+		req.Style = d.Style
+	}
+	if req.Size == "" && d.Size != "" {
+		req.Size = d.Size
+	}
+	if req.Quality == "" && d.Quality != "" {
+		req.Quality = d.Quality
+	}
+	if req.Niji == nil && d.Niji != nil {
+		req.Niji = d.Niji
+	}
 }
 
 // MergeIntoVideo applies non-zero default values to a video generation request.

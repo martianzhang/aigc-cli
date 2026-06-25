@@ -59,6 +59,10 @@ apimart-cli image --prompt "test" --size "16:9" --dry-run
 
 # 视频 dry-run
 apimart-cli video --prompt "test" --duration 4 --dry-run
+
+# Midjourney dry-run
+apimart-cli mj imagine --prompt "test" --dry-run
+apimart-cli mj upscale --task-id task_xxx --index 1 --dry-run
 ```
 
 ## 查看版本
@@ -76,8 +80,10 @@ apimart-cli --version
 | `POST /v1/chat/completions` | AI 对话 | 通用 ✅ |
 | `POST /v1/images/generations` | 文生图（同步/异步） | 通用 ✅ |
 | `POST /v1/videos/generations` | 文生视频 | APIMart ✅ |
+| `POST /v1/midjourney/generations` (及 16 个子端点) | Midjourney 图生/编辑 | APIMart ✅ |
 | `POST /v1/uploads/images` | 上传图片 | APIMart ✅ |
 | `GET /v1/tasks/{task_id}` | 查询任务状态 | APIMart ✅ |
+| `GET /v1/midjourney/{task_id}` | 查询 MJ 任务（含 buttons） | APIMart ✅ |
 | `GET /v1/balance` | Token 余额查询 | APIMart ✅ |
 | `GET /v1/user/balance` | 用户余额查询 | APIMart ✅ |
 | `GET /api/marketplace/models` | 模型列表（免认证） | APIMart ✅ |

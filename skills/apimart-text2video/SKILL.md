@@ -1,11 +1,11 @@
 ---
 name: apimart-text2video
-description: Use "apimart-cli video" to generate videos via the APIMart doubao-seedance-2.0 API. Supports text-to-video, image-to-video, first/last frame, reference video/audio, audio-enabled video, seed, web_search tool, and return-last-frame for continuation. Automatically polls task and downloads videos.
+description: Use "apimart-cli video" to generate videos via the APIMart API (doubao-seedance-2.0, VEO3). Supports text-to-video, image-to-video, first/last frame, reference video/audio, audio-enabled video, VEO3 Remix (--remix), seed, web_search tool, and return-last-frame for continuation. Automatically polls task and downloads videos.
 ---
 
 # apimart-text2video
 
-通过 `apimart-cli video` 调用 APIMart doubao-seedance-2.0 API 生成视频。提交任务后自动轮询完成并下载视频到当前目录。
+通过 `apimart-cli video` 调用 APIMart 视频 API 生成视频（doubao-seedance-2.0、VEO3 等）。支持 VEO3 Remix（`--remix`）视频续拍。提交任务后自动轮询完成并下载视频到当前目录。
 
 支持 `--seed` 种子复现、`--tool web_search` 联网搜索、`--return-last-frame` 返回尾帧用于续拍。
 
@@ -99,7 +99,21 @@ apimart-cli video \
   --return-last-frame
 ```
 
-### 8. JSON 输入
+### 8. VEO3 Remix（视频续拍 8s→15s）
+
+> ⚠️ 仅 VEO3 系列模型支持，模型须与原始视频一致。
+
+```bash
+# 基本续拍
+apimart-cli video --remix \
+  --task-id task_xxx \
+  --model veo3.1-fast \
+  --prompt "The cat continues running on the grass"
+```
+
+`--remix` 模式下 `--task-id`、`--model`、`--prompt` 均为必填。
+
+### 9. JSON 输入
 
 ```bash
 # JSON 字符串

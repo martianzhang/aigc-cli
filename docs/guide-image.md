@@ -114,6 +114,42 @@ apimart-cli image \
   --image-url "https://example.com/img2.png"
 ```
 
+## Grok Imagine 1.5 Edit（图片编辑，APIMart）
+
+> ⚠️ 仅 **Grok Imagine 1.5 Edit** 模型支持此模式，不是所有图片模型都有 `--edit` 功能。
+
+基于已有图片 + 文本描述进行编辑替换，支持背景替换、风格迁移等：
+
+```bash
+# 背景替换
+apimart-cli image --edit \
+  --prompt "把背景换成星空，保留主体" \
+  --image-url ./photo.jpg
+
+# 风格迁移
+apimart-cli image --edit \
+  --prompt "转换成赛博朋克风格" \
+  --image-url ./img.png \
+  --n 2
+
+# 指定模型（不写默认 grok-imagine-1.5-edit-apimart）
+apimart-cli image --edit \
+  --model "grok-imagine-1.5-edit-apimart" \
+  --prompt "Change the background to a starry sky" \
+  --image-url "https://example.com/img.png"
+```
+
+### edit 模式说明
+
+| 规则 | 说明 |
+|---|---|
+| `--edit` 开关 | 不带则走普通文生图/图生图流程 |
+| `--image-url` | **必填**，至少 1 张源图 |
+| `--model` | 不指定则默认 `grok-imagine-1.5-edit-apimart` |
+| `--n` | 1-10（普通模式 1-4） |
+| 模式 | **强制异步**，仅 APIMart 可用 |
+| size/quality 等 | 编辑模式下不适用，自动跳过 |
+
 ## Inpainting（蒙版替换，APIMart）
 
 提供原图和蒙版，替换指定区域：
