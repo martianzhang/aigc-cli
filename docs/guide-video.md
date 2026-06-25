@@ -1,6 +1,6 @@
 # 视频生成
 
-支持文生视频、图生视频、首尾帧、参考视频、音频视频等模式。
+支持文生视频、图生视频、首尾帧、参考视频、音频视频、VEO3 Remix 续拍等模式。
 
 ## 基本用法
 
@@ -32,6 +32,53 @@ apimart-cli video --prompt "A person speaking" \
 # JSON 输入
 apimart-cli video --json request.json
 ```
+
+## VEO3 Remix（视频续拍）
+
+> ⚠️ 仅 **VEO3** 系列模型支持 remix，不是所有视频模型都有此功能。
+
+将已生成的视频从 8 秒**续拍到 15 秒**。模型必须与原始视频一致。
+
+```bash
+# 基本续拍
+apimart-cli video --remix \
+  --task-id task_xxx \
+  --model veo3.1-fast \
+  --prompt "The cat continues running on the grass"
+
+# 只返回续拍部分（不包含原视频）
+apimart-cli video --remix \
+  --task-id task_xxx \
+  --model veo3.1-quality \
+  --prompt "keep dancing" \
+  --raw
+
+# 指定分辨率
+apimart-cli video --remix \
+  --task-id task_xxx \
+  --model veo3.1-fast \
+  --prompt "butterflies fly into the distance" \
+  --resolution 1080p
+
+# 更换比例
+apimart-cli video --remix \
+  --task-id task_xxx \
+  --model veo3.1-fast \
+  --prompt "continue" \
+  --size "9:16"
+```
+
+### remix 模式参数
+
+| 参数 | 说明 |
+|---|---|
+| `--remix` | 开启 VEO3 Remix 模式 |
+| `--task-id` | **必填**，原始视频的 task_id |
+| `--model` | **必填**，必须与原始视频的模型一致（`veo3.1-fast` / `veo3.1-quality`） |
+| `--prompt` / `-p` | **必填**，续拍内容描述 |
+| `--raw` | 只返回续拍部分，不含原视频 |
+| `--size` / `-s` | 宽高比：`16:9`、`9:16` |
+| `--resolution` / `-r` | 分辨率：`720p`（默认）、`1080p`、`4k` |
 
 ## 参数
 

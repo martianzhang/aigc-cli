@@ -178,6 +178,21 @@ type ImageWithRole struct {
 	Role string `json:"role"`
 }
 
+// VideoRemixRequest is the request body for POST /v1/videos/{task_id}/remix (VEO3 Remix).
+type VideoRemixRequest struct {
+	Model       string `json:"model"`
+	Prompt      string `json:"prompt"`
+	Raw         *bool  `json:"raw,omitempty"`
+	AspectRatio string `json:"aspect_ratio,omitempty"`
+	Resolution  string `json:"resolution,omitempty"`
+}
+
+// VideoRemixResponse is the response from POST /v1/videos/{task_id}/remix.
+type VideoRemixResponse struct {
+	Code int              `json:"code"`
+	Data []TaskSubmission `json:"data"`
+}
+
 // VideoGenerateResponse is the response from POST /v1/videos/generations.
 type VideoGenerateResponse struct {
 	Code int              `json:"code"`

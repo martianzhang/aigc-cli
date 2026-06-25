@@ -282,6 +282,42 @@ func (c *Client) VideoSubmit(req *types.VideoGenerateRequest) (*types.VideoGener
 	return &result, nil
 }
 
+// VideoRemixSubmit sends a VEO3 remix request to POST /v1/videos/{task_id}/remix.
+func (c *Client) VideoRemixSubmit(taskID string, req *types.VideoRemixRequest) (*types.VideoRemixResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	path := fmt.Sprintf("/videos/%s/remix", taskID)
+	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+path, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("API request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result types.VideoRemixResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
 // PollTask polls a task (image or video) until completion or failure.
 func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
 	fmt.Printf("Task submitted: %s\n", taskID)
