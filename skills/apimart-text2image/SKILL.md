@@ -20,6 +20,9 @@ description: Use "apimart-cli image" to generate images via OpenAI-compatible AP
 - 用户需要参考图片进行图生图或 inpainting
 - 用户需要批量生成多张图片
 - 用户需要指定分辨率、质量、宽高比等参数
+- 用户需要对已有图片进行编辑（Grok Imagine Edit：背景替换、风格迁移、局部修改）
+- 用户不确定使用哪个模型，让 AI 推荐
+- 用户想控制图片生成模式（同步/异步/强制）
 
 ## 使用流程
 
@@ -133,17 +136,32 @@ apimart-cli image --edit \
 ```
 
 `--edit` 模式下自动默认模型 `grok-imagine-1.5-edit-apimart`，`--image-url` 必填。
+`--size`、`--quality`、`--output-format` 在 edit 模式下不会使用（由模型内部处理）。
+
+`--edit` 为 APIMart 专属功能（仅异步模式），如果 API 地址不是 APIMart 域名会报错。
 
 ### 8. 本地文件自动上传
 
-`--image-url` 和 `--mask-url` 支持本地文件路径，自动上传：
+`--image-url` 和 `--mask-url` 支持本地文件路径，自动上传到 APIMart 后获取 URL：
 
 ```bash
 apimart-cli image --prompt "吉卜力风格" --image-url ./my-photo.jpg
 apimart-cli image --prompt "换背景" --image-url ./photo.png --mask-url ./mask.png
 ```
 
-### 8. Dry-run 调试
+> 仅 APIMart 异步模式支持本地上传，同步模式（OpenAI/OpenRouter）需使用公开 URL。
+
+### 9. 高级参数说明
+
+| 参数 | 功能 | 适用 |
+|---|---|---|
+| `--background auto\|opaque\|transparent` | 图片背景模式 | APIMart |
+| `--moderation auto\|low` | 内容审核强度 | APIMart |
+| `--output-compression 0-100` | jpeg/webp 压缩级别 | APIMart |
+| `--mode sync\|async\|auto` | 强制生成模式 | 跨平台 |
+| `--save-prompt` | 保存 prompt 到 .md 文件 | 通用 |
+
+### 10. Dry-run 调试
 
 查看即将提交的 curl 命令，不实际调用 API：
 
@@ -193,13 +211,21 @@ apimart-cli image --prompt "test" -v
 # Dry-run：打印 curl 命令，不实际调用
 apimart-cli image --prompt "test" --dry-run
 
-# 保存 prompt 到 image_{task_id}.md
+# 保存 prompt 到 image_{task_id}.md（后续可追溯）
 apimart-cli image --prompt "A red fox" --save-prompt
+
+# 强制异步模式（走任务队列，支持本地文件上传）
+apimart-cli image --prompt "cat" --mode async
+
+# 强制同步模式（兼容 OpenAI/OpenRouter）
+apimart-cli image --prompt "cat" --mode sync
 ```
 
 ## 注意事项
 
 - 提交后自动轮询任务，最长等待 180 秒
-- `quality: "high"` + `resolution: "2k"/"4k"` 可能耗时 120 秒以上
-- 图片自动下载到当前目录（或用 `--output` 指定目录），无需额外操作
+- `quality: "high"` + `resolution: "2k"/"4k"` 耗时较长（可能 120 秒以上）
+- 图片自动下载到输出目录（默认为当前目录，用 `--output` 指定）
+- `--edit`（Grok Edit）仅 APIMart 异步模式可用，需使用 APIMart 平台 API
 - 不要多次调用 API 测试，避免产生不必要的费用
+- 首次使用建议 `--dry-run` 先确认请求参数正确

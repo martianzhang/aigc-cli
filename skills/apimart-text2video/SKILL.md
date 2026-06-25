@@ -24,6 +24,10 @@ description: Use "apimart-cli video" to generate videos via the APIMart API (dou
 - 用户需要首帧 / 尾帧过渡动画
 - 用户需要参考视频进行风格迁移
 - 用户需要带音频的视频
+- 用户需要 VEO3 视频续拍（8s→15s，`--remix` 模式）
+- 用户需要联网搜索获取最新信息后生成视频（`--tool web_search`）
+- 用户需要固定随机种子复现相同结果（`--seed`）
+- 用户需要返回最后一帧用于后续续拍（`--return-last-frame`）
 
 ## 使用流程
 
@@ -113,6 +117,16 @@ apimart-cli video --remix \
 
 `--remix` 模式下 `--task-id`、`--model`、`--prompt` 均为必填。
 
+Remix 支持 `--raw` 参数：指定后只返回续拍的新片段（不包含原始视频）：
+```bash
+apimart-cli video --remix \
+  --task-id task_xxx \
+  --model veo3.1-fast \
+  --prompt "keep going" \
+  --raw \
+  --resolution 1080p
+```
+
 ### 9. JSON 输入
 
 ```bash
@@ -131,7 +145,7 @@ apimart-cli video --json request.json
 cat request.json | apimart-cli video --json -
 ```
 
-### 9. 种子复现
+### 10. 种子复现
 
 指定随机种子，保证相同参数生成相同结果：
 
@@ -139,7 +153,7 @@ cat request.json | apimart-cli video --json -
 apimart-cli video --prompt "A cat walking" --seed 42
 ```
 
-### 10. 联网搜索
+### 11. 联网搜索
 
 使用 `--tool` 参数启用工具：
 
@@ -177,6 +191,25 @@ apimart-cli video --prompt "..." --http-proxy "http://127.0.0.1:7890"
 export HTTP_PROXY="http://127.0.0.1:7890"
 ```
 
+## 全部参数一览
+
+| 参数 | 功能 |
+|---|---|
+| `--prompt` | 视频描述文本（支持文件/stdin） |
+| `--model` | 视频模型名 |
+| `--duration` | 视频时长 4-15 秒 |
+| `--size` | 宽高比：16:9, 9:16, 1:1, 4:3, 3:4, 21:9, adaptive |
+| `--resolution` | 分辨率：480p, 720p, 1080p |
+| `--seed` | 随机种子（复现相同结果） |
+| `--generate-audio` | 生成 AI 音频 |
+| `--return-last-frame` | 返回最后一帧（用于续拍） |
+| `--image-url` | 参考图片（可重复，支持本地文件） |
+| `--first-frame` | 首帧图片（本地文件自动上传） |
+| `--last-frame` | 尾帧图片（本地文件自动上传） |
+| `--video-url` | 参考视频（可重复） |
+| `--audio-url` | 参考音频（可重复） |
+| `--tool` | 工具类型（如 web_search，可重复） |
+
 ## 调试技巧
 
 ```bash
@@ -186,8 +219,11 @@ apimart-cli video --prompt "test" --duration 4 --dry-run
 # 查看请求 JSON
 apimart-cli video --prompt "test" -v
 
-# 保存 prompt 到 video_{task_id}.md（与 --save-prompt 配合）
+# 保存 prompt 到 video_{task_id}.md（后续可追溯）
 apimart-cli video --prompt "A cat" --save-prompt
+
+# 指定输出目录
+apimart-cli video --prompt "cat" --output ./downloads
 ```
 
 ## 注意事项
@@ -196,5 +232,7 @@ apimart-cli video --prompt "A cat" --save-prompt
 - 视频默认时长 5 秒，支持 4-15 秒
 - 视频自动下载到当前目录（或用 `--output` 指定目录）
 - `--generate-audio` 会增加处理时间
-- 不要多次调用 API 测试，避免产生不必要的费用
+- `--remix` + `--raw` 只返回续拍片段（不含原始视频）
+- `--tool web_search` 可让模型联网搜索后生成视频
 - 支持 `--first-frame` / `--last-frame` 分别指定首尾帧（无需同时使用）
+- 首次使用建议 `--dry-run` 先确认请求参数正确
