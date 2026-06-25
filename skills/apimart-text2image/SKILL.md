@@ -1,17 +1,18 @@
 ---
 name: apimart-text2image
-description: Use "apimart-cli image" to generate images via OpenAI-compatible APIs (APIMart, OpenAI, OpenRouter). Supports text-to-image, image-to-image, inpainting, local file upload, dry-run, proxy, sync/async mode detect. Automatically polls task and downloads images.
+description: Use "apimart-cli image" to generate images via OpenAI-compatible APIs (APIMart, OpenAI, OpenRouter). Supports text-to-image, image-to-image, inpainting, Grok Imagine Edit (--edit), local file upload, dry-run, proxy, sync/async mode detect. Automatically polls task and downloads images.
 ---
 
 # apimart-text2image
 
-通过 `apimart-cli image` 调用 OpenAI 兼容 API 生成图片。支持 APIMart（异步任务）、OpenAI / OpenRouter（同步），自动检测 API 地址并选择对应模式。提交任务后自动轮询完成并下载图片到当前目录。
+通过 `apimart-cli image` 调用 OpenAI 兼容 API 生成图片。支持 APIMart（异步任务）、OpenAI / OpenRouter（同步），自动检测 API 地址并选择对应模式。也支持 Grok Imagine 1.5 Edit 图片编辑（`--edit` 模式）。提交任务后自动轮询完成并下载图片到当前目录。
 
 ## 前置条件
 
 1. 项目已安装 `apimart-cli`（`go install` 或 `make build`）
 2. 已配置 API Key（`~/.config/apimart/config.yaml` 或 `OPENAI_API_KEY` / `APIMART_API_KEY` 环境变量）
    - 图片默认参数在 `defaults.image` 下配置
+   - Midjourney / Grok 等模型参数在 `defaults.midjourney` 下配置
 
 ## 何时使用
 
@@ -114,7 +115,26 @@ apimart-cli image \
   --mask-url "https://example.com/mask.png"
 ```
 
-### 7. 本地文件自动上传
+### 7. Grok Imagine 1.5 Edit（图片编辑）
+
+> ⚠️ 仅 Grok Imagine 1.5 Edit 模型支持，不是所有模型都有此功能。
+
+```bash
+# 背景替换
+apimart-cli image --edit \
+  --prompt "把背景换成星空，保留主体" \
+  --image-url ./photo.jpg
+
+# 风格迁移
+apimart-cli image --edit \
+  --prompt "换成赛博朋克风格" \
+  --image-url ./img.png \
+  --n 2
+```
+
+`--edit` 模式下自动默认模型 `grok-imagine-1.5-edit-apimart`，`--image-url` 必填。
+
+### 8. 本地文件自动上传
 
 `--image-url` 和 `--mask-url` 支持本地文件路径，自动上传：
 
