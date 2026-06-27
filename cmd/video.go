@@ -138,13 +138,40 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
 	}
 
-	// Detect OpenRouter — use dedicated video API
-	if isOpenRouterProvider() {
-		return runOpenRouterVideo(req)
+	// Strategy table: first match wins, last entry is the default.
+	for _, s := range videoStrategies {
+		if s.match(req) {
+			return s.run(req)
+		}
 	}
+	return nil
+}
 
-	// ---- APIMart async flow ----
+// videoStrategy defines a dispatch rule for video generation.
+type videoStrategy struct {
+	match func(*types.VideoGenerateRequest) bool
+	run   func(*types.VideoGenerateRequest) error
+}
 
+// videoStrategies is the ordered dispatch table for video generation.
+// First match wins. Add a new entry here when adding a new provider.
+var videoStrategies = []videoStrategy{
+	{
+		// OpenRouter: dedicated video API (submit → poll → download)
+		match: func(req *types.VideoGenerateRequest) bool {
+			return isOpenRouterProvider()
+		},
+		run: runOpenRouterVideo,
+	},
+	{
+		// Default: APIMart async task-based generation
+		match: func(req *types.VideoGenerateRequest) bool { return true },
+		run:   runAPIMartVideo,
+	},
+}
+
+// runAPIMartVideo handles video generation via APIMart async task API.
+func runAPIMartVideo(req *types.VideoGenerateRequest) error {
 	// Resolve local image files in image_urls
 	if len(req.ImageURLs) > 0 {
 		c := client.New(apiKey, apiBase, httpProxy)

@@ -121,10 +121,8 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 
 	// ----- Step 5: Resolve local image files (upload if needed) -----
 	c := client.New(apiKey, apiBase, httpProxy)
-	isOR := isOpenRouterProvider()
-	isAsync := isAPIMartProvider()
 
-	if isAsync {
+	if isAPIMartProvider() {
 		if len(req.ImageURLs) > 0 {
 			resolved, err := c.ResolveLocalImages(req.ImageURLs)
 			if err != nil {
@@ -141,18 +139,50 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	switch {
-	case isOR && !genEdit && usesOpenRouterResponsesAPI(req.Model):
-		// OpenRouter: use Responses API for chat-native image models (Gemini Flash Image, etc.)
-		return runOpenRouterImage(c, req)
-	case isOR && !genEdit:
-		// OpenRouter: use dedicated image API at POST /v1/images for GPT Image, DALL-E, etc.
-		return runOpenRouterDedicatedImage(c, req)
-	case isAsync:
-		return runAsyncImage(c, req)
-	default:
-		return runSyncImage(c, req)
+	// Strategy table: first match wins, last entry is the default.
+	for _, s := range imageStrategies {
+		if s.match(req) {
+			return s.run(c, req)
+		}
 	}
+	return nil
+}
+
+// imageStrategy defines a dispatch rule for image generation.
+type imageStrategy struct {
+	match func(*types.GenerateRequest) bool
+	run   func(*client.Client, *types.GenerateRequest) error
+}
+
+// imageStrategies is the ordered dispatch table for image generation.
+// First match wins. Add a new entry here when adding a new provider or model type.
+var imageStrategies = []imageStrategy{
+	{
+		// OpenRouter: chat-native image models (Gemini Flash Image, etc.) → Responses API
+		match: func(req *types.GenerateRequest) bool {
+			return isOpenRouterProvider() && !genEdit && usesOpenRouterResponsesAPI(req.Model)
+		},
+		run: runOpenRouterImage,
+	},
+	{
+		// OpenRouter: dedicated image models (GPT Image, DALL-E, etc.) → Dedicated Image API
+		match: func(req *types.GenerateRequest) bool {
+			return isOpenRouterProvider() && !genEdit
+		},
+		run: runOpenRouterDedicatedImage,
+	},
+	{
+		// APIMart: async task-based generation
+		match: func(req *types.GenerateRequest) bool {
+			return isAPIMartProvider()
+		},
+		run: runAsyncImage,
+	},
+	// Default: OpenAI-compatible synchronous generation
+	{
+		match: func(req *types.GenerateRequest) bool { return true },
+		run:   runSyncImage,
+	},
 }
 
 // runOpenRouterImage handles image generation via OpenRouter's Responses API.
