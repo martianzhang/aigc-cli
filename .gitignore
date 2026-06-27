@@ -35,3 +35,6 @@ image_*.webp
 video_*.mp4
 video_*.webm
 image_*.md
+
+# Project docs
+TODO.md
