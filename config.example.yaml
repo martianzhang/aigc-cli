@@ -21,6 +21,10 @@ api_key: "your-api-key-here"
 # OpenRouter app attribution (optional)
 # Set via env vars: OPENAI_REFERER="https://your-site.com" OPENAI_APP_TITLE="Your App"
 
+# Global timeout in seconds for HTTP requests (default: 180s).
+# Modality-specific timeout overrides this if set.
+# timeout: 300
+
 # Per-modality default values. Commented-out values use built-in defaults.
 # Uncomment only what you want to override.
 # Global --model flag overrides per-modality defaults.
@@ -35,12 +39,14 @@ defaults:
     # style: "vivid"                # OpenAI: vivid or natural
     # n: 1
     # output_compression: 85
+    # timeout: 300                  # HTTP timeout in seconds (overrides global timeout)
 
   video:
     model: "doubao-seedance-2.0" # APIMart only
     # size: "16:9"
     # resolution: "480p"
     # duration: 5
+    # timeout: 600                  # HTTP timeout in seconds (video takes longer)
 
   midjourney:
     # speed: "relax"              # relax (default) / fast / turbo
@@ -49,6 +55,7 @@ defaults:
     # size: "16:9"                # 宽高比
     # quality: "1"                # 质量：0.25, 0.5, 1, 2
     # niji: false                 # Niji 模式
+    # timeout: 600                 # HTTP timeout in seconds
 
   chat:
     model: "deepseek-v4-flash"

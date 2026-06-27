@@ -164,10 +164,26 @@ var videoStrategies = []videoStrategy{
 		run: runOpenRouterVideo,
 	},
 	{
+		// Yunwu.ai: unified video API (submit → poll → download)
+		match: func(req *types.VideoGenerateRequest) bool {
+			return isYunwuProvider()
+		},
+		run: runYunwuVideo,
+	},
+	{
 		// Default: APIMart async task-based generation
 		match: func(req *types.VideoGenerateRequest) bool { return true },
 		run:   runAPIMartVideo,
 	},
+}
+
+// isYunwuProvider returns true if the base URL points to yunwu.ai.
+func isYunwuProvider() bool {
+	base := apiBase
+	if base == "" {
+		return false
+	}
+	return strings.Contains(base, "yunwu.ai")
 }
 
 // runAPIMartVideo handles video generation via APIMart async task API.
@@ -192,6 +208,7 @@ func runAPIMartVideo(req *types.VideoGenerateRequest) error {
 	}
 
 	c := client.New(apiKey, apiBase, httpProxy)
+	applyTimeout(c, "video", client.VideoTimeout)
 	resp, err := c.VideoSubmit(req)
 	if err != nil {
 		return fmt.Errorf("submission failed: %w", err)
@@ -201,6 +218,7 @@ func runAPIMartVideo(req *types.VideoGenerateRequest) error {
 	}
 
 	task := resp.Data[0]
+	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Printf("Response code: %d\n", resp.Code)
 	fmt.Printf("Task ID: %s\n", task.TaskID)
 	fmt.Printf("Status: %s\n\n", task.Status)
@@ -226,6 +244,100 @@ func runAPIMartVideo(req *types.VideoGenerateRequest) error {
 
 	fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 		taskData.ActualTime, taskData.Cost, taskData.CreditsCost)
+	return nil
+}
+
+// runYunwuVideo handles video generation via yunwu.ai's unified API (submit → poll → download).
+// Uses POST /v1/video/create for submission and GET /v1/video/query?id= for polling.
+func runYunwuVideo(req *types.VideoGenerateRequest) error {
+	// Resolve local images before submission
+	if len(req.ImageURLs) > 0 {
+		c := client.New(apiKey, apiBase, httpProxy)
+		resolved, err := c.ResolveLocalImages(req.ImageURLs)
+		if err != nil {
+			return fmt.Errorf("failed to resolve image-urls: %w", err)
+		}
+		req.ImageURLs = resolved
+	}
+	for i := range req.ImageWithRoles {
+		c := client.New(apiKey, apiBase, httpProxy)
+		resolved, err := c.ResolveLocalImages([]string{req.ImageWithRoles[i].URL})
+		if err != nil {
+			return fmt.Errorf("failed to resolve image-with-role: %w", err)
+		}
+		req.ImageWithRoles[i].URL = resolved[0]
+	}
+
+	c := client.New(apiKey, apiBase, httpProxy)
+	applyTimeout(c, "video", client.VideoTimeout)
+
+	// Step 1: Submit
+	createResp, err := c.YunwuVideoSubmit(req)
+	if err != nil {
+		return fmt.Errorf("yunwu video submission failed: %w", err)
+	}
+
+	fmt.Printf("Model: %s\n", req.Model)
+	fmt.Printf("Task ID: %s\n", createResp.ID)
+	fmt.Printf("Status: %s\n\n", createResp.Status)
+
+	// Step 2: Poll
+	fmt.Println("Polling for completion...")
+	taskID := createResp.ID
+	const (
+		yunwuPollInterval = 10 * time.Second
+		yunwuMaxWait      = 5 * time.Minute
+	)
+	start := time.Now()
+	var videoURL string
+	for {
+		if time.Since(start) > yunwuMaxWait {
+			return fmt.Errorf("yunwu video polling timed out after %v", yunwuMaxWait)
+		}
+
+		queryResp, err := c.YunwuVideoQuery(taskID)
+		if err != nil {
+			return fmt.Errorf("polling failed: %w", err)
+		}
+
+		switch queryResp.Status {
+		case "completed", "succeeded", "success":
+			videoURL = queryResp.VideoURL
+			if videoURL == "" {
+				return fmt.Errorf("yunwu video completed but no video_url returned")
+			}
+		case "failed", "failure":
+			return fmt.Errorf("yunwu video generation failed: status=%s", queryResp.Status)
+		case "cancelled", "expired":
+			return fmt.Errorf("yunwu video generation %s", queryResp.Status)
+		default:
+			// pending / running / in_progress / queued — keep waiting
+			progress := fmt.Sprintf("%.0fs", time.Since(start).Seconds())
+			fmt.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
+			time.Sleep(yunwuPollInterval)
+		}
+
+		if videoURL != "" {
+			break
+		}
+	}
+
+	// Step 3: Download
+	fmt.Println()
+	ext := extractExt(videoURL)
+	filename := filepath.Join(outputDir, fmt.Sprintf("video_yunwu_%s_%d%s", taskID, time.Now().Unix(), ext))
+	fmt.Printf("Downloading video...\n")
+	body, err := httpGet(videoURL)
+	if err != nil {
+		return fmt.Errorf("failed to download video: %w", err)
+	}
+	if err := os.WriteFile(filename, body, 0644); err != nil {
+		return fmt.Errorf("failed to save %s: %w", filename, err)
+	}
+	fmt.Printf("Saved: %s\n", filename)
+
+	elapsed := time.Since(start).Seconds()
+	fmt.Printf("Completed in %.0fs\n", elapsed)
 	return nil
 }
 
@@ -272,6 +384,7 @@ func runVideoRemix(cmd *cobra.Command) error {
 	}
 
 	c := client.New(apiKey, apiBase, httpProxy)
+	applyTimeout(c, "video", client.VideoTimeout)
 	resp, err := c.VideoRemixSubmit(vidTaskID, req)
 	if err != nil {
 		return fmt.Errorf("remix submission failed: %w", err)
@@ -505,6 +618,7 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) error {
 	}
 
 	c := client.New(apiKey, apiBase, httpProxy)
+	applyTimeout(c, "video", client.VideoTimeout)
 
 	// Step 1: Submit
 	submitResp, err := c.OpenRouterVideoSubmit(orReq)
@@ -512,6 +626,7 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) error {
 		return fmt.Errorf("OpenRouter video submission failed: %w", err)
 	}
 
+	fmt.Printf("Model: %s\n", orReq.Model)
 	fmt.Printf("Video job submitted.\n")
 	fmt.Printf("Job ID: %s\n", submitResp.ID)
 	fmt.Printf("Status: %s\n\n", submitResp.Status)
@@ -587,6 +702,7 @@ func runOpenRouterVideoResume(jobID string) error {
 	fmt.Printf("Prompt: %s\n\n", info.Prompt)
 
 	c := client.New(apiKey, apiBase, httpProxy)
+	applyTimeout(c, "video", client.VideoTimeout)
 
 	// Check current status
 	statusResp, err := c.OpenRouterVideoGet(info.JobID)

@@ -21,15 +21,17 @@ import (
 )
 
 const (
-	defaultBaseURL   = "https://api.apimart.ai"
-	imageSubmitPath  = "/images/generations"
-	videoSubmitPath  = "/videos/generations"
-	chatPath         = "/chat/completions"
-	uploadPath       = "/uploads/images"
-	taskPath         = "/tasks/%s"
-	tokenBalancePath = "/balance"
-	userBalancePath  = "/user/balance"
-	modelsPath       = "/models"
+	defaultBaseURL    = "https://api.apimart.ai"
+	imageSubmitPath   = "/images/generations"
+	videoSubmitPath   = "/videos/generations"
+	yunwuVideoSubPath = "/video/create"
+	yunwuVideoQryPath = "/video/query"
+	chatPath          = "/chat/completions"
+	uploadPath        = "/uploads/images"
+	taskPath          = "/tasks/%s"
+	tokenBalancePath  = "/balance"
+	userBalancePath   = "/user/balance"
+	modelsPath        = "/models"
 	// OpenRouter-specific header names
 	headerReferer = "HTTP-Referer"
 	headerTitle   = "X-OpenRouter-Title"
@@ -38,15 +40,28 @@ const (
 	initialDelay    = 10 * time.Second
 	maxPollDuration = 180 * time.Second
 	uploadTimeout   = 60 * time.Second
-	// Default HTTP client timeout for API requests
-	defaultHTTPTimeout = 120 * time.Second
+	// Default HTTP client timeout for API requests (used as initial value for DefaultTimeout)
+	defaultHTTPTimeout = 180 * time.Second
+	// Modality-specific HTTP timeouts (exported for use by cmd/ commands)
+	ImageTimeout = 180 * time.Second
+	VideoTimeout = 600 * time.Second
+	MJTimeout    = 600 * time.Second
 )
+
+// DefaultTimeout is the timeout used by New(). Commands can override this
+// before creating clients (safe for single-threaded CLI usage).
+var DefaultTimeout = defaultHTTPTimeout
 
 // Client is the API client for image generation, chat, and more.
 type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
+}
+
+// SetTimeout sets the HTTP client timeout. Use 0 for no timeout.
+func (c *Client) SetTimeout(d time.Duration) {
+	c.httpClient.Timeout = d
 }
 
 // New creates a new API client.
@@ -85,7 +100,7 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Transport: transport,
-			Timeout:   defaultHTTPTimeout,
+			Timeout:   DefaultTimeout,
 		},
 	}
 }
@@ -276,6 +291,88 @@ func (c *Client) VideoSubmit(req *types.VideoGenerateRequest) (*types.VideoGener
 	var result types.VideoGenerateResponse
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// YunwuVideoSubmit sends a video generation request to yunwu.ai's POST /v1/video/create.
+func (c *Client) YunwuVideoSubmit(req *types.VideoGenerateRequest) (*types.YunwuVideoCreateResponse, error) {
+	bodyMap := map[string]interface{}{
+		"model":  req.Model,
+		"prompt": req.Prompt,
+	}
+	if req.Size != "" {
+		bodyMap["aspect_ratio"] = req.Size
+	}
+	if len(req.ImageURLs) > 0 {
+		bodyMap["images"] = req.ImageURLs
+	} else if len(req.ImageWithRoles) > 0 {
+		images := make([]string, len(req.ImageWithRoles))
+		for i, r := range req.ImageWithRoles {
+			images[i] = r.URL
+		}
+		bodyMap["images"] = images
+	}
+
+	body, err := json.Marshal(bodyMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+yunwuVideoSubPath, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("yunwu video submit failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("yunwu video API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result types.YunwuVideoCreateResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return &result, nil
+}
+
+// YunwuVideoQuery polls yunwu.ai's video task status via GET /v1/video/query?id={id}.
+func (c *Client) YunwuVideoQuery(taskID string) (*types.YunwuVideoQueryResponse, error) {
+	url := c.baseURL + yunwuVideoQryPath + "?id=" + url.QueryEscape(taskID)
+	httpReq, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create query request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("yunwu video query failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read query response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("yunwu video query returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result types.YunwuVideoQueryResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse query response: %w", err)
 	}
 	return &result, nil
 }

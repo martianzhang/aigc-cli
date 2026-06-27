@@ -208,6 +208,22 @@ type VideoGenerateResponse struct {
 	Data []TaskSubmission `json:"data"`
 }
 
+// YunwuVideoCreateResponse is returned by yunwu.ai's POST /v1/video/create.
+type YunwuVideoCreateResponse struct {
+	ID               string `json:"id"`
+	Status           string `json:"status"`
+	StatusUpdateTime int64  `json:"status_update_time,omitempty"`
+}
+
+// YunwuVideoQueryResponse is returned when polling yunwu.ai's video task.
+type YunwuVideoQueryResponse struct {
+	ID               string `json:"id"`
+	Status           string `json:"status"`
+	VideoURL         string `json:"video_url,omitempty"`
+	EnhancedPrompt   string `json:"enhanced_prompt,omitempty"`
+	StatusUpdateTime int64  `json:"status_update_time,omitempty"`
+}
+
 // ChatMessage represents a single message in a chat conversation.
 type ChatMessage struct {
 	Role    string `json:"role"`
@@ -347,6 +363,7 @@ type Config struct {
 	SavePrompt bool            `mapstructure:"save_prompt" yaml:"save_prompt"`
 	Mode       string          `mapstructure:"mode" yaml:"mode,omitempty"`
 	OutputDir  string          `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
+	Timeout    *int            `mapstructure:"timeout" yaml:"timeout,omitempty"`
 	Defaults   *ConfigDefaults `mapstructure:"defaults" yaml:"defaults,omitempty"`
 }
 
@@ -380,6 +397,7 @@ type ImageDefaults struct {
 	MaskURL           string   `mapstructure:"mask_url" yaml:"mask_url,omitempty"`
 	Style             string   `mapstructure:"style" yaml:"style,omitempty"`
 	ResponseFormat    string   `mapstructure:"response_format" yaml:"response_format,omitempty"`
+	Timeout           *int     `mapstructure:"timeout" yaml:"timeout,omitempty"`
 }
 
 // MergeIntoImage applies non-zero default values to an image generation request.
@@ -437,6 +455,7 @@ type VideoDefaults struct {
 	ImageURLs  []string `mapstructure:"image_urls" yaml:"image_urls,omitempty"`
 	VideoURLs  []string `mapstructure:"video_urls" yaml:"video_urls,omitempty"`
 	AudioURLs  []string `mapstructure:"audio_urls" yaml:"audio_urls,omitempty"`
+	Timeout    *int     `mapstructure:"timeout" yaml:"timeout,omitempty"`
 }
 
 // MidjourneyDefaults holds default values for Midjourney generation.
@@ -447,6 +466,7 @@ type MidjourneyDefaults struct {
 	Size    string `mapstructure:"size" yaml:"size,omitempty"`
 	Quality string `mapstructure:"quality" yaml:"quality,omitempty"`
 	Niji    *bool  `mapstructure:"niji" yaml:"niji,omitempty"`
+	Timeout *int   `mapstructure:"timeout" yaml:"timeout,omitempty"`
 }
 
 // MergeIntoImagine applies non-zero default values to an MJ imagine request.

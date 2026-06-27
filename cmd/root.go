@@ -25,6 +25,7 @@ var (
 	savePrompt  bool
 	mode        string
 	printConfig bool
+	timeoutFlag int // global --timeout in seconds; 0 means "not set"
 )
 
 // rootCmd represents the base command.
@@ -65,6 +66,9 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 			}
 			if !cmd.Flags().Changed("output") && cfg.OutputDir != "" {
 				outputDir = cfg.OutputDir
+			}
+			if !cmd.Flags().Changed("timeout") && cfg.Timeout != nil && *cfg.Timeout > 0 {
+				timeoutFlag = *cfg.Timeout
 			}
 		}
 		if apiKey == "" {
@@ -241,5 +245,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&model, "model", "m", "", "Model name (optional; subcommand applies its own default when omitted)")
 	rootCmd.PersistentFlags().StringVar(&outputDir, "output", ".", "output directory for downloaded images")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output: show full result JSON")
+	rootCmd.PersistentFlags().IntVar(&timeoutFlag, "timeout", 0, "HTTP request timeout in seconds (overrides config)")
 	rootCmd.PersistentFlags().BoolVar(&printConfig, "print-config", false, "show effective configuration and exit")
 }

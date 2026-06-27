@@ -13,6 +13,13 @@ import (
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
+// newMJClient creates a client with Midjourney's default timeout.
+func newMJClient() *client.Client {
+	c := newMJClient()
+	applyTimeout(c, "midjourney", client.MJTimeout)
+	return c
+}
+
 // ============================================================================
 // MJ shared flag variables
 // ============================================================================
@@ -464,7 +471,7 @@ func registerMJTaskActionSubcommand(name, short, long, action string) *cobra.Com
 					req.Speed = cfg.Defaults.Midjourney.Speed
 				}
 			}
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			return runMJSubmitAndPoll(c, action, req)
 		},
 	}
@@ -501,7 +508,7 @@ Examples:
 
 		// Resolve local images
 		if len(req.ImageURLs) > 0 {
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			resolved, err := c.ResolveLocalImages(req.ImageURLs)
 			if err != nil {
 				return fmt.Errorf("failed to resolve image-urls: %w", err)
@@ -509,7 +516,7 @@ Examples:
 			req.ImageURLs = resolved
 		}
 
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		return runMJSubmitAndPoll(c, "imagine", req)
 	},
 }
@@ -538,7 +545,7 @@ Examples:
 			if len(req.ImageURLs) < 2 {
 				return fmt.Errorf("at least 2 image_urls required")
 			}
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			resolved, err := c.ResolveLocalImages(req.ImageURLs)
 			if err != nil {
 				return fmt.Errorf("failed to resolve image-urls: %w", err)
@@ -558,7 +565,7 @@ Examples:
 			Speed:      mjSpeed,
 		}
 
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		resolved, err := c.ResolveLocalImages(req.ImageURLs)
 		if err != nil {
 			return fmt.Errorf("failed to resolve image-urls: %w", err)
@@ -591,7 +598,7 @@ Example:
 			if len(req.ImageURLs) == 0 {
 				return fmt.Errorf("image_urls is required")
 			}
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			resolved, err := c.ResolveLocalImages(req.ImageURLs)
 			if err != nil {
 				return fmt.Errorf("failed to resolve image-urls: %w", err)
@@ -608,7 +615,7 @@ Example:
 			ImageURLs: mjImageURLs,
 			Speed:     mjSpeed,
 		}
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		resolved, err := c.ResolveLocalImages(req.ImageURLs)
 		if err != nil {
 			return fmt.Errorf("failed to resolve image-urls: %w", err)
@@ -643,7 +650,7 @@ Example:
 		}
 
 		if len(req.ImageURLs) > 0 {
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			resolved, err := c.ResolveLocalImages(req.ImageURLs)
 			if err != nil {
 				return fmt.Errorf("failed to resolve image-urls: %w", err)
@@ -651,7 +658,7 @@ Example:
 			req.ImageURLs = resolved
 		}
 
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		return runMJSubmitAndPoll(c, "edits", req)
 	},
 }
@@ -725,7 +732,7 @@ Example:
 			if req.TaskID == "" {
 				return fmt.Errorf("task_id is required")
 			}
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			return runMJSubmitAndPoll(c, "reroll", req)
 		}
 
@@ -737,7 +744,7 @@ Example:
 			CustomID: mjCustomID,
 			Speed:    mjSpeed,
 		}
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		return runMJSubmitAndPoll(c, "reroll", req)
 	},
 }
@@ -766,7 +773,7 @@ Example:
 			if req.TaskID == "" {
 				return fmt.Errorf("task_id is required")
 			}
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			return runMJSubmitAndPoll(c, "zoom", req)
 		}
 
@@ -786,7 +793,7 @@ Example:
 			v := mjZoomRatio
 			req.ZoomRatio = &v
 		}
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		return runMJSubmitAndPoll(c, "zoom", req)
 	},
 }
@@ -818,7 +825,7 @@ Example:
 			if req.Direction == "" && req.CustomID == "" {
 				return fmt.Errorf("direction or custom_id is required")
 			}
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			return runMJSubmitAndPoll(c, "pan", req)
 		}
 
@@ -838,7 +845,7 @@ Example:
 			v := mjIndex
 			req.Index = &v
 		}
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		return runMJSubmitAndPoll(c, "pan", req)
 	},
 }
@@ -859,7 +866,7 @@ Example:
 		if err != nil {
 			return err
 		}
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		return runMJSubmitAndPoll(c, "inpaint", req)
 	},
 }
@@ -889,14 +896,14 @@ Example:
 				return fmt.Errorf("task_id is required")
 			}
 			if req.MaskURL != "" {
-				c := client.New(apiKey, apiBase, httpProxy)
+				c := newMJClient()
 				resolved, err := c.ResolveLocalImages([]string{req.MaskURL})
 				if err != nil {
 					return fmt.Errorf("failed to resolve mask-url: %w", err)
 				}
 				req.MaskURL = resolved[0]
 			}
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			return runMJSubmitAndPoll(c, "modal", req)
 		}
 
@@ -911,14 +918,14 @@ Example:
 		}
 		// Resolve local mask
 		if req.MaskURL != "" {
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			resolved, err := c.ResolveLocalImages([]string{req.MaskURL})
 			if err != nil {
 				return fmt.Errorf("failed to resolve mask-url: %w", err)
 			}
 			req.MaskURL = resolved[0]
 		}
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		return runMJSubmitAndPoll(c, "modal", req)
 	},
 }
@@ -946,14 +953,14 @@ Examples:
 				return fmt.Errorf("failed to parse JSON: %w", err)
 			}
 			if len(req.ImageURLs) > 0 {
-				c := client.New(apiKey, apiBase, httpProxy)
+				c := newMJClient()
 				resolved, err := c.ResolveLocalImages(req.ImageURLs)
 				if err != nil {
 					return fmt.Errorf("failed to resolve image-urls: %w", err)
 				}
 				req.ImageURLs = resolved
 			}
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			return runMJSubmitAndPoll(c, "video", req)
 		}
 
@@ -980,14 +987,14 @@ Examples:
 		}
 
 		if len(req.ImageURLs) > 0 {
-			c := client.New(apiKey, apiBase, httpProxy)
+			c := newMJClient()
 			resolved, err := c.ResolveLocalImages(req.ImageURLs)
 			if err != nil {
 				return fmt.Errorf("failed to resolve image-urls: %w", err)
 			}
 			req.ImageURLs = resolved
 		}
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		return runMJSubmitAndPoll(c, "video", req)
 	},
 }
@@ -1032,7 +1039,7 @@ func runMJRmix(cmd *cobra.Command, action string) error {
 		if req.TaskID == "" {
 			return fmt.Errorf("task_id is required")
 		}
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		return runMJSubmitAndPoll(c, action, req)
 	}
 
@@ -1049,7 +1056,7 @@ func runMJRmix(cmd *cobra.Command, action string) error {
 		v := mjIndex
 		req.Index = &v
 	}
-	c := client.New(apiKey, apiBase, httpProxy)
+	c := newMJClient()
 	return runMJSubmitAndPoll(c, action, req)
 }
 
@@ -1066,7 +1073,7 @@ Example:
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		taskID := args[0]
-		c := client.New(apiKey, apiBase, httpProxy)
+		c := newMJClient()
 		task, err := c.MidjourneyGetTask(taskID)
 		if err != nil {
 			return fmt.Errorf("failed to query task: %w", err)

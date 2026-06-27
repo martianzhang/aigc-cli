@@ -121,6 +121,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 
 	// ----- Step 5: Resolve local image files (upload if needed) -----
 	c := client.New(apiKey, apiBase, httpProxy)
+	applyTimeout(c, "image", client.ImageTimeout)
 
 	if isAPIMartProvider() {
 		if len(req.ImageURLs) > 0 {
@@ -210,12 +211,14 @@ func runOpenRouterImage(c *client.Client, req *types.GenerateRequest) error {
 		return fmt.Errorf("OpenRouter image generation failed: %w", err)
 	}
 
+	fmt.Printf("Model: %s\n", orResp.Model)
+
 	// Print model text response (if any)
 	for _, item := range orResp.Output {
 		if item.Type == "message" {
 			for _, block := range item.Content {
 				if block.Type == "text" && block.Text != "" {
-					fmt.Printf("Model: %s\n", block.Text)
+					fmt.Printf("Response: %s\n", block.Text)
 				}
 			}
 		}
@@ -228,7 +231,6 @@ func runOpenRouterImage(c *client.Client, req *types.GenerateRequest) error {
 		return fmt.Errorf("failed to extract images: %w", err)
 	}
 
-	fmt.Printf("Model: %s\n", orResp.Model)
 	fmt.Printf("Images generated: %d\n", len(saved))
 	for _, f := range saved {
 		fmt.Printf("Saved: %s\n", f)
@@ -255,6 +257,7 @@ func runOpenRouterDedicatedImage(c *client.Client, req *types.GenerateRequest) e
 		return fmt.Errorf("OpenRouter image generation failed: %w", err)
 	}
 
+	fmt.Printf("Model: %s\n", req.Model)
 	createdAt := time.Unix(orResp.Created, 0).Format("2006-01-02 15:04:05")
 	fmt.Printf("Created: %s\n", createdAt)
 
@@ -339,18 +342,30 @@ func runSyncImage(c *client.Client, req *types.GenerateRequest) error {
 		return fmt.Errorf("image generation failed: %w", err)
 	}
 
-	fmt.Printf("Created: %d\n", syncResp.Created)
+	fmt.Printf("Model: %s\n", req.Model)
+	createdAt := time.Unix(syncResp.Created, 0).Format("2006-01-02 15:04:05")
+	fmt.Printf("Created: %s\n", createdAt)
 	for i, img := range syncResp.Data {
-		url := img.URL
-		if url == "" && img.B64JSON != "" {
-			url = "<base64 data>"
-		}
-		fmt.Printf("Image %d: %s\n", i+1, url)
-		if img.RevisedPrompt != "" {
-			fmt.Printf("  Revised prompt: %s\n", img.RevisedPrompt)
-		}
-		// Download if URL is present
-		if img.URL != "" {
+		// Save base64 image data
+		if img.B64JSON != "" {
+			raw, err := base64.StdEncoding.DecodeString(img.B64JSON)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to decode image %d: %v\n", i, err)
+				continue
+			}
+			ext := "." + req.OutputFormat
+			if ext == "." {
+				ext = ".png"
+			}
+			taskID := fmt.Sprintf("sync_%d", syncResp.Created)
+			filename := filepath.Join(outputDir, fmt.Sprintf("image_%s_%d%s", taskID, i, ext))
+			if err := os.WriteFile(filename, raw, 0644); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
+				continue
+			}
+			fmt.Printf("Image %d: %s\n", i+1, filename)
+		} else if img.URL != "" {
+			// Download from URL
 			body, err := httpGet(img.URL)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, err)
@@ -366,9 +381,45 @@ func runSyncImage(c *client.Client, req *types.GenerateRequest) error {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
 				continue
 			}
-			fmt.Printf("Saved: %s\n", filename)
+			fmt.Printf("Image %d: %s\n", i+1, filename)
+		} else {
+			fmt.Printf("Image %d: <no data>\n", i+1)
+			continue
+		}
+		if img.RevisedPrompt != "" {
+			fmt.Printf("  Revised prompt: %s\n", img.RevisedPrompt)
 		}
 	}
+
+	if syncResp.Usage != nil {
+		parts := []string{}
+		if syncResp.Usage.PromptTokens > 0 {
+			parts = append(parts, fmt.Sprintf("%d in", syncResp.Usage.PromptTokens))
+		}
+		if syncResp.Usage.CompletionTokens > 0 {
+			parts = append(parts, fmt.Sprintf("%d out", syncResp.Usage.CompletionTokens))
+		}
+		if syncResp.Usage.TotalTokens > 0 {
+			parts = append(parts, fmt.Sprintf("%d total", syncResp.Usage.TotalTokens))
+		}
+		tokenStr := ""
+		if len(parts) > 0 {
+			tokenStr = strings.Join(parts, " / ")
+		}
+		if tokenStr != "" || syncResp.Usage.Cost > 0 {
+			if tokenStr != "" {
+				fmt.Printf("Tokens: %s", tokenStr)
+			}
+			if syncResp.Usage.Cost > 0 {
+				if tokenStr != "" {
+					fmt.Printf(" | ")
+				}
+				fmt.Printf("Cost: $%.5f", syncResp.Usage.Cost)
+			}
+			fmt.Println()
+		}
+	}
+
 	return nil
 }
 
@@ -384,6 +435,7 @@ func runAsyncImage(c *client.Client, req *types.GenerateRequest) error {
 	}
 
 	task := resp.Data[0]
+	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Printf("Response code: %d\n", resp.Code)
 	fmt.Printf("Task ID: %s\n", task.TaskID)
 	fmt.Printf("Status: %s\n\n", task.Status)
@@ -585,6 +637,44 @@ func parseJSONInput() (*types.GenerateRequest, error) {
 	}
 
 	return req, nil
+}
+
+// applyTimeout sets the HTTP client timeout from CLI flag / config, falling back to modDefault.
+// Priority: --timeout flag > defaults.{mod}.timeout > timeout > modDefault.
+func applyTimeout(c *client.Client, modKey string, modDefault time.Duration) {
+	d := modDefault
+	// 1. CLI --timeout flag (global override)
+	if timeoutFlag > 0 {
+		d = time.Duration(timeoutFlag) * time.Second
+		c.SetTimeout(d)
+		return
+	}
+	// 2. Config file
+	if cfg, err := config.LoadDefaults(cfgFile); err == nil && cfg != nil {
+		var modTimeout *int
+		if cfg.Defaults != nil {
+			switch modKey {
+			case "image":
+				if cfg.Defaults.Image != nil {
+					modTimeout = cfg.Defaults.Image.Timeout
+				}
+			case "video":
+				if cfg.Defaults.Video != nil {
+					modTimeout = cfg.Defaults.Video.Timeout
+				}
+			case "midjourney":
+				if cfg.Defaults.Midjourney != nil {
+					modTimeout = cfg.Defaults.Midjourney.Timeout
+				}
+			}
+		}
+		if modTimeout != nil && *modTimeout > 0 {
+			d = time.Duration(*modTimeout) * time.Second
+		} else if cfg.Timeout != nil && *cfg.Timeout > 0 {
+			d = time.Duration(*cfg.Timeout) * time.Second
+		}
+	}
+	c.SetTimeout(d)
 }
 
 // isFile returns true if the given path points to an existing file.

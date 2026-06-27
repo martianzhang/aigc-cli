@@ -65,6 +65,9 @@ http_proxy: "http://127.0.0.1:7890"
 # 图片下载目录（默认当前目录 "."）
 # output_dir: "./downloads"
 
+# 全局超时（秒，默认 180），各模态 defaults.*.timeout 会覆盖此值
+# timeout: 300
+
 defaults:
   image:
     model: "gpt-image-2-official"
@@ -72,9 +75,11 @@ defaults:
     resolution: "1k"
     quality: "low"
     output_format: "png"
+    # timeout: 300                 # HTTP 超时秒数（覆盖 timeout）
 
   video:
     model: "doubao-seedance-2.0"
+    # timeout: 600                 # HTTP 超时秒数（视频生成更慢）
 ```
 
 完整示例见 [config.example.yaml](../config.example.yaml)。
