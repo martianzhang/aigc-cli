@@ -1,4 +1,5 @@
-// Package mcp implements an MCP (Model Context Protocol) server for APIMart.
+// Package mcp implements an MCP (Model Context Protocol) server.
+// Supports APIMart and OpenRouter providers (auto-detected from base_url).
 package mcp
 
 import (
@@ -8,6 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/martianzhang/apimart-cli/internal/provider"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -22,9 +24,10 @@ type Config struct {
 }
 
 // buildImageDesc builds the generate_image tool description with config defaults injected.
-func buildImageDesc(d *types.ImageDefaults) string {
+func buildImageDesc(d *types.ImageDefaults, baseURL string) string {
 	b := new(strings.Builder)
-	b.WriteString("Generate images via APIMart.\n\n当前配置（在 ~/.config/apimart/config.yaml 中修改）:\n")
+	p := provider.Detect(baseURL)
+	b.WriteString(fmt.Sprintf("Generate images via %s.\n\n当前配置（在 ~/.config/apimart/config.yaml 中修改）:\n", p))
 	if d != nil {
 		fmt.Fprintf(b, "  model = %s | size = %s | resolution = %s\n", d.Model, d.Size, d.Resolution)
 		fmt.Fprintf(b, "  quality = %s | output_format = %s", d.Quality, d.OutputFormat)
@@ -38,9 +41,10 @@ func buildImageDesc(d *types.ImageDefaults) string {
 }
 
 // buildVideoDesc builds the generate_video tool description with config defaults injected.
-func buildVideoDesc(d *types.VideoDefaults) string {
+func buildVideoDesc(d *types.VideoDefaults, baseURL string) string {
 	b := new(strings.Builder)
-	b.WriteString("Generate videos via APIMart.\n\n当前配置（在 ~/.config/apimart/config.yaml 中修改）:\n")
+	p := provider.Detect(baseURL)
+	b.WriteString(fmt.Sprintf("Generate videos via %s (async submit → poll).\n\n当前配置（在 ~/.config/apimart/config.yaml 中修改）:\n", p))
 	if d != nil {
 		fmt.Fprintf(b, "  model = %s", d.Model)
 		if d.Size != "" {
@@ -54,7 +58,11 @@ func buildVideoDesc(d *types.VideoDefaults) string {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString("\n策略: 参数已设好默认值，不要主动填写。只有在用户提示词中明确指定了某个参数时，才传入对应参数覆盖。\n注意: 视频生成是异步的，提交后立即返回 task_id，请使用 get_task 工具查询结果。")
+	if provider.Detect(baseURL) == provider.OpenRouter {
+		b.WriteString("\n注意: OpenRouter 视频生成是异步的，提交后返回 Job ID + polling_url。稍后使用 get_task 工具传入 Job ID 查询。")
+	} else {
+		b.WriteString("\n策略: 参数已设好默认值，不要主动填写。只有在用户提示词中明确指定了某个参数时，才传入对应参数覆盖。\n注意: 视频生成是异步的，提交后立即返回 task_id，请使用 get_task 工具查询结果。")
+	}
 	return b.String()
 }
 
@@ -69,8 +77,8 @@ func NewServer(cfg *Config) *server.MCPServer {
 	)
 
 	// Build descriptions with config defaults
-	imgDesc := buildImageDesc(cfg.Defaults.Image)
-	videoDesc := buildVideoDesc(cfg.Defaults.Video)
+	imgDesc := buildImageDesc(cfg.Defaults.Image, cfg.BaseURL)
+	videoDesc := buildVideoDesc(cfg.Defaults.Video, cfg.BaseURL)
 
 	// Register tools with config captured via closures
 	s.AddTool(newGenerateImageTool(imgDesc), generateImageHandler(cfg))
@@ -190,10 +198,10 @@ func newGetBalanceTool() mcp.Tool {
 
 func newGetTaskTool() mcp.Tool {
 	return mcp.NewTool("get_task",
-		mcp.WithDescription("查询异步任务（视频生成等）的状态和结果。视频提交后会返回 task_id，用此工具轮询直到 status 为 completed。"),
+		mcp.WithDescription("查询异步任务的状态和结果。APIMart: 查询 task_id；OpenRouter: 查询 job_id（视频提交后返回的 ID）。轮询直到 status 为 completed。"),
 		mcp.WithString("task_id",
 			mcp.Required(),
-			mcp.Description("Task ID, e.g. task_xxx"),
+			mcp.Description("APIMart task_id 或 OpenRouter job_id"),
 		),
 	)
 }

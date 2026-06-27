@@ -13,6 +13,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
+	"github.com/martianzhang/apimart-cli/internal/provider"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -167,6 +168,7 @@ func getBalanceHandler(cfg *Config) server.ToolHandlerFunc {
 }
 
 // getTaskHandler creates the handler for get_task.
+// Supports APIMart task_id and OpenRouter job_id (video).
 func getTaskHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if cfg.APIKey == "" {
@@ -179,73 +181,120 @@ func getTaskHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		c := client.New(cfg.APIKey, cfg.BaseURL, cfg.Proxy)
-		task, err := c.GetTask(taskID)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Failed to query task: %v", err)), nil
+		p := provider.Detect(cfg.BaseURL)
+
+		if p == provider.OpenRouter {
+			return handleMCPGetOpenRouterJob(c, taskID, cfg.Output)
 		}
-
-		var b strings.Builder
-		fmt.Fprintf(&b, "Task ID: %s\n", task.ID)
-		fmt.Fprintf(&b, "Status: %s | Progress: %d%%\n", task.Status, task.Progress)
-
-		if task.Status == "completed" {
-			fmt.Fprintf(&b, "Time: %ds | Cost: $%.5f (%.4f credits)\n", task.ActualTime, task.Cost, task.CreditsCost)
-
-			// Download if completed with images
-			output := cfg.Output
-			if task.Result != nil && len(task.Result.Images) > 0 {
-				b.WriteString("\n图片:\n")
-				for i, img := range task.Result.Images {
-					for j, url := range img.URL {
-						ext := ".png"
-						if idx := strings.LastIndex(url, "."); idx > 0 && len(url)-idx < 6 {
-							ext = url[idx:]
-						}
-						filename := fmt.Sprintf("apimart_%s_%d_%d%s", task.ID, i, j, ext)
-						fullpath := filename
-						if output != "" {
-							fullpath = output + "/" + filename
-						}
-						// Download
-						if err := downloadFile(url, fullpath); err == nil {
-							fmt.Fprintf(&b, "  %s\n", fullpath)
-						} else {
-							fmt.Fprintf(&b, "  %s (download failed: %v)\n", url, err)
-						}
-					}
-				}
-			}
-			if task.Result != nil && len(task.Result.Videos) > 0 {
-				b.WriteString("\n视频:\n")
-				for i, vid := range task.Result.Videos {
-					for j, url := range vid.URL {
-						ext := ".mp4"
-						if idx := strings.LastIndex(url, "."); idx > 0 && len(url)-idx < 6 {
-							ext = url[idx:]
-						}
-						filename := fmt.Sprintf("apimart_%s_v%d_%d%s", task.ID, i, j, ext)
-						fullpath := filename
-						if output != "" {
-							fullpath = output + "/" + filename
-						}
-						if err := downloadFile(url, fullpath); err == nil {
-							fmt.Fprintf(&b, "  %s\n", fullpath)
-						} else {
-							fmt.Fprintf(&b, "  %s (download failed: %v)\n", url, err)
-						}
-					}
-				}
-			}
-		} else if task.Status == "failed" {
-			if task.Error != nil {
-				fmt.Fprintf(&b, "Error: %s (code %d)\n", task.Error.Message, task.Error.Code)
-			}
-		} else {
-			b.WriteString("\n任务仍在处理中，请稍后再查。\n")
-		}
-
-		return mcp.NewToolResultText(b.String()), nil
+		return handleMCPGetAPIMartTask(c, taskID, cfg.Output)
 	}
+}
+
+func handleMCPGetOpenRouterJob(c *client.Client, jobID, outputDir string) (*mcp.CallToolResult, error) {
+	statusResp, err := c.OpenRouterVideoGet(jobID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to query job: %v", err)), nil
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Job ID: %s\n", statusResp.ID)
+	fmt.Fprintf(&b, "Status: %s\n", statusResp.Status)
+
+	switch statusResp.Status {
+	case "completed":
+		b.WriteString("\n视频:\n")
+		for i, u := range statusResp.UnsignedURLs {
+			ext := ".mp4"
+			if idx := strings.LastIndex(u, "."); idx > 0 && len(u)-idx < 6 {
+				ext = u[idx:]
+			}
+			filename := fmt.Sprintf("video_%s_%d%s", jobID, i, ext)
+			fullpath := filename
+			if outputDir != "" {
+				fullpath = outputDir + "/" + filename
+			}
+			if err := c.OpenRouterVideoDownload(u, fullpath); err == nil {
+				fmt.Fprintf(&b, "  %s\n", fullpath)
+			} else {
+				fmt.Fprintf(&b, "  %s (download failed: %v)\n", u, err)
+			}
+		}
+		if statusResp.Usage != nil && statusResp.Usage.TotalCost > 0 {
+			fmt.Fprintf(&b, "\nCost: $%.5f\n", statusResp.Usage.TotalCost)
+		}
+	case "failed", "cancelled", "expired":
+		fmt.Fprintf(&b, "Error: %s\n", statusResp.Error)
+	default:
+		b.WriteString("\n任务仍在处理中，请稍后再查。\n")
+	}
+
+	return mcp.NewToolResultText(b.String()), nil
+}
+
+func handleMCPGetAPIMartTask(c *client.Client, taskID, outputDir string) (*mcp.CallToolResult, error) {
+	task, err := c.GetTask(taskID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to query task: %v", err)), nil
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Task ID: %s\n", task.ID)
+	fmt.Fprintf(&b, "Status: %s | Progress: %d%%\n", task.Status, task.Progress)
+
+	if task.Status == "completed" {
+		fmt.Fprintf(&b, "Time: %ds | Cost: $%.5f (%.4f credits)\n", task.ActualTime, task.Cost, task.CreditsCost)
+
+		if task.Result != nil && len(task.Result.Images) > 0 {
+			b.WriteString("\n图片:\n")
+			for i, img := range task.Result.Images {
+				for j, url := range img.URL {
+					ext := ".png"
+					if idx := strings.LastIndex(url, "."); idx > 0 && len(url)-idx < 6 {
+						ext = url[idx:]
+					}
+					filename := fmt.Sprintf("apimart_%s_%d_%d%s", task.ID, i, j, ext)
+					fullpath := filename
+					if outputDir != "" {
+						fullpath = outputDir + "/" + filename
+					}
+					if err := downloadFile(url, fullpath); err == nil {
+						fmt.Fprintf(&b, "  %s\n", fullpath)
+					} else {
+						fmt.Fprintf(&b, "  %s (download failed: %v)\n", url, err)
+					}
+				}
+			}
+		}
+		if task.Result != nil && len(task.Result.Videos) > 0 {
+			b.WriteString("\n视频:\n")
+			for i, vid := range task.Result.Videos {
+				for j, url := range vid.URL {
+					ext := ".mp4"
+					if idx := strings.LastIndex(url, "."); idx > 0 && len(url)-idx < 6 {
+						ext = url[idx:]
+					}
+					filename := fmt.Sprintf("apimart_%s_v%d_%d%s", task.ID, i, j, ext)
+					fullpath := filename
+					if outputDir != "" {
+						fullpath = outputDir + "/" + filename
+					}
+					if err := downloadFile(url, fullpath); err == nil {
+						fmt.Fprintf(&b, "  %s\n", fullpath)
+					} else {
+						fmt.Fprintf(&b, "  %s (download failed: %v)\n", url, err)
+					}
+				}
+			}
+		}
+	} else if task.Status == "failed" {
+		if task.Error != nil {
+			fmt.Fprintf(&b, "Error: %s (code %d)\n", task.Error.Message, task.Error.Code)
+		}
+	} else {
+		b.WriteString("\n任务仍在处理中，请稍后再查。\n")
+	}
+
+	return mcp.NewToolResultText(b.String()), nil
 }
 
 // fetchModels gets models from the marketplace API.

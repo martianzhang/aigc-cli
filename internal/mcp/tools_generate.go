@@ -2,17 +2,20 @@ package mcp
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
+	"github.com/martianzhang/apimart-cli/internal/provider"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -32,10 +35,11 @@ func parseImageURLs(raw string) []string {
 }
 
 // generateImageHandler creates the handler for generate_image, capturing the config.
+// Supports APIMart (async task) and OpenRouter (dedicated image API).
 func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if cfg.APIKey == "" {
-			return mcp.NewToolResultError("API Key not configured. Set APIMART_API_KEY env or configure ~/.config/apimart/config.yaml"), nil
+			return mcp.NewToolResultError("API Key not configured"), nil
 		}
 
 		prompt, err := request.RequireString("prompt")
@@ -52,6 +56,7 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 			OutputFormat: request.GetString("output_format", ""),
 			ImageURLs:    parseImageURLs(request.GetString("image_urls", "")),
 			MaskURL:      request.GetString("mask_url", ""),
+			Background:   request.GetString("background", ""),
 		}
 
 		// Merge config defaults
@@ -59,15 +64,12 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 			imgCfg.MergeIntoImage(req)
 		}
 
-		// Apply defaults for remaining empty fields
+		// Apply defaults
 		if req.Model == "" {
 			return nil, fmt.Errorf("model is required: set model in request or defaults.image.model in config.yaml")
 		}
 		if req.Size == "" {
 			req.Size = "1:1"
-		}
-		if req.Resolution == "" {
-			req.Resolution = "1k"
 		}
 		if req.Quality == "" {
 			req.Quality = "auto"
@@ -77,82 +79,127 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		c := client.New(cfg.APIKey, cfg.BaseURL, cfg.Proxy)
+		p := provider.Detect(cfg.BaseURL)
 
-		// Resolve local images if any
-		if len(req.ImageURLs) > 0 {
-			resolved, err := c.ResolveLocalImages(req.ImageURLs)
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve image URLs: %v", err)), nil
-			}
-			req.ImageURLs = resolved
+		switch p {
+		case provider.OpenRouter:
+			return handleMCPOpenRouterImage(c, req, cfg.Output)
+		default:
+			return handleMCPAPIMartImage(c, req, cfg.Output)
 		}
-		if req.MaskURL != "" {
-			resolved, err := c.ResolveLocalImages([]string{req.MaskURL})
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve mask URL: %v", err)), nil
-			}
-			req.MaskURL = resolved[0]
-		}
-
-		// Submit
-		resp, err := c.Submit(req)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Submission failed: %v", err)), nil
-		}
-		if len(resp.Data) == 0 {
-			return mcp.NewToolResultError("Submission returned no tasks"), nil
-		}
-
-		taskInfo := resp.Data[0]
-
-		// Poll until complete
-		taskData, err := c.PollTask(taskInfo.TaskID)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Task polling failed: %v", err)), nil
-		}
-
-		// Download images to output directory
-		var savedFiles []string
-		if taskData.Result != nil && len(taskData.Result.Images) > 0 {
-			for i, img := range taskData.Result.Images {
-				for j, url := range img.URL {
-					ext := filepath.Ext(url)
-					if ext == "" {
-						ext = ".png"
-					}
-					filename := filepath.Join(cfg.Output, fmt.Sprintf("apimart_%s_%d_%d%s", taskData.ID, i, j, ext))
-					if err := downloadFile(url, filename); err != nil {
-						continue
-					}
-					savedFiles = append(savedFiles, filename)
-				}
-			}
-		}
-
-		// Build result text
-		lines := []string{
-			fmt.Sprintf("Task ID: %s", taskData.ID),
-			fmt.Sprintf("Status: completed"),
-			fmt.Sprintf("Time: %ds | Cost: $%.5f (%.4f credits)", taskData.ActualTime, taskData.Cost, taskData.CreditsCost),
-		}
-		if len(savedFiles) > 0 {
-			lines = append(lines, "")
-			lines = append(lines, "已保存的图片:")
-			for _, f := range savedFiles {
-				lines = append(lines, fmt.Sprintf("  %s", f))
-			}
-		}
-
-		return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
 	}
 }
 
+// handleMCPOpenRouterImage generates an image via OpenRouter's dedicated image API.
+func handleMCPOpenRouterImage(c *client.Client, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
+	resp, err := c.OpenRouterDedicatedImage(req)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("OpenRouter image generation failed: %v", err)), nil
+	}
+
+	var savedFiles []string
+	for i, img := range resp.Data {
+		if img.B64JSON == "" {
+			continue
+		}
+		raw, decErr := base64.StdEncoding.DecodeString(img.B64JSON)
+		if decErr != nil {
+			continue
+		}
+		ts := time.Now().Unix()
+		ext := ".png"
+		filename := filepath.Join(outputDir, fmt.Sprintf("image_%d_%d%s", ts, i, ext))
+		if err := os.WriteFile(filename, raw, 0644); err != nil {
+			continue
+		}
+		savedFiles = append(savedFiles, filename)
+	}
+
+	lines := []string{fmt.Sprintf("Created: %d", resp.Created)}
+	if len(savedFiles) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, "已保存的图片:")
+		for _, f := range savedFiles {
+			lines = append(lines, fmt.Sprintf("  %s", f))
+		}
+	}
+	if resp.Usage != nil && resp.Usage.Cost > 0 {
+		lines = append(lines, fmt.Sprintf("Cost: $%.5f", resp.Usage.Cost))
+	}
+	return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
+}
+
+// handleMCPAPIMartImage generates an image via APIMart async task API.
+func handleMCPAPIMartImage(c *client.Client, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
+	// Resolve local images if any
+	if len(req.ImageURLs) > 0 {
+		resolved, err := c.ResolveLocalImages(req.ImageURLs)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve image URLs: %v", err)), nil
+		}
+		req.ImageURLs = resolved
+	}
+	if req.MaskURL != "" {
+		resolved, err := c.ResolveLocalImages([]string{req.MaskURL})
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve mask URL: %v", err)), nil
+		}
+		req.MaskURL = resolved[0]
+	}
+
+	resp, err := c.Submit(req)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Submission failed: %v", err)), nil
+	}
+	if len(resp.Data) == 0 {
+		return mcp.NewToolResultError("Submission returned no tasks"), nil
+	}
+
+	taskInfo := resp.Data[0]
+	taskData, err := c.PollTask(taskInfo.TaskID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Task polling failed: %v", err)), nil
+	}
+
+	var savedFiles []string
+	if taskData.Result != nil && len(taskData.Result.Images) > 0 {
+		for i, img := range taskData.Result.Images {
+			for j, url := range img.URL {
+				ext := filepath.Ext(url)
+				if ext == "" {
+					ext = ".png"
+				}
+				filename := filepath.Join(outputDir, fmt.Sprintf("apimart_%s_%d_%d%s", taskData.ID, i, j, ext))
+				if err := downloadFile(url, filename); err != nil {
+					continue
+				}
+				savedFiles = append(savedFiles, filename)
+			}
+		}
+	}
+
+	lines := []string{
+		fmt.Sprintf("Task ID: %s", taskData.ID),
+		fmt.Sprintf("Status: completed"),
+		fmt.Sprintf("Time: %ds | Cost: $%.5f (%.4f credits)", taskData.ActualTime, taskData.Cost, taskData.CreditsCost),
+	}
+	if len(savedFiles) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, "已保存的图片:")
+		for _, f := range savedFiles {
+			lines = append(lines, fmt.Sprintf("  %s", f))
+		}
+	}
+
+	return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
+}
+
 // generateVideoHandler creates the handler for generate_video, capturing the config.
-// Video generation is async - returns task_id immediately for polling via get_task.
+// Video generation is async—returns a task/job ID for polling.
 func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if cfg.APIKey == "" {
-			return mcp.NewToolResultError("API Key not configured. Set APIMART_API_KEY env or configure ~/.config/apimart/config.yaml"), nil
+			return mcp.NewToolResultError("API Key not configured"), nil
 		}
 
 		prompt, err := request.RequireString("prompt")
@@ -194,30 +241,69 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		c := client.New(cfg.APIKey, cfg.BaseURL, cfg.Proxy)
+		p := provider.Detect(cfg.BaseURL)
 
-		// Resolve local images
-		if len(req.ImageURLs) > 0 {
-			resolved, err := c.ResolveLocalImages(req.ImageURLs)
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve image URLs: %v", err)), nil
-			}
-			req.ImageURLs = resolved
+		switch p {
+		case provider.OpenRouter:
+			return handleMCPOpenRouterVideo(c, req)
+		default:
+			return handleMCPAPIMartVideo(c, req)
 		}
-
-		// Submit
-		resp, err := c.VideoSubmit(req)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Video submission failed: %v", err)), nil
-		}
-		if len(resp.Data) == 0 {
-			return mcp.NewToolResultError("Submission returned no tasks"), nil
-		}
-
-		taskInfo := resp.Data[0]
-
-		text := fmt.Sprintf("视频任务已提交。\n\nTask ID: %s\nStatus: %s\n\n视频生成耗时较长（通常 30-180 秒），请使用 get_task 工具传入此 task_id 查询生成结果。", taskInfo.TaskID, taskInfo.Status)
-		return mcp.NewToolResultText(text), nil
 	}
+}
+
+// handleMCPOpenRouterVideo submits a video job via OpenRouter and saves the job info.
+func handleMCPOpenRouterVideo(c *client.Client, req *types.VideoGenerateRequest) (*mcp.CallToolResult, error) {
+	orReq := &types.OpenRouterVideoRequest{
+		Model:         req.Model,
+		Prompt:        req.Prompt,
+		AspectRatio:   req.Size,
+		Resolution:    req.Resolution,
+		Duration:      req.Duration,
+		Seed:          req.Seed,
+		GenerateAudio: req.GenerateAudio,
+	}
+	for _, u := range req.ImageURLs {
+		orReq.FrameImages = append(orReq.FrameImages, types.OpenRouterFrameImage{
+			Type: "image_url", FrameType: "first_frame",
+			ImageURL: struct {
+				URL string `json:"url"`
+			}{URL: u},
+		})
+	}
+
+	submitResp, err := c.OpenRouterVideoSubmit(orReq)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("OpenRouter video submission failed: %v", err)), nil
+	}
+
+	text := fmt.Sprintf("视频任务已提交。\n\nJob ID: %s\nStatus: %s\n\n视频生成耗时较长（30秒-几分钟），稍后可使用 get_task 工具传入 Job ID 查询结果。\npolling_url: %s",
+		submitResp.ID, submitResp.Status, submitResp.PollingURL)
+	return mcp.NewToolResultText(text), nil
+}
+
+// handleMCPAPIMartVideo submits a video job via APIMart async task API.
+func handleMCPAPIMartVideo(c *client.Client, req *types.VideoGenerateRequest) (*mcp.CallToolResult, error) {
+	// Resolve local images
+	if len(req.ImageURLs) > 0 {
+		resolved, err := c.ResolveLocalImages(req.ImageURLs)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve image URLs: %v", err)), nil
+		}
+		req.ImageURLs = resolved
+	}
+
+	resp, err := c.VideoSubmit(req)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Video submission failed: %v", err)), nil
+	}
+	if len(resp.Data) == 0 {
+		return mcp.NewToolResultError("Submission returned no tasks"), nil
+	}
+
+	taskInfo := resp.Data[0]
+	text := fmt.Sprintf("视频任务已提交。\n\nTask ID: %s\nStatus: %s\n\n视频生成耗时较长（通常 30-180 秒），请使用 get_task 工具传入此 task_id 查询生成结果。", taskInfo.TaskID, taskInfo.Status)
+	return mcp.NewToolResultText(text), nil
 }
 
 // httpGetBytes performs a simple GET request and returns the body bytes.
