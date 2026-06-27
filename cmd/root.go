@@ -5,11 +5,13 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/martianzhang/apimart-cli/internal/config"
 	"github.com/martianzhang/apimart-cli/internal/types"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 )
 
@@ -46,7 +48,7 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// --print-config: dump effective config with diagnostics
 		if printConfig {
-			runPrintConfig()
+			runPrintConfig(cmd)
 			os.Exit(0)
 		}
 
@@ -79,7 +81,7 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 }
 
 // runPrintConfig prints the effective configuration with inline annotations.
-func runPrintConfig() {
+func runPrintConfig(cmd *cobra.Command) {
 	cfg, cfgErr := config.Load(cfgFile)
 	configFound := cfgErr == nil
 
@@ -107,6 +109,9 @@ func runPrintConfig() {
 		displayCfg.Defaults = &types.ConfigDefaults{}
 	}
 
+	// Apply CLI flag overrides to config defaults — shows effective configuration
+	overrides := applyCLIOverrides(cmd, displayCfg.Defaults)
+
 	// Build annotations
 	var configNote, baseURLNote, apiKeyNote, proxyNote string
 
@@ -114,9 +119,7 @@ func runPrintConfig() {
 	if cfgFile != "" {
 		configNote = fmt.Sprintf("# config: %s (explicit)", cfgFile)
 	} else if configFound {
-		// Try to find the actual config file path
 		if cfg != nil {
-			// cfg doesn't store the path; reconstruct from defaults
 			home, _ := os.UserHomeDir()
 			candidates := []string{
 				filepath.Join(home, ".config", "openai", "config.yaml"),
@@ -142,9 +145,7 @@ func runPrintConfig() {
 	} else {
 		switch {
 		case strings.HasPrefix(effectiveKey, "sk-or-"):
-			apiKeyNote = "" // normal, no annotation needed
 		case strings.HasPrefix(effectiveKey, "sk-") && len(effectiveKey) > 20:
-			apiKeyNote = "" // normal
 		default:
 			apiKeyNote = "# api_key: unknown format"
 		}
@@ -174,10 +175,21 @@ func runPrintConfig() {
 	b, _ := yaml.Marshal(displayCfg)
 	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
 
-	// Print YAML with inline annotations where applicable
+	// Print YAML with inline annotations
+	defaultsSection := ""
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
+		indent := len(line) - len(strings.TrimLeft(line, " "))
 		key := strings.SplitN(trimmed, ":", 2)[0]
+
+		// Track YAML section context for nested override annotations
+		if trimmed == "defaults:" {
+			defaultsSection = "root"
+		} else if defaultsSection != "" && indent == 4 && strings.HasSuffix(trimmed, ":") {
+			defaultsSection = strings.TrimSuffix(trimmed, ":")
+		} else if indent < 4 {
+			defaultsSection = ""
+		}
 
 		var annotation string
 		switch key {
@@ -185,6 +197,13 @@ func runPrintConfig() {
 			annotation = baseURLNote
 		case "api_key":
 			annotation = apiKeyNote
+		default:
+			// Generic override annotation for any defaults field
+			if defaultsSection != "" {
+				if note, ok := overrides[defaultsSection+"."+key]; ok {
+					annotation = note
+				}
+			}
 		}
 		if annotation != "" {
 			fmt.Printf("%s  # %s\n", line, annotation)
@@ -200,6 +219,155 @@ func runPrintConfig() {
 		}
 	}
 	fmt.Println()
+}
+
+// applyCLIOverrides reflects config defaults yaml tags to auto-discover CLI flag
+// mappings, so adding a new field to any *Defaults struct is automatically picked up.
+func applyCLIOverrides(cmd *cobra.Command, defaults *types.ConfigDefaults) map[string]string {
+	overrides := make(map[string]string)
+	if defaults == nil {
+		return overrides
+	}
+
+	// Ensure all default sections are initialized
+	if defaults.Image == nil {
+		defaults.Image = &types.ImageDefaults{}
+	}
+	if defaults.Video == nil {
+		defaults.Video = &types.VideoDefaults{}
+	}
+	if defaults.Midjourney == nil {
+		defaults.Midjourney = &types.MidjourneyDefaults{}
+	}
+	if defaults.Chat == nil {
+		defaults.Chat = &types.ChatDefaults{}
+	}
+
+	sub := cmd.Name()
+	parent := ""
+	if cmd.Parent() != nil {
+		parent = cmd.Parent().Name()
+	}
+	isMJ := parent == "midjourney" || parent == "mj" ||
+		sub == "midjourney" || sub == "mj"
+	fs := cmd.Flags()
+	inh := cmd.InheritedFlags()
+
+	switch {
+	case sub == "image":
+		overrideStruct(fs, inh, defaults.Image, "image", overrides)
+	case sub == "video" && !isMJ:
+		overrideStruct(fs, inh, defaults.Video, "video", overrides)
+	case sub == "chat":
+		overrideStruct(fs, inh, defaults.Chat, "chat", overrides)
+	case isMJ:
+		overrideStruct(fs, inh, defaults.Midjourney, "midjourney", overrides)
+	default:
+		// Root command: apply --model to all applicable sections
+		for _, s := range []struct {
+			ptr interface{}
+			key string
+		}{
+			{defaults.Image, "image"},
+			{defaults.Video, "video"},
+			{defaults.Chat, "chat"},
+		} {
+			overrideStruct(fs, inh, s.ptr, s.key, overrides)
+		}
+	}
+
+	return overrides
+}
+
+// overrideStruct uses reflection + yaml tags to auto-discover which CLI flags
+// map to struct fields, then overrides matching fields when the flag was set.
+//
+// Convention: yaml tag "foo_bar"  →  flag name "foo-bar".
+// Known mismatches (flag ≠ yaml) are handled via manualAliases.
+func overrideStruct(fs, inherited *pflag.FlagSet, structPtr interface{}, section string, overrides map[string]string) {
+	v := reflect.ValueOf(structPtr).Elem()
+	t := v.Type()
+
+	// Build flag-name → field-index map from yaml tags
+	fieldIdx := make(map[string]int)
+	yamlNameOf := make(map[int]string)
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		tag := f.Tag.Get("yaml")
+		if tag == "" || tag == "-" {
+			continue
+		}
+		yamlName := strings.Split(tag, ",")[0]
+		flagName := strings.ReplaceAll(yamlName, "_", "-")
+		fieldIdx[flagName] = i
+		yamlNameOf[i] = yamlName
+	}
+
+	// Manual aliases for known flag-name ↔ yaml-field mismatches
+	manualAliases := map[string]string{
+		"image-url": "image-urls", // flag is singular, yaml is plural
+	}
+	for alias, target := range manualAliases {
+		if idx, ok := fieldIdx[target]; ok {
+			fieldIdx[alias] = idx
+		}
+	}
+
+	// Determine the best FlagSet for each flag name
+	chooseFS := func(name string) *pflag.FlagSet {
+		if fs != nil && fs.Changed(name) {
+			return fs
+		}
+		if inherited != nil && inherited.Changed(name) {
+			return inherited
+		}
+		return nil
+	}
+
+	for flagName, idx := range fieldIdx {
+		source := chooseFS(flagName)
+		if source == nil {
+			continue
+		}
+
+		field := v.Field(idx)
+		if !field.IsValid() || !field.CanSet() {
+			continue
+		}
+
+		origStr := fmt.Sprintf("%v", field.Interface())
+
+		switch field.Kind() {
+		case reflect.String:
+			if val, err := source.GetString(flagName); err == nil && val != "" && val != origStr {
+				field.SetString(val)
+			}
+		case reflect.Ptr:
+			switch field.Type().Elem().Kind() {
+			case reflect.Int:
+				if val, err := source.GetInt(flagName); err == nil {
+					ptr := reflect.New(field.Type().Elem())
+					ptr.Elem().SetInt(int64(val))
+					field.Set(ptr)
+				}
+			}
+		case reflect.Slice:
+			if field.Type().Elem().Kind() == reflect.String {
+				if val, err := source.GetStringArray(flagName); err == nil && len(val) > 0 {
+					field.Set(reflect.ValueOf(val))
+				}
+			}
+		}
+
+		newStr := fmt.Sprintf("%v", field.Interface())
+		if origStr == newStr {
+			continue
+		}
+		if origStr != "" && origStr != "<nil>" && origStr != "[]" {
+			key := section + "." + yamlNameOf[idx]
+			overrides[key] = fmt.Sprintf("--%s overrides config (orig: %s)", flagName, origStr)
+		}
+	}
 }
 
 // configDisplay wraps types.Config to inline fields for clean YAML output.
