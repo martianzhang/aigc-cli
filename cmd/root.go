@@ -108,6 +108,9 @@ func runPrintConfig(cmd *cobra.Command) {
 	if displayCfg.Defaults == nil {
 		displayCfg.Defaults = &types.ConfigDefaults{}
 	}
+	if displayCfg.Defaults.Image == nil {
+		displayCfg.Defaults.Image = &types.ImageDefaults{}
+	}
 
 	// Apply CLI flag overrides to config defaults — shows effective configuration
 	overrides := applyCLIOverrides(cmd, displayCfg.Defaults)
