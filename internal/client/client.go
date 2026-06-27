@@ -47,8 +47,6 @@ type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
-	referer    string // OpenRouter: HTTP-Referer header
-	title      string // OpenRouter: X-OpenRouter-Title header
 }
 
 // New creates a new API client.
@@ -85,9 +83,6 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
 		apiKey:  apiKey,
-		// Read OpenRouter headers from env (optional)
-		referer: os.Getenv("OPENAI_REFERER"),
-		title:   os.Getenv("OPENAI_APP_TITLE"),
 		httpClient: &http.Client{
 			Transport: transport,
 			Timeout:   defaultHTTPTimeout,
@@ -674,12 +669,13 @@ func (c *Client) GetModelOpenAI(modelID string) (*OpenAIModel, error) {
 // --- Helpers ---
 
 // setOpenRouterHeaders adds optional OpenRouter-specific headers.
+// Reads environment variables directly to avoid storing provider-specific state.
 func (c *Client) setOpenRouterHeaders(req *http.Request) {
-	if c.referer != "" {
-		req.Header.Set(headerReferer, c.referer)
+	if ref := os.Getenv("OPENAI_REFERER"); ref != "" {
+		req.Header.Set(headerReferer, ref)
 	}
-	if c.title != "" {
-		req.Header.Set(headerTitle, c.title)
+	if title := os.Getenv("OPENAI_APP_TITLE"); title != "" {
+		req.Header.Set(headerTitle, title)
 	}
 }
 
