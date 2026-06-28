@@ -213,3 +213,26 @@ apimart-cli image --prompt "..." \
 - 任务完成时会自动下载结果
 
 **建议**：如果频繁超时，优先考虑增加 `--timeout`；需要可恢复能力则使用 APIMart 异步模式。
+
+## 已知问题
+
+### `grok-imagine` 模型 `--output-format base64` 返回异常
+
+APIMart 上的 grok 模型在 `--output-format base64` 时会返回两个 URL：
+
+```
+URL[0]: "data:image/png;base64"        ← 空的数据 URI 前缀（无实际数据）
+URL[1]: "/9j/4QhoRXhpZgA..."           ← 实际的图片 base64 数据
+```
+
+CLI 目前会把这个情况当成两个独立链接处理，可能都下载失败。如果遇到这种情况：
+
+```bash
+# 1. 找到目录下生成的 .txt 文件
+ls -la *.txt
+
+# 2. 第二个 .txt 就是完整的图片 base64，直接解码
+base64 -d image_task_xxx_0_1.txt > output.png
+```
+
+推荐使用默认的 `--output-format url` 避免此问题。

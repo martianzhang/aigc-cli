@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -278,16 +276,10 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest)
 	for i, img := range orResp.Data {
 		// Save base64 image
 		if img.B64JSON != "" {
-			raw, err := base64.StdEncoding.DecodeString(img.B64JSON)
+			prefix := fmt.Sprintf("image_%d", time.Now().Unix())
+			filename, err := service.SaveBase64Image(shared.OutputDir, prefix, img.B64JSON, i)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to decode image %d: %v\n", i, err)
-				continue
-			}
-			ext := ".png"
-			ts := time.Now().Unix()
-			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("image_%d_%d%s", ts, i, ext))
-			if err := os.WriteFile(filename, raw, 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
+				fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, err)
 				continue
 			}
 			fmt.Printf("Image %d saved: %s\n", i+1, filename)
@@ -362,19 +354,10 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 	for i, img := range syncResp.Data {
 		// Save base64 image data
 		if img.B64JSON != "" {
-			raw, err := base64.StdEncoding.DecodeString(img.B64JSON)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to decode image %d: %v\n", i, err)
-				continue
-			}
-			ext := "." + req.OutputFormat
-			if ext == "." {
-				ext = ".png"
-			}
 			taskID := fmt.Sprintf("sync_%d", syncResp.Created)
-			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("image_%s_%d%s", taskID, i, ext))
-			if err := os.WriteFile(filename, raw, 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
+			filename, err := service.SaveBase64Image(shared.OutputDir, taskID, img.B64JSON, i)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, err)
 				continue
 			}
 			fmt.Printf("Image %d: %s\n", i+1, filename)
@@ -704,9 +687,11 @@ func isFile(path string) bool {
 func downloadImages(images []types.ImageResult, taskID string) error {
 	for i, img := range images {
 		for j, url := range img.URL {
-			resp, err := httpGet(url)
+			data, err := service.FetchImage(url)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d-%d: %v\n", i, j, err)
+				// Save raw data as text file for manual recovery
+				prefix := fmt.Sprintf("image_%s_%d_%d", taskID, i, j)
+				service.SaveBase64Fallback(shared.OutputDir, prefix, url, 0)
 				continue
 			}
 
@@ -715,7 +700,7 @@ func downloadImages(images []types.ImageResult, taskID string) error {
 				ext = ".png"
 			}
 			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("image_%s_%d_%d%s", taskID, i, j, ext))
-			if err := os.WriteFile(filename, resp, 0644); err != nil {
+			if err := os.WriteFile(filename, data, 0644); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
 				continue
 			}
@@ -733,12 +718,7 @@ func savePromptFile(taskID, prompt string) {
 	service.SavePrompt(shared.OutputDir, taskID, prompt)
 }
 
-// httpGet performs a simple GET request and returns the body bytes.
-func httpGet(url string) ([]byte, error) {
-	resp, err := http.DefaultClient.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+// httpGet performs an HTTP GET or resolves a data URI / base64 string.
+func httpGet(rawURL string) ([]byte, error) {
+	return service.FetchImage(rawURL)
 }

@@ -370,6 +370,9 @@ func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
 			if isTTY {
 				fmt.Println()
 			}
+			if task.Error != nil && task.Error.Message != "" {
+				return nil, fmt.Errorf("task %s failed: %s", taskID, task.Error.Message)
+			}
 			return nil, fmt.Errorf("task %s failed", taskID)
 		default:
 			// in_progress / submitted / processing — keep polling
