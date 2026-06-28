@@ -152,7 +152,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 // imageStrategy defines a dispatch rule for image generation.
 type imageStrategy struct {
 	match func(*types.GenerateRequest) bool
-	run   func(*client.Client, *types.GenerateRequest) error
+	run   func(client.APIClient, *types.GenerateRequest) error
 }
 
 // imageStrategies is the ordered dispatch table for image generation.
@@ -188,7 +188,7 @@ var imageStrategies = []imageStrategy{
 
 // runOpenRouterImage handles image generation via OpenRouter's Responses API.
 // Uses POST /v1/responses with image output modalities.
-func runOpenRouterImage(c *client.Client, req *types.GenerateRequest) error {
+func runOpenRouterImage(c client.APIClient, req *types.GenerateRequest) error {
 	// Build Responses API request from the standard GenerateRequest
 	orReq := &types.OpenRouterImageRequest{
 		Model:      req.Model,
@@ -251,7 +251,7 @@ func runOpenRouterImage(c *client.Client, req *types.GenerateRequest) error {
 // dedicated Image API (POST /v1/images). Used for GPT Image, DALL-E, and
 // most dedicated image models on OpenRouter. Returns standard OpenAI-compatible
 // response with b64_json images.
-func runOpenRouterDedicatedImage(c *client.Client, req *types.GenerateRequest) error {
+func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest) error {
 	orResp, err := c.OpenRouterDedicatedImage(req)
 	if err != nil {
 		return fmt.Errorf("OpenRouter image generation failed: %w", err)
@@ -336,7 +336,7 @@ func runOpenRouterDedicatedImage(c *client.Client, req *types.GenerateRequest) e
 }
 
 // runSyncImage handles OpenAI/OpenRouter-compatible synchronous image generation.
-func runSyncImage(c *client.Client, req *types.GenerateRequest) error {
+func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 	syncResp, err := c.ImageGenerateSync(req)
 	if err != nil {
 		return fmt.Errorf("image generation failed: %w", err)
@@ -424,7 +424,7 @@ func runSyncImage(c *client.Client, req *types.GenerateRequest) error {
 }
 
 // runAsyncImage handles APIMart-compatible asynchronous (task-based) image generation.
-func runAsyncImage(c *client.Client, req *types.GenerateRequest) error {
+func runAsyncImage(c client.APIClient, req *types.GenerateRequest) error {
 	resp, err := c.Submit(req)
 	if err != nil {
 		return fmt.Errorf("submission failed: %w", err)
@@ -641,7 +641,7 @@ func parseJSONInput() (*types.GenerateRequest, error) {
 
 // applyTimeout sets the HTTP client timeout from CLI flag / config, falling back to modDefault.
 // Priority: --timeout flag > defaults.{mod}.timeout > timeout > modDefault.
-func applyTimeout(c *client.Client, modKey string, modDefault time.Duration) {
+func applyTimeout(c client.APIClient, modKey string, modDefault time.Duration) {
 	d := modDefault
 	// 1. CLI --timeout flag (global override)
 	if timeoutFlag > 0 {

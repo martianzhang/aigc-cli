@@ -190,7 +190,7 @@ func getTaskHandler(cfg *Config) server.ToolHandlerFunc {
 	}
 }
 
-func handleMCPGetOpenRouterJob(c *client.Client, jobID, outputDir string) (*mcp.CallToolResult, error) {
+func handleMCPGetOpenRouterJob(c client.APIClient, jobID, outputDir string) (*mcp.CallToolResult, error) {
 	statusResp, err := c.OpenRouterVideoGet(jobID)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to query job: %v", err)), nil
@@ -231,7 +231,7 @@ func handleMCPGetOpenRouterJob(c *client.Client, jobID, outputDir string) (*mcp.
 	return mcp.NewToolResultText(b.String()), nil
 }
 
-func handleMCPGetAPIMartTask(c *client.Client, taskID, outputDir string) (*mcp.CallToolResult, error) {
+func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp.CallToolResult, error) {
 	task, err := c.GetTask(taskID)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to query task: %v", err)), nil

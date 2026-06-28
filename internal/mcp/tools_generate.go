@@ -91,7 +91,7 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 }
 
 // handleMCPOpenRouterImage generates an image via OpenRouter's dedicated image API.
-func handleMCPOpenRouterImage(c *client.Client, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
+func handleMCPOpenRouterImage(c client.APIClient, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
 	resp, err := c.OpenRouterDedicatedImage(req)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("OpenRouter image generation failed: %v", err)), nil
@@ -130,7 +130,7 @@ func handleMCPOpenRouterImage(c *client.Client, req *types.GenerateRequest, outp
 }
 
 // handleMCPAPIMartImage generates an image via APIMart async task API.
-func handleMCPAPIMartImage(c *client.Client, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
+func handleMCPAPIMartImage(c client.APIClient, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
 	// Resolve local images if any
 	if len(req.ImageURLs) > 0 {
 		resolved, err := c.ResolveLocalImages(req.ImageURLs)
@@ -253,7 +253,7 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 }
 
 // handleMCPOpenRouterVideo submits a video job via OpenRouter and saves the job info.
-func handleMCPOpenRouterVideo(c *client.Client, req *types.VideoGenerateRequest) (*mcp.CallToolResult, error) {
+func handleMCPOpenRouterVideo(c client.APIClient, req *types.VideoGenerateRequest) (*mcp.CallToolResult, error) {
 	orReq := &types.OpenRouterVideoRequest{
 		Model:         req.Model,
 		Prompt:        req.Prompt,
@@ -283,7 +283,7 @@ func handleMCPOpenRouterVideo(c *client.Client, req *types.VideoGenerateRequest)
 }
 
 // handleMCPAPIMartVideo submits a video job via APIMart async task API.
-func handleMCPAPIMartVideo(c *client.Client, req *types.VideoGenerateRequest) (*mcp.CallToolResult, error) {
+func handleMCPAPIMartVideo(c client.APIClient, req *types.VideoGenerateRequest) (*mcp.CallToolResult, error) {
 	// Resolve local images
 	if len(req.ImageURLs) > 0 {
 		resolved, err := c.ResolveLocalImages(req.ImageURLs)

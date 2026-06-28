@@ -107,38 +107,10 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 
 // Submit sends a generation request and returns the task submission response.
 func (c *Client) Submit(req *types.GenerateRequest) (*types.GenerateResponse, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+imageSubmitPath, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
 	var result types.GenerateResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	if err := c.doJSON(http.MethodPost, imageSubmitPath, req, &result); err != nil {
+		return nil, err
 	}
-
 	return &result, nil
 }
 
@@ -262,35 +234,9 @@ func handleSSE(resp *http.Response) (*types.ChatResponse, error) {
 
 // VideoSubmit sends a video generation request and returns the task submission.
 func (c *Client) VideoSubmit(req *types.VideoGenerateRequest) (*types.VideoGenerateResponse, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+videoSubmitPath, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
 	var result types.VideoGenerateResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	if err := c.doJSON(http.MethodPost, videoSubmitPath, req, &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }
@@ -349,66 +295,20 @@ func (c *Client) YunwuVideoSubmit(req *types.VideoGenerateRequest) (*types.Yunwu
 
 // YunwuVideoQuery polls yunwu.ai's video task status via GET /v1/video/query?id={id}.
 func (c *Client) YunwuVideoQuery(taskID string) (*types.YunwuVideoQueryResponse, error) {
-	url := c.baseURL + yunwuVideoQryPath + "?id=" + url.QueryEscape(taskID)
-	httpReq, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create query request: %w", err)
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("yunwu video query failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read query response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("yunwu video query returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
+	path := yunwuVideoQryPath + "?id=" + url.QueryEscape(taskID)
 	var result types.YunwuVideoQueryResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse query response: %w", err)
+	if err := c.doGet(path, &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }
 
 // VideoRemixSubmit sends a VEO3 remix request to POST /v1/videos/{task_id}/remix.
 func (c *Client) VideoRemixSubmit(taskID string, req *types.VideoRemixRequest) (*types.VideoRemixResponse, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
 	path := fmt.Sprintf("/videos/%s/remix", taskID)
-	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+path, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
 	var result types.VideoRemixResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	if err := c.doJSON(http.MethodPost, path, req, &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }
@@ -495,8 +395,9 @@ func progressBar(pct, width int) string {
 
 // GetTask retrieves a single task by ID.
 func (c *Client) GetTask(taskID string) (*types.TaskData, error) {
-	url := c.baseURL + fmt.Sprintf(taskPath, taskID)
-	httpReq, err := http.NewRequest(http.MethodGet, url, nil)
+	path := fmt.Sprintf(taskPath, taskID)
+
+	httpReq, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -612,30 +513,10 @@ func (c *Client) GetUserBalance() (*types.UserBalanceResponse, error) {
 }
 
 // getBalance is a generic helper for balance endpoints.
-func getBalance[T any](c *Client, url string) (*T, error) {
-	httpReq, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
+func getBalance[T any](c *Client, path string) (*T, error) {
 	var result T
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	if err := c.doGet(path, &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }
@@ -657,108 +538,34 @@ func (c *Client) IsOpenRouterProvider() bool {
 // ImageGenerateSync sends a synchronous image generation request compatible with
 // OpenAI and OpenRouter. Returns the response with image URLs directly.
 func (c *Client) ImageGenerateSync(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+imageSubmitPath, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-	c.setOpenRouterHeaders(httpReq)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
 	var result types.OpenAIImageResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	if err := c.doJSON(http.MethodPost, imageSubmitPath, req, &result); err != nil {
+		return nil, err
 	}
-
 	return &result, nil
 }
 
+// --- Balance ---
+
 // --- Models (OpenAI-compatible) ---
 
-// OpenAIModel is a single model from GET /v1/models.
-type OpenAIModel struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created"`
-	OwnedBy string `json:"owned_by"`
-}
-
 // ListModelsOpenAI fetches the model list from OpenAI-compatible /v1/models endpoint.
-func (c *Client) ListModelsOpenAI() ([]OpenAIModel, error) {
-	httpReq, err := http.NewRequest(http.MethodGet, c.baseURL+modelsPath, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
+func (c *Client) ListModelsOpenAI() ([]types.OpenAIModel, error) {
 	var result struct {
-		Data []OpenAIModel `json:"data"`
+		Data []types.OpenAIModel `json:"data"`
 	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	if err := c.doGet(modelsPath, &result); err != nil {
+		return nil, err
 	}
 	return result.Data, nil
 }
 
 // GetModelOpenAI fetches a single model by ID from the OpenAI-compatible /v1/models/{model} endpoint.
-func (c *Client) GetModelOpenAI(modelID string) (*OpenAIModel, error) {
-	httpReq, err := http.NewRequest(http.MethodGet, c.baseURL+modelsPath+"/"+modelID, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result OpenAIModel
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+func (c *Client) GetModelOpenAI(modelID string) (*types.OpenAIModel, error) {
+	path := modelsPath + "/" + modelID
+	var result types.OpenAIModel
+	if err := c.doGet(path, &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }
@@ -802,4 +609,95 @@ func isLocalFile(path string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+// --- HTTP helpers ---
+
+// doJSON sends a JSON request and unmarshals the response into result.
+// If body is nil, sends a request with no body.
+func (c *Client) doJSON(method, path string, body, result interface{}) error {
+	return c.doJSONWithHeaders(method, path, body, result, nil)
+}
+
+// doJSONWithHeaders is like doJSON but with additional HTTP headers.
+func (c *Client) doJSONWithHeaders(method, path string, body, result interface{}, extraHeaders map[string]string) error {
+	var bodyReader io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("failed to marshal request: %w", err)
+		}
+		bodyReader = bytes.NewReader(data)
+	}
+
+	httpReq, err := http.NewRequest(method, c.baseURL+path, bodyReader)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	for k, v := range extraHeaders {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("API request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	if result != nil {
+		if err := json.Unmarshal(respBody, result); err != nil {
+			return fmt.Errorf("failed to parse response: %w", err)
+		}
+	}
+	return nil
+}
+
+// doGet sends a GET request and unmarshals the JSON response into result.
+func (c *Client) doGet(path string, result interface{}) error {
+	return c.doGetWithHeaders(path, result, nil)
+}
+
+// doGetWithHeaders is like doGet but with additional HTTP headers.
+func (c *Client) doGetWithHeaders(path string, result interface{}, extraHeaders map[string]string) error {
+	httpReq, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	for k, v := range extraHeaders {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	if result != nil {
+		if err := json.Unmarshal(respBody, result); err != nil {
+			return fmt.Errorf("failed to parse response: %w", err)
+		}
+	}
+	return nil
 }

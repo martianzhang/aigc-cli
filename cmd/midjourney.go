@@ -14,7 +14,7 @@ import (
 )
 
 // newMJClient creates a client with Midjourney's default timeout.
-func newMJClient() *client.Client {
+func newMJClient() client.APIClient {
 	c := client.New(apiKey, apiBase, httpProxy)
 	applyTimeout(c, "midjourney", client.MJTimeout)
 	return c
@@ -351,7 +351,7 @@ func buildMJCurl(action string, reqBody any) string {
 // ============================================================================
 
 // runMJSubmitAndPoll submits an MJ action, polls, and displays results.
-func runMJSubmitAndPoll(c *client.Client, action string, req any) error {
+func runMJSubmitAndPoll(c client.APIClient, action string, req any) error {
 	if mjDryRun {
 		fmt.Println(buildMJCurl(action, req))
 		return nil
