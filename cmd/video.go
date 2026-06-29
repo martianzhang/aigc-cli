@@ -37,6 +37,7 @@ var (
 	vidRaw             bool
 	vidTaskID          string
 	vidJobID           string // OpenRouter video job ID for resume
+	vidPreview         bool
 )
 
 // openRouterJobInfo is saved to disk so the user can resume a timed-out video job.
@@ -147,7 +148,16 @@ func runVideo(cmd *cobra.Command, args []string) error {
 	}
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {
-			return s.run(req)
+			err := s.run(req)
+			if err == nil && vidPreview {
+				previewSavedFiles = previewLatestFiles("video_")
+				for _, f := range previewSavedFiles {
+					if e := service.PreviewFile(f); e != nil {
+						fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
+					}
+				}
+			}
+			return err
 		}
 	}
 	return nil
@@ -770,6 +780,7 @@ func init() {
 	f.BoolVar(&vidRaw, "raw", false, "Remix: return only the extended portion (VEO3 remix only)")
 	f.StringVar(&vidTaskID, "task-id", "", "Original video task ID for remix (required with --remix)")
 	f.BoolVar(&vidDryRun, "dry-run", false, "Print request parameters without calling API")
+	f.BoolVar(&vidPreview, "preview", false, "Open generated video with system default player")
 	f.StringVar(&shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&vidJobID, "job-id", "", "Resume an OpenRouter video job by ID (loads saved job info and downloads the result)")
 

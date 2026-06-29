@@ -35,6 +35,7 @@ var (
 	genResponseFmt  string
 	genDryRun       bool
 	genEdit         bool // Grok Imagine 1.5 edit mode
+	genPreview      bool
 )
 
 // imageCmd represents the `apimart-cli image` command.
@@ -147,7 +148,16 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	}
 	for _, s := range imageStrategies {
 		if s.match(req, ictx) {
-			return s.run(c, req)
+			err := s.run(c, req)
+			if err == nil && genPreview {
+				previewSavedFiles = previewLatestFiles("image_")
+				for _, f := range previewSavedFiles {
+					if e := service.PreviewFile(f); e != nil {
+						fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
+					}
+				}
+			}
+			return err
 		}
 	}
 	return nil
@@ -576,6 +586,7 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVar(&genResponseFmt, "response-format", "", "Response format: url, b64_json (OpenAI/OpenRouter)")
 	f.BoolVar(&genDryRun, "dry-run", false, "Print request parameters without calling API")
 	f.BoolVar(&genEdit, "edit", false, "Grok Imagine 1.5 Edit mode (requires --image-url)")
+	f.BoolVar(&genPreview, "preview", false, "Open generated image with system default viewer")
 	f.StringVar(&shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&shared.Mode, "mode", "", "Generation mode: auto (detect), sync, async (default: auto)")
 	f.BoolVar(&shared.SavePrompt, "save-prompt", false, "save prompt to .md file alongside results")

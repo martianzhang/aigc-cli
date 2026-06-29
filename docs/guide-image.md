@@ -46,6 +46,7 @@ apimart-cli image < prompt.txt
 | `--verbose` | `-v` | 显示请求 JSON 和完整响应（全局 flag） | 通用 |
 | `--mode` | | 强制指定模式：`auto`、`sync`、`async` | 通用 |
 | `--dry-run` | | 打印 curl 不调用 API | 通用 |
+| `--preview` | | 生成后自动用系统默认程序打开图片 | 通用 |
 
 ### 模式自动检测规则
 
