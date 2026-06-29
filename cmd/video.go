@@ -329,7 +329,7 @@ func runYunwuVideo(req *types.VideoGenerateRequest) error {
 	// Step 3: Download
 	fmt.Println()
 	ext := extractExt(videoURL)
-	filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_yunwu_%s_%d%s", taskID, time.Now().Unix(), ext))
+	filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_yunwu_%s%s", taskID, ext))
 	fmt.Printf("Downloading video...\n")
 	body, err := httpGet(videoURL)
 	if err != nil {
@@ -664,8 +664,7 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) error {
 
 	for i, u := range pollResp.UnsignedURLs {
 		ext := extractExt(u)
-		ts := time.Now().Unix()
-		filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_%s_%d_%d%s", submitResp.ID, i, ts, ext))
+		filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_%s_%d%s", submitResp.ID, i, ext))
 		fmt.Printf("Downloading video %d/%d...\n", i+1, len(pollResp.UnsignedURLs))
 		if err := c.OpenRouterVideoDownload(u, filename); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to download video %d: %v\n", i, err)
@@ -732,8 +731,7 @@ func runOpenRouterVideoResume(jobID string) error {
 
 	for i, u := range statusResp.UnsignedURLs {
 		ext := extractExt(u)
-		ts := time.Now().Unix()
-		filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_%s_%d_%d%s", info.JobID, i, ts, ext))
+		filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_%s_%d%s", info.JobID, i, ext))
 		fmt.Printf("Downloading video %d/%d...\n", i+1, len(statusResp.UnsignedURLs))
 		if err := c.OpenRouterVideoDownload(u, filename); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to download video %d: %v\n", i, err)

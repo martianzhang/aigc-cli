@@ -354,7 +354,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 	for i, img := range syncResp.Data {
 		// Save base64 image data
 		if img.B64JSON != "" {
-			taskID := fmt.Sprintf("sync_%d", syncResp.Created)
+			taskID := fmt.Sprintf("image_sync_%d", syncResp.Created)
 			filename, err := service.SaveBase64Image(shared.OutputDir, taskID, img.B64JSON, i)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, err)
