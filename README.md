@@ -79,6 +79,7 @@ apimart-cli
 ├── midjourney Midjourney 生成/编辑    →  docs/guide-midjourney.md
 │   └── mj     别名，同上
 ├── chat       AI 对话               →  docs/guide-chat.md
+├── ideas      提示词灵感搜索          →  docs/guide-ideas.md
 ├── models     模型列表（APIMart 市场 / OpenRouter 发现 / OpenAI 兼容）
 ├── task       查询任务状态（APIMart）
 ├── balance    查询余额（APIMart）
@@ -94,6 +95,7 @@ apimart-cli
 | [视频生成](docs/guide-video.md) | 全部参数、首尾帧、参考视频（APIMart） |
 | [Midjourney 生成](docs/guide-midjourney.md) | 17 个子命令完整说明：imagine、blend、upscale 等 |
 | [AI 对话](docs/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
+| [提示词灵感](docs/guide-ideas.md) | 从 Image2Studio 搜索 AI 图片提示词灵感 |
 | [其他命令](docs/guide-commands.md) | models、task、balance、dry-run、API 参考 |
 | [API 参考来源](docs/api-reference.md) | 各 Provider 接口规范来源、检测机制、策略路由 |
 | [常见问题](docs/faq.md) | 安装、使用、MCP、费用等常见问题解答 |

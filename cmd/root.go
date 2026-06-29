@@ -63,7 +63,8 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 				shared.TimeoutFlag = *cfg.Timeout
 			}
 		}
-		if shared.APIKey == "" {
+		// Only require API key for commands that need it
+		if cmd.Name() != "ideas" && shared.APIKey == "" {
 			return fmt.Errorf("API key is required: set it via --api-key flag, OPENAI_API_KEY env, or config.yaml")
 		}
 		return nil

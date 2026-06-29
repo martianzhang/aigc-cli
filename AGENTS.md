@@ -80,6 +80,7 @@ make cover
 | `docs/guide-video.md` | 修改 `video` 命令参数或行为 |
 | `docs/guide-chat.md` | 修改 `chat` 命令参数或行为 |
 | `docs/guide-midjourney.md` | 修改 `midjourney` 命令参数或行为 |
+| `docs/guide-ideas.md` | 修改 `ideas` 命令参数或行为 |
 | `docs/guide-commands.md` | 修改 `models`/`task`/`balance`/`dry-run` 等辅助命令 |
 | `docs/faq.md` | 新增常见问题 |
 | `docs/mcp.md` | 修改 MCP 工具定义或配置方式 |
@@ -137,7 +138,7 @@ CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值
 ```
 
 type: `feat` / `fix` / `refactor` / `docs` / `test` / `chore` / `style`
-scope: `image` / `video` / `chat` / `midjourney` / `mcp` / `config` / `docs` / `skill`
+scope: `image` / `video` / `chat` / `ideas` / `midjourney` / `mcp` / `config` / `docs` / `skill`
 
 ---
 
@@ -146,6 +147,11 @@ scope: `image` / `video` / `chat` / `midjourney` / `mcp` / `config` / `docs` / `
 ```
 apimart-cli/
 ├── cmd/              # cobra 命令定义（薄层：解析参数→调用逻辑→输出结果）
+│   ├── image.go      # 图片生成
+│   ├── video.go      # 视频生成
+│   ├── chat.go       # AI 对话
+│   ├── ideas.go      # 提示词灵感搜索
+│   └── ...
 ├── internal/
 │   ├── client/       # HTTP API 客户端（APIMart / OpenAI / OpenRouter / 云雾）
 │   ├── config/       # Viper 配置加载（YAML + 环境变量）
