@@ -28,9 +28,18 @@ def log(msg):
 def download_nexra() -> list:
     log(f"Downloading NeXra data...")
     resp = urllib.request.urlopen(NEXRA_URL)
-    data = json.loads(resp.read().decode("utf-8"))
+    raw = resp.read().decode("utf-8")
+    data = json.loads(raw)
     log(f"  {len(data)} entries")
+    # Save raw copy to downloads/ for inspection
+    os.makedirs("downloads", exist_ok=True)
+    with open("downloads/prompts.json", "w", encoding="utf-8") as f:
+        f.write(raw)
+    log(f"  Saved raw copy to downloads/prompts.json")
+    return convert_nexra(data)
 
+
+def convert_nexra(data: list) -> list:
     result = []
     for r in data:
         if r.get("lang") not in KEEP_LANGS:
@@ -170,6 +179,12 @@ def main():
     nexra = []
     if not skip_download:
         nexra = download_nexra()
+    elif os.path.exists("downloads/prompts.json"):
+        log("Reading local downloads/prompts.json ...")
+        with open("downloads/prompts.json", encoding="utf-8") as f:
+            nexra_raw = json.load(f)
+        nexra = convert_nexra(nexra_raw)
+        log(f"  {len(nexra)} entries from local copy")
     else:
         log("Skipping NeXra download")
 

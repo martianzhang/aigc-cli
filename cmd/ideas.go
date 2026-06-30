@@ -50,6 +50,7 @@ var (
 	ideasJSON       bool
 	ideasSaveImages bool
 	ideasPreview    bool
+	ideasFindImage  string
 )
 
 const ideasDefaultLimit = 8
@@ -81,8 +82,8 @@ func runIdeas(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if keywords == "" {
-		return fmt.Errorf("keywords are required: pass as argument or pipe to stdin")
+	if keywords == "" && ideasFindImage == "" {
+		return fmt.Errorf("keywords or --find-image are required")
 	}
 
 	// Load ideas.json
@@ -91,8 +92,14 @@ func runIdeas(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load ideas.json: %w\n  Generate it with: make ideas-data", err)
 	}
 
-	// Search and sort by relevance
-	results := searchIdeas(entries, keywords)
+	// Search
+	var results []searchResult
+	if ideasFindImage != "" {
+		results = searchByImage(entries, ideasFindImage)
+		keywords = "图片: " + ideasFindImage
+	} else {
+		results = searchIdeas(entries, keywords)
+	}
 	if len(results) == 0 {
 		fmt.Println("没有找到匹配的提示词。")
 		return nil
@@ -178,6 +185,33 @@ func searchIdeas(entries []IdeaEntry, query string) []searchResult {
 		}
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].score > results[j].score })
+	return results
+}
+
+// searchByImage finds entries whose image_urls contain the given filename.
+func searchByImage(entries []IdeaEntry, filename string) []searchResult {
+	fn := strings.ToLower(filename)
+	seen := make(map[string]bool)
+	var results []searchResult
+	for _, e := range entries {
+		for _, url := range e.ImageURLs {
+			if strings.Contains(strings.ToLower(url), fn) {
+				// Dedup by image URL; fallback to source_url or title+prompt
+				key := url
+				if key == "" {
+					key = e.SourceURL
+				}
+				if key == "" {
+					key = e.Title + "|" + e.Prompt
+				}
+				if !seen[key] {
+					seen[key] = true
+					results = append(results, searchResult{entry: e, score: 1})
+				}
+				break
+			}
+		}
+	}
 	return results
 }
 
@@ -340,6 +374,7 @@ func init() {
 	f.BoolVar(&ideasJSON, "json", false, "Output as JSON instead of markdown")
 	f.BoolVar(&ideasSaveImages, "save", false, "Download reference images to local directory")
 	f.BoolVar(&ideasPreview, "preview", false, "Open saved images with system default viewer (implies --save)")
+	f.StringVar(&ideasFindImage, "find-image", "", "Search by image filename (matches image_urls in dataset)")
 
 	rootCmd.AddCommand(ideasCmd)
 }

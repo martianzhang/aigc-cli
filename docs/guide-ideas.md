@@ -99,9 +99,13 @@ apimart-cli ideas "cat" --save --output ./my-ideas
 | `电商` | 中文电商场景 |
 | `水墨` | 中国风 |
 
-## 注意事项
+## 数据来源与版权
 
-- 无需 API Key，无需联网
-- 运行前先执行 `make ideas-data` 生成 `ideas.json`
-- 数据来自 [NeXra-AI/awesome-ai-image-prompts](https://github.com/NeXra-AI/awesome-ai-image-prompts)，Apache 2.0 协议
-- 参考图版权归原作者所有，仅作灵感参考
+本工具的提示词数据来源于开源社区的贡献，衷心感谢以下项目：
+
+- **[NeXra-AI/awesome-ai-image-prompts](https://github.com/NeXra-AI/awesome-ai-image-prompts)** — 955 条精选提示词，Apache 2.0 协议
+- **[YouMind](https://youmind.com)** — 11,000+ 提示词灵感
+
+提示词原文和参考图片版权归原作者所有，本工具仅作灵感参考和学习用途。
+
+**如果您是原作者，不希望您的作品出现在本数据集中**，请提交 [issue](https://github.com/martianzhang/apimart-cli/issues) 或联系项目维护者，我们会在收到通知后尽快移除相关内容。
