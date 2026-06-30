@@ -9,8 +9,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -93,8 +95,11 @@ func runIdeas(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load ideas.json: %w\n  Generate it with: make ideas-data", err)
 	}
 
-	// Build BM25 index
-	idx := buildBM25Index(entries)
+	// Build BM25 index only when we need to search (not for pure --random)
+	var idx *bm25Index
+	if keywords != "" {
+		idx = buildBM25Index(entries)
+	}
 
 	// Search
 	var results []searchResult
@@ -196,47 +201,95 @@ const (
 	rrfK   = 30.0 // RRF fusion constant
 )
 
-// bm25Index holds precomputed corpus statistics for BM25 scoring.
+// bm25Index holds precomputed corpus statistics and pre-tokenized data.
 type bm25Index struct {
 	avgDocLen float64
 	docCount  int
-	docLens   []int
 	idf       map[string]float64
-	entries   []IdeaEntry // reference to source entries, not a copy
+	entries   []IdeaEntry
+
+	// Pre-tokenized/cached to avoid re-scanning on every query
+	docTokens [][]string       // tokens per doc, for BM25 scoring
+	docSet    []map[string]int // token→count per doc, for AND filtering + TF
+	docTexts  []string         // pre-computed searchableText, for n-gram
 }
 
-// buildBM25Index walks all entries and computes corpus-level statistics.
+// buildBM25Index walks all entries, tokenizes once (in parallel), and pre-computes everything.
 func buildBM25Index(entries []IdeaEntry) *bm25Index {
+	n := len(entries)
 	idx := &bm25Index{
-		docCount: len(entries),
-		docLens:  make([]int, len(entries)),
-		idf:      make(map[string]float64),
-		entries:  entries,
+		docCount:  n,
+		idf:       make(map[string]float64),
+		entries:   entries,
+		docTokens: make([][]string, n),
+		docSet:    make([]map[string]int, n),
+		docTexts:  make([]string, n),
 	}
 
+	// Pre-compute searchable text (lightweight, serial)
+	for i, e := range entries {
+		idx.docTexts[i] = searchableText(e)
+	}
+
+	// Parallel tokenization
+	numWorkers := runtime.NumCPU()
+	type workerResult struct {
+		totalTokens int
+		docFreq     map[string]int
+	}
+
+	work := make(chan int, n)
+	var wg sync.WaitGroup
+	results := make([]workerResult, numWorkers)
+
+	for w := 0; w < numWorkers; w++ {
+		wg.Add(1)
+		wr := &results[w]
+		wr.docFreq = make(map[string]int)
+
+		go func() {
+			defer wg.Done()
+			for i := range work {
+				terms := tokenize(idx.docTexts[i])
+				idx.docTokens[i] = terms
+				wr.totalTokens += len(terms)
+
+				tf := make(map[string]int, len(terms)/2)
+				seen := make(map[string]bool, len(terms)/2)
+				for _, t := range terms {
+					tf[t]++
+					if !seen[t] {
+						wr.docFreq[t]++
+						seen[t] = true
+					}
+				}
+				idx.docSet[i] = tf
+			}
+		}()
+	}
+
+	for i := 0; i < n; i++ {
+		work <- i
+	}
+	close(work)
+	wg.Wait()
+
+	// Merge per-worker results
 	totalTokens := 0
 	docFreq := make(map[string]int)
-
-	for i, e := range entries {
-		terms := tokenize(searchableText(e))
-		idx.docLens[i] = len(terms)
-		totalTokens += len(terms)
-
-		seen := make(map[string]bool)
-		for _, t := range terms {
-			if !seen[t] {
-				docFreq[t]++
-				seen[t] = true
-			}
+	for w := 0; w < numWorkers; w++ {
+		wr := results[w]
+		totalTokens += wr.totalTokens
+		for term, df := range wr.docFreq {
+			docFreq[term] += df
 		}
 	}
-	idx.avgDocLen = float64(totalTokens) / float64(max(idx.docCount, 1))
+	idx.avgDocLen = float64(totalTokens) / float64(max(n, 1))
 
-	// IDF = log(1 + (N - df + 0.5) / (df + 0.5))
 	for term, df := range docFreq {
-		n := float64(idx.docCount)
-		d := float64(df)
-		idx.idf[term] = math.Log(1 + (n-d+0.5)/(d+0.5))
+		fd := float64(df)
+		fn := float64(n)
+		idx.idf[term] = math.Log(1 + (fn-fd+0.5)/(fd+0.5))
 	}
 
 	return idx
@@ -244,14 +297,8 @@ func buildBM25Index(entries []IdeaEntry) *bm25Index {
 
 // bm25Score returns the BM25 score for a single entry given query terms.
 func (idx *bm25Index) bm25Score(entryIdx int, queryTerms []string) float64 {
-	text := searchableText(idx.entries[entryIdx])
-	terms := tokenize(text)
-	tf := make(map[string]int)
-	for _, t := range terms {
-		tf[t]++
-	}
-
-	docLen := float64(idx.docLens[entryIdx])
+	tf := idx.docSet[entryIdx]
+	docLen := float64(len(idx.docTokens[entryIdx]))
 	var score float64
 
 	for _, qt := range queryTerms {
@@ -299,24 +346,58 @@ func searchableText(e IdeaEntry) string {
 	return e.Title + " " + e.TitleZh + " " + e.Prompt + " " + e.PromptZh
 }
 
-// tokenize splits text into lowercase tokens of Unicode letters/digits.
+// tokenize splits text into lowercase tokens.
+// ASCII sequences get fast-path single tokens (min 2 chars).
+// CJK sequences are split into overlapping 2-grams.
 func tokenize(text string) []string {
 	var tokens []string
 	var buf []rune
-	for _, r := range strings.ToLower(text) {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+	for _, r := range text {
+		// ASCII letter/digit → fast path, no unicode table lookup
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
 			buf = append(buf, r)
-		} else if len(buf) > 0 {
-			if len(buf) >= 2 {
-				tokens = append(tokens, string(buf))
+		} else if r >= 'A' && r <= 'Z' {
+			buf = append(buf, r+32) // inline lowercase
+		} else if r < 0x80 {
+			if len(buf) > 0 {
+				tokens = append(tokens, splitTokens(buf)...)
+				buf = buf[:0]
 			}
+		} else if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			buf = append(buf, unicode.ToLower(r))
+		} else if len(buf) > 0 {
+			tokens = append(tokens, splitTokens(buf)...)
 			buf = buf[:0]
 		}
 	}
-	if len(buf) >= 2 {
-		tokens = append(tokens, string(buf))
+	if len(buf) > 0 {
+		tokens = append(tokens, splitTokens(buf)...)
 	}
 	return tokens
+}
+
+// splitTokens converts a rune buffer into one or more tokens.
+// CJK-only buffers longer than 2 are split into overlapping 2-grams.
+func splitTokens(buf []rune) []string {
+	if len(buf) < 2 {
+		return nil
+	}
+	allCJK := true
+	for _, r := range buf {
+		if !unicode.Is(unicode.Han, r) && !unicode.Is(unicode.Hiragana, r) &&
+			!unicode.Is(unicode.Katakana, r) && !unicode.Is(unicode.Hangul, r) {
+			allCJK = false
+			break
+		}
+	}
+	if allCJK && len(buf) > 2 {
+		grams := make([]string, 0, len(buf)-1)
+		for i := 0; i < len(buf)-1; i++ {
+			grams = append(grams, string(buf[i:i+2]))
+		}
+		return grams
+	}
+	return []string{string(buf)}
 }
 
 // containsWord checks if term appears as a whole word in text.
@@ -351,16 +432,10 @@ func isWordChar(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 }
 
-// withinText returns the combined searchable text for AND/word-boundary checks.
-func withinText(e IdeaEntry) string {
-	return e.Title + " " + e.TitleZh + " " + e.Prompt + " " + e.PromptZh
-}
-
-// andFilter returns true if all query terms appear as whole words in the entry.
-func andFilter(e IdeaEntry, terms []string) bool {
-	text := withinText(e)
+// andFilter returns true if all query terms exist in the pre-tokenized doc set.
+func andFilter(docSet map[string]int, terms []string) bool {
 	for _, t := range terms {
-		if !containsWord(text, t) {
+		if _, ok := docSet[t]; !ok {
 			return false
 		}
 	}
@@ -375,7 +450,7 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResu
 		return nil
 	}
 
-	// Phase 1: AND filter + BM25 scoring
+	// Phase 1: AND filter (via pre-tokenized set) + BM25 scoring
 	type scored struct {
 		entryIdx int
 		bm25     float64
@@ -383,18 +458,22 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResu
 	var candidates []scored
 
 	for i := range entries {
-		if !andFilter(entries[i], queryTerms) {
+		if !andFilter(idx.docSet[i], queryTerms) {
 			continue
 		}
 		s := idx.bm25Score(i, queryTerms)
-		// Title boost: multiply BM25 by 2 if any term matches in the title
-		title := strings.ToLower(entries[i].Title + " " + entries[i].TitleZh)
+		// Title boost: multiply BM25 by 2 if any query term appears in the title
+		titleBoost := false
 		for _, t := range queryTerms {
-			if containsWord(title, t) {
-				s *= 2
+			if containsWord(entries[i].Title+" "+entries[i].TitleZh, t) {
+				titleBoost = true
 				break
 			}
 		}
+		if titleBoost {
+			s *= 2
+		}
+
 		candidates = append(candidates, scored{entryIdx: i, bm25: s})
 	}
 
@@ -402,7 +481,7 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResu
 		return nil
 	}
 
-	// Phase 2: n-gram cosine similarity for the same candidates
+	// Phase 2: n-gram cosine similarity (uses pre-computed docTexts)
 	queryNgrams := ngramSet(query, 3)
 	type ngramScored struct {
 		entryIdx int
@@ -410,8 +489,7 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResu
 	}
 	var ngramCandidates []ngramScored
 	for _, c := range candidates {
-		text := searchableText(entries[c.entryIdx])
-		docNgrams := ngramSet(text, 3)
+		docNgrams := ngramSet(idx.docTexts[c.entryIdx], 3)
 		cos := cosineSimilarity(queryNgrams, docNgrams)
 		ngramCandidates = append(ngramCandidates, ngramScored{entryIdx: c.entryIdx, cosine: cos})
 	}

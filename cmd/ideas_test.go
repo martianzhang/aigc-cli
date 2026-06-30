@@ -75,22 +75,23 @@ func TestContainsWord_caseInsensitive(t *testing.T) {
 // --- andFilter ---
 
 func TestAndFilter_allMatch(t *testing.T) {
-	e := IdeaEntry{Title: "Cat Portrait", Prompt: "A photo of a cat"}
-	if !andFilter(e, []string{"cat", "portrait"}) {
+	// Simulate pre-tokenized docSet
+	docSet := map[string]int{"cat": 1, "portrait": 2, "photo": 1}
+	if !andFilter(docSet, []string{"cat", "portrait"}) {
 		t.Error("andFilter() = false, want true")
 	}
 }
 
 func TestAndFilter_partialMatch(t *testing.T) {
-	e := IdeaEntry{Title: "Cat", Prompt: "A photo"}
-	if andFilter(e, []string{"cat", "portrait"}) {
+	docSet := map[string]int{"cat": 1, "photo": 1}
+	if andFilter(docSet, []string{"cat", "portrait"}) {
 		t.Error("andFilter() = true, want false")
 	}
 }
 
 func TestAndFilter_zhMatch(t *testing.T) {
-	e := IdeaEntry{TitleZh: "电影感肖像", PromptZh: "一张照片"}
-	if !andFilter(e, []string{"电影"}) {
+	docSet := map[string]int{"电影": 1, "照片": 1}
+	if !andFilter(docSet, []string{"电影"}) {
 		t.Error("andFilter() should match zh text")
 	}
 }
