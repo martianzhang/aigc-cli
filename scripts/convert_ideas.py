@@ -1,20 +1,39 @@
 #!/usr/bin/env python3
-"""Build ideas.json from multiple sources.
+"""Build ideas.json from local source files.
+
+Required source files (in downloads/):
+
+  prompts.json (NeXra Awesome AI Image Prompts, GET)
+      curl -sL 'https://github.com/NeXra-AI/awesome-ai-image-prompts/raw/refs/heads/main/data/prompts.json' \
+        -o downloads/prompts.json
+
+  gpt-image-2-{date}.csv (Youmind model prompts, POST — -d implies POST)
+      curl -s 'https://youmind.com/youmarketing-api/prompts-download?model=gpt-image-2' \
+        -b downloads/youmind.com_cookies.txt \
+        -H 'content-type: application/json' \
+        -d '{"model":"gpt-image-2"}' \
+        -o downloads/gpt-image-2-$(date +%Y%m%d).csv
+
+  nano-banana-pro-{date}.csv (POST)
+      curl -s 'https://youmind.com/youmarketing-api/prompts-download?model=nano-banana-pro' \
+        -b downloads/youmind.com_cookies.txt \
+        -H 'content-type: application/json' \
+        -d '{"model":"nano-banana-pro"}' \
+        -o downloads/nano-banana-pro-$(date +%Y%m%d).csv
+
+Note: download-prompts.py in downloads/ automates all the above
+      (with proxy + cookie auth), but is NOT committed to git.
+      Set HTTP_PROXY env var or prepend --proxy to curl if needed.
 
 Usage:
-    python scripts/convert_ideas.py                          # download NeXra + use CSVs in downloads/
-    python scripts/convert_ideas.py --skip-download          # only CSVs, skip NeXra download
-
-Deduplication key: source_url (Twitter/X post URL).
+    python scripts/convert_ideas.py
 """
 
 import csv
 import json
 import os
-import sys
-import urllib.request
+from urllib.parse import urlparse
 
-NEXRA_URL = "https://github.com/NeXra-AI/awesome-ai-image-prompts/raw/refs/heads/main/data/prompts.json"
 NEXRA_IMAGE_PREFIX = "https://raw.githubusercontent.com/NeXra-AI/awesome-ai-image-prompts/refs/heads/main/"
 OUTPUT = "cmd/ideas.json"
 CSV_DIR = "downloads"
@@ -25,23 +44,19 @@ def log(msg):
     print(f"  {msg}")
 
 
-def download_nexra() -> list:
-    log(f"Downloading NeXra data...")
-    resp = urllib.request.urlopen(NEXRA_URL)
-    raw = resp.read().decode("utf-8")
-    data = json.loads(raw)
-    log(f"  {len(data)} entries")
-    # Save raw copy to downloads/ for inspection
-    os.makedirs("downloads", exist_ok=True)
-    with open("downloads/prompts.json", "w", encoding="utf-8") as f:
-        f.write(raw)
-    log(f"  Saved raw copy to downloads/prompts.json")
-    return convert_nexra(data)
+def read_nexra() -> list:
+    """Read and convert the local downloads/prompts.json (already downloaded)."""
+    path = os.path.join(CSV_DIR, "prompts.json")
+    if not os.path.exists(path):
+        log(f"  (not found: {path})")
+        return []
 
+    with open(path, encoding="utf-8") as f:
+        raw = json.load(f)
+    log(f"  NeXra: {len(raw)} entries")
 
-def convert_nexra(data: list) -> list:
     result = []
-    for r in data:
+    for r in raw:
         if r.get("lang") not in KEEP_LANGS:
             continue
         entry = {
@@ -84,18 +99,15 @@ def read_csvs() -> list:
                 if not content:
                     continue
 
-                # Detect language
                 has_zh = any("\u4e00" <= c <= "\u9fff" for c in content)
                 lang = "zh" if has_zh else "en"
 
-                # Parse author
                 author = ""
                 try:
                     author = json.loads(r.get("author", "{}")).get("name", "")
                 except json.JSONDecodeError:
                     author = r.get("author", "")
 
-                # Parse image URLs
                 images = []
                 try:
                     images = json.loads(r.get("sourceMedia", "[]"))
@@ -118,19 +130,45 @@ def read_csvs() -> list:
 
 
 def merge(existing: list, *sources: list) -> list:
-    seen = set()
+    seen_urls = set()
+    seen_images = set()
+    seen_content = set()
     merged = []
 
-    def dedup_key(entry: dict) -> str:
-        """Use source_url as the primary unique identifier."""
+    def is_dup(entry: dict) -> bool:
+        keys = []
+
         url = entry.get("source_url", "")
         if url:
-            return url
-        # Fallback for entries without a URL: use full prompt as key
-        return entry.get("title", "") + "|" + entry.get("prompt", "")
+            keys.append(("url", url))
+
+        imgs = entry.get("image_urls", [])
+        if imgs:
+            for u in imgs:
+                keys.append(("img", os.path.basename(urlparse(u).path)))
+
+        if not keys:
+            keys.append(("content", entry.get("title", "") + "|" + entry.get("prompt", "")))
+
+        for kind, value in keys:
+            if kind == "url" and value in seen_urls:
+                return True
+            if kind == "img" and value in seen_images:
+                return True
+            if kind == "content" and value in seen_content:
+                return True
+
+        for kind, value in keys:
+            if kind == "url":
+                seen_urls.add(value)
+            elif kind == "img":
+                seen_images.add(value)
+            elif kind == "content":
+                seen_content.add(value)
+
+        return False
 
     def sort_key(entry: dict) -> tuple:
-        """Fully deterministic sort key for stable git diffs."""
         url = entry.get("source_url", "") or ""
         return (
             url,
@@ -139,61 +177,43 @@ def merge(existing: list, *sources: list) -> list:
             entry.get("prompt", "")[:100],
         )
 
-    for entry in existing:
-        key = dedup_key(entry)
-        if key in seen:
-            continue
-        seen.add(key)
-        merged.append(entry)
-
-    for source in sources:
+    for source in [existing] + list(sources):
         for entry in source:
-            key = dedup_key(entry)
-            if key in seen:
+            if is_dup(entry):
                 continue
-            seen.add(key)
             merged.append(entry)
 
-    # Fully deterministic sort for stable git diffs
     merged.sort(key=sort_key)
     return merged
 
 
-def main():
-    skip_download = "--skip-download" in sys.argv
-    force_update = "--update" in sys.argv
+def has_source_data() -> bool:
+    """Return True if any source file exists (prompts.json or CSVs)."""
+    prompts = os.path.join(CSV_DIR, "prompts.json")
+    if os.path.exists(prompts):
+        return True
+    if not os.path.isdir(CSV_DIR):
+        return False
+    return any(f.endswith(".csv") for f in os.listdir(CSV_DIR))
 
-    # If file exists and not --update, skip entirely
-    if os.path.exists(OUTPUT) and not force_update:
-        log(f"{OUTPUT} exists, skipping (use --update to force rebuild)")
+
+def main():
+    if not has_source_data():
+        log(f"No source files found in {CSV_DIR}/ (prompts.json or *.csv)")
         return
 
-    # Load existing (if any)
+    # Load existing entries if any
     existing = []
     if os.path.exists(OUTPUT):
         with open(OUTPUT, encoding="utf-8") as f:
             existing = json.load(f)
         log(f"Existing: {len(existing)} entries")
 
-    # NeXra source
-    nexra = []
-    if not skip_download:
-        nexra = download_nexra()
-    elif os.path.exists("downloads/prompts.json"):
-        log("Reading local downloads/prompts.json ...")
-        with open("downloads/prompts.json", encoding="utf-8") as f:
-            nexra_raw = json.load(f)
-        nexra = convert_nexra(nexra_raw)
-        log(f"  {len(nexra)} entries from local copy")
-    else:
-        log("Skipping NeXra download")
-
-    # CSV sources
+    nexra = read_nexra()
     csvs = read_csvs()
 
-    # Merge
     merged = merge(existing, nexra, csvs)
-    log(f"Merged: {len(merged)} entries (from {len(existing)} existing + {len(nexra)} nexra + {len(csvs)} csv)")
+    log(f"Merged: {len(merged)} entries (existing {len(existing)} + nexra {len(nexra)} + csv {len(csvs)})")
 
     with open(OUTPUT, "w", encoding="utf-8") as f:
         json.dump(merged, f, ensure_ascii=False, indent=2)

@@ -11,9 +11,6 @@ ifeq ($(OS),Windows_NT)
 	OUTPUT := $(BINARY).exe
 endif
 
-IDEAS_JSON ?= cmd/ideas.json
-UPDATE ?= 0
-
 .PHONY: all build clean run lint vet test fmt cover release help ideas
 
 all: build
@@ -26,9 +23,9 @@ fmt:
 build: fmt ideas
 	$(GO) build $(GOFLAGS) -o $(OUTPUT) .
 
-## Ensure ideas.json exists (skip if already generated, make ideas UPDATE=1 to force)
+## Ensure ideas.json exists (script skips if already up-to-date)
 ideas:
-	@[ $(UPDATE) -eq 0 ] && [ -f $(IDEAS_JSON) ] && echo "$(IDEAS_JSON) exists, skipping" || (echo "=== Building ideas.json ===" && python scripts/convert_ideas.py $(if $(filter 1,$(UPDATE)),--update) || python3 scripts/convert_ideas.py $(if $(filter 1,$(UPDATE)),--update))
+	python scripts/convert_ideas.py || python3 scripts/convert_ideas.py
 
 ## Build and run with args (usage: make run ARGS="image --help")
 run:
