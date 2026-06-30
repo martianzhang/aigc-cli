@@ -84,7 +84,7 @@ make cover
 | `docs/guide-commands.md` | 修改 `models`/`task`/`balance`/`dry-run` 等辅助命令 |
 | `docs/faq.md` | 新增常见问题 |
 | `docs/mcp.md` | 修改 MCP 工具定义或配置方式 |
-| `config.example.yaml` | 新增/修改配置字段 |
+| `docs/config.example.yaml` | 新增/修改配置字段 |
 
 ### 3.2 注意事项
 
@@ -232,4 +232,5 @@ apimart-cli/
 | ❌ 功能变更不同步文档 | 文档不得滞后代码 |
 | ❌ 使用 `as any` / `@ts-ignore` | Go 没有，但任何时候不要抑制类型检查 |
 | ❌ 多余的空 `catch` 块 | Go 中没有 try-catch，但不要吞错误 |
+| ❌ 主动 commit | 除非用户明确要求 "commit"，否则不得提交代码。讨论阶段的修改先暂存，确认后再统一提交 |
 | ❌ 提交前不检查变更文件的 LSP 诊断 | 确保新增代码无警告 |

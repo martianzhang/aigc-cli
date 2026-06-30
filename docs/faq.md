@@ -28,7 +28,7 @@ go install github.com/martianzhang/apimart-cli@latest
 
 也可通过 `--config /path/to/config.yaml` 指定。
 
-完整示例见 [config.example.yaml](../config.example.yaml)。
+完整示例见 [config.example.yaml](config.example.yaml)。
 
 ## 使用问题
 

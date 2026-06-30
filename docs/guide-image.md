@@ -85,18 +85,38 @@ apimart-cli image --base-url "https://openrouter.ai/api/v1" \
 
 ## JSON 输入
 
-构建完整的请求 JSON 传入：
+直接传入完整请求 JSON，绕过 CLI 参数解析。适合底层调试、脚本化调用和 CI/CD，所有参数在一个文件里管理：
 
 ```bash
-# JSON 文件
+# 使用项目提供的示例文件
+apimart-cli image --json docs/example.json
+
+# 自定义 JSON 文件
 apimart-cli image --json request.json
 
-# JSON 字符串
+# JSON 字符串（适合调试/快速验证）
 apimart-cli image --json '{"prompt":"a red fox","n":4}'
 
 # 从 stdin
 cat request.json | apimart-cli image --json -
 ```
+
+项目根目录 `docs/example.json` 提供了完整示例：
+
+```json
+{
+  "model": "gpt-image-2-official",
+  "prompt": "A serene mountain lake at sunrise, photorealistic",
+  "size": "3:1",
+  "resolution": "1k",
+  "quality": "low",
+  "output_format": "jpeg",
+  "output_compression": 85,
+  "n": 1
+}
+```
+
+JSON 输入优先级高于 CLI 参数（参考[优先级规则](installation.md#优先级规则)），适合脚本化调用和 CI/CD 集成。
 
 ## 参考图生图（image-to-image，APIMart）
 

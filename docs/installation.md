@@ -82,7 +82,7 @@ defaults:
     # timeout: 600                 # HTTP 超时秒数（视频生成更慢）
 ```
 
-完整示例见 [config.example.yaml](../config.example.yaml)。
+完整示例见 [config.example.yaml](config.example.yaml)。
 
 ### 提示词文件
 
