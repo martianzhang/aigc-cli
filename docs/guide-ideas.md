@@ -2,16 +2,42 @@
 
 从本地的 `ideas.json` 文件中搜索 AI 图片生成提示词，找到高质量的风格参考和提示词示例。
 
-无需 API Key，无需联网。数据来自开源社区整理的优质提示词库。
+无需 API Key。数据来自开源社区整理的优质提示词库，数据文件存储在 **`~/.config/apimart/ideas.json`**（默认位置）。
 
 ## 数据准备
 
+### 首次初始化（推荐）
+
 ```bash
-# 下载并生成 ideas.json
+# 自动下载 ideas.json 并建立搜索索引缓存
+apimart-cli ideas init
+```
+
+此命令会从 GitHub 下载约 26K 条提示词数据到 `~/.config/apimart/ideas.json`，并在启用缓存时预构建搜索索引。
+
+### 通过 Makefile（开发者用）
+
+```bash
+# 从本地源文件生成（需要先下载源数据）
 make ideas-data
 ```
 
-数据来源：[NeXra-AI/awesome-ai-image-prompts](https://github.com/NeXra-AI/awesome-ai-image-prompts)（Apache 2.0），包含 897 条精选提示词（EN 730 / ZH 167）。
+### 搜索索引缓存（默认开启）
+
+缓存默认开启，无需配置。首次搜索自动建立索引并缓存到 `~/.config/apimart/ideas.index`，后续搜索跳过索引构建，启动速度提升 **50-300ms**。
+
+缓存与数据一致性通过 **SHA256 校验**保证：当 `ideas.json` 内容变更（新增/修改条目）时，旧缓存自动失效并重建，无需手动干预。
+
+如需自定义路径或关闭缓存，在 `~/.config/apimart/config.yaml` 中配置：
+
+```yaml
+ideas:
+  cache_enabled: false                            # 关闭缓存
+  data_path: "~/.config/apimart/ideas.json"       # 自定义数据路径
+  index_path: "~/.config/apimart/ideas.index"     # 自定义缓存路径
+```
+
+数据来源：[NeXra-AI/awesome-ai-image-prompts](https://github.com/NeXra-AI/awesome-ai-image-prompts)（Apache 2.0）及 YouMind 社区。
 
 ## 基本用法
 

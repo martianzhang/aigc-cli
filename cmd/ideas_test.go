@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
 // --- resolveIdeasKeywords ---
@@ -385,4 +388,154 @@ func TestDefaultConstants(t *testing.T) {
 	if ideasDefaultLimit != 8 {
 		t.Errorf("ideasDefaultLimit = %d, want 8", ideasDefaultLimit)
 	}
+}
+
+// --- cache tests ---
+
+func TestComputeHash_deterministic(t *testing.T) {
+	h1 := computeHash([]byte("hello"))
+	h2 := computeHash([]byte("hello"))
+	if len(h1) != 32 {
+		t.Errorf("hash length = %d, want 32", len(h1))
+	}
+	if !bytes.Equal(h1, h2) {
+		t.Error("computeHash not deterministic")
+	}
+}
+
+func TestComputeHash_different(t *testing.T) {
+	h1 := computeHash([]byte("hello"))
+	h2 := computeHash([]byte("world"))
+	if bytes.Equal(h1, h2) {
+		t.Error("different inputs should produce different hashes")
+	}
+}
+
+func TestSaveLoadCachedIndex_roundTrip(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a minimal config with cache enabled pointing to temp dir
+	cfg := &types.Config{
+		Ideas: &types.IdeasConfig{
+			DataPath:     filepath.Join(dir, "ideas.json"),
+			IndexPath:    filepath.Join(dir, "ideas.index"),
+			CacheEnabled: true,
+		},
+	}
+
+	// Build a real index from test entries
+	entries := []IdeaEntry{
+		{Title: "Test", Prompt: "a test prompt", Lang: "en"},
+		{Title: "Cat Photo", Prompt: "a cat photo", Lang: "en"},
+	}
+	idx := buildBM25Index(entries)
+
+	// Also save a fake ideas.json so the hash can be validated
+	jsonData, _ := json.Marshal(entries)
+	os.WriteFile(cfg.Ideas.DataPath, jsonData, 0644)
+
+	hash := computeHash(jsonData)
+
+	// Save
+	saveCachedIndex(cfg, idx, hash)
+
+	// Load
+	loaded := loadCachedIndex(cfg, hash)
+	if loaded == nil {
+		t.Fatal("loadCachedIndex returned nil after save")
+	}
+
+	// Verify fields
+	if loaded.avgDocLen != idx.avgDocLen {
+		t.Errorf("avgDocLen mismatch: %f vs %f", loaded.avgDocLen, idx.avgDocLen)
+	}
+	if loaded.docCount != idx.docCount {
+		t.Errorf("docCount mismatch: %d vs %d", loaded.docCount, idx.docCount)
+	}
+	if len(loaded.idf) != len(idx.idf) {
+		t.Errorf("idf size mismatch: %d vs %d", len(loaded.idf), len(idx.idf))
+	}
+	if len(loaded.docTokens) != len(idx.docTokens) {
+		t.Errorf("docTokens size mismatch: %d vs %d", len(loaded.docTokens), len(idx.docTokens))
+	}
+	if len(loaded.docSet) != len(idx.docSet) {
+		t.Errorf("docSet size mismatch: %d vs %d", len(loaded.docSet), len(idx.docSet))
+	}
+
+	// Verify search still works with loaded index
+	results := searchIdeas(entries, loaded, "cat")
+	if len(results) == 0 {
+		t.Error("searchIdeas with cached index returned no results")
+	}
+}
+
+func TestLoadCachedIndex_hashMismatch(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &types.Config{
+		Ideas: &types.IdeasConfig{
+			DataPath:     filepath.Join(dir, "ideas.json"),
+			IndexPath:    filepath.Join(dir, "ideas.index"),
+			CacheEnabled: true,
+		},
+	}
+
+	entries := []IdeaEntry{{Title: "Test", Prompt: "test"}}
+	idx := buildBM25Index(entries)
+	jsonData, _ := json.Marshal(entries)
+	os.WriteFile(cfg.Ideas.DataPath, jsonData, 0644)
+
+	// Save with one hash
+	originalHash := computeHash(jsonData)
+	saveCachedIndex(cfg, idx, originalHash)
+
+	// Make ideas.json content different (simulate data update)
+	newData := []byte(`[{"title":"Updated","prompt":"different data","lang":"en"}]`)
+	os.WriteFile(cfg.Ideas.DataPath, newData, 0644)
+	newHash := computeHash(newData)
+
+	// Load with new hash — should fail because old cache has originalHash
+	loaded := loadCachedIndex(cfg, newHash)
+	if loaded != nil {
+		t.Error("loadCachedIndex should return nil on hash mismatch")
+	}
+}
+
+func TestLoadCachedIndex_disabledCache(t *testing.T) {
+	cfg := &types.Config{
+		Ideas: &types.IdeasConfig{
+			CacheEnabled: false,
+		},
+	}
+	loaded := loadCachedIndex(cfg, []byte{1, 2, 3})
+	if loaded != nil {
+		t.Error("loadCachedIndex should return nil when cache disabled")
+	}
+}
+
+func TestLoadCachedIndex_noConfig(t *testing.T) {
+	loaded := loadCachedIndex(nil, []byte{1, 2, 3})
+	if loaded != nil {
+		t.Error("loadCachedIndex should return nil when config is nil")
+	}
+}
+
+func TestIdeasCache_pathResolution(t *testing.T) {
+	dir := t.TempDir()
+	fakePath := filepath.Join(dir, "ideas.json")
+
+	// Explicit config DataPath always returns the configured path (existence checked by caller)
+	cfg := &types.Config{
+		Ideas: &types.IdeasConfig{
+			DataPath:  fakePath,
+			IndexPath: filepath.Join(dir, "ideas.index"),
+		},
+	}
+	if p := resolveIdeasDataPath(cfg); p != fakePath {
+		t.Errorf("resolveIdeasDataPath with explicit config should return %q, got %q", fakePath, p)
+	}
+
+	// Without config, the function checks ~/.config/apimart/ideas.json.
+	// If that file happens to exist (user's real setup), it returns the path.
+	// We just verify the function doesn't panic with nil config.
+	_ = resolveIdeasDataPath(nil)
 }

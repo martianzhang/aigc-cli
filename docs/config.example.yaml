@@ -59,3 +59,11 @@ defaults:
 
   chat:
     model: "deepseek-v4-flash"
+
+# Ideas prompt search data and cache.
+# ideas.json and the search index cache are stored at ~/.config/apimart/ by default.
+# Cache is enabled by default. Uncomment to customize paths or disable caching:
+# ideas:
+#   data_path: "~/.config/apimart/ideas.json"   # custom ideas.json path
+#   index_path: "~/.config/apimart/ideas.index"  # custom index cache path
+#   cache_enabled: false                          # set false to disable caching
