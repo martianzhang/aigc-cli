@@ -378,6 +378,14 @@ type Config struct {
 	OutputDir  string          `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
 	Timeout    *int            `mapstructure:"timeout" yaml:"timeout,omitempty"`
 	Defaults   *ConfigDefaults `mapstructure:"defaults" yaml:"defaults,omitempty"`
+	Ideas      *IdeasConfig    `mapstructure:"ideas" yaml:"ideas,omitempty"`
+}
+
+// IdeasConfig controls the ideas prompt data and search index cache behavior.
+type IdeasConfig struct {
+	DataPath     string `mapstructure:"data_path" yaml:"data_path,omitempty"`
+	IndexPath    string `mapstructure:"index_path" yaml:"index_path,omitempty"`
+	CacheEnabled bool   `mapstructure:"cache_enabled" yaml:"cache_enabled"`
 }
 
 // ConfigDefaults holds modality-specific default values.

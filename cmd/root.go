@@ -45,6 +45,7 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 
 		// Load config (optional) to resolve defaults not set via flags
 		if cfg, err := config.Load(shared.CfgFile); err == nil {
+			shared.Cfg = cfg
 			if shared.APIKey == "" {
 				shared.APIKey = cfg.APIKey
 			}
@@ -67,7 +68,8 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 		// Configure global HTTP client with proxy for all requests
 		client.ConfigureDefaultClient(shared.HTTPProxy)
 		// Only require API key for commands that need it
-		if cmd.Name() != "ideas" && shared.APIKey == "" {
+		// Exclude "ideas" and its sub-commands (init downloads data without API key)
+		if !isIdeasSubCommand(cmd) && shared.APIKey == "" {
 			return fmt.Errorf("API key is required: set it via --api-key flag, OPENAI_API_KEY env, or config.yaml")
 		}
 		return nil
@@ -397,6 +399,17 @@ func Execute() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// isIdeasSubCommand returns true if cmd is "ideas" or any of its sub-commands.
+// Used to bypass API key checks for ideas and its children.
+func isIdeasSubCommand(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "ideas" {
+			return true
+		}
+	}
+	return false
 }
 
 func init() {
