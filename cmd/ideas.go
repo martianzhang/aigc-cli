@@ -73,7 +73,7 @@ Keywords can be passed as arguments or via stdin:
   echo "cyberpunk city" | apimart-cli ideas
   apimart-cli ideas --json "cat" | jq '.results[].prompt'
 
-Data file: ideas.json in the working directory (generate with "make ideas-data").`,
+Data file: ~/.config/apimart/ideas.json (run "apimart-cli ideas init" to download).`,
 	RunE: runIdeas,
 }
 
