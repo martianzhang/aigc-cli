@@ -35,7 +35,7 @@ import os
 from urllib.parse import urlparse
 
 NEXRA_IMAGE_PREFIX = "https://raw.githubusercontent.com/NeXra-AI/awesome-ai-image-prompts/refs/heads/main/"
-OUTPUT = "cmd/ideas.json"
+OUTPUT = "docs/ideas.json"
 CSV_DIR = "downloads"
 KEEP_LANGS = {"en", "zh"}
 

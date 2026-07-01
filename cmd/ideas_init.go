@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const ideasDataURL = "https://raw.githubusercontent.com/martianzhang/apimart-cli/refs/heads/main/cmd/ideas.json"
+const ideasDataURL = "https://raw.githubusercontent.com/martianzhang/apimart-cli/refs/heads/main/docs/ideas.json"
 
 // ideasInitCmd represents the `apimart-cli ideas init` subcommand.
 var ideasInitCmd = &cobra.Command{
@@ -42,7 +42,8 @@ func runIdeasInit(cmd *cobra.Command, args []string) error {
 
 	// Don't re-download if already exists
 	if _, err := os.Stat(targetPath); err == nil {
-		return fmt.Errorf("%s already exists.\n  To re-download the latest data, delete it first:\n    rm %s\n  Then run 'apimart-cli ideas init' again.", targetPath, targetPath)
+		fmt.Fprintf(os.Stderr, "%s already exists.\n  To re-download the latest data, delete it first:\n    rm %s\n  Then run 'apimart-cli ideas init' again.\n", targetPath, targetPath)
+		return fmt.Errorf("ideas data already exists")
 	}
 
 	// Download — uses http.DefaultClient which inherits proxy from ConfigureDefaultClient
@@ -59,7 +60,7 @@ func runIdeasInit(cmd *cobra.Command, args []string) error {
 
 	resp, err := client.Get(ideasDataURL)
 	if err != nil {
-		return fmt.Errorf("download failed: %w\n  Check your network connection and proxy settings.", err)
+		return fmt.Errorf("download failed: %w", err)
 	}
 	defer resp.Body.Close()
 
