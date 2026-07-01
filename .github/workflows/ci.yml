@@ -67,6 +67,16 @@ jobs:
           name="apimart-cli-$GOOS-$GOARCH$ext"
           go build -ldflags="-s -w" -o "$name" .
           echo "Built: $name"
+      - name: Prepare Release Notes
+        id: notes
+        run: |
+          tag="${{ github.ref_name }}"
+          notes_file="docs/release_notes/${tag}.md"
+          if [ -f "$notes_file" ]; then
+            echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
+          else
+            echo "notes_file=" >> "$GITHUB_OUTPUT"
+          fi
       - name: Upload to Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,5 +85,10 @@ jobs:
           [ "${{ matrix.goos }}" = "windows" ] && ext=".exe"
           name="apimart-cli-${{ matrix.goos }}-${{ matrix.goarch }}$ext"
           tag="${{ github.ref_name }}"
-          gh release upload "$tag" "$name" --clobber || \
-            gh release create "$tag" "$name" --title "$tag" --notes "自动构建" --generate-notes
+          notes_flag=""
+          if [ -n "${{ steps.notes.outputs.notes_file }}" ]; then
+            notes_flag="--notes-file ${{ steps.notes.outputs.notes_file }}"
+          fi
+          # Upload artifacts (first upload needs --create, subsequent --clobber)
+          gh release upload "$tag" "$name" --clobber 2>/dev/null || \
+            gh release create "$tag" $notes_flag "$name" --title "$tag" --generate-notes
