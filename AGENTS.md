@@ -85,6 +85,7 @@ make cover
 | `docs/faq.md` | 新增常见问题 |
 | `docs/mcp.md` | 修改 MCP 工具定义或配置方式 |
 | `docs/config.example.yaml` | 新增/修改配置字段 |
+| `docs/release_notes/vX.Y.Z.md` | 每次发版前创建 |
 
 ### 3.2 注意事项
 
@@ -159,6 +160,7 @@ apimart-cli/
 │   ├── provider/     # Provider 检测（APIMart / OpenAI / OpenRouter）
 │   └── types/        # 请求/响应数据结构和配置类型
 ├── docs/             # 用户文档
+│   ├── release_notes/ # 各版本 release notes
 ├── skills/           # AI Agent SKILL 定义
 ├── main.go           # 入口
 ├── Makefile          # 统一构建入口
@@ -222,7 +224,47 @@ apimart-cli/
 
 ---
 
-## 七、禁止行为
+## 七、Release 流程
+
+### 7.1 每次发版前
+
+打 tag 前**必须**在 `docs/release_notes/` 下创建对应版本的 release notes 文件：
+
+```
+docs/release_notes/vX.Y.Z.md
+```
+
+CI 脚本（`.github/workflows/ci.yml`）在 push tag 时会自动读取该文件作为 GitHub Release 的 notes 内容。如果文件不存在，会自动 fallback 到 `--generate-notes`。
+
+### 7.2 标准发版步骤
+
+```bash
+# 1. 编写 release notes
+echo "..." > docs/release_notes/v1.2.3.md
+
+# 2. 提交 release notes
+git add docs/release_notes/v1.2.3.md
+git commit -m "docs: add release notes for v1.2.3"
+
+# 3. 打 tag
+git tag v1.2.3
+
+# 4. 推送（CI 自动构建并发布）
+git push origin main --tags
+```
+
+### 7.3 已发布版本的 release notes 补录
+
+如果某个版本发布时没有 notes 文件（v0.5.0 之前），补写文件后可以用 `gh` 命令同步到 GitHub：
+
+```bash
+# 写好文件后，更新已有 release
+gh release edit v0.5.0 --notes-file docs/release_notes/v0.5.0.md
+```
+
+---
+
+## 八、禁止行为
 
 | 禁止事项 | 说明 |
 |---|---|
