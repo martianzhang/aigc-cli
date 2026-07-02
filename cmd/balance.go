@@ -41,45 +41,54 @@ var balanceUserCmd = &cobra.Command{
 	},
 }
 
-func runBalanceToken() error {
+// getBalanceText queries the balance and returns a human-readable summary.
+// Shared by CLI (balance command) and agent loop (chat) — single source of truth.
+func getBalanceText(scope string) (string, error) {
 	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	if scope == "user" {
+		bal, err := c.GetUserBalance()
+		if err != nil {
+			return "", fmt.Errorf("failed to query user balance: %w", err)
+		}
+		if !bal.Success {
+			return "", fmt.Errorf("API error: %s", bal.Message)
+		}
+		return fmt.Sprintf("User Balance:\n  Remain Balance: $%.4f\n  Remain Credits: %.4f\n  Used Balance: $%.4f\n  Used Credits: %.4f",
+			bal.RemainBalance, bal.RemainCredits, bal.UsedBalance, bal.UsedCredits), nil
+	}
+
 	bal, err := c.GetTokenBalance()
 	if err != nil {
-		return fmt.Errorf("failed to query token balance: %w", err)
+		return "", fmt.Errorf("failed to query token balance: %w", err)
 	}
-
 	if !bal.Success {
-		return fmt.Errorf("API error: %s", bal.Message)
+		return "", fmt.Errorf("API error: %s", bal.Message)
 	}
-
-	fmt.Println("Token Balance:")
+	msg := "Token Balance:\n"
 	if bal.UnlimitedQuota {
-		fmt.Println("  Status:         Unlimited Quota (no limit)")
+		msg += "  Status: Unlimited Quota (no limit)\n"
 	} else {
-		fmt.Printf("  Remain Balance: $%.4f\n", bal.RemainBalance)
-		fmt.Printf("  Remain Credits: %.4f\n", bal.RemainCredits)
+		msg += fmt.Sprintf("  Remain Balance: $%.4f\n  Remain Credits: %.4f\n", bal.RemainBalance, bal.RemainCredits)
 	}
-	fmt.Printf("  Used Balance:   $%.4f\n", bal.UsedBalance)
-	fmt.Printf("  Used Credits:   %.4f\n", bal.UsedCredits)
+	msg += fmt.Sprintf("  Used Balance: $%.4f\n  Used Credits: %.4f", bal.UsedBalance, bal.UsedCredits)
+	return msg, nil
+}
+
+func runBalanceToken() error {
+	text, err := getBalanceText("token")
+	if err != nil {
+		return err
+	}
+	fmt.Println(text)
 	return nil
 }
 
 func runBalanceUser() error {
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
-	bal, err := c.GetUserBalance()
+	text, err := getBalanceText("user")
 	if err != nil {
-		return fmt.Errorf("failed to query user balance: %w", err)
+		return err
 	}
-
-	if !bal.Success {
-		return fmt.Errorf("API error: %s", bal.Message)
-	}
-
-	fmt.Println("User Balance:")
-	fmt.Printf("  Remain Balance: $%.4f\n", bal.RemainBalance)
-	fmt.Printf("  Remain Credits: %.4f\n", bal.RemainCredits)
-	fmt.Printf("  Used Balance:   $%.4f\n", bal.UsedBalance)
-	fmt.Printf("  Used Credits:   %.4f\n", bal.UsedCredits)
+	fmt.Println(text)
 	return nil
 }
 

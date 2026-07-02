@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -51,6 +54,113 @@ var agentToolDefs = []types.ToolDefinition{
 					"resolution": {"type": "string", "description": "Video resolution", "enum": ["480p", "720p", "1080p"]}
 				},
 				"required": ["prompt"]
+			}`),
+		},
+	},
+	// --- Midjourney tools ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "midjourney_imagine",
+			Description: "Generate artistic images via Midjourney. Use for stylized, creative, or artistic image generation with fine-grained control over style and composition.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"prompt": {"type": "string", "description": "Text description of the image"},
+					"image_url": {"type": "string", "description": "Reference image URL for image-guided generation"},
+					"aspect_ratio": {"type": "string", "enum": ["1:1","16:9","9:16","4:3","3:4","21:9"]},
+					"style": {"type": "string", "enum": ["raw","expressive"]},
+					"version": {"type": "string", "enum": ["6.1","7","8","8.1"]},
+					"speed": {"type": "string", "enum": ["relax","fast","turbo"]}
+				},
+				"required": ["prompt"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "midjourney_describe",
+			Description: "Get a text description of an image (reverse prompt). Upload an image URL and get back a prompt that MJ would use to generate it.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"image_url": {"type": "string", "description": "URL of the image to describe"}
+				},
+				"required": ["image_url"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "midjourney_reroll",
+			Description: "Regenerate a Midjourney generation (same prompt, new results). Requires a previous MJ task ID.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"task_id": {"type": "string", "description": "Previous MJ task ID to reroll"}
+				},
+				"required": ["task_id"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "midjourney_video",
+			Description: "Turn an image into a short video via Midjourney.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"image_url": {"type": "string", "description": "URL of the image to animate"},
+					"prompt": {"type": "string", "description": "Optional text description"}
+				},
+				"required": ["image_url"]
+			}`),
+		},
+	},
+	// --- Prompt ideas ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "ideas_search",
+			Description: "Search AI image prompt ideas from the local ideas database. Use when the user needs inspiration for image prompts.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"keywords": {"type": "string", "description": "Search keywords"},
+					"limit": {"type": "integer", "description": "Max results to return"}
+				},
+				"required": ["keywords"]
+			}`),
+		},
+	},
+	// --- Account tools ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "balance_query",
+			Description: "Query your API key balance or user account balance.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"scope": {"type": "string", "enum": ["token","user"], "description": "token=API key balance, user=account balance"}
+				}
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "task_query",
+			Description: "Query the status and result of an async task (image, video, MJ, etc.) by task ID.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"task_id": {"type": "string", "description": "Task ID to query"}
+				},
+				"required": ["task_id"]
 			}`),
 		},
 	},
@@ -344,6 +454,8 @@ func runInteractiveChat(cmd *cobra.Command) error {
 					"  Ctrl+C            Exit\r\n"+
 					"  Ctrl+D            Exit\r\n"+
 					"  /clear, /reset    Clear conversation history\r\n"+
+					"  /tools            List available tools\r\n"+
+					"  /<tool> <json>    Directly call a tool (e.g. /generate_image {\"prompt\":\"a cat\"})\r\n"+
 					"  /help             Show this help\r\n")
 			modelDisplay := shared.Model
 			if modelDisplay == "" {
@@ -361,7 +473,38 @@ func runInteractiveChat(cmd *cobra.Command) error {
 				fmt.Fprintf(os.Stderr, "Tools: %s | Max iterations: %d\r\n", strings.Join(toolNames, ", "), maxIterations)
 			}
 			fmt.Fprint(os.Stderr, "Use -v/--verbose to show token & timing stats.\r\n")
+			fmt.Fprint(os.Stderr, "Type /tools to list all tools with descriptions.\r\n")
+			fmt.Fprint(os.Stderr, "Type /tools to see available tools. Use /{tool_name} <json> to call directly.\r\n")
 			continue
+		case "/tools":
+			if len(agentTools) == 0 {
+				fmt.Fprint(os.Stderr, "No tools available.\r\n")
+			} else {
+				fmt.Fprint(os.Stderr, "Available tools:\r\n")
+				for _, t := range agentTools {
+					fmt.Fprintf(os.Stderr, "  /%s\r\n", t.Function.Name)
+				}
+				fmt.Fprint(os.Stderr, "\r\nUsage: /<tool_name> <json_args>\r\n")
+				fmt.Fprint(os.Stderr, "e.g. /generate_image {\"prompt\":\"a cat\"}\r\n")
+			}
+			continue
+		}
+
+		// Check for direct tool call: /<tool_name> <json_args>
+		if matched := tryDirectToolCall(c, input, agentTools, &history); matched {
+			fmt.Fprint(os.Stderr, "\r\n")
+			continue
+		}
+		// Check for shell command: !<command>
+		if strings.HasPrefix(strings.TrimSpace(input), "!") {
+			cmdLine := strings.TrimSpace(input)[1:]
+			if cmdLine != "" {
+				fmt.Fprintf(os.Stderr, "\r\nRunning: %s\r\n", cmdLine)
+				result := executeShellCommand(cmdLine)
+				fmt.Fprintf(os.Stderr, "\r\nResult:\r\n%s\r\n", result)
+				fmt.Fprint(os.Stderr, "\r\n")
+				continue
+			}
 		}
 
 		// Add user message to history
@@ -515,6 +658,14 @@ func setFloatFlag(cmd *cobra.Command, name string, target **float64, val float64
 	}
 }
 
+// toURLs converts a single URL string to a slice (for MJ API compatibility).
+func toURLs(url string) []string {
+	if url == "" {
+		return nil
+	}
+	return []string{url}
+}
+
 // buildAgentTools returns the list of tool definitions based on config.
 // Applies tools (whitelist) and disable_tools (blacklist) glob patterns.
 func buildAgentTools(cfg *types.ChatDefaults) []types.ToolDefinition {
@@ -596,6 +747,14 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeGenerateImage(c, tc.Function.Arguments)
 	case "generate_video":
 		return executeGenerateVideo(c, tc.Function.Arguments)
+	case "midjourney_imagine", "midjourney_describe", "midjourney_reroll", "midjourney_video":
+		return executeMidjourney(c, tc.Function.Name, tc.Function.Arguments)
+	case "ideas_search":
+		return executeIdeasSearch(tc.Function.Arguments)
+	case "balance_query":
+		return executeBalanceQuery(tc.Function.Arguments)
+	case "task_query":
+		return executeTaskQuery(tc.Function.Arguments)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}
@@ -667,6 +826,227 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 	}
 
 	return fmt.Sprintf("Successfully generated %d video(s).", len(saved))
+}
+
+// --- Midjourney agent tools ---
+
+func executeMidjourney(c *client.Client, toolName, argsJSON string) string {
+	mjClient := newMJClient()
+	switch toolName {
+	case "midjourney_imagine":
+		var args struct {
+			Prompt      string `json:"prompt"`
+			ImageURL    string `json:"image_url"`
+			AspectRatio string `json:"aspect_ratio"`
+			Style       string `json:"style"`
+			Version     string `json:"version"`
+			Speed       string `json:"speed"`
+		}
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return fmt.Sprintf("Error: invalid arguments: %v", err)
+		}
+		mjReq := &types.MJImagineRequest{
+			Prompt:    args.Prompt,
+			ImageURLs: toURLs(args.ImageURL),
+			Size:      args.AspectRatio,
+			Style:     args.Style,
+			Version:   args.Version,
+			Speed:     args.Speed,
+		}
+		// Merge config defaults
+		if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Midjourney != nil {
+			d := shared.Cfg.Defaults.Midjourney
+			if mjReq.Speed == "" && d.Speed != "" {
+				mjReq.Speed = d.Speed
+			}
+			if mjReq.Version == "" && d.Version != "" {
+				mjReq.Version = d.Version
+			}
+			if mjReq.Style == "" && d.Style != "" {
+				mjReq.Style = d.Style
+			}
+			if mjReq.Size == "" && d.Size != "" {
+				mjReq.Size = d.Size
+			}
+		}
+		text, err := midjourneySubmitAndGetText(mjClient, "imagine", mjReq)
+		if err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
+		return text
+
+	case "midjourney_describe":
+		var args struct {
+			ImageURL string `json:"image_url"`
+		}
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return fmt.Sprintf("Error: invalid arguments: %v", err)
+		}
+		req := &types.MJDescribeRequest{ImageURLs: toURLs(args.ImageURL)}
+		text, err := midjourneySubmitAndGetText(mjClient, "describe", req)
+		if err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
+		return text
+
+	case "midjourney_reroll":
+		var args struct {
+			TaskID string `json:"task_id"`
+		}
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return fmt.Sprintf("Error: invalid arguments: %v", err)
+		}
+		req := &types.MJRerollRequest{TaskID: args.TaskID}
+		text, err := midjourneySubmitAndGetText(mjClient, "reroll", req)
+		if err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
+		return text
+
+	case "midjourney_video":
+		var args struct {
+			ImageURL string `json:"image_url"`
+			Prompt   string `json:"prompt"`
+		}
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return fmt.Sprintf("Error: invalid arguments: %v", err)
+		}
+		req := &types.MJVideoRequest{ImageURLs: toURLs(args.ImageURL), Prompt: args.Prompt}
+		text, err := midjourneySubmitAndGetText(mjClient, "video", req)
+		if err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
+		return text
+	}
+	return "Error: unknown midjourney tool"
+}
+
+// --- Ideas, balance, task agent tools ---
+
+type ideasSearchArgs struct {
+	Keywords string `json:"keywords"`
+	Limit    int    `json:"limit"`
+}
+
+type balanceQueryArgs struct {
+	Scope string `json:"scope"`
+}
+
+type taskQueryArgs struct {
+	TaskID string `json:"task_id"`
+}
+
+func executeIdeasSearch(argsJSON string) string {
+	var args ideasSearchArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	text, err := searchIdeasText(args.Keywords, args.Limit)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	return text
+}
+
+func executeBalanceQuery(argsJSON string) string {
+	var args balanceQueryArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.Scope == "" {
+		args.Scope = "token"
+	}
+	text, err := getBalanceText(args.Scope)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	return text
+}
+
+func executeTaskQuery(argsJSON string) string {
+	var args taskQueryArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	text, err := queryTaskText(args.TaskID)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	return text
+}
+
+// executeShellCommand runs a shell command and returns its output as a string.
+// Has a 30s timeout. Uses the best available shell:
+// Windows: pwsh > powershell > cmd
+// Others:  zsh > bash > sh
+func executeShellCommand(cmdLine string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		// Try pwsh first, then powershell, fall back to cmd
+		switch {
+		case hasExecutable("pwsh"):
+			cmd = exec.CommandContext(ctx, "pwsh", "-NoProfile", "-Command", cmdLine)
+		case hasExecutable("powershell"):
+			cmd = exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", cmdLine)
+		default:
+			cmd = exec.CommandContext(ctx, "cmd", "/c", cmdLine)
+		}
+	} else {
+		// Try zsh, then bash, fall back to sh
+		switch {
+		case hasExecutable("zsh"):
+			cmd = exec.CommandContext(ctx, "zsh", "-c", cmdLine)
+		case hasExecutable("bash"):
+			cmd = exec.CommandContext(ctx, "bash", "-c", cmdLine)
+		default:
+			cmd = exec.CommandContext(ctx, "sh", "-c", cmdLine)
+		}
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("Error: %v\n%s", err, string(out))
+	}
+	return string(out)
+}
+
+// hasExecutable checks if a command is available in PATH.
+func hasExecutable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
+// tryDirectToolCall checks if input is a direct tool call like "/generate_image {...}".
+// Returns true if matched and executed.
+func tryDirectToolCall(c *client.Client, input string, tools []types.ToolDefinition, history *[]types.ChatMessage) bool {
+	idx := strings.Index(input, " ")
+	if idx <= 0 {
+		return false
+	}
+	cmdName := input[:idx]
+	rest := strings.TrimSpace(input[idx+1:])
+	if !strings.HasPrefix(cmdName, "/") {
+		return false
+	}
+	toolName := strings.ToLower(cmdName[1:]) // strip leading / and lowercase
+	for _, t := range tools {
+		if t.Function.Name == toolName {
+			*history = append(*history, types.ChatMessage{Role: "user", Content: fmt.Sprintf("(direct tool call: %s)", toolName)})
+			result := executeToolCall(c, types.ToolCall{
+				ID:   fmt.Sprintf("manual_%d", time.Now().Unix()),
+				Type: "function",
+				Function: types.ToolCallFunction{
+					Name:      toolName,
+					Arguments: rest,
+				},
+			})
+			fmt.Fprintf(os.Stderr, "\r\nTool result:\r\n%s\r\n", result)
+			return true
+		}
+	}
+	return false
 }
 
 func init() {

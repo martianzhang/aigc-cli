@@ -449,6 +449,106 @@ func displayMJResult(task *types.MJTaskData) {
 	}
 }
 
+// midjourneyResultSummary returns a text summary of an MJ task result.
+// Shared by CLI and agent loop.
+func midjourneyResultSummary(task *types.MJTaskData) string {
+	if task == nil {
+		return "No result returned."
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Action: %s | Status: %s", task.Action, task.Status)
+	if task.FailReason != "" {
+		fmt.Fprintf(&b, "\nFail reason: %s", task.FailReason)
+		return b.String()
+	}
+	if task.Status == "SUCCESS" || task.Status == "success" {
+		if task.GridImageURL != "" {
+			fmt.Fprintf(&b, "\nGrid image URL: %s", task.GridImageURL)
+		}
+		for i, u := range task.ImageURLs {
+			fmt.Fprintf(&b, "\nImage %d: %s", i+1, u)
+		}
+		if task.VideoURL != "" {
+			fmt.Fprintf(&b, "\nVideo: %s", task.VideoURL)
+		}
+		for i, u := range task.VideoURLs {
+			fmt.Fprintf(&b, "\nVideo %d: %s", i+1, u)
+		}
+		if task.Prompt != "" {
+			fmt.Fprintf(&b, "\nPrompt: %s", task.Prompt)
+		}
+		if task.Description != "" {
+			fmt.Fprintf(&b, "\nDescription: %s", task.Description)
+		}
+		if task.Cost > 0 || task.ActualTime > 0 {
+			fmt.Fprintf(&b, "\nCompleted in %ds | Cost: $%.5f (%.4f credits)", task.ActualTime, task.Cost, task.CreditsCost)
+		}
+	} else {
+		fmt.Fprintf(&b, "\nTask is in state: %s", task.Status)
+	}
+	return b.String()
+}
+
+// midjourneySubmitAndGetText submits an MJ action, polls for completion,
+// downloads results, and returns a text summary. Shared by CLI and agent loop.
+func midjourneySubmitAndGetText(c client.APIClient, action string, req any) (string, error) {
+	resp, err := c.MidjourneySubmit(action, req)
+	if err != nil {
+		return "", fmt.Errorf("submission failed: %w", err)
+	}
+	if len(resp.Data) == 0 {
+		return "", fmt.Errorf("submission returned no tasks")
+	}
+
+	task := resp.Data[0]
+
+	// If the task immediately entered MODAL state, don't wait
+	if task.Status == "modal" {
+		return fmt.Sprintf("Task %s entered MODAL state. Call midjourney modal to submit parameters.", task.TaskID), nil
+	}
+
+	taskData, err := c.MidjourneyPollTask(task.TaskID)
+	if err != nil {
+		return "", fmt.Errorf("polling failed: %w", err)
+	}
+
+	// Download images if available
+	if taskData.Status == "SUCCESS" || taskData.Status == "success" {
+		if len(taskData.ImageURLs) > 0 {
+			images := make([]types.ImageResult, len(taskData.ImageURLs))
+			for i, u := range taskData.ImageURLs {
+				images[i] = types.ImageResult{URL: []string{u}}
+			}
+			if saved, err := downloadImages(images, taskData.ID); err == nil {
+				for _, f := range saved {
+					fmt.Printf("Saved: %s\n", f)
+				}
+			}
+		}
+		if taskData.VideoURL != "" {
+			videos := []types.VideoResult{{URL: []string{taskData.VideoURL}}}
+			if saved, err := downloadVideos(videos, taskData.ID); err == nil {
+				for _, f := range saved {
+					fmt.Printf("Saved: %s\n", f)
+				}
+			}
+		}
+		if len(taskData.VideoURLs) > 0 {
+			videos := make([]types.VideoResult, len(taskData.VideoURLs))
+			for i, u := range taskData.VideoURLs {
+				videos[i] = types.VideoResult{URL: []string{u}}
+			}
+			if saved, err := downloadVideos(videos, taskData.ID); err == nil {
+				for _, f := range saved {
+					fmt.Printf("Saved: %s\n", f)
+				}
+			}
+		}
+	}
+
+	return midjourneyResultSummary(taskData), nil
+}
+
 // ============================================================================
 // MJ subcommand registration helper
 // ============================================================================

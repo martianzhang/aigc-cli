@@ -77,6 +77,47 @@ Data file: ~/.config/apimart/ideas.json (run "apimart-cli ideas init" to downloa
 	RunE: runIdeas,
 }
 
+// searchIdeasText searches the local ideas database and returns formatted results.
+// Shared by CLI and agent loop.
+func searchIdeasText(keywords string, limit int) (string, error) {
+	entries, rawData, err := loadIdeas()
+	if err != nil {
+		return "", fmt.Errorf("failed to load ideas: %w", err)
+	}
+
+	if len(entries) == 0 {
+		return "No ideas found in the database. Run `apimart-cli ideas init` to download.", nil
+	}
+
+	// Load or build BM25 index
+	hash := computeHash(rawData)
+	idx := loadCachedIndex(shared.Cfg, hash)
+	if idx == nil {
+		idx = buildBM25Index(entries)
+		saveCachedIndex(shared.Cfg, idx, hash)
+	}
+
+	results := searchIdeas(entries, idx, keywords)
+	if len(results) == 0 {
+		return "No matching prompts found.", nil
+	}
+
+	if limit <= 0 || limit > len(results) {
+		limit = len(results)
+	}
+	results = results[:limit]
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Found %d result(s) for \"%s\":\n\n", len(results), keywords)
+	for i, r := range results {
+		fmt.Fprintf(&b, "%d. %s\n", i+1, r.entry.Prompt)
+		if r.entry.Title != "" {
+			fmt.Fprintf(&b, "   Title: %s\n", r.entry.Title)
+		}
+	}
+	return b.String(), nil
+}
+
 func runIdeas(cmd *cobra.Command, args []string) error {
 	// Resolve keywords
 	keywords, err := resolveIdeasKeywords(args)

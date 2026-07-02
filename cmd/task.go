@@ -1,14 +1,38 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
 )
+
+// queryTaskText queries a task by ID and returns a text summary.
+// Downloads images if available. Shared by CLI and agent loop.
+func queryTaskText(taskID string) (string, error) {
+	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	task, err := c.GetTask(taskID)
+	if err != nil {
+		return "", fmt.Errorf("failed to query task: %w", err)
+	}
+
+	msg := fmt.Sprintf("Task %s\nStatus: %s | Progress: %d%%", taskID, task.Status, task.Progress)
+	if task.Status == "completed" {
+		msg += fmt.Sprintf("\nCost: $%.5f (%.4f credits) | Time: %ds", task.Cost, task.CreditsCost, task.ActualTime)
+	}
+	if task.Error != nil {
+		msg += fmt.Sprintf("\nError: %s", task.Error.Message)
+	}
+
+	// Download images if available
+	if task.Result != nil && len(task.Result.Images) > 0 && task.Status == "completed" {
+		if saved, err := downloadImages(task.Result.Images, task.ID); err == nil {
+			msg += fmt.Sprintf("\nImages saved: %d file(s)", len(saved))
+		}
+	}
+	return msg, nil
+}
 
 // taskCmd represents the `task` command.
 var taskCmd = &cobra.Command{
@@ -23,33 +47,11 @@ Example:
   apimart-cli task task_01KV4KD9FBH3AZ4DE18A7Y17S3`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		taskID := args[0]
-
-		c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
-		task, err := c.GetTask(taskID)
+		text, err := queryTaskText(args[0])
 		if err != nil {
-			return fmt.Errorf("failed to query task: %w", err)
+			return err
 		}
-
-		if shared.Verbose {
-			pretty, _ := json.MarshalIndent(task, "", "  ")
-			fmt.Println(string(pretty))
-		}
-
-		fmt.Printf("Status: %s | Progress: %d%%", task.Status, task.Progress)
-		if task.Status == "completed" {
-			fmt.Printf(" | Cost: $%.5f (%.4f credits) | Time: %ds",
-				task.Cost, task.CreditsCost, task.ActualTime)
-		}
-		fmt.Println()
-
-		// Download images if available
-		if task.Result != nil && len(task.Result.Images) > 0 && task.Status == "completed" {
-			if _, err := downloadImages(task.Result.Images, task.ID); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
-			}
-		}
-
+		fmt.Println(text)
 		return nil
 	},
 }
