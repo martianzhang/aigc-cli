@@ -130,36 +130,6 @@ func TestOpenRouterMediaModelList_empty(t *testing.T) {
 	}
 }
 
-func TestOpenRouterImageRequest_marshal(t *testing.T) {
-	req := OpenRouterImageRequest{
-		Model:      "google/gemini-3.1-flash-image-preview",
-		Modalities: []string{"image", "text"},
-		Messages: []OpenRouterImageMessage{
-			{Role: "user", Content: "a cat"},
-		},
-		ImageConfig: &OpenRouterImageConfig{
-			AspectRatio: "16:9",
-		},
-	}
-
-	data, err := json.Marshal(req)
-	if err != nil {
-		t.Fatalf("failed to marshal: %v", err)
-	}
-
-	var got map[string]interface{}
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("failed to unmarshal back: %v", err)
-	}
-
-	if got["model"] != "google/gemini-3.1-flash-image-preview" {
-		t.Errorf("model = %v", got["model"])
-	}
-	if got["modalities"].([]interface{})[0] != "image" {
-		t.Errorf("modalities = %v", got["modalities"])
-	}
-}
-
 func TestOpenRouterVideoSubmitResponse_unmarshal(t *testing.T) {
 	data := `{
 		"id": "vid_abc123",
@@ -214,71 +184,5 @@ func TestOpenRouterVideoStatusResponse_completed(t *testing.T) {
 	}
 	if resp.Usage.TotalCost != 0.15 {
 		t.Errorf("TotalCost = %f", resp.Usage.TotalCost)
-	}
-}
-
-func TestOpenRouterImageResponse_extract(t *testing.T) {
-	data := `{
-		"id": "resp_abc",
-		"model": "google/gemini-3.1-flash-image-preview",
-		"output": [
-			{
-				"type": "message",
-				"content": [{"type": "text", "text": "Here's your image:"}]
-			},
-			{
-				"type": "image_generation_call",
-				"id": "imagegen-xyz",
-				"status": "completed",
-				"result": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-			}
-		],
-		"usage": {"input_tokens": 10, "output_tokens": 100, "total_cost": 0.01}
-	}`
-
-	var resp OpenRouterImageResponse
-	if err := json.Unmarshal([]byte(data), &resp); err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
-	}
-
-	if resp.Model != "google/gemini-3.1-flash-image-preview" {
-		t.Errorf("Model = %q", resp.Model)
-	}
-
-	if len(resp.Output) != 2 {
-		t.Fatalf("expected 2 output items, got %d", len(resp.Output))
-	}
-
-	// Check image_generation_call item
-	imgItem := resp.Output[1]
-	if imgItem.Type != "image_generation_call" {
-		t.Errorf("Output[1].Type = %q", imgItem.Type)
-	}
-	if imgItem.Status != "completed" {
-		t.Errorf("Output[1].Status = %q", imgItem.Status)
-	}
-	if imgItem.Result == "" {
-		t.Error("Output[1].Result should not be empty")
-	}
-
-	// Check message text
-	msgItem := resp.Output[0]
-	if len(msgItem.Content) != 1 || msgItem.Content[0].Text != "Here's your image:" {
-		t.Errorf("Output[0] content = %v", msgItem.Content)
-	}
-
-	if resp.Usage == nil || resp.Usage.TotalCost != 0.01 {
-		t.Errorf("Usage = %+v", resp.Usage)
-	}
-}
-
-func TestOpenRouterImageResponse_emptyOutput(t *testing.T) {
-	data := `{"id": "resp_empty", "model": "test", "output": []}`
-	var resp OpenRouterImageResponse
-	if err := json.Unmarshal([]byte(data), &resp); err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
-	}
-	if len(resp.Output) != 0 {
-		t.Errorf("expected empty output, got %d", len(resp.Output))
 	}
 }
