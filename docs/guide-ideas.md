@@ -95,6 +95,54 @@ apimart-cli ideas "cat" --json \
 }
 ```
 
+## 数据格式说明（ideas.json）
+
+数据文件 `~/.config/apimart/ideas.json` 是一个 JSON 数组，每个元素的结构如下：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `prompt` | string | **是** | 提示词正文（英文或中文） |
+| `lang` | string | **是** | 语言代码，`en` 或 `zh` |
+| `title` | string | 否 | 标题（英文） |
+| `title_zh` | string | 否 | 标题（中文） |
+| `prompt_zh` | string | 否 | 提示词中文翻译（`lang=zh` 时使用） |
+| `image_urls` | string[] | 否 | 参考图片 URL 列表 |
+| `source_url` | string | 否 | 原始来源链接 |
+| `author` | string | 否 | 作者名 |
+| `license` | string | 否 | 协议标识，如 `Apache 2.0` |
+
+### 字段约束
+
+- **`prompt`**：必填，不可为空。搜索时 BM25 索引和 n-gram 模糊匹配都基于该字段及 `title`。
+- **`lang`**：必填，当前仅支持 `en` 和 `zh`。影响搜索中文分词（CJK 双字切分）和 Markdown 输出时 `prompt`/`prompt_zh` 的自动选择。
+- **`image_urls`**：可选 URL 列表，图片用于参考展示。URL 需可公开访问，支持 `--save` 参数下载到本地。
+- **`source_url`**：用于去重。`convert_ideas.py` 合并数据时以此为去重主键，因此同一来源链接不会重复出现。
+- 其余字段均为可选，缺失时输出中自动跳过。
+
+### 完整示例
+
+```json
+{
+  "title": "CCD flash beauty portrait template",
+  "title_zh": "CCD闪光美颜人像模板",
+  "prompt": "A hyper-photorealistic shot of a woman with soft natural lighting, detailed skin texture, cinematic color grading, shot on medium format film, 8K resolution",
+  "prompt_zh": "一张超写实女性人像，柔和的自然光，细腻的皮肤纹理，电影级调色，中画幅胶片拍摄，8K分辨率",
+  "image_urls": [
+    "https://raw.githubusercontent.com/NeXra-AI/awesome-ai-image-prompts/main/images/ccd-flash-beauty-portrait.jpg"
+  ],
+  "source_url": "https://x.com/AIwithAliya/status/123456789",
+  "author": "AIwithAliya",
+  "license": "Apache 2.0",
+  "lang": "en"
+}
+```
+
+### 添加自定义数据
+
+用户可以直接编辑 `~/.config/apimart/ideas.json`，按上述格式在数组末尾追加新条目。编辑后删除缓存文件 `~/.config/apimart/ideas.index`，下次搜索时索引会自动重建（基于 SHA256 校验）。
+
+也可以通过 AI 编程工具（如 OpenCode、Cursor、GitHub Copilot、Claude Code 等）辅助添加 — 本格式说明即为明确的 schema 参考，AI 可据此生成合规的数据条目。
+
 ## 参数
 
 | 参数 | 短参 | 说明 |
