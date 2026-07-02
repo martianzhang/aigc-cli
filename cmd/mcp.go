@@ -9,8 +9,9 @@ import (
 
 // mcpCmd represents the `apimart-cli mcp` command.
 var mcpCmd = &cobra.Command{
-	Use:   "mcp",
-	Short: "Start MCP server for AI agent integration",
+	Use:          "mcp",
+	Short:        "Start MCP server for AI agent integration",
+	SilenceUsage: true,
 	Long: `Start an MCP (Model Context Protocol) server over stdio.
 
 This allows AI agents (Claude Desktop, Cursor, etc.) to call APIMart

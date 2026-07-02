@@ -151,11 +151,21 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 		return handleSSE(resp, w)
 	}
 
-	// Non-streaming
+	// Non-streaming — but some providers (e.g. APIMart.ai) always return SSE format
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Detect SSE format: response starts with "data: "
+	if bytes.HasPrefix(respBody, []byte("data: ")) {
+		// Wrap in a fake Response and parse via handleSSE
+		fakeResp := &http.Response{
+			Body:       io.NopCloser(bytes.NewReader(respBody)),
+			StatusCode: http.StatusOK,
+		}
+		return handleSSE(fakeResp, io.Discard)
 	}
 
 	var result types.ChatResponse
@@ -166,6 +176,7 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 }
 
 // handleSSE parses SSE stream and writes tokens progressively to w.
+// Supports text content and tool_calls delta accumulation.
 func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 	defer resp.Body.Close()
 	scanner := bufio.NewScanner(resp.Body)
@@ -175,6 +186,10 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 	full := &types.ChatResponse{
 		Choices: []types.ChatChoice{{Message: types.ChatMessage{Role: "assistant"}}},
 	}
+
+	// Accumulate tool calls by index across streaming chunks
+	// Key: tool call index, Value: accumulated ToolCall
+	toolCallAccum := map[int]*types.ToolCall{}
 
 	var roleSkipped bool
 	for scanner.Scan() {
@@ -202,12 +217,38 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 			if !roleSkipped && choice.Delta.Role != "" {
 				roleSkipped = true
 				full.Choices[0].Message.Role = choice.Delta.Role
-				// If this chunk also has content, fall through to write it
-				if choice.Delta.Content == "" {
+				// If this chunk has neither content nor tool_calls, skip
+				if choice.Delta.Content == "" && len(choice.Delta.ToolCalls) == 0 {
 					continue
 				}
 			}
 
+			// Accumulate tool call deltas
+			for _, tc := range choice.Delta.ToolCalls {
+				acc, exists := toolCallAccum[tc.Index]
+				if !exists {
+					acc = &types.ToolCall{
+						Type: "function",
+					}
+					toolCallAccum[tc.Index] = acc
+				}
+				if tc.ID != "" {
+					acc.ID = tc.ID
+				}
+				if tc.Type != "" {
+					acc.Type = tc.Type
+				}
+				if tc.Function != nil {
+					if tc.Function.Name != "" {
+						acc.Function.Name += tc.Function.Name
+					}
+					if tc.Function.Arguments != "" {
+						acc.Function.Arguments += tc.Function.Arguments
+					}
+				}
+			}
+
+			// Write text content (only if no tool calls in this response)
 			content := choice.Delta.Content
 			if content != "" {
 				fmt.Fprint(w, content)
@@ -235,7 +276,21 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 		return nil, fmt.Errorf("SSE read error: %w", err)
 	}
 
-	fmt.Fprintln(w) // trailing newline after streaming output
+	// Flush accumulated tool calls into the response message
+	if len(toolCallAccum) > 0 {
+		tcs := make([]types.ToolCall, 0, len(toolCallAccum))
+		for i := 0; i < len(toolCallAccum); i++ {
+			if tc, ok := toolCallAccum[i]; ok {
+				tcs = append(tcs, *tc)
+			}
+		}
+		full.Choices[0].Message.ToolCalls = tcs
+	}
+
+	// Only print trailing newline if we wrote text content
+	if full.Choices[0].Message.Content != "" {
+		fmt.Fprintln(w)
+	}
 	return full, nil
 }
 

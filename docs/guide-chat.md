@@ -63,6 +63,62 @@ $ apimart-cli chat -v
 >>>
 ```
 
+## Agentic Chat — 聊天中生成图片和视频
+
+Chat 默认启用 Agent Loop，LLM 可以调用 `generate_image` 和 `generate_video` 工具来生成图片和视频。交互式和非交互式模式均支持。
+
+```bash
+# 交互式：直接让 LLM 生成图片
+apimart-cli chat
+>>> 画一只猫在星空下
+# LLM 调用 generate_image → 图片保存到本地 → LLM 告知用户保存位置
+
+# 非交互式单轮：一条消息搞定
+apimart-cli chat --message "画一只猫，然后写首诗描述它"
+# LLM 调 generate_image → 生成图片 → 继续 → 输出诗 → 结束
+
+# 生成视频
+apimart-cli chat --message "生成一段日落海滩的视频"
+```
+
+### 工作原理
+
+```
+用户输入 → LLM 回复（文本或 tool_call）
+  ├─ tool_call(generate_image, {prompt:"..."})
+  │   → 调厂商 API 生成图片
+  │   → 结果回填给 LLM
+  │   → LLM 继续对话
+  └─ 文本回复 → 输出给用户
+```
+
+- Agent Loop 内部走非流式（`stream: false`），工具调用阶段无文本输出
+- 每次用户消息，LLM 最多连续调 10 次工具，可通过 `defaults.chat.max_iterations` 配置
+- 工具执行结果只返回 URL，LLM 告知用户文件保存位置
+- 工具执行时读取 `defaults.image` / `defaults.video` 作为 LLM 没指定参数时的兜底
+
+### 配置工具白名单/黑名单
+
+```yaml
+defaults:
+  chat:
+    tools: ["*"]                    # 全部允许（默认）
+    # tools: ["generate_image"]     # 只允许生成图片
+    # disable_tools: ["generate_video"]  # 禁用视频生成
+```
+
+`tools` 和 `disable_tools` 支持 glob 模式匹配。
+
+### 参数
+
+| 参数 | 说明 |
+|---|---|
+| `defaults.chat.max_iterations` | 每次用户消息，LLM 最多连续调工具次数（默认 10） |
+| `defaults.chat.tools` | 允许的工具白名单（glob 模式），空或 `["*"]` = 全部允许 |
+| `defaults.chat.disable_tools` | 禁用的工具黑名单（glob 模式），覆盖 `tools` |
+
+---
+
 ## 非交互式单轮
 
 传 `--message` 或通过管道传入内容时为单次请求模式：
