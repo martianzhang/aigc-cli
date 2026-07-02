@@ -753,6 +753,13 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 
 			// Execute each tool call
 			for _, tc := range choice.Message.ToolCalls {
+				// Print tool call for user visibility
+				args := tc.Function.Arguments
+				if len(args) > 200 {
+					args = args[:200] + "..."
+				}
+				fmt.Fprintf(os.Stderr, "\r\n[tool] %s(%s)\r\n", tc.Function.Name, args)
+
 				toolResult := executeToolCall(c, tc)
 				*history = append(*history, types.ChatMessage{
 					Role:       "tool",
