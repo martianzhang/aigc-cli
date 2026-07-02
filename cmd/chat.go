@@ -915,7 +915,23 @@ func buildAgentTools(cfg *types.ChatDefaults) []types.ToolDefinition {
 		allTools = filtered
 	}
 
-	return allTools
+	// Filter by provider — some tools only work with specific providers
+	isAPIMart := isAPIMartProvider()
+
+	providerFiltered := make([]types.ToolDefinition, 0)
+	for _, t := range allTools {
+		// MJ tools: only APIMart provider
+		if strings.HasPrefix(t.Function.Name, "midjourney") && !isAPIMart {
+			continue
+		}
+		// balance/task: only APIMart provider
+		if (t.Function.Name == "balance" || t.Function.Name == "task") && !isAPIMart {
+			continue
+		}
+		providerFiltered = append(providerFiltered, t)
+	}
+
+	return providerFiltered
 }
 
 // generateImageArgs is the JSON structure for generate_image tool arguments.
