@@ -45,7 +45,7 @@ Example:
 
 		// Download images if available
 		if task.Result != nil && len(task.Result.Images) > 0 && task.Status == "completed" {
-			if err := downloadImages(task.Result.Images, task.ID); err != nil {
+			if _, err := downloadImages(task.Result.Images, task.ID); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
 			}
 		}

@@ -462,7 +462,7 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest) error {
 	savePromptFile(taskData.ID, req.Prompt)
 
 	if taskData.Result != nil && len(taskData.Result.Images) > 0 {
-		if err := downloadImages(taskData.Result.Images, taskData.ID); err != nil {
+		if _, err := downloadImages(taskData.Result.Images, taskData.ID); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
 		}
 	}
@@ -695,7 +695,9 @@ func isFile(path string) bool {
 }
 
 // downloadImages downloads all generated images to the output directory.
-func downloadImages(images []types.ImageResult, taskID string) error {
+// Returns paths to saved files.
+func downloadImages(images []types.ImageResult, taskID string) ([]string, error) {
+	var saved []string
 	for i, img := range images {
 		for j, url := range img.URL {
 			data, err := service.FetchImage(url)
@@ -716,9 +718,10 @@ func downloadImages(images []types.ImageResult, taskID string) error {
 				continue
 			}
 			fmt.Printf("Saved: %s\n", filename)
+			saved = append(saved, filename)
 		}
 	}
-	return nil
+	return saved, nil
 }
 
 // savePromptFile saves the generation prompt to image_{taskID}.md.
@@ -732,4 +735,96 @@ func savePromptFile(taskID, prompt string) {
 // httpGet performs an HTTP GET or resolves a data URI / base64 string.
 func httpGet(rawURL string) ([]byte, error) {
 	return service.FetchImage(rawURL)
+}
+
+// generateImageAndSave generates images via the configured provider and saves them to disk.
+// Handles config merge, timeout, API dispatch, and download. Returns paths to saved files.
+// Shared by CLI (image command) and agent loop (chat) — single source of truth.
+// Supports APIMart async and OpenAI-compatible sync providers.
+func generateImageAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, error) {
+	// Merge config defaults
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Image != nil {
+		shared.Cfg.Defaults.Image.MergeIntoImage(req)
+	}
+	// Code defaults
+	if req.Size == "" {
+		req.Size = "1:1"
+	}
+	if req.Quality == "" {
+		req.Quality = "auto"
+	}
+	if req.Model == "" {
+		return nil, fmt.Errorf("model is required: set via defaults.image.model in config.yaml")
+	}
+
+	// Set timeout
+	applyTimeout(c, "image", client.ImageTimeout)
+
+	// Dispatch based on provider
+	if isAPIMartProvider() {
+		resp, err := c.Submit(req)
+		if err != nil {
+			return nil, fmt.Errorf("submission failed: %w", err)
+		}
+		if len(resp.Data) == 0 {
+			return nil, fmt.Errorf("submission returned no tasks")
+		}
+
+		taskData, err := c.PollTask(resp.Data[0].TaskID)
+		if err != nil {
+			return nil, fmt.Errorf("polling failed: %w", err)
+		}
+
+		savePromptFile(taskData.ID, req.Prompt)
+		if taskData.Result != nil && len(taskData.Result.Images) > 0 {
+			saved, err := downloadImages(taskData.Result.Images, taskData.ID)
+			if err != nil {
+				return saved, err
+			}
+			return saved, nil
+		}
+		return nil, fmt.Errorf("no images in task result")
+	}
+
+	// OpenAI-compatible sync
+	resp, err := c.ImageGenerateSync(req)
+	if err != nil {
+		return nil, fmt.Errorf("image generation failed: %w", err)
+	}
+
+	var saved []string
+	for i, img := range resp.Data {
+		if img.B64JSON != "" {
+			taskID := fmt.Sprintf("image_sync_%d", resp.Created)
+			filename, saveErr := service.SaveBase64Image(shared.OutputDir, taskID, img.B64JSON, i)
+			if saveErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, saveErr)
+				continue
+			}
+			fmt.Printf("Image %d: %s\n", i+1, filename)
+			saved = append(saved, filename)
+		} else if img.URL != "" {
+			body, getErr := httpGet(img.URL)
+			if getErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, getErr)
+				continue
+			}
+			ext := filepath.Ext(img.URL)
+			if ext == "" {
+				ext = ".png"
+			}
+			taskID := fmt.Sprintf("sync_%d", resp.Created)
+			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("image_%s_%d%s", taskID, i, ext))
+			if writeErr := os.WriteFile(filename, body, 0644); writeErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, writeErr)
+				continue
+			}
+			fmt.Printf("Image %d: %s\n", i+1, filename)
+			saved = append(saved, filename)
+		}
+	}
+	if len(saved) == 0 {
+		return nil, fmt.Errorf("no images saved")
+	}
+	return saved, nil
 }

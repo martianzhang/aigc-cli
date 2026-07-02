@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -17,7 +16,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
-	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -621,10 +619,10 @@ func executeGenerateImage(c *client.Client, argsJSON string) string {
 		req.N = &v
 	}
 
-	// Apply config defaults — LLM-provided values are hints, config is the ceiling
+	// Verbose debug: show config before generation
 	if shared.Verbose {
 		hasCfg := shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Image != nil
-		fmt.Fprintf(os.Stderr, "\r\n[agent] shared.Cfg.Defaults.Image loaded: %v\r\n", hasCfg)
+		fmt.Fprintf(os.Stderr, "\r\n[agent] image config loaded: %v\r\n", hasCfg)
 		if hasCfg {
 			fmt.Fprintf(os.Stderr, "[agent]   model=%q size=%q resolution=%q quality=%q\r\n",
 				shared.Cfg.Defaults.Image.Model,
@@ -632,109 +630,15 @@ func executeGenerateImage(c *client.Client, argsJSON string) string {
 				shared.Cfg.Defaults.Image.Resolution,
 				shared.Cfg.Defaults.Image.Quality)
 		}
-		fmt.Fprintf(os.Stderr, "[agent] req before config: model=%q size=%q quality=%q resolution=%q\r\n",
-			req.Model, req.Size, req.Quality, req.Resolution)
-	}
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil {
-		imgCfg := shared.Cfg.Defaults.Image
-		// Model: LLM doesn't provide, always from config
-		if imgCfg != nil && imgCfg.Model != "" {
-			req.Model = imgCfg.Model
-		}
-		// Quality: cap at config value (LLM can't choose more expensive)
-		if imgCfg != nil && imgCfg.Quality != "" {
-			req.Quality = imgCfg.Quality
-		} else if req.Quality == "" {
-			req.Quality = "low"
-		}
-		// Size: cap at config value
-		if imgCfg != nil && imgCfg.Size != "" {
-			req.Size = imgCfg.Size
-		} else if req.Size == "" {
-			req.Size = "1:1"
-		}
-		// Resolution
-		if imgCfg != nil && imgCfg.Resolution != "" {
-			req.Resolution = imgCfg.Resolution
-		}
-	} else {
-		// No config — low-cost code defaults as safety net
-		if req.Size == "" {
-			req.Size = "1:1"
-		}
-		if req.Quality == "" {
-			req.Quality = "low"
-		}
-	}
-	if shared.Verbose {
-		fmt.Fprintf(os.Stderr, "[agent] req after config: model=%q size=%q quality=%q resolution=%q\r\n",
-			req.Model, req.Size, req.Quality, req.Resolution)
-	}
-	if req.Model == "" {
-		return "Error: model is required for image generation (set via defaults.image.model in config.yaml)"
 	}
 
-	// Set timeout for image generation
-	applyTimeout(c, "image", client.ImageTimeout)
-
-	// Generate image via provider API — reuse existing client methods
-	var savedFiles []string
-	if isAPIMartProvider() {
-		resp, err := c.Submit(req)
-		if err != nil {
-			return fmt.Sprintf("Error: image generation failed: %v", err)
-		}
-		if len(resp.Data) == 0 {
-			return "Error: image submission returned no tasks"
-		}
-		taskData, err := c.PollTask(resp.Data[0].TaskID)
-		if err != nil {
-			return fmt.Sprintf("Error: image polling failed: %v", err)
-		}
-		if taskData.Result != nil && len(taskData.Result.Images) > 0 {
-			if err := downloadImages(taskData.Result.Images, taskData.ID); err != nil {
-				return fmt.Sprintf("Error: image download failed: %v", err)
-			}
-			savedFiles = append(savedFiles, fmt.Sprintf("image_%s_*", taskData.ID))
-		}
-	} else {
-		resp, err := c.ImageGenerateSync(req)
-		if err != nil {
-			return fmt.Sprintf("Error: image generation failed: %v", err)
-		}
-		for i, img := range resp.Data {
-			if img.B64JSON != "" {
-				prefix := fmt.Sprintf("image_%d", time.Now().Unix())
-				filename, err := service.SaveBase64Image(shared.OutputDir, prefix, img.B64JSON, i)
-				if err != nil {
-					continue
-				}
-				savedFiles = append(savedFiles, filename)
-			} else if img.URL != "" {
-				body, err := httpGet(img.URL)
-				if err != nil {
-					continue
-				}
-				ext := ".png"
-				ts := time.Now().Unix()
-				filename := fmt.Sprintf("image_%d_%d%s", ts, i, ext)
-				dest := filename
-				if shared.OutputDir != "" {
-					dest = filepath.Join(shared.OutputDir, filename)
-				}
-				if err := os.WriteFile(dest, body, 0644); err != nil {
-					continue
-				}
-				savedFiles = append(savedFiles, dest)
-			}
-		}
+	// Use shared generation function (same logic as apimart-cli image)
+	saved, err := generateImageAndSave(c, req)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
 	}
 
-	if len(savedFiles) == 0 {
-		return "Error: image generation completed but no files were saved"
-	}
-
-	return fmt.Sprintf("Successfully generated %d image(s). Saved to: %s", len(savedFiles), strings.Join(savedFiles, ", "))
+	return fmt.Sprintf("Successfully generated %d image(s).", len(saved))
 }
 
 // executeGenerateVideo runs video generation and returns a text summary for the LLM.
@@ -756,76 +660,13 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 		req.Resolution = args.Resolution
 	}
 
-	// Apply config defaults — LLM-provided values are hints, config is the ceiling
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Video != nil {
-		vidCfg := shared.Cfg.Defaults.Video
-		if vidCfg.Model != "" {
-			req.Model = vidCfg.Model
-		}
-		if vidCfg.Size != "" {
-			req.Size = vidCfg.Size
-		}
-		if vidCfg.Resolution != "" {
-			req.Resolution = vidCfg.Resolution
-		}
-		if vidCfg.Duration != nil {
-			req.Duration = vidCfg.Duration
-		}
-	} else {
-		// No config — low-cost code defaults as safety net
-		if req.Size == "" {
-			req.Size = "16:9"
-		}
-		if req.Resolution == "" {
-			req.Resolution = "480p"
-		}
-	}
-	if req.Model == "" {
-		return "Error: model is required for video generation (set via defaults.video.model in config.yaml)"
+	// Use shared generation function (same logic as apimart-cli video)
+	saved, err := generateVideoAndSave(c, req)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
 	}
 
-	// Set timeout for video generation
-	applyTimeout(c, "video", client.VideoTimeout)
-
-	var videoURLs []string
-	if isOpenRouterProvider() {
-		orReq := &types.OpenRouterVideoRequest{
-			Model:  req.Model,
-			Prompt: req.Prompt,
-		}
-		submitResp, err := c.OpenRouterVideoSubmit(orReq)
-		if err != nil {
-			return fmt.Sprintf("Error: video submission failed: %v", err)
-		}
-		pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, 30*time.Second, 5*time.Minute)
-		if err != nil {
-			return fmt.Sprintf("Error: video polling failed: %v", err)
-		}
-		videoURLs = pollResp.UnsignedURLs
-	} else {
-		resp, err := c.VideoSubmit(req)
-		if err != nil {
-			return fmt.Sprintf("Error: video submission failed: %v", err)
-		}
-		if len(resp.Data) == 0 {
-			return "Error: video submission returned no tasks"
-		}
-		taskData, err := c.PollTask(resp.Data[0].TaskID)
-		if err != nil {
-			return fmt.Sprintf("Error: video polling failed: %v", err)
-		}
-		if taskData.Result != nil {
-			for _, vid := range taskData.Result.Videos {
-				videoURLs = append(videoURLs, vid.URL...)
-			}
-		}
-	}
-
-	if len(videoURLs) == 0 {
-		return "Error: video generation completed but no video URLs returned"
-	}
-
-	return fmt.Sprintf("Successfully generated %d video(s).", len(videoURLs))
+	return fmt.Sprintf("Successfully generated %d video(s).", len(saved))
 }
 
 func init() {

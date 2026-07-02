@@ -1087,7 +1087,7 @@ Example:
 			for i, u := range task.ImageURLs {
 				images[i] = types.ImageResult{URL: []string{u}}
 			}
-			if err := downloadImages(images, task.ID); err != nil {
+			if _, err := downloadImages(images, task.ID); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
 			}
 		}
@@ -1097,14 +1097,14 @@ Example:
 			for i, u := range task.VideoURLs {
 				videos[i] = types.VideoResult{URL: []string{u}}
 			}
-			if err := downloadVideos(videos, task.ID); err != nil {
+			if _, err := downloadVideos(videos, task.ID); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
 			}
 		}
 		if task.Status == "SUCCESS" && task.VideoURL != "" {
 			// Also download single video_url if present
 			videos := []types.VideoResult{{URL: []string{task.VideoURL}}}
-			if err := downloadVideos(videos, task.ID); err != nil {
+			if _, err := downloadVideos(videos, task.ID); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
 			}
 		}
