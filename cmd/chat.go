@@ -976,16 +976,26 @@ func executeTaskQuery(argsJSON string) string {
 }
 
 // executeShellCommand runs a shell command and returns its output as a string.
-// Has a 30s timeout. Uses the best available shell:
-// Windows: pwsh > powershell > cmd
-// Others:  zsh > bash > sh
+// Has a 30s timeout. Precedence:
+//   - SHELL env var (if set and executable)
+//   - Windows: pwsh > powershell > cmd
+//   - Others: zsh > bash > sh
 func executeShellCommand(cmdLine string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	shell := os.Getenv("SHELL")
+	if shell != "" && hasExecutable(shell) {
+		cmd := exec.CommandContext(ctx, shell, "-c", cmdLine)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Sprintf("Error: %v\n%s", err, string(out))
+		}
+		return string(out)
+	}
+
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		// Try pwsh first, then powershell, fall back to cmd
 		switch {
 		case hasExecutable("pwsh"):
 			cmd = exec.CommandContext(ctx, "pwsh", "-NoProfile", "-Command", cmdLine)
@@ -995,7 +1005,6 @@ func executeShellCommand(cmdLine string) string {
 			cmd = exec.CommandContext(ctx, "cmd", "/c", cmdLine)
 		}
 	} else {
-		// Try zsh, then bash, fall back to sh
 		switch {
 		case hasExecutable("zsh"):
 			cmd = exec.CommandContext(ctx, "zsh", "-c", cmdLine)

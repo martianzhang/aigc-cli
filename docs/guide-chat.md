@@ -97,6 +97,35 @@ apimart-cli chat --message "生成一段日落海滩的视频"
 - 工具执行结果只返回 URL，LLM 告知用户文件保存位置
 - 工具执行时读取 `defaults.image` / `defaults.video` 作为 LLM 没指定参数时的兜底
 
+### 可用工具
+
+默认注册以下工具，LLM 会根据对话内容自动调用：
+
+| 工具 | 说明 | 共享函数 |
+|---|---|---|
+| `generate_image` | AI 图片生成 | `cmd/image.go: generateImageAndSave` |
+| `generate_video` | AI 视频生成 | `cmd/video.go: generateVideoAndSave` |
+| `midjourney_imagine` | Midjourney 艺术生图 | `cmd/midjourney.go: midjourneySubmitAndGetText` |
+| `midjourney_describe` | 图片反推提示词 | 同上 |
+| `midjourney_reroll` | 重新生成 MJ 结果 | 同上 |
+| `midjourney_video` | MJ 图片转视频 | 同上 |
+| `ideas_search` | 搜索本地提示词灵感 | `cmd/ideas.go: searchIdeasText` |
+| `balance_query` | 查询 API 余额 | `cmd/balance.go: getBalanceText` |
+| `task_query` | 查询异步任务状态 | `cmd/task.go: queryTaskText` |
+
+所有工具通过共享函数实现，`chat` 和对应的 CLI 命令走同一份代码，无重复逻辑。
+
+### 交互式快捷键
+
+在交互式 REPL 中支持以下快捷操作：
+
+| 操作 | 说明 |
+|---|---|
+| `/<tool_name> <json>` | 直接调用工具，如 `/generate_image {"prompt":"a cat"}`（大小写不敏感） |
+| `!<shell_cmd>` | 执行系统命令，如 `!ls -la`（30s 超时，Windows 自动选 pwsh>powershell>cmd，其他选 zsh>bash>sh） |
+| `/tools` | 列出所有可用工具 |
+| `/help` | 显示帮助 |
+
 ### 配置工具白名单/黑名单
 
 ```yaml
