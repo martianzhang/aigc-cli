@@ -732,6 +732,19 @@ func savePromptFile(taskID, prompt string) {
 	service.SavePrompt(shared.OutputDir, taskID, prompt)
 }
 
+// loadImageDefaults returns the user's image config defaults.
+// Tries shared.Cfg first (fast), falls back to reading from file.
+func loadImageDefaults() *types.ImageDefaults {
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Image != nil {
+		return shared.Cfg.Defaults.Image
+	}
+	// Fallback: load from file directly
+	if cfg, err := config.Load(shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
+		return cfg.Defaults.Image
+	}
+	return nil
+}
+
 // httpGet performs an HTTP GET or resolves a data URI / base64 string.
 func httpGet(rawURL string) ([]byte, error) {
 	return service.FetchImage(rawURL)
@@ -742,16 +755,32 @@ func httpGet(rawURL string) ([]byte, error) {
 // Shared by CLI (image command) and agent loop (chat) — single source of truth.
 // Supports APIMart async and OpenAI-compatible sync providers.
 func generateImageAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, error) {
-	// Merge config defaults
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Image != nil {
-		shared.Cfg.Defaults.Image.MergeIntoImage(req)
+	// Always load the user's config — shared.Cfg may be nil if PersistentPreRunE
+	// hasn't run (e.g., direct call from agent loop without CLI entry).
+	imgCfg := loadImageDefaults()
+	if imgCfg != nil {
+		if imgCfg.Model != "" {
+			req.Model = imgCfg.Model
+		}
+		if imgCfg.Quality != "" {
+			req.Quality = imgCfg.Quality
+		}
+		if imgCfg.Size != "" {
+			req.Size = imgCfg.Size
+		}
+		if imgCfg.Resolution != "" {
+			req.Resolution = imgCfg.Resolution
+		}
 	}
-	// Code defaults
+	// Code defaults for fields the user didn't configure
 	if req.Size == "" {
 		req.Size = "1:1"
 	}
 	if req.Quality == "" {
-		req.Quality = "auto"
+		req.Quality = "low"
+	}
+	if req.Resolution == "" {
+		req.Resolution = "1k"
 	}
 	if req.Model == "" {
 		return nil, fmt.Errorf("model is required: set via defaults.image.model in config.yaml")

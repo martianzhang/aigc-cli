@@ -581,6 +581,18 @@ func extractExt(rawURL string) string {
 	return service.ExtractExt(rawURL)
 }
 
+// loadVideoDefaults returns the user's video config defaults.
+// Tries shared.Cfg first (fast), falls back to reading from file.
+func loadVideoDefaults() *types.VideoDefaults {
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Video != nil {
+		return shared.Cfg.Defaults.Video
+	}
+	if cfg, err := config.Load(shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
+		return cfg.Defaults.Video
+	}
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // OpenRouter Video — submit → poll → download
 // ---------------------------------------------------------------------------
@@ -768,11 +780,23 @@ func runOpenRouterVideoResume(jobID string) error {
 // Shared by CLI (video command) and agent loop (chat) — single source of truth.
 // Supports APIMart async and OpenRouter video providers.
 func generateVideoAndSave(c *client.Client, req *types.VideoGenerateRequest) ([]string, error) {
-	// Merge config defaults
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Video != nil {
-		shared.Cfg.Defaults.Video.MergeIntoVideo(req)
+	// Always load the user's config — shared.Cfg may be nil if PersistentPreRunE hasn't run.
+	vidCfg := loadVideoDefaults()
+	if vidCfg != nil {
+		if vidCfg.Model != "" {
+			req.Model = vidCfg.Model
+		}
+		if vidCfg.Size != "" {
+			req.Size = vidCfg.Size
+		}
+		if vidCfg.Resolution != "" {
+			req.Resolution = vidCfg.Resolution
+		}
+		if vidCfg.Duration != nil {
+			req.Duration = vidCfg.Duration
+		}
 	}
-	// Code defaults
+	// Code defaults for fields the user didn't configure
 	if req.Size == "" {
 		req.Size = "16:9"
 	}

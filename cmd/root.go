@@ -33,8 +33,10 @@ var rootCmd = &cobra.Command{
 	Long: `Unified CLI for OpenAI-compatible APIs. Supports OpenAI, OpenRouter, APIMart and any
 OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// With no subcommand, show help (or --print-config which exits in PersistentPreRunE)
-		cmd.Help()
+		// Default to interactive chat when no subcommand is given
+		if err := chatCmd.RunE(chatCmd, args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
 	},
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// --print-config: dump effective config with diagnostics

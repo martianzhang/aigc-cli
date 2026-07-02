@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -251,7 +252,7 @@ func runChat(cmd *cobra.Command, args []string) error {
 
 	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
 	history := req.Messages
-	_, err = runAgentLoop(c, &history, agentTools, maxIterations, cmd)
+	_, err = runAgentLoop(context.Background(), c, &history, agentTools, maxIterations, cmd)
 	return err
 }
 
@@ -562,12 +563,18 @@ func runInteractiveChat(cmd *cobra.Command) error {
 	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
 	stream := !chatNoStream
 
-	// Signal handling (Ctrl+C)
+	// Signal handling (Ctrl+C) — cancel context to abort API calls / polling
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-sigCh
-		os.Stdin.Close() // unblock stdin read so we exit cleanly
+		select {
+		case <-sigCh:
+			cancel()         // cancel pending HTTP calls
+			os.Stdin.Close() // unblock stdin read so we exit cleanly
+		case <-ctx.Done():
+		}
 	}()
 
 	// Try raw terminal mode for cross-platform Ctrl+D detection
@@ -682,8 +689,12 @@ func runInteractiveChat(cmd *cobra.Command) error {
 		history = append(history, types.ChatMessage{Role: "user", Content: input})
 
 		// Run agent loop
-		_, err = runAgentLoop(c, &history, agentTools, maxIterations, cmd)
+		_, err = runAgentLoop(ctx, c, &history, agentTools, maxIterations, cmd)
 		if err != nil {
+			// cancelled — exit immediately
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
 			fmt.Fprintf(os.Stderr, "\r\nError: %v\r\n", err)
 			history = history[:len(history)-1]
 		}
@@ -695,7 +706,8 @@ func runInteractiveChat(cmd *cobra.Command) error {
 // runAgentLoop executes the tool-calling loop: send request → check tool_calls → execute → repeat.
 // history is modified in-place (appended with assistant + tool messages).
 // Returns the final ChatResponse (text response) or error.
-func runAgentLoop(c *client.Client, history *[]types.ChatMessage, agentTools []types.ToolDefinition, maxIterations int, cmd *cobra.Command) (*types.ChatResponse, error) {
+// If ctx is cancelled (Ctrl+C), returns immediately with context.Canceled.
+func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMessage, agentTools []types.ToolDefinition, maxIterations int, cmd *cobra.Command) (*types.ChatResponse, error) {
 	// Merge defaults.chat.model into shared.Model if empty
 	if shared.Model == "" && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
 		shared.Model = shared.Cfg.Defaults.Chat.Model
@@ -704,6 +716,12 @@ func runAgentLoop(c *client.Client, history *[]types.ChatMessage, agentTools []t
 	turnCount := 0
 	agentStart := time.Now()
 	for turnCount < maxIterations {
+		// Check for Ctrl+C between turns
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		turnCount++
 
 		// Build request (always non-streaming internally for tool calling)
