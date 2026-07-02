@@ -22,6 +22,9 @@ import (
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
+// Command history for readLineRaw up/down arrows.
+var cmdHistory []string
+
 // Tool definitions for Agent Loop
 var agentToolDefs = []types.ToolDefinition{
 	{
@@ -124,7 +127,7 @@ var agentToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "ideas_search",
+			Name:        "ideas",
 			Description: "Search AI image prompt ideas from the local ideas database. Use when the user needs inspiration for image prompts.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
@@ -140,7 +143,7 @@ var agentToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "balance_query",
+			Name:        "balance",
 			Description: "Query your API key balance or user account balance.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
@@ -153,7 +156,7 @@ var agentToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "task_query",
+			Name:        "task",
 			Description: "Query the status and result of an async task (image, video, MJ, etc.) by task ID.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
@@ -310,12 +313,31 @@ func printUsageStats(result *types.ChatResponse, elapsed time.Duration) {
 	fmt.Fprintln(os.Stderr, "---  "+strings.Join(parts, "  |  "))
 }
 
-// readLineRaw reads one line from a raw-mode terminal.
+// readLineRaw reads one line from a raw-mode terminal with readline shortcuts.
 // Echoes characters to stderr. Returns io.EOF on Ctrl+D.
+// Supports:
+//
+//	Ctrl+A  Home        Beginning of line
+//	Ctrl+E  End         End of line
+//	Ctrl+U  Kill        Clear whole line
+//	Ctrl+K  Kill right  Clear to end of line
+//	Ctrl+W  Backword    Delete word backwards
+//	Ctrl+L  Clear       Clear screen
+//	Ctrl+D  EOF         Exit
+//	Up/Down arrows      Command history
+//	Left/Right arrows   Move cursor
+//
+// Command history is shared across calls to readLineRaw.
 func readLineRaw() (string, error) {
-	var buf []byte
+	buf := make([]byte, 0, 256)
+	pos := 0 // cursor position within buf
+	histIdx := -1
+
+	// Package-level history slice shared across calls
+	history := &cmdHistory
+
 	for {
-		var ch [1]byte
+		var ch [3]byte
 		n, err := os.Stdin.Read(ch[:])
 		if err != nil {
 			return "", err
@@ -323,21 +345,175 @@ func readLineRaw() (string, error) {
 		if n == 0 {
 			continue
 		}
-		switch ch[0] {
-		case 4: // Ctrl+D — detect as raw byte on all platforms
-			return "", io.EOF
-		case 13: // Enter (CR)
-			fmt.Fprint(os.Stderr, "\r\n")
-			return string(buf), nil
-		case 127, 8: // Backspace
-			if len(buf) > 0 {
-				buf = buf[:len(buf)-1]
-				fmt.Fprint(os.Stderr, "\b \b")
+
+		// Multi-byte sequences (escape codes)
+		if ch[0] == 27 && n >= 2 && ch[1] == '[' {
+			switch ch[2] {
+			case 'A': // Up arrow — history back
+				if len(*history) > 0 && histIdx < len(*history)-1 {
+					histIdx++
+					// Clear current line
+					for i := 0; i < len(buf); i++ {
+						fmt.Fprint(os.Stderr, "\b \b")
+					}
+					// Load history entry
+					buf = []byte((*history)[len(*history)-1-histIdx])
+					pos = len(buf)
+					fmt.Fprint(os.Stderr, string(buf))
+				}
+			case 'B': // Down arrow — history forward
+				if histIdx > 0 {
+					histIdx--
+					// Clear current line
+					for i := 0; i < len(buf); i++ {
+						fmt.Fprint(os.Stderr, "\b \b")
+					}
+					buf = []byte((*history)[len(*history)-1-histIdx])
+					pos = len(buf)
+					fmt.Fprint(os.Stderr, string(buf))
+				} else if histIdx == 0 {
+					histIdx = -1
+					// Clear and reset
+					for i := 0; i < len(buf); i++ {
+						fmt.Fprint(os.Stderr, "\b \b")
+					}
+					buf = buf[:0]
+					pos = 0
+				}
+			case 'C': // Right arrow
+				if pos < len(buf) {
+					fmt.Fprint(os.Stderr, string(buf[pos]))
+					pos++
+				}
+			case 'D': // Left arrow
+				if pos > 0 {
+					pos--
+					fmt.Fprint(os.Stderr, "\b")
+				}
 			}
+			continue
+		}
+
+		switch ch[0] {
+		case 4: // Ctrl+D
+			return "", io.EOF
+
+		case 13: // Enter
+			fmt.Fprint(os.Stderr, "\r\n")
+			line := string(buf)
+			// Save to history (non-empty, dedup last)
+			if line != "" && (len(*history) == 0 || (*history)[len(*history)-1] != line) {
+				*history = append(*history, line)
+			}
+			return line, nil
+
+		case 127, 8: // Backspace
+			if pos > 0 {
+				// Remove character before cursor
+				copy(buf[pos-1:], buf[pos:])
+				buf = buf[:len(buf)-1]
+				pos--
+				// Redraw from cursor position
+				fmt.Fprint(os.Stderr, "\b"+string(buf[pos:])+" ")
+				// Move cursor back
+				back := len(buf) - pos
+				for i := 0; i < back+1; i++ {
+					fmt.Fprint(os.Stderr, "\b")
+				}
+			}
+
+		case 1: // Ctrl+A — beginning of line
+			if pos > 0 {
+				fmt.Fprint(os.Stderr, "\r")
+				// Move cursor back pos positions from current
+				for i := 0; i < pos; i++ {
+					fmt.Fprint(os.Stderr, "\b")
+				}
+				pos = 0
+			}
+
+		case 5: // Ctrl+E — end of line
+			if pos < len(buf) {
+				fmt.Fprint(os.Stderr, string(buf[pos:]))
+				pos = len(buf)
+			}
+
+		case 11: // Ctrl+K — kill to end of line
+			if pos < len(buf) {
+				// Clear from cursor to end
+				for i := pos; i < len(buf); i++ {
+					fmt.Fprint(os.Stderr, " ")
+				}
+				// Move back
+				for i := pos; i < len(buf); i++ {
+					fmt.Fprint(os.Stderr, "\b")
+				}
+				buf = buf[:pos]
+			}
+
+		case 21: // Ctrl+U — kill whole line
+			if len(buf) > 0 {
+				// Clear displayed text
+				for i := 0; i < len(buf); i++ {
+					fmt.Fprint(os.Stderr, "\b \b")
+				}
+				buf = buf[:0]
+				pos = 0
+			}
+
+		case 12: // Ctrl+L — clear screen
+			fmt.Fprint(os.Stderr, "\033[2J\033[H")
+			// Re-prompt
+			fmt.Fprint(os.Stderr, ">>> ")
+			fmt.Fprint(os.Stderr, string(buf))
+
+		case 23: // Ctrl+W — delete word backwards
+			if pos > 0 {
+				// Find start of word to delete
+				end := pos
+				start := end
+				// Skip spaces
+				for start > 0 && buf[start-1] == ' ' {
+					start--
+				}
+				// Skip word chars
+				for start > 0 && buf[start-1] != ' ' {
+					start--
+				}
+				// Delete from start to end
+				n := end - start
+				copy(buf[start:], buf[end:])
+				buf = buf[:len(buf)-n]
+				// Move cursor to start
+				for i := 0; i < pos-start; i++ {
+					fmt.Fprint(os.Stderr, "\b")
+				}
+				pos = start
+				// Redraw from cursor
+				fmt.Fprint(os.Stderr, string(buf[pos:]))
+				// Clear leftover chars
+				for i := 0; i < n; i++ {
+					fmt.Fprint(os.Stderr, " ")
+				}
+				// Move back
+				for i := 0; i < len(buf)-pos+n; i++ {
+					fmt.Fprint(os.Stderr, "\b")
+				}
+			}
+
 		default:
 			if ch[0] >= 32 { // printable
-				buf = append(buf, ch[0])
-				fmt.Fprint(os.Stderr, string(ch[0]))
+				// Insert at cursor position
+				buf = append(buf, 0)
+				copy(buf[pos+1:], buf[pos:])
+				buf[pos] = ch[0]
+				// Redraw from cursor
+				fmt.Fprint(os.Stderr, string(buf[pos:]))
+				pos++
+				// Move cursor back for characters after the inserted one
+				for i := pos; i < len(buf); i++ {
+					fmt.Fprint(os.Stderr, "\b")
+				}
 			}
 		}
 	}
@@ -749,11 +925,11 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeGenerateVideo(c, tc.Function.Arguments)
 	case "midjourney_imagine", "midjourney_describe", "midjourney_reroll", "midjourney_video":
 		return executeMidjourney(c, tc.Function.Name, tc.Function.Arguments)
-	case "ideas_search":
+	case "ideas":
 		return executeIdeasSearch(tc.Function.Arguments)
-	case "balance_query":
+	case "balance":
 		return executeBalanceQuery(tc.Function.Arguments)
-	case "task_query":
+	case "task":
 		return executeTaskQuery(tc.Function.Arguments)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)

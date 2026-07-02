@@ -569,15 +569,16 @@ func (c *Client) ResolveLocalImages(urls []string) ([]string, error) {
 
 // GetTokenBalance queries the current token's balance.
 func (c *Client) GetTokenBalance() (*types.TokenBalanceResponse, error) {
-	return getBalance[types.TokenBalanceResponse](c, c.baseURL+tokenBalancePath)
+	return getBalance[types.TokenBalanceResponse](c, tokenBalancePath)
 }
 
 // GetUserBalance queries the current user's balance.
 func (c *Client) GetUserBalance() (*types.UserBalanceResponse, error) {
-	return getBalance[types.UserBalanceResponse](c, c.baseURL+userBalancePath)
+	return getBalance[types.UserBalanceResponse](c, userBalancePath)
 }
 
 // getBalance is a generic helper for balance endpoints.
+// path should be relative (without baseURL), doGet prepends it.
 func getBalance[T any](c *Client, path string) (*T, error) {
 	var result T
 	if err := c.doGet(path, &result); err != nil {
