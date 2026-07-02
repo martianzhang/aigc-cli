@@ -754,11 +754,8 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 			// Execute each tool call
 			for _, tc := range choice.Message.ToolCalls {
 				// Print tool call for user visibility
-				args := tc.Function.Arguments
-				if len(args) > 200 {
-					args = args[:200] + "..."
-				}
-				fmt.Fprintf(os.Stderr, "\r\n[tool] %s(%s)\r\n", tc.Function.Name, args)
+				fmt.Fprintf(os.Stderr, "\r\n[tool] %s:\r\n", tc.Function.Name)
+				printToolArgs(tc.Function.Arguments)
 
 				toolResult := executeToolCall(c, tc)
 				*history = append(*history, types.ChatMessage{
@@ -1169,6 +1166,31 @@ func executeTaskQuery(argsJSON string) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 	return text
+}
+
+// printToolArgs prints tool call arguments as key-value pairs for user visibility.
+// Long string values are truncated at 80 chars.
+func printToolArgs(argsJSON string) {
+	if argsJSON == "" || argsJSON == "{}" {
+		return
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(argsJSON), &m); err != nil {
+		// Not JSON — just print raw (truncated)
+		raw := argsJSON
+		if len(raw) > 120 {
+			raw = raw[:120] + "..."
+		}
+		fmt.Fprintf(os.Stderr, "  %s\r\n", raw)
+		return
+	}
+	for k, v := range m {
+		s := fmt.Sprintf("%v", v)
+		if len(s) > 80 {
+			s = s[:80] + "..."
+		}
+		fmt.Fprintf(os.Stderr, "  %s=%s\r\n", k, s)
+	}
 }
 
 // executeShellCommand runs a shell command and returns its output as a string.
