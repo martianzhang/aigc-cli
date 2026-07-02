@@ -25,7 +25,6 @@ type APIClient interface {
 	GetModelOpenAI(modelID string) (*types.OpenAIModel, error)
 
 	// Provider-specific helpers used in cmd/
-	OpenRouterImageGenerate(req *types.OpenRouterImageRequest) (*types.OpenRouterImageResponse, error)
 	OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.OpenAIImageResponse, error)
 	OpenRouterVideoSubmit(req *types.OpenRouterVideoRequest) (*types.OpenRouterVideoSubmitResponse, error)
 	OpenRouterVideoPoll(pollingURL string) (*types.OpenRouterVideoStatusResponse, error)

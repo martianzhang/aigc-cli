@@ -143,40 +143,6 @@ func TestIsHTML_plainText(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// usesOpenRouterResponsesAPI tests
-// ---------------------------------------------------------------------------
-
-func TestUsesOpenRouterResponsesAPI_gptImage(t *testing.T) {
-	if usesOpenRouterResponsesAPI("openai/gpt-image-2") {
-		t.Error("gpt-image models should NOT use Responses API")
-	}
-}
-
-func TestUsesOpenRouterResponsesAPI_dallE(t *testing.T) {
-	if usesOpenRouterResponsesAPI("openai/dall-e-3") {
-		t.Error("dall-e models should NOT use Responses API")
-	}
-}
-
-func TestUsesOpenRouterResponsesAPI_gemini(t *testing.T) {
-	if !usesOpenRouterResponsesAPI("google/gemini-3.1-flash-image-preview") {
-		t.Error("gemini image models SHOULD use Responses API")
-	}
-}
-
-func TestUsesOpenRouterResponsesAPI_genericChat(t *testing.T) {
-	if !usesOpenRouterResponsesAPI("openai/gpt-4o") {
-		t.Error("chat models should default to Responses API")
-	}
-}
-
-func TestUsesOpenRouterResponsesAPI_empty(t *testing.T) {
-	if !usesOpenRouterResponsesAPI("") {
-		t.Error("empty model should default to Responses API")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // OpenRouter model discovery integration test (no API key required)
 // ---------------------------------------------------------------------------
 

@@ -1,56 +1,6 @@
 // Package types — OpenRouter-specific API types for image and video generation.
 package types
 
-// ---------------------------------------------------------------------------
-// OpenRouter Image — Responses API (POST /api/v1/responses)
-// ---------------------------------------------------------------------------
-
-// OpenRouterImageRequest is the request body for OpenRouter's Responses API
-// with image output modalities.
-type OpenRouterImageRequest struct {
-	Model       string                   `json:"model"`
-	Modalities  []string                 `json:"modalities"` // ["image", "text"]
-	Messages    []OpenRouterImageMessage `json:"messages"`
-	ImageConfig *OpenRouterImageConfig   `json:"image_config,omitempty"`
-}
-
-// OpenRouterImageMessage is a single message in the Responses API chat.
-type OpenRouterImageMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// OpenRouterImageConfig carries optional image generation parameters.
-type OpenRouterImageConfig struct {
-	AspectRatio string `json:"aspect_ratio,omitempty"`
-	ImageSize   string `json:"image_size,omitempty"`
-}
-
-// OpenRouterImageResponse is the response from the Responses API.
-// The generated images are in output items of type "image_generation_call".
-type OpenRouterImageResponse struct {
-	ID     string                 `json:"id"`
-	Model  string                 `json:"model"`
-	Output []OpenRouterOutputItem `json:"output"`
-	Usage  *OpenRouterUsage       `json:"usage,omitempty"`
-}
-
-// OpenRouterOutputItem is an item in the Responses API output array.
-// Type can be "message" (text reply) or "image_generation_call" (image).
-type OpenRouterOutputItem struct {
-	Type    string                `json:"type"`
-	ID      string                `json:"id,omitempty"`
-	Status  string                `json:"status,omitempty"`
-	Result  string                `json:"result,omitempty"`  // base64 data URL for image_generation_call
-	Content []OpenRouterTextBlock `json:"content,omitempty"` // text blocks for "message" type
-}
-
-// OpenRouterTextBlock is a text content block inside a message output item.
-type OpenRouterTextBlock struct {
-	Type string `json:"type"` // "text"
-	Text string `json:"text"`
-}
-
 // OpenRouterUsage holds token and cost information.
 type OpenRouterUsage struct {
 	InputTokens  int     `json:"input_tokens,omitempty"`

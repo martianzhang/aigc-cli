@@ -181,14 +181,7 @@ type imageStrategy struct {
 // First match wins. Add a new entry here when adding a new provider or model type.
 var imageStrategies = []imageStrategy{
 	{
-		// OpenRouter: chat-native image models (Gemini Flash Image, etc.) → Responses API
-		match: func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool {
-			return ctx.isOpenRouter && !ctx.genEdit && usesOpenRouterResponsesAPI(req.Model)
-		},
-		run: runOpenRouterImage,
-	},
-	{
-		// OpenRouter: dedicated image models (GPT Image, DALL-E, etc.) → Dedicated Image API
+		// OpenRouter: all image models → Unified Image API (POST /v1/images)
 		match: func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool {
 			return ctx.isOpenRouter && !ctx.genEdit
 		},
@@ -208,80 +201,25 @@ var imageStrategies = []imageStrategy{
 	},
 }
 
-// runOpenRouterImage handles image generation via OpenRouter's Responses API.
-// Uses POST /v1/responses with image output modalities.
-func runOpenRouterImage(c client.APIClient, req *types.GenerateRequest) error {
-	// Build Responses API request from the standard GenerateRequest
-	orReq := &types.OpenRouterImageRequest{
-		Model:      req.Model,
-		Modalities: []string{"image", "text"},
-		Messages: []types.OpenRouterImageMessage{
-			{Role: "user", Content: req.Prompt},
-		},
-	}
-
-	// Map aspect ratio from size if available
-	if req.Size != "" {
-		orReq.ImageConfig = &types.OpenRouterImageConfig{
-			AspectRatio: req.Size,
-			ImageSize:   req.Resolution,
-		}
-	}
-
-	orResp, err := c.OpenRouterImageGenerate(orReq)
-	if err != nil {
-		return fmt.Errorf("OpenRouter image generation failed: %w", err)
-	}
-
-	fmt.Printf("Model: %s\n", orResp.Model)
-
-	// Print model text response (if any)
-	for _, item := range orResp.Output {
-		if item.Type == "message" {
-			for _, block := range item.Content {
-				if block.Type == "text" && block.Text != "" {
-					fmt.Printf("Response: %s\n", block.Text)
-				}
-			}
-		}
-	}
-
-	// Extract and save images from response
-	taskID := fmt.Sprintf("image_%d", time.Now().Unix())
-	saved, err := client.ExtractImagesFromResponse(orResp, shared.OutputDir, taskID)
-	if err != nil {
-		return fmt.Errorf("failed to extract images: %w", err)
-	}
-
-	fmt.Printf("Images generated: %d\n", len(saved))
-	for _, f := range saved {
-		fmt.Printf("Saved: %s\n", f)
-	}
-
-	if orResp.Usage != nil {
-		fmt.Printf("Tokens: %d in / %d out", orResp.Usage.InputTokens, orResp.Usage.OutputTokens)
-		if orResp.Usage.TotalCost > 0 {
-			fmt.Printf(" | Cost: $%.5f", orResp.Usage.TotalCost)
-		}
-		fmt.Println()
-	}
-
-	return nil
-}
-
 // runOpenRouterDedicatedImage handles image generation via OpenRouter's
 // dedicated Image API (POST /v1/images). Used for GPT Image, DALL-E, and
 // most dedicated image models on OpenRouter. Returns standard OpenAI-compatible
 // response with b64_json images.
 func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest) error {
+	start := time.Now()
+
 	orResp, err := c.OpenRouterDedicatedImage(req)
 	if err != nil {
 		return fmt.Errorf("OpenRouter image generation failed: %w", err)
 	}
 
+	elapsed := time.Since(start)
+
 	fmt.Printf("Model: %s\n", req.Model)
-	createdAt := time.Unix(orResp.Created, 0).Format("2006-01-02 15:04:05")
-	fmt.Printf("Created: %s\n", createdAt)
+	if orResp.Created > 0 {
+		fmt.Printf("Created: %s\n", time.Unix(orResp.Created, 0).Format("2006-01-02 15:04:05"))
+	}
+	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	for i, img := range orResp.Data {
 		// Save base64 image
@@ -353,14 +291,20 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest)
 
 // runSyncImage handles OpenAI/OpenRouter-compatible synchronous image generation.
 func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
+	start := time.Now()
+
 	syncResp, err := c.ImageGenerateSync(req)
 	if err != nil {
 		return fmt.Errorf("image generation failed: %w", err)
 	}
 
+	elapsed := time.Since(start)
+
 	fmt.Printf("Model: %s\n", req.Model)
-	createdAt := time.Unix(syncResp.Created, 0).Format("2006-01-02 15:04:05")
-	fmt.Printf("Created: %s\n", createdAt)
+	if syncResp.Created > 0 {
+		fmt.Printf("Created: %s\n", time.Unix(syncResp.Created, 0).Format("2006-01-02 15:04:05"))
+	}
+	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 	for i, img := range syncResp.Data {
 		// Save base64 image data
 		if img.B64JSON != "" {
@@ -475,19 +419,6 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest) error {
 // isOpenRouterProvider determines whether the current base URL points to OpenRouter.
 func isOpenRouterProvider() bool {
 	return provider.IsOpenRouter(shared.APIBase)
-}
-
-// usesOpenRouterResponsesAPI returns true if the model should use OpenRouter's
-// Responses API (POST /v1/responses) with image modalities.
-// Dedicated image models (DALL-E, GPT Image, etc.) use the standard generations
-// endpoint (/v1/images/generations) instead.
-func usesOpenRouterResponsesAPI(model string) bool {
-	// Dedicated image generation models use the standard generations endpoint
-	if strings.Contains(model, "dall-e") || strings.Contains(model, "gpt-image") {
-		return false
-	}
-	// All other models (Gemini, Claude, Mistral, etc. with image output) use Responses API
-	return true
 }
 
 // isAPIMartProvider determines whether to use APIMart async mode.

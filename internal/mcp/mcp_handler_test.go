@@ -50,9 +50,6 @@ func (m *mockAPIClient) ListModelsOpenAI() ([]types.OpenAIModel, error) {
 func (m *mockAPIClient) GetModelOpenAI(modelID string) (*types.OpenAIModel, error) {
 	return &types.OpenAIModel{ID: modelID, OwnedBy: "test"}, nil
 }
-func (m *mockAPIClient) OpenRouterImageGenerate(req *types.OpenRouterImageRequest) (*types.OpenRouterImageResponse, error) {
-	return nil, nil
-}
 func (m *mockAPIClient) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
 	return nil, nil
 }

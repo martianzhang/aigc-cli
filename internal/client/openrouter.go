@@ -1,13 +1,11 @@
 package client
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,79 +13,13 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// OpenRouter Image — Responses API
+// OpenRouter Image — Dedicated Image API (POST /api/v1/images)
+// This is the primary path for all image models on OpenRouter.
+// Returns OpenAI-compatible response format with b64_json.
 // ---------------------------------------------------------------------------
 
 // Image generation and video generation on OpenRouter can take 60-120s.
 const openrouterRequestTimeout = 120 * time.Second
-
-// OpenRouterImageGenerate sends a text-to-image request via OpenRouter's
-// Responses API (POST /v1/responses) with image output modalities.
-func (c *Client) OpenRouterImageGenerate(req *types.OpenRouterImageRequest) (*types.OpenRouterImageResponse, error) {
-	oldTimeout := c.httpClient.Timeout
-	c.httpClient.Timeout = openrouterRequestTimeout
-	defer func() { c.httpClient.Timeout = oldTimeout }()
-
-	headers := openRouterHeaders()
-	var result types.OpenRouterImageResponse
-	if err := c.doJSONWithHeaders(http.MethodPost, "/responses", req, &result, headers); err != nil {
-		return nil, err
-	}
-	return &result, nil
-}
-
-// ExtractImagesFromResponse extracts base64-encoded images from an OpenRouter
-// image_generation_call output items and saves them to the output directory.
-// Returns the list of saved file paths.
-func ExtractImagesFromResponse(resp *types.OpenRouterImageResponse, outputDir, baseName string) ([]string, error) {
-	var saved []string
-	imgIdx := 0
-	for _, item := range resp.Output {
-		if item.Type != "image_generation_call" || item.Status != "completed" || item.Result == "" {
-			continue
-		}
-		// result is a data URL: "data:image/png;base64,iVBOR..."
-		dataURL := item.Result
-		if !strings.HasPrefix(dataURL, "data:") {
-			continue
-		}
-
-		// Extract base64 payload
-		commaIdx := strings.Index(dataURL, ",")
-		if commaIdx < 0 {
-			continue
-		}
-		b64 := dataURL[commaIdx+1:]
-
-		// Guess extension from MIME type
-		mimePart := dataURL[len("data:"):commaIdx]
-		ext := ".png"
-		if strings.Contains(mimePart, "jpeg") || strings.Contains(mimePart, "jpg") {
-			ext = ".jpg"
-		} else if strings.Contains(mimePart, "webp") {
-			ext = ".webp"
-		}
-
-		raw, err := base64.StdEncoding.DecodeString(b64)
-		if err != nil {
-			return saved, fmt.Errorf("failed to decode base64 image: %w", err)
-		}
-
-		filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d%s", baseName, imgIdx, ext))
-		if err := os.WriteFile(filename, raw, 0644); err != nil {
-			return saved, fmt.Errorf("failed to save image %s: %w", filename, err)
-		}
-		saved = append(saved, filename)
-		imgIdx++
-	}
-	return saved, nil
-}
-
-// ---------------------------------------------------------------------------
-// OpenRouter Image — Dedicated Image API (POST /api/v1/images)
-// This is the primary path for GPT Image, DALL-E, and most image models on OpenRouter.
-// Returns OpenAI-compatible response format with b64_json.
-// ---------------------------------------------------------------------------
 
 // OpenRouterDedicatedImage sends a text-to-image request via OpenRouter's
 // dedicated Image API (POST /v1/images). Returns standard OpenAI-compatible response.
