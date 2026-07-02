@@ -57,13 +57,14 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 			if shared.HTTPProxy == "" {
 				shared.HTTPProxy = cfg.HTTPProxy
 			}
-			if !cmd.Flags().Changed("verbose") {
+			// Check both local and persistent flags (persistent flags are on inherited set)
+			if !hasFlagChanged(cmd, "verbose") {
 				shared.Verbose = cfg.Verbose
 			}
-			if !cmd.Flags().Changed("output") && cfg.OutputDir != "" {
+			if !hasFlagChanged(cmd, "output") && cfg.OutputDir != "" {
 				shared.OutputDir = cfg.OutputDir
 			}
-			if !cmd.Flags().Changed("timeout") && cfg.Timeout != nil && *cfg.Timeout > 0 {
+			if !hasFlagChanged(cmd, "timeout") && cfg.Timeout != nil && *cfg.Timeout > 0 {
 				shared.TimeoutFlag = *cfg.Timeout
 			}
 		}
@@ -401,6 +402,11 @@ func Execute() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// hasFlagChanged checks if a flag was explicitly set, searching local, persistent, and inherited flags.
+func hasFlagChanged(cmd *cobra.Command, name string) bool {
+	return cmd.Flags().Changed(name) || cmd.PersistentFlags().Changed(name) || cmd.InheritedFlags().Changed(name)
 }
 
 // isIdeasSubCommand returns true if cmd is "ideas" or any of its sub-commands.

@@ -782,18 +782,29 @@ func runOpenRouterVideoResume(jobID string) error {
 func generateVideoAndSave(c *client.Client, req *types.VideoGenerateRequest) ([]string, error) {
 	// Always load the user's config — shared.Cfg may be nil if PersistentPreRunE hasn't run.
 	vidCfg := loadVideoDefaults()
+
+	// Check if LLM is allowed to override (default: false = config wins)
+	allowOverride := false
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
+		allowOverride = shared.Cfg.Defaults.Chat.AllowToolOverride
+	}
+
 	if vidCfg != nil {
-		if vidCfg.Model != "" {
-			req.Model = vidCfg.Model
-		}
-		if vidCfg.Size != "" {
-			req.Size = vidCfg.Size
-		}
-		if vidCfg.Resolution != "" {
-			req.Resolution = vidCfg.Resolution
-		}
-		if vidCfg.Duration != nil {
-			req.Duration = vidCfg.Duration
+		if !allowOverride {
+			if vidCfg.Model != "" {
+				req.Model = vidCfg.Model
+			}
+			if vidCfg.Size != "" {
+				req.Size = vidCfg.Size
+			}
+			if vidCfg.Resolution != "" {
+				req.Resolution = vidCfg.Resolution
+			}
+			if vidCfg.Duration != nil {
+				req.Duration = vidCfg.Duration
+			}
+		} else {
+			vidCfg.MergeIntoVideo(req)
 		}
 	}
 	// Code defaults for fields the user didn't configure

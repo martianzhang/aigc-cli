@@ -145,6 +145,7 @@ defaults:
 | `defaults.chat.max_iterations` | 每次用户消息，LLM 最多连续调工具次数（默认 10） |
 | `defaults.chat.tools` | 允许的工具白名单（glob 模式），空或 `["*"]` = 全部允许 |
 | `defaults.chat.disable_tools` | 禁用的工具黑名单（glob 模式），覆盖 `tools` |
+| `defaults.chat.allow_tool_override` | `true`=LLM参数优先，`false`=配置强制覆盖LLM（默认`false`，省钱） |
 
 ---
 

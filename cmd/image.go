@@ -758,18 +758,42 @@ func generateImageAndSave(c client.APIClient, req *types.GenerateRequest) ([]str
 	// Always load the user's config — shared.Cfg may be nil if PersistentPreRunE
 	// hasn't run (e.g., direct call from agent loop without CLI entry).
 	imgCfg := loadImageDefaults()
+
+	if shared.Verbose {
+		if imgCfg != nil {
+			fmt.Fprintf(os.Stderr, "\r\n[image] cfg: model=%s quality=%s size=%s res=%s\r\n",
+				imgCfg.Model, imgCfg.Quality, imgCfg.Size, imgCfg.Resolution)
+		} else {
+			fmt.Fprintf(os.Stderr, "\r\n[image] WARNING: no image config loaded (check defaults.image in config.yaml)\r\n")
+		}
+		fmt.Fprintf(os.Stderr, "[image] req before: model=%s quality=%s size=%s res=%s\r\n",
+			req.Model, req.Quality, req.Size, req.Resolution)
+	}
+
+	// Check if LLM is allowed to override config (default: false = config wins)
+	allowOverride := false
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
+		allowOverride = shared.Cfg.Defaults.Chat.AllowToolOverride
+	}
+
 	if imgCfg != nil {
-		if imgCfg.Model != "" {
-			req.Model = imgCfg.Model
-		}
-		if imgCfg.Quality != "" {
-			req.Quality = imgCfg.Quality
-		}
-		if imgCfg.Size != "" {
-			req.Size = imgCfg.Size
-		}
-		if imgCfg.Resolution != "" {
-			req.Resolution = imgCfg.Resolution
+		if !allowOverride {
+			// Config is the ceiling — force values regardless of LLM
+			if imgCfg.Model != "" {
+				req.Model = imgCfg.Model
+			}
+			if imgCfg.Quality != "" {
+				req.Quality = imgCfg.Quality
+			}
+			if imgCfg.Size != "" {
+				req.Size = imgCfg.Size
+			}
+			if imgCfg.Resolution != "" {
+				req.Resolution = imgCfg.Resolution
+			}
+		} else {
+			// allow_tool_override=true — LLM takes priority, config only fills empty fields
+			imgCfg.MergeIntoImage(req)
 		}
 	}
 	// Code defaults for fields the user didn't configure
@@ -781,6 +805,10 @@ func generateImageAndSave(c client.APIClient, req *types.GenerateRequest) ([]str
 	}
 	if req.Resolution == "" {
 		req.Resolution = "1k"
+	}
+	if shared.Verbose {
+		fmt.Fprintf(os.Stderr, "[image] req after:  model=%s quality=%s size=%s res=%s\r\n",
+			req.Model, req.Quality, req.Size, req.Resolution)
 	}
 	if req.Model == "" {
 		return nil, fmt.Errorf("model is required: set via defaults.image.model in config.yaml")

@@ -32,7 +32,7 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "generate_image",
-			Description: "Generate an image based on a text description. Use this when the user asks you to create, draw, or generate an image.",
+			Description: "Generate images via AI (cost-effective, recommended default). Use this for most image generation tasks. For highly artistic/stylized results, consider midjourney_imagine instead.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
@@ -66,7 +66,7 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "midjourney_imagine",
-			Description: "Generate artistic images via Midjourney. Use for stylized, creative, or artistic image generation with fine-grained control over style and composition.",
+			Description: "Midjourney image generation (costs 5-10x more than generate_image and produces 4 variants). Only use when the user explicitly asks for Midjourney, or needs highly artistic/stylized/painted results. For most use cases, prefer generate_image instead.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {

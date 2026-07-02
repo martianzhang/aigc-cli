@@ -73,7 +73,7 @@ func init() {
 			if shared.HTTPProxy == "" {
 				shared.HTTPProxy = c.HTTPProxy
 			}
-			if !cmd.Flags().Changed("output") && c.OutputDir != "" {
+			if !hasFlagChanged(cmd, "output") && c.OutputDir != "" {
 				shared.OutputDir = c.OutputDir
 			}
 		}
