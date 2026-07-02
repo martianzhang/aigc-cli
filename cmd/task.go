@@ -12,8 +12,9 @@ import (
 
 // taskCmd represents the `task` command.
 var taskCmd = &cobra.Command{
-	Use:   "task <task-id>",
-	Short: "Query task status and result",
+	Use:          "task <task-id>",
+	Short:        "Query task status and result",
+	SilenceUsage: true,
 	Long: `Query the execution status and result of an asynchronous task.
 
 You can query any task by its ID, including image and video generation tasks.

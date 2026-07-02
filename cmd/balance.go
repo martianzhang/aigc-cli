@@ -10,8 +10,9 @@ import (
 
 // balanceCmd represents the `balance` command.
 var balanceCmd = &cobra.Command{
-	Use:   "balance [token|user]",
-	Short: "Query API key or user account balance",
+	Use:          "balance [token|user]",
+	Short:        "Query API key or user account balance",
+	SilenceUsage: true,
 	Long: `Query balance information.
 
 Subcommands:
@@ -32,8 +33,9 @@ Examples:
 
 // balanceUserCmd represents the `balance user` subcommand.
 var balanceUserCmd = &cobra.Command{
-	Use:   "user",
-	Short: "Query user account balance",
+	Use:          "user",
+	Short:        "Query user account balance",
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runBalanceUser()
 	},

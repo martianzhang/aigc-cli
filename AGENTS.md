@@ -117,12 +117,31 @@ import (
 - 错误消息首字母小写
 - CLI 层返回 error，由 `cmd.Execute()` 统一处理
 
-### 4.3 变量命名
+### 4.3 SilenceUsage
+
+所有有 `RunE` 的 cobra 命令**必须**设置 `SilenceUsage: true`。因为 `RunE` 返回的错误通常是运行时错误（API 调用失败、网络超时等），不是参数解析错误。显示 Usage 会干扰用户查看真正的错误信息。
+
+```go
+// ✅ 正确
+var chatCmd = &cobra.Command{
+    Use:          "chat",
+    SilenceUsage: true,
+    RunE: runChat,
+}
+
+// ❌ 错误 — 运行时错误也会打印 Usage
+var chatCmd = &cobra.Command{
+    Use:   "chat",
+    RunE: runChat,
+}
+```
+
+### 4.4 变量命名
 
 - Go 驼峰式：`APIKey`、`HTTPProxy`、`baseURL`
 - 不要用拼音命名，不要用单字母变量（循环变量除外）
 
-### 4.4 配置优先级
+### 4.5 配置优先级
 
 ```
 CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值
@@ -130,7 +149,7 @@ CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值
 
 修改配置相关代码时，务必维护此优先级。
 
-### 4.5 提交信息
+### 4.6 提交信息
 
 ```
 <type>(<scope>): <简短描述>

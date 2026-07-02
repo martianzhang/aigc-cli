@@ -233,24 +233,67 @@ type YunwuVideoQueryResponse struct {
 	StatusUpdateTime int64  `json:"status_update_time,omitempty"`
 }
 
+// ToolDefinition defines a tool that the LLM can call.
+type ToolDefinition struct {
+	Type     string       `json:"type"` // "function"
+	Function ToolFunction `json:"function"`
+}
+
+// ToolFunction defines the schema of a callable function.
+type ToolFunction struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"` // JSON Schema
+}
+
+// ToolCall is a tool call returned by the LLM.
+type ToolCall struct {
+	ID       string           `json:"id"`
+	Type     string           `json:"type"` // "function"
+	Function ToolCallFunction `json:"function"`
+}
+
+// ToolCallFunction contains the name and arguments of a tool call.
+type ToolCallFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"` // JSON string
+}
+
+// ChatStreamDeltaToolCall represents a tool call delta in streaming response.
+type ChatStreamDeltaToolCall struct {
+	Index    int                      `json:"index"`
+	ID       string                   `json:"id,omitempty"`
+	Type     string                   `json:"type,omitempty"`
+	Function *ChatStreamDeltaFunction `json:"function,omitempty"`
+}
+
+// ChatStreamDeltaFunction contains partial name/arguments in a streaming delta.
+type ChatStreamDeltaFunction struct {
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
+}
+
 // ChatMessage represents a single message in a chat conversation.
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
 }
 
 // ChatRequest is the request body for chat completion.
 type ChatRequest struct {
-	Model            string        `json:"model"`
-	Messages         []ChatMessage `json:"messages"`
-	Stream           bool          `json:"stream,omitempty"`
-	Temperature      *float64      `json:"temperature,omitempty"`
-	MaxTokens        *int          `json:"max_tokens,omitempty"`
-	TopP             *float64      `json:"top_p,omitempty"`
-	FrequencyPenalty *float64      `json:"frequency_penalty,omitempty"`
-	PresencePenalty  *float64      `json:"presence_penalty,omitempty"`
-	Stop             []string      `json:"stop,omitempty"`
-	N                *int          `json:"n,omitempty"`
+	Model            string           `json:"model"`
+	Messages         []ChatMessage    `json:"messages"`
+	Stream           bool             `json:"stream,omitempty"`
+	Temperature      *float64         `json:"temperature,omitempty"`
+	MaxTokens        *int             `json:"max_tokens,omitempty"`
+	TopP             *float64         `json:"top_p,omitempty"`
+	FrequencyPenalty *float64         `json:"frequency_penalty,omitempty"`
+	PresencePenalty  *float64         `json:"presence_penalty,omitempty"`
+	Stop             []string         `json:"stop,omitempty"`
+	N                *int             `json:"n,omitempty"`
+	Tools            []ToolDefinition `json:"tools,omitempty"`
 	// OutputWriter directs streaming output. When nil, streamed tokens are
 	// accumulated silently and returned in the full response (no terminal output).
 	// CLI sets this to os.Stdout; MCP and other callers leave it nil.
@@ -292,8 +335,9 @@ type ChatStreamChoice struct {
 
 // ChatStreamDelta represents the delta content in a streaming chunk.
 type ChatStreamDelta struct {
-	Role    string `json:"role,omitempty"`
-	Content string `json:"content,omitempty"`
+	Role      string                    `json:"role,omitempty"`
+	Content   string                    `json:"content,omitempty"`
+	ToolCalls []ChatStreamDeltaToolCall `json:"tool_calls,omitempty"`
 }
 
 // ChatUsage represents token usage statistics.
@@ -398,9 +442,12 @@ type ConfigDefaults struct {
 
 // ChatDefaults holds default values for chat completion.
 type ChatDefaults struct {
-	Model       string  `mapstructure:"model" yaml:"model,omitempty"`
-	Temperature float64 `mapstructure:"temperature" yaml:"temperature,omitempty"`
-	MaxTokens   int     `mapstructure:"max_tokens" yaml:"max_tokens,omitempty"`
+	Model         string   `mapstructure:"model" yaml:"model,omitempty"`
+	Temperature   float64  `mapstructure:"temperature" yaml:"temperature,omitempty"`
+	MaxTokens     int      `mapstructure:"max_tokens" yaml:"max_tokens,omitempty"`
+	MaxIterations int      `mapstructure:"max_iterations" yaml:"max_iterations,omitempty"` // 每次用户消息，LLM 最多连续调工具次数（默认 10）
+	Tools         []string `mapstructure:"tools" yaml:"tools,omitempty"`                   // 允许的工具白名单（glob 模式），空或["*"]=全部允许
+	DisableTools  []string `mapstructure:"disable_tools" yaml:"disable_tools,omitempty"`   // 禁用的工具黑名单（glob 模式），覆盖 tools
 }
 
 // ImageDefaults holds default values for image generation.

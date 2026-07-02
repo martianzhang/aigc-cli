@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -15,9 +17,46 @@ import (
 	"golang.org/x/term"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
-	"github.com/martianzhang/apimart-cli/internal/config"
+	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
+
+// Tool definitions for Agent Loop
+var agentToolDefs = []types.ToolDefinition{
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "generate_image",
+			Description: "Generate an image based on a text description. Use this when the user asks you to create, draw, or generate an image.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"prompt": {"type": "string", "description": "Detailed text description of the image to generate"},
+					"size": {"type": "string", "description": "Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4", "enum": ["1:1", "16:9", "9:16", "4:3", "3:4"]},
+					"n": {"type": "integer", "description": "Number of images to generate (1-4)", "minimum": 1, "maximum": 4},
+					"quality": {"type": "string", "description": "Image quality", "enum": ["auto", "low", "medium", "high"]}
+				},
+				"required": ["prompt"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "generate_video",
+			Description: "Generate a video based on a text description. Use this when the user asks you to create, generate, or make a video.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"prompt": {"type": "string", "description": "Detailed text description of the video to generate"},
+					"duration": {"type": "integer", "description": "Video duration in seconds (4-15)", "minimum": 4, "maximum": 15},
+					"resolution": {"type": "string", "description": "Video resolution", "enum": ["480p", "720p", "1080p"]}
+				},
+				"required": ["prompt"]
+			}`),
+		},
+	},
+}
 
 // chat flag variables
 var (
@@ -32,13 +71,19 @@ var (
 
 // chatCmd represents the `apimart-cli chat` command.
 var chatCmd = &cobra.Command{
-	Use:   "chat",
-	Short: "Chat with AI models (streaming by default)",
+	Use:          "chat",
+	Short:        "Chat with AI models (streaming by default)",
+	SilenceUsage: true,
 	Long: `Start a chat conversation with AI models via the APIMart API.
 
 Supports all major models: GPT, Claude, Gemini, DeepSeek, and more.
 Streaming output is enabled by default. Model is optional — API default is used when omitted.
 Use --verbose to show token usage, cost, and timing stats.
+
+Agentic Chat:
+  Chat supports tool calling by default — the LLM can call generate_image
+  and generate_video tools to create images and videos within the
+  conversation. Configure via defaults.chat in config.yaml.
 
 Modes:
   - Interactive multi-turn (default without --message):
@@ -65,21 +110,38 @@ func runChat(cmd *cobra.Command, args []string) error {
 	}
 
 	// Determine mode:
-	//   No --message → interactive (auto-detect)
+	//   Piped stdin → single-turn (non-interactive)
 	//   --interactive flag → interactive
-	//   Otherwise → single-turn (existing behavior)
-	isInteractive := chatInteractive || !cmd.Flags().Changed("message")
+	//   No --message → interactive (auto-detect)
+	//   Otherwise → single-turn
+	isPiped := !term.IsTerminal(int(os.Stdin.Fd()))
+	isInteractive := !isPiped && (chatInteractive || !cmd.Flags().Changed("message"))
 
 	if isInteractive {
 		return runInteractiveChat(cmd)
 	}
 
-	// Single-turn mode (existing behavior)
+	// Single-turn mode with agent loop
 	req, err := buildChatRequest(cmd)
 	if err != nil {
 		return err
 	}
-	return sendChatRequest(cmd, req)
+
+	// Load config for agent loop settings
+	var chatCfg *types.ChatDefaults
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
+		chatCfg = shared.Cfg.Defaults.Chat
+	}
+	maxIterations := 10
+	if chatCfg != nil && chatCfg.MaxIterations > 0 {
+		maxIterations = chatCfg.MaxIterations
+	}
+	agentTools := buildAgentTools(chatCfg)
+
+	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	history := req.Messages
+	_, err = runAgentLoop(c, &history, agentTools, maxIterations, cmd)
+	return err
 }
 
 // sendChatRequest applies defaults, sends the request, and prints output.
@@ -91,10 +153,9 @@ func sendChatRequest(cmd *cobra.Command, req *types.ChatRequest) error {
 	}
 
 	// Merge config defaults
-	if cfg, err := config.LoadDefaults(shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Chat != nil {
-		d := cfg.Defaults.Chat
-		if d.Model != "" {
-			req.Model = d.Model
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
+		if shared.Cfg.Defaults.Chat.Model != "" {
+			req.Model = shared.Cfg.Defaults.Chat.Model
 		}
 	}
 
@@ -188,13 +249,25 @@ func readLineStdin() (string, error) {
 
 // runInteractiveChat enters an interactive multi-turn chat REPL.
 // Conversation history accumulates across turns. Streaming is enabled by default.
+// Agent Loop is enabled by default — LLM can call generate_image / generate_video tools.
 func runInteractiveChat(cmd *cobra.Command) error {
-	// Determine model (empty = use API default)
-	if cfg, err := config.LoadDefaults(shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Chat != nil {
-		if shared.Model == "" && cfg.Defaults.Chat.Model != "" {
-			shared.Model = cfg.Defaults.Chat.Model
+	// Load chat config for Agent Loop settings
+	var chatCfg *types.ChatDefaults
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
+		chatCfg = shared.Cfg.Defaults.Chat
+		if shared.Model == "" && chatCfg.Model != "" {
+			shared.Model = chatCfg.Model
 		}
 	}
+
+	// Determine max iterations per user message (default 10)
+	maxIterations := 10
+	if chatCfg != nil && chatCfg.MaxIterations > 0 {
+		maxIterations = chatCfg.MaxIterations
+	}
+
+	// Build allowed tool list based on tools/disable_tools config
+	agentTools := buildAgentTools(chatCfg)
 
 	// Initialize conversation history
 	history := []types.ChatMessage{}
@@ -282,6 +355,13 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			if chatSystem != "" {
 				fmt.Fprintf(os.Stderr, "System: %s\r\n", chatSystem)
 			}
+			if len(agentTools) > 0 {
+				toolNames := make([]string, len(agentTools))
+				for i, t := range agentTools {
+					toolNames[i] = t.Function.Name
+				}
+				fmt.Fprintf(os.Stderr, "Tools: %s | Max iterations: %d\r\n", strings.Join(toolNames, ", "), maxIterations)
+			}
 			fmt.Fprint(os.Stderr, "Use -v/--verbose to show token & timing stats.\r\n")
 			continue
 		}
@@ -289,43 +369,93 @@ func runInteractiveChat(cmd *cobra.Command) error {
 		// Add user message to history
 		history = append(history, types.ChatMessage{Role: "user", Content: input})
 
-		// Build request
+		// Run agent loop
+		_, err = runAgentLoop(c, &history, agentTools, maxIterations, cmd)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "\r\nError: %v\r\n", err)
+			history = history[:len(history)-1]
+		}
+
+		fmt.Fprint(os.Stderr, "\r\n")
+	}
+}
+
+// runAgentLoop executes the tool-calling loop: send request → check tool_calls → execute → repeat.
+// history is modified in-place (appended with assistant + tool messages).
+// Returns the final ChatResponse (text response) or error.
+func runAgentLoop(c *client.Client, history *[]types.ChatMessage, agentTools []types.ToolDefinition, maxIterations int, cmd *cobra.Command) (*types.ChatResponse, error) {
+	// Merge defaults.chat.model into shared.Model if empty
+	if shared.Model == "" && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
+		shared.Model = shared.Cfg.Defaults.Chat.Model
+	}
+
+	turnCount := 0
+	agentStart := time.Now()
+	for turnCount < maxIterations {
+		turnCount++
+
+		// Build request (always non-streaming internally for tool calling)
 		req := &types.ChatRequest{
 			Model:    shared.Model,
-			Messages: history,
-			Stream:   stream,
+			Messages: *history,
+			Stream:   false,
+		}
+		if len(agentTools) > 0 {
+			req.Tools = agentTools
 		}
 		setFloatFlag(cmd, "temperature", &req.Temperature, chatTemperature)
 		setIntFlag(cmd, "max-tokens", &req.MaxTokens, chatMaxTokens)
-		req.OutputWriter = os.Stdout
 
-		// Send
-		start := time.Now()
 		result, err := c.ChatCompletion(req)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "\r\nError: %v\r\n", err)
-			// Remove failed user message from history to keep consistent state
-			history = history[:len(history)-1]
+			return nil, err
+		}
+
+		if len(result.Choices) == 0 {
+			break
+		}
+		choice := result.Choices[0]
+
+		// Check for tool calls
+		if choice.FinishReason == "tool_calls" && len(choice.Message.ToolCalls) > 0 {
+			// Add assistant message with tool calls to history
+			*history = append(*history, choice.Message)
+
+			// Execute each tool call
+			for _, tc := range choice.Message.ToolCalls {
+				toolResult := executeToolCall(c, tc)
+				*history = append(*history, types.ChatMessage{
+					Role:       "tool",
+					ToolCallID: tc.ID,
+					Content:    toolResult,
+				})
+			}
 			continue
 		}
-		elapsed := time.Since(start)
+
+		// Text response — output to user
+		textContent := choice.Message.Content
+		if textContent != "" {
+			fmt.Fprint(os.Stderr, "\r\n")
+			fmt.Println(textContent)
+		}
 
 		// Append assistant response to history for subsequent turns
-		if result != nil && len(result.Choices) > 0 {
-			history = append(history, result.Choices[0].Message)
-		}
-
-		// Non-streaming: print result (streaming already written to OutputWriter)
-		if !stream && result != nil && len(result.Choices) > 0 {
-			fmt.Println(result.Choices[0].Message.Content)
-		}
+		*history = append(*history, choice.Message)
 
 		// Verbose stats
 		if shared.Verbose {
-			printUsageStats(result, elapsed)
+			printUsageStats(result, time.Since(agentStart))
 		}
-		fmt.Fprint(os.Stderr, "\r\n")
+
+		if turnCount >= maxIterations {
+			fmt.Fprintf(os.Stderr, "\r\nReached maximum iterations (%d). Start a new message to continue.\r\n", maxIterations)
+		}
+
+		return result, nil
 	}
+
+	return nil, nil
 }
 
 func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
@@ -385,6 +515,317 @@ func setFloatFlag(cmd *cobra.Command, name string, target **float64, val float64
 		v := val
 		*target = &v
 	}
+}
+
+// buildAgentTools returns the list of tool definitions based on config.
+// Applies tools (whitelist) and disable_tools (blacklist) glob patterns.
+func buildAgentTools(cfg *types.ChatDefaults) []types.ToolDefinition {
+	if cfg != nil && len(cfg.DisableTools) > 0 {
+		// Check if all tools are disabled via "*"
+		for _, pattern := range cfg.DisableTools {
+			if matched, _ := path.Match(pattern, "*"); matched {
+				return nil
+			}
+		}
+	}
+
+	// Start with all available tools
+	allTools := agentToolDefs
+
+	// Apply whitelist (tools)
+	if cfg != nil && len(cfg.Tools) > 0 {
+		hasWildcard := false
+		for _, pattern := range cfg.Tools {
+			if matched, _ := path.Match(pattern, "*"); matched {
+				hasWildcard = true
+				break
+			}
+		}
+		if !hasWildcard {
+			filtered := make([]types.ToolDefinition, 0)
+			for _, t := range allTools {
+				for _, pattern := range cfg.Tools {
+					if matched, _ := path.Match(pattern, t.Function.Name); matched {
+						filtered = append(filtered, t)
+						break
+					}
+				}
+			}
+			allTools = filtered
+		}
+	}
+
+	// Apply blacklist (disable_tools)
+	if cfg != nil && len(cfg.DisableTools) > 0 {
+		filtered := make([]types.ToolDefinition, 0)
+		for _, t := range allTools {
+			disabled := false
+			for _, pattern := range cfg.DisableTools {
+				if matched, _ := path.Match(pattern, t.Function.Name); matched {
+					disabled = true
+					break
+				}
+			}
+			if !disabled {
+				filtered = append(filtered, t)
+			}
+		}
+		allTools = filtered
+	}
+
+	return allTools
+}
+
+// generateImageArgs is the JSON structure for generate_image tool arguments.
+type generateImageArgs struct {
+	Prompt  string `json:"prompt"`
+	Size    string `json:"size,omitempty"`
+	N       int    `json:"n,omitempty"`
+	Quality string `json:"quality,omitempty"`
+}
+
+// generateVideoArgs is the JSON structure for generate_video tool arguments.
+type generateVideoArgs struct {
+	Prompt     string `json:"prompt"`
+	Duration   int    `json:"duration,omitempty"`
+	Resolution string `json:"resolution,omitempty"`
+}
+
+// executeToolCall executes a single tool call and returns a text result for the LLM.
+func executeToolCall(c *client.Client, tc types.ToolCall) string {
+	switch tc.Function.Name {
+	case "generate_image":
+		return executeGenerateImage(c, tc.Function.Arguments)
+	case "generate_video":
+		return executeGenerateVideo(c, tc.Function.Arguments)
+	default:
+		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
+	}
+}
+
+// executeGenerateImage runs image generation and returns a text summary for the LLM.
+// Uses defaults.image.model from config, NOT the chat model (shared.Model).
+func executeGenerateImage(c *client.Client, argsJSON string) string {
+	var args generateImageArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+
+	req := &types.GenerateRequest{
+		Prompt:  args.Prompt,
+		Size:    args.Size,
+		Quality: args.Quality,
+	}
+	if args.N > 0 {
+		v := args.N
+		req.N = &v
+	}
+
+	// Apply config defaults — LLM-provided values are hints, config is the ceiling
+	if shared.Verbose {
+		hasCfg := shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Image != nil
+		fmt.Fprintf(os.Stderr, "\r\n[agent] shared.Cfg.Defaults.Image loaded: %v\r\n", hasCfg)
+		if hasCfg {
+			fmt.Fprintf(os.Stderr, "[agent]   model=%q size=%q resolution=%q quality=%q\r\n",
+				shared.Cfg.Defaults.Image.Model,
+				shared.Cfg.Defaults.Image.Size,
+				shared.Cfg.Defaults.Image.Resolution,
+				shared.Cfg.Defaults.Image.Quality)
+		}
+		fmt.Fprintf(os.Stderr, "[agent] req before config: model=%q size=%q quality=%q resolution=%q\r\n",
+			req.Model, req.Size, req.Quality, req.Resolution)
+	}
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil {
+		imgCfg := shared.Cfg.Defaults.Image
+		// Model: LLM doesn't provide, always from config
+		if imgCfg != nil && imgCfg.Model != "" {
+			req.Model = imgCfg.Model
+		}
+		// Quality: cap at config value (LLM can't choose more expensive)
+		if imgCfg != nil && imgCfg.Quality != "" {
+			req.Quality = imgCfg.Quality
+		} else if req.Quality == "" {
+			req.Quality = "low"
+		}
+		// Size: cap at config value
+		if imgCfg != nil && imgCfg.Size != "" {
+			req.Size = imgCfg.Size
+		} else if req.Size == "" {
+			req.Size = "1:1"
+		}
+		// Resolution
+		if imgCfg != nil && imgCfg.Resolution != "" {
+			req.Resolution = imgCfg.Resolution
+		}
+	} else {
+		// No config — low-cost code defaults as safety net
+		if req.Size == "" {
+			req.Size = "1:1"
+		}
+		if req.Quality == "" {
+			req.Quality = "low"
+		}
+	}
+	if shared.Verbose {
+		fmt.Fprintf(os.Stderr, "[agent] req after config: model=%q size=%q quality=%q resolution=%q\r\n",
+			req.Model, req.Size, req.Quality, req.Resolution)
+	}
+	if req.Model == "" {
+		return "Error: model is required for image generation (set via defaults.image.model in config.yaml)"
+	}
+
+	// Set timeout for image generation
+	applyTimeout(c, "image", client.ImageTimeout)
+
+	// Generate image via provider API — reuse existing client methods
+	var savedFiles []string
+	if isAPIMartProvider() {
+		resp, err := c.Submit(req)
+		if err != nil {
+			return fmt.Sprintf("Error: image generation failed: %v", err)
+		}
+		if len(resp.Data) == 0 {
+			return "Error: image submission returned no tasks"
+		}
+		taskData, err := c.PollTask(resp.Data[0].TaskID)
+		if err != nil {
+			return fmt.Sprintf("Error: image polling failed: %v", err)
+		}
+		if taskData.Result != nil && len(taskData.Result.Images) > 0 {
+			if err := downloadImages(taskData.Result.Images, taskData.ID); err != nil {
+				return fmt.Sprintf("Error: image download failed: %v", err)
+			}
+			savedFiles = append(savedFiles, fmt.Sprintf("image_%s_*", taskData.ID))
+		}
+	} else {
+		resp, err := c.ImageGenerateSync(req)
+		if err != nil {
+			return fmt.Sprintf("Error: image generation failed: %v", err)
+		}
+		for i, img := range resp.Data {
+			if img.B64JSON != "" {
+				prefix := fmt.Sprintf("image_%d", time.Now().Unix())
+				filename, err := service.SaveBase64Image(shared.OutputDir, prefix, img.B64JSON, i)
+				if err != nil {
+					continue
+				}
+				savedFiles = append(savedFiles, filename)
+			} else if img.URL != "" {
+				body, err := httpGet(img.URL)
+				if err != nil {
+					continue
+				}
+				ext := ".png"
+				ts := time.Now().Unix()
+				filename := fmt.Sprintf("image_%d_%d%s", ts, i, ext)
+				dest := filename
+				if shared.OutputDir != "" {
+					dest = filepath.Join(shared.OutputDir, filename)
+				}
+				if err := os.WriteFile(dest, body, 0644); err != nil {
+					continue
+				}
+				savedFiles = append(savedFiles, dest)
+			}
+		}
+	}
+
+	if len(savedFiles) == 0 {
+		return "Error: image generation completed but no files were saved"
+	}
+
+	return fmt.Sprintf("Successfully generated %d image(s). Saved to: %s", len(savedFiles), strings.Join(savedFiles, ", "))
+}
+
+// executeGenerateVideo runs video generation and returns a text summary for the LLM.
+// Uses defaults.video.model from config, NOT the chat model (shared.Model).
+func executeGenerateVideo(c *client.Client, argsJSON string) string {
+	var args generateVideoArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+
+	req := &types.VideoGenerateRequest{
+		Prompt: args.Prompt,
+	}
+	if args.Duration > 0 {
+		v := args.Duration
+		req.Duration = &v
+	}
+	if args.Resolution != "" {
+		req.Resolution = args.Resolution
+	}
+
+	// Apply config defaults — LLM-provided values are hints, config is the ceiling
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Video != nil {
+		vidCfg := shared.Cfg.Defaults.Video
+		if vidCfg.Model != "" {
+			req.Model = vidCfg.Model
+		}
+		if vidCfg.Size != "" {
+			req.Size = vidCfg.Size
+		}
+		if vidCfg.Resolution != "" {
+			req.Resolution = vidCfg.Resolution
+		}
+		if vidCfg.Duration != nil {
+			req.Duration = vidCfg.Duration
+		}
+	} else {
+		// No config — low-cost code defaults as safety net
+		if req.Size == "" {
+			req.Size = "16:9"
+		}
+		if req.Resolution == "" {
+			req.Resolution = "480p"
+		}
+	}
+	if req.Model == "" {
+		return "Error: model is required for video generation (set via defaults.video.model in config.yaml)"
+	}
+
+	// Set timeout for video generation
+	applyTimeout(c, "video", client.VideoTimeout)
+
+	var videoURLs []string
+	if isOpenRouterProvider() {
+		orReq := &types.OpenRouterVideoRequest{
+			Model:  req.Model,
+			Prompt: req.Prompt,
+		}
+		submitResp, err := c.OpenRouterVideoSubmit(orReq)
+		if err != nil {
+			return fmt.Sprintf("Error: video submission failed: %v", err)
+		}
+		pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, 30*time.Second, 5*time.Minute)
+		if err != nil {
+			return fmt.Sprintf("Error: video polling failed: %v", err)
+		}
+		videoURLs = pollResp.UnsignedURLs
+	} else {
+		resp, err := c.VideoSubmit(req)
+		if err != nil {
+			return fmt.Sprintf("Error: video submission failed: %v", err)
+		}
+		if len(resp.Data) == 0 {
+			return "Error: video submission returned no tasks"
+		}
+		taskData, err := c.PollTask(resp.Data[0].TaskID)
+		if err != nil {
+			return fmt.Sprintf("Error: video polling failed: %v", err)
+		}
+		if taskData.Result != nil {
+			for _, vid := range taskData.Result.Videos {
+				videoURLs = append(videoURLs, vid.URL...)
+			}
+		}
+	}
+
+	if len(videoURLs) == 0 {
+		return "Error: video generation completed but no video URLs returned"
+	}
+
+	return fmt.Sprintf("Successfully generated %d video(s).", len(videoURLs))
 }
 
 func init() {

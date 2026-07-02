@@ -59,6 +59,12 @@ defaults:
 
   chat:
     model: "deepseek-v4-flash"
+    # Agent Loop 设置（聊天中生成图片/视频）
+    # max_iterations: 10         # 每次用户消息，LLM 最多连续调工具次数（默认 10）
+    # tools:                     # 允许的工具白名单（glob 模式），空或 ["*"] = 全部允许
+    #   - "*"
+    # disable_tools:             # 禁用的工具黑名单（glob 模式），覆盖 tools
+    #   - "generate_video"
 
 # Ideas prompt search data and cache.
 # ideas.json and the search index cache are stored at ~/.config/apimart/ by default.
