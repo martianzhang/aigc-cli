@@ -229,7 +229,7 @@ func TestExecuteToolCall_unknown(t *testing.T) {
 func TestExecuteToolCall_invalidJSON(t *testing.T) {
 	tools := []string{"generate_image", "generate_video", "midjourney_imagine",
 		"midjourney_describe", "midjourney_reroll", "midjourney_video",
-		"ideas_search", "balance_query", "task_query"}
+		"ideas", "balance", "task"}
 	for _, name := range tools {
 		tc := types.ToolCall{
 			ID:   "call_1",

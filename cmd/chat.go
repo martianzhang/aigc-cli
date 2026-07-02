@@ -666,11 +666,6 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			continue
 		}
 
-		// Check for direct tool call: /<tool_name> <json_args>
-		if matched := tryDirectToolCall(c, input, agentTools, &history); matched {
-			fmt.Fprint(os.Stderr, "\r\n")
-			continue
-		}
 		// Check for shell command: !<command>
 		if strings.HasPrefix(strings.TrimSpace(input), "!") {
 			cmdLine := strings.TrimSpace(input)[1:]
@@ -1201,37 +1196,6 @@ func executeShellCommand(cmdLine string) string {
 func hasExecutable(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
-}
-
-// tryDirectToolCall checks if input is a direct tool call like "/generate_image {...}".
-// Returns true if matched and executed.
-func tryDirectToolCall(c *client.Client, input string, tools []types.ToolDefinition, history *[]types.ChatMessage) bool {
-	idx := strings.Index(input, " ")
-	if idx <= 0 {
-		return false
-	}
-	cmdName := input[:idx]
-	rest := strings.TrimSpace(input[idx+1:])
-	if !strings.HasPrefix(cmdName, "/") {
-		return false
-	}
-	toolName := strings.ToLower(cmdName[1:]) // strip leading / and lowercase
-	for _, t := range tools {
-		if t.Function.Name == toolName {
-			*history = append(*history, types.ChatMessage{Role: "user", Content: fmt.Sprintf("(direct tool call: %s)", toolName)})
-			result := executeToolCall(c, types.ToolCall{
-				ID:   fmt.Sprintf("manual_%d", time.Now().Unix()),
-				Type: "function",
-				Function: types.ToolCallFunction{
-					Name:      toolName,
-					Arguments: rest,
-				},
-			})
-			fmt.Fprintf(os.Stderr, "\r\nTool result:\r\n%s\r\n", result)
-			return true
-		}
-	}
-	return false
 }
 
 func init() {
