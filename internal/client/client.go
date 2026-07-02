@@ -158,9 +158,9 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	// Detect SSE format: response starts with "data: "
-	if bytes.HasPrefix(respBody, []byte("data: ")) {
-		// Wrap in a fake Response and parse via handleSSE
+	// Detect SSE format: response starts with "data: " or ":" (keepalive comment)
+	trimmed := bytes.TrimSpace(respBody)
+	if bytes.HasPrefix(trimmed, []byte("data: ")) || bytes.HasPrefix(trimmed, []byte(":")) {
 		fakeResp := &http.Response{
 			Body:       io.NopCloser(bytes.NewReader(respBody)),
 			StatusCode: http.StatusOK,
@@ -170,9 +170,17 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 
 	var result types.ChatResponse
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("failed to parse response: %w\nbody: %s", err, truncate(respBody, 200))
 	}
 	return &result, nil
+}
+
+// truncate returns the first n bytes of b as a string, with "..." if truncated.
+func truncate(b []byte, n int) string {
+	if len(b) <= n {
+		return string(b)
+	}
+	return string(b[:n]) + "..."
 }
 
 // handleSSE parses SSE stream and writes tokens progressively to w.
