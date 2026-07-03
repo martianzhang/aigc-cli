@@ -107,15 +107,30 @@ func searchIdeasText(keywords string, limit int) (string, error) {
 	}
 	results = results[:limit]
 
-	var b strings.Builder
-	fmt.Fprintf(&b, "Found %d result(s) for \"%s\":\n\n", len(results), keywords)
-	for i, r := range results {
-		fmt.Fprintf(&b, "%d. %s\n", i+1, r.entry.Prompt)
-		if r.entry.Title != "" {
-			fmt.Fprintf(&b, "   Title: %s\n", r.entry.Title)
-		}
+	return formatResultsMarkdown(results, keywords, len(results)), nil
+}
+
+// searchIdeasRandom returns random ideas from the database.
+func searchIdeasRandom(limit int) (string, error) {
+	entries, _, err := loadIdeas()
+	if err != nil {
+		return "", fmt.Errorf("failed to load ideas: %w", err)
 	}
-	return b.String(), nil
+	if len(entries) == 0 {
+		return "No ideas found in the database. Run `apimart-cli ideas init` to download.", nil
+	}
+
+	// Shuffle and pick
+	indices := rand.Perm(len(entries))
+	if limit <= 0 || limit > len(entries) {
+		limit = len(entries)
+	}
+
+	results := make([]searchResult, limit)
+	for i := 0; i < limit; i++ {
+		results[i] = searchResult{entry: entries[indices[i]]}
+	}
+	return formatResultsMarkdown(results, "random", len(entries)), nil
 }
 
 func runIdeas(cmd *cobra.Command, args []string) error {
@@ -611,56 +626,64 @@ func searchByImage(entries []IdeaEntry, filename string) []searchResult {
 
 // --- markdown output ---
 
-func outputMarkdown(results []searchResult, keywords string, total int, savedFiles []string) error {
-	now := time.Now().Format("2006-01-02")
-	header := fmt.Sprintf("# Ideas: %s\n> 找到 %d 个结果 · %s", keywords, total, now)
+// formatResultsMarkdown renders ideas as markdown string.
+// Shared by CLI output and agent tool results.
+func formatResultsMarkdown(results []searchResult, keywords string, total int) string {
+	var b strings.Builder
+	header := fmt.Sprintf("Found %d result(s) for \"%s\"", total, keywords)
 	if total > len(results) {
-		header += fmt.Sprintf(" · 显示 %d/%d", len(results), total)
+		header += fmt.Sprintf(" (showing %d/%d)", len(results), total)
 	}
-	fmt.Println(header)
-	fmt.Println()
+	fmt.Fprintf(&b, "%s\n\n", header)
 
 	for i, r := range results {
-		if i > 0 {
-			fmt.Println("---")
-			fmt.Println()
-		}
 		e := r.entry
+		if i > 0 {
+			fmt.Fprintf(&b, "---\n\n")
+		}
 		title := e.Title
 		if title == "" {
 			title = fmt.Sprintf("Result %d", i+1)
 		}
-		fmt.Printf("## %s\n\n", title)
+		fmt.Fprintf(&b, "## %s\n\n", title)
 
-		// Prompt (prefer zh for zh entries)
 		prompt := e.Prompt
 		if e.Lang == "zh" && e.PromptZh != "" {
 			prompt = e.PromptZh
 		}
-		fmt.Printf("**提示词：**\n```\n%s\n```\n\n", prompt)
+		fmt.Fprintf(&b, "```\n%s\n```\n\n", prompt)
 
-		// Images
-		if len(e.ImageURLs) > 0 {
-			if ideasSaveImages {
-				for j, url := range e.ImageURLs {
-					localPath := localImagePath(url)
-					// Only use local path if the file was actually saved
-					if _, err := os.Stat(localPath); err == nil {
-						fmt.Printf("![参考图 %d](%s)\n\n", j+1, localPath)
-					} else {
-						fmt.Printf("![参考图 %d](%s)\n\n", j+1, url)
-					}
-				}
-			} else {
-				for j, url := range e.ImageURLs {
-					fmt.Printf("![参考图 %d](%s)\n\n", j+1, url)
-				}
-			}
+		for _, u := range e.ImageURLs {
+			fmt.Fprintf(&b, "![ref](%s)\n\n", u)
 		}
 
+		var meta []string
+		if e.Author != "" {
+			meta = append(meta, "Author: "+e.Author)
+		}
+		if e.SourceURL != "" {
+			meta = append(meta, "[Source]("+e.SourceURL+")")
+		}
+		if e.License != "" {
+			meta = append(meta, e.License)
+		}
+		if len(meta) > 0 {
+			fmt.Fprintf(&b, "%s\n", strings.Join(meta, " · "))
+		}
+	}
+	return b.String()
+}
+
+// outputMarkdown renders ideas markdown to stdout (CLI mode with images & preview).
+func outputMarkdown(results []searchResult, keywords string, total int, savedFiles []string) error {
+	md := formatResultsMarkdown(results, keywords, total)
+	fmt.Println(md)
+
+	// Local image handling (CLI-specific)
+	for _, r := range results {
 		// Inline preview: show saved images right after their entry
 		if ideasPreview && len(savedFiles) > 0 {
-			for range e.ImageURLs {
+			for range r.entry.ImageURLs {
 				if len(savedFiles) == 0 {
 					break
 				}
@@ -670,21 +693,6 @@ func outputMarkdown(results []searchResult, keywords string, total int, savedFil
 					fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
 				}
 			}
-		}
-
-		// Metadata
-		var meta []string
-		if e.Author != "" {
-			meta = append(meta, "作者: "+e.Author)
-		}
-		if e.SourceURL != "" {
-			meta = append(meta, fmt.Sprintf("[来源](%s)", e.SourceURL))
-		}
-		if e.License != "" {
-			meta = append(meta, e.License)
-		}
-		if len(meta) > 0 {
-			fmt.Printf("%s\n\n", strings.Join(meta, " · "))
 		}
 	}
 	return nil
