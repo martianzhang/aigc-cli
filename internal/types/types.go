@@ -432,6 +432,19 @@ type IdeasConfig struct {
 	CacheEnabled bool   `mapstructure:"cache_enabled" yaml:"cache_enabled"`
 }
 
+// AIGCDetectionConfig holds optional online API settings for pixel-level AI image detection.
+type AIGCDetectionConfig struct {
+	Provider    string             `mapstructure:"provider" yaml:"provider,omitempty"`
+	Sightengine *SightengineConfig `mapstructure:"sightengine" yaml:"sightengine,omitempty"`
+}
+
+// SightengineConfig holds API credentials for Sightengine's genai detection.
+// Get free credentials at https://dashboard.sightengine.com/signup (2000 ops/month).
+type SightengineConfig struct {
+	APIUser   string `mapstructure:"api_user" yaml:"api_user,omitempty"`
+	APISecret string `mapstructure:"api_secret" yaml:"api_secret,omitempty"`
+}
+
 // ConfigDefaults holds modality-specific default values.
 type ConfigDefaults struct {
 	Image      *ImageDefaults      `mapstructure:"image" yaml:"image"`

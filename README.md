@@ -89,6 +89,7 @@ apimart-cli
 ├── task       查询异步任务状态（APIMart）
 ├── balance    查询余额（APIMart）
 ├── preview    用系统默认程序预览生成的图片/视频
+├── detect     检测水印和元数据（C2PA / TC260 / SynthID，离线免 Key）      →  docs/guide-commands.md
 ├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/mcp.md
 │
 │   # 全局标志

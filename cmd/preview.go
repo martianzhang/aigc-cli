@@ -65,12 +65,10 @@ var previewCmd = &cobra.Command{
 	Long: `Preview images and videos by opening them with the system default application.
 
 For image files, also attempts inline terminal display when using a
-supported terminal (iTerm2, Kitty). Use --verbose to show image
-metadata (file size, dimensions, embedded vendor information).
+supported terminal (iTerm2, Kitty).
 
 Examples:
   apimart-cli preview image_12345_0.png
-  apimart-cli preview -v image_12345_0.png
   apimart-cli preview video_67890_0.mp4
   apimart-cli preview *.png
   cat image.png | apimart-cli preview`,
@@ -81,11 +79,6 @@ func runPreview(cmd *cobra.Command, args []string) error {
 	// If files are passed as arguments, preview them
 	if len(args) > 0 {
 		for _, arg := range args {
-			if shared.Verbose {
-				if err := service.PrintImageInfo(os.Stdout, arg); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: could not read image info: %v\n", err)
-				}
-			}
 			if err := service.PreviewFile(arg); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 			}
