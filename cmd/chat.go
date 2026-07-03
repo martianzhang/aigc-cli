@@ -29,6 +29,10 @@ import (
 // Command history for readLineRaw up/down arrows.
 var cmdHistory []string
 
+// errInterrupted is returned by readLineRaw when Ctrl+C is pressed in raw mode.
+// In raw mode, Ctrl+C is byte 0x03 (not SIGINT), so we handle it as a sentinel error.
+var errInterrupted = errors.New("interrupted")
+
 // Tool definitions for Agent Loop
 var agentToolDefs = []types.ToolDefinition{
 	{
@@ -404,8 +408,13 @@ func readLineRaw(completions []string) (string, error) {
 
 		// Multi-byte sequences (escape codes: arrow keys, etc.)
 		if ch == 27 {
-			// If nothing buffered, it's a bare Escape key press — ignore
+			// If nothing buffered, it's a bare Escape key press — clear current line
 			if reader.Buffered() == 0 {
+				for i := 0; i < len(buf); i++ {
+					fmt.Fprint(os.Stderr, "\b \b")
+				}
+				buf = buf[:0]
+				pos = 0
 				continue
 			}
 			ch2, err := reader.ReadByte()
@@ -465,6 +474,10 @@ func readLineRaw(completions []string) (string, error) {
 		}
 
 		switch ch {
+		case 3: // Ctrl+C (raw mode: byte, not SIGINT)
+			fmt.Fprint(os.Stderr, "\r\n")
+			return "", errInterrupted
+
 		case 4: // Ctrl+D
 			return "", io.EOF
 
@@ -746,20 +759,21 @@ func runInteractiveChat(cmd *cobra.Command) error {
 	// Signal handling (Ctrl+C) — cancel context to abort API calls / polling
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	c.SetContext(ctx) // make all client HTTP requests and polling loops cancellable
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		select {
 		case <-sigCh:
-			cancel()         // cancel pending HTTP calls
-			os.Stdin.Close() // unblock stdin read so we exit cleanly
+			cancel() // cancel pending HTTP calls and polling loops
 		case <-ctx.Done():
 		}
 	}()
 
-	// Try raw terminal mode for cross-platform Ctrl+D detection
-	isRaw := false
+	// Raw terminal mode state. Toggled on/off around blocking operations
+	// because on Windows, raw mode prevents Ctrl+C from generating SIGINT.
 	var rawState *term.State
+	isRaw := false
 	if term.IsTerminal(int(os.Stdin.Fd())) {
 		s, err := term.MakeRaw(int(os.Stdin.Fd()))
 		if err == nil {
@@ -767,8 +781,33 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			rawState = s
 		}
 	}
-	if isRaw {
-		defer term.Restore(int(os.Stdin.Fd()), rawState)
+	defer func() {
+		if rawState != nil {
+			term.Restore(int(os.Stdin.Fd()), rawState)
+		}
+	}()
+
+	// exitRawMode restores cooked mode so Ctrl+C generates proper SIGINT.
+	exitRawMode := func() {
+		if rawState != nil {
+			term.Restore(int(os.Stdin.Fd()), rawState)
+			rawState = nil
+		}
+	}
+	// enterRawMode re-enters raw mode for fancy input handling.
+	enterRawMode := func() {
+		if !isRaw {
+			return
+		}
+		if rawState != nil {
+			return // already in raw mode
+		}
+		if term.IsTerminal(int(os.Stdin.Fd())) {
+			s, err := term.MakeRaw(int(os.Stdin.Fd()))
+			if err == nil {
+				rawState = s
+			}
+		}
 	}
 
 	fmt.Fprint(os.Stderr, "\r\nInteractive chat mode. Type /help for commands, /exit or Ctrl+C to quit.\r\n")
@@ -809,8 +848,13 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			fmt.Fprint(os.Stderr, "\r\nBye!\r\n")
 			return nil
 		}
+		if errors.Is(err, errInterrupted) {
+			fmt.Fprint(os.Stderr, "\r\nBye!\r\n")
+			return nil
+		}
 		if err != nil {
-			return fmt.Errorf("input error: %w", err)
+			// stdin read error — clean exit
+			return nil
 		}
 
 		input = strings.TrimSpace(input)
@@ -914,16 +958,21 @@ func runInteractiveChat(cmd *cobra.Command) error {
 		if strings.HasPrefix(strings.TrimSpace(input), "!") {
 			cmdLine := strings.TrimSpace(input)[1:]
 			if cmdLine != "" {
+				exitRawMode()
 				fmt.Fprintf(os.Stderr, "\r\nRunning: %s\r\n", cmdLine)
 				result := executeShellCommand(cmdLine)
 				fmt.Fprintf(os.Stderr, "\r\nResult:\r\n%s\r\n", result)
 				fmt.Fprint(os.Stderr, "\r\n")
+				enterRawMode()
 				continue
 			}
 		}
 
 		// Add user message to history
 		history = append(history, types.ChatMessage{Role: "user", Content: input})
+
+		// Exit raw mode before blocking operations so Ctrl+C generates SIGINT
+		exitRawMode()
 
 		// Run agent loop
 		_, err = runAgentLoop(ctx, c, &history, agentTools, maxIterations, cmd)
@@ -937,6 +986,9 @@ func runInteractiveChat(cmd *cobra.Command) error {
 		}
 
 		fmt.Fprint(os.Stderr, "\r\n")
+
+		// Re-enter raw mode for next prompt
+		enterRawMode()
 	}
 }
 
@@ -1345,6 +1397,10 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 
 func executeMidjourney(c *client.Client, toolName, argsJSON string) string {
 	mjClient := newMJClient()
+	// Propagate context for Ctrl+C cancellation
+	if mj, ok := mjClient.(*client.Client); ok && c != nil {
+		mj.SetContext(c.GetContext())
+	}
 	switch toolName {
 	case "midjourney_imagine":
 		var args struct {

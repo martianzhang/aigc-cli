@@ -43,6 +43,12 @@ func queryTaskText(taskID string) (string, error) {
 			msg += fmt.Sprintf("\nImages saved: %d file(s)", len(saved))
 		}
 	}
+	// Download videos if available
+	if task.Result != nil && len(task.Result.Videos) > 0 && task.Status == "completed" {
+		if saved, err := downloadVideos(task.Result.Videos, task.ID); err == nil {
+			msg += fmt.Sprintf("\nVideos saved: %d file(s)", len(saved))
+		}
+	}
 	return msg, nil
 }
 
