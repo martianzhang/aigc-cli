@@ -1,40 +1,23 @@
 #!/usr/bin/env python3
-"""Build ideas.json from local source files.
+"""Build or deduplicate ideas.json.
 
-Required source files (in downloads/):
+Always ensures:
+  - No duplicates (source_url / image / exact content / normalized text)
+  - Stable ordering: existing entries keep position, new entries append at end
 
-  prompts.json (NeXra Awesome AI Image Prompts, GET)
-      curl -sL 'https://github.com/NeXra-AI/awesome-ai-image-prompts/raw/refs/heads/main/data/prompts.json' \
-        -o downloads/prompts.json
-
-  gpt-image-2-{date}.csv (Youmind model prompts, POST — -d implies POST)
-      curl -s 'https://youmind.com/youmarketing-api/prompts-download?model=gpt-image-2' \
-        -b downloads/youmind.com_cookies.txt \
-        -H 'content-type: application/json' \
-        -d '{"model":"gpt-image-2"}' \
-        -o downloads/gpt-image-2-$(date +%Y%m%d).csv
-
-  nano-banana-pro-{date}.csv (POST)
-      curl -s 'https://youmind.com/youmarketing-api/prompts-download?model=nano-banana-pro' \
-        -b downloads/youmind.com_cookies.txt \
-        -H 'content-type: application/json' \
-        -d '{"model":"nano-banana-pro"}' \
-        -o downloads/nano-banana-pro-$(date +%Y%m%d).csv
-
-Note: download-prompts.py in downloads/ automates all the above
-      (with proxy + cookie auth), but is NOT committed to git.
-      Set HTTP_PROXY env var or prepend --proxy to curl if needed.
+Commands:
+  (default)  Dedup + merge new sources (downloads/*.json, *.csv) into ideas.json
+  --dedup    Dedup only, skip source merge
 
 Usage:
-    python scripts/convert_ideas.py
+  python scripts/convert_ideas.py             # dedup + merge sources
+  python scripts/convert_ideas.py --dedup     # just dedup
 """
 
-import csv
-import json
-import os
+import csv, hashlib, json, os, re
 from urllib.parse import urlparse
 
-NEXRA_IMAGE_PREFIX = "https://raw.githubusercontent.com/NeXra-AI/awesome-ai-image-prompts/refs/heads/main/"
+NEXRA_PREFIX = "https://raw.githubusercontent.com/NeXra-AI/awesome-ai-image-prompts/refs/heads/main/"
 OUTPUT = "docs/ideas.json"
 CSV_DIR = "downloads"
 KEEP_LANGS = {"en", "zh"}
@@ -44,180 +27,240 @@ def log(msg):
     print(f"  {msg}")
 
 
-def read_nexra() -> list:
-    """Read and convert the local downloads/prompts.json (already downloaded)."""
-    path = os.path.join(CSV_DIR, "prompts.json")
-    if not os.path.exists(path):
-        log(f"  (not found: {path})")
+def normalize(entry: dict) -> dict | None:
+    """Normalize a raw entry. Returns None if prompt is missing or lang excluded."""
+    prompt = (entry.get("prompt") or "").strip()
+    if not prompt:
+        return None
+    lang = entry.get("lang", "")
+    if lang and lang not in KEEP_LANGS:
+        return None
+
+    out = {
+        "title": (entry.get("title") or "").strip(),
+        "prompt": prompt,
+        "source_url": (entry.get("source_url") or "").strip(),
+        "author": (entry.get("author") or "").strip(),
+        "lang": lang or "en",
+    }
+    img = entry.get("image_url", "")
+    imgs = entry.get("image_urls") or []
+    if img and not imgs:
+        imgs = [NEXRA_PREFIX + img]
+    if imgs:
+        out["image_urls"] = imgs
+    for f in ("title_zh", "prompt_zh", "license"):
+        if entry.get(f):
+            out[f] = entry[f]
+    return out
+
+
+def read_file(path: str) -> list:
+    """Read a single file and return normalized entries. Tries JSON then CSV."""
+    basename = os.path.basename(path)
+    # Try JSON first
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = json.load(f)
+        if isinstance(raw, list):
+            before = len(raw)
+            entries = [normalize(e) for e in raw]
+            entries = [e for e in entries if e]
+            log(f"  {basename}: {len(entries)}/{before} entries")
+            return entries
+        log(f"  {basename}: skipped (type={type(raw).__name__})")
         return []
-
-    with open(path, encoding="utf-8") as f:
-        raw = json.load(f)
-    log(f"  NeXra: {len(raw)} entries")
-
-    result = []
-    for r in raw:
-        if r.get("lang") not in KEEP_LANGS:
-            continue
-        entry = {
-            "title": r.get("title", ""),
-            "prompt": r.get("prompt", ""),
-            "source_url": r.get("source_url", ""),
-            "author": r.get("author", ""),
-            "lang": r.get("lang", "en"),
-        }
-        if r.get("title_zh"):
-            entry["title_zh"] = r["title_zh"]
-        if r.get("prompt_zh"):
-            entry["prompt_zh"] = r["prompt_zh"]
-        if r.get("license"):
-            entry["license"] = r["license"]
-        img = r.get("image_url", "")
-        if img:
-            entry["image_urls"] = [NEXRA_IMAGE_PREFIX + img]
-        result.append(entry)
-
-    log(f"  Filtered (en/zh): {len(result)}")
-    return result
-
-
-def read_csvs() -> list:
-    if not os.path.isdir(CSV_DIR):
-        return []
-    csv_files = sorted(f for f in os.listdir(CSV_DIR) if f.endswith(".csv"))
-    if not csv_files:
-        return []
-
-    result = []
-    for fn in csv_files:
-        path = os.path.join(CSV_DIR, fn)
-        count = 0
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        pass
+    # Fallback: CSV
+    try:
         with open(path, encoding="utf-8") as f:
             reader = csv.DictReader(f)
+            if "content" not in (reader.fieldnames or []):
+                return []  # binary/image files and non-csv files, skip silently
+            entries = []
             for r in reader:
-                content = r.get("content", "").strip()
+                content = (r.get("content") or "").strip()
                 if not content:
                     continue
-
                 has_zh = any("\u4e00" <= c <= "\u9fff" for c in content)
-                lang = "zh" if has_zh else "en"
-
-                author = ""
+                author = r.get("author", "")
                 try:
-                    author = json.loads(r.get("author", "{}")).get("name", "")
+                    author = json.loads(author).get("name", "")
                 except json.JSONDecodeError:
-                    author = r.get("author", "")
-
+                    pass
                 images = []
                 try:
                     images = json.loads(r.get("sourceMedia", "[]"))
                 except json.JSONDecodeError:
                     pass
-
-                entry = {
+                e = {
                     "title": r.get("title", ""),
                     "prompt": content,
-                    "source_url": r.get("sourceLink", "").strip(),
+                    "source_url": (r.get("sourceLink") or "").strip(),
                     "author": author,
-                    "lang": lang,
+                    "lang": "zh" if has_zh else "en",
                 }
                 if images:
-                    entry["image_urls"] = images
-                result.append(entry)
-                count += 1
-        log(f"  {fn}: {count} entries")
+                    e["image_urls"] = images
+                entries.append(e)
+            log(f"  {basename}: {len(entries)} entries")
+            return entries
+    except Exception:
+        return []
+
+
+def read_sources() -> list:
+    """Scan downloads/ and read all source files, return normalized entries."""
+    if not os.path.isdir(CSV_DIR):
+        return []
+    data_exts = {".json", ".csv"}
+    files = sorted(
+        f for f in os.listdir(CSV_DIR)
+        if os.path.isfile(os.path.join(CSV_DIR, f))
+        and os.path.splitext(f)[1].lower() in data_exts
+    )
+    entries = []
+    for fn in files:
+        entries.extend(read_file(os.path.join(CSV_DIR, fn)))
+    return entries
+
+
+def text_key(text: str) -> str:
+    """Normalized text key for dedup (first 200 chars)."""
+    t = re.sub(r"[^\w\s]", "", text.lower().strip())
+    return re.sub(r"\s+", " ", t)[:200]
+
+
+def content_hash(entry: dict) -> str:
+    """Stable hash of entry content for ordering."""
+    raw = json.dumps(entry, sort_keys=True, ensure_ascii=False)
+    return hashlib.md5(raw.encode()).hexdigest()
+
+
+def dedup(entries: list) -> list:
+    """Remove internal duplicates from a list of entries.
+
+    Keeps the FIRST occurrence of each unique entry (identified by
+    source_url, image filenames, exact content, or normalized text).
+    Order is preserved — only duplicates are removed.
+    """
+    seen_urls: set[str] = set()
+    seen_imgs: set[str] = set()
+    seen_content: set[str] = set()
+    seen_prompts: set[str] = set()
+
+    result = []
+    for e in entries:
+        url = e.get("source_url", "")
+        imgs = e.get("image_urls", [])
+        dup = False
+
+        if url and url in seen_urls:
+            dup = True
+        if not dup:
+            for u in imgs:
+                if os.path.basename(urlparse(u).path) in seen_imgs:
+                    dup = True
+                    break
+        if not dup:
+            key = e.get("title", "") + "|" + e.get("prompt", "")
+            if key in seen_content:
+                dup = True
+        if not dup:
+            norm = text_key(e.get("prompt", ""))
+            if norm and norm in seen_prompts:
+                dup = True
+
+        if dup:
+            continue
+
+        # Mark as seen
+        if url:
+            seen_urls.add(url)
+        for u in imgs:
+            seen_imgs.add(os.path.basename(urlparse(u).path))
+        seen_content.add(e.get("title", "") + "|" + e.get("prompt", ""))
+        norm = text_key(e.get("prompt", ""))
+        if norm:
+            seen_prompts.add(norm)
+
+        result.append(e)
+
     return result
 
 
 def merge(existing: list, *sources: list) -> list:
-    seen_urls = set()
-    seen_images = set()
-    seen_content = set()
-    merged = []
+    """Merge new entries into existing.
 
-    def is_dup(entry: dict) -> bool:
-        keys = []
+    - Existing entries keep their original order (zero movement in git diff).
+    - New entries are appended at the end, sorted deterministically.
+    """
+    seen = set()  # hashes of all entries already kept
 
-        url = entry.get("source_url", "")
-        if url:
-            keys.append(("url", url))
+    def hash_entry(e: dict) -> str:
+        url = e.get("source_url", "")
+        imgs = tuple(os.path.basename(urlparse(u).path) for u in e.get("image_urls", []))
+        key = e.get("title", "") + "|" + e.get("prompt", "")
+        norm = text_key(e.get("prompt", ""))
+        return (url, imgs, key, norm)
 
-        imgs = entry.get("image_urls", [])
-        if imgs:
-            for u in imgs:
-                keys.append(("img", os.path.basename(urlparse(u).path)))
+    for e in existing:
+        seen.add(hash_entry(e))
 
-        if not keys:
-            keys.append(("content", entry.get("title", "") + "|" + entry.get("prompt", "")))
-
-        for kind, value in keys:
-            if kind == "url" and value in seen_urls:
-                return True
-            if kind == "img" and value in seen_images:
-                return True
-            if kind == "content" and value in seen_content:
-                return True
-
-        for kind, value in keys:
-            if kind == "url":
-                seen_urls.add(value)
-            elif kind == "img":
-                seen_images.add(value)
-            elif kind == "content":
-                seen_content.add(value)
-
-        return False
-
-    def sort_key(entry: dict) -> tuple:
-        url = entry.get("source_url", "") or ""
-        return (
-            url,
-            entry.get("lang", ""),
-            entry.get("title", ""),
-            entry.get("prompt", "")[:100],
-        )
-
-    for source in [existing] + list(sources):
-        for entry in source:
-            if is_dup(entry):
+    new_accepted: list[dict] = []
+    for src in sources:
+        for e in src:
+            h = hash_entry(e)
+            if h in seen:
                 continue
-            merged.append(entry)
+            seen.add(h)
+            new_accepted.append(e)
 
-    merged.sort(key=sort_key)
-    return merged
+    new_accepted.sort(key=lambda e: (
+        e.get("source_url", "") or "",
+        e.get("lang", ""),
+        e.get("title", ""),
+        content_hash(e),
+    ))
 
-
-def has_source_data() -> bool:
-    """Return True if any source file exists (prompts.json or CSVs)."""
-    prompts = os.path.join(CSV_DIR, "prompts.json")
-    if os.path.exists(prompts):
-        return True
-    if not os.path.isdir(CSV_DIR):
-        return False
-    return any(f.endswith(".csv") for f in os.listdir(CSV_DIR))
+    return existing + new_accepted
 
 
 def main():
-    if not has_source_data():
-        log(f"No source files found in {CSV_DIR}/ (prompts.json or *.csv)")
+    import sys
+    args = set(sys.argv[1:])
+
+    if not os.path.exists(OUTPUT):
+        log(f"{OUTPUT} not found")
         return
 
-    # Load existing entries if any
-    existing = []
-    if os.path.exists(OUTPUT):
-        with open(OUTPUT, encoding="utf-8") as f:
-            existing = json.load(f)
-        log(f"Existing: {len(existing)} entries")
+    with open(OUTPUT, encoding="utf-8") as f:
+        entries = json.load(f)
+    log(f"Loaded: {len(entries)} entries")
 
-    nexra = read_nexra()
-    csvs = read_csvs()
+    # Step 1: Always dedup — remove any accumulated internal duplicates
+    before = len(entries)
+    entries = dedup(entries)
+    if len(entries) < before:
+        log(f"Dedup: removed {before - len(entries)} internal duplicates")
 
-    merged = merge(existing, nexra, csvs)
-    log(f"Merged: {len(merged)} entries (existing {len(existing)} + nexra {len(nexra)} + csv {len(csvs)})")
+    # Step 2: Merge new sources (or stop if --dedup-only)
+    if "--dedup" in args:
+        if len(entries) == before:
+            log("No duplicates found")
+    else:
+        new_entries = read_sources()
+        if not new_entries:
+            log(f"No source files with valid entries in {CSV_DIR}/")
+            return
+        before = len(entries)
+        entries = merge(entries, new_entries)
+        log(f"Merged: +{len(entries) - before} new entries")
 
     with open(OUTPUT, "w", encoding="utf-8") as f:
-        json.dump(merged, f, ensure_ascii=False, indent=2)
-    log(f"Saved to {OUTPUT}")
+        json.dump(entries, f, ensure_ascii=False, indent=2)
+    log(f"Saved to {OUTPUT} ({len(entries)} entries)")
 
 
 if __name__ == "__main__":
