@@ -12,14 +12,33 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/mattn/go-sixel"
 )
 
-// PreviewFile opens a file with the system default application.
+// PreviewFile opens a file or URL with the system default application.
 // For image files, it also attempts inline terminal display when the
 // terminal supports it (Kitty, iTerm2, or Sixel).
+// URLs are downloaded to a temporary file first.
 func PreviewFile(path string) error {
+	// Detect URL — download to temp file first
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		data, err := FetchImage(path)
+		if err != nil {
+			return fmt.Errorf("failed to download %s: %w", path, err)
+		}
+		// Detect image extension from magic bytes
+		ext := detectImageExt(data)
+		// Generate a filename from the URL
+		saveName := urlToFilename(path, ext)
+		if err := os.WriteFile(saveName, data, 0644); err != nil {
+			return fmt.Errorf("failed to save %s: %w", saveName, err)
+		}
+		fmt.Printf("Saved: %s\n", saveName)
+		path = saveName
+	}
+
 	info, err := os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("cannot access %s: %w", path, err)
@@ -178,6 +197,55 @@ func isInlineCapableTerminal() bool {
 		return true
 	}
 	return false
+}
+
+// detectImageExt guesses the file extension from image magic bytes.
+func detectImageExt(data []byte) string {
+	if len(data) < 4 {
+		return ".bin"
+	}
+	if data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47 {
+		return ".png"
+	}
+	if data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF {
+		return ".jpg"
+	}
+	if data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x38 {
+		return ".gif"
+	}
+	if data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 {
+		return ".webp"
+	}
+	return ".bin"
+}
+
+// urlToFilename extracts a filename from a URL, falling back to a timestamp if
+// the URL path doesn't have a usable name. Ensures the file extension matches.
+func urlToFilename(rawURL, ext string) string {
+	// Strip query params
+	if idx := strings.Index(rawURL, "?"); idx >= 0 {
+		rawURL = rawURL[:idx]
+	}
+	base := filepath.Base(rawURL)
+	// Remove existing extension
+	if e := filepath.Ext(base); e != "" {
+		base = base[:len(base)-len(e)]
+	}
+	// If the base is empty or generic ("download", "image"), use a hash
+	if base == "" || base == "." || base == "/" {
+		base = fmt.Sprintf("image_%d", time.Now().Unix())
+	}
+	// Ensure unique name
+	name := base + ext
+	if _, err := os.Stat(name); err == nil {
+		for i := 1; ; i++ {
+			name = fmt.Sprintf("%s_%d%s", base, i, ext)
+			if _, err := os.Stat(name); os.IsNotExist(err) {
+				break
+			}
+		}
+	}
+	return name
 }
 
 // isImageFile returns true if the file extension is a supported image type.

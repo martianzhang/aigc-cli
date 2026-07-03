@@ -551,6 +551,11 @@ func resolvePrompt() (string, error) {
 func readInput(input string) ([]byte, error) {
 	switch {
 	case input == "-":
+		// Don't block if stdin is a terminal with no piped input
+		stat, err := os.Stdin.Stat()
+		if err == nil && (stat.Mode()&os.ModeCharDevice) != 0 {
+			return nil, fmt.Errorf("stdin is a terminal — pipe input or use --prompt")
+		}
 		return io.ReadAll(os.Stdin)
 	case isFile(input):
 		return os.ReadFile(input)
