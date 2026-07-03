@@ -936,6 +936,64 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			}
 			fmt.Fprint(os.Stderr, "Conversation history cleared.\r\n")
 			continue
+		case "/compact":
+			// Count non-system messages to determine if there's anything to compact
+			nonSysCount := len(history)
+			for _, msg := range history {
+				if msg.Role == "system" {
+					nonSysCount--
+				}
+			}
+			if nonSysCount == 0 {
+				fmt.Fprint(os.Stderr, "Nothing to compact — conversation is empty.\r\n")
+				continue
+			}
+
+			exitRawMode()
+
+			fmt.Fprint(os.Stderr, "\r\nCompacting conversation...\r\n")
+
+			// Build a request: send the full history + a summarization instruction
+			compactReq := &types.ChatRequest{
+				Model:    shared.Model,
+				Messages: history,
+				Stream:   false,
+			}
+			compactReq.Messages = append(compactReq.Messages, types.ChatMessage{
+				Role:    "user",
+				Content: "Please provide a detailed summary of our conversation above. Capture: 1) the user's goals and requirements, 2) key decisions made, 3) any files created or modified, 4) current status of any ongoing work. Be thorough — this summary will replace the conversation history so nothing important should be lost.",
+			})
+
+			result, err := c.ChatCompletion(compactReq)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Compact failed: %v\r\n", err)
+				enterRawMode()
+				continue
+			}
+
+			summary := ""
+			if result != nil && len(result.Choices) > 0 {
+				summary = result.Choices[0].Message.Content
+			}
+			if summary == "" {
+				fmt.Fprint(os.Stderr, "Compact failed: got empty response.\r\n")
+				enterRawMode()
+				continue
+			}
+
+			oldCount := len(history)
+			history = history[:0]
+			if chatSystem != "" {
+				history = append(history, types.ChatMessage{Role: "system", Content: chatSystem})
+			}
+			history = append(history, types.ChatMessage{
+				Role:    "system",
+				Content: "[Compacted conversation history]\n" + summary + "\n[End of compacted history]",
+			})
+
+			fmt.Fprintf(os.Stderr, "\r\n✓ Compacted: %d messages → 1 summary\r\n", oldCount)
+			enterRawMode()
+			continue
 		case "/help", "/?", "?":
 			fmt.Fprint(os.Stderr,
 				"Available commands:\r\n"+
@@ -944,6 +1002,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 					"  Ctrl+C            Exit\r\n"+
 					"  Ctrl+D            Exit\r\n"+
 					"  /clear, /reset    Clear conversation history\r\n"+
+					"  /compact          Compact conversation (summarize to save context)\r\n"+
 					"  /tools            List available tools\r\n"+
 					"  /<tool> <json|--flags>  Direct tool call (no LLM)\r\n"+
 					"  /preview <file>   Preview image/video with system viewer\r\n"+
