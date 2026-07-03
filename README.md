@@ -22,7 +22,7 @@
 | 🎨 | **Midjourney 完整管线** | 17 个子命令覆盖 imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord |
 | 💬 | **Agentic Chat** | 交互式 REPL 内嵌 `generate_image` / `generate_video` / `midjourney_*` / `ideas` 等工具，LLM 直接在对话中生成图片视频 |
 | 🤖 | **MCP Server** | 内置 MCP 协议支持，Claude Desktop / Cursor 等 AI 代理开箱即用 |
-| 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），千级提示词数据集，支持关键词 / 随机 / 图文搜索 |
+| 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集，保留 source_url 来源链接，支持关键词 / 随机 / 图文搜索 |
 | 🔄 | **视频任务持久化** | OpenRouter 视频提交→轮询→下载全流程，超时后 `--job-id` 一键恢复 |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
 | ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台 |

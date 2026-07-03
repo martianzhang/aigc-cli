@@ -37,7 +37,7 @@ ideas:
   index_path: "~/.config/apimart/ideas.index"     # 自定义缓存路径
 ```
 
-数据来源：[NeXra-AI/awesome-ai-image-prompts](https://github.com/NeXra-AI/awesome-ai-image-prompts)（Apache 2.0）及 YouMind 社区。
+数据来源可见文末[数据来源与版权](#数据来源与版权)章节。
 
 ## 基本用法
 
@@ -179,11 +179,23 @@ apimart-cli ideas "cat" --save --output ./my-ideas
 
 ## 数据来源与版权
 
-本工具的提示词数据来源于开源社区的贡献，衷心感谢以下项目：
+本工具的提示词数据来源于公共资源，衷心感谢以下项目：
 
-- **[NeXra-AI/awesome-ai-image-prompts](https://github.com/NeXra-AI/awesome-ai-image-prompts)** — 955 条精选提示词，Apache 2.0 协议
-- **[YouMind](https://youmind.com)** — 11,000+ 提示词灵感
+- **[NeXra-AI/awesome-ai-image-prompts](https://github.com/NeXra-AI/awesome-ai-image-prompts)** — Apache 2.0 协议，见每条数据的 `source_url`
+- **[YouMind](https://youmind.com)** — 社区提示词灵感，仅供个人学习参考
+- **[OpenNana](https://opennana.com)** — 公开 API 获取的提示词，每条记录均保留 `source_url` 指向原始出处
 
-提示词原文和参考图片版权归原作者所有，本工具仅作灵感参考和学习用途。
+### 使用限制
 
-**如果您是原作者，不希望您的作品出现在本数据集中**，请提交 [issue](https://github.com/martianzhang/apimart-cli/issues) 或联系项目维护者，我们会在收到通知后尽快移除相关内容。
+- 本工具**仅用于个人学习、灵感搜索和参考**，不应用于模型训练或商业分发
+- 提示词原文和参考图片的版权归原作者所有
+- 每条数据均保留 `source_url` 字段指向原始来源
+
+### 移除请求（Takedown）
+
+**如果您是原作者，不希望您的作品出现在本数据集中**，请通过以下方式联系，我们会在收到通知后 **7 个工作日内**移除相关内容：
+
+1. 提交 [GitHub Issue](https://github.com/martianzhang/apimart-cli/issues)（推荐）
+2. 在对应数据源平台直接删除原内容（重新同步时自动去除）
+
+也欢迎通过项目主页的微信公众号联系维护者。

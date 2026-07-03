@@ -222,6 +222,28 @@ export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
 
 支持。设置 `OPENAI_BASE_URL` 为任意 OpenAI 兼容 API 地址即可。
 
+## 提示词数据
+
+### 搜索的提示词灵感来自哪里？
+
+`apimart-cli ideas` 搜索的提示词数据来源于三个渠道：
+
+| 来源 | 数量 | 许可 |
+|---|---|---|
+| [NeXra awesome-ai-image-prompts](https://github.com/NeXra-AI/awesome-ai-image-prompts) | ~12,000 | Apache 2.0 |
+| [YouMind](https://youmind.com) 社区提示词 | ~11,000+ | 社区贡献，个人学习参考 |
+| [OpenNana](https://opennana.com) | ~11,600 | 公开 API，保留 source_url |
+
+每条数据均保留 `source_url` 字段指向原始出处。**提示词原文版权归原作者所有。**
+
+### 我是原作者，如何移除我的提示词？
+
+请提交 [GitHub Issue](https://github.com/martianzhang/apimart-cli/issues) 注明需要移除的内容，我们会在 7 个工作日内处理。建议附上 `source_url` 或数据中的 `title` 以便定位。
+
+### 这些数据能用于商业用途吗？
+
+**不建议。** 本数据集的初衷是个人灵感搜索和学习参考。大部分数据的版权归属原作者，未取得商业使用授权。如需商用，请直接联系数据源平台或原作者。
+
 ## 费用
 
 ### 怎么知道一次生成花了多少钱？
