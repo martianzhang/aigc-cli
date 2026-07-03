@@ -71,8 +71,8 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 		// Configure global HTTP client with proxy for all requests
 		client.ConfigureDefaultClient(shared.HTTPProxy)
 		// Only require API key for commands that need it
-		// Exclude "ideas" and its sub-commands (init downloads data without API key)
-		if !isIdeasSubCommand(cmd) && shared.APIKey == "" {
+		// Exclude "ideas", "detect" and their sub-commands
+		if !isNoAPIKeyRequired(cmd) && shared.APIKey == "" {
 			return fmt.Errorf("API key is required: set it via --api-key flag, OPENAI_API_KEY env, or config.yaml")
 		}
 		return nil
@@ -409,11 +409,11 @@ func hasFlagChanged(cmd *cobra.Command, name string) bool {
 	return cmd.Flags().Changed(name) || cmd.PersistentFlags().Changed(name) || cmd.InheritedFlags().Changed(name)
 }
 
-// isIdeasSubCommand returns true if cmd is "ideas" or any of its sub-commands.
-// Used to bypass API key checks for ideas and its children.
-func isIdeasSubCommand(cmd *cobra.Command) bool {
+// isNoAPIKeyRequired returns true if cmd is a command that does not require
+// an API key (e.g. "ideas", "detect" and their sub-commands).
+func isNoAPIKeyRequired(cmd *cobra.Command) bool {
 	for c := cmd; c != nil; c = c.Parent() {
-		if c.Name() == "ideas" {
+		if c.Name() == "ideas" || c.Name() == "detect" {
 			return true
 		}
 	}

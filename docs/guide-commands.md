@@ -1,5 +1,30 @@
 # 其他命令
 
+## 检测水印和元数据
+
+检测图片中的 C2PA Content Credentials、TC260 AIGC 标签（中国 GB 45438-2025）和 SynthID 隐形水印。
+
+```bash
+# 显示所有信息（文件大小、尺寸、格式、水印、嵌入文本）
+apimart-cli detect image.png
+
+# JSON 输出（用于脚本处理）
+apimart-cli detect --json image.png
+
+# 检测多张图片
+apimart-cli detect *.png
+
+# 从管道读取
+cat image.png | apimart-cli detect
+```
+
+**特点：**
+- 完全离线运行，无需 API Key
+- 支持 PNG、JPEG、WebP、GIF、BMP
+- SynthID 检测基于 C2PA 元数据推断（Google Imagen/Gemini、OpenAI DALL-E 等）
+- TC260 标签可识别国内主要厂商（字节跳动、百度、腾讯、阿里巴巴、智谱AI）
+- JPEG 文件自动提取相机 EXIF 信息（厂商、型号、镜头、焦距、光圈、ISO、快门速度），可作为判断真实照片或 AI 生成图片的参考
+
 ## 查询模型列表
 
 支持三个数据源，自动根据 API 地址选择：

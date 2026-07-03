@@ -3,13 +3,17 @@
 package mcp
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/martianzhang/apimart-cli/internal/provider"
+	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -87,6 +91,7 @@ func NewServer(cfg *Config) *server.MCPServer {
 	s.AddTool(newGetModelPricingTool(), getModelPricingHandler())
 	s.AddTool(newGetBalanceTool(), getBalanceHandler(cfg))
 	s.AddTool(newGetTaskTool(), getTaskHandler(cfg))
+	s.AddTool(newDetectTool(), detectHandler())
 
 	return s
 }
@@ -204,4 +209,46 @@ func newGetTaskTool() mcp.Tool {
 			mcp.Description("APIMart task_id 或 OpenRouter job_id"),
 		),
 	)
+}
+
+func newDetectTool() mcp.Tool {
+	return mcp.NewTool("detect_image",
+		mcp.WithDescription("检测图片中的 C2PA Content Credentials、SynthID 隐形水印、TC260 AIGC 标签（中国 GB 45438-2025），以及 EXIF 相机元数据。完全离线运行，无需 API Key。支持 PNG、JPEG、WebP、GIF、BMP 格式。"),
+		mcp.WithString("file_path",
+			mcp.Required(),
+			mcp.Description("图片文件的本地路径"),
+		),
+	)
+}
+
+// detectHandler handles the detect_image tool call.
+func detectHandler() server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		path, err := req.RequireString("file_path")
+		if err != nil {
+			return mcp.NewToolResultError("file_path is required"), nil
+		}
+
+		// Resolve relative paths
+		if !filepath.IsAbs(path) {
+			abs, err := filepath.Abs(path)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("invalid path: %v", err)), nil
+			}
+			path = abs
+		}
+
+		result, err := service.DetectImage(path)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("detection failed: %v", err)), nil
+		}
+
+		// Format as JSON for structured output
+		data, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("JSON encoding failed: %v", err)), nil
+		}
+
+		return mcp.NewToolResultText(string(data)), nil
+	}
 }
