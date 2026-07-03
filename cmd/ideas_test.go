@@ -259,15 +259,14 @@ func TestOutputMarkdown_multipleResults(t *testing.T) {
 		name string
 		want string
 	}{
-		{"title", "# Ideas: test"},
-		{"count", "找到 2 个结果"},
+		{"count", "Found 2 result(s)"},
 		{"first heading", "## Test One"},
 		{"second heading", "## Test Two"},
 		{"first prompt", "```\nprompt one\n```"},
 		{"second prompt", "```\nprompt two\n```"},
-		{"author", "作者: Alice"},
+		{"author", "Author: Alice"},
 		{"license", "MIT"},
-		{"source link", "[来源]"},
+		{"source link", "[Source]"},
 		{"separator", "---"},
 	}
 	for _, c := range checks {
@@ -319,7 +318,7 @@ func TestOutputMarkdown_images(t *testing.T) {
 			t.Errorf("outputMarkdown() returned error: %v", err)
 		}
 	})
-	if !strings.Contains(output, "![参考图 1]") {
+	if !strings.Contains(output, "![ref]") {
 		t.Errorf("output missing image reference")
 	}
 }

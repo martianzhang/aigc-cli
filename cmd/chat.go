@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -46,7 +48,7 @@ var agentToolDefs = []types.ToolDefinition{
 					"prompt": {"type": "string", "description": "Detailed text description of the image to generate"},
 					"size": {"type": "string", "description": "Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4", "enum": ["1:1", "16:9", "9:16", "4:3", "3:4"]},
 					"n": {"type": "integer", "description": "Number of images to generate (1-4)", "minimum": 1, "maximum": 4},
-					"quality": {"type": "string", "description": "Image quality", "enum": ["auto", "low", "medium", "high"]}
+					"quality": {"type": "string", "description": "Image quality (low=cheapest default, high=best quality but costs more)", "enum": ["auto", "low", "medium", "high"]}
 				},
 				"required": ["prompt"]
 			}`),
@@ -136,14 +138,14 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "ideas",
-			Description: "Search AI image prompt ideas from the local ideas database. Use when the user needs inspiration for image prompts.",
+			Description: "Search AI image prompt ideas from the local ideas database. Use when the user needs inspiration for image prompts, or use random=true for a random surprise idea.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"keywords": {"type": "string", "description": "Search keywords"},
-					"limit": {"type": "integer", "description": "Max results to return"}
-				},
-				"required": ["keywords"]
+					"keywords": {"type": "string", "description": "Search keywords (ignored when random=true)"},
+					"limit": {"type": "integer", "description": "Max results to return (default 5)"},
+					"random": {"type": "boolean", "description": "Get random ideas instead of keyword search"}
+				}
 			}`),
 		},
 	},
@@ -172,6 +174,22 @@ var agentToolDefs = []types.ToolDefinition{
 					"task_id": {"type": "string", "description": "Task ID to query"}
 				},
 				"required": ["task_id"]
+			}`),
+		},
+	},
+	// --- Web tools ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "web_fetch",
+			Description: "Fetch a URL and return its text content. Use this when you need to read web pages, check current information, or access online resources.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"url": {"type": "string", "description": "URL to fetch (http:// or https://)"},
+					"max_length": {"type": "integer", "description": "Max characters to return (default 5000)"}
+				},
+				"required": ["url"]
 			}`),
 		},
 	},
@@ -367,6 +385,31 @@ func getFileCompletions(prefix string) []string {
 	return matches
 }
 
+// backspaceRune removes the rune before cursor position in buf.
+// Returns new buf and cursor pos, or pos=-1 if no character to delete.
+func backspaceRune(buf []byte, pos int) ([]byte, int) {
+	if pos <= 0 {
+		return buf, -1
+	}
+	// Find start of previous rune (walking back through continuation bytes)
+	prev := pos - 1
+	for prev >= 0 && buf[prev] >= 128 && buf[prev]&0xC0 == 0x80 {
+		prev--
+	}
+	n := pos - prev
+	copy(buf[prev:], buf[pos:])
+	buf = buf[:len(buf)-n]
+	return buf, prev
+}
+
+// redrawFrom redraws the buffer from cursor position on stderr.
+func redrawFrom(buf []byte, pos int) {
+	fmt.Fprint(os.Stderr, "\b"+string(buf[pos:])+" ")
+	for i := 0; i < len(buf)-pos+1; i++ {
+		fmt.Fprint(os.Stderr, "\b")
+	}
+}
+
 // readLineRaw reads one line from a raw-mode terminal with readline shortcuts.
 // Echoes characters to stderr. Returns io.EOF on Ctrl+D.
 // Supports:
@@ -379,6 +422,7 @@ func getFileCompletions(prefix string) []string {
 //	Ctrl+W  Backword    Delete word backwards
 //	Ctrl+L  Clear       Clear screen
 //	Ctrl+D  EOF         Exit
+//	\ + Enter           Line continuation (multi-line)
 //	Up/Down arrows      Command history
 //	Left/Right arrows   Move cursor
 //
@@ -422,51 +466,59 @@ func readLineRaw(completions []string) (string, error) {
 				continue
 			}
 			if ch2 == '[' {
+				// Terminal escape sequence: arrow keys (ESC [ A) or CSI u (ESC [ 13;5 u)
 				dir, err := reader.ReadByte()
 				if err != nil {
 					continue
 				}
-				switch dir {
-				case 'A': // Up arrow — history back
-					if len(*history) > 0 && histIdx < len(*history)-1 {
-						histIdx++
-						// Clear current line
-						for i := 0; i < len(buf); i++ {
-							fmt.Fprint(os.Stderr, "\b \b")
+				if dir >= '0' && dir <= '9' {
+					// CSI u sequence: ESC [ <keycode> ; <modifier> u
+					// Not all terminals support this, so we just drain it.
+					for {
+						b, err := reader.ReadByte()
+						if err != nil || b == 'u' {
+							break
 						}
-						// Load history entry
-						buf = []byte((*history)[len(*history)-1-histIdx])
-						pos = len(buf)
-						fmt.Fprint(os.Stderr, string(buf))
 					}
-				case 'B': // Down arrow — history forward
-					if histIdx > 0 {
-						histIdx--
-						// Clear current line
-						for i := 0; i < len(buf); i++ {
-							fmt.Fprint(os.Stderr, "\b \b")
+				} else {
+					switch dir {
+					case 'A': // Up arrow — history back
+						if len(*history) > 0 && histIdx < len(*history)-1 {
+							histIdx++
+							for i := 0; i < len(buf); i++ {
+								fmt.Fprint(os.Stderr, "\b \b")
+							}
+							buf = []byte((*history)[len(*history)-1-histIdx])
+							pos = len(buf)
+							fmt.Fprint(os.Stderr, string(buf))
 						}
-						buf = []byte((*history)[len(*history)-1-histIdx])
-						pos = len(buf)
-						fmt.Fprint(os.Stderr, string(buf))
-					} else if histIdx == 0 {
-						histIdx = -1
-						// Clear and reset
-						for i := 0; i < len(buf); i++ {
-							fmt.Fprint(os.Stderr, "\b \b")
+					case 'B': // Down arrow — history forward
+						if histIdx > 0 {
+							histIdx--
+							for i := 0; i < len(buf); i++ {
+								fmt.Fprint(os.Stderr, "\b \b")
+							}
+							buf = []byte((*history)[len(*history)-1-histIdx])
+							pos = len(buf)
+							fmt.Fprint(os.Stderr, string(buf))
+						} else if histIdx == 0 {
+							histIdx = -1
+							for i := 0; i < len(buf); i++ {
+								fmt.Fprint(os.Stderr, "\b \b")
+							}
+							buf = buf[:0]
+							pos = 0
 						}
-						buf = buf[:0]
-						pos = 0
-					}
-				case 'C': // Right arrow
-					if pos < len(buf) {
-						fmt.Fprint(os.Stderr, string(buf[pos]))
-						pos++
-					}
-				case 'D': // Left arrow
-					if pos > 0 {
-						pos--
-						fmt.Fprint(os.Stderr, "\b")
+					case 'C': // Right arrow
+						if pos < len(buf) {
+							fmt.Fprint(os.Stderr, string(buf[pos]))
+							pos++
+						}
+					case 'D': // Left arrow
+						if pos > 0 {
+							pos--
+							fmt.Fprint(os.Stderr, "\b")
+						}
 					}
 				}
 			}
@@ -482,6 +534,13 @@ func readLineRaw(completions []string) (string, error) {
 			return "", io.EOF
 
 		case 13: // Enter
+			// Line continuation: trailing \ + Enter → insert newline instead of submitting
+			if len(buf) > 0 && buf[len(buf)-1] == '\\' {
+				buf[len(buf)-1] = '\n'
+				fmt.Fprint(os.Stderr, "\r\n")
+				pos = len(buf)
+				continue
+			}
 			fmt.Fprint(os.Stderr, "\r\n")
 			line := string(buf)
 			// Save to history (non-empty, dedup last)
@@ -491,36 +550,8 @@ func readLineRaw(completions []string) (string, error) {
 			return line, nil
 
 		case 127, 8: // Backspace
-			if pos > 0 {
-				// Remove character before cursor (handle multi-byte by going back one rune)
-				// Find start of previous rune
-				prev := pos
-				// Go back from pos-1 to find the start of the rune
-				for i := pos - 1; i >= 0; i-- {
-					if buf[i] >= 128 {
-						// Continuation byte (10xxxxxx) — skip, it's part of the multi-byte rune
-						if buf[i]&0xC0 == 0x80 {
-							continue
-						}
-						// Lead byte found
-						prev = i
-						break
-					}
-					// Single-byte (ASCII)
-					prev = i
-					break
-				}
-				n := pos - prev
-				copy(buf[prev:], buf[pos:])
-				buf = buf[:len(buf)-n]
-				pos = prev
-				// Redraw from cursor position
-				fmt.Fprint(os.Stderr, "\b"+string(buf[pos:])+" ")
-				// Move cursor back
-				back := len(buf) - pos
-				for i := 0; i < back+1; i++ {
-					fmt.Fprint(os.Stderr, "\b")
-				}
+			if buf, pos = backspaceRune(buf, pos); pos >= 0 {
+				redrawFrom(buf, pos)
 			}
 
 		case 9: // Tab — completion cycling
@@ -862,6 +893,37 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			continue
 		}
 
+		// Multi-line input: starting with ``` enters multi-line mode.
+		// Each line is read separately; empty line submits.
+		if strings.HasPrefix(input, "```") {
+			var lines []string
+			rest := strings.TrimPrefix(input, "```")
+			if rest != "" {
+				lines = append(lines, rest)
+			}
+			for {
+				fmt.Fprint(os.Stderr, "... ")
+				var line string
+				var err error
+				if isRaw {
+					line, err = readLineRaw(completions)
+				} else {
+					line, err = readLineStdin()
+				}
+				if err != nil {
+					break
+				}
+				if strings.TrimSpace(line) == "" {
+					break
+				}
+				lines = append(lines, line)
+			}
+			input = strings.Join(lines, "\n")
+			if input == "" {
+				continue
+			}
+		}
+
 		// Handle commands
 		switch strings.ToLower(input) {
 		case "/exit", "/quit", "/q", "exit", "quit", "bye", "goodbye", "退出", "再见":
@@ -883,9 +945,11 @@ func runInteractiveChat(cmd *cobra.Command) error {
 					"  Ctrl+D            Exit\r\n"+
 					"  /clear, /reset    Clear conversation history\r\n"+
 					"  /tools            List available tools\r\n"+
-					"  /<tool> <json>    Directly call a tool (e.g. /generate_image {\"prompt\":\"a cat\"})\r\n"+
+					"  /<tool> <json|--flags>  Direct tool call (no LLM)\r\n"+
 					"  /preview <file>   Preview image/video with system viewer\r\n"+
 					"  !<command>        Run a shell command\r\n"+
+					"  \\ + Enter         Line continuation (multi-line input)\r\n"+
+					"  ```...empty line  Multi-line paste mode\r\n"+
 					"  /help             Show this help\r\n")
 			modelDisplay := shared.Model
 			if modelDisplay == "" {
@@ -911,13 +975,8 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			} else {
 				fmt.Fprint(os.Stderr, "Available tools:\r\n")
 				for _, t := range agentTools {
-					desc := t.Function.Description
-					// Truncate long descriptions for readability
-					if len(desc) > 80 {
-						desc = desc[:80] + "..."
-					}
 					fmt.Fprintf(os.Stderr, "  /%s\r\n", t.Function.Name)
-					if desc != "" {
+					if desc := t.Function.Description; desc != "" {
 						fmt.Fprintf(os.Stderr, "    %s\r\n", desc)
 					}
 				}
@@ -968,6 +1027,71 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			}
 		}
 
+		// Direct tool call: /<tool_name> <json> or /<tool_name> --flag value
+		// Non-structured args (bare text) fall through to LLM for interpretation.
+		if strings.HasPrefix(input, "/") && !strings.HasPrefix(input, "//") {
+			spaceIdx := strings.Index(input, " ")
+			cmdName := input[1:]
+			argsJSON := ""
+			if spaceIdx > 0 {
+				cmdName = input[1:spaceIdx]
+				argsJSON = strings.TrimSpace(input[spaceIdx+1:])
+			}
+			// Accept either JSON or --flag / key=value format
+			if !json.Valid([]byte(argsJSON)) && argsJSON != "" {
+				if converted := parseFlagsToJSON(argsJSON); converted != "" {
+					argsJSON = converted
+				}
+			}
+			if json.Valid([]byte(argsJSON)) {
+				// Silently ignore known CLI-only flags that have no tool parameter equivalent
+				cliOnlyFlags := map[string]bool{"preview": true, "dry-run": true, "save-images": true, "verbose": true, "json": true}
+				if argsJSON != "" && argsJSON != "{}" {
+					var schema struct {
+						Properties map[string]any `json:"properties"`
+					}
+					for _, t := range agentTools {
+						if t.Function.Name == cmdName && len(t.Function.Parameters) > 0 {
+							json.Unmarshal(t.Function.Parameters, &schema)
+							var parsed map[string]any
+							if err := json.Unmarshal([]byte(argsJSON), &parsed); err == nil {
+								for k := range parsed {
+									if _, ok := schema.Properties[k]; !ok && !cliOnlyFlags[k] {
+										fmt.Fprintf(os.Stderr, "\r\n[warning] /%s: unknown flag --%s\r\n", cmdName, k)
+									}
+								}
+							}
+							break
+						}
+					}
+				}
+				executed := false
+				for _, t := range agentTools {
+					if t.Function.Name == cmdName {
+						executed = true
+						exitRawMode()
+						tc := types.ToolCall{
+							ID:   "direct",
+							Type: "function",
+							Function: types.ToolCallFunction{
+								Name:      cmdName,
+								Arguments: argsJSON,
+							},
+						}
+						result := executeToolCall(c, tc)
+						fmt.Fprintf(os.Stderr, "\r\n%s\r\n", result)
+						fmt.Fprint(os.Stderr, "\r\n")
+						enterRawMode()
+						break
+					}
+				}
+				if executed {
+					continue
+				}
+			}
+			// Not valid JSON/flags or unknown command → fall through to LLM
+		}
+
 		// Add user message to history
 		history = append(history, types.ChatMessage{Role: "user", Content: input})
 
@@ -1013,17 +1137,25 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 		}
 		turnCount++
 
-		// Build request (always non-streaming internally for tool calling)
+		// Use streaming for all turns — text prints to stdout in real-time.
+		// Tool-calling turns: text (model's reasoning) streams first, then tool_calls are detected.
 		req := &types.ChatRequest{
-			Model:    shared.Model,
-			Messages: *history,
-			Stream:   false,
+			Model:        shared.Model,
+			Messages:     *history,
+			Stream:       true,
+			OutputWriter: os.Stdout,
 		}
 		if len(agentTools) > 0 {
 			req.Tools = agentTools
 		}
 		setFloatFlag(cmd, "temperature", &req.Temperature, chatTemperature)
 		setIntFlag(cmd, "max-tokens", &req.MaxTokens, chatMaxTokens)
+
+		// Print a newline to separate from the prompt / previous output
+		if turnCount > 1 {
+			fmt.Fprint(os.Stderr, "\r\n---\r\n")
+		}
+		fmt.Fprint(os.Stderr, "\r\n")
 
 		result, err := c.ChatCompletion(req)
 		if err != nil {
@@ -1040,13 +1172,19 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 			// Add assistant message with tool calls to history
 			*history = append(*history, choice.Message)
 
-			// Execute each tool call
+			// Execute each tool call with timing and result summary
 			for _, tc := range choice.Message.ToolCalls {
-				// Print tool call for user visibility
 				fmt.Fprintf(os.Stderr, "\r\n[tool] %s:\r\n", tc.Function.Name)
 				printToolArgs(tc.Function.Arguments)
 
+				toolStart := time.Now()
 				toolResult := executeToolCall(c, tc)
+				elapsed := time.Since(toolStart).Round(time.Millisecond)
+
+				// Show brief result summary to user
+				resultSummary := summarizeToolResult(tc.Function.Name, toolResult)
+				fmt.Fprintf(os.Stderr, "\r\n[tool] done in %v: %s\r\n", elapsed, resultSummary)
+
 				*history = append(*history, types.ChatMessage{
 					Role:       "tool",
 					ToolCallID: tc.ID,
@@ -1056,14 +1194,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 			continue
 		}
 
-		// Text response — output to user
-		textContent := choice.Message.Content
-		if textContent != "" {
-			fmt.Fprint(os.Stderr, "\r\n")
-			fmt.Println(textContent)
-		}
-
-		// Append assistant response to history for subsequent turns
+		// Text response — already streamed to stdout by handleSSE
 		*history = append(*history, choice.Message)
 
 		// Verbose stats
@@ -1309,11 +1440,92 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeBalanceQuery(args)
 	case "task":
 		return executeTaskQuery(args)
+	case "web_fetch":
+		return executeWebFetch(args)
 	case "read_file":
 		return executeReadFile(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}
+}
+
+// summarizeToolResult returns a one-line summary of a tool's result for user display.
+// inferValue parses a string into the most specific type (bool→int→float→string).
+func inferValue(s string) any {
+	if s == "true" || s == "false" {
+		return s == "true"
+	}
+	if n, err := strconv.Atoi(s); err == nil {
+		return n
+	}
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return f
+	}
+	return s
+}
+
+// parseFlagsToJSON converts "--flag value" or "key=value" style args to JSON.
+// Bare words are collected and set as "keywords" for the tool.
+func parseFlagsToJSON(s string) string {
+	parts := strings.Fields(s)
+	if len(parts) == 0 {
+		return ""
+	}
+	hasStructured := false
+	for _, p := range parts {
+		if strings.HasPrefix(p, "--") || strings.Contains(p, "=") {
+			hasStructured = true
+			break
+		}
+	}
+	if !hasStructured {
+		return ""
+	}
+	obj := make(map[string]any)
+	var bareWords []string
+	for i := 0; i < len(parts); i++ {
+		p := parts[i]
+		if eq := strings.Index(p, "="); eq > 0 {
+			obj[p[:eq]] = inferValue(p[eq+1:])
+		} else if strings.HasPrefix(p, "--") {
+			key := p[2:]
+			if i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "--") && !strings.Contains(parts[i+1], "=") {
+				i++
+				obj[key] = inferValue(parts[i])
+			} else {
+				obj[key] = true
+			}
+		} else {
+			bareWords = append(bareWords, p)
+		}
+	}
+	if len(bareWords) > 0 {
+		if _, has := obj["keywords"]; !has {
+			obj["keywords"] = strings.Join(bareWords, " ")
+		}
+	}
+	data, _ := json.Marshal(obj)
+	return string(data)
+}
+
+func summarizeToolResult(toolName, result string) string {
+	// Truncate long results to first meaningful line
+	firstLine := result
+	if idx := strings.IndexAny(result, "\n\r"); idx > 0 {
+		firstLine = result[:idx]
+	}
+	// Strip common prefixes for cleaner display
+	firstLine = strings.TrimSpace(firstLine)
+	if strings.HasPrefix(firstLine, "Successfully generated") {
+		return firstLine
+	}
+	if strings.HasPrefix(firstLine, "Error:") {
+		return firstLine
+	}
+	if len(firstLine) > 80 {
+		firstLine = firstLine[:80] + "..."
+	}
+	return firstLine
 }
 
 // executeGenerateImage runs image generation and returns a text summary for the LLM.
@@ -1495,6 +1707,7 @@ func executeMidjourney(c *client.Client, toolName, argsJSON string) string {
 type ideasSearchArgs struct {
 	Keywords string `json:"keywords"`
 	Limit    int    `json:"limit"`
+	Random   bool   `json:"random"`
 }
 
 type balanceQueryArgs struct {
@@ -1505,10 +1718,28 @@ type taskQueryArgs struct {
 	TaskID string `json:"task_id"`
 }
 
+type webFetchArgs struct {
+	URL       string `json:"url"`
+	MaxLength int    `json:"max_length"`
+}
+
 func executeIdeasSearch(argsJSON string) string {
 	var args ideasSearchArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.Limit <= 0 {
+		args.Limit = 5
+	}
+	if args.Random {
+		text, err := searchIdeasRandom(args.Limit)
+		if err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
+		return text
+	}
+	if args.Keywords == "" {
+		return "Error: keywords is required (or set random=true for random ideas)"
 	}
 	text, err := searchIdeasText(args.Keywords, args.Limit)
 	if err != nil {
@@ -1542,6 +1773,52 @@ func executeTaskQuery(argsJSON string) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 	return text
+}
+
+func executeWebFetch(argsJSON string) string {
+	var args webFetchArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.URL == "" {
+		return "Error: url is required"
+	}
+	if args.MaxLength <= 0 {
+		args.MaxLength = 5000
+	}
+	if args.MaxLength > 50000 {
+		args.MaxLength = 50000
+	}
+
+	// Use http.DefaultClient (configured with proxy at startup) + context timeout
+	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer fetchCancel()
+	httpReq, err := http.NewRequestWithContext(fetchCtx, "GET", args.URL, nil)
+	if err != nil {
+		return fmt.Sprintf("Error: invalid URL %s: %v", args.URL, err)
+	}
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		return fmt.Sprintf("Error: failed to fetch %s: %v", args.URL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return fmt.Sprintf("Error: %s returned status %d", args.URL, resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, int64(args.MaxLength)*3))
+	if err != nil {
+		return fmt.Sprintf("Error: failed to read response: %v", err)
+	}
+
+	// Try to extract text content from HTML
+	content := string(body)
+	if len(content) > args.MaxLength {
+		content = content[:args.MaxLength] + "\n\n...(truncated)"
+	}
+
+	return fmt.Sprintf("Content from %s:\n\n%s", args.URL, content)
 }
 
 // printToolArgs prints tool call arguments as key-value pairs for user visibility.

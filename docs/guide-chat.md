@@ -28,26 +28,54 @@ apimart-cli chat -v
 支持以下命令和快捷操作：
 
 | 操作 | 说明 |
-|---|---|
+|---|---|---|
 | `/exit` `/quit` `/q` | 退出 |
 | `exit` `quit` `bye` | 同上（无需 `/`） |
 | `退出` `再见` | 同上（中文） |
-| `Ctrl+C` | 退出 |
-| `Ctrl+D` | 退出（所有平台，原始终端模式） |
+| `Ctrl+C` | 中断当前操作并退出 |
+| `Ctrl+D` | 退出 |
 | `/clear` `/reset` | 清除对话历史 |
 | `/help` | 显示帮助 |
 
-交互式对话示例：
+### 多行输入
+
+输入较长的 prompt 时支持两种多行方式：
+
+- **行尾 `\` + Enter**：类 Shell 续行，适合边想边写。`\` 会被替换为换行符，最终作为完整消息提交：
+  ```
+  >>> 请帮我写一段Python代码，\
+  ... 实现一个简单的Web服务器，\
+  ... 使用Flask框架
+  ```
+  输出将为 `请帮我写一段Python代码，\n实现一个简单的Web服务器，\n使用Flask框架`
+
+- **`` ``` `` + 空行提交**：适合粘贴大段文本。输入 `` ``` `` 开头后，每行逐条读取，空行结束并提交：
+  ```
+  >>> ```
+  ... 第一段内容
+  ... 第二段内容
+  ... （空行）
+  ```
+
+交互式对话示例（回复流式输出，逐 token 实时显示）：
 
 ```
 $ apimart-cli chat
-Interactive chat mode. Type /exit or Ctrl+C to quit.
+Interactive chat mode. Type /help for commands, /exit or Ctrl+C to quit.
+Model: deepseek-v4-flash | Mode: stream
 
 >>> 1+1等于几？
 2
 
->>> 再乘以3呢？
-2 × 3 = 6
+>>> 画一只猫在星空下
+[tool] generate_image:
+  prompt=画一只猫在星空下
+  size=16:9
+  quality=high
+⠋ ░░░░░░░░░░░░░░░░░░░░ 0%
+...
+[tool] done in 8.5s: Successfully generated 1 image(s)
+图片已保存到 output/image_task_xxx.png
 
 >>> /exit
 Bye!
@@ -92,10 +120,11 @@ apimart-cli chat --message "生成一段日落海滩的视频"
   └─ 文本回复 → 输出给用户
 ```
 
-- Agent Loop 内部走非流式（`stream: false`），工具调用阶段无文本输出
+- 回复采用**流式输出**，文字逐 token 实时显示
 - 每次用户消息，LLM 最多连续调 10 次工具，可通过 `defaults.chat.max_iterations` 配置
-- 工具执行结果只返回 URL，LLM 告知用户文件保存位置
 - 工具执行时读取 `defaults.image` / `defaults.video` 作为 LLM 没指定参数时的兜底
+- 每个工具执行后显示耗时和结果摘要（如 `[tool] done in 3.2s: Successfully generated 1 image(s)`）
+- 长耗时操作（图片/视频/MJ 生成）支持 `Ctrl+C` 中断，立即返回 prompt
 
 ### 可用工具
 
@@ -109,9 +138,11 @@ apimart-cli chat --message "生成一段日落海滩的视频"
 | `midjourney_describe` | 图片反推提示词 | 同上 |
 | `midjourney_reroll` | 重新生成 MJ 结果 | 同上 |
 | `midjourney_video` | MJ 图片转视频 | 同上 |
-| `ideas_search` | 搜索本地提示词灵感 | `cmd/ideas.go: searchIdeasText` |
-| `balance_query` | 查询 API 余额 | `cmd/balance.go: getBalanceText` |
-| `task_query` | 查询异步任务状态 | `cmd/task.go: queryTaskText` |
+| `web_fetch` | 抓取网页内容（走代理，15s 超时） | `cmd/chat.go: executeWebFetch` |
+| `ideas` | 搜索本地提示词灵感 | `cmd/ideas.go: searchIdeasText` |
+| `balance` | 查询 API 余额 | `cmd/balance.go: getBalanceText` |
+| `task` | 查询异步任务状态 | `cmd/task.go: queryTaskText` |
+| `read_file` | 读取本地文本文件 | `cmd/chat.go: executeReadFile` |
 
 所有工具通过共享函数实现，`chat` 和对应的 CLI 命令走同一份代码，无重复逻辑。
 
@@ -120,9 +151,10 @@ apimart-cli chat --message "生成一段日落海滩的视频"
 在交互式 REPL 中支持以下快捷操作：
 
 | 操作 | 说明 |
-|---|---|
-| `/<tool_name> <json>` | 直接调用工具，如 `/generate_image {"prompt":"a cat"}`（大小写不敏感） |
-| `!<shell_cmd>` | 执行系统命令，如 `!ls -la`（30s 超时，Windows 自动选 pwsh>powershell>cmd，其他选 zsh>bash>sh） |
+|---|---|---|
+| `/<tool_name> <json>` | 直接调用工具，如 `/generate_image {"prompt":"a cat"}` |
+| `!<shell_cmd>` | 执行系统命令，如 `!ls -la`（30s 超时） |
+| `/preview <file>` | 用系统默认程序打开图片/视频 |
 | `/tools` | 列出所有可用工具 |
 | `/help` | 显示帮助 |
 
