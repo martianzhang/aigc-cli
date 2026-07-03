@@ -95,7 +95,7 @@ func (c *Client) OpenRouterVideoSubmit(req *types.OpenRouterVideoRequest) (*type
 
 // OpenRouterVideoPoll polls the video job status using the polling URL.
 func (c *Client) OpenRouterVideoPoll(pollingURL string) (*types.OpenRouterVideoStatusResponse, error) {
-	httpReq, err := http.NewRequest(http.MethodGet, pollingURL, nil)
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, pollingURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create poll request: %w", err)
 	}
@@ -136,7 +136,7 @@ func (c *Client) OpenRouterVideoGet(jobID string) (*types.OpenRouterVideoStatusR
 
 // OpenRouterVideoDownload downloads the video from an unsigned URL and saves it.
 func (c *Client) OpenRouterVideoDownload(url, dest string) error {
-	httpReq, err := http.NewRequest(http.MethodGet, url, nil)
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create download request: %w", err)
 	}
@@ -174,6 +174,13 @@ func (c *Client) OpenRouterVideoPollUntilComplete(pollingURL string, pollInterva
 
 	start := time.Now()
 	for {
+		// Check for cancellation
+		select {
+		case <-c.requestContext().Done():
+			return nil, c.requestContext().Err()
+		default:
+		}
+
 		if time.Since(start) > maxWait {
 			return nil, fmt.Errorf("video polling timed out after %v\n  The job may still be running. Use: apimart-cli video --job-id %s", maxWait, extractJobID(pollingURL))
 		}
@@ -194,7 +201,11 @@ func (c *Client) OpenRouterVideoPollUntilComplete(pollingURL string, pollInterva
 			return nil, fmt.Errorf("video generation %s: %s", resp.Status, errMsg)
 		default:
 			// pending / running — keep waiting
-			time.Sleep(pollInterval)
+			select {
+			case <-time.After(pollInterval):
+			case <-c.requestContext().Done():
+				return nil, c.requestContext().Err()
+			}
 		}
 	}
 }

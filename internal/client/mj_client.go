@@ -40,7 +40,11 @@ func (c *Client) MidjourneyGetTask(taskID string) (*types.MJTaskData, error) {
 func (c *Client) MidjourneyPollTask(taskID string) (*types.MJTaskData, error) {
 	fmt.Printf("Task submitted: %s\n", taskID)
 	fmt.Printf("Waiting %v before first poll...\n", initialDelay)
-	time.Sleep(initialDelay)
+	select {
+	case <-time.After(initialDelay):
+	case <-c.requestContext().Done():
+		return nil, c.requestContext().Err()
+	}
 
 	isTTY := isTerminal()
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -52,6 +56,16 @@ func (c *Client) MidjourneyPollTask(taskID string) (*types.MJTaskData, error) {
 	}
 
 	for {
+		// Check for cancellation before each poll cycle
+		select {
+		case <-c.requestContext().Done():
+			if isTTY {
+				fmt.Println()
+			}
+			return nil, c.requestContext().Err()
+		default:
+		}
+
 		if time.Since(start) > maxPollDuration {
 			if isTTY {
 				fmt.Println()
@@ -97,6 +111,14 @@ func (c *Client) MidjourneyPollTask(taskID string) (*types.MJTaskData, error) {
 			// SUBMITTED, IN_PROGRESS, NOT_START — keep polling
 		}
 
-		time.Sleep(pollInterval)
+		// Sleep with cancellation support
+		select {
+		case <-time.After(pollInterval):
+		case <-c.requestContext().Done():
+			if isTTY {
+				fmt.Println()
+			}
+			return nil, c.requestContext().Err()
+		}
 	}
 }

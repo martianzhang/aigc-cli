@@ -5,6 +5,7 @@ package client
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -57,6 +58,28 @@ type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
+	ctx        context.Context // optional, for cancellation (set by SetContext)
+}
+
+// SetContext sets an optional context for cancellation support.
+// When set, all HTTP requests and polling loops respect ctx.Done().
+// Thread-safe for single-threaded CLI usage.
+func (c *Client) SetContext(ctx context.Context) {
+	c.ctx = ctx
+}
+
+// requestContext returns the client's context or context.Background().
+func (c *Client) requestContext() context.Context {
+	return c.GetContext()
+}
+
+// GetContext returns the client's context or context.Background().
+// Exported so cmd/ packages can propagate context to new clients.
+func (c *Client) GetContext() context.Context {
+	if c.ctx != nil {
+		return c.ctx
+	}
+	return context.Background()
 }
 
 // SetTimeout sets the HTTP client timeout. Use 0 for no timeout.
@@ -123,7 +146,7 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+chatPath, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+chatPath, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -335,7 +358,7 @@ func (c *Client) YunwuVideoSubmit(req *types.VideoGenerateRequest) (*types.Yunwu
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+yunwuVideoSubPath, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+yunwuVideoSubPath, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -387,7 +410,11 @@ func (c *Client) VideoRemixSubmit(taskID string, req *types.VideoRemixRequest) (
 func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
 	fmt.Printf("Task submitted: %s\n", taskID)
 	fmt.Printf("Waiting %v before first poll...\n", initialDelay)
-	time.Sleep(initialDelay)
+	select {
+	case <-time.After(initialDelay):
+	case <-c.requestContext().Done():
+		return nil, c.requestContext().Err()
+	}
 
 	isTTY := isTerminal()
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -400,6 +427,16 @@ func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
 	}
 
 	for {
+		// Check for cancellation before each poll cycle
+		select {
+		case <-c.requestContext().Done():
+			if isTTY {
+				fmt.Println()
+			}
+			return nil, c.requestContext().Err()
+		default:
+		}
+
 		if time.Since(start) > maxPollDuration {
 			if isTTY {
 				fmt.Println()
@@ -441,7 +478,15 @@ func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
 			// in_progress / submitted / processing — keep polling
 		}
 
-		time.Sleep(pollInterval)
+		// Sleep with cancellation support
+		select {
+		case <-time.After(pollInterval):
+		case <-c.requestContext().Done():
+			if isTTY {
+				fmt.Println()
+			}
+			return nil, c.requestContext().Err()
+		}
 	}
 }
 
@@ -470,7 +515,7 @@ func progressBar(pct, width int) string {
 func (c *Client) GetTask(taskID string) (*types.TaskData, error) {
 	path := fmt.Sprintf(taskPath, taskID)
 
-	httpReq, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -522,7 +567,7 @@ func (c *Client) UploadImage(filePath string) (*types.UploadResponse, error) {
 	}
 	w.Close()
 
-	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL+uploadPath, &buf)
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+uploadPath, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create upload request: %w", err)
 	}
@@ -725,7 +770,7 @@ func (c *Client) doJSONWithHeaders(method, path string, body, result interface{}
 		bodyReader = bytes.NewReader(data)
 	}
 
-	httpReq, err := http.NewRequest(method, c.baseURL+path, bodyReader)
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), method, c.baseURL+path, bodyReader)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -768,7 +813,7 @@ func (c *Client) doGet(path string, result interface{}) error {
 
 // doGetWithHeaders is like doGet but with additional HTTP headers.
 func (c *Client) doGetWithHeaders(path string, result interface{}, extraHeaders map[string]string) error {
-	httpReq, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
