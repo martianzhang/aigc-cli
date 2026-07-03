@@ -6,11 +6,23 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
+	"github.com/martianzhang/apimart-cli/internal/provider"
 )
 
 // queryTaskText queries a task by ID and returns a text summary.
 // Downloads images if available. Shared by CLI and agent loop.
 func queryTaskText(taskID string) (string, error) {
+	// Task query is only supported on APIMart-compatible providers
+	p := provider.Detect(shared.APIBase)
+	if p != provider.APIMart {
+		switch p {
+		case provider.OpenRouter:
+			return "", fmt.Errorf("task query is not available on OpenRouter — use 'apimart-cli video --job-id %s' instead", taskID)
+		default:
+			return "", fmt.Errorf("task query is only supported on APIMart-compatible providers (apimart.ai / apib.ai / aiuxu.com / aishuch.com)")
+		}
+	}
+
 	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
 	task, err := c.GetTask(taskID)
 	if err != nil {

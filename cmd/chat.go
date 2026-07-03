@@ -11,15 +11,18 @@ import (
 	"os/exec"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
+	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -32,7 +35,7 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "generate_image",
-			Description: "Generate images via AI (cost-effective, recommended default). Use this for most image generation tasks. For highly artistic/stylized results, consider midjourney_imagine instead.",
+			Description: "Generate images via AI (cost-effective, recommended default). Images are saved to local files — do NOT invent URLs, use /preview to show them. Use this for most image generation tasks. For highly artistic/stylized results, consider midjourney_imagine instead.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
@@ -49,7 +52,7 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "generate_video",
-			Description: "Generate a video based on a text description. Use this when the user asks you to create, generate, or make a video.",
+			Description: "Generate a video based on a text description. Videos are saved to local files — do NOT invent URLs, use /preview to show them. Use this when the user asks you to create, generate, or make a video.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
@@ -165,6 +168,21 @@ var agentToolDefs = []types.ToolDefinition{
 					"task_id": {"type": "string", "description": "Task ID to query"}
 				},
 				"required": ["task_id"]
+			}`),
+		},
+	},
+	// --- Local file tools ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "read_file",
+			Description: "Read the contents of a local text file (e.g. .txt, .md, .yaml, .json, .go). Use when the user asks about or references a local file.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"filepath": {"type": "string", "description": "Path to the local file to read (relative to current directory or absolute)"}
+				},
+				"required": ["filepath"]
 			}`),
 		},
 	},
@@ -314,12 +332,44 @@ func printUsageStats(result *types.ChatResponse, elapsed time.Duration) {
 	fmt.Fprintln(os.Stderr, "---  "+strings.Join(parts, "  |  "))
 }
 
+// getFileCompletions returns file/directory names matching the given prefix.
+// Used by readLineRaw for Tab completion of file paths (/preview, @filename).
+func getFileCompletions(prefix string) []string {
+	dir := "."
+	base := prefix
+	if idx := strings.LastIndexAny(prefix, `/\`); idx >= 0 {
+		dir = prefix[:idx]
+		base = prefix[idx+1:]
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var matches []string
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasPrefix(name, base) {
+			continue
+		}
+		match := name
+		if e.IsDir() {
+			match += string(filepath.Separator)
+		}
+		if dir != "." {
+			match = dir + string(filepath.Separator) + match
+		}
+		matches = append(matches, match)
+	}
+	return matches
+}
+
 // readLineRaw reads one line from a raw-mode terminal with readline shortcuts.
 // Echoes characters to stderr. Returns io.EOF on Ctrl+D.
 // Supports:
 //
 //	Ctrl+A  Home        Beginning of line
 //	Ctrl+E  End         End of line
+//	Tab     Command completion
 //	Ctrl+U  Kill        Clear whole line
 //	Ctrl+K  Kill right  Clear to end of line
 //	Ctrl+W  Backword    Delete word backwards
@@ -329,73 +379,92 @@ func printUsageStats(result *types.ChatResponse, elapsed time.Duration) {
 //	Left/Right arrows   Move cursor
 //
 // Command history is shared across calls to readLineRaw.
-func readLineRaw() (string, error) {
+// completions is a list of command strings for Tab completion.
+func readLineRaw(completions []string) (string, error) {
 	buf := make([]byte, 0, 256)
 	pos := 0 // cursor position within buf
 	histIdx := -1
 
+	// Completion cycle state
+	var cycleMatches []string // current cycle matches
+	var cycleIdx int          // index into cycleMatches
+	var cycleBase string      // original input that started the cycle
+
 	// Package-level history slice shared across calls
 	history := &cmdHistory
 
+	// Buffered reader for efficient byte/rune reading
+	reader := bufio.NewReaderSize(os.Stdin, 64)
+
 	for {
-		var ch [3]byte
-		n, err := os.Stdin.Read(ch[:])
+		ch, err := reader.ReadByte()
 		if err != nil {
 			return "", err
 		}
-		if n == 0 {
-			continue
-		}
 
-		// Multi-byte sequences (escape codes)
-		if ch[0] == 27 && n >= 2 && ch[1] == '[' {
-			switch ch[2] {
-			case 'A': // Up arrow — history back
-				if len(*history) > 0 && histIdx < len(*history)-1 {
-					histIdx++
-					// Clear current line
-					for i := 0; i < len(buf); i++ {
-						fmt.Fprint(os.Stderr, "\b \b")
-					}
-					// Load history entry
-					buf = []byte((*history)[len(*history)-1-histIdx])
-					pos = len(buf)
-					fmt.Fprint(os.Stderr, string(buf))
+		// Multi-byte sequences (escape codes: arrow keys, etc.)
+		if ch == 27 {
+			// If nothing buffered, it's a bare Escape key press — ignore
+			if reader.Buffered() == 0 {
+				continue
+			}
+			ch2, err := reader.ReadByte()
+			if err != nil {
+				continue
+			}
+			if ch2 == '[' {
+				dir, err := reader.ReadByte()
+				if err != nil {
+					continue
 				}
-			case 'B': // Down arrow — history forward
-				if histIdx > 0 {
-					histIdx--
-					// Clear current line
-					for i := 0; i < len(buf); i++ {
-						fmt.Fprint(os.Stderr, "\b \b")
+				switch dir {
+				case 'A': // Up arrow — history back
+					if len(*history) > 0 && histIdx < len(*history)-1 {
+						histIdx++
+						// Clear current line
+						for i := 0; i < len(buf); i++ {
+							fmt.Fprint(os.Stderr, "\b \b")
+						}
+						// Load history entry
+						buf = []byte((*history)[len(*history)-1-histIdx])
+						pos = len(buf)
+						fmt.Fprint(os.Stderr, string(buf))
 					}
-					buf = []byte((*history)[len(*history)-1-histIdx])
-					pos = len(buf)
-					fmt.Fprint(os.Stderr, string(buf))
-				} else if histIdx == 0 {
-					histIdx = -1
-					// Clear and reset
-					for i := 0; i < len(buf); i++ {
-						fmt.Fprint(os.Stderr, "\b \b")
+				case 'B': // Down arrow — history forward
+					if histIdx > 0 {
+						histIdx--
+						// Clear current line
+						for i := 0; i < len(buf); i++ {
+							fmt.Fprint(os.Stderr, "\b \b")
+						}
+						buf = []byte((*history)[len(*history)-1-histIdx])
+						pos = len(buf)
+						fmt.Fprint(os.Stderr, string(buf))
+					} else if histIdx == 0 {
+						histIdx = -1
+						// Clear and reset
+						for i := 0; i < len(buf); i++ {
+							fmt.Fprint(os.Stderr, "\b \b")
+						}
+						buf = buf[:0]
+						pos = 0
 					}
-					buf = buf[:0]
-					pos = 0
-				}
-			case 'C': // Right arrow
-				if pos < len(buf) {
-					fmt.Fprint(os.Stderr, string(buf[pos]))
-					pos++
-				}
-			case 'D': // Left arrow
-				if pos > 0 {
-					pos--
-					fmt.Fprint(os.Stderr, "\b")
+				case 'C': // Right arrow
+					if pos < len(buf) {
+						fmt.Fprint(os.Stderr, string(buf[pos]))
+						pos++
+					}
+				case 'D': // Left arrow
+					if pos > 0 {
+						pos--
+						fmt.Fprint(os.Stderr, "\b")
+					}
 				}
 			}
 			continue
 		}
 
-		switch ch[0] {
+		switch ch {
 		case 4: // Ctrl+D
 			return "", io.EOF
 
@@ -410,10 +479,28 @@ func readLineRaw() (string, error) {
 
 		case 127, 8: // Backspace
 			if pos > 0 {
-				// Remove character before cursor
-				copy(buf[pos-1:], buf[pos:])
-				buf = buf[:len(buf)-1]
-				pos--
+				// Remove character before cursor (handle multi-byte by going back one rune)
+				// Find start of previous rune
+				prev := pos
+				// Go back from pos-1 to find the start of the rune
+				for i := pos - 1; i >= 0; i-- {
+					if buf[i] >= 128 {
+						// Continuation byte (10xxxxxx) — skip, it's part of the multi-byte rune
+						if buf[i]&0xC0 == 0x80 {
+							continue
+						}
+						// Lead byte found
+						prev = i
+						break
+					}
+					// Single-byte (ASCII)
+					prev = i
+					break
+				}
+				n := pos - prev
+				copy(buf[prev:], buf[pos:])
+				buf = buf[:len(buf)-n]
+				pos = prev
 				// Redraw from cursor position
 				fmt.Fprint(os.Stderr, "\b"+string(buf[pos:])+" ")
 				// Move cursor back
@@ -421,6 +508,76 @@ func readLineRaw() (string, error) {
 				for i := 0; i < back+1; i++ {
 					fmt.Fprint(os.Stderr, "\b")
 				}
+			}
+
+		case 9: // Tab — completion cycling
+			if len(buf) > 0 && pos == len(buf) {
+				inputLine := string(buf)
+
+				// Detect file path completion context
+				filePrefix := ""
+				isFileCtx := false
+				if strings.HasPrefix(inputLine, "/preview ") {
+					filePrefix = strings.TrimPrefix(inputLine, "/preview ")
+					isFileCtx = true
+				} else if atIdx := strings.LastIndex(inputLine, "@"); atIdx >= 0 {
+					filePrefix = inputLine[atIdx+1:]
+					isFileCtx = true
+				}
+
+				// Check if we're continuing a cycle
+				inCycle := len(cycleMatches) > 0 && inputLine == cycleBase
+
+				if isFileCtx {
+					if !inCycle {
+						cycleMatches = getFileCompletions(filePrefix)
+						cycleIdx = -1
+						cycleBase = inputLine
+					}
+				} else if !isFileCtx {
+					prefix := strings.TrimSpace(inputLine)
+					if prefix == "" {
+						break
+					}
+					if !inCycle {
+						cycleMatches = nil
+						for _, c := range completions {
+							if strings.HasPrefix(c, prefix) {
+								cycleMatches = append(cycleMatches, c)
+							}
+						}
+						cycleIdx = -1
+						cycleBase = inputLine
+					}
+				} else {
+					break
+				}
+
+				if len(cycleMatches) == 0 {
+					break
+				}
+
+				// Advance cycle
+				cycleIdx = (cycleIdx + 1) % len(cycleMatches)
+				match := cycleMatches[cycleIdx]
+
+				// Replace buffer with the match
+				for i := 0; i < len(buf); i++ {
+					fmt.Fprint(os.Stderr, "\b \b")
+				}
+
+				if isFileCtx {
+					if strings.HasPrefix(cycleBase, "/preview ") {
+						buf = []byte("/preview " + match)
+					} else if atIdx := strings.LastIndex(cycleBase, "@"); atIdx >= 0 {
+						buf = []byte(cycleBase[:atIdx+1] + match)
+					}
+				} else {
+					buf = []byte(match)
+				}
+				pos = len(buf)
+				cycleBase = string(buf) // keep cycle alive for next Tab
+				fmt.Fprint(os.Stderr, string(buf))
 			}
 
 		case 1: // Ctrl+A — beginning of line
@@ -503,15 +660,38 @@ func readLineRaw() (string, error) {
 			}
 
 		default:
-			if ch[0] >= 32 { // printable
-				// Insert at cursor position
-				buf = append(buf, 0)
-				copy(buf[pos+1:], buf[pos:])
-				buf[pos] = ch[0]
+			if ch >= 32 { // printable — could be start of multi-byte UTF-8
+				// Put the byte back and read a complete rune
+				if err := reader.UnreadByte(); err != nil {
+					// Fallback: insert byte directly
+					buf = append(buf, 0)
+					copy(buf[pos+1:], buf[pos:])
+					buf[pos] = ch
+					fmt.Fprint(os.Stderr, string(buf[pos:]))
+					pos++
+					for i := pos; i < len(buf); i++ {
+						fmt.Fprint(os.Stderr, "\b")
+					}
+					continue
+				}
+				r, _, err := reader.ReadRune()
+				if err != nil {
+					continue
+				}
+				// Encode the rune back to UTF-8 bytes
+				runeBytes := make([]byte, 4)
+				n := utf8.EncodeRune(runeBytes, r)
+				runeBytes = runeBytes[:n]
+				// Insert all bytes at cursor position
+				for _, b := range runeBytes {
+					buf = append(buf, 0)
+					copy(buf[pos+1:], buf[pos:])
+					buf[pos] = b
+					pos++
+				}
 				// Redraw from cursor
-				fmt.Fprint(os.Stderr, string(buf[pos:]))
-				pos++
-				// Move cursor back for characters after the inserted one
+				fmt.Fprint(os.Stderr, string(buf[pos-n:]))
+				// Move cursor back for characters after the inserted ones
 				for i := pos; i < len(buf); i++ {
 					fmt.Fprint(os.Stderr, "\b")
 				}
@@ -591,7 +771,28 @@ func runInteractiveChat(cmd *cobra.Command) error {
 		defer term.Restore(int(os.Stdin.Fd()), rawState)
 	}
 
-	fmt.Fprint(os.Stderr, "\r\nInteractive chat mode. Type /exit or Ctrl+C to quit.\r\n")
+	fmt.Fprint(os.Stderr, "\r\nInteractive chat mode. Type /help for commands, /exit or Ctrl+C to quit.\r\n")
+
+	// Show current model and stream mode at startup
+	modelDisplay := shared.Model
+	if modelDisplay == "" {
+		if chatCfg != nil && chatCfg.Model != "" {
+			modelDisplay = chatCfg.Model
+		} else {
+			modelDisplay = "<API default>"
+		}
+	}
+	streamMode := "stream"
+	if chatNoStream {
+		streamMode = "no-stream"
+	}
+	fmt.Fprintf(os.Stderr, "Model: %s | Mode: %s\r\n", modelDisplay, streamMode)
+
+	// Build Tab-completion candidates
+	completions := []string{"/exit", "/clear", "/help", "/?", "/tools", "/preview"}
+	for _, t := range agentTools {
+		completions = append(completions, "/"+t.Function.Name)
+	}
 
 	for {
 		fmt.Fprint(os.Stderr, ">>> ")
@@ -600,7 +801,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 		var input string
 		var err error
 		if isRaw {
-			input, err = readLineRaw()
+			input, err = readLineRaw(completions)
 		} else {
 			input, err = readLineStdin()
 		}
@@ -629,7 +830,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			}
 			fmt.Fprint(os.Stderr, "Conversation history cleared.\r\n")
 			continue
-		case "/help":
+		case "/help", "/?", "?":
 			fmt.Fprint(os.Stderr,
 				"Available commands:\r\n"+
 					"  /exit, /quit, /q  Exit\r\n"+
@@ -639,6 +840,8 @@ func runInteractiveChat(cmd *cobra.Command) error {
 					"  /clear, /reset    Clear conversation history\r\n"+
 					"  /tools            List available tools\r\n"+
 					"  /<tool> <json>    Directly call a tool (e.g. /generate_image {\"prompt\":\"a cat\"})\r\n"+
+					"  /preview <file>   Preview image/video with system viewer\r\n"+
+					"  !<command>        Run a shell command\r\n"+
 					"  /help             Show this help\r\n")
 			modelDisplay := shared.Model
 			if modelDisplay == "" {
@@ -656,8 +859,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 				fmt.Fprintf(os.Stderr, "Tools: %s | Max iterations: %d\r\n", strings.Join(toolNames, ", "), maxIterations)
 			}
 			fmt.Fprint(os.Stderr, "Use -v/--verbose to show token & timing stats.\r\n")
-			fmt.Fprint(os.Stderr, "Type /tools to list all tools with descriptions.\r\n")
-			fmt.Fprint(os.Stderr, "Type /tools to see available tools. Use /{tool_name} <json> to call directly.\r\n")
+			fmt.Fprint(os.Stderr, "Use /{tool_name} <json> to call a tool directly (e.g. /generate_image {\"prompt\":\"a cat\"})\r\n")
 			continue
 		case "/tools":
 			if len(agentTools) == 0 {
@@ -665,11 +867,46 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			} else {
 				fmt.Fprint(os.Stderr, "Available tools:\r\n")
 				for _, t := range agentTools {
+					desc := t.Function.Description
+					// Truncate long descriptions for readability
+					if len(desc) > 80 {
+						desc = desc[:80] + "..."
+					}
 					fmt.Fprintf(os.Stderr, "  /%s\r\n", t.Function.Name)
+					if desc != "" {
+						fmt.Fprintf(os.Stderr, "    %s\r\n", desc)
+					}
 				}
 				fmt.Fprint(os.Stderr, "\r\nUsage: /<tool_name> <json_args>\r\n")
 				fmt.Fprint(os.Stderr, "e.g. /generate_image {\"prompt\":\"a cat\"}\r\n")
 			}
+			continue
+		}
+
+		// Check for preview command: /preview <filepath>
+		if strings.HasPrefix(strings.TrimSpace(input), "/preview") {
+			parts := strings.SplitN(input, " ", 2)
+			filePath := ""
+			if len(parts) == 2 {
+				filePath = strings.TrimSpace(parts[1])
+			}
+			if filePath == "" {
+				fmt.Fprint(os.Stderr, "Usage: /preview <filepath>\r\n\r\n")
+				// Show recently generated files as hints
+				recent := previewLatestFiles("")
+				if len(recent) > 0 {
+					fmt.Fprint(os.Stderr, "Recent files:\r\n")
+					for _, f := range recent {
+						fmt.Fprintf(os.Stderr, "  /preview %s\r\n", f)
+					}
+					fmt.Fprint(os.Stderr, "\r\n")
+				}
+				continue
+			}
+			if err := service.PreviewFile(filePath); err != nil {
+				fmt.Fprintf(os.Stderr, "Preview failed: %v\r\n", err)
+			}
+			fmt.Fprint(os.Stderr, "\r\n")
 			continue
 		}
 
@@ -949,21 +1186,79 @@ type generateVideoArgs struct {
 	Resolution string `json:"resolution,omitempty"`
 }
 
+// resolveFileRefs scans JSON argument strings for @filename patterns and
+// replaces them with the file contents. e.g. {"prompt":"@prompt.md"} reads
+// prompt.md and uses its content as the prompt value.
+// Works recursively for nested objects and arrays.
+func resolveFileRefs(argsJSON string) string {
+	var raw interface{}
+	if err := json.Unmarshal([]byte(argsJSON), &raw); err != nil {
+		return argsJSON // not valid JSON, return as-is
+	}
+	resolved := resolveFileRef(raw)
+	data, _ := json.Marshal(resolved)
+	return string(data)
+}
+
+// resolveFileRef recursively walks a parsed JSON value and replaces any
+// string starting with "@" by reading the referenced file.
+func resolveFileRef(v interface{}) interface{} {
+	switch val := v.(type) {
+	case string:
+		if strings.HasPrefix(val, "@") {
+			path := val[1:] // strip the @ prefix
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Sprintf("[Error: cannot read %s: %v]", path, err)
+			}
+			return string(content)
+		}
+		return val
+	case map[string]interface{}:
+		for k, nested := range val {
+			val[k] = resolveFileRef(nested)
+		}
+		return val
+	case []interface{}:
+		for i, item := range val {
+			val[i] = resolveFileRef(item)
+		}
+		return val
+	default:
+		return val
+	}
+}
+
 // executeToolCall executes a single tool call and returns a text result for the LLM.
 func executeToolCall(c *client.Client, tc types.ToolCall) string {
+	// Expand @filename references in arguments before dispatching.
+	// Skip read_file — it handles its own file access.
+	args := tc.Function.Arguments
+	if tc.Function.Name != "read_file" && strings.Contains(args, `"@`) {
+		resolved := resolveFileRefs(args)
+		if resolved != args {
+			if shared.Verbose {
+				fmt.Fprintf(os.Stderr, "\r\n[agent] resolved @file refs in %s\r\n", tc.Function.Name)
+			}
+			args = resolved
+		}
+	}
+
 	switch tc.Function.Name {
 	case "generate_image":
-		return executeGenerateImage(c, tc.Function.Arguments)
+		return executeGenerateImage(c, args)
 	case "generate_video":
-		return executeGenerateVideo(c, tc.Function.Arguments)
+		return executeGenerateVideo(c, args)
 	case "midjourney_imagine", "midjourney_describe", "midjourney_reroll", "midjourney_video":
-		return executeMidjourney(c, tc.Function.Name, tc.Function.Arguments)
+		return executeMidjourney(c, tc.Function.Name, args)
 	case "ideas":
-		return executeIdeasSearch(tc.Function.Arguments)
+		return executeIdeasSearch(args)
 	case "balance":
-		return executeBalanceQuery(tc.Function.Arguments)
+		return executeBalanceQuery(args)
 	case "task":
-		return executeTaskQuery(tc.Function.Arguments)
+		return executeTaskQuery(args)
+	case "read_file":
+		return executeReadFile(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}
@@ -987,16 +1282,25 @@ func executeGenerateImage(c *client.Client, argsJSON string) string {
 		req.N = &v
 	}
 
-	// Verbose debug: show config before generation
-	if shared.Verbose {
-		hasCfg := shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Image != nil
-		fmt.Fprintf(os.Stderr, "\r\n[agent] image config loaded: %v\r\n", hasCfg)
-		if hasCfg {
-			fmt.Fprintf(os.Stderr, "[agent]   model=%q size=%q resolution=%q quality=%q\r\n",
-				shared.Cfg.Defaults.Image.Model,
-				shared.Cfg.Defaults.Image.Size,
-				shared.Cfg.Defaults.Image.Resolution,
-				shared.Cfg.Defaults.Image.Quality)
+	// Show actual config defaults that will be applied
+	hasCfg := shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Image != nil
+	if hasCfg {
+		d := shared.Cfg.Defaults.Image
+		var overrides []string
+		if d.Model != "" {
+			overrides = append(overrides, fmt.Sprintf("model=%s", d.Model))
+		}
+		if d.Quality != "" {
+			overrides = append(overrides, fmt.Sprintf("quality=%s", d.Quality))
+		}
+		if d.Size != "" {
+			overrides = append(overrides, fmt.Sprintf("size=%s", d.Size))
+		}
+		if d.Resolution != "" {
+			overrides = append(overrides, fmt.Sprintf("resolution=%s", d.Resolution))
+		}
+		if len(overrides) > 0 {
+			fmt.Fprintf(os.Stderr, "\r\n[config] %s\r\n", strings.Join(overrides, " | "))
 		}
 	}
 
@@ -1006,7 +1310,7 @@ func executeGenerateImage(c *client.Client, argsJSON string) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 
-	return fmt.Sprintf("Successfully generated %d image(s).", len(saved))
+	return fmt.Sprintf("Successfully generated %d image(s).\nImages saved locally:\n  %s\nUser can use /preview to view them.", len(saved), strings.Join(saved, "\n  "))
 }
 
 // executeGenerateVideo runs video generation and returns a text summary for the LLM.
@@ -1034,7 +1338,7 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 
-	return fmt.Sprintf("Successfully generated %d video(s).", len(saved))
+	return fmt.Sprintf("Successfully generated %d video(s).\nFiles saved locally:\n  %s\nUser can use /preview to view them.", len(saved), strings.Join(saved, "\n  "))
 }
 
 // --- Midjourney agent tools ---
@@ -1207,6 +1511,40 @@ func printToolArgs(argsJSON string) {
 		}
 		fmt.Fprintf(os.Stderr, "  %s=%s\r\n", k, s)
 	}
+}
+
+// executeReadFile reads a local text file and returns its contents.
+// Used by the read_file tool. Only allows readable text files.
+func executeReadFile(argsJSON string) string {
+	var args struct {
+		Filepath string `json:"filepath"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.Filepath == "" {
+		return "Error: filepath is required"
+	}
+	fpath := strings.TrimPrefix(args.Filepath, "@") // strip @ prefix if present
+	// Security: only allow reading text files
+	ext := strings.ToLower(filepath.Ext(fpath))
+	switch ext {
+	case ".txt", ".md", ".yaml", ".yml", ".json", ".go", ".py", ".js", ".ts",
+		".css", ".html", ".sh", ".bash", ".toml", ".ini", ".cfg", ".conf",
+		".xml", ".svg", ".env", ".example":
+		// allowed
+	default:
+		return fmt.Sprintf("Error: cannot read %s files for security reasons", ext)
+	}
+	content, err := os.ReadFile(fpath)
+	if err != nil {
+		return fmt.Sprintf("Error: cannot read %s: %v", fpath, err)
+	}
+	if len(content) > 10000 {
+		content = content[:10000]
+		return fmt.Sprintf("File is large, showing first 10000 bytes:\n\n%s\n\n...(truncated)", string(content))
+	}
+	return fmt.Sprintf("```\n%s\n```", string(content))
 }
 
 // executeShellCommand runs a shell command and returns its output as a string.
