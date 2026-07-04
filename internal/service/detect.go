@@ -83,11 +83,10 @@ type SynthIDResult struct {
 }
 
 // AIDetectResult holds the ONNX model-based AIGC detection result.
+// Higher AIGenRate means the image is more likely AI-generated.
 type AIDetectResult struct {
-	FakeScore float64 `json:"fake_score"`
-	RealScore float64 `json:"real_score"`
-	Label     string  `json:"label"` // "FAKE (AI Generated)" or "REAL (Human)"
-	Model     string  `json:"model"`
+	AIGenRate float64 `json:"ai_gen_rate"` // probability that image is AI-generated (0-1)
+	ModelSize string  `json:"model_size"`  // "small" or "large"
 }
 
 // DetectImage analyzes an image file and returns structured detection data
@@ -462,10 +461,8 @@ func printSynthID(w io.Writer, result *SynthIDResult) {
 
 // printAIDetect prints the ONNX model-based AIGC detection result.
 func printAIDetect(w io.Writer, result *AIDetectResult) {
-	fmt.Fprintf(w, "  AI Detect: %s\n", result.Label)
-	fmt.Fprintf(w, "    Model:   %s\n", result.Model)
-	fmt.Fprintf(w, "    Fake:    %.1f%%\n", result.FakeScore*100)
-	fmt.Fprintf(w, "    Real:    %.1f%%\n", result.RealScore*100)
+	fmt.Fprintf(w, "  AI Detect:  AIGen %.1f%%\n", result.AIGenRate*100)
+	fmt.Fprintf(w, "    Model:    %s model\n", result.ModelSize)
 }
 
 // printTC260 formats and prints the TC260 AIGC label data.
