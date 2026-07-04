@@ -112,6 +112,8 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	}
 
 	fftScore := analyzeFFTFile(path)
+	noiseScore := analyzeNoiseFile(path)
+	jpegScore := analyzeJPEGFile(path)
 
 	opts := forensic.Options{
 		C2PAPresent:    result.C2PA != nil && result.C2PA.Present,
@@ -128,6 +130,8 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		ONNXScore:      onnxScore,
 		ONNXModelSize:  onnxModelSize,
 		FFTScore:       fftScore,
+		NoiseScore:     noiseScore,
+		JPEGScore:      jpegScore,
 	}
 	fr := forensic.Analyze(opts)
 
@@ -179,6 +183,8 @@ func detectOneFileJSON(path, pathOverride string, aiDetector *onnx.Detector, res
 	}
 
 	fftScore := analyzeFFTFile(path)
+	noiseScore := analyzeNoiseFile(path)
+	jpegScore := analyzeJPEGFile(path)
 
 	opts := forensic.Options{
 		C2PAPresent:    result.C2PA != nil && result.C2PA.Present,
@@ -195,6 +201,8 @@ func detectOneFileJSON(path, pathOverride string, aiDetector *onnx.Detector, res
 		ONNXScore:      onnxScore,
 		ONNXModelSize:  onnxModelSize,
 		FFTScore:       fftScore,
+		NoiseScore:     noiseScore,
+		JPEGScore:      jpegScore,
 	}
 	fr := forensic.Analyze(opts)
 
@@ -221,6 +229,23 @@ func analyzeFFTFile(path string) float64 {
 		return -1
 	}
 	return forensic.AnalyzeFFT(img)
+}
+
+func analyzeNoiseFile(path string) float64 {
+	f, err := os.Open(path)
+	if err != nil {
+		return -1
+	}
+	defer f.Close()
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return -1
+	}
+	return forensic.AnalyzeNoiseResidual(img)
+}
+
+func analyzeJPEGFile(path string) float64 {
+	return forensic.AnalyzeJPEGDoubleQuant(path)
 }
 
 // buildDetails creates a compact breakdown of all signals.

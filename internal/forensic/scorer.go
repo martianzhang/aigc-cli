@@ -131,6 +131,26 @@ func Analyze(opts Options) *Result {
 		totalWeight += weightLow
 	}
 
+	// 7. SRM noise residual analysis
+	if opts.NoiseScore >= 0 {
+		signals = append(signals, SignalResult{
+			Name: "Noise Residual", Score: opts.NoiseScore, Weight: weightLow,
+		})
+		weightedScore += opts.NoiseScore * weightLow
+		totalWeight += weightLow
+	}
+
+	// 8. JPEG double quantization analysis (JPEG only)
+	// JPEG-specific analysis is more relevant for compressed images since
+	// FFT and noise signals are degraded by lossy compression.
+	if opts.JPEGScore >= 0 {
+		signals = append(signals, SignalResult{
+			Name: "JPEG Analysis", Score: opts.JPEGScore, Weight: weightMedium,
+		})
+		weightedScore += opts.JPEGScore * weightMedium
+		totalWeight += weightMedium
+	}
+
 	// Compute weighted average
 	if totalWeight > 0 {
 		r.AIGenRate = weightedScore / totalWeight
@@ -163,6 +183,8 @@ type Options struct {
 	ONNXScore     float64 // 0-1, -1 = unavailable
 	ONNXModelSize string
 	FFTScore      float64 // 0-1, -1 = unavailable
+	NoiseScore    float64 // SRM noise residual score, 0-1, -1 = unavailable
+	JPEGScore     float64 // JPEG double quantization, 0-1, -1 = unavailable
 }
 
 func scoreToLevel(s float64) Level {
