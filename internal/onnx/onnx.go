@@ -29,11 +29,9 @@ const (
 )
 
 // Result holds the AIGC detection inference result.
+// AIGenRate is the probability (0-1) that the image is AI-generated.
 type Result struct {
-	FakeScore float64 `json:"fake_score"`
-	RealScore float64 `json:"real_score"`
-	IsFake    bool    `json:"is_fake"`
-	IsReal    bool    `json:"is_real"`
+	AIGenRate float64 // probability of being AI-generated (softmax output)
 }
 
 // Detector manages the ONNX Runtime lifecycle and inference session.
@@ -134,15 +132,10 @@ func (d *Detector) Detect(img image.Image) (*Result, error) {
 		return nil, fmt.Errorf("unexpected output size: %d", len(outData))
 	}
 
-	// Apply softmax to get probabilities
-	realScore := Softmax(outData)[0]
-	fakeScore := Softmax(outData)[1]
-
+	// Apply softmax to get AI-generation probability (output[1] = FAKE class)
+	probs := Softmax(outData)
 	return &Result{
-		FakeScore: float64(fakeScore),
-		RealScore: float64(realScore),
-		IsFake:    fakeScore > realScore,
-		IsReal:    realScore >= fakeScore,
+		AIGenRate: float64(probs[1]),
 	}, nil
 }
 
@@ -161,6 +154,9 @@ func (d *Detector) DetectFile(path string) (*Result, error) {
 
 	return d.Detect(img)
 }
+
+// ModelPath returns the path to the ONNX model file used by this detector.
+func (d *Detector) ModelPath() string { return d.modelPath }
 
 // Close releases all ONNX Runtime resources.
 func (d *Detector) Close() {

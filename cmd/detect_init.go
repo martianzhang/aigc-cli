@@ -16,11 +16,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	ortVersion = "1.27.0"
-	modelName  = "model.onnx"
-	modelURL   = "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX/resolve/main/onnx/model.onnx"
-)
+const ortVersion = "1.27.0"
+
+// modelURLs maps model size to download URL and filename.
+var modelInfo = map[string]struct {
+	url      string
+	filename string
+	size     string // human-readable size
+}{
+	"small": {
+		url:      "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX/resolve/main/onnx/model.onnx",
+		filename: "model-small.onnx",
+		size:     "56MB",
+	},
+	"large": {
+		url:      "https://huggingface.co/onnx-community/ai-image-detection-ONNX/resolve/main/onnx/model.onnx",
+		filename: "model-large.onnx",
+		size:     "327MB",
+	},
+}
 
 // detectInitCmd represents the `apimart-cli detect init` subcommand.
 var detectInitCmd = &cobra.Command{
@@ -32,21 +46,31 @@ var detectInitCmd = &cobra.Command{
 The runtime and model are saved to ~/.config/apimart/models/ for offline
 AIGC detection via the 'detect' command.
 
+Use --size to choose model capacity:
+  small (default) - distilled ViT, 11.8M params, 56MB
+  large           - ViT-Base, 86M params, 327MB
+
 Proxy settings from config.yaml, env vars (HTTP_PROXY), or --http-proxy flag
 are automatically respected.`,
 	RunE: runDetectInit,
 }
 
-var detectForce bool
+var (
+	detectForce     bool
+	detectModelSize string
+)
 
 func runDetectInit(cmd *cobra.Command, args []string) error {
+	info, ok := modelInfo[detectModelSize]
+	if !ok {
+		return fmt.Errorf("unknown model size %q (choose: small, large)", detectModelSize)
+	}
+
 	modelsDir := filepath.Join(configDir(), "models")
 	if err := os.MkdirAll(modelsDir, 0755); err != nil {
 		return fmt.Errorf("cannot create directory %s: %w", modelsDir, err)
 	}
 
-	// Use the global default transport which inherits proxy config from
-	// ConfigureDefaultClient (called in root.go PersistentPreRunE).
 	transport := http.DefaultClient.Transport
 	if transport == nil {
 		transport = http.DefaultTransport
@@ -56,53 +80,48 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 		Transport: transport,
 	}
 
-	// ── Download model ──
-	modelPath := filepath.Join(modelsDir, modelName)
-	if _, err := os.Stat(modelPath); err == nil && !detectForce {
-		fmt.Fprintf(os.Stderr, "Model already exists: %s\n  Use --force to re-download.\n", modelPath)
-	} else {
-		fmt.Println("Downloading AIGC detection model (55MB)...")
-		if err := downloadFile(client, modelURL, modelPath); err != nil {
-			return fmt.Errorf("model download failed: %w", err)
-		}
-		fmt.Println("  Done.")
-	}
-
-	// ── Download ONNX Runtime ──
+	// ── Download ONNX Runtime (shared across all models) ──
 	ortInfo := getORTDownloadInfo()
 	libName := ortInfo.libName
 	libPath := filepath.Join(modelsDir, libName)
+	if _, err := os.Stat(libPath); err != nil || detectForce {
+		fmt.Printf("Downloading ONNX Runtime %s (%s)...\n", ortVersion, runtime.GOOS)
+		archivePath := filepath.Join(modelsDir, ortInfo.archiveName)
+		if err := downloadFile(client, ortInfo.url, archivePath); err != nil {
+			return fmt.Errorf("ONNX Runtime download failed: %w", err)
+		}
+		fmt.Println("  Extracting...")
+		if err := extractRuntime(archivePath, modelsDir, libName, ortInfo); err != nil {
+			return fmt.Errorf("extraction failed: %w", err)
+		}
+		os.Remove(archivePath)
+		fmt.Printf("  Installed: %s\n", libPath)
+	} else {
+		fmt.Printf("ONNX Runtime already installed: %s\n", libPath)
+	}
 
-	// Check if the library is already extracted
-	if _, err := os.Stat(libPath); err == nil && !detectForce {
-		fmt.Fprintf(os.Stderr, "ONNX Runtime already exists: %s\n  Use --force to re-download.\n", libPath)
+	// ── Download model ──
+	modelPath := filepath.Join(modelsDir, info.filename)
+	if _, err := os.Stat(modelPath); err == nil && !detectForce {
+		fmt.Printf("Model already exists: %s\n  Use --force to re-download.\n", modelPath)
 		return nil
 	}
 
-	fmt.Printf("Downloading ONNX Runtime %s (%s)...\n", ortVersion, runtime.GOOS)
-	archivePath := filepath.Join(modelsDir, ortInfo.archiveName)
-	if err := downloadFile(client, ortInfo.url, archivePath); err != nil {
-		return fmt.Errorf("ONNX Runtime download failed: %w", err)
+	fmt.Printf("Downloading %s model (%s)...\n", detectModelSize, info.size)
+	if err := downloadFile(client, info.url, modelPath); err != nil {
+		return fmt.Errorf("model download failed: %w", err)
 	}
+	fmt.Println("  Done.")
 
-	fmt.Println("  Extracting...")
-	if err := extractRuntime(archivePath, modelsDir, libName, ortInfo); err != nil {
-		return fmt.Errorf("extraction failed: %w", err)
-	}
-
-	// Clean up archive
-	os.Remove(archivePath)
-	fmt.Printf("  Installed: %s\n", libPath)
 	fmt.Println("\nDone! Run 'apimart-cli detect' to use AIGC detection.")
 	return nil
 }
 
 // ortDownloadInfo holds platform-specific download information.
 type ortDownloadInfo struct {
-	url         string
-	archiveName string
-	libName     string
-	// internalPath is the path of the library within the archive.
+	url          string
+	archiveName  string
+	libName      string
 	internalPath string
 }
 
@@ -123,7 +142,7 @@ func getORTDownloadInfo() ortDownloadInfo {
 	case "darwin":
 		arch := "arm64"
 		if runtime.GOARCH == "amd64" {
-			arch = "x64_64" // actually there's no intel macOS build in recent ORT
+			arch = "x64_64"
 		}
 		return ortDownloadInfo{
 			url:          fmt.Sprintf("%s/onnxruntime-osx-%s-%s.tgz", base, arch, ortVersion),
@@ -182,7 +201,6 @@ func downloadFile(client *http.Client, url, dest string) error {
 	return nil
 }
 
-// extractRuntime extracts the ONNX Runtime shared library from the archive.
 func extractRuntime(archivePath, modelsDir, libName string, info ortDownloadInfo) error {
 	if strings.HasSuffix(archivePath, ".zip") {
 		return extractZip(archivePath, modelsDir, info.internalPath, libName)
@@ -262,4 +280,5 @@ func extractTGZ(archivePath, modelsDir, internalPath, libName string) error {
 func init() {
 	detectCmd.AddCommand(detectInitCmd)
 	detectInitCmd.Flags().BoolVar(&detectForce, "force", false, "re-download even if files already exist")
+	detectInitCmd.Flags().StringVar(&detectModelSize, "size", "small", "model size: small (56MB) or large (327MB)")
 }

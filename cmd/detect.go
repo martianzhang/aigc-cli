@@ -75,7 +75,6 @@ func runDetect(cmd *cobra.Command, args []string) error {
 }
 
 func detectFiles(paths []string, pathOverride string) error {
-	// Attempt to initialize ONNX detector (non-fatal if model files not found)
 	aiDetector := tryInitONNX()
 	if aiDetector != nil {
 		defer aiDetector.Close()
@@ -95,21 +94,14 @@ func detectFiles(paths []string, pathOverride string) error {
 			result.Path = pathOverride
 		}
 
-		// Run AI detection if enabled
 		if aiDetector != nil {
 			aiResult, err := aiDetector.DetectFile(path)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "AI Detect error: %v\n", err)
 			} else {
-				label := "FAKE (AI Generated)"
-				if !aiResult.IsFake {
-					label = "REAL (Human)"
-				}
 				result.AIDetect = &service.AIDetectResult{
-					FakeScore: aiResult.FakeScore,
-					RealScore: aiResult.RealScore,
-					Label:     label,
-					Model:     "distilled-vit-11.8M",
+					AIGenRate: aiResult.AIGenRate,
+					ModelSize: modelSizeLabel(aiDetector.ModelPath()),
 				}
 			}
 		}
@@ -138,15 +130,9 @@ func detectFilesJSON(paths []string, pathOverride string, aiDetector *onnx.Detec
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "AI Detect error: %v\n", err)
 			} else {
-				label := "FAKE (AI Generated)"
-				if !aiResult.IsFake {
-					label = "REAL (Human)"
-				}
 				result.AIDetect = &service.AIDetectResult{
-					FakeScore: aiResult.FakeScore,
-					RealScore: aiResult.RealScore,
-					Label:     label,
-					Model:     "distilled-vit-11.8M",
+					AIGenRate: aiResult.AIGenRate,
+					ModelSize: modelSizeLabel(aiDetector.ModelPath()),
 				}
 			}
 		}
@@ -166,27 +152,38 @@ func detectFilesJSON(paths []string, pathOverride string, aiDetector *onnx.Detec
 	return enc.Encode(results)
 }
 
-// tryInitONNX attempts to initialize the ONNX detector. Returns nil on failure
-// (e.g. model files not yet downloaded) after printing a setup hint.
+// tryInitONNX initializes the ONNX detector, trying large model first,
+// then falling back to small model.
 func tryInitONNX() *onnx.Detector {
 	modelsDir := filepath.Join(configDir(), "models")
 	libPath, err := onnx.DefaultLibPath(modelsDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Tip: download ONNX Runtime + model for offline AIGC detection:\n")
-		fmt.Fprintf(os.Stderr, "  1. Get onnxruntime.dll from: https://github.com/microsoft/onnxruntime/releases\n")
-		fmt.Fprintf(os.Stderr, "  2. Get model.onnx from: https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX\n")
-		fmt.Fprintf(os.Stderr, "  3. Place both files in: %s\n", modelsDir)
+		fmt.Fprintf(os.Stderr, "  apimart-cli detect init\n")
 		return nil
 	}
-	modelPath := onnx.DefaultModelPath(modelsDir)
-	if _, err := os.Stat(modelPath); err != nil {
-		return nil
+
+	// Try large model first, then small
+	for _, modelFile := range []string{"model-large.onnx", "model-small.onnx"} {
+		modelPath := filepath.Join(modelsDir, modelFile)
+		if _, err := os.Stat(modelPath); err != nil {
+			continue
+		}
+		d, err := onnx.NewDetector(libPath, modelPath)
+		if err != nil {
+			continue
+		}
+		return d
 	}
-	d, err := onnx.NewDetector(libPath, modelPath)
-	if err != nil {
-		return nil
+	return nil
+}
+
+// modelSizeLabel returns "large" or "small" based on the model filename.
+func modelSizeLabel(modelPath string) string {
+	if filepath.Base(modelPath) == "model-large.onnx" {
+		return "large"
 	}
-	return d
+	return "small"
 }
 
 // configDir returns the apimart config directory (~/.config/apimart).
