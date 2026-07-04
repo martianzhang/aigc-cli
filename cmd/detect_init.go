@@ -18,21 +18,25 @@ import (
 
 const ortVersion = "1.27.0"
 
-// modelURLs maps model size to download URL and filename.
+// modelInfo maps model identifier to download URL and filename.
+// Add new models here. The key is used in `--model` flag and `detect.model` config.
 var modelInfo = map[string]struct {
 	url      string
 	filename string
-	size     string // human-readable size
+	desc     string // human-readable description
+	size     string // human-readable download size
 }{
-	"small": {
-		url:      "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX/resolve/main/onnx/model.onnx",
-		filename: "model-small.onnx",
-		size:     "56MB",
-	},
-	"large": {
+	"vit-base": {
 		url:      "https://huggingface.co/onnx-community/ai-image-detection-ONNX/resolve/main/onnx/model.onnx",
-		filename: "model-large.onnx",
+		filename: "model-vit-base.onnx",
+		desc:     "ViT-Base, 86M params",
 		size:     "327MB",
+	},
+	"distilled-vit": {
+		url:      "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX/resolve/main/onnx/model.onnx",
+		filename: "model-distilled-vit.onnx",
+		desc:     "distilled ViT, 11.8M params",
+		size:     "56MB",
 	},
 }
 
@@ -46,9 +50,13 @@ var detectInitCmd = &cobra.Command{
 The runtime and model are saved to ~/.config/apimart/models/ for offline
 AIGC detection via the 'detect' command.
 
-Use --size to choose model capacity:
-  large (default) - ViT-Base, 86M params, 327MB
-  small           - distilled ViT, 11.8M params, 56MB
+Use --model to choose which ONNX model to download:
+  vit-base (default)       - ViT-Base, 86M params, 327MB
+  distilled-vit            - distilled ViT, 11.8M params, 56MB
+
+The model can also be set in config.yaml:
+  detect:
+    model: "distilled-vit"
 
 Proxy settings from config.yaml, env vars (HTTP_PROXY), or --http-proxy flag
 are automatically respected.`,
@@ -56,17 +64,22 @@ are automatically respected.`,
 }
 
 var (
-	detectForce     bool
-	detectModelSize string
+	detectForce   bool
+	detectModelID string
 )
 
 func runDetectInit(cmd *cobra.Command, args []string) error {
-	info, ok := modelInfo[detectModelSize]
+	// Resolve model: CLI flag > config > default "vit-base"
+	modelID := detectModelID
+	if !cmd.Flags().Changed("model") && shared.Cfg != nil && shared.Cfg.Detect != nil && shared.Cfg.Detect.Model != "" {
+		modelID = shared.Cfg.Detect.Model
+	}
+	info, ok := modelInfo[modelID]
 	if !ok {
-		return fmt.Errorf("unknown model size %q (choose: small, large)", detectModelSize)
+		return fmt.Errorf("unknown model %q (choose: vit-base, distilled-vit)", modelID)
 	}
 
-	modelsDir := filepath.Join(configDir(), "models")
+	modelsDir := detectModelsDir()
 	if err := os.MkdirAll(modelsDir, 0755); err != nil {
 		return fmt.Errorf("cannot create directory %s: %w", modelsDir, err)
 	}
@@ -107,7 +120,7 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Downloading %s model (%s)...\n", detectModelSize, info.size)
+	fmt.Printf("Downloading %s model - %s (%s)...\n", modelID, info.desc, info.size)
 	if err := downloadFile(client, info.url, modelPath); err != nil {
 		return fmt.Errorf("model download failed: %w", err)
 	}
@@ -280,5 +293,5 @@ func extractTGZ(archivePath, modelsDir, internalPath, libName string) error {
 func init() {
 	detectCmd.AddCommand(detectInitCmd)
 	detectInitCmd.Flags().BoolVar(&detectForce, "force", false, "re-download even if files already exist")
-	detectInitCmd.Flags().StringVar(&detectModelSize, "size", "large", "model size: large (327MB, default) or small (56MB)")
+	detectInitCmd.Flags().StringVar(&detectModelID, "model", "vit-base", "ONNX model: vit-base (86M, default), distilled-vit (11.8M)")
 }
