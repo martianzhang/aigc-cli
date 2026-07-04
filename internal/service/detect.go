@@ -37,6 +37,7 @@ type DetectResult struct {
 	C2PA      *C2PAResult       `json:"c2pa,omitempty"`
 	TC260     *TC260Result      `json:"tc260,omitempty"`
 	SynthID   *SynthIDResult    `json:"synthid,omitempty"`
+	AIDetect  *AIDetectResult   `json:"ai_detect,omitempty"`
 	Camera    *CameraInfo       `json:"camera,omitempty"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
 	Comment   string            `json:"comment,omitempty"`
@@ -79,6 +80,14 @@ type SynthIDResult struct {
 	Likely    bool   `json:"likely"`
 	Source    string `json:"source,omitempty"`
 	Inference string `json:"inference,omitempty"`
+}
+
+// AIDetectResult holds the multi-signal fusion AIGC detection result.
+type AIDetectResult struct {
+	AIGenRate float64 `json:"ai_gen_rate"`       // 0-1, higher = more likely AI
+	Emoji     string  `json:"emoji"`             // summary emoji (🟢🟡🟠🔴🤖)
+	Summary   string  `json:"summary"`           // human-readable summary
+	Details   string  `json:"details,omitempty"` // signal breakdown
 }
 
 // DetectImage analyzes an image file and returns structured detection data
@@ -380,6 +389,10 @@ func PrintDetectResult(w io.Writer, result *DetectResult, verbose bool) error {
 		printTC260(w, result.TC260)
 	}
 
+	if result.AIDetect != nil {
+		printAIDetect(w, result.AIDetect)
+	}
+
 	if verbose {
 		printCameraInfo(w, result.Camera)
 		if result.Comment != "" {
@@ -444,6 +457,14 @@ func printSynthID(w io.Writer, result *SynthIDResult) {
 	}
 	if result.Inference != "" {
 		fmt.Fprintf(w, "    Note:     %s\n", result.Inference)
+	}
+}
+
+// printAIDetect prints the fused AIGC detection result with emoji.
+func printAIDetect(w io.Writer, result *AIDetectResult) {
+	fmt.Fprintf(w, "  AI Detect:  %s\n", result.Summary)
+	if result.Details != "" {
+		fmt.Fprintf(w, "    %s\n", result.Details)
 	}
 }
 
