@@ -423,6 +423,7 @@ type Config struct {
 	Timeout    *int            `mapstructure:"timeout" yaml:"timeout,omitempty"`
 	Defaults   *ConfigDefaults `mapstructure:"defaults" yaml:"defaults,omitempty"`
 	Ideas      *IdeasConfig    `mapstructure:"ideas" yaml:"ideas,omitempty"`
+	Detect     *DetectConfig   `mapstructure:"detect" yaml:"detect,omitempty"`
 }
 
 // IdeasConfig controls the ideas prompt data and search index cache behavior.
@@ -430,6 +431,17 @@ type IdeasConfig struct {
 	DataPath     string `mapstructure:"data_path" yaml:"data_path,omitempty"`
 	IndexPath    string `mapstructure:"index_path" yaml:"index_path,omitempty"`
 	CacheEnabled bool   `mapstructure:"cache_enabled" yaml:"cache_enabled"`
+}
+
+// DetectConfig controls the AIGC detection behavior.
+type DetectConfig struct {
+	// ModelsDir is the directory where ONNX Runtime and model files are stored.
+	// Default: ~/.config/apimart/models
+	ModelsDir string `mapstructure:"models_dir" yaml:"models_dir,omitempty"`
+	// Model selects which ONNX model to use.
+	// Supported: "vit-base" (86M params, default), "distilled-vit" (11.8M params)
+	// Add new models here as the project grows.
+	Model string `mapstructure:"model" yaml:"model,omitempty"`
 }
 
 // AIGCDetectionConfig holds optional online API settings for pixel-level AI image detection.

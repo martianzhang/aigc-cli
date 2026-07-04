@@ -308,12 +308,28 @@ func safeCameraModel(r *service.CameraInfo) string {
 
 // tryInitONNX initializes the ONNX detector.
 func tryInitONNX() *onnx.Detector {
-	modelsDir := filepath.Join(configDir(), "models")
+	modelsDir := detectModelsDir()
 	libPath, err := onnx.DefaultLibPath(modelsDir)
 	if err != nil {
 		return nil
 	}
-	for _, f := range []string{"model-large.onnx", "model-small.onnx"} {
+
+	// Determine preferred model from config, default to "vit-base"
+	preferredID := "vit-base"
+	if shared.Cfg != nil && shared.Cfg.Detect != nil && shared.Cfg.Detect.Model != "" {
+		preferredID = shared.Cfg.Detect.Model
+	}
+	// Map model ID → filename, with fallback
+	modelFiles := []string{modelFilename(preferredID)}
+	// Add fallback if different
+	for _, id := range []string{"vit-base", "distilled-vit"} {
+		fn := modelFilename(id)
+		if fn != modelFiles[0] {
+			modelFiles = append(modelFiles, fn)
+		}
+	}
+
+	for _, f := range modelFiles {
 		modelPath := filepath.Join(modelsDir, f)
 		if _, err := os.Stat(modelPath); err != nil {
 			continue
@@ -327,11 +343,36 @@ func tryInitONNX() *onnx.Detector {
 	return nil
 }
 
-func modelSizeLabel(modelPath string) string {
-	if filepath.Base(modelPath) == "model-large.onnx" {
-		return "large"
+// modelFilename returns the ONNX filename for a model identifier.
+func modelFilename(modelID string) string {
+	switch modelID {
+	case "vit-base":
+		return "model-vit-base.onnx"
+	case "distilled-vit":
+		return "model-distilled-vit.onnx"
+	default:
+		return "model-vit-base.onnx"
 	}
-	return "small"
+}
+
+// detectModelsDir returns the configured or default models directory.
+func detectModelsDir() string {
+	if shared.Cfg != nil && shared.Cfg.Detect != nil && shared.Cfg.Detect.ModelsDir != "" {
+		return shared.Cfg.Detect.ModelsDir
+	}
+	return filepath.Join(configDir(), "models")
+}
+
+func modelSizeLabel(modelPath string) string {
+	base := filepath.Base(modelPath)
+	switch base {
+	case "model-vit-base.onnx":
+		return "vit-base"
+	case "model-distilled-vit.onnx":
+		return "distilled-vit"
+	default:
+		return base
+	}
 }
 
 func configDir() string {

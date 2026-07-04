@@ -74,3 +74,9 @@ defaults:
 #   data_path: "~/.config/apimart/ideas.json"   # custom ideas.json path
 #   index_path: "~/.config/apimart/ideas.index"  # custom index cache path
 #   cache_enabled: false                          # set false to disable caching
+
+# AIGC detection (detect command).
+# ONNX Runtime + model files are stored at ~/.config/apimart/models/ by default.
+# detect:
+#   models_dir: "~/.config/apimart/models"    # custom models directory
+#   model: "vit-base"                          # "vit-base" (default, 86M) or "distilled-vit" (11.8M)

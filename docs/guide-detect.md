@@ -112,7 +112,7 @@ apimart-cli detect *.png
 apimart-cli detect init
 
 # 下载小模型（distilled ViT 11.8M 参数，56MB）
-apimart-cli detect init --size small
+apimart-cli detect init --model distilled-vit
 
 # 强制重新下载
 apimart-cli detect init --force
@@ -121,18 +121,18 @@ apimart-cli detect init --force
 模型文件保存到 `~/.config/apimart/models/`：
 ```
 ~/.config/apimart/models/
-├── onnxruntime.dll        ← ONNX Runtime 动态库（15MB）
-├── model-large.onnx       ← 大模型（327MB，默认下载）
-└── model-small.onnx       ← 小模型（56MB，--size small）
+├── onnxruntime.dll               ← ONNX Runtime 动态库（15MB）
+├── model-vit-base.onnx           ← vit-base 模型（327MB，默认下载）
+└── model-distilled-vit.onnx      ← distilled-vit 模型（56MB）
 ```
 
 ### 检测优先级
 
 当两个模型都存在时，优先使用大模型：
 ```
-model-large.onnx → 有就用
+model-vit-base.onnx → 有就用
    ↓ 没有
-model-small.onnx → 有就用
+model-distilled-vit.onnx → 有就用
    ↓ 没有
 ONNX 检测不可用
 ```
