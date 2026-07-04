@@ -40,6 +40,7 @@ Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
 }
 
 var detectJSON bool
+var detectPreview bool
 
 func runDetect(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
@@ -142,7 +143,13 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		Details:   buildDetails(fr),
 	}
 
-	return service.PrintDetectResult(os.Stdout, result, true)
+	if err := service.PrintDetectResult(os.Stdout, result, true); err != nil {
+		return err
+	}
+	if detectPreview {
+		service.PreviewFile(path)
+	}
+	return nil
 }
 
 func detectFilesJSON(paths []string, pathOverride string, aiDetector *onnx.Detector) error {
@@ -263,22 +270,40 @@ func buildDetails(r *forensic.Result) string {
 // Helper functions to safely extract values from result pointers.
 
 func safeC2PAVendor(r *service.C2PAResult) string {
-	if r == nil { return "" }; return r.Vendor
+	if r == nil {
+		return ""
+	}
+	return r.Vendor
 }
 func safeC2PASource(r *service.C2PAResult) string {
-	if r == nil { return "" }; return r.Source
+	if r == nil {
+		return ""
+	}
+	return r.Source
 }
 func safeTC260Provider(r *service.TC260Result) string {
-	if r == nil { return "" }; return r.Provider
+	if r == nil {
+		return ""
+	}
+	return r.Provider
 }
 func safeSynthIDSource(r *service.SynthIDResult) string {
-	if r == nil { return "" }; return r.Source
+	if r == nil {
+		return ""
+	}
+	return r.Source
 }
 func safeCameraMake(r *service.CameraInfo) string {
-	if r == nil { return "" }; return r.Make
+	if r == nil {
+		return ""
+	}
+	return r.Make
 }
 func safeCameraModel(r *service.CameraInfo) string {
-	if r == nil { return "" }; return r.Model
+	if r == nil {
+		return ""
+	}
+	return r.Model
 }
 
 // tryInitONNX initializes the ONNX detector.
@@ -320,4 +345,5 @@ func configDir() string {
 func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
+	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
 }
