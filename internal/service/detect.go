@@ -37,6 +37,7 @@ type DetectResult struct {
 	C2PA      *C2PAResult       `json:"c2pa,omitempty"`
 	TC260     *TC260Result      `json:"tc260,omitempty"`
 	SynthID   *SynthIDResult    `json:"synthid,omitempty"`
+	AIDetect  *AIDetectResult   `json:"ai_detect,omitempty"`
 	Camera    *CameraInfo       `json:"camera,omitempty"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
 	Comment   string            `json:"comment,omitempty"`
@@ -79,6 +80,14 @@ type SynthIDResult struct {
 	Likely    bool   `json:"likely"`
 	Source    string `json:"source,omitempty"`
 	Inference string `json:"inference,omitempty"`
+}
+
+// AIDetectResult holds the ONNX model-based AIGC detection result.
+type AIDetectResult struct {
+	FakeScore float64 `json:"fake_score"`
+	RealScore float64 `json:"real_score"`
+	Label     string  `json:"label"` // "FAKE (AI Generated)" or "REAL (Human)"
+	Model     string  `json:"model"`
 }
 
 // DetectImage analyzes an image file and returns structured detection data
@@ -380,6 +389,10 @@ func PrintDetectResult(w io.Writer, result *DetectResult, verbose bool) error {
 		printTC260(w, result.TC260)
 	}
 
+	if result.AIDetect != nil {
+		printAIDetect(w, result.AIDetect)
+	}
+
 	if verbose {
 		printCameraInfo(w, result.Camera)
 		if result.Comment != "" {
@@ -445,6 +458,14 @@ func printSynthID(w io.Writer, result *SynthIDResult) {
 	if result.Inference != "" {
 		fmt.Fprintf(w, "    Note:     %s\n", result.Inference)
 	}
+}
+
+// printAIDetect prints the ONNX model-based AIGC detection result.
+func printAIDetect(w io.Writer, result *AIDetectResult) {
+	fmt.Fprintf(w, "  AI Detect: %s\n", result.Label)
+	fmt.Fprintf(w, "    Model:   %s\n", result.Model)
+	fmt.Fprintf(w, "    Fake:    %.1f%%\n", result.FakeScore*100)
+	fmt.Fprintf(w, "    Real:    %.1f%%\n", result.RealScore*100)
 }
 
 // printTC260 formats and prints the TC260 AIGC label data.
