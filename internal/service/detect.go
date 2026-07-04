@@ -740,8 +740,8 @@ func readGIFInfo(r io.Reader) string {
 		if err != nil {
 			break
 		}
-		switch {
-		case b == 0x21: // Extension introducer
+		switch b {
+		case 0x21: // Extension introducer
 			label, err := br.ReadByte()
 			if err != nil {
 				return ""
@@ -753,10 +753,10 @@ func readGIFInfo(r io.Reader) string {
 			} else {
 				skipGIFBlocks(br)
 			}
-		case b == 0x2C: // Image descriptor
+		case 0x2C: // Image descriptor
 			// Skip image descriptor + local color table + LZW data
 			skipGIFImageData(br)
-		case b == 0x3B: // Trailer
+		case 0x3B: // Trailer
 			return ""
 		default:
 			return ""

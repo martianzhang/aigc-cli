@@ -112,7 +112,7 @@ func analyzeNoiseSized(img image.Image, w, h int) float64 {
 	// AI-generated: often lower std (<0.02 over-smoothed), or higher kurtosis (periodic artifacts)
 
 	// Score based on std: too low or too high = suspicious
-	stdScore := 0.5
+	var stdScore float64
 	if stdDev < 0.015 {
 		stdScore = 0.7 // over-smoothed → likely AI
 	} else if stdDev < 0.03 {
@@ -126,7 +126,7 @@ func analyzeNoiseSized(img image.Image, w, h int) float64 {
 	}
 
 	// Kurtosis score: high kurtosis = periodic noise = AI artifact
-	kurtScore := 0.5
+	var kurtScore float64
 	if kurtosis > 10 {
 		kurtScore = 0.8 // very heavy tails → suspicious
 	} else if kurtosis > 5 {
