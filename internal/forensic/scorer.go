@@ -12,19 +12,19 @@ import (
 type Level int
 
 const (
-	LevelHuman        Level = iota // 🟢 Likely human-made
-	LevelLow                       // 🟡 Slightly suspicious
-	LevelSuspicious                // 🟠 Possibly AI-generated
-	LevelLikelyAI                  // 🔴 Likely AI-generated
-	LevelConfirmedAI               // 🤖 Confirmed AI-generated
+	LevelHuman       Level = iota // 🟢 Likely human-made
+	LevelLow                      // 🟡 Slightly suspicious
+	LevelSuspicious               // 🟠 Possibly AI-generated
+	LevelLikelyAI                 // 🔴 Likely AI-generated
+	LevelConfirmedAI              // 🤖 Confirmed AI-generated
 )
 
 // SignalResult holds one signal's contribution to the final score.
 type SignalResult struct {
-	Name    string  `json:"name"`
-	Score   float64 `json:"score"`  // 0-1, higher = more AI-like
-	Weight  float64 `json:"weight"` // importance of this signal
-	Detail  string  `json:"detail,omitempty"`
+	Name   string  `json:"name"`
+	Score  float64 `json:"score"`  // 0-1, higher = more AI-like
+	Weight float64 `json:"weight"` // importance of this signal
+	Detail string  `json:"detail,omitempty"`
 }
 
 // Result holds the fused analysis output.
@@ -169,22 +169,22 @@ func Analyze(opts Options) *Result {
 
 // Options holds all input signals for the analyzer.
 type Options struct {
-	C2PAPresent  bool
-	C2PAVendor   string
-	C2PASource   string
-	TC260Present bool
-	TC260Provider string
+	C2PAPresent    bool
+	C2PAVendor     string
+	C2PASource     string
+	TC260Present   bool
+	TC260Provider  string
 	SynthIDPresent bool
 	SynthIDLikely  bool
 	SynthIDSource  string
-	CameraPresent bool
-	CameraMake    string
-	CameraModel   string
-	ONNXScore     float64 // 0-1, -1 = unavailable
-	ONNXModelSize string
-	FFTScore      float64 // 0-1, -1 = unavailable
-	NoiseScore    float64 // SRM noise residual score, 0-1, -1 = unavailable
-	JPEGScore     float64 // JPEG double quantization, 0-1, -1 = unavailable
+	CameraPresent  bool
+	CameraMake     string
+	CameraModel    string
+	ONNXScore      float64 // 0-1, -1 = unavailable
+	ONNXModelSize  string
+	FFTScore       float64 // 0-1, -1 = unavailable
+	NoiseScore     float64 // SRM noise residual score, 0-1, -1 = unavailable
+	JPEGScore      float64 // JPEG double quantization, 0-1, -1 = unavailable
 }
 
 func scoreToLevel(s float64) Level {

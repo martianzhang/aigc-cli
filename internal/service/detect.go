@@ -84,9 +84,9 @@ type SynthIDResult struct {
 
 // AIDetectResult holds the multi-signal fusion AIGC detection result.
 type AIDetectResult struct {
-	AIGenRate float64 `json:"ai_gen_rate"` // 0-1, higher = more likely AI
-	Emoji     string  `json:"emoji"`       // summary emoji (🟢🟡🟠🔴🤖)
-	Summary   string  `json:"summary"`     // human-readable summary
+	AIGenRate float64 `json:"ai_gen_rate"`       // 0-1, higher = more likely AI
+	Emoji     string  `json:"emoji"`             // summary emoji (🟢🟡🟠🔴🤖)
+	Summary   string  `json:"summary"`           // human-readable summary
 	Details   string  `json:"details,omitempty"` // signal breakdown
 }
 
