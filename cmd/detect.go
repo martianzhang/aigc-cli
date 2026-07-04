@@ -3,39 +3,39 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/webp"
 
+	"github.com/martianzhang/apimart-cli/internal/forensic"
 	"github.com/martianzhang/apimart-cli/internal/onnx"
 	"github.com/martianzhang/apimart-cli/internal/service"
 )
 
-// detectCmd represents the `apimart-cli detect` command.
 var detectCmd = &cobra.Command{
 	Use:          "detect <file...>",
 	Short:        "Detect watermarks, metadata, and AIGC signals in images",
 	SilenceUsage: true,
 	Long: `Detect watermarks, metadata, and AIGC signals in image files.
 
-Analyzes images for:
+Analyzes images through multiple signals:
   - C2PA Content Credentials (tamper-evident provenance metadata)
   - TC260 AIGC labels (China GB 45438-2025)
   - SynthID invisible watermarks (inferred from C2PA vendor)
-  - ONNX model-based AI generation detection (requires model download)
+  - FFT power spectrum analysis (pixel-level frequency artifacts)
+  - ONNX model-based AI generation detection (requires download)
 
-All metadata including file stats, dimensions, and embedded text
-chunks is shown by default.
+All signals are fused into a single AIGen confidence score with emoji.
 
-Supports PNG, JPEG, WebP, GIF, and BMP formats.
-
-Examples:
-  apimart-cli detect image.png
-  apimart-cli detect --json image.png
-  apimart-cli detect *.png
-  cat image.png | apimart-cli detect`,
+Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
 	RunE: runDetect,
 }
 
@@ -85,65 +85,72 @@ func detectFiles(paths []string, pathOverride string) error {
 	}
 
 	for _, path := range paths {
-		result, err := service.DetectImage(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			continue
-		}
-		if pathOverride != "" {
-			result.Path = pathOverride
-		}
-
-		if aiDetector != nil {
-			aiResult, err := aiDetector.DetectFile(path)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "AI Detect error: %v\n", err)
-			} else {
-				result.AIDetect = &service.AIDetectResult{
-					AIGenRate: aiResult.AIGenRate,
-					ModelSize: modelSizeLabel(aiDetector.ModelPath()),
-				}
-			}
-		}
-
-		if err := service.PrintDetectResult(os.Stdout, result, true); err != nil {
+		if err := detectOneFile(path, pathOverride, aiDetector); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
 	}
 	return nil
 }
 
+func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
+	result, err := service.DetectImage(path)
+	if err != nil {
+		return fmt.Errorf("metadata: %w", err)
+	}
+	if pathOverride != "" {
+		result.Path = pathOverride
+	}
+
+	var onnxScore float64 = -1
+	var onnxModelSize string
+	if aiDetector != nil {
+		aiResult, err := aiDetector.DetectFile(path)
+		if err == nil {
+			onnxScore = aiResult.AIGenRate
+			onnxModelSize = modelSizeLabel(aiDetector.ModelPath())
+		}
+	}
+
+	fftScore := analyzeFFTFile(path)
+
+	opts := forensic.Options{
+		C2PAPresent:    result.C2PA != nil && result.C2PA.Present,
+		C2PAVendor:     safeC2PAVendor(result.C2PA),
+		C2PASource:     safeC2PASource(result.C2PA),
+		TC260Present:   result.TC260 != nil && result.TC260.Present,
+		TC260Provider:  safeTC260Provider(result.TC260),
+		SynthIDPresent: result.SynthID != nil && result.SynthID.Present,
+		SynthIDLikely:  result.SynthID != nil && result.SynthID.Likely,
+		SynthIDSource:  safeSynthIDSource(result.SynthID),
+		CameraPresent:  result.Camera != nil,
+		CameraMake:     safeCameraMake(result.Camera),
+		CameraModel:    safeCameraModel(result.Camera),
+		ONNXScore:      onnxScore,
+		ONNXModelSize:  onnxModelSize,
+		FFTScore:       fftScore,
+	}
+	fr := forensic.Analyze(opts)
+
+	result.AIDetect = &service.AIDetectResult{
+		AIGenRate: fr.AIGenRate,
+		Emoji:     fr.Emoji,
+		Summary:   fr.Summary,
+		Details:   buildDetails(fr),
+	}
+
+	return service.PrintDetectResult(os.Stdout, result, true)
+}
+
 func detectFilesJSON(paths []string, pathOverride string, aiDetector *onnx.Detector) error {
 	var results []*service.DetectResult
 	for _, path := range paths {
-		result, err := service.DetectImage(path)
-		if err != nil {
+		if err := detectOneFileJSON(path, pathOverride, aiDetector, &results); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			continue
 		}
-		if pathOverride != "" {
-			result.Path = pathOverride
-		}
-
-		if aiDetector != nil {
-			aiResult, err := aiDetector.DetectFile(path)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "AI Detect error: %v\n", err)
-			} else {
-				result.AIDetect = &service.AIDetectResult{
-					AIGenRate: aiResult.AIGenRate,
-					ModelSize: modelSizeLabel(aiDetector.ModelPath()),
-				}
-			}
-		}
-
-		results = append(results, result)
 	}
-
 	if len(results) == 0 {
 		return nil
 	}
-
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	if len(results) == 1 {
@@ -152,20 +159,112 @@ func detectFilesJSON(paths []string, pathOverride string, aiDetector *onnx.Detec
 	return enc.Encode(results)
 }
 
-// tryInitONNX initializes the ONNX detector, trying large model first,
-// then falling back to small model.
+func detectOneFileJSON(path, pathOverride string, aiDetector *onnx.Detector, results *[]*service.DetectResult) error {
+	result, err := service.DetectImage(path)
+	if err != nil {
+		return fmt.Errorf("metadata: %w", err)
+	}
+	if pathOverride != "" {
+		result.Path = pathOverride
+	}
+
+	var onnxScore float64 = -1
+	var onnxModelSize string
+	if aiDetector != nil {
+		aiResult, err := aiDetector.DetectFile(path)
+		if err == nil {
+			onnxScore = aiResult.AIGenRate
+			onnxModelSize = modelSizeLabel(aiDetector.ModelPath())
+		}
+	}
+
+	fftScore := analyzeFFTFile(path)
+
+	opts := forensic.Options{
+		C2PAPresent:    result.C2PA != nil && result.C2PA.Present,
+		C2PAVendor:     safeC2PAVendor(result.C2PA),
+		C2PASource:     safeC2PASource(result.C2PA),
+		TC260Present:   result.TC260 != nil && result.TC260.Present,
+		TC260Provider:  safeTC260Provider(result.TC260),
+		SynthIDPresent: result.SynthID != nil && result.SynthID.Present,
+		SynthIDLikely:  result.SynthID != nil && result.SynthID.Likely,
+		SynthIDSource:  safeSynthIDSource(result.SynthID),
+		CameraPresent:  result.Camera != nil,
+		CameraMake:     safeCameraMake(result.Camera),
+		CameraModel:    safeCameraModel(result.Camera),
+		ONNXScore:      onnxScore,
+		ONNXModelSize:  onnxModelSize,
+		FFTScore:       fftScore,
+	}
+	fr := forensic.Analyze(opts)
+
+	result.AIDetect = &service.AIDetectResult{
+		AIGenRate: fr.AIGenRate,
+		Emoji:     fr.Emoji,
+		Summary:   fr.Summary,
+		Details:   buildDetails(fr),
+	}
+
+	*results = append(*results, result)
+	return nil
+}
+
+// analyzeFFTFile loads an image and runs FFT spectral analysis.
+func analyzeFFTFile(path string) float64 {
+	f, err := os.Open(path)
+	if err != nil {
+		return -1
+	}
+	defer f.Close()
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return -1
+	}
+	return forensic.AnalyzeFFT(img)
+}
+
+// buildDetails creates a compact breakdown of all signals.
+func buildDetails(r *forensic.Result) string {
+	s := ""
+	for _, sig := range r.Signals {
+		if s != "" {
+			s += "; "
+		}
+		s += fmt.Sprintf("%s=%.0f%%", sig.Name, sig.Score*100)
+	}
+	return s
+}
+
+// Helper functions to safely extract values from result pointers.
+
+func safeC2PAVendor(r *service.C2PAResult) string {
+	if r == nil { return "" }; return r.Vendor
+}
+func safeC2PASource(r *service.C2PAResult) string {
+	if r == nil { return "" }; return r.Source
+}
+func safeTC260Provider(r *service.TC260Result) string {
+	if r == nil { return "" }; return r.Provider
+}
+func safeSynthIDSource(r *service.SynthIDResult) string {
+	if r == nil { return "" }; return r.Source
+}
+func safeCameraMake(r *service.CameraInfo) string {
+	if r == nil { return "" }; return r.Make
+}
+func safeCameraModel(r *service.CameraInfo) string {
+	if r == nil { return "" }; return r.Model
+}
+
+// tryInitONNX initializes the ONNX detector.
 func tryInitONNX() *onnx.Detector {
 	modelsDir := filepath.Join(configDir(), "models")
 	libPath, err := onnx.DefaultLibPath(modelsDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Tip: download ONNX Runtime + model for offline AIGC detection:\n")
-		fmt.Fprintf(os.Stderr, "  apimart-cli detect init\n")
 		return nil
 	}
-
-	// Try large model first, then small
-	for _, modelFile := range []string{"model-large.onnx", "model-small.onnx"} {
-		modelPath := filepath.Join(modelsDir, modelFile)
+	for _, f := range []string{"model-large.onnx", "model-small.onnx"} {
+		modelPath := filepath.Join(modelsDir, f)
 		if _, err := os.Stat(modelPath); err != nil {
 			continue
 		}
@@ -178,7 +277,6 @@ func tryInitONNX() *onnx.Detector {
 	return nil
 }
 
-// modelSizeLabel returns "large" or "small" based on the model filename.
 func modelSizeLabel(modelPath string) string {
 	if filepath.Base(modelPath) == "model-large.onnx" {
 		return "large"
@@ -186,7 +284,6 @@ func modelSizeLabel(modelPath string) string {
 	return "small"
 }
 
-// configDir returns the apimart config directory (~/.config/apimart).
 func configDir() string {
 	home, _ := os.UserHomeDir()
 	if home == "" {
