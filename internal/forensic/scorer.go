@@ -56,8 +56,6 @@ func Analyze(opts Options) *Result {
 			Name: "C2PA Content Credentials", Score: 1.0, Weight: weightIronclad,
 			Detail: fmt.Sprintf("Signed by %s", opts.C2PAVendor),
 		})
-		weightedScore += 1.0 * weightIronclad
-		totalWeight += weightIronclad
 		// C2PA is so strong it saturates the result
 		r.AIGenRate = 0.99
 		r.Level = LevelConfirmedAI

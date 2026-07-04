@@ -51,7 +51,7 @@ func Preprocess(img image.Image, targetSize int) []float32 {
 // Returns probabilities that sum to 1.0.
 func Softmax(logits []float32) []float32 {
 	result := make([]float32, len(logits))
-	var max float32 = logits[0]
+	var max = logits[0]
 	for _, v := range logits[1:] {
 		if v > max {
 			max = v
