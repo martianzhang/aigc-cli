@@ -1,68 +1,8 @@
 # 其他命令
 
-## 检测水印、元数据和 AIGC 信号
+## 检测 AIGC
 
-综合分析图片中的多种信号，输出 AI 生成置信度（AIGen rate）+ emoji。
-
-**支持信号：**
-| 信号 | 权重 | 说明 |
-|---|---|---|
-| C2PA Content Credentials | 🔴 铁证 | Adobe/OpenAI 等生态，签名验证 |
-| TC260 AIGC Label | 🔴 铁证 | 中国 GB 45438-2025 国标 |
-| SynthID 水印推断 | 🟠 高 | Google/OpenAI 厂商匹配 |
-| Camera EXIF | 🟢 强人类 | 有相机信息=实拍 |
-| ONNX 模型 (ViT-Base) | 🟡 中 | 86M 参数 ML 模型 |
-| JPEG 量化表分析 | 🟡 中 | 检测非标准量化表 |
-| SRM 噪声残差 | 🔵 低 | 5×5 高通滤波分析 |
-| FFT 频谱分析 | 🔵 低 | 频域功率谱偏差 |
-| 无 EXIF | 🔵 弱 | 截图/AI 图常见 |
-
-```bash
-# 基础检测（自动融合所有信号）
-apimart-cli detect image.png
-# → 🤖 99% Confirmed AI-generated (TC260)
-# → 🟡 35% Slightly suspicious (No EXIF + ONNX + FFT)
-
-# JSON 输出（用于脚本处理）
-apimart-cli detect --json image.png
-
-# 检测并打开系统看图软件
-apimart-cli detect --preview image.png
-
-# 检测多张图片
-apimart-cli detect *.png
-
-# 从管道读取
-cat image.png | apimart-cli detect
-```
-
-### ONNX 模型检测（需下载模型）
-
-```bash
-# 下载大模型（ViT-Base 86M，推荐）
-apimart-cli detect init
-
-# 下载小模型（distilled ViT 11.8M）
-apimart-cli detect init --size small
-
-# 强制重新下载
-apimart-cli detect init --force
-
-# 下载后自动启用，输出示例：
-apimart-cli detect image.png
-# AI Detect:  🟠 58%  Possibly AI-generated
-#   No Camera EXIF=55%; AI Model=73%; FFT Spectral=6%
-```
-
-**特点：**
-- 完全离线运行，无需 API Key
-- 支持 PNG、JPEG、WebP、GIF、BMP
-- 多信号加权融合，emoji 一览
-- ONNX 模型需先运行 `detect init` 下载
-- SynthID 检测基于 C2PA 元数据推断
-- TC260 标签可识别国内主要厂商
-- JPEG 自动提取相机 EXIF 和量化表分析
-- FFT 频谱分析检测 GAN/扩散模型痕迹
+详见 [docs/guide-detect.md](guide-detect.md)。
 
 ## 查询模型列表
 

@@ -254,6 +254,11 @@ def main():
         if not new_entries:
             log(f"No source files with valid entries in {CSV_DIR}/")
             return
+        # Dedup new sources among themselves before merging
+        before_dedup = len(new_entries)
+        new_entries = dedup(new_entries)
+        if len(new_entries) < before_dedup:
+            log(f"Source dedup: removed {before_dedup - len(new_entries)} cross-source duplicates")
         before = len(entries)
         entries = merge(entries, new_entries)
         log(f"Merged: +{len(entries) - before} new entries")
