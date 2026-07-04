@@ -47,8 +47,8 @@ The runtime and model are saved to ~/.config/apimart/models/ for offline
 AIGC detection via the 'detect' command.
 
 Use --size to choose model capacity:
-  small (default) - distilled ViT, 11.8M params, 56MB
-  large           - ViT-Base, 86M params, 327MB
+  large (default) - ViT-Base, 86M params, 327MB
+  small           - distilled ViT, 11.8M params, 56MB
 
 Proxy settings from config.yaml, env vars (HTTP_PROXY), or --http-proxy flag
 are automatically respected.`,
@@ -280,5 +280,5 @@ func extractTGZ(archivePath, modelsDir, internalPath, libName string) error {
 func init() {
 	detectCmd.AddCommand(detectInitCmd)
 	detectInitCmd.Flags().BoolVar(&detectForce, "force", false, "re-download even if files already exist")
-	detectInitCmd.Flags().StringVar(&detectModelSize, "size", "small", "model size: small (56MB) or large (327MB)")
+	detectInitCmd.Flags().StringVar(&detectModelSize, "size", "large", "model size: large (327MB, default) or small (56MB)")
 }
