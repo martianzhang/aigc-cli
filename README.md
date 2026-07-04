@@ -22,6 +22,7 @@
 | 🎨 | **Midjourney 完整管线** | 17 个子命令覆盖 imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord |
 | 💬 | **Agentic Chat** | 交互式 REPL 内嵌 `generate_image` / `generate_video` / `midjourney_*` / `ideas` 等工具，LLM 直接在对话中生成图片视频 |
 | 🤖 | **MCP Server** | 内置 MCP 协议支持，Claude Desktop / Cursor 等 AI 代理开箱即用 |
+| 🔬 | **AIGC 检测引擎** | C2PA / TC260 / SynthID / ONNX / FFT 多信号融合，离线运行无需 API Key，emoji 一目了然 |
 | 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集，保留 source_url 来源链接，支持关键词 / 随机 / 图文搜索 |
 | 🔄 | **视频任务持久化** | OpenRouter 视频提交→轮询→下载全流程，超时后 `--job-id` 一键恢复 |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
@@ -89,7 +90,7 @@ apimart-cli
 ├── task       查询异步任务状态（APIMart）
 ├── balance    查询余额（APIMart）
 ├── preview    用系统默认程序预览生成的图片/视频
-├── detect     检测水印、元数据和 AIGC（多信号融合 + emoji）             →  docs/guide-commands.md
+├── detect     检测水印、元数据和 AIGC（多信号融合 + emoji）             →  docs/guide-detect.md
 ├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/mcp.md
 │
 │   # 全局标志
@@ -136,6 +137,7 @@ apimart-cli midjourney (或 mj)
 | [视频生成](docs/guide-video.md) | 全部参数、首尾帧、参考视频（APIMart） |
 | [Midjourney 生成](docs/guide-midjourney.md) | 17 个子命令完整说明：imagine、blend、upscale 等 |
 | [AI 对话](docs/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
+| [AIGC 检测](docs/guide-detect.md) | 多信号融合、ONNX 模型、FFT 频谱、emoji 输出 |
 | [提示词灵感](docs/guide-ideas.md) | 从 Image2Studio 搜索 AI 图片提示词灵感 |
 | [其他命令](docs/guide-commands.md) | models、task、balance、dry-run、API 参考 |
 | [API 参考来源](docs/api-reference.md) | 各 Provider 接口规范来源、检测机制、策略路由 |
