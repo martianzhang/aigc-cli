@@ -250,16 +250,17 @@ func toBase64(data []byte) string {
 			b[n] = data[i]
 			i++
 		}
-		if n == 1 {
+		switch n {
+		case 1:
 			result = append(result, alphabet[b[0]>>2])
 			result = append(result, alphabet[(b[0]&0x03)<<4])
 			result = append(result, '=', '=')
-		} else if n == 2 {
+		case 2:
 			result = append(result, alphabet[b[0]>>2])
 			result = append(result, alphabet[(b[0]&0x03)<<4|b[1]>>4])
 			result = append(result, alphabet[(b[1]&0x0F)<<2])
 			result = append(result, '=')
-		} else {
+		default:
 			result = append(result, alphabet[b[0]>>2])
 			result = append(result, alphabet[(b[0]&0x03)<<4|b[1]>>4])
 			result = append(result, alphabet[(b[1]&0x0F)<<2|b[2]>>6])
