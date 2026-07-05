@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -273,6 +274,153 @@ func TestBuildAgentTools_filterImageOnly(t *testing.T) {
 	tools := buildAgentTools(cfg)
 	if len(tools) != 1 || tools[0].Function.Name != "generate_image" {
 		t.Errorf("buildAgentTools filter = got %d tools", len(tools))
+	}
+}
+
+func TestSummarizeToolResult_truncated(t *testing.T) {
+	got := summarizeToolResult("test", "This is a very long result that should definitely be truncated because it exceeds eighty characters in total length")
+	if len(got) > 83 {
+		t.Errorf("summarizeToolResult() = %q (len=%d), want <= 83", got, len(got))
+	}
+	if !strings.HasSuffix(got, "...") {
+		t.Errorf("summarizeToolResult() = %q, should end with '...'", got)
+	}
+}
+
+func TestSummarizeToolResult_short(t *testing.T) {
+	got := summarizeToolResult("test", "short result")
+	if got != "short result" {
+		t.Errorf("summarizeToolResult() = %q, want 'short result'", got)
+	}
+}
+
+func TestSummarizeToolResult_firstLine(t *testing.T) {
+	got := summarizeToolResult("test", "first line\nsecond line")
+	if got != "first line" {
+		t.Errorf("summarizeToolResult() = %q, want 'first line'", got)
+	}
+}
+
+func TestSummarizeToolResult_successPrefix(t *testing.T) {
+	got := summarizeToolResult("generate_image", "Successfully generated image: file.png")
+	if got != "Successfully generated image: file.png" {
+		t.Errorf("summarizeToolResult() = %q, want full success message", got)
+	}
+}
+
+func TestSummarizeToolResult_errorPrefix(t *testing.T) {
+	got := summarizeToolResult("test", "Error: something went wrong")
+	if got != "Error: something went wrong" {
+		t.Errorf("summarizeToolResult() = %q, want full error message", got)
+	}
+}
+
+func TestSummarizeToolResult_empty(t *testing.T) {
+	got := summarizeToolResult("test", "")
+	if got != "" {
+		t.Errorf("summarizeToolResult() = %q, want empty", got)
+	}
+}
+
+func TestSummarizeToolResult_justNewline(t *testing.T) {
+	got := summarizeToolResult("test", "\n")
+	if got != "" {
+		t.Errorf("summarizeToolResult() = %q, want empty", got)
+	}
+}
+
+func TestModelFilename_vitBase(t *testing.T) {
+	got := modelFilename("vit-base")
+	if got != "model-vit-base.onnx" {
+		t.Errorf("modelFilename('vit-base') = %q, want 'model-vit-base.onnx'", got)
+	}
+}
+
+func TestModelFilename_distilledVit(t *testing.T) {
+	got := modelFilename("distilled-vit")
+	if got != "model-distilled-vit.onnx" {
+		t.Errorf("modelFilename('distilled-vit') = %q, want 'model-distilled-vit.onnx'", got)
+	}
+}
+
+func TestModelFilename_unknown(t *testing.T) {
+	got := modelFilename("nonexistent")
+	if got != "model-vit-base.onnx" {
+		t.Errorf("modelFilename('nonexistent') = %q, want default 'model-vit-base.onnx'", got)
+	}
+}
+
+func TestModelSizeLabel_vitBase(t *testing.T) {
+	got := modelSizeLabel("/some/path/model-vit-base.onnx")
+	if got != "vit-base" {
+		t.Errorf("modelSizeLabel() = %q, want 'vit-base'", got)
+	}
+}
+
+func TestModelSizeLabel_distilledVit(t *testing.T) {
+	got := modelSizeLabel("/some/path/model-distilled-vit.onnx")
+	if got != "distilled-vit" {
+		t.Errorf("modelSizeLabel() = %q, want 'distilled-vit'", got)
+	}
+}
+
+func TestModelSizeLabel_unknown(t *testing.T) {
+	got := modelSizeLabel("/some/path/other-model.onnx")
+	if got != "other-model.onnx" {
+		t.Errorf("modelSizeLabel() = %q, want 'other-model.onnx'", got)
+	}
+}
+
+func TestSafeC2PAVendor_nil(t *testing.T) {
+	if got := safeC2PAVendor(nil); got != "" {
+		t.Errorf("safeC2PAVendor(nil) = %q, want ''", got)
+	}
+}
+
+func TestSafeC2PAVendor_notNil(t *testing.T) {
+	r := &service.C2PAResult{Vendor: "OpenAI"}
+	if got := safeC2PAVendor(r); got != "OpenAI" {
+		t.Errorf("safeC2PAVendor() = %q, want 'OpenAI'", got)
+	}
+}
+
+func TestSafeC2PASource_nil(t *testing.T) {
+	if got := safeC2PASource(nil); got != "" {
+		t.Errorf("safeC2PASource(nil) = %q, want ''", got)
+	}
+}
+
+func TestSafeTC260Provider_nil(t *testing.T) {
+	if got := safeTC260Provider(nil); got != "" {
+		t.Errorf("safeTC260Provider(nil) = %q, want ''", got)
+	}
+}
+
+func TestSafeSynthIDSource_nil(t *testing.T) {
+	if got := safeSynthIDSource(nil); got != "" {
+		t.Errorf("safeSynthIDSource(nil) = %q, want ''", got)
+	}
+}
+
+func TestSafeCameraMake_nil(t *testing.T) {
+	if got := safeCameraMake(nil); got != "" {
+		t.Errorf("safeCameraMake(nil) = %q, want ''", got)
+	}
+}
+
+func TestSafeCameraModel_nil(t *testing.T) {
+	if got := safeCameraModel(nil); got != "" {
+		t.Errorf("safeCameraModel(nil) = %q, want ''", got)
+	}
+}
+
+func TestSafeCameraMake_notNil(t *testing.T) {
+	r := &service.CameraInfo{Make: "Canon", Model: "EOS R5"}
+	if got := safeCameraMake(r); got != "Canon" {
+		t.Errorf("safeCameraMake() = %q, want 'Canon'", got)
+	}
+	if got := safeCameraModel(r); got != "EOS R5" {
+		t.Errorf("safeCameraModel() = %q, want 'EOS R5'", got)
 	}
 }
 
