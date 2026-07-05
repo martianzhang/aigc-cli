@@ -13,49 +13,86 @@
 
 ---
 
-## ✨ 亮点
+## 为什么选 apimart-cli？
 
-| | 能力 | 说明 |
+| | | |
 |---|---|---|
-| 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 就能在 OpenAI / OpenRouter / APIMart / 任意中转之间切换，命令不变 |
-| 🧠 | **Provider 自动适配** | 检测到 OpenRouter 自动走专用图片/视频 API，检测到 APIMart 走异步 Task，零配置 |
-| 🎨 | **Midjourney 完整管线** | 17 个子命令覆盖 imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord |
-| 💬 | **Agentic Chat** | 交互式 REPL 内嵌 `generate_image` / `generate_video` / `midjourney_*` / `ideas` 等工具，LLM 直接在对话中生成图片视频 |
-| 🤖 | **MCP Server** | 内置 MCP 协议支持，Claude Desktop / Cursor 等 AI 代理开箱即用 |
-| 🔬 | **AIGC 检测引擎** | C2PA / TC260 / SynthID / ONNX / FFT 多信号融合，离线运行无需 API Key，emoji 一目了然 |
-| 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集，保留 source_url 来源链接，支持关键词 / 随机 / 图文搜索 |
-| 🔄 | **视频任务持久化** | OpenRouter 视频提交→轮询→下载全流程，超时后 `--job-id` 一键恢复 |
-| 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
-| ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台 |
+| 🤖 | **MCP Server** | 接入 Claude Desktop、Cursor 等 AI 客户端，对话中直接生成图片视频，无需切工具、无需复制粘贴。 |
+| 🔬 | **AIGC 检测引擎** | 离线多信号融合：C2PA Content Credentials、TC260（国标 GB 45438-2025）、SynthID 隐形水印、ONNX 模型推理、FFT 频谱分析、SRM 噪声残差、JPEG 量化检测。全部本地运行，无需 API Key。 |
+| 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 在 OpenAI / OpenRouter / APIMart / 任意中转之间切换，命令完全不变，Provider 自动适配。 |
 
 ---
 
 ## 快速开始
 
-```bash
-# 安装
-go install github.com/martianzhang/apimart-cli@latest
+### 安装
 
-# ── 使用 OpenAI ──
+```bash
+go install github.com/martianzhang/apimart-cli@latest
+```
+
+### 使用 OpenAI
+
+```bash
 export OPENAI_API_KEY="sk-xxx"
 
 apimart-cli image --prompt "一只猫在星空下"
 apimart-cli chat --message "你是谁？"
+```
 
-# ── 使用 OpenRouter（改个环境变量，命令不用动）──
+### 使用 OpenRouter（改环境变量，命令不用动）
+
+```bash
 export OPENAI_API_KEY="sk-or-xxx"
 export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
 
 apimart-cli image --model "openai/gpt-image-2" --prompt "a cat"
 apimart-cli video --model "google/veo-3.1" --prompt "a dog running"     # 自动走专用视频 API
 apimart-cli models --type image                                           # 免认证模型发现
+```
 
-# ── 使用任意 OpenAI 兼容中转 ──
+### 使用任意 OpenAI 兼容中转
+
+```bash
 export OPENAI_API_KEY="sk-xxx"
 export OPENAI_BASE_URL="https://your-relay.com/v1"
 
 apimart-cli chat --message "Hello"
 ```
+
+### MCP 集成（推荐）
+
+在 Claude Desktop / Cursor / Windsurf 的 MCP 配置中添加：
+
+```json
+{
+  "mcpServers": {
+    "apimart": {
+      "command": "apimart-cli",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+AI 代理可以在对话中直接生成图片、创建视频、查询模型、检测 AIGC。详见 [docs/mcp.md](docs/mcp.md)。
+
+---
+
+## 功能一览
+
+| | 能力 | 说明 |
+|---|---|---|
+| 🤖 | **MCP Server** | 内置 MCP 协议支持，Claude Desktop / Cursor / Windsurf / VS Code 开箱即用 |
+| 🔬 | **AIGC 检测引擎** | C2PA / TC260 / SynthID / ONNX / FFT / SRM 噪声 / JPEG 量化，离线运行，emoji 输出 |
+| 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 切换 Provider，命令不变 |
+| 🧠 | **Provider 自动适配** | OpenRouter 自动走专用图片/视频 API，APIMart 走异步 Task，零配置 |
+| 🎨 | **Midjourney 完整管线** | 17 子命令覆盖 imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord |
+| 💬 | **Agentic Chat** | 交互式 REPL 内嵌 `generate_image` / `generate_video` / `midjourney_*` / `ideas` 等工具 |
+| 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集 |
+| 🔄 | **视频任务持久化** | OpenRouter 提交→轮询→下载全流程，超时后 `--job-id` 一键恢复 |
+| 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
+| ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台 |
 
 ---
 
@@ -143,23 +180,6 @@ apimart-cli midjourney (或 mj)
 | [API 参考来源](docs/api-reference.md) | 各 Provider 接口规范来源、检测机制、策略路由 |
 | [常见问题](docs/faq.md) | 安装、使用、MCP、费用等常见问题解答 |
 | [MCP 集成](docs/mcp.md) | AI 代理（Claude/Cursor）集成指南 |
-
----
-
-## MCP 集成 🧪（测试中）
-
-```json
-{
-  "mcpServers": {
-    "apimart": {
-      "command": "apimart-cli",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-详见 [docs/mcp.md](docs/mcp.md)。
 
 ---
 

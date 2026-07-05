@@ -6,7 +6,12 @@
 api_key: "your-api-key-here"
 
 # API base URL (can also be set via OPENAI_BASE_URL or APIMART_API_BASE env var)
-# base_url: "https://api.apimart.ai"
+# ── 按 Provider 取消注释 ──
+# OpenAI:    https://api.openai.com/v1
+# OpenRouter: https://openrouter.ai/api/v1
+# APIMart:    https://api.apimart.ai
+# 任意中转:   https://your-relay.com/v1
+base_url: "https://api.apimart.ai"
 
 # HTTP proxy (can also be set via OPENAI_HTTP_PROXY or APIMART_HTTP_PROXY env var, or --http-proxy CLI flag)
 # http_proxy: "http://127.0.0.1:7890"
@@ -29,6 +34,27 @@ api_key: "your-api-key-here"
 # Uncomment only what you want to override.
 # Global --model flag overrides per-modality defaults.
 defaults:
+  # ── OpenAI 推荐配置 ──
+  # image:
+  #   model: "dall-e-3"             # 或 dall-e-2、gpt-image-1
+  #   size: "1024x1024"             # dall-e-3: 1024x1024, 1024x1792, 1792x1024
+  #   quality: "standard"            # standard 或 hd
+  #   n: 1
+  # video:
+  #   # OpenAI 视频尚未公开 API，可用 OpenRouter 中转
+  # chat:
+  #   model: "gpt-4o"
+
+  # ── OpenRouter 推荐配置 ──
+  # image:
+  #   model: "openai/gpt-image-2" # OpenRouter 模型名格式: provider/model
+  #   size: "1:1"
+  # video:
+  #   model: "google/veo-3.1"
+  # chat:
+  #   model: "openai/gpt-4o"
+
+  # ── APIMart 推荐配置 ──
   image:
     model: "gpt-image-2-official"
     # Most economical: 1536x512·Low → $0.00144/image

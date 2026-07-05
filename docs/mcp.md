@@ -1,12 +1,12 @@
-# MCP 集成 🧪
+# MCP Integration
 
-> **当前状态**：测试中，功能和接口可能变化，欢迎试用反馈。
+`apimart-cli` implements the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP), allowing AI agents to call image generation, video generation, model queries, and AIGC detection directly — without leaving your chat.
 
-`apimart-cli` 支持 [MCP 协议](https://modelcontextprotocol.io/)（Model Context Protocol），允许 AI 代理（Claude Desktop、Cursor、VS Code 等）直接调用 API 能力。
+## Supported Clients
 
-## 快速配置
+### Claude Desktop
 
-在 MCP 客户端配置中添加：
+Add to your `claude_desktop_config.json`:
 
 ```json
 {
@@ -19,32 +19,83 @@
 }
 ```
 
-## 可用工具
-
-| 工具名 | 描述 | 是否需要 API Key |
-|---|---|---|
-| `generate_image` | 图片生成（文生图、图生图、Inpainting） | ✅ |
-| `generate_video` | 视频生成（提交后返回 task_id，异步查询） | ✅ |
-| `list_models` | 列出市场可用模型，支持按类型筛选 | ❌ |
-| `get_model_pricing` | 查询指定模型的定价详情 | ❌ |
-| `get_balance` | 查询 Token 和用户余额 | ✅ |
-| `get_task` | 查询异步任务状态和结果 | ✅ |
-
-## 配置
-
-MCP 模式复用现有配置体系，支持三种方式：
+Set your API key via environment variable before launching:
 
 ```bash
-# 方式一：配置文件
-# ~/.config/openai/config.yaml 或 ~/.config/apimart/config.yaml
+export OPENAI_API_KEY="sk-xxx"
+export OPENAI_BASE_URL="https://api.apimart.ai"       # or OpenRouter, OpenAI, etc.
+```
 
-# 方式二：环境变量
+### Cursor
+
+Add to Cursor's MCP configuration (`~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "apimart": {
+      "command": "apimart-cli",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### VS Code / Windsurf / Any MCP Host
+
+Same config pattern — every MCP-compatible client uses the same entry:
+
+```json
+{
+  "mcpServers": {
+    "apimart": {
+      "command": "apimart-cli",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Ensure the binary is on your `$PATH`, or use an absolute path:
+
+```json
+{
+  "mcpServers": {
+    "apimart": {
+      "command": "/absolute/path/to/apimart-cli",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+## Available Tools
+
+| Tool | Description | API Key Required |
+|---|---|---|
+| `generate_image` | Image generation (text-to-image, image-to-image, inpainting) | ✅ |
+| `generate_video` | Video generation (async submit + poll for result) | ✅ |
+| `list_models` | List marketplace models, filterable by type | ❌ |
+| `get_model_pricing` | Query pricing for a specific model | ❌ |
+| `get_balance` | Query token and user balance | ✅ |
+| `get_task` | Query async task status and results | ✅ |
+| `detect_image` | Detect C2PA / SynthID / TC260 watermarks, AIGC, and EXIF metadata | ❌ |
+
+## Configuration
+
+MCP mode reuses the existing config system with three options:
+
+```bash
+# Option 1: Config file
+# ~/.config/openai/config.yaml or ~/.config/apimart/config.yaml
+
+# Option 2: Environment variables
 OPENAI_API_KEY=sk-xxx apimart-cli mcp
 
-# 方式三：CLI 参数
+# Option 3: CLI flags
 apimart-cli mcp --api-key sk-xxx --output ./downloads
 ```
 
-## 工具描述动态注入
+## Dynamic Tool Descriptions
 
-启动时自动读取 `config.yaml` 中的默认值（model、size、resolution、quality 等），并注入到工具描述中。AI 代理因而知道当前配置，只会在用户明确要求时才覆盖参数。
+On startup, `apimart-cli mcp` reads your `config.yaml` defaults (model, size, resolution, quality, etc.) and injects them into each tool's description. The AI agent sees your current configuration and only overrides parameters when the user explicitly requests it.
