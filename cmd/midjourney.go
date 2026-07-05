@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 
@@ -13,11 +14,20 @@ import (
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
-// newMJClient creates a client with Midjourney's default timeout.
+var (
+	mjClientOnce sync.Once
+	mjClientInst client.APIClient
+)
+
+// newMJClient returns a singleton Midjourney API client, created once with
+// the current shared config and MJ-specific timeout. Reuses the same client
+// across all 27+ MJ subcommands instead of creating a new one each time.
 func newMJClient() client.APIClient {
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
-	applyTimeout(c, "midjourney", client.MJTimeout)
-	return c
+	mjClientOnce.Do(func() {
+		mjClientInst = client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+		applyTimeout(mjClientInst, "midjourney", client.MJTimeout)
+	})
+	return mjClientInst
 }
 
 // ============================================================================
