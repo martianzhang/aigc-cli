@@ -37,6 +37,9 @@ video_*.mp4
 video_*.webm
 image_*.md
 
+# Coverage output
+*.out
+
 # Project docs
 TODO.md
 
