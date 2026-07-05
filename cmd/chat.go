@@ -28,6 +28,14 @@ import (
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
+// chatStdout and chatStderr are the output writers used by the chat REPL.
+// They default to chatStdout/chatStderr but can be overridden in tests to
+// capture output without touching real file descriptors.
+var (
+	chatStdout io.Writer = os.Stdout
+	chatStderr io.Writer = os.Stderr
+)
+
 // Command history for readLineRaw up/down arrows.
 var cmdHistory []string
 
@@ -312,7 +320,7 @@ func sendChatRequest(cmd *cobra.Command, req *types.ChatRequest) error {
 	}
 
 	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
-	req.OutputWriter = os.Stdout
+	req.OutputWriter = chatStdout
 
 	start := time.Now()
 	result, err := c.ChatCompletion(req)
@@ -351,7 +359,7 @@ func printUsageStats(result *types.ChatResponse, elapsed time.Duration) {
 		}
 	}
 	parts = append(parts, fmt.Sprintf("Time: %v", elapsed.Round(time.Millisecond)))
-	fmt.Fprintln(os.Stderr, "---  "+strings.Join(parts, "  |  "))
+	fmt.Fprintln(chatStderr, "---  "+strings.Join(parts, "  |  "))
 }
 
 // getFileCompletions returns file/directory names matching the given prefix.
@@ -404,9 +412,9 @@ func backspaceRune(buf []byte, pos int) ([]byte, int) {
 
 // redrawFrom redraws the buffer from cursor position on stderr.
 func redrawFrom(buf []byte, pos int) {
-	fmt.Fprint(os.Stderr, "\b"+string(buf[pos:])+" ")
+	fmt.Fprint(chatStderr, "\b"+string(buf[pos:])+" ")
 	for i := 0; i < len(buf)-pos+1; i++ {
-		fmt.Fprint(os.Stderr, "\b")
+		fmt.Fprint(chatStderr, "\b")
 	}
 }
 
@@ -455,7 +463,7 @@ func readLineRaw(completions []string) (string, error) {
 			// If nothing buffered, it's a bare Escape key press — clear current line
 			if reader.Buffered() == 0 {
 				for i := 0; i < len(buf); i++ {
-					fmt.Fprint(os.Stderr, "\b \b")
+					fmt.Fprint(chatStderr, "\b \b")
 				}
 				buf = buf[:0]
 				pos = 0
@@ -486,38 +494,38 @@ func readLineRaw(completions []string) (string, error) {
 						if len(*history) > 0 && histIdx < len(*history)-1 {
 							histIdx++
 							for i := 0; i < len(buf); i++ {
-								fmt.Fprint(os.Stderr, "\b \b")
+								fmt.Fprint(chatStderr, "\b \b")
 							}
 							buf = []byte((*history)[len(*history)-1-histIdx])
 							pos = len(buf)
-							fmt.Fprint(os.Stderr, string(buf))
+							fmt.Fprint(chatStderr, string(buf))
 						}
 					case 'B': // Down arrow — history forward
 						if histIdx > 0 {
 							histIdx--
 							for i := 0; i < len(buf); i++ {
-								fmt.Fprint(os.Stderr, "\b \b")
+								fmt.Fprint(chatStderr, "\b \b")
 							}
 							buf = []byte((*history)[len(*history)-1-histIdx])
 							pos = len(buf)
-							fmt.Fprint(os.Stderr, string(buf))
+							fmt.Fprint(chatStderr, string(buf))
 						} else if histIdx == 0 {
 							histIdx = -1
 							for i := 0; i < len(buf); i++ {
-								fmt.Fprint(os.Stderr, "\b \b")
+								fmt.Fprint(chatStderr, "\b \b")
 							}
 							buf = buf[:0]
 							pos = 0
 						}
 					case 'C': // Right arrow
 						if pos < len(buf) {
-							fmt.Fprint(os.Stderr, string(buf[pos]))
+							fmt.Fprint(chatStderr, string(buf[pos]))
 							pos++
 						}
 					case 'D': // Left arrow
 						if pos > 0 {
 							pos--
-							fmt.Fprint(os.Stderr, "\b")
+							fmt.Fprint(chatStderr, "\b")
 						}
 					}
 				}
@@ -527,7 +535,7 @@ func readLineRaw(completions []string) (string, error) {
 
 		switch ch {
 		case 3: // Ctrl+C (raw mode: byte, not SIGINT)
-			fmt.Fprint(os.Stderr, "\r\n")
+			fmt.Fprint(chatStderr, "\r\n")
 			return "", errInterrupted
 
 		case 4: // Ctrl+D
@@ -537,11 +545,11 @@ func readLineRaw(completions []string) (string, error) {
 			// Line continuation: trailing \ + Enter → insert newline instead of submitting
 			if len(buf) > 0 && buf[len(buf)-1] == '\\' {
 				buf[len(buf)-1] = '\n'
-				fmt.Fprint(os.Stderr, "\r\n")
+				fmt.Fprint(chatStderr, "\r\n")
 				pos = len(buf)
 				continue
 			}
-			fmt.Fprint(os.Stderr, "\r\n")
+			fmt.Fprint(chatStderr, "\r\n")
 			line := string(buf)
 			// Save to history (non-empty, dedup last)
 			if line != "" && (len(*history) == 0 || (*history)[len(*history)-1] != line) {
@@ -607,7 +615,7 @@ func readLineRaw(completions []string) (string, error) {
 
 				// Replace buffer with the match
 				for i := 0; i < len(buf); i++ {
-					fmt.Fprint(os.Stderr, "\b \b")
+					fmt.Fprint(chatStderr, "\b \b")
 				}
 
 				if isFileCtx {
@@ -621,22 +629,22 @@ func readLineRaw(completions []string) (string, error) {
 				}
 				pos = len(buf)
 				cycleBase = string(buf) // keep cycle alive for next Tab
-				fmt.Fprint(os.Stderr, string(buf))
+				fmt.Fprint(chatStderr, string(buf))
 			}
 
 		case 1: // Ctrl+A — beginning of line
 			if pos > 0 {
-				fmt.Fprint(os.Stderr, "\r")
+				fmt.Fprint(chatStderr, "\r")
 				// Move cursor back pos positions from current
 				for i := 0; i < pos; i++ {
-					fmt.Fprint(os.Stderr, "\b")
+					fmt.Fprint(chatStderr, "\b")
 				}
 				pos = 0
 			}
 
 		case 5: // Ctrl+E — end of line
 			if pos < len(buf) {
-				fmt.Fprint(os.Stderr, string(buf[pos:]))
+				fmt.Fprint(chatStderr, string(buf[pos:]))
 				pos = len(buf)
 			}
 
@@ -644,11 +652,11 @@ func readLineRaw(completions []string) (string, error) {
 			if pos < len(buf) {
 				// Clear from cursor to end
 				for i := pos; i < len(buf); i++ {
-					fmt.Fprint(os.Stderr, " ")
+					fmt.Fprint(chatStderr, " ")
 				}
 				// Move back
 				for i := pos; i < len(buf); i++ {
-					fmt.Fprint(os.Stderr, "\b")
+					fmt.Fprint(chatStderr, "\b")
 				}
 				buf = buf[:pos]
 			}
@@ -657,17 +665,17 @@ func readLineRaw(completions []string) (string, error) {
 			if len(buf) > 0 {
 				// Clear displayed text
 				for i := 0; i < len(buf); i++ {
-					fmt.Fprint(os.Stderr, "\b \b")
+					fmt.Fprint(chatStderr, "\b \b")
 				}
 				buf = buf[:0]
 				pos = 0
 			}
 
 		case 12: // Ctrl+L — clear screen
-			fmt.Fprint(os.Stderr, "\033[2J\033[H")
+			fmt.Fprint(chatStderr, "\033[2J\033[H")
 			// Re-prompt
-			fmt.Fprint(os.Stderr, ">>> ")
-			fmt.Fprint(os.Stderr, string(buf))
+			fmt.Fprint(chatStderr, ">>> ")
+			fmt.Fprint(chatStderr, string(buf))
 
 		case 23: // Ctrl+W — delete word backwards
 			if pos > 0 {
@@ -688,18 +696,18 @@ func readLineRaw(completions []string) (string, error) {
 				buf = buf[:len(buf)-n]
 				// Move cursor to start
 				for i := 0; i < pos-start; i++ {
-					fmt.Fprint(os.Stderr, "\b")
+					fmt.Fprint(chatStderr, "\b")
 				}
 				pos = start
 				// Redraw from cursor
-				fmt.Fprint(os.Stderr, string(buf[pos:]))
+				fmt.Fprint(chatStderr, string(buf[pos:]))
 				// Clear leftover chars
 				for i := 0; i < n; i++ {
-					fmt.Fprint(os.Stderr, " ")
+					fmt.Fprint(chatStderr, " ")
 				}
 				// Move back
 				for i := 0; i < len(buf)-pos+n; i++ {
-					fmt.Fprint(os.Stderr, "\b")
+					fmt.Fprint(chatStderr, "\b")
 				}
 			}
 
@@ -711,10 +719,10 @@ func readLineRaw(completions []string) (string, error) {
 					buf = append(buf, 0)
 					copy(buf[pos+1:], buf[pos:])
 					buf[pos] = ch
-					fmt.Fprint(os.Stderr, string(buf[pos:]))
+					fmt.Fprint(chatStderr, string(buf[pos:]))
 					pos++
 					for i := pos; i < len(buf); i++ {
-						fmt.Fprint(os.Stderr, "\b")
+						fmt.Fprint(chatStderr, "\b")
 					}
 					continue
 				}
@@ -734,10 +742,10 @@ func readLineRaw(completions []string) (string, error) {
 					pos++
 				}
 				// Redraw from cursor
-				fmt.Fprint(os.Stderr, string(buf[pos-n:]))
+				fmt.Fprint(chatStderr, string(buf[pos-n:]))
 				// Move cursor back for characters after the inserted ones
 				for i := pos; i < len(buf); i++ {
-					fmt.Fprint(os.Stderr, "\b")
+					fmt.Fprint(chatStderr, "\b")
 				}
 			}
 		}
@@ -841,7 +849,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 		}
 	}
 
-	fmt.Fprint(os.Stderr, "\r\nInteractive chat mode. Type /help for commands, /exit or Ctrl+C to quit.\r\n")
+	fmt.Fprint(chatStderr, "\r\nInteractive chat mode. Type /help for commands, /exit or Ctrl+C to quit.\r\n")
 
 	// Show current model and stream mode at startup
 	modelDisplay := shared.Model
@@ -856,7 +864,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 	if chatNoStream {
 		streamMode = "no-stream"
 	}
-	fmt.Fprintf(os.Stderr, "Model: %s | Mode: %s\r\n", modelDisplay, streamMode)
+	fmt.Fprintf(chatStderr, "Model: %s | Mode: %s\r\n", modelDisplay, streamMode)
 
 	// Build Tab-completion candidates
 	completions := []string{"/exit", "/clear", "/help", "/?", "/tools", "/preview"}
@@ -865,7 +873,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 	}
 
 	for {
-		fmt.Fprint(os.Stderr, ">>> ")
+		fmt.Fprint(chatStderr, ">>> ")
 
 		// Read one line, using raw mode if available
 		var input string
@@ -876,11 +884,11 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			input, err = readLineStdin()
 		}
 		if err == io.EOF {
-			fmt.Fprint(os.Stderr, "\r\nBye!\r\n")
+			fmt.Fprint(chatStderr, "\r\nBye!\r\n")
 			return nil
 		}
 		if errors.Is(err, errInterrupted) {
-			fmt.Fprint(os.Stderr, "\r\nBye!\r\n")
+			fmt.Fprint(chatStderr, "\r\nBye!\r\n")
 			return nil
 		}
 		if err != nil {
@@ -902,7 +910,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 				lines = append(lines, rest)
 			}
 			for {
-				fmt.Fprint(os.Stderr, "... ")
+				fmt.Fprint(chatStderr, "... ")
 				var line string
 				var err error
 				if isRaw {
@@ -927,14 +935,14 @@ func runInteractiveChat(cmd *cobra.Command) error {
 		// Handle commands
 		switch strings.ToLower(input) {
 		case "/exit", "/quit", "/q", "exit", "quit", "bye", "goodbye", "退出", "再见":
-			fmt.Fprint(os.Stderr, "\r\nBye!\r\n")
+			fmt.Fprint(chatStderr, "\r\nBye!\r\n")
 			return nil
 		case "/clear", "/reset":
 			history = history[:0]
 			if chatSystem != "" {
 				history = append(history, types.ChatMessage{Role: "system", Content: chatSystem})
 			}
-			fmt.Fprint(os.Stderr, "Conversation history cleared.\r\n")
+			fmt.Fprint(chatStderr, "Conversation history cleared.\r\n")
 			continue
 		case "/compact":
 			// Count non-system messages to determine if there's anything to compact
@@ -945,13 +953,13 @@ func runInteractiveChat(cmd *cobra.Command) error {
 				}
 			}
 			if nonSysCount == 0 {
-				fmt.Fprint(os.Stderr, "Nothing to compact — conversation is empty.\r\n")
+				fmt.Fprint(chatStderr, "Nothing to compact — conversation is empty.\r\n")
 				continue
 			}
 
 			exitRawMode()
 
-			fmt.Fprint(os.Stderr, "\r\nCompacting conversation...\r\n")
+			fmt.Fprint(chatStderr, "\r\nCompacting conversation...\r\n")
 
 			// Build a request: send the full history + a summarization instruction
 			compactReq := &types.ChatRequest{
@@ -966,7 +974,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 
 			result, err := c.ChatCompletion(compactReq)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Compact failed: %v\r\n", err)
+				fmt.Fprintf(chatStderr, "Compact failed: %v\r\n", err)
 				enterRawMode()
 				continue
 			}
@@ -976,7 +984,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 				summary = result.Choices[0].Message.Content
 			}
 			if summary == "" {
-				fmt.Fprint(os.Stderr, "Compact failed: got empty response.\r\n")
+				fmt.Fprint(chatStderr, "Compact failed: got empty response.\r\n")
 				enterRawMode()
 				continue
 			}
@@ -991,11 +999,11 @@ func runInteractiveChat(cmd *cobra.Command) error {
 				Content: "[Compacted conversation history]\n" + summary + "\n[End of compacted history]",
 			})
 
-			fmt.Fprintf(os.Stderr, "\r\n✓ Compacted: %d messages → 1 summary\r\n", oldCount)
+			fmt.Fprintf(chatStderr, "\r\n✓ Compacted: %d messages → 1 summary\r\n", oldCount)
 			enterRawMode()
 			continue
 		case "/help", "/?", "?":
-			fmt.Fprint(os.Stderr,
+			fmt.Fprint(chatStderr,
 				"Available commands:\r\n"+
 					"  /exit, /quit, /q  Exit\r\n"+
 					"  exit, quit, bye   Same (without /)\r\n"+
@@ -1014,33 +1022,33 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			if modelDisplay == "" {
 				modelDisplay = "<API default>"
 			}
-			fmt.Fprintf(os.Stderr, "Model: %s | Stream: %v\r\n", modelDisplay, stream)
+			fmt.Fprintf(chatStderr, "Model: %s | Stream: %v\r\n", modelDisplay, stream)
 			if chatSystem != "" {
-				fmt.Fprintf(os.Stderr, "System: %s\r\n", chatSystem)
+				fmt.Fprintf(chatStderr, "System: %s\r\n", chatSystem)
 			}
 			if len(agentTools) > 0 {
 				toolNames := make([]string, len(agentTools))
 				for i, t := range agentTools {
 					toolNames[i] = t.Function.Name
 				}
-				fmt.Fprintf(os.Stderr, "Tools: %s | Max iterations: %d\r\n", strings.Join(toolNames, ", "), maxIterations)
+				fmt.Fprintf(chatStderr, "Tools: %s | Max iterations: %d\r\n", strings.Join(toolNames, ", "), maxIterations)
 			}
-			fmt.Fprint(os.Stderr, "Use -v/--verbose to show token & timing stats.\r\n")
-			fmt.Fprint(os.Stderr, "Use /{tool_name} <json> to call a tool directly (e.g. /generate_image {\"prompt\":\"a cat\"})\r\n")
+			fmt.Fprint(chatStderr, "Use -v/--verbose to show token & timing stats.\r\n")
+			fmt.Fprint(chatStderr, "Use /{tool_name} <json> to call a tool directly (e.g. /generate_image {\"prompt\":\"a cat\"})\r\n")
 			continue
 		case "/tools":
 			if len(agentTools) == 0 {
-				fmt.Fprint(os.Stderr, "No tools available.\r\n")
+				fmt.Fprint(chatStderr, "No tools available.\r\n")
 			} else {
-				fmt.Fprint(os.Stderr, "Available tools:\r\n")
+				fmt.Fprint(chatStderr, "Available tools:\r\n")
 				for _, t := range agentTools {
-					fmt.Fprintf(os.Stderr, "  /%s\r\n", t.Function.Name)
+					fmt.Fprintf(chatStderr, "  /%s\r\n", t.Function.Name)
 					if desc := t.Function.Description; desc != "" {
-						fmt.Fprintf(os.Stderr, "    %s\r\n", desc)
+						fmt.Fprintf(chatStderr, "    %s\r\n", desc)
 					}
 				}
-				fmt.Fprint(os.Stderr, "\r\nUsage: /<tool_name> <json_args>\r\n")
-				fmt.Fprint(os.Stderr, "e.g. /generate_image {\"prompt\":\"a cat\"}\r\n")
+				fmt.Fprint(chatStderr, "\r\nUsage: /<tool_name> <json_args>\r\n")
+				fmt.Fprint(chatStderr, "e.g. /generate_image {\"prompt\":\"a cat\"}\r\n")
 			}
 			continue
 		}
@@ -1053,22 +1061,22 @@ func runInteractiveChat(cmd *cobra.Command) error {
 				filePath = strings.TrimSpace(parts[1])
 			}
 			if filePath == "" {
-				fmt.Fprint(os.Stderr, "Usage: /preview <filepath>\r\n\r\n")
+				fmt.Fprint(chatStderr, "Usage: /preview <filepath>\r\n\r\n")
 				// Show recently generated files as hints
 				recent := previewLatestFiles("")
 				if len(recent) > 0 {
-					fmt.Fprint(os.Stderr, "Recent files:\r\n")
+					fmt.Fprint(chatStderr, "Recent files:\r\n")
 					for _, f := range recent {
-						fmt.Fprintf(os.Stderr, "  /preview %s\r\n", f)
+						fmt.Fprintf(chatStderr, "  /preview %s\r\n", f)
 					}
-					fmt.Fprint(os.Stderr, "\r\n")
+					fmt.Fprint(chatStderr, "\r\n")
 				}
 				continue
 			}
 			if err := service.PreviewFile(filePath); err != nil {
-				fmt.Fprintf(os.Stderr, "Preview failed: %v\r\n", err)
+				fmt.Fprintf(chatStderr, "Preview failed: %v\r\n", err)
 			}
-			fmt.Fprint(os.Stderr, "\r\n")
+			fmt.Fprint(chatStderr, "\r\n")
 			continue
 		}
 
@@ -1077,10 +1085,10 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			cmdLine := strings.TrimSpace(input)[1:]
 			if cmdLine != "" {
 				exitRawMode()
-				fmt.Fprintf(os.Stderr, "\r\nRunning: %s\r\n", cmdLine)
+				fmt.Fprintf(chatStderr, "\r\nRunning: %s\r\n", cmdLine)
 				result := executeShellCommand(cmdLine)
-				fmt.Fprintf(os.Stderr, "\r\nResult:\r\n%s\r\n", result)
-				fmt.Fprint(os.Stderr, "\r\n")
+				fmt.Fprintf(chatStderr, "\r\nResult:\r\n%s\r\n", result)
+				fmt.Fprint(chatStderr, "\r\n")
 				enterRawMode()
 				continue
 			}
@@ -1116,7 +1124,7 @@ func runInteractiveChat(cmd *cobra.Command) error {
 							if err := json.Unmarshal([]byte(argsJSON), &parsed); err == nil {
 								for k := range parsed {
 									if _, ok := schema.Properties[k]; !ok && !cliOnlyFlags[k] {
-										fmt.Fprintf(os.Stderr, "\r\n[warning] /%s: unknown flag --%s\r\n", cmdName, k)
+										fmt.Fprintf(chatStderr, "\r\n[warning] /%s: unknown flag --%s\r\n", cmdName, k)
 									}
 								}
 							}
@@ -1138,8 +1146,8 @@ func runInteractiveChat(cmd *cobra.Command) error {
 							},
 						}
 						result := executeToolCall(c, tc)
-						fmt.Fprintf(os.Stderr, "\r\n%s\r\n", result)
-						fmt.Fprint(os.Stderr, "\r\n")
+						fmt.Fprintf(chatStderr, "\r\n%s\r\n", result)
+						fmt.Fprint(chatStderr, "\r\n")
 						enterRawMode()
 						break
 					}
@@ -1164,11 +1172,11 @@ func runInteractiveChat(cmd *cobra.Command) error {
 			if errors.Is(err, context.Canceled) {
 				return nil
 			}
-			fmt.Fprintf(os.Stderr, "\r\nError: %v\r\n", err)
+			fmt.Fprintf(chatStderr, "\r\nError: %v\r\n", err)
 			history = history[:len(history)-1]
 		}
 
-		fmt.Fprint(os.Stderr, "\r\n")
+		fmt.Fprint(chatStderr, "\r\n")
 
 		// Re-enter raw mode for next prompt
 		enterRawMode()
@@ -1202,7 +1210,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 			Model:        shared.Model,
 			Messages:     *history,
 			Stream:       true,
-			OutputWriter: os.Stdout,
+			OutputWriter: chatStdout,
 		}
 		if len(agentTools) > 0 {
 			req.Tools = agentTools
@@ -1212,9 +1220,9 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 
 		// Print a newline to separate from the prompt / previous output
 		if turnCount > 1 {
-			fmt.Fprint(os.Stderr, "\r\n---\r\n")
+			fmt.Fprint(chatStderr, "\r\n---\r\n")
 		}
-		fmt.Fprint(os.Stderr, "\r\n")
+		fmt.Fprint(chatStderr, "\r\n")
 
 		result, err := c.ChatCompletion(req)
 		if err != nil {
@@ -1233,7 +1241,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 
 			// Execute each tool call with timing and result summary
 			for _, tc := range choice.Message.ToolCalls {
-				fmt.Fprintf(os.Stderr, "\r\n[tool] %s:\r\n", tc.Function.Name)
+				fmt.Fprintf(chatStderr, "\r\n[tool] %s:\r\n", tc.Function.Name)
 				printToolArgs(tc.Function.Arguments)
 
 				toolStart := time.Now()
@@ -1242,7 +1250,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 
 				// Show brief result summary to user
 				resultSummary := summarizeToolResult(tc.Function.Name, toolResult)
-				fmt.Fprintf(os.Stderr, "\r\n[tool] done in %v: %s\r\n", elapsed, resultSummary)
+				fmt.Fprintf(chatStderr, "\r\n[tool] done in %v: %s\r\n", elapsed, resultSummary)
 
 				*history = append(*history, types.ChatMessage{
 					Role:       "tool",
@@ -1262,7 +1270,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 		}
 
 		if turnCount >= maxIterations {
-			fmt.Fprintf(os.Stderr, "\r\nReached maximum iterations (%d). Start a new message to continue.\r\n", maxIterations)
+			fmt.Fprintf(chatStderr, "\r\nReached maximum iterations (%d). Start a new message to continue.\r\n", maxIterations)
 		}
 
 		return result, nil
@@ -1480,7 +1488,7 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		resolved := resolveFileRefs(args)
 		if resolved != args {
 			if shared.Verbose {
-				fmt.Fprintf(os.Stderr, "\r\n[agent] resolved @file refs in %s\r\n", tc.Function.Name)
+				fmt.Fprintf(chatStderr, "\r\n[agent] resolved @file refs in %s\r\n", tc.Function.Name)
 			}
 			args = resolved
 		}
@@ -1623,7 +1631,7 @@ func executeGenerateImage(c *client.Client, argsJSON string) string {
 			overrides = append(overrides, fmt.Sprintf("resolution=%s", d.Resolution))
 		}
 		if len(overrides) > 0 {
-			fmt.Fprintf(os.Stderr, "\r\n[config] %s\r\n", strings.Join(overrides, " | "))
+			fmt.Fprintf(chatStderr, "\r\n[config] %s\r\n", strings.Join(overrides, " | "))
 		}
 	}
 
@@ -1893,7 +1901,7 @@ func printToolArgs(argsJSON string) {
 		if len(raw) > 120 {
 			raw = raw[:120] + "..."
 		}
-		fmt.Fprintf(os.Stderr, "  %s\r\n", raw)
+		fmt.Fprintf(chatStderr, "  %s\r\n", raw)
 		return
 	}
 	for k, v := range m {
@@ -1901,7 +1909,7 @@ func printToolArgs(argsJSON string) {
 		if len(s) > 80 {
 			s = s[:80] + "..."
 		}
-		fmt.Fprintf(os.Stderr, "  %s=%s\r\n", k, s)
+		fmt.Fprintf(chatStderr, "  %s=%s\r\n", k, s)
 	}
 }
 
