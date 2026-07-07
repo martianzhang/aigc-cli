@@ -8,18 +8,18 @@
 
 ```bash
 # 直接传提示词（APIMart 自动异步模式）
-apimart-cli image --prompt "一只猫在星空下"
+aigc-cli image --prompt "一只猫在星空下"
 
 # OpenAI / OpenRouter 自动同步模式
-apimart-cli image --base-url "https://openrouter.ai/api/v1" \
+aigc-cli image --base-url "https://openrouter.ai/api/v1" \
   --prompt "a cat"
 
 # 从文件读取（自动识别文件路径）
-apimart-cli image --prompt prompt.txt
+aigc-cli image --prompt prompt.txt
 
 # 从 stdin 读取
-echo "赛博朋克城市夜景" | apimart-cli image
-apimart-cli image < prompt.txt
+echo "赛博朋克城市夜景" | aigc-cli image
+aigc-cli image < prompt.txt
 ```
 
 ## 参数
@@ -55,14 +55,14 @@ apimart-cli image < prompt.txt
 | `apimart.ai` / `apib.ai` / `aiuxu.com` / `aishuch.com` | async | APIMart 异步任务 |
 | `openai.com` / `openrouter.ai` 或其他 | sync | OpenAI 兼容同步 |
 
-可通过 `apimart-cli image --mode sync|async` 强制指定。
+可通过 `aigc-cli image --mode sync|async` 强制指定。
 
 ```bash
 # 强制异步（即使连的是 OpenAI 兼容中转）
-apimart-cli image --mode async --prompt "..."
+aigc-cli image --mode async --prompt "..."
 
 # 强制同步（即使连的是 APIMart）
-apimart-cli image --mode sync --prompt "..."
+aigc-cli image --mode sync --prompt "..."
 ```
 
 ## 同步模式（OpenAI / OpenRouter）
@@ -70,7 +70,7 @@ apimart-cli image --mode sync --prompt "..."
 图片直接返回，无需等待轮询，下载到当前目录：
 
 ```bash
-apimart-cli image --base-url "https://openrouter.ai/api/v1" \
+aigc-cli image --base-url "https://openrouter.ai/api/v1" \
   --model "openai/dall-e-3" \
   --prompt "A cute cat" \
   --n 2 \
@@ -89,16 +89,16 @@ apimart-cli image --base-url "https://openrouter.ai/api/v1" \
 
 ```bash
 # 使用项目提供的示例文件
-apimart-cli image --json docs/example.json
+aigc-cli image --json docs/example.json
 
 # 自定义 JSON 文件
-apimart-cli image --json request.json
+aigc-cli image --json request.json
 
 # JSON 字符串（适合调试/快速验证）
-apimart-cli image --json '{"prompt":"a red fox","n":4}'
+aigc-cli image --json '{"prompt":"a red fox","n":4}'
 
 # 从 stdin
-cat request.json | apimart-cli image --json -
+cat request.json | aigc-cli image --json -
 ```
 
 项目根目录 `docs/example.json` 提供了完整示例：
@@ -124,12 +124,12 @@ JSON 输入优先级高于 CLI 参数（参考[优先级规则](installation.md#
 
 ```bash
 # 本地文件（自动上传到 APIMart）
-apimart-cli image \
+aigc-cli image \
   --prompt "把这张照片改成吉卜力风格" \
   --image-url ./my-photo.jpg
 
 # 远程 URL
-apimart-cli image \
+aigc-cli image \
   --prompt "融合两张参考图，保留主要轮廓" \
   --image-url "https://example.com/img1.png" \
   --image-url "https://example.com/img2.png"
@@ -143,18 +143,18 @@ apimart-cli image \
 
 ```bash
 # 背景替换
-apimart-cli image --edit \
+aigc-cli image --edit \
   --prompt "把背景换成星空，保留主体" \
   --image-url ./photo.jpg
 
 # 风格迁移
-apimart-cli image --edit \
+aigc-cli image --edit \
   --prompt "转换成赛博朋克风格" \
   --image-url ./img.png \
   --n 2
 
 # 指定模型（不写默认 grok-imagine-1.5-edit-apimart）
-apimart-cli image --edit \
+aigc-cli image --edit \
   --model "grok-imagine-1.5-edit-apimart" \
   --prompt "Change the background to a starry sky" \
   --image-url "https://example.com/img.png"
@@ -177,13 +177,13 @@ apimart-cli image --edit \
 
 ```bash
 # 本地文件自动上传
-apimart-cli image \
+aigc-cli image \
   --prompt "把背景换成沙漠日落" \
   --image-url ./photo.png \
   --mask-url ./mask.png
 
 # 远程 URL
-apimart-cli image \
+aigc-cli image \
   --prompt "Replace background with desert sunset" \
   --image-url "https://example.com/photo.png" \
   --mask-url "https://example.com/mask.png"
@@ -196,7 +196,7 @@ apimart-cli image \
 参考 [APIMart 定价](https://apimart.ai/pricing)，`gpt-image-2-official` 最低 **$0.00144/张**：
 
 ```bash
-apimart-cli image --prompt "..." \
+aigc-cli image --prompt "..." \
   --size "3:1" \
   --resolution "1k" \
   --quality "low"
@@ -221,7 +221,7 @@ apimart-cli image --prompt "..." \
 - 超时后无法恢复，需要重新生成
 - 可通过 `--timeout` 增加超时时间：
   ```bash
-  apimart-cli image --prompt "..." --timeout 300
+  aigc-cli image --prompt "..." --timeout 300
   ```
 - 或在配置文件中设置：`timeout: 300`
 
@@ -229,7 +229,7 @@ apimart-cli image --prompt "..." \
 - 超时后任务仍在后端运行，不会丢失
 - 使用 `task` 命令查询结果：
   ```bash
-  apimart-cli task <task-id>
+  aigc-cli task <task-id>
   ```
 - 任务完成时会自动下载结果
 

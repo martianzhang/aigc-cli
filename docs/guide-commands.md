@@ -16,23 +16,23 @@
 
 ```bash
 # 自动选择数据源
-apimart-cli models
+aigc-cli models
 
 # APIMart 市场（按类型筛选）
-apimart-cli models --type image
-apimart-cli models --type video
-apimart-cli models --type chat
+aigc-cli models --type image
+aigc-cli models --type video
+aigc-cli models --type chat
 
 # APIMart 特定模型定价
-apimart-cli models --price gpt-image-2-official
+aigc-cli models --price gpt-image-2-official
 
 # OpenRouter 模型发现（免认证，无需 API Key）
 # 自动调用 /v1/images/models 或 /v1/videos/models
-apimart-cli models --type image   # 展示架构、参数、能力
-apimart-cli models --type video
+aigc-cli models --type image   # 展示架构、参数、能力
+aigc-cli models --type video
 
 # OpenAI 标准模型列表
-apimart-cli models --base-url "https://api.openai.com/v1"
+aigc-cli models --base-url "https://api.openai.com/v1"
 ```
 
 ## 查询任务状态
@@ -40,7 +40,7 @@ apimart-cli models --base-url "https://api.openai.com/v1"
 仅 APIMart 异步模式可用：
 
 ```bash
-apimart-cli task task_01KV4KD9FBH3AZ4DE18A7Y17S3
+aigc-cli task task_01KV4KD9FBH3AZ4DE18A7Y17S3
 ```
 
 返回完整的任务信息（状态、进度、耗时、费用、结果 URL 等）。图片任务完成后自动下载图片到 `--output` 目录。
@@ -51,10 +51,10 @@ apimart-cli task task_01KV4KD9FBH3AZ4DE18A7Y17S3
 
 ```bash
 # 查询当前 API Key（Token）的余额
-apimart-cli balance
+aigc-cli balance
 
 # 查询用户账号的总余额
-apimart-cli balance user
+aigc-cli balance user
 ```
 
 ## Dry-run 调试
@@ -63,22 +63,22 @@ apimart-cli balance user
 
 ```bash
 # 图片 dry-run
-apimart-cli image --prompt "test" --size "16:9" --dry-run
+aigc-cli image --prompt "test" --size "16:9" --dry-run
 
 # 视频 dry-run
-apimart-cli video --prompt "test" --duration 4 --dry-run
+aigc-cli video --prompt "test" --duration 4 --dry-run
 
 # Midjourney dry-run
-apimart-cli mj imagine --prompt "test" --dry-run
-apimart-cli mj upscale --task-id task_xxx --index 1 --dry-run
+aigc-cli mj imagine --prompt "test" --dry-run
+aigc-cli mj upscale --task-id task_xxx --index 1 --dry-run
 ```
 
 ## 查看版本
 
 ```bash
-apimart-cli version
+aigc-cli version
 # 或
-apimart-cli --version
+aigc-cli --version
 ```
 
 ## API 参考

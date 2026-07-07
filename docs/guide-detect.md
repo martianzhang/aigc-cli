@@ -1,6 +1,6 @@
 # AIGC 检测指南
 
-`apimart-cli detect` 综合分析图片中的多种信号，输出 AI 生成置信度（AIGen rate）和直观的 emoji 标识。
+`aigc-cli detect` 综合分析图片中的多种信号，输出 AI 生成置信度（AIGen rate）和直观的 emoji 标识。
 
 ---
 
@@ -8,16 +8,16 @@
 
 ```bash
 # 基础检测
-apimart-cli detect image.png
+aigc-cli detect image.png
 
 # 检测并打开图片
-apimart-cli detect --preview image.png
+aigc-cli detect --preview image.png
 
 # JSON 输出
-apimart-cli detect --json image.png
+aigc-cli detect --json image.png
 
 # 批量检测
-apimart-cli detect *.png
+aigc-cli detect *.png
 ```
 
 ---
@@ -109,18 +109,18 @@ apimart-cli detect *.png
 
 ```bash
 # 下载大模型（ViT-Base 86M 参数，327MB，推荐）
-apimart-cli detect init
+aigc-cli detect init
 
 # 下载小模型（distilled ViT 11.8M 参数，56MB）
-apimart-cli detect init --model distilled-vit
+aigc-cli detect init --model distilled-vit
 
 # 强制重新下载
-apimart-cli detect init --force
+aigc-cli detect init --force
 ```
 
-模型文件保存到 `~/.config/apimart/models/`：
+模型文件保存到 `~/.config/aigc-cli/models/`：
 ```
-~/.config/apimart/models/
+~/.config/aigc-cli/models/
 ├── onnxruntime.dll               ← ONNX Runtime 动态库（15MB）
 ├── model-vit-base.onnx           ← vit-base 模型（327MB，默认下载）
 └── model-distilled-vit.onnx      ← distilled-vit 模型（56MB）
@@ -152,7 +152,7 @@ ONNX 检测不可用
 检测完成后自动调用系统默认程序打开图片：
 
 ```bash
-apimart-cli detect --preview image.png
+aigc-cli detect --preview image.png
 # 终端输出检测结果，同时弹出系统看图软件
 ```
 
@@ -163,7 +163,7 @@ apimart-cli detect --preview image.png
 结构化 JSON，适合脚本处理：
 
 ```bash
-apimart-cli detect --json image.png
+aigc-cli detect --json image.png
 ```
 
 ```json

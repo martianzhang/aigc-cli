@@ -13,16 +13,16 @@
 
 ```bash
 # 直接进入交互式对话
-apimart-cli chat
+aigc-cli chat
 
 # 设置系统提示词后进入交互式
-apimart-cli chat --system "你是一位诗人"
+aigc-cli chat --system "你是一位诗人"
 
 # 指定模型进入交互式
-apimart-cli chat --model claude-sonnet-4-20250514
+aigc-cli chat --model claude-sonnet-4-20250514
 
 # 交互式 + 显示 token 消耗和耗时
-apimart-cli chat -v
+aigc-cli chat -v
 ```
 
 支持以下命令和快捷操作：
@@ -60,7 +60,7 @@ apimart-cli chat -v
 交互式对话示例（回复流式输出，逐 token 实时显示）：
 
 ```
-$ apimart-cli chat
+$ aigc-cli chat
 Interactive chat mode. Type /help for commands, /exit or Ctrl+C to quit.
 Model: deepseek-v4-flash | Mode: stream
 
@@ -84,7 +84,7 @@ Bye!
 `-v` 模式下每轮结束后额外显示耗时、token 和费用（输出到 stderr，不影响对话内容）：
 
 ```
-$ apimart-cli chat -v
+$ aigc-cli chat -v
 >>> 你好
 你好！有什么可以帮助你的？
 ---  Model: deepseek-v4-flash  |  Tokens: 15↑ + 8↓ = 23  |  Cost: $0.000001  |  Time: 1.234s
@@ -97,16 +97,16 @@ Chat 默认启用 Agent Loop，LLM 可以调用 `generate_image` 和 `generate_v
 
 ```bash
 # 交互式：直接让 LLM 生成图片
-apimart-cli chat
+aigc-cli chat
 >>> 画一只猫在星空下
 # LLM 调用 generate_image → 图片保存到本地 → LLM 告知用户保存位置
 
 # 非交互式单轮：一条消息搞定
-apimart-cli chat --message "画一只猫，然后写首诗描述它"
+aigc-cli chat --message "画一只猫，然后写首诗描述它"
 # LLM 调 generate_image → 生成图片 → 继续 → 输出诗 → 结束
 
 # 生成视频
-apimart-cli chat --message "生成一段日落海滩的视频"
+aigc-cli chat --message "生成一段日落海滩的视频"
 ```
 
 ### 工作原理
@@ -187,30 +187,30 @@ defaults:
 
 ```bash
 # 基本对话（流式输出）
-apimart-cli chat --message "你好，请介绍一下自己"
+aigc-cli chat --message "你好，请介绍一下自己"
 
 # 系统提示词
-apimart-cli chat --system "你是一位诗人" --message "写一首关于AI的诗"
+aigc-cli chat --system "你是一位诗人" --message "写一首关于AI的诗"
 
 # 多轮对话（多个 --message）
-apimart-cli chat \
+aigc-cli chat \
   --message "什么是机器学习？" \
   --message "能举个例子吗？"
 
 # 非流式输出
-echo "Explain Go in 3 words" | apimart-cli chat --no-stream
+echo "Explain Go in 3 words" | aigc-cli chat --no-stream
 
 # 指定模型
-apimart-cli chat --model gpt-4o --message "Hello"
+aigc-cli chat --model gpt-4o --message "Hello"
 
 # 单轮模式查看 token 消耗和耗时
-apimart-cli chat --message "hi" -v
+aigc-cli chat --message "hi" -v
 ```
 
 单轮模式下 `-v` 输出示例：
 
 ```
-$ apimart-cli chat --message "hi" -v
+$ aigc-cli chat --message "hi" -v
 Hello! How can I help you today?
 ---  Model: deepseek-v4-flash  |  Tokens: 15↑ + 8↓ = 23  |  Cost: $0.000001  |  Time: 1.234s
 ```
@@ -221,7 +221,7 @@ Hello! How can I help you today?
 export OPENAI_API_KEY="sk-or-xxx"
 export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
 
-apimart-cli chat --model "openai/gpt-4o" --message "Hello"
+aigc-cli chat --model "openai/gpt-4o" --message "Hello"
 ```
 
 ### 使用任意 OpenAI 兼容中转
@@ -230,7 +230,7 @@ apimart-cli chat --model "openai/gpt-4o" --message "Hello"
 export OPENAI_API_KEY="sk-xxx"
 export OPENAI_BASE_URL="https://your-relay.com/v1"
 
-apimart-cli chat --message "Hello"
+aigc-cli chat --message "Hello"
 ```
 
 ## 参数

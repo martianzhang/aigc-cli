@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你考虑为 apimart-cli 贡献代码！本文档帮助你快速上手。
+感谢你考虑为 aigc-cli 贡献代码！本文档帮助你快速上手。
 
 ## 开发环境
 
@@ -16,7 +16,7 @@ cd apimart-cli
 make build
 
 # 验证
-./apimart-cli version
+./aigc-cli version
 ```
 
 > 建议在开发时设置 `OPENAI_API_KEY` 环境变量，或按 [docs/installation.md](docs/installation.md) 创建配置文件。
@@ -124,7 +124,7 @@ docs(image): 补充 --edit 模式说明
 
 报告 bug 时请提供：
 
-- apimart-cli 版本（`apimart-cli version`）
+- aigc-cli 版本（`aigc-cli version`）
 - 操作系统
 - 完整的命令和输出（注意隐去 API Key）
 - 期望行为和实际行为
