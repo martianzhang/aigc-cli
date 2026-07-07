@@ -8,7 +8,7 @@ import (
 )
 
 func TestDetectFile(t *testing.T) {
-	modelsDir := os.ExpandEnv("$HOME/.config/apimart/models")
+	modelsDir := os.ExpandEnv("$HOME/.config/aigc-cli/models")
 
 	libCandidates := []string{
 		filepath.Join(modelsDir, "onnxruntime-win-x64-1.27.0", "lib", "onnxruntime.dll"),

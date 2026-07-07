@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// mcpCmd represents the `apimart-cli mcp` command.
+// mcpCmd represents the `aigc-cli mcp` command.
 var mcpCmd = &cobra.Command{
 	Use:          "mcp",
 	Short:        "Start MCP server for AI agent integration",
@@ -23,7 +23,7 @@ Example MCP host config:
 {
   "mcpServers": {
     "apimart": {
-      "command": "apimart-cli",
+      "command": "aigc-cli",
       "args": ["mcp"]
     }
   }

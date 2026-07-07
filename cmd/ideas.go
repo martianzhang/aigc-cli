@@ -54,7 +54,7 @@ var (
 
 const ideasDefaultLimit = 8
 
-// ideasCmd represents the `apimart-cli ideas` command.
+// ideasCmd represents the `aigc-cli ideas` command.
 var ideasCmd = &cobra.Command{
 	Use:          "ideas [keywords]",
 	Short:        "Search AI image prompt ideas from local ideas.json",
@@ -66,14 +66,14 @@ reference images, full prompt text, and metadata.
 
 Keywords can be passed as arguments or via stdin:
 
-  apimart-cli ideas "cinematic portrait"
-  apimart-cli ideas "luxury perfume" --limit 3
-  apimart-cli ideas --random              # random ideas without keywords
-  apimart-cli ideas --random --limit 1    # single random idea
-  echo "cyberpunk city" | apimart-cli ideas
-  apimart-cli ideas --json "cat" | jq '.results[].prompt'
+  aigc-cli ideas "cinematic portrait"
+  aigc-cli ideas "luxury perfume" --limit 3
+  aigc-cli ideas --random              # random ideas without keywords
+  aigc-cli ideas --random --limit 1    # single random idea
+  echo "cyberpunk city" | aigc-cli ideas
+  aigc-cli ideas --json "cat" | jq '.results[].prompt'
 
-Data file: ~/.config/apimart/ideas.json (run "apimart-cli ideas init" to download).`,
+Data file: ~/.config/aigc-cli/ideas.json (run "aigc-cli ideas init" to download).`,
 	RunE: runIdeas,
 }
 
@@ -86,7 +86,7 @@ func searchIdeasText(keywords string, limit int) (string, error) {
 	}
 
 	if len(entries) == 0 {
-		return "No ideas found in the database. Run `apimart-cli ideas init` to download.", nil
+		return "No ideas found in the database. Run `aigc-cli ideas init` to download.", nil
 	}
 
 	// Load or build BM25 index
@@ -117,7 +117,7 @@ func searchIdeasRandom(limit int) (string, error) {
 		return "", fmt.Errorf("failed to load ideas: %w", err)
 	}
 	if len(entries) == 0 {
-		return "No ideas found in the database. Run `apimart-cli ideas init` to download.", nil
+		return "No ideas found in the database. Run `aigc-cli ideas init` to download.", nil
 	}
 
 	// Shuffle and pick
@@ -244,7 +244,7 @@ func resolveIdeasKeywords(args []string) (string, error) {
 func loadIdeas() (entries []IdeaEntry, rawData []byte, err error) {
 	path := resolveIdeasDataPath(shared.Cfg)
 	if path == "" {
-		return nil, nil, fmt.Errorf("ideas.json not found.\n  Run 'apimart-cli ideas init' to download the prompt dataset,\n  or place ideas.json at ~/.config/apimart/ideas.json")
+		return nil, nil, fmt.Errorf("ideas.json not found.\n  Run 'aigc-cli ideas init' to download the prompt dataset,\n  or place ideas.json at ~/.config/aigc-cli/ideas.json")
 	}
 	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {

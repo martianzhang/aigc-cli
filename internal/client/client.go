@@ -441,7 +441,7 @@ func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
 			if isTTY {
 				fmt.Println()
 			}
-			return nil, fmt.Errorf("polling timed out after %v\n  The task may still be running. Use: apimart-cli task %s", maxPollDuration, taskID)
+			return nil, fmt.Errorf("polling timed out after %v\n  The task may still be running. Use: aigc-cli task %s", maxPollDuration, taskID)
 		}
 
 		task, err := c.GetTask(taskID)
@@ -739,7 +739,7 @@ func timeoutHint() string {
     → Or switch to an async provider (APIMart) for resumable tasks
 
   If using an async provider (APIMart):
-    → The task may still be running. Use: apimart-cli task <task-id>`
+    → The task may still be running. Use: aigc-cli task <task-id>`
 }
 
 // isTimeoutError checks if an error is caused by an HTTP timeout.

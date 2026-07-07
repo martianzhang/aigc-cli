@@ -14,15 +14,15 @@ import (
 
 const ideasDataURL = "https://raw.githubusercontent.com/martianzhang/apimart-cli/refs/heads/main/docs/ideas.json"
 
-// ideasInitCmd represents the `apimart-cli ideas init` subcommand.
+// ideasInitCmd represents the `aigc-cli ideas init` subcommand.
 var ideasInitCmd = &cobra.Command{
 	Use:          "init",
 	Short:        "Download ideas data and build search index cache",
 	SilenceUsage: true,
 	Long: `Download the AI image prompt ideas dataset and build the search index cache.
 
-The data is saved to ~/.config/apimart/ideas.json (or the configured ideas.data_path)
-and the search index is cached at ~/.config/apimart/ideas.index for fast startup.
+The data is saved to ~/.config/aigc-cli/ideas.json (or the configured ideas.data_path)
+and the search index is cached at ~/.config/aigc-cli/ideas.index for fast startup.
 
 Proxy settings from config.yaml, env vars (HTTP_PROXY), or --http-proxy flag
 are automatically respected.`,
@@ -42,7 +42,7 @@ func runIdeasInit(cmd *cobra.Command, args []string) error {
 
 	// Don't re-download if already exists
 	if _, err := os.Stat(targetPath); err == nil {
-		fmt.Fprintf(os.Stderr, "%s already exists.\n  To re-download the latest data, delete it first:\n    rm %s\n  Then run 'apimart-cli ideas init' again.\n", targetPath, targetPath)
+		fmt.Fprintf(os.Stderr, "%s already exists.\n  To re-download the latest data, delete it first:\n    rm %s\n  Then run 'aigc-cli ideas init' again.\n", targetPath, targetPath)
 		return fmt.Errorf("ideas data already exists")
 	}
 

@@ -436,7 +436,7 @@ type IdeasConfig struct {
 // DetectConfig controls the AIGC detection behavior.
 type DetectConfig struct {
 	// ModelsDir is the directory where ONNX Runtime and model files are stored.
-	// Default: ~/.config/apimart/models
+	// Default: ~/.config/aigc-cli/models
 	ModelsDir string `mapstructure:"models_dir" yaml:"models_dir,omitempty"`
 	// Model selects which ONNX model to use.
 	// Supported: "vit-base" (86M params, default), "distilled-vit" (11.8M params)

@@ -1,4 +1,4 @@
-BINARY    ?= apimart-cli
+BINARY    ?= aigc-cli
 GO        ?= go
 VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 GOFLAGS   ?= -ldflags="-s -w -X github.com/martianzhang/apimart-cli/cmd.Version=$(VERSION)"

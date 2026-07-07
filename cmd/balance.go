@@ -22,9 +22,9 @@ Subcommands:
 If no subcommand is given, defaults to "token".
 
 Examples:
-  apimart-cli balance
-  apimart-cli balance token
-  apimart-cli balance user`,
+  aigc-cli balance
+  aigc-cli balance token
+  aigc-cli balance user`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Default to token balance if no subcommand matched
 		return runBalanceToken()

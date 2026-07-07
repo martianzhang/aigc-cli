@@ -57,7 +57,7 @@ func previewLatestFiles(prefix string) []string {
 	return paths
 }
 
-// previewCmd represents the `apimart-cli preview` command.
+// previewCmd represents the `aigc-cli preview` command.
 var previewCmd = &cobra.Command{
 	Use:          "preview <file...>",
 	Short:        "Preview images and videos in the terminal",
@@ -68,10 +68,10 @@ For image files, also attempts inline terminal display when using a
 supported terminal (iTerm2, Kitty).
 
 Examples:
-  apimart-cli preview image_12345_0.png
-  apimart-cli preview video_67890_0.mp4
-  apimart-cli preview *.png
-  cat image.png | apimart-cli preview`,
+  aigc-cli preview image_12345_0.png
+  aigc-cli preview video_67890_0.mp4
+  aigc-cli preview *.png
+  cat image.png | aigc-cli preview`,
 	RunE: runPreview,
 }
 
@@ -101,7 +101,7 @@ func runPreview(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no data read from stdin")
 	}
 
-	tmpFile, err := os.CreateTemp("", "apimart-preview-*")
+	tmpFile, err := os.CreateTemp("", "aigc-cli-preview-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
