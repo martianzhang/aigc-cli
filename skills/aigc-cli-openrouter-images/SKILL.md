@@ -1,23 +1,23 @@
 ---
-name: openrouter-images
-description: Use "apimart-cli image" with OpenRouter to generate images via the Responses API. Supports text-to-image with aspect ratio control. Automatically detects OpenRouter from --api-base / OPENAI_BASE_URL and uses POST /v1/responses with image output modalities.
+name: aigc-cli-openrouter-images
+description: Use "aigc-cli image" with OpenRouter to generate images via the Responses API. Supports text-to-image with aspect ratio control. Automatically detects OpenRouter from --api-base / OPENAI_BASE_URL and uses POST /v1/responses with image output modalities.
 ---
 
-# openrouter-images
+# aigc-cli-openrouter-images
 
-通过 `apimart-cli image` 调用 OpenRouter 的 Responses API（`POST /v1/responses`）生成图片。支持 `google/gemini-3.1-flash-image-preview` 等原生图片输出模型。
+通过 `aigc-cli image` 调用 OpenRouter 的 Responses API（`POST /v1/responses`）生成图片。支持 `google/gemini-3.1-flash-image-preview` 等原生图片输出模型。
 
 **自动兼容**：当 `--api-base` 或 `OPENAI_BASE_URL` 指向 `openrouter.ai` 时，工具自动使用 Responses API（而不是标准 OpenAI `/v1/images/generations` 端点）。
 
 ## 前置条件
 
-1. 项目已安装 `apimart-cli`（`go install` 或 `make build`）
+1. 项目已安装 `aigc-cli`（`go install` 或 `make build`）
 2. 已配置 OpenRouter API Key：
    ```bash
    export OPENAI_API_KEY="sk-or-xxx"
    export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
    ```
-3. 或在 `~/.config/apimart/config.yaml` 中配置：
+3. 或在 `~/.config/aigc-cli/config.yaml` 中配置：
    ```yaml
    api_key: "sk-or-xxx"
    base_url: "https://openrouter.ai/api/v1"
@@ -40,14 +40,14 @@ export OPENAI_API_KEY="sk-or-xxx"
 export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
 
 # 生成图片（自动识别 OpenRouter，使用 Responses API）
-apimart-cli image --prompt "A red panda wearing sunglasses" \
+aigc-cli image --prompt "A red panda wearing sunglasses" \
   --model "google/gemini-3.1-flash-image-preview"
 ```
 
 ### 2. 指定宽高比
 
 ```bash
-apimart-cli image --prompt "Futuristic cityscape at night" \
+aigc-cli image --prompt "Futuristic cityscape at night" \
   --model "google/gemini-3.1-flash-image-preview" \
   --size "16:9"
 ```
@@ -60,7 +60,7 @@ apimart-cli image --prompt "Futuristic cityscape at night" \
 
 ```bash
 # DALL-E 3（标准 OpenAI 兼容路径）
-apimart-cli image --prompt "a cat" \
+aigc-cli image --prompt "a cat" \
   --model "openai/dall-e-3" \
   --size "1024x1024"
 ```
@@ -68,7 +68,7 @@ apimart-cli image --prompt "a cat" \
 当模型是 `openai/dall-e-*` 时，可以强制走同步模式：
 
 ```bash
-apimart-cli image --prompt "a cat" \
+aigc-cli image --prompt "a cat" \
   --model "openai/dall-e-3" \
   --mode sync
 ```
@@ -78,7 +78,7 @@ apimart-cli image --prompt "a cat" \
 ### 4. 完整参数
 
 ```bash
-apimart-cli image \
+aigc-cli image \
   --prompt "提示词" \
   --model "google/gemini-3.1-flash-image-preview" \
   --size "16:9" \
@@ -88,7 +88,7 @@ apimart-cli image \
 ### 5. JSON 输入
 
 ```bash
-apimart-cli image --json '{
+aigc-cli image --json '{
   "model": "google/gemini-3.1-flash-image-preview",
   "prompt": "your prompt",
   "size": "16:9",
@@ -105,19 +105,19 @@ apimart-cli image --json '{
 | `openai/dall-e-3` | DALL-E 3（走同步模式） |
 | `openai/dall-e-2` | DALL-E 2（走同步模式） |
 
-使用 `apimart-cli models` 查看完整模型列表。
+使用 `aigc-cli models` 查看完整模型列表。
 
 ## 调试技巧
 
 ```bash
 # 查看请求详情
-apimart-cli image --prompt "test" -v
+aigc-cli image --prompt "test" -v
 
 # Dry-run 查看 curl
-apimart-cli image --prompt "test" --dry-run
+aigc-cli image --prompt "test" --dry-run
 
 # 指定输出目录
-apimart-cli image --prompt "test" --output ./downloads
+aigc-cli image --prompt "test" --output ./downloads
 ```
 
 ## 注意事项

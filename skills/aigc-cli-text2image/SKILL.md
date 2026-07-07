@@ -1,16 +1,16 @@
 ---
-name: apimart-text2image
-description: Use "apimart-cli image" to generate images via OpenAI-compatible APIs (APIMart, OpenAI, OpenRouter). Supports text-to-image, image-to-image, inpainting, Grok Imagine Edit (--edit), local file upload, dry-run, proxy, sync/async mode detect. Automatically polls task and downloads images.
+name: aigc-cli-text2image
+description: Use "aigc-cli image" to generate images via OpenAI-compatible APIs (APIMart, OpenAI, OpenRouter). Supports text-to-image, image-to-image, inpainting, Grok Imagine Edit (--edit), local file upload, dry-run, proxy, sync/async mode detect. Automatically polls task and downloads images.
 ---
 
-# apimart-text2image
+# aigc-cli-text2image
 
-通过 `apimart-cli image` 调用 OpenAI 兼容 API 生成图片。支持 APIMart（异步任务）、OpenAI / OpenRouter（同步），自动检测 API 地址并选择对应模式。也支持 Grok Imagine 1.5 Edit 图片编辑（`--edit` 模式）。提交任务后自动轮询完成并下载图片到当前目录。
+通过 `aigc-cli image` 调用 OpenAI 兼容 API 生成图片。支持 APIMart（异步任务）、OpenAI / OpenRouter（同步），自动检测 API 地址并选择对应模式。也支持 Grok Imagine 1.5 Edit 图片编辑（`--edit` 模式）。提交任务后自动轮询完成并下载图片到当前目录。
 
 ## 前置条件
 
-1. 项目已安装 `apimart-cli`（`go install` 或 `make build`）
-2. 已配置 API Key（`~/.config/apimart/config.yaml` 或 `OPENAI_API_KEY` / `APIMART_API_KEY` 环境变量）
+1. 项目已安装 `aigc-cli`（`go install` 或 `make build`）
+2. 已配置 API Key（`~/.config/aigc-cli/config.yaml` 或 `OPENAI_API_KEY` / `APIMART_API_KEY` 环境变量）
    - 图片默认参数在 `defaults.image` 下配置
    - Midjourney / Grok 等模型参数在 `defaults.midjourney` 下配置
 
@@ -30,11 +30,11 @@ description: Use "apimart-cli image" to generate images via OpenAI-compatible AP
 
 ```bash
 # 直接传提示词
-apimart-cli image --prompt "你的提示词"
+aigc-cli image --prompt "你的提示词"
 
 # --prompt 不传时默认读 stdin
-echo "你的提示词" | apimart-cli image
-apimart-cli image < prompt.txt
+echo "你的提示词" | aigc-cli image
+aigc-cli image < prompt.txt
 ```
 
 提交后自动轮询，任务完成即下载图片到当前目录。
@@ -45,12 +45,12 @@ apimart-cli image < prompt.txt
 
 ```bash
 # 自动同步模式
-apimart-cli image --base-url "https://openrouter.ai/api/v1" \
+aigc-cli image --base-url "https://openrouter.ai/api/v1" \
   --prompt "a cat" --model "openai/dall-e-3"
 
 # 强制指定模式
-apimart-cli image --mode sync --prompt "..."
-apimart-cli image --mode async --prompt "..."
+aigc-cli image --mode sync --prompt "..."
+aigc-cli image --mode async --prompt "..."
 ```
 
 同步模式支持 `--style vivid|natural` 和 `--response-format url|b64_json`。
@@ -58,7 +58,7 @@ apimart-cli image --mode async --prompt "..."
 ### 3. 完整参数
 
 ```bash
-apimart-cli image \
+aigc-cli image \
   --prompt "提示词" \
   --model "gpt-image-2-official" \
   --size "16:9" \
@@ -80,19 +80,19 @@ apimart-cli image \
 cat > prompt.txt << 'EOF'
 详细的图片描述...
 EOF
-apimart-cli image --prompt prompt.txt
+aigc-cli image --prompt prompt.txt
 ```
 
 或通过 stdin：
 
 ```bash
-echo "详细描述" | apimart-cli image
+echo "详细描述" | aigc-cli image
 ```
 
 ### 5. JSON 输入
 
 ```bash
-apimart-cli image --json '{
+aigc-cli image --json '{
   "model": "gpt-image-2-official",
   "prompt": "your prompt",
   "size": "16:9",
@@ -104,7 +104,7 @@ apimart-cli image --json '{
 ### 6. 图生图 / Inpainting
 
 ```bash
-apimart-cli image \
+aigc-cli image \
   --prompt "融合两张参考图" \
   --image-url "https://example.com/img1.png" \
   --image-url "https://example.com/img2.png"
@@ -112,7 +112,7 @@ apimart-cli image \
 
 ```bash
 # Inpainting：替换背景
-apimart-cli image \
+aigc-cli image \
   --prompt "把背景换成沙漠日落" \
   --image-url "https://example.com/photo.png" \
   --mask-url "https://example.com/mask.png"
@@ -124,12 +124,12 @@ apimart-cli image \
 
 ```bash
 # 背景替换
-apimart-cli image --edit \
+aigc-cli image --edit \
   --prompt "把背景换成星空，保留主体" \
   --image-url ./photo.jpg
 
 # 风格迁移
-apimart-cli image --edit \
+aigc-cli image --edit \
   --prompt "换成赛博朋克风格" \
   --image-url ./img.png \
   --n 2
@@ -145,8 +145,8 @@ apimart-cli image --edit \
 `--image-url` 和 `--mask-url` 支持本地文件路径，自动上传到 APIMart 后获取 URL：
 
 ```bash
-apimart-cli image --prompt "吉卜力风格" --image-url ./my-photo.jpg
-apimart-cli image --prompt "换背景" --image-url ./photo.png --mask-url ./mask.png
+aigc-cli image --prompt "吉卜力风格" --image-url ./my-photo.jpg
+aigc-cli image --prompt "换背景" --image-url ./photo.png --mask-url ./mask.png
 ```
 
 > 仅 APIMart 异步模式支持本地上传，同步模式（OpenAI/OpenRouter）需使用公开 URL。
@@ -166,7 +166,7 @@ apimart-cli image --prompt "换背景" --image-url ./photo.png --mask-url ./mask
 查看即将提交的 curl 命令，不实际调用 API：
 
 ```bash
-apimart-cli image --prompt "test" --size "16:9" --dry-run
+aigc-cli image --prompt "test" --size "16:9" --dry-run
 ```
 
 ## 最经济配置
@@ -176,7 +176,7 @@ apimart-cli image --prompt "test" --size "16:9" --dry-run
 `gpt-image-2-official` 最低 **$0.00144/张**：
 
 ```bash
-apimart-cli image \
+aigc-cli image \
   --prompt "提示词" \
   --size "3:1" \
   --resolution "1k" \
@@ -191,7 +191,7 @@ apimart-cli image \
 
 ```bash
 # --http-proxy 参数（支持 http/https/socks5）
-apimart-cli image --prompt "..." --http-proxy "http://127.0.0.1:7890"
+aigc-cli image --prompt "..." --http-proxy "http://127.0.0.1:7890"
 
 # 环境变量（自动识别）
 export HTTP_PROXY="http://127.0.0.1:7890"
@@ -206,19 +206,19 @@ export HTTP_PROXY="http://127.0.0.1:7890"
 
 ```bash
 # 查看即将提交的完整请求 JSON
-apimart-cli image --prompt "test" -v
+aigc-cli image --prompt "test" -v
 
 # Dry-run：打印 curl 命令，不实际调用
-apimart-cli image --prompt "test" --dry-run
+aigc-cli image --prompt "test" --dry-run
 
 # 保存 prompt 到 image_{task_id}.md（后续可追溯）
-apimart-cli image --prompt "A red fox" --save-prompt
+aigc-cli image --prompt "A red fox" --save-prompt
 
 # 强制异步模式（走任务队列，支持本地文件上传）
-apimart-cli image --prompt "cat" --mode async
+aigc-cli image --prompt "cat" --mode async
 
 # 强制同步模式（兼容 OpenAI/OpenRouter）
-apimart-cli image --prompt "cat" --mode sync
+aigc-cli image --prompt "cat" --mode sync
 ```
 
 ## 注意事项

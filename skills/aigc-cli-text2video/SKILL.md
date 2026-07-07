@@ -1,11 +1,11 @@
 ---
-name: apimart-text2video
-description: Use "apimart-cli video" to generate videos via the APIMart API (doubao-seedance-2.0, VEO3). Supports text-to-video, image-to-video, first/last frame, reference video/audio, audio-enabled video, VEO3 Remix (--remix), seed, web_search tool, and return-last-frame for continuation. Automatically polls task and downloads videos.
+name: aigc-cli-text2video
+description: Use "aigc-cli video" to generate videos via the APIMart API (doubao-seedance-2.0, VEO3). Supports text-to-video, image-to-video, first/last frame, reference video/audio, audio-enabled video, VEO3 Remix (--remix), seed, web_search tool, and return-last-frame for continuation. Automatically polls task and downloads videos.
 ---
 
-# apimart-text2video
+# aigc-cli-text2video
 
-通过 `apimart-cli video` 调用 APIMart 视频 API 生成视频（doubao-seedance-2.0、VEO3 等）。支持 VEO3 Remix（`--remix`）视频续拍。提交任务后自动轮询完成并下载视频到当前目录。
+通过 `aigc-cli video` 调用 APIMart 视频 API 生成视频（doubao-seedance-2.0、VEO3 等）。支持 VEO3 Remix（`--remix`）视频续拍。提交任务后自动轮询完成并下载视频到当前目录。
 
 支持 `--seed` 种子复现、`--tool web_search` 联网搜索、`--return-last-frame` 返回尾帧用于续拍。
 
@@ -13,8 +13,8 @@ description: Use "apimart-cli video" to generate videos via the APIMart API (dou
 
 ## 前置条件
 
-1. 项目已安装 `apimart-cli`（`go install` 或 `make build`）
-2. 已配置 API Key（`~/.config/apimart/config.yaml` 或 `APIMART_API_KEY` 环境变量）
+1. 项目已安装 `aigc-cli`（`go install` 或 `make build`）
+2. 已配置 API Key（`~/.config/aigc-cli/config.yaml` 或 `APIMART_API_KEY` 环境变量）
    - 视频默认参数在 `defaults.video` 下配置
 
 ## 何时使用
@@ -35,11 +35,11 @@ description: Use "apimart-cli video" to generate videos via the APIMart API (dou
 
 ```bash
 # 直接传提示词
-apimart-cli video --prompt "A kitten yawning at the camera"
+aigc-cli video --prompt "A kitten yawning at the camera"
 
 # --prompt 不传时默认读 stdin
-echo "A cat walking" | apimart-cli video
-apimart-cli video < prompt.txt
+echo "A cat walking" | aigc-cli video
+aigc-cli video < prompt.txt
 ```
 
 提交后自动轮询，任务完成即下载视频到当前目录。
@@ -47,7 +47,7 @@ apimart-cli video < prompt.txt
 ### 2. 指定分辨率和时长
 
 ```bash
-apimart-cli video \
+aigc-cli video \
   --prompt "City nightscape timelapse" \
   --resolution 720p \
   --duration 8 \
@@ -59,7 +59,7 @@ apimart-cli video \
 上传一张图片作为视频的第一帧：
 
 ```bash
-apimart-cli video \
+aigc-cli video \
   --prompt "The kitten stands up and walks toward the camera" \
   --image-url ./cat.jpg
 ```
@@ -71,7 +71,7 @@ apimart-cli video \
 分别指定第一帧和最后一帧，生成过渡动画：
 
 ```bash
-apimart-cli video \
+aigc-cli video \
   --prompt "Transition from day to night" \
   --first-frame day.jpg \
   --last-frame night.jpg
@@ -80,7 +80,7 @@ apimart-cli video \
 ### 5. 生成带音频的视频
 
 ```bash
-apimart-cli video \
+aigc-cli video \
   --prompt "A man speaks to the camera: Hello everyone" \
   --generate-audio
 ```
@@ -88,7 +88,7 @@ apimart-cli video \
 ### 6. 参考视频 + 参考音频
 
 ```bash
-apimart-cli video \
+aigc-cli video \
   --prompt "Convert to anime style" \
   --video-url ./reference.mp4 \
   --audio-url ./background-music.wav
@@ -97,7 +97,7 @@ apimart-cli video \
 ### 7. 续拍（返回最后一帧）
 
 ```bash
-apimart-cli video \
+aigc-cli video \
   --prompt "The kitten continues walking" \
   --image-url ./prev_last_frame.png \
   --return-last-frame
@@ -109,7 +109,7 @@ apimart-cli video \
 
 ```bash
 # 基本续拍
-apimart-cli video --remix \
+aigc-cli video --remix \
   --task-id task_xxx \
   --model veo3.1-fast \
   --prompt "The cat continues running on the grass"
@@ -119,7 +119,7 @@ apimart-cli video --remix \
 
 Remix 支持 `--raw` 参数：指定后只返回续拍的新片段（不包含原始视频）：
 ```bash
-apimart-cli video --remix \
+aigc-cli video --remix \
   --task-id task_xxx \
   --model veo3.1-fast \
   --prompt "keep going" \
@@ -131,7 +131,7 @@ apimart-cli video --remix \
 
 ```bash
 # JSON 字符串
-apimart-cli video --json '{
+aigc-cli video --json '{
   "model": "doubao-seedance-2.0",
   "prompt": "A kitten yawning",
   "resolution": "720p",
@@ -139,10 +139,10 @@ apimart-cli video --json '{
 }'
 
 # JSON 文件
-apimart-cli video --json request.json
+aigc-cli video --json request.json
 
 # stdin
-cat request.json | apimart-cli video --json -
+cat request.json | aigc-cli video --json -
 ```
 
 ### 10. 种子复现
@@ -150,7 +150,7 @@ cat request.json | apimart-cli video --json -
 指定随机种子，保证相同参数生成相同结果：
 
 ```bash
-apimart-cli video --prompt "A cat walking" --seed 42
+aigc-cli video --prompt "A cat walking" --seed 42
 ```
 
 ### 11. 联网搜索
@@ -158,7 +158,7 @@ apimart-cli video --prompt "A cat walking" --seed 42
 使用 `--tool` 参数启用工具：
 
 ```bash
-apimart-cli video --prompt "根据最新新闻生成一段视频" --tool web_search
+aigc-cli video --prompt "根据最新新闻生成一段视频" --tool web_search
 ```
 
 ## 最经济配置
@@ -168,7 +168,7 @@ apimart-cli video --prompt "根据最新新闻生成一段视频" --tool web_sea
 `doubao-seedance-2.0` 最低 **$0.0224/个**（480p，5秒）：
 
 ```bash
-echo "A cat walking" | apimart-cli video --duration 4
+echo "A cat walking" | aigc-cli video --duration 4
 ```
 
 或设入 config.yaml 作为全局默认值：
@@ -185,7 +185,7 @@ defaults:
 
 ```bash
 # --http-proxy 参数（支持 http/https/socks5）
-apimart-cli video --prompt "..." --http-proxy "http://127.0.0.1:7890"
+aigc-cli video --prompt "..." --http-proxy "http://127.0.0.1:7890"
 
 # 环境变量（自动识别）
 export HTTP_PROXY="http://127.0.0.1:7890"
@@ -214,16 +214,16 @@ export HTTP_PROXY="http://127.0.0.1:7890"
 
 ```bash
 # Dry-run：打印 curl 命令，不实际调用
-apimart-cli video --prompt "test" --duration 4 --dry-run
+aigc-cli video --prompt "test" --duration 4 --dry-run
 
 # 查看请求 JSON
-apimart-cli video --prompt "test" -v
+aigc-cli video --prompt "test" -v
 
 # 保存 prompt 到 video_{task_id}.md（后续可追溯）
-apimart-cli video --prompt "A cat" --save-prompt
+aigc-cli video --prompt "A cat" --save-prompt
 
 # 指定输出目录
-apimart-cli video --prompt "cat" --output ./downloads
+aigc-cli video --prompt "cat" --output ./downloads
 ```
 
 ## 注意事项
