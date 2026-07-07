@@ -1,4 +1,4 @@
-# aigc-cli
+![aigc-cli](logo.svg)
 
 [![CI](https://github.com/martianzhang/apimart-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/martianzhang/apimart-cli/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/martianzhang/apimart-cli)](https://go.dev/)
@@ -24,6 +24,8 @@
 ## 快速开始
 
 ### 安装
+
+从 [Releases 页面](https://github.com/martianzhang/aigc-cli/releases) 下载对应平台的二进制，或通过 Go 安装：
 
 ```bash
 go install github.com/martianzhang/apimart-cli@latest
@@ -65,7 +67,7 @@ aigc-cli chat --message "Hello"
 ```json
 {
   "mcpServers": {
-    "apimart": {
+    "aigc-cli": {
       "command": "aigc-cli",
       "args": ["mcp"]
     }
