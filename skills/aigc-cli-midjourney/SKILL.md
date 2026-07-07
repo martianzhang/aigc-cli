@@ -1,16 +1,16 @@
 ---
-name: apimart-midjourney
-description: Use "apimart-cli midjourney" (alias "mj") to generate and edit images via Midjourney on APIMart. Supports imagine, blend, describe, edits, upscale, variation, reroll, zoom, pan, inpaint, modal, video, remix. All async task-based. Automatically polls task and downloads results.
+name: aigc-cli-midjourney
+description: Use "aigc-cli midjourney" (alias "mj") to generate and edit images via Midjourney on APIMart. Supports imagine, blend, describe, edits, upscale, variation, reroll, zoom, pan, inpaint, modal, video, remix. All async task-based. Automatically polls task and downloads results.
 ---
 
-# apimart-midjourney
+# aigc-cli-midjourney
 
-通过 `apimart-cli midjourney`（别名 `mj`）调用 APIMart Midjourney API 生成和编辑图片。所有操作均为异步任务模式，提交后自动轮询完成并下载结果。
+通过 `aigc-cli midjourney`（别名 `mj`）调用 APIMart Midjourney API 生成和编辑图片。所有操作均为异步任务模式，提交后自动轮询完成并下载结果。
 
 ## 前置条件
 
-1. 项目已安装 `apimart-cli`（`go install` 或 `make build`）
-2. 已配置 API Key（`~/.config/apimart/config.yaml` 或 `APIMART_API_KEY` 环境变量）
+1. 项目已安装 `aigc-cli`（`go install` 或 `make build`）
+2. 已配置 API Key（`~/.config/aigc-cli/config.yaml` 或 `APIMART_API_KEY` 环境变量）
    - MJ 默认参数在 `defaults.midjourney` 下配置（speed、version、style、size 等）
 
 ## 何时使用
@@ -38,10 +38,10 @@ reroll    variation / high-variation / low-variation
 
 ```bash
 # 基本文生图（MJ 原生 flag 可直接写 prompt 里）
-apimart-cli mj imagine --prompt "a cute cat --ar 16:9"
+aigc-cli mj imagine --prompt "a cute cat --ar 16:9"
 
 # 结构化参数（推荐）
-apimart-cli mj imagine \
+aigc-cli mj imagine \
   --prompt "a cute cat" \
   --size "16:9" \
   --version "6.1" \
@@ -49,30 +49,30 @@ apimart-cli mj imagine \
   --stylize 750
 
 # 参考图
-apimart-cli mj imagine \
+aigc-cli mj imagine \
   --prompt "turn into a luxury studio photo" \
   --image-url ./product.png \
   --iw 1.2
 
 # Niji 二次元
-apimart-cli mj imagine \
+aigc-cli mj imagine \
   --prompt "anime girl in a moonlit garden" \
   --niji --version "7" --size "9:16"
 
 # v7 Draft 模式（快速出图，适合迭代）
-apimart-cli mj imagine \
+aigc-cli mj imagine \
   --prompt "a cute cat" \
   --version "7" \
   --draft
 
 # v8/v8.1 HD 模式（更高分辨率）
-apimart-cli mj imagine \
+aigc-cli mj imagine \
   --prompt "a cute cat" \
   --version "8.1" \
   --hd
 
 # 高级参数：cref（人物参考）、sref（风格参考）、seed（种子）
-apimart-cli mj imagine \
+aigc-cli mj imagine \
   --prompt "a woman with red hair" \
   --cref https://example.com/face.png \
   --cw 80 \
@@ -112,19 +112,19 @@ apimart-cli mj imagine \
 ### 2. Blend（多图融合）
 
 ```bash
-apimart-cli mj blend --image-url a.png --image-url b.png --dimensions SQUARE
+aigc-cli mj blend --image-url a.png --image-url b.png --dimensions SQUARE
 ```
 
 ### 3. Describe（图片反推提示词）
 
 ```bash
-apimart-cli mj describe --image-url input.png
+aigc-cli mj describe --image-url input.png
 ```
 
 ### 4. Edits（图片编辑）
 
 ```bash
-apimart-cli mj edits \
+aigc-cli mj edits \
   --prompt "replace the background with a modern kitchen" \
   --image-url product.png
 ```
@@ -133,36 +133,36 @@ apimart-cli mj edits \
 
 ```bash
 # 常规放大（U1-U4，从现有图裁剪，毫秒级）
-apimart-cli mj upscale --task-id task_xxx --index 1
+aigc-cli mj upscale --task-id task_xxx --index 1
 
 # HD 高清放大（真实 2x 放大，60-120s）
 # --index 仍指定哪张图，custom-id 告诉 API 用 HD upscale 而不是普通裁剪
 # custom-id 可以从 query 结果中的 buttons 列表获取：
-apimart-cli mj upscale --task-id task_xxx \
+aigc-cli mj upscale --task-id task_xxx \
   --custom-id "MJ::JOB::upsample_v7_2x_subtle::1::abc"
 
 # 流程示例：
 # 1. imagine → 得到 task_a
 # 2. upscale --task-id task_a --index 1 → 得到 task_b（常规）
 # 3. 如果想 HD upscale：先 query task_a 看 buttons 中是否有 HD 选项
-#    apimart-cli mj query task_a
+#    aigc-cli mj query task_a
 #    然后取对应 custom-id 传给 upscale
 ```
 
 ### 6. Variation（变体）
 
 ```bash
-apimart-cli mj variation --task-id task_xxx --index 3
-apimart-cli mj high-variation --task-id task_xxx --index 2
-apimart-cli mj low-variation --task-id task_xxx --index 4
+aigc-cli mj variation --task-id task_xxx --index 3
+aigc-cli mj high-variation --task-id task_xxx --index 2
+aigc-cli mj low-variation --task-id task_xxx --index 4
 ```
 
 ### 7. Reroll / Zoom / Pan
 
 ```bash
-apimart-cli mj reroll --task-id task_xxx
-apimart-cli mj zoom --task-id task_xxx --zoom-ratio 1.5
-apimart-cli mj pan --task-id task_xxx --direction right
+aigc-cli mj reroll --task-id task_xxx
+aigc-cli mj zoom --task-id task_xxx --zoom-ratio 1.5
+aigc-cli mj pan --task-id task_xxx --direction right
 ```
 
 ### 8. Inpaint + Modal（局部重绘）
@@ -170,8 +170,8 @@ apimart-cli mj pan --task-id task_xxx --direction right
 两步完成：先 inpaint 进入 MODAL 状态，再 modal 提交遮罩：
 
 ```bash
-apimart-cli mj inpaint --task-id task_xxx
-apimart-cli mj modal \
+aigc-cli mj inpaint --task-id task_xxx
+aigc-cli mj modal \
   --task-id task_yyy \
   --prompt "replace with red leather sofa" \
   --mask-url ./mask.png
@@ -181,16 +181,16 @@ apimart-cli mj modal \
 
 ```bash
 # 基本：图片 → 视频
-apimart-cli mj video --image-url cat.png --motion high --batch-size 4
+aigc-cli mj video --image-url cat.png --motion high --batch-size 4
 
 # 从 imagine 结果的一帧生成
-apimart-cli mj video --task-id task_xxx --index 0 --animate-mode auto
+aigc-cli mj video --task-id task_xxx --index 0 --animate-mode auto
 
 # 指定 end frame 做 start/end 过渡
-apimart-cli mj video --image-url start.png --end-url end.png --motion low
+aigc-cli mj video --image-url start.png --end-url end.png --motion low
 
 # 视频类型和分辨率
-apimart-cli mj video --image-url cat.png --video-type "vid_1.1_i2v_720"
+aigc-cli mj video --image-url cat.png --video-type "vid_1.1_i2v_720"
 ```
 
 MJ Video 参数：
@@ -210,16 +210,16 @@ MJ Video 参数：
 
 ```bash
 # 强重塑（大幅改变构图/风格）
-apimart-cli mj remix-strong --task-id task_xxx --index 1
+aigc-cli mj remix-strong --task-id task_xxx --index 1
 
 # 弱重塑（保留主体/色调，小幅调整）
-apimart-cli mj remix-subtle --task-id task_xxx --index 1 --prompt "new style"
+aigc-cli mj remix-subtle --task-id task_xxx --index 1 --prompt "new style"
 ```
 
 ### 11. 查询任务
 
 ```bash
-apimart-cli mj query task_xxx
+aigc-cli mj query task_xxx
 ```
 
 查询结果包含 `buttons` 列表，显示当前任务支持哪些后续操作（U1-U4、V1-V4、Zoom Out、Vary Region 等）。每个 button 的 `customId` 可直接传给 `--custom-id` 参数跳过自动匹配。
@@ -227,14 +227,14 @@ apimart-cli mj query task_xxx
 ### 12. JSON 输入
 
 ```bash
-apimart-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}'
+aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}'
 ```
 
 ### 13. Dry-run 调试
 
 ```bash
-apimart-cli mj imagine --prompt "test" --dry-run
-apimart-cli mj upscale --task-id task_xxx --index 1 --dry-run
+aigc-cli mj imagine --prompt "test" --dry-run
+aigc-cli mj upscale --task-id task_xxx --index 1 --dry-run
 ```
 
 ### 14. 全部参数一览（所有子命令通用）
@@ -255,36 +255,36 @@ apimart-cli mj upscale --task-id task_xxx --index 1 --dry-run
 
 ```bash
 # 查看完整请求 JSON
-apimart-cli mj imagine --prompt "test" -v
+aigc-cli mj imagine --prompt "test" -v
 
 # Dry-run 查看 curl 命令（建议首次使用前先试）
-apimart-cli mj imagine --prompt "test" --dry-run
+aigc-cli mj imagine --prompt "test" --dry-run
 
 # 查看任务全部 buttons（含 customId）
-apimart-cli mj query task_xxx -v
+aigc-cli mj query task_xxx -v
 
 # JSON 输入调试
-echo '{"prompt":"a cat","size":"16:9"}' | apimart-cli mj imagine --json -
+echo '{"prompt":"a cat","size":"16:9"}' | aigc-cli mj imagine --json -
 ```
 
 ## 完整工作流示例
 
 ```bash
 # 1. 文生图
-apimart-cli mj imagine --prompt "a cute cat" --size "16:9" --version "6.1"
+aigc-cli mj imagine --prompt "a cute cat" --size "16:9" --version "6.1"
 
 # 2. 选择第 1 张 upscale
-apimart-cli mj upscale --task-id task_xxx --index 1
+aigc-cli mj upscale --task-id task_xxx --index 1
 
 # 3. 对 upscale 后的图 zoom out 1.5x
-apimart-cli mj zoom --task-id task_yyy --zoom-ratio 1.5
+aigc-cli mj zoom --task-id task_yyy --zoom-ratio 1.5
 
 # 或 pan 向右
-apimart-cli mj pan --task-id task_yyy --direction right
+aigc-cli mj pan --task-id task_yyy --direction right
 
 # 4. 或者对 upscale 后结果做局部重绘
-apimart-cli mj inpaint --task-id task_yyy
-apimart-cli mj modal --task-id task_zzz --prompt "add flowers" --mask-url ./mask.png
+aigc-cli mj inpaint --task-id task_yyy
+aigc-cli mj modal --task-id task_zzz --prompt "add flowers" --mask-url ./mask.png
 ```
 
 ## 配置默认值
