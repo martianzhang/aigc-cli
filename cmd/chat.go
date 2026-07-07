@@ -229,7 +229,7 @@ var (
 	chatInteractive bool
 )
 
-// chatCmd represents the `apimart-cli chat` command.
+// chatCmd represents the `aigc-cli chat` command.
 var chatCmd = &cobra.Command{
 	Use:          "chat",
 	Short:        "Chat with AI models (streaming by default)",
@@ -247,15 +247,15 @@ Agentic Chat:
 
 Modes:
   - Interactive multi-turn (default without --message):
-      apimart-cli chat
+      aigc-cli chat
   - Single-turn with --message:
-      apimart-cli chat --message "Hello"
+      aigc-cli chat --message "Hello"
 
 Examples:
-  apimart-cli chat --message "Hello, who are you?"
-  apimart-cli chat --system "You are a poet" --message "Write a poem about AI"
-  apimart-cli chat --message "What is Go?" --message "Can you give an example?" --no-stream
-  apimart-cli chat --json '{"model":"gpt-5","messages":[{"role":"user","content":"Hi"}]}'`,
+  aigc-cli chat --message "Hello, who are you?"
+  aigc-cli chat --system "You are a poet" --message "Write a poem about AI"
+  aigc-cli chat --message "What is Go?" --message "Can you give an example?" --no-stream
+  aigc-cli chat --json '{"model":"gpt-5","messages":[{"role":"user","content":"Hi"}]}'`,
 	RunE: runChat,
 }
 
@@ -1635,7 +1635,7 @@ func executeGenerateImage(c *client.Client, argsJSON string) string {
 		}
 	}
 
-	// Use shared generation function (same logic as apimart-cli image)
+	// Use shared generation function (same logic as aigc-cli image)
 	saved, err := generateImageAndSave(c, req)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
@@ -1663,7 +1663,7 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 		req.Resolution = args.Resolution
 	}
 
-	// Use shared generation function (same logic as apimart-cli video)
+	// Use shared generation function (same logic as aigc-cli video)
 	saved, err := generateVideoAndSave(c, req)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)

@@ -533,7 +533,7 @@ func TestIdeasCache_pathResolution(t *testing.T) {
 		t.Errorf("resolveIdeasDataPath with explicit config should return %q, got %q", fakePath, p)
 	}
 
-	// Without config, the function checks ~/.config/apimart/ideas.json.
+	// Without config, the function checks ~/.config/aigc-cli/ideas.json.
 	// If that file happens to exist (user's real setup), it returns the path.
 	// We just verify the function doesn't panic with nil config.
 	_ = resolveIdeasDataPath(nil)

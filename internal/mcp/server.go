@@ -31,7 +31,7 @@ type Config struct {
 func buildImageDesc(d *types.ImageDefaults, baseURL string) string {
 	b := new(strings.Builder)
 	p := provider.Detect(baseURL)
-	fmt.Fprintf(b, "Generate images via %s.\n\n当前配置（在 ~/.config/apimart/config.yaml 中修改）:\n", p)
+	fmt.Fprintf(b, "Generate images via %s.\n\n当前配置（在 ~/.config/aigc-cli/config.yaml 中修改）:\n", p)
 	if d != nil {
 		fmt.Fprintf(b, "  model = %s | size = %s | resolution = %s\n", d.Model, d.Size, d.Resolution)
 		fmt.Fprintf(b, "  quality = %s | output_format = %s", d.Quality, d.OutputFormat)
@@ -48,7 +48,7 @@ func buildImageDesc(d *types.ImageDefaults, baseURL string) string {
 func buildVideoDesc(d *types.VideoDefaults, baseURL string) string {
 	b := new(strings.Builder)
 	p := provider.Detect(baseURL)
-	fmt.Fprintf(b, "Generate videos via %s (async submit → poll).\n\n当前配置（在 ~/.config/apimart/config.yaml 中修改）:\n", p)
+	fmt.Fprintf(b, "Generate videos via %s (async submit → poll).\n\n当前配置（在 ~/.config/aigc-cli/config.yaml 中修改）:\n", p)
 	if d != nil {
 		fmt.Fprintf(b, "  model = %s", d.Model)
 		if d.Size != "" {
@@ -74,7 +74,7 @@ func buildVideoDesc(d *types.VideoDefaults, baseURL string) string {
 // Handlers are implemented as closures capturing the config.
 func NewServer(cfg *Config) *server.MCPServer {
 	s := server.NewMCPServer(
-		"apimart-cli",
+		"aigc-cli",
 		"0.1.0",
 		server.WithResourceCapabilities(true, true),
 		server.WithLogging(),

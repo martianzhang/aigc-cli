@@ -73,7 +73,7 @@ func loadJobInfo(jobID string) (*openRouterJobInfo, error) {
 	return &info, nil
 }
 
-// videoCmd represents the `apimart-cli video` command.
+// videoCmd represents the `aigc-cli video` command.
 var videoCmd = &cobra.Command{
 	Use:          "video",
 	Short:        "Generate videos via the APIMart API",
@@ -89,13 +89,13 @@ Remix mode (--remix):
   The model must match the original video's model.
 
 Examples:
-  apimart-cli video --prompt "A kitten yawning at the camera"
-  apimart-cli video --prompt "City nightscape" --resolution 720p --duration 8
-  apimart-cli video --prompt "..." --image-url ./cat.jpg
-  apimart-cli video --prompt "Transition day to night" --first-frame day.jpg --last-frame night.jpg
-  apimart-cli video --json request.json
-  apimart-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "continue running"
-  apimart-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "keep going" --raw --resolution 1080p`,
+  aigc-cli video --prompt "A kitten yawning at the camera"
+  aigc-cli video --prompt "City nightscape" --resolution 720p --duration 8
+  aigc-cli video --prompt "..." --image-url ./cat.jpg
+  aigc-cli video --prompt "Transition day to night" --first-frame day.jpg --last-frame night.jpg
+  aigc-cli video --json request.json
+  aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "continue running"
+  aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "keep going" --raw --resolution 1080p`,
 	RunE: runVideo,
 }
 

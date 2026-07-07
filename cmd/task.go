@@ -17,7 +17,7 @@ func queryTaskText(taskID string) (string, error) {
 	if p != provider.APIMart {
 		switch p {
 		case provider.OpenRouter:
-			return "", fmt.Errorf("task query is not available on OpenRouter — use 'apimart-cli video --job-id %s' instead", taskID)
+			return "", fmt.Errorf("task query is not available on OpenRouter — use 'aigc-cli video --job-id %s' instead", taskID)
 		default:
 			return "", fmt.Errorf("task query is only supported on APIMart-compatible providers (apimart.ai / apib.ai / aiuxu.com / aishuch.com)")
 		}
@@ -62,7 +62,7 @@ var taskCmd = &cobra.Command{
 You can query any task by its ID, including image and video generation tasks.
 
 Example:
-  apimart-cli task task_01KV4KD9FBH3AZ4DE18A7Y17S3`,
+  aigc-cli task task_01KV4KD9FBH3AZ4DE18A7Y17S3`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		text, err := queryTaskText(args[0])

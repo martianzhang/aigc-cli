@@ -94,7 +94,7 @@ var (
 )
 
 // ============================================================================
-// Parent command: apimart-cli midjourney
+// Parent command: aigc-cli midjourney
 // ============================================================================
 var midjourneyCmd = &cobra.Command{
 	Use:          "midjourney",
@@ -106,7 +106,7 @@ var midjourneyCmd = &cobra.Command{
 Midjourney uses an async task model — you submit a job, get a task_id,
 then poll for results. All MJ endpoints are under /v1/midjourney/.
 
-Alias: mj (e.g. "apimart-cli mj imagine ...")
+Alias: mj (e.g. "aigc-cli mj imagine ...")
 
 Subcommands:
   imagine          Text-to-image / image-guided (default entry)
@@ -128,11 +128,11 @@ Subcommands:
   query            Get MJ task status
 
 Examples:
-  apimart-cli midjourney imagine --prompt "a cute cat --ar 16:9"
-  apimart-cli mj imagine --prompt "a cute cat"  # same with alias
-  apimart-cli midjourney blend --image-url a.png --image-url b.png
-  apimart-cli midjourney upscale --task-id task_xxx --index 1
-  apimart-cli midjourney query task_xxx`,
+  aigc-cli midjourney imagine --prompt "a cute cat --ar 16:9"
+  aigc-cli mj imagine --prompt "a cute cat"  # same with alias
+  aigc-cli midjourney blend --image-url a.png --image-url b.png
+  aigc-cli midjourney upscale --task-id task_xxx --index 1
+  aigc-cli midjourney query task_xxx`,
 }
 
 // ============================================================================
@@ -601,10 +601,10 @@ var mjImagineCmd = &cobra.Command{
 The default MJ entry point. Supports all MJ structured fields and native flags.
 
 Examples:
-  apimart-cli midjourney imagine --prompt "a cute cat --ar 16:9"
-  apimart-cli midjourney imagine --prompt "a cat" --size "16:9" --version "6.1" --style raw
-  apimart-cli midjourney imagine --prompt "luxury product" --image-url ref.png --iw 1.2
-  apimart-cli midjourney imagine --json request.json`,
+  aigc-cli midjourney imagine --prompt "a cute cat --ar 16:9"
+  aigc-cli midjourney imagine --prompt "a cat" --size "16:9" --version "6.1" --style raw
+  aigc-cli midjourney imagine --prompt "luxury product" --image-url ref.png --iw 1.2
+  aigc-cli midjourney imagine --json request.json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		req, err := buildMJImagineReq(cmd)
 		if err != nil {
@@ -640,8 +640,8 @@ var mjBlendCmd = &cobra.Command{
 	Long: `Blend 2-4 images into a new image. No prompt is used — pure image blend.
 
 Examples:
-  apimart-cli midjourney blend --image-url a.png --image-url b.png
-  apimart-cli midjourney blend --image-url a.png --image-url b.png --image-url c.png --dimensions PORTRAIT`,
+  aigc-cli midjourney blend --image-url a.png --image-url b.png
+  aigc-cli midjourney blend --image-url a.png --image-url b.png --image-url c.png --dimensions PORTRAIT`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := readInput(mjJSONInput)
@@ -694,7 +694,7 @@ var mjDescribeCmd = &cobra.Command{
 	Long: `Reverse-engineer a prompt from an image. Returns 4 prompt suggestions.
 
 Example:
-  apimart-cli midjourney describe --image-url input.png`,
+  aigc-cli midjourney describe --image-url input.png`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := readInput(mjJSONInput)
@@ -745,7 +745,7 @@ var mjEditsCmd = &cobra.Command{
 Good for background replacement, style transfer, and content changes.
 
 Example:
-  apimart-cli midjourney edits --prompt "replace background with a modern kitchen" --image-url product.png`,
+  aigc-cli midjourney edits --prompt "replace background with a modern kitchen" --image-url product.png`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		req, err := buildMJImagineReq(cmd) // Same structure as imagine
 		if err != nil {
@@ -784,8 +784,8 @@ var mjUpscaleCmd = registerMJTaskActionSubcommand(
 Composed locally from existing images — usually returns instantly.
 
 Examples:
-  apimart-cli midjourney upscale --task-id task_xxx --index 1
-  apimart-cli midjourney upscale --task-id task_xxx --custom-id "MJ::JOB::upsample::1::abc"`,
+  aigc-cli midjourney upscale --task-id task_xxx --index 1
+  aigc-cli midjourney upscale --task-id task_xxx --custom-id "MJ::JOB::upsample::1::abc"`,
 	"upscale",
 )
 
@@ -795,7 +795,7 @@ var mjVariationCmd = registerMJTaskActionSubcommand(
 	`Create a subtle variation (varySubtle) from one tile of an Imagine grid.
 
 Examples:
-  apimart-cli midjourney variation --task-id task_xxx --index 3`,
+  aigc-cli midjourney variation --task-id task_xxx --index 3`,
 	"variation",
 )
 
@@ -805,7 +805,7 @@ var mjHighVariationCmd = registerMJTaskActionSubcommand(
 	`Create a strong variation (varyStrong) from one tile of an Imagine grid.
 
 Example:
-  apimart-cli midjourney high-variation --task-id task_xxx --index 2`,
+  aigc-cli midjourney high-variation --task-id task_xxx --index 2`,
 	"high-variation",
 )
 
@@ -815,7 +815,7 @@ var mjLowVariationCmd = registerMJTaskActionSubcommand(
 	`Create a low (subtle) variation from one tile.
 
 Example:
-  apimart-cli midjourney low-variation --task-id task_xxx --index 4`,
+  aigc-cli midjourney low-variation --task-id task_xxx --index 4`,
 	"low-variation",
 )
 
@@ -828,7 +828,7 @@ var mjRerollCmd = &cobra.Command{
 	Long: `Regenerate 4 images from the source task's prompt. No index needed - whole grid is rerolled.
 
 Example:
-  apimart-cli midjourney reroll --task-id task_xxx`,
+  aigc-cli midjourney reroll --task-id task_xxx`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := readInput(mjJSONInput)
@@ -869,7 +869,7 @@ var mjZoomCmd = &cobra.Command{
 >= 2 or omitted uses CustomZoom (2x).
 
 Example:
-  apimart-cli midjourney zoom --task-id task_xxx --zoom-ratio 1.5`,
+  aigc-cli midjourney zoom --task-id task_xxx --zoom-ratio 1.5`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := readInput(mjJSONInput)
@@ -918,7 +918,7 @@ var mjPanCmd = &cobra.Command{
 Direction: left, right, up, down.
 
 Example:
-  apimart-cli midjourney pan --task-id task_xxx --direction right`,
+  aigc-cli midjourney pan --task-id task_xxx --direction right`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := readInput(mjJSONInput)
@@ -970,7 +970,7 @@ var mjInpaintCmd = &cobra.Command{
 MODAL state — then call "midjourney modal" with a mask + prompt.
 
 Example:
-  apimart-cli midjourney inpaint --task-id task_xxx`,
+  aigc-cli midjourney inpaint --task-id task_xxx`,
 	RunE: func(_ *cobra.Command, args []string) error {
 		req, err := buildMJTaskActionReqFromJSON()
 		if err != nil {
@@ -991,7 +991,7 @@ var mjModalCmd = &cobra.Command{
 With mask_url → inpaint (local repaint). Without → outpaint (expand).
 
 Example:
-  apimart-cli midjourney modal --task-id task_xxx --prompt "replace with red sofa" --mask-url mask.png`,
+  aigc-cli midjourney modal --task-id task_xxx --prompt "replace with red sofa" --mask-url mask.png`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := readInput(mjJSONInput)
@@ -1050,8 +1050,8 @@ var mjVideoCmd = &cobra.Command{
 Text-to-video is NOT supported — a first frame is required.
 
 Examples:
-  apimart-cli midjourney video --image-url cat.png --batch-size 4
-  apimart-cli midjourney video --task-id task_xxx --index 0 --animate-mode auto`,
+  aigc-cli midjourney video --image-url cat.png --batch-size 4
+  aigc-cli midjourney video --task-id task_xxx --index 0 --animate-mode auto`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := readInput(mjJSONInput)
@@ -1118,7 +1118,7 @@ var mjRemixStrongCmd = &cobra.Command{
 	Long: `Strong reshape of a v8/v8.1 parent image. Large change; composition/style may shift.
 
 Example:
-  apimart-cli midjourney remix-strong --task-id task_xxx --index 1`,
+  aigc-cli midjourney remix-strong --task-id task_xxx --index 1`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runMJRmix(cmd, "remix-strong")
 	},
@@ -1130,7 +1130,7 @@ var mjRemixSubtleCmd = &cobra.Command{
 	Long: `Subtle reshape of a v8/v8.1 parent image. Small change; keeps subject/tone.
 
 Example:
-  apimart-cli midjourney remix-subtle --task-id task_xxx --index 1 --prompt "new style"`,
+  aigc-cli midjourney remix-subtle --task-id task_xxx --index 1 --prompt "new style"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runMJRmix(cmd, "remix-subtle")
 	},
@@ -1179,7 +1179,7 @@ var mjQueryCmd = &cobra.Command{
 	Long: `Query a Midjourney task by its task ID.
 
 Example:
-  apimart-cli midjourney query task_xxx`,
+  aigc-cli midjourney query task_xxx`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		taskID := args[0]

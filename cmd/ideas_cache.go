@@ -28,17 +28,27 @@ func init() {
 
 // --- Path resolution ---
 
-// ideasDir returns the default directory ~/.config/apimart/.
+// ideasDir returns the default directory for ideas data.
+// Uses ~/.config/aigc-cli/ (new), with fallback to ~/.config/apimart/ (backward compat).
 func ideasDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "apimart"), nil
+	newDir := filepath.Join(home, ".config", "aigc-cli")
+	oldDir := filepath.Join(home, ".config", "apimart")
+	// Prefer new path; fall back to old path for existing users
+	if _, err := os.Stat(newDir); err == nil {
+		return newDir, nil
+	}
+	if _, err := os.Stat(oldDir); err == nil {
+		return oldDir, nil
+	}
+	return newDir, nil
 }
 
 // resolveIdeasDataPath returns the path to an existing external ideas.json.
-// Order: config ideas.data_path → ~/.config/apimart/ideas.json → empty (use fallback).
+// Order: config ideas.data_path → ~/.config/aigc-cli/ideas.json → fallback to ~/.config/apimart/ → empty.
 func resolveIdeasDataPath(cfg *types.Config) string {
 	if cfg != nil && cfg.Ideas != nil && cfg.Ideas.DataPath != "" {
 		return cfg.Ideas.DataPath
@@ -55,7 +65,7 @@ func resolveIdeasDataPath(cfg *types.Config) string {
 }
 
 // ideasDataSavePath returns the path where ideas.json should be saved.
-// Order: config ideas.data_path → ~/.config/apimart/ideas.json.
+// Order: config ideas.data_path → ~/.config/aigc-cli/ideas.json.
 // Unlike resolveIdeasDataPath, this does NOT check file existence.
 func ideasDataSavePath(cfg *types.Config) string {
 	if cfg != nil && cfg.Ideas != nil && cfg.Ideas.DataPath != "" {
@@ -69,7 +79,7 @@ func ideasDataSavePath(cfg *types.Config) string {
 }
 
 // resolveIndexPath returns the path to the cache index file.
-// Order: config ideas.index_path → ~/.config/apimart/ideas.index.
+// Order: config ideas.index_path → ~/.config/aigc-cli/ideas.index.
 func resolveIndexPath(cfg *types.Config) string {
 	if cfg != nil && cfg.Ideas != nil && cfg.Ideas.IndexPath != "" {
 		return cfg.Ideas.IndexPath

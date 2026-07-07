@@ -38,7 +38,7 @@ var (
 	genPreview      bool
 )
 
-// imageCmd represents the `apimart-cli image` command.
+// imageCmd represents the `aigc-cli image` command.
 var imageCmd = &cobra.Command{
 	Use:          "image",
 	Short:        "Generate images (supports OpenAI sync & APIMart async)",
@@ -57,13 +57,13 @@ Edit mode (--edit):
   Model defaults to grok-imagine-1.5-edit-apimart.
 
 Examples:
-  apimart-cli image --prompt "A cat under starry sky"
-  apimart-cli image --prompt prompt.txt --size "16:9"
-  echo "..." | apimart-cli image --prompt -
-  apimart-cli image --json request.json
-  apimart-cli image --json '{"prompt":"a red fox","n":4}'
-  apimart-cli image --edit --prompt "Change background to starry sky" --image-url photo.jpg
-  apimart-cli image --edit --model "grok-imagine-1.5-edit-apimart" --prompt "Cyberpunk style" --image-url img.png --n 2`,
+  aigc-cli image --prompt "A cat under starry sky"
+  aigc-cli image --prompt prompt.txt --size "16:9"
+  echo "..." | aigc-cli image --prompt -
+  aigc-cli image --json request.json
+  aigc-cli image --json '{"prompt":"a red fox","n":4}'
+  aigc-cli image --edit --prompt "Change background to starry sky" --image-url photo.jpg
+  aigc-cli image --edit --model "grok-imagine-1.5-edit-apimart" --prompt "Cyberpunk style" --image-url img.png --n 2`,
 	RunE: runImageGenerate,
 }
 

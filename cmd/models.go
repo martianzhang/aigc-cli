@@ -21,7 +21,7 @@ var (
 	priceArg  string // "" = not set, "--price" bare = list with pricing, "--price <model>" = detail
 )
 
-// modelsCmd represents the `apimart-cli models` command.
+// modelsCmd represents the `aigc-cli models` command.
 var modelsCmd = &cobra.Command{
 	Use:          "models [--type image|video|chat] [--price [model-name]]",
 	Short:        "List available AI models",
@@ -37,10 +37,10 @@ configured base URL):
   --price, -p [model]    Show pricing, or specify a model name for details
 
 Examples:
-  apimart-cli models
-  apimart-cli models --type image
-  apimart-cli models --price
-  apimart-cli models --price gpt-4o`,
+  aigc-cli models
+  aigc-cli models --type image
+  aigc-cli models --price
+  aigc-cli models --price gpt-4o`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runModels,
 }

@@ -182,7 +182,7 @@ func (c *Client) OpenRouterVideoPollUntilComplete(pollingURL string, pollInterva
 		}
 
 		if time.Since(start) > maxWait {
-			return nil, fmt.Errorf("video polling timed out after %v\n  The job may still be running. Use: apimart-cli video --job-id %s", maxWait, extractJobID(pollingURL))
+			return nil, fmt.Errorf("video polling timed out after %v\n  The job may still be running. Use: aigc-cli video --job-id %s", maxWait, extractJobID(pollingURL))
 		}
 
 		resp, err := c.OpenRouterVideoPoll(pollingURL)

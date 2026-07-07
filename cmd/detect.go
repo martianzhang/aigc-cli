@@ -60,7 +60,7 @@ func runDetect(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no data read from stdin")
 	}
 
-	tmpFile, err := os.CreateTemp("", "apimart-detect-*")
+	tmpFile, err := os.CreateTemp("", "aigc-cli-detect-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -378,9 +378,18 @@ func modelSizeLabel(modelPath string) string {
 func configDir() string {
 	home, _ := os.UserHomeDir()
 	if home == "" {
-		return ".config/apimart"
+		return ".config/aigc-cli"
 	}
-	return filepath.Join(home, ".config", "apimart")
+	// Prefer new path, fall back to old path for backward compat
+	newDir := filepath.Join(home, ".config", "aigc-cli")
+	oldDir := filepath.Join(home, ".config", "apimart")
+	if _, err := os.Stat(newDir); err == nil {
+		return newDir
+	}
+	if _, err := os.Stat(oldDir); err == nil {
+		return oldDir
+	}
+	return newDir
 }
 
 func init() {

@@ -1,6 +1,6 @@
 # Binaries
-apimart-cli
-apimart-cli.exe
+aigc-cli
+aigc-cli.exe
 *.exe
 
 # IDE
@@ -19,7 +19,7 @@ Thumbs.db
 dist/
 
 # Downloaded artifacts and prompt files
-# Legacy apimart_ prefix (backward compatibility)
+# Legacy apimart_ prefix (backward compatibility) — migrated to aigc-cli_
 apimart_*.png
 apimart_*.jpg
 apimart_*.jpeg
@@ -27,6 +27,15 @@ apimart_*.webp
 apimart_*.mp4
 apimart_*.webm
 apimart_*.md
+
+# Downloaded artifacts (current)
+aigc-cli_*.png
+aigc-cli_*.jpg
+aigc-cli_*.jpeg
+aigc-cli_*.webp
+aigc-cli_*.mp4
+aigc-cli_*.webm
+aigc-cli_*.md
 
 # Generic image_ and video_ prefix (current)
 image_*.png

@@ -40,14 +40,14 @@ var modelInfo = map[string]struct {
 	},
 }
 
-// detectInitCmd represents the `apimart-cli detect init` subcommand.
+// detectInitCmd represents the `aigc-cli detect init` subcommand.
 var detectInitCmd = &cobra.Command{
 	Use:          "init",
 	Short:        "Download ONNX Runtime and AIGC detection model",
 	SilenceUsage: true,
 	Long: `Download the ONNX Runtime shared library and the AIGC detection model.
 
-The runtime and model are saved to ~/.config/apimart/models/ for offline
+The runtime and model are saved to ~/.config/aigc-cli/models/ for offline
 AIGC detection via the 'detect' command.
 
 Use --model to choose which ONNX model to download:
@@ -126,7 +126,7 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("  Done.")
 
-	fmt.Println("\nDone! Run 'apimart-cli detect' to use AIGC detection.")
+	fmt.Println("\nDone! Run 'aigc-cli detect' to use AIGC detection.")
 	return nil
 }
 

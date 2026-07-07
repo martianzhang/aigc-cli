@@ -40,7 +40,7 @@ jobs:
         with:
           go-version: '1.25'
       - name: Build
-        run: go build -ldflags="-s -w" -o apimart-cli .
+        run: go build -ldflags="-s -w" -o aigc-cli .
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -64,7 +64,7 @@ jobs:
         run: |
           ext=""
           [ "$GOOS" = "windows" ] && ext=".exe"
-          name="apimart-cli-$GOOS-$GOARCH$ext"
+          name="aigc-cli-$GOOS-$GOARCH$ext"
           go build -ldflags="-s -w" -o "$name" .
           echo "Built: $name"
       - name: Prepare Release Notes
@@ -83,7 +83,7 @@ jobs:
         run: |
           ext=""
           [ "${{ matrix.goos }}" = "windows" ] && ext=".exe"
-          name="apimart-cli-${{ matrix.goos }}-${{ matrix.goarch }}$ext"
+          name="aigc-cli-${{ matrix.goos }}-${{ matrix.goarch }}$ext"
           tag="${{ github.ref_name }}"
           notes_flag=""
           if [ -n "${{ steps.notes.outputs.notes_file }}" ]; then

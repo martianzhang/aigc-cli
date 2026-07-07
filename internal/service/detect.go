@@ -676,7 +676,7 @@ func extractC2PAInfo(data []byte) (vendor, software, version, sourceType string)
 // tc260ProviderCodes maps ContentProducer entity codes (chars 2-21 of the
 // 27-char full code) to provider names. To discover a new code:
 //
-//	apimart-cli detect --verbose <ai-generated-image.png>
+//	aigc-cli detect --verbose <ai-generated-image.png>
 //
 // then copy the ContentProducer value and share it to add here.
 // References: GB 45438-2025, TC260 service provider encoding rules.
@@ -688,7 +688,7 @@ var tc260ProviderCodes = map[string]string{
 	"1191330106MA2CFLDG4R": "阿里巴巴 (Alibaba) — 通义千问 / 通义万相",
 	// ── 以下为常见大模型厂商（需要实际图片确认编码） ──
 	// To add: generate an image with the provider's tool, run
-	//   apimart-cli detect --verbose <image>
+	//   aigc-cli detect --verbose <image>
 	// and submit the ContentProducer code as a PR.
 	// "????????????????????": "DeepSeek — 深度求索",
 	// "????????????????????": "百度 (Baidu) — 文心一言",
