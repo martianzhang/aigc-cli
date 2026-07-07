@@ -204,7 +204,7 @@ aigc-cli/
 - **Provider 检测**集中到 `internal/provider`，新增 provider 只需改此包和策略表
 - **策略路由**（`imageStrategies` / `videoStrategies`）用 match-run 模式派发到不同后端
 - **文件上传**在 client 层自动处理本地路径→URL 转换
-- **配置文件**兼容 `~/.config/openai/config.yaml` 和 `~/.config/aigc-cli/config.yaml`
+- **配置文件**位于 `~/.config/aigc-cli/config.yaml`
 
 ### 5.2 已知技术债务
 

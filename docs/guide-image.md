@@ -202,7 +202,7 @@ aigc-cli image --prompt "..." \
   --quality "low"
 ```
 
-或写入 `~/.config/openai/config.yaml` 作为默认值。
+或写入 `~/.config/aigc-cli/config.yaml` 作为默认值。
 
 ## 输出格式建议
 

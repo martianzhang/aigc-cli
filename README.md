@@ -25,11 +25,7 @@
 
 ### 安装
 
-从 [Releases 页面](https://github.com/martianzhang/aigc-cli/releases) 下载对应平台的二进制，或通过 Go 安装：
-
-```bash
-go install github.com/martianzhang/apimart-cli@latest
-```
+从 [Releases 页面](https://github.com/martianzhang/aigc-cli/releases) 下载对应平台的二进制文件。
 
 ### 使用 OpenAI
 

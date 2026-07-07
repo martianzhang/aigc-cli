@@ -87,7 +87,7 @@ MCP mode reuses the existing config system with three options:
 
 ```bash
 # Option 1: Config file
-# ~/.config/openai/config.yaml or ~/.config/aigc-cli/config.yaml
+# ~/.config/aigc-cli/config.yaml
 
 # Option 2: Environment variables
 OPENAI_API_KEY=sk-xxx aigc-cli mcp

@@ -28,27 +28,17 @@ func init() {
 
 // --- Path resolution ---
 
-// ideasDir returns the default directory for ideas data.
-// Uses ~/.config/aigc-cli/ (new), with fallback to ~/.config/apimart/ (backward compat).
+// ideasDir returns the default directory for ideas data: ~/.config/aigc-cli/.
 func ideasDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	newDir := filepath.Join(home, ".config", "aigc-cli")
-	oldDir := filepath.Join(home, ".config", "apimart")
-	// Prefer new path; fall back to old path for existing users
-	if _, err := os.Stat(newDir); err == nil {
-		return newDir, nil
-	}
-	if _, err := os.Stat(oldDir); err == nil {
-		return oldDir, nil
-	}
-	return newDir, nil
+	return filepath.Join(home, ".config", "aigc-cli"), nil
 }
 
 // resolveIdeasDataPath returns the path to an existing external ideas.json.
-// Order: config ideas.data_path → ~/.config/aigc-cli/ideas.json → fallback to ~/.config/apimart/ → empty.
+// Order: config ideas.data_path → ~/.config/aigc-cli/ideas.json → empty (use embedded fallback).
 func resolveIdeasDataPath(cfg *types.Config) string {
 	if cfg != nil && cfg.Ideas != nil && cfg.Ideas.DataPath != "" {
 		return cfg.Ideas.DataPath

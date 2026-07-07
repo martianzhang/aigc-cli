@@ -124,9 +124,7 @@ func runPrintConfig(cmd *cobra.Command) {
 		if cfg != nil {
 			home, _ := os.UserHomeDir()
 			candidates := []string{
-				filepath.Join(home, ".config", "openai", "config.yaml"),
 				filepath.Join(home, ".config", "aigc-cli", "config.yaml"),
-				filepath.Join(home, ".config", "apimart", "config.yaml"),
 			}
 			for _, p := range candidates {
 				if _, err := os.Stat(p); err == nil {
@@ -422,7 +420,7 @@ func isNoAPIKeyRequired(cmd *cobra.Command) bool {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&shared.CfgFile, "config", "", "path to config file (default ~/.config/openai/config.yaml or ~/.config/aigc-cli/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&shared.CfgFile, "config", "", "path to config file (default ~/.config/aigc-cli/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&shared.APIKey, "api-key", "", "API key (env: OPENAI_API_KEY or APIMART_API_KEY)")
 	rootCmd.PersistentFlags().StringVar(&shared.APIBase, "api-base", "", "API base URL (env: OPENAI_BASE_URL or APIMART_API_BASE)")
 	rootCmd.PersistentFlags().StringVar(&shared.HTTPProxy, "http-proxy", "", "HTTP proxy URL (env: OPENAI_HTTP_PROXY or APIMART_HTTP_PROXY)")

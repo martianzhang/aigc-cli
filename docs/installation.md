@@ -46,7 +46,7 @@ export OPENAI_API_KEY="sk-xxx"
 
 ## 配置文件
 
-支持两个位置（`~/.config/openai/config.yaml` 优先，`~/.config/aigc-cli/config.yaml` 回退）：
+默认位置 `~/.config/aigc-cli/config.yaml`：
 
 ```yaml
 api_key: "sk-xxx"
