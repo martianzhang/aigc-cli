@@ -392,7 +392,7 @@ HD upsample 按钮不会自动展示在 buttons 列表里（它们是特殊的 c
 
 ## 配置默认值
 
-写入 `~/.config/openai/config.yaml` 或 `~/.config/aigc-cli/config.yaml`（`~/.config/apimart/config.yaml` 仍兼容）：
+写入 `~/.config/aigc-cli/config.yaml`：
 
 ```yaml
 defaults:

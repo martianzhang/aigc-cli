@@ -18,9 +18,7 @@ const (
 	defaultAPIURL = "https://api.apimart.ai"
 )
 
-// Load reads the YAML config from the standard paths (~/.config/aigc-cli/config.yaml,
-// ~/.config/apimart/config.yaml, or ~/.config/openai/config.yaml) or a custom path,
-// and returns the parsed Config.
+// Load reads the YAML config from ~/.config/aigc-cli/config.yaml or a custom path.
 // Supports both OPENAI_* and APIMART_* environment variables for compatibility.
 func Load(customPath string) (*types.Config, error) {
 	v := viper.New()
@@ -40,11 +38,8 @@ func Load(customPath string) (*types.Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot determine home directory: %w", err)
 		}
-		// Try ~/.config/openai/config.yaml first, then ~/.config/aigc-cli/config.yaml,
-		// then ~/.config/apimart/config.yaml (backward compat)
-		v.AddConfigPath(filepath.Join(home, ".config", "openai"))
+		// Default config path
 		v.AddConfigPath(filepath.Join(home, ".config", "aigc-cli"))
-		v.AddConfigPath(filepath.Join(home, ".config", "apimart"))
 		v.SetConfigName(configFile)
 	}
 

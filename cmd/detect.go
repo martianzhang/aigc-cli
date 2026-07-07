@@ -380,16 +380,7 @@ func configDir() string {
 	if home == "" {
 		return ".config/aigc-cli"
 	}
-	// Prefer new path, fall back to old path for backward compat
-	newDir := filepath.Join(home, ".config", "aigc-cli")
-	oldDir := filepath.Join(home, ".config", "apimart")
-	if _, err := os.Stat(newDir); err == nil {
-		return newDir
-	}
-	if _, err := os.Stat(oldDir); err == nil {
-		return oldDir
-	}
-	return newDir
+	return filepath.Join(home, ".config", "aigc-cli")
 }
 
 func init() {

@@ -23,7 +23,7 @@ go install github.com/martianzhang/apimart-cli@latest
 ### 配置文件放在哪里？
 
 两个位置均可（优先级从高到低）：
-- `~/.config/openai/config.yaml`
+- `~/.config/aigc-cli/config.yaml`
 - `~/.config/aigc-cli/config.yaml`
 
 也可通过 `--config /path/to/config.yaml` 指定。
