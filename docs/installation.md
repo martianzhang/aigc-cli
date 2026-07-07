@@ -34,7 +34,7 @@ make release  # 交叉编译（所有平台）
 
 ```bash
 # 方式一：命令行参数
-apimart-cli image --prompt "..." --api-key "sk-xxx"
+aigc-cli image --prompt "..." --api-key "sk-xxx"
 
 # 方式二：环境变量（支持两套命名）
 export OPENAI_API_KEY="sk-xxx"
@@ -46,7 +46,7 @@ export OPENAI_API_KEY="sk-xxx"
 
 ## 配置文件
 
-支持两个位置（`~/.config/openai/config.yaml` 优先，`~/.config/apimart/config.yaml` 回退）：
+支持两个位置（`~/.config/openai/config.yaml` 优先，`~/.config/aigc-cli/config.yaml` 回退）：
 
 ```yaml
 api_key: "sk-xxx"
@@ -89,20 +89,20 @@ defaults:
 加 `--save-prompt` 可将提示词保存到 `image_{task_id}.md` 文件，方便追溯：
 
 ```bash
-apimart-cli image --prompt "A red fox" --save-prompt
+aigc-cli image --prompt "A red fox" --save-prompt
 ```
 
 ## 代理配置
 
 ```bash
 # 命令行指定
-apimart-cli image --prompt "..." --http-proxy "http://127.0.0.1:7890"
+aigc-cli image --prompt "..." --http-proxy "http://127.0.0.1:7890"
 
 # 环境变量（支持 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY / NO_PROXY）
 export HTTP_PROXY="http://127.0.0.1:7890"
 
 # SOCKS5
-apimart-cli image --prompt "..." --http-proxy "socks5://127.0.0.1:1080"
+aigc-cli image --prompt "..." --http-proxy "socks5://127.0.0.1:1080"
 ```
 
 ## 优先级规则

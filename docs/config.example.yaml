@@ -1,5 +1,6 @@
-# APIMart CLI Configuration
-# Place this file at ~/.config/openai/config.yaml or ~/.config/apimart/config.yaml
+# aigc-cli Configuration
+# Place this file at ~/.config/openai/config.yaml, ~/.config/aigc-cli/config.yaml,
+# or ~/.config/apimart/config.yaml (backward compat)
 # or pass --config /path/to/config.yaml at runtime
 
 # API key (can also be set via OPENAI_API_KEY or APIMART_API_KEY env var)
@@ -94,15 +95,15 @@ defaults:
     # allow_tool_override: false      # true=LLM参数优先, false=配置强制覆盖LLM（默认false,省钱）
 
 # Ideas prompt search data and cache.
-# ideas.json and the search index cache are stored at ~/.config/apimart/ by default.
+# ideas.json and the search index cache are stored at ~/.config/aigc-cli/ by default.
 # Cache is enabled by default. Uncomment to customize paths or disable caching:
 # ideas:
-#   data_path: "~/.config/apimart/ideas.json"   # custom ideas.json path
-#   index_path: "~/.config/apimart/ideas.index"  # custom index cache path
+#   data_path: "~/.config/aigc-cli/ideas.json"   # custom ideas.json path
+#   index_path: "~/.config/aigc-cli/ideas.index"  # custom index cache path
 #   cache_enabled: false                          # set false to disable caching
 
 # AIGC detection (detect command).
-# ONNX Runtime + model files are stored at ~/.config/apimart/models/ by default.
+# ONNX Runtime + model files are stored at ~/.config/aigc-cli/models/ by default.
 # detect:
-#   models_dir: "~/.config/apimart/models"    # custom models directory
+#   models_dir: "~/.config/aigc-cli/models"    # custom models directory
 #   model: "vit-base"                          # "vit-base" (default, 86M) or "distilled-vit" (11.8M)

@@ -42,7 +42,7 @@
 make fmt && make build
 ```
 
-编译必须通过。编译产物在项目根目录（`apimart-cli.exe` 或 `apimart-cli`）。
+编译必须通过。编译产物在项目根目录（`aigc-cli.exe` 或 `aigc-cli`）。
 
 ### 2.3 运行测试
 
@@ -166,7 +166,7 @@ scope: `image` / `video` / `chat` / `ideas` / `midjourney` / `mcp` / `config` / 
 ## 五、项目架构
 
 ```
-apimart-cli/
+aigc-cli/
 ├── cmd/              # cobra 命令定义（薄层：解析参数→调用逻辑→输出结果）
 │   ├── image.go      # 图片生成
 │   ├── video.go      # 视频生成
@@ -204,7 +204,7 @@ apimart-cli/
 - **Provider 检测**集中到 `internal/provider`，新增 provider 只需改此包和策略表
 - **策略路由**（`imageStrategies` / `videoStrategies`）用 match-run 模式派发到不同后端
 - **文件上传**在 client 层自动处理本地路径→URL 转换
-- **配置文件**兼容 `~/.config/openai/config.yaml` 和 `~/.config/apimart/config.yaml`
+- **配置文件**兼容 `~/.config/openai/config.yaml` 和 `~/.config/aigc-cli/config.yaml`
 
 ### 5.2 已知技术债务
 

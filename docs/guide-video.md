@@ -19,31 +19,31 @@
 
 ```bash
 # 文生视频
-apimart-cli video --prompt "A kitten yawning at the camera"
+aigc-cli video --prompt "A kitten yawning at the camera"
 
 # --prompt 不传时默认读 stdin
-echo "A kitten yawning" | apimart-cli video
-apimart-cli video < prompt.txt
+echo "A kitten yawning" | aigc-cli video
+aigc-cli video < prompt.txt
 
 # 指定分辨率及时长
-apimart-cli video --prompt "City nightscape" --resolution 720p --duration 8
+aigc-cli video --prompt "City nightscape" --resolution 720p --duration 8
 
 # 图生视频（首帧）
-apimart-cli video --prompt "The kitten walks toward the camera" --image-url ./cat.jpg
+aigc-cli video --prompt "The kitten walks toward the camera" --image-url ./cat.jpg
 
 # 首尾帧过渡
-apimart-cli video --prompt "Transition from day to night" \
+aigc-cli video --prompt "Transition from day to night" \
   --first-frame day.jpg --last-frame night.jpg
 
 # 生成带音频的视频
-apimart-cli video --prompt "A man speaks to the camera" --generate-audio
+aigc-cli video --prompt "A man speaks to the camera" --generate-audio
 
 # 参考视频 + 参考音频
-apimart-cli video --prompt "A person speaking" \
+aigc-cli video --prompt "A person speaking" \
   --video-url ./reference.mp4 --audio-url ./speech.wav
 
 # JSON 输入
-apimart-cli video --json request.json
+aigc-cli video --json request.json
 ```
 
 ## VEO3 Remix（视频续拍）
@@ -54,27 +54,27 @@ apimart-cli video --json request.json
 
 ```bash
 # 基本续拍
-apimart-cli video --remix \
+aigc-cli video --remix \
   --task-id task_xxx \
   --model veo3.1-fast \
   --prompt "The cat continues running on the grass"
 
 # 只返回续拍部分（不包含原视频）
-apimart-cli video --remix \
+aigc-cli video --remix \
   --task-id task_xxx \
   --model veo3.1-quality \
   --prompt "keep dancing" \
   --raw
 
 # 指定分辨率
-apimart-cli video --remix \
+aigc-cli video --remix \
   --task-id task_xxx \
   --model veo3.1-fast \
   --prompt "butterflies fly into the distance" \
   --resolution 1080p
 
 # 更换比例
-apimart-cli video --remix \
+aigc-cli video --remix \
   --task-id task_xxx \
   --model veo3.1-fast \
   --prompt "continue" \
@@ -99,16 +99,16 @@ apimart-cli video --remix \
 
 ```bash
 # 文生视频
-apimart-cli video --prompt "A golden retriever playing fetch" \
+aigc-cli video --prompt "A golden retriever playing fetch" \
   --model "google/veo-3.1"
 
 # 图生视频（首帧）
-apimart-cli video --prompt "The dog runs toward the camera" \
+aigc-cli video --prompt "The dog runs toward the camera" \
   --model "google/veo-3.1" \
   --image-url https://example.com/dog.jpg
 
 # 指定参数
-apimart-cli video --prompt "City timelapse" \
+aigc-cli video --prompt "City timelapse" \
   --model "google/veo-3.1" \
   --resolution 720p --duration 8
 ```
@@ -119,11 +119,11 @@ OpenRouter 视频生成是异步的（30 秒到几分钟）。提交后自动保
 
 ```bash
 # 提交视频任务（自动保存 job 文件）
-apimart-cli video --prompt "A kitten walking" --model "google/veo-3.1"
+aigc-cli video --prompt "A kitten walking" --model "google/veo-3.1"
 # → Job info saved. Resume later with: --job-id vid_xxx
 
 # 断了之后重新拉取下载
-apimart-cli video --job-id vid_xxx
+aigc-cli video --job-id vid_xxx
 ```
 
 Job 文件保存在 `video_job_{jobId}.json`，内含 `polling_url`、`model`、`prompt`、`created_at` 信息。
@@ -136,7 +136,7 @@ Job 文件保存在 `video_job_{jobId}.json`，内含 `polling_url`、`model`、
 | `google/veo-3.0` | Google Veo 3.0 |
 | `minimax/video` | MiniMax 视频模型 |
 
-使用 `apimart-cli models --type video`（免认证）查看完整列表。
+使用 `aigc-cli models --type video`（免认证）查看完整列表。
 
 ## 参数
 
@@ -171,21 +171,21 @@ Job 文件保存在 `video_job_{jobId}.json`，内含 `polling_url`、`model`、
 - 超时后无法恢复，需要重新生成
 - 可通过 `--timeout` 增加：
   ```bash
-  apimart-cli video --prompt "..." --timeout 900
+  aigc-cli video --prompt "..." --timeout 900
   ```
 
 **APIMart 异步模式**
 - 超时后视频仍在后端渲染，不会丢失
 - 使用 `task` 命令查询结果：
   ```bash
-  apimart-cli task <task-id>
+  aigc-cli task <task-id>
   ```
 
 **OpenRouter 视频**
 - 提交后返回 Job ID + polling_url，持久化到 `video_job_{id}.json`
 - 超时后可用 `--job-id` 恢复：
   ```bash
-  apimart-cli video --job-id <job-id>
+  aigc-cli video --job-id <job-id>
   ```
 
 **建议**：视频生成耗时长，推荐使用 APIMart 或 OpenRouter 的异步模式以获得可恢复能力。

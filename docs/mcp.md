@@ -1,6 +1,6 @@
 # MCP Integration
 
-`apimart-cli` implements the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP), allowing AI agents to call image generation, video generation, model queries, and AIGC detection directly — without leaving your chat.
+`aigc-cli` implements the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP), allowing AI agents to call image generation, video generation, model queries, and AIGC detection directly — without leaving your chat.
 
 ## Supported Clients
 
@@ -12,7 +12,7 @@ Add to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "apimart": {
-      "command": "apimart-cli",
+      "command": "aigc-cli",
       "args": ["mcp"]
     }
   }
@@ -34,7 +34,7 @@ Add to Cursor's MCP configuration (`~/.cursor/mcp.json`):
 {
   "mcpServers": {
     "apimart": {
-      "command": "apimart-cli",
+      "command": "aigc-cli",
       "args": ["mcp"]
     }
   }
@@ -49,7 +49,7 @@ Same config pattern — every MCP-compatible client uses the same entry:
 {
   "mcpServers": {
     "apimart": {
-      "command": "apimart-cli",
+      "command": "aigc-cli",
       "args": ["mcp"]
     }
   }
@@ -62,7 +62,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 {
   "mcpServers": {
     "apimart": {
-      "command": "/absolute/path/to/apimart-cli",
+      "command": "/absolute/path/to/aigc-cli",
       "args": ["mcp"]
     }
   }
@@ -87,15 +87,15 @@ MCP mode reuses the existing config system with three options:
 
 ```bash
 # Option 1: Config file
-# ~/.config/openai/config.yaml or ~/.config/apimart/config.yaml
+# ~/.config/openai/config.yaml or ~/.config/aigc-cli/config.yaml
 
 # Option 2: Environment variables
-OPENAI_API_KEY=sk-xxx apimart-cli mcp
+OPENAI_API_KEY=sk-xxx aigc-cli mcp
 
 # Option 3: CLI flags
-apimart-cli mcp --api-key sk-xxx --output ./downloads
+aigc-cli mcp --api-key sk-xxx --output ./downloads
 ```
 
 ## Dynamic Tool Descriptions
 
-On startup, `apimart-cli mcp` reads your `config.yaml` defaults (model, size, resolution, quality, etc.) and injects them into each tool's description. The AI agent sees your current configuration and only overrides parameters when the user explicitly requests it.
+On startup, `aigc-cli mcp` reads your `config.yaml` defaults (model, size, resolution, quality, etc.) and injects them into each tool's description. The AI agent sees your current configuration and only overrides parameters when the user explicitly requests it.
