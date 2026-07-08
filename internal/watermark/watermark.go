@@ -76,7 +76,7 @@ func RemoveWatermarkHinted(img image.Image, producer string) (*image.RGBA, *Resu
 			det := detectWatermark(img, cfg)
 			cfg.DetectThreshold = origThresh
 			if det != nil && det.confidence >= 0.08 {
-				det.w, det.h = cfg.AlphaMap.Width, cfg.AlphaMap.Height
+				// det.w/det.h are already set by scoreCandidateRect to the scaled dimensions
 				dst := removeWatermark(img, det, cfg)
 				region := fmt.Sprintf("%d,%d,%d,%d", det.x, det.y, det.size, det.size)
 				return dst, &Result{
