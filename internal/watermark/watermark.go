@@ -10,6 +10,24 @@ import (
 	"strings"
 )
 
+// ProducerToConfig maps a TC260 ContentProducer value to a registered config name.
+// Handles direct name match and substring match (e.g., "字节跳动 (ByteDance) — 豆包" → "doubao").
+func ProducerToConfig(producer string) string {
+	if producer == "" {
+		return ""
+	}
+	if _, ok := findConfigByName(producer); ok {
+		return producer
+	}
+	lower := strings.ToLower(producer)
+	for _, cfg := range registry {
+		if strings.Contains(lower, cfg.Name) {
+			return cfg.Name
+		}
+	}
+	return ""
+}
+
 // DetectWatermark scans an image for registered watermark types and returns
 // detections sorted by confidence (highest first).
 func DetectWatermark(img image.Image) []Detection {
@@ -49,22 +67,36 @@ func RemoveWatermark(img image.Image) (*image.RGBA, *Result, error) {
 // RemoveWatermarkHinted detects and removes a watermark, preferring a specific
 // config when the producer is known from TC260 metadata (e.g., "doubao", "jimeng").
 func RemoveWatermarkHinted(img image.Image, producer string) (*image.RGBA, *Result, error) {
+	// When the producer is known, try the hinted config FIRST with a relaxed
+	// threshold (the PositionResolver knows the exact location — no false positives).
+	if producer != "" {
+		if cfg, ok := findConfigByName(producer); ok {
+			origThresh := cfg.DetectThreshold
+			cfg.DetectThreshold = 0.08
+			det := detectWatermark(img, cfg)
+			cfg.DetectThreshold = origThresh
+			if det != nil && det.confidence >= 0.08 {
+				det.w, det.h = cfg.AlphaMap.Width, cfg.AlphaMap.Height
+				dst := removeWatermark(img, det, cfg)
+				region := fmt.Sprintf("%d,%d,%d,%d", det.x, det.y, det.size, det.size)
+				return dst, &Result{
+					Removed:    true,
+					Name:       cfg.Name,
+					Confidence: det.confidence,
+					Size:       det.size,
+					Region:     region,
+				}, nil
+			}
+		}
+	}
+
+	// Fall back to generic detection
 	detections := DetectWatermark(img)
 	if len(detections) == 0 {
 		return nil, &Result{Removed: false}, nil
 	}
 
 	best := detections[0]
-	// If the producer is known from TC260, prefer its config even if another
-	// has slightly higher confidence (known positions beat template false positives).
-	if producer != "" {
-		for _, d := range detections {
-			if d.Name == producer || strings.Contains(d.Name, producer) {
-				best = d
-				break
-			}
-		}
-	}
 	cfg, ok := findConfigByName(best.Name)
 	if !ok {
 		return nil, nil, fmt.Errorf("watermark: unknown config %q", best.Name)

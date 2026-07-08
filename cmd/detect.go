@@ -50,7 +50,7 @@ Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
 var detectJSON bool
 var detectPreview bool
 var detectRemoveWM bool
-var detectWatermarkProvider string
+var detectWmProvider string
 
 func runDetect(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
@@ -162,9 +162,16 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	if detectRemoveWM {
 		outPath := cleanPath(path)
 		// Use TC260 metadata as a hint for which watermark engine to prefer
-		producer := detectWatermarkProvider
+		producer := detectWmProvider
 		if producer == "" && result.TC260 != nil && result.TC260.Present {
-			producer = result.TC260.Provider
+			// Try the raw ContentProducer field first (e.g., "doubao", "jimeng")
+			if cp := result.TC260.Fields[service.ContentProducerKey]; cp != "" {
+				producer = watermark.ProducerToConfig(cp)
+			}
+			// Fall back to the resolved provider name
+			if producer == "" && result.TC260.Provider != "" {
+				producer = watermark.ProducerToConfig(result.TC260.Provider)
+			}
 		}
 		res, err := watermark.RemoveFileHinted(path, outPath, producer)
 		if err == nil && res.Removed {
@@ -455,5 +462,7 @@ func init() {
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
 	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "detect and remove visible AI watermarks (Gemini/Doubao/Jimeng), also strips metadata")
-	detectCmd.Flags().StringVar(&detectWatermarkProvider, "watermark", "", `watermark provider hint: "gemini", "doubao", "jimeng" (auto-detected from TC260 if omitted)`)
+	detectCmd.Flags().StringVar(&detectWmProvider, "provider", "",
+		`watermark provider override (`+strings.Join([]string{service.ProviderGemini, service.ProviderDoubao, service.ProviderJimeng}, "/")+`)`+
+			` (auto-detected from TC260 if omitted)`)
 }
