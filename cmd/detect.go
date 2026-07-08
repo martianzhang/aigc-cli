@@ -28,9 +28,7 @@ var detectCmd = &cobra.Command{
 	Use:          "detect <file...>",
 	Short:        "Detect watermarks, metadata, and AIGC signals in images",
 	SilenceUsage: true,
-	Long: `Detect watermarks, metadata, and AIGC signals in image files.
-
-Analyzes images through multiple signals:
+	Long: `Analyzes images through multiple signals:
   - C2PA Content Credentials (tamper-evident provenance metadata)
   - TC260 AIGC labels (China GB 45438-2025)
   - SynthID invisible watermarks (inferred from C2PA vendor)
@@ -43,6 +41,12 @@ Use --remove-watermark to detect and remove visible AI watermarks
 (C2PA/TC260/EXIF) is also stripped during re-encoding, removing
 "Made with AI" labels on social platforms.
 
+Use --add-watermark with --producer to ADD a visible AI watermark
+to an image (for testing). Known producers use their registered
+alpha map and position; unknown producers render the text as a
+watermark using a built-in bitmap font. For doubao/jimeng, TC260
+AIGC metadata is also injected into the output.
+
 Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
 	RunE: runDetect,
 }
@@ -50,6 +54,7 @@ Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
 var detectJSON bool
 var detectPreview bool
 var detectRemoveWM bool
+var detectAddWM bool
 var detectWmProducer string
 
 func runDetect(cmd *cobra.Command, args []string) error {
@@ -144,6 +149,24 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		NoiseScore:     noiseScore,
 		JPEGScore:      jpegScore,
 	}
+
+	// Detect visible AI watermarks (Gemini/Doubao/Jimeng) for AI detection signal.
+	// Only run when no ironclad C2PA/TC260 metadata exists — that's when a visible
+	// watermark left behind on a re-saved/re-encoded image carries decisive weight.
+	if !(opts.C2PAPresent && opts.C2PASource == "AI Generated") && !opts.TC260Present {
+		f, fErr := os.Open(path)
+		if fErr == nil {
+			img, _, decErr := image.Decode(f)
+			f.Close()
+			if decErr == nil {
+				if dets := watermark.DetectWatermark(img); len(dets) > 0 {
+					opts.WatermarkPresent = true
+					opts.WatermarkName = dets[0].Name
+				}
+			}
+		}
+	}
+
 	fr := forensic.Analyze(opts)
 
 	result.AIDetect = &service.AIDetectResult{
@@ -164,11 +187,9 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		// Use TC260 metadata as a hint for which watermark engine to prefer
 		producer := detectWmProducer
 		if producer == "" && result.TC260 != nil && result.TC260.Present {
-			// Try the raw ContentProducer field first (e.g., "doubao", "jimeng")
 			if cp := result.TC260.Fields[service.ContentProducerKey]; cp != "" {
 				producer = watermark.ProducerToConfig(cp)
 			}
-			// Fall back to the resolved provider name
 			if producer == "" && result.TC260.Provider != "" {
 				producer = watermark.ProducerToConfig(result.TC260.Provider)
 			}
@@ -180,9 +201,28 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 				service.PreviewFile(outPath)
 			}
 		} else {
-			// Fallback: strip metadata only
 			if err := stripMetadata(path); err == nil {
 				fmt.Printf("  AI metadata removed → %s\n", outPath)
+			}
+		}
+	}
+	if detectAddWM {
+		producer := detectWmProducer
+		if producer == "" {
+			producer = "unknown"
+		}
+		outPath := strings.TrimSuffix(path, filepath.Ext(path)) + "_watermarked.png"
+		res, err := watermark.AddWatermarkFile(path, outPath, producer)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  Error: %v\n", err)
+		} else {
+			metaNote := ""
+			if producer == "doubao" || producer == "jimeng" {
+				metaNote = " + TC260 metadata"
+			}
+			fmt.Printf("  Watermark added (%s%s) → %s\n", res.Name, metaNote, outPath)
+			if detectPreview {
+				service.PreviewFile(outPath)
 			}
 		}
 	}
@@ -247,6 +287,19 @@ func detectOneFileJSON(path, pathOverride string, aiDetector *onnx.Detector, res
 		FFTScore:       fftScore,
 		NoiseScore:     noiseScore,
 		JPEGScore:      jpegScore,
+	}
+	if !(opts.C2PAPresent && opts.C2PASource == "AI Generated") && !opts.TC260Present {
+		f, fErr := os.Open(path)
+		if fErr == nil {
+			img, _, decErr := image.Decode(f)
+			f.Close()
+			if decErr == nil {
+				if dets := watermark.DetectWatermark(img); len(dets) > 0 {
+					opts.WatermarkPresent = true
+					opts.WatermarkName = dets[0].Name
+				}
+			}
+		}
 	}
 	fr := forensic.Analyze(opts)
 
@@ -462,7 +515,8 @@ func init() {
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
 	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "detect and remove visible AI watermarks (Gemini/Doubao/Jimeng), also strips metadata")
+	detectCmd.Flags().BoolVar(&detectAddWM, "add-watermark", false, "add a visible AI watermark to the image (requires --producer)")
 	detectCmd.Flags().StringVar(&detectWmProducer, "producer", "",
 		`watermark producer override (`+strings.Join([]string{service.ProviderGemini, service.ProviderDoubao, service.ProviderJimeng}, "/")+`)`+
-			` (auto-detected from TC260 if omitted)`)
+			` (for --add-watermark: the text to render as watermark if not a known name)`)
 }

@@ -79,7 +79,26 @@ func Analyze(opts Options) *Result {
 		return r
 	}
 
-	// 3. SynthID inference
+	// 3. Visible AI watermark: ironclad if detected (Gemini/Doubao/Jimeng sparkle/text).
+	// Catches re-saved images that lost C2PA/TC260 metadata but still carry the
+	// visible mark — common when screenshots or re-encodes strip metadata.
+	if opts.WatermarkPresent {
+		wmName := "Visible AI Watermark"
+		if opts.WatermarkName != "" {
+			wmName = fmt.Sprintf("Visible AI Watermark (%s)", opts.WatermarkName)
+		}
+		signals = append(signals, SignalResult{
+			Name: wmName, Score: 1.0, Weight: weightIronclad,
+		})
+		r.AIGenRate = 0.99
+		r.Level = LevelConfirmedAI
+		r.Emoji = "🤖"
+		r.Summary = levelSummary(LevelConfirmedAI, 0.99)
+		r.Signals = signals
+		return r
+	}
+
+	// 4. SynthID inference
 	if opts.SynthIDPresent {
 		s := 0.8
 		if opts.SynthIDLikely {
@@ -167,22 +186,24 @@ func Analyze(opts Options) *Result {
 
 // Options holds all input signals for the analyzer.
 type Options struct {
-	C2PAPresent    bool
-	C2PAVendor     string
-	C2PASource     string
-	TC260Present   bool
-	TC260Provider  string
-	SynthIDPresent bool
-	SynthIDLikely  bool
-	SynthIDSource  string
-	CameraPresent  bool
-	CameraMake     string
-	CameraModel    string
-	ONNXScore      float64 // 0-1, -1 = unavailable
-	ONNXModelSize  string
-	FFTScore       float64 // 0-1, -1 = unavailable
-	NoiseScore     float64 // SRM noise residual score, 0-1, -1 = unavailable
-	JPEGScore      float64 // JPEG double quantization, 0-1, -1 = unavailable
+	C2PAPresent      bool
+	C2PAVendor       string
+	C2PASource       string
+	TC260Present     bool
+	TC260Provider    string
+	SynthIDPresent   bool
+	SynthIDLikely    bool
+	SynthIDSource    string
+	CameraPresent    bool
+	CameraMake       string
+	CameraModel      string
+	ONNXScore        float64 // 0-1, -1 = unavailable
+	ONNXModelSize    string
+	FFTScore         float64 // 0-1, -1 = unavailable
+	NoiseScore       float64 // SRM noise residual score, 0-1, -1 = unavailable
+	JPEGScore        float64 // JPEG double quantization, 0-1, -1 = unavailable
+	WatermarkPresent bool    // visible AI watermark detected (Gemini/Doubao/Jimeng)
+	WatermarkName    string  // detected watermark name, e.g. "gemini", "doubao"
 }
 
 func scoreToLevel(s float64) Level {
