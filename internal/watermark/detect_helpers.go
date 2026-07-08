@@ -6,6 +6,7 @@ import (
 )
 
 // scoreCandidate computes three-stage NCC for a single candidate position.
+// size is the square size used for detection (min of w/h for rectangular alpha maps).
 func scoreCandidate(gray, grad []float64, imgW, imgH int,
 	alpha, alphaGrad []float64, cx, cy, size int) *candidate {
 
@@ -17,6 +18,7 @@ func scoreCandidate(gray, grad []float64, imgW, imgH int,
 	}
 
 	// Extract region from grayscale and gradient
+	// Use the square size for detection (alpha and alphaGrad are also size×size)
 	grayRegion := make([]float64, size*size)
 	gradRegion := make([]float64, size*size)
 	for y := 0; y < size; y++ {
@@ -65,6 +67,79 @@ func scoreCandidate(gray, grad []float64, imgW, imgH int,
 
 	return &candidate{
 		x: cx, y: cy, size: size,
+		spatial:    spatial,
+		gradient:   gradientScore,
+		variance:   varianceScore,
+		confidence: confidence,
+	}
+}
+
+// scoreCandidateRect scores a rectangular region with a rectangular alpha map.
+// Used for text watermarks (Doubao, Jimeng) where the alpha map is wider than tall.
+// The alpha and alphaGrad should already be resized to aw×ah.
+func scoreCandidateRect(gray, grad []float64, imgW, imgH int,
+	alpha, alphaGrad []float64, cx, cy, aw, ah int) *candidate {
+
+	if cx < 0 || cy < 0 || cx+aw > imgW || cy+ah > imgH {
+		return nil
+	}
+	if aw < 4 || ah < 4 {
+		return nil
+	}
+
+	// Extract rectangular region from grayscale and gradient
+	grayRegion := make([]float64, aw*ah)
+	gradRegion := make([]float64, aw*ah)
+	for y := 0; y < ah; y++ {
+		for x := 0; x < aw; x++ {
+			gi := (cy+y)*imgW + cx + x
+			li := y*aw + x
+			grayRegion[li] = gray[gi]
+			gradRegion[li] = grad[gi]
+		}
+	}
+
+	// Spatial NCC: grayscale vs alpha map (both are aw×ah)
+	spatial := ncc(grayRegion, alpha)
+
+	// Gradient NCC: edges vs alpha map edges
+	gradientScore := ncc(gradRegion, alphaGrad)
+
+	// Variance analysis
+	varianceScore := 0.5
+	refY := cy - ah
+	if refY >= 0 {
+		refH := minInt(ah, cy-refY)
+		if refH > 8 {
+			wmVar := regionVariance(gray, imgW, cx, cy, aw, ah)
+			refVar := regionVariance(gray, imgW, cx, refY, aw, refH)
+			if refVar > 1e-10 {
+				v := 1 - wmVar/refVar
+				if v > 0 {
+					varianceScore = v
+				}
+				if varianceScore > 1 {
+					varianceScore = 1
+				}
+			}
+		}
+	}
+
+	if spatial < 0 {
+		spatial = 0
+	}
+	if gradientScore < 0 {
+		gradientScore = 0
+	}
+	confidence := spatial*0.5 + gradientScore*0.3 + varianceScore*0.2
+
+	// Use min dimension as size for compatibility
+	sz := aw
+	if ah < sz {
+		sz = ah
+	}
+	return &candidate{
+		x: cx, y: cy, size: sz, w: aw, h: ah,
 		spatial:    spatial,
 		gradient:   gradientScore,
 		variance:   varianceScore,

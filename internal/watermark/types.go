@@ -9,7 +9,8 @@ type Type int
 const (
 	TypeUnknown Type = iota
 	TypeGeminiSparkle
-	// Future: TypeDoubaoText, TypeJimengText, etc.
+	TypeDoubao
+	TypeJimeng
 )
 
 // AlphaMap holds a pre-calibrated transparency mask for a watermark.
@@ -33,6 +34,26 @@ func (am *AlphaMap) At(x, y int) float64 {
 	return am.Data[y*am.Width+x]
 }
 
+// Position describes a candidate watermark location.
+type Position struct {
+	X, Y, W, H int // position and dimensions (W=H for square alpha maps)
+}
+
+// Size returns the square size or min dimension for NCC matching.
+func (p Position) Size() int {
+	if p.W == p.H {
+		return p.W
+	}
+	if p.W < p.H {
+		return p.W
+	}
+	return p.H
+}
+
+// PositionResolver computes candidate watermark positions for a given image size.
+// Used by text-based watermarks (Doubao, Jimeng) that scale with image dimensions.
+type PositionResolver func(w, h int) []Position
+
 // Config describes one watermark type's detection parameters and alpha map.
 type Config struct {
 	Type           Type
@@ -49,6 +70,9 @@ type Config struct {
 	MaxSizeScale float64 // default 2.0
 	// Margin search range (absolute px offset from default)
 	MarginRange int // default 48
+	// PositionResolver overrides DefaultSize/Margin with image-relative positions.
+	// When set, DefaultSize and DefaultMargin* serve as fallback only.
+	PositionResolver PositionResolver
 }
 
 // Result holds the outcome of a watermark removal operation.

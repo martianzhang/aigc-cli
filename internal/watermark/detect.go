@@ -8,6 +8,7 @@ import (
 // candidate holds a detection candidate with its scores.
 type candidate struct {
 	x, y, size int
+	w, h       int // actual alpha map size (w=h=size for square alpha maps)
 	spatial    float64
 	gradient   float64
 	variance   float64
@@ -34,10 +35,7 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 	alphaData := cfg.AlphaMap
 	alphaSize := cfg.DefaultSize
 
-	// 1. Resolve seed configs from catalog
-	seedEntries := resolveWatermarkConfigs(w, h)
-
-	// 2. Score each seed at its exact position
+	// 1. Resolve seed positions
 	type seedScore struct {
 		x, y, size int
 		confidence float64
@@ -45,30 +43,64 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 	}
 	var seeds []seedScore
 
-	for _, entry := range seedEntries {
-		sz := entry.logoSize
-		cx := w - entry.marginX - sz
-		cy := h - entry.marginY - sz
-		if cx < 0 || cy < 0 || cx+sz > w || cy+sz > h {
-			continue
+	if cfg.PositionResolver != nil {
+		// Use image-relative positions (for text watermarks like Doubao, Jimeng).
+		// Alpha map is rectangular; we resize to the full rectangle and score with
+		// scoreCandidateRect.
+		srcW, srcH := alphaData.Width, alphaData.Height
+		positions := cfg.PositionResolver(w, h)
+		for _, pos := range positions {
+			if pos.W < 16 || pos.H < 16 {
+				continue
+			}
+			rsAlpha := resizeAlpha(alphaData.Data, srcW, srcH, pos.W, pos.H)
+			rsGrad := sobelMagnitude(rsAlpha, pos.W, pos.H)
+			cand := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, pos.X, pos.Y, pos.W, pos.H)
+			if cand == nil {
+				continue
+			}
+			sz := pos.W
+			if pos.H < sz {
+				sz = pos.H
+			}
+			cand.x, cand.y = pos.X, pos.Y
+			cand.size = sz
+			sizeWeight := math.Min(1, math.Cbrt(float64(sz)/float64(srcW)))
+			adjusted := cand.confidence * sizeWeight
+			if adjusted < 0.08 {
+				continue
+			}
+			cand.confidence = adjusted
+			seeds = append(seeds, seedScore{pos.X, pos.Y, sz, adjusted, cand})
 		}
-		if sz < 16 || sz > 192 {
-			continue
-		}
+	} else {
+		// Use Gemini catalog positions
+		seedEntries := resolveWatermarkConfigs(w, h)
+		for _, entry := range seedEntries {
+			sz := entry.logoSize
+			cx := w - entry.marginX - sz
+			cy := h - entry.marginY - sz
+			if cx < 0 || cy < 0 || cx+sz > w || cy+sz > h {
+				continue
+			}
+			if sz < 16 || sz > 192 {
+				continue
+			}
 
-		rsAlpha := resizeAlpha(alphaData.Data, alphaSize, alphaSize, sz, sz)
-		rsGrad := sobelMagnitude(rsAlpha, sz, sz)
-		cand := scoreCandidate(gray, grad, w, h, rsAlpha, rsGrad, cx, cy, sz)
-		if cand == nil {
-			continue
+			rsAlpha := resizeAlpha(alphaData.Data, alphaSize, alphaSize, sz, sz)
+			rsGrad := sobelMagnitude(rsAlpha, sz, sz)
+			cand := scoreCandidate(gray, grad, w, h, rsAlpha, rsGrad, cx, cy, sz)
+			if cand == nil {
+				continue
+			}
+			sizeWeight := math.Min(1, math.Cbrt(float64(sz)/float64(alphaSize)))
+			adjusted := cand.confidence * sizeWeight
+			if adjusted < 0.08 {
+				continue
+			}
+			cand.confidence = adjusted
+			seeds = append(seeds, seedScore{cx, cy, sz, adjusted, cand})
 		}
-		sizeWeight := math.Min(1, math.Cbrt(float64(sz)/float64(alphaSize)))
-		adjusted := cand.confidence * sizeWeight
-		if adjusted < 0.08 {
-			continue
-		}
-		cand.confidence = adjusted
-		seeds = append(seeds, seedScore{cx, cy, sz, adjusted, cand})
 	}
 
 	// Sort seeds by confidence descending
