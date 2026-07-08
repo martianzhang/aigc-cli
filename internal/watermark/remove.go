@@ -108,6 +108,12 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 		// Phase 3: edge cleanup
 		if dw == dh {
 			best.dst = blendEdgeResidual(best.dst, best.alpha, det.x, det.y, size)
+			// Thin inpaint over the very edge of the sparkle footprint to
+			// smooth any residual boundary artifacts (JPEG compression noise,
+			// sub-pixel misalignment). Only affects pixels with very low alpha
+			// (the anti-aliased edge), preserving the reverse-alpha recovery
+			// at the sparkle center.
+			best.dst = inpaintResidual(best.dst, best.alpha, det.x, det.y, size, size, 0.01, 3, 3)
 		} else {
 			// Text watermark residual cleanup: dilate alpha mask + inpaint,
 			// matching the reference project's approach (cv2.inpaint with

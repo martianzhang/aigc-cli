@@ -194,13 +194,17 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 		}
 	}
 
-	// Expand search region by 24px in each direction
-	searchLeft := maxInt(0, minX-24)
-	searchRight := minInt(w, maxX+24)
-	searchTop := maxInt(0, minY-24)
-	searchBottom := minInt(h, maxY+24)
-	searchMinSize := maxInt(24, minSize-16)
-	searchMaxSize := minInt(192, maxSize+16)
+	// Expand search region. Use ±50px or 5% of image width, whichever is larger,
+	// to handle screenshots and re-saved images where the watermark position
+	// drifts from the catalog-calculated position.
+	searchPad := maxInt(50, int(float64(w)*0.05))
+	sizePad := maxInt(24, int(float64(maxSize)*0.3))
+	searchLeft := maxInt(0, minX-searchPad)
+	searchRight := minInt(w, maxX+searchPad)
+	searchTop := maxInt(0, minY-searchPad)
+	searchBottom := minInt(h, maxY+searchPad)
+	searchMinSize := maxInt(20, minSize-sizePad)
+	searchMaxSize := minInt(192, maxSize+sizePad)
 
 	const coarseStride = 8
 	var top5 []candidate

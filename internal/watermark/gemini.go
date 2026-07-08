@@ -155,7 +155,9 @@ func resolveWatermarkConfigs(w, h int) []watermarkEntry {
 		}
 	}
 
-	// 2. Near-official: closest aspect-ratio match, project config
+	// 2. Near-official: closest aspect-ratio match, project config.
+	// Tolerance 15% handles screenshots, re-saved, and mildly cropped images
+	// whose aspect ratio drifts from the official catalog entry.
 	if len(candidates) == 0 {
 		targetRatio := float64(w) / float64(h)
 		var bestEntry *watermarkEntry
@@ -169,7 +171,7 @@ func resolveWatermarkConfigs(w, h int) []watermarkEntry {
 				bestEntry = e
 			}
 		}
-		if bestEntry != nil && bestDelta < 0.05 {
+		if bestEntry != nil && bestDelta < 0.15 {
 			scaleX := float64(w) / float64(bestEntry.width)
 			scaleY := float64(h) / float64(bestEntry.height)
 			projSize := int(math.Round(float64(bestEntry.logoSize) * (scaleX + scaleY) / 2))
@@ -194,18 +196,36 @@ func resolveWatermarkConfigs(w, h int) []watermarkEntry {
 		}
 	}
 
-	// 3. Always add fallback common configs (not tied to specific image size)
+	// 3. Always add fallback configs. For non-official sizes (screenshots,
+	// re-saved, cropped), scale the watermark size by the image's short side
+	// so the fallback stays proportional. The reference sizes at native
+	// resolution are 96px (2k/4k) and 48px (0.5k/1k); we scale by short/2048
+	// and short/1024 respectively, clamped to [24, 192].
+	short := w
+	if h < short {
+		short = h
+	}
+	scale96 := float64(short) / 2048.0
+	scale48 := float64(short) / 1024.0
+	fb96 := int(math.Max(24, math.Min(192, math.Round(96*scale96))))
+	fb48 := int(math.Max(24, math.Min(96, math.Round(48*scale48))))
+	fb36 := int(math.Max(20, math.Min(72, math.Round(36*scale96))))
+	mx64 := int(math.Max(8, math.Round(64*scale96)))
+	mx32 := int(math.Max(4, math.Round(32*scale48)))
+	mx96 := int(math.Max(8, math.Round(96*scale96)))
+	mx192 := int(math.Max(8, math.Round(192*scale96)))
+
 	fallbacks := []watermarkEntry{
 		// Gemini V2 new placement: 96px, 192px margin (known as '2k-new-margin')
-		{width: w, height: h, logoSize: 96, marginX: 192, marginY: 192, name: "gemini-v2"},
+		{width: w, height: h, logoSize: fb96, marginX: mx192, marginY: mx192, name: "gemini-v2"},
 		// Gemini V1 standard: 96px, 64px margin
-		{width: w, height: h, logoSize: 96, marginX: 64, marginY: 64, name: "gemini-v1"},
+		{width: w, height: h, logoSize: fb96, marginX: mx64, marginY: mx64, name: "gemini-v1"},
 		// Gemini 3.x current 1k: 48px, 32px margin
-		{width: w, height: h, logoSize: 48, marginX: 32, marginY: 32, name: "gemini-48"},
+		{width: w, height: h, logoSize: fb48, marginX: mx32, marginY: mx32, name: "gemini-48"},
 		// Gemini 3.x large margin: 48px, 96px margin
-		{width: w, height: h, logoSize: 48, marginX: 96, marginY: 96, name: "gemini-48-lg"},
+		{width: w, height: h, logoSize: fb48, marginX: mx96, marginY: mx96, name: "gemini-48-lg"},
 		// Gemini V2 small: 36px, 96px margin
-		{width: w, height: h, logoSize: 36, marginX: 96, marginY: 96, name: "gemini-36"},
+		{width: w, height: h, logoSize: fb36, marginX: mx96, marginY: mx96, name: "gemini-36"},
 	}
 	for _, fb := range fallbacks {
 		if fb.width-fb.marginX-fb.logoSize >= 0 && fb.height-fb.marginY-fb.logoSize >= 0 {
