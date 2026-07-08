@@ -112,13 +112,15 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 		}
 	}
 
-	// 3. If best seed passes high threshold, return immediately
-	if len(seeds) > 0 && seeds[0].confidence >= cfg.DetectThreshold+0.08 {
+	// 3. If best seed passes high threshold, return immediately.
+	//    For PositionResolver configs (text watermarks), skip the fine search
+	//    entirely — the exact position is known, no need to refine.
+	if len(seeds) > 0 && (cfg.PositionResolver != nil || seeds[0].confidence >= cfg.DetectThreshold+0.08) {
 		return seeds[0].cand
 	}
 
-	// 4. Limited coarse+fine search around the top few seed positions
-	if len(seeds) == 0 {
+	// 4. Limited coarse+fine search around the top few seed positions (Gemini only)
+	if len(seeds) == 0 || cfg.PositionResolver != nil {
 		return nil
 	}
 
