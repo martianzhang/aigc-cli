@@ -223,15 +223,17 @@ aigc-cli detect --json image.png
 
 ---
 
-## 可见水印去除（`--remove-watermark`）
+## 可见水印检测与去除
 
-从 AI 生成图片中检测并去除可见水印。支持以下平台：
+> 详细文档见 [guide-watermark.md](guide-watermark.md) — 包括引擎架构对比、检测/去除/添加流程、位置确定策略、添加新模型步骤。
 
-| 平台 | 水印内容 | 布局 |
+支持检测与去除以下可见 AI 水印：
+
+| 平台 | 水印内容 | 类型 |
 |---|---|---|
-| **Gemini** (Google) | ✦ Sparkle 图标 | 右下角，固定像素边距 |
-| **豆包** (ByteDance) | "豆包AI生成" 文字 | 右下角，按图片宽度等比缩放 |
-| **即梦** (ByteDance) | "★ 即梦AI" 文字 | 右下角，按图片宽度等比缩放 |
+| **Gemini** (Google) | ✦ Sparkle 图标 | 右下角固定像素边距 |
+| **豆包** (ByteDance) | "豆包AI生成" 文字 | 右下角按图片短边缩放 |
+| **即梦** (ByteDance) | "★ 即梦AI" 文字 | 右下角按图片短边缩放 |
 
 ### 用法
 
@@ -244,44 +246,29 @@ aigc-cli detect --remove-watermark --producer doubao image.png
 aigc-cli detect --remove-watermark --producer jimeng image.png
 aigc-cli detect --remove-watermark --producer gemini image.png
 
-# 去除后自动预览
-aigc-cli detect --remove-watermark --preview image.png
+# 加水印（详见 guide-watermark.md）
+aigc-cli detect --add-watermark image.png --producer doubao
+aigc-cli detect --add-watermark image.png --producer "CustomText"
 ```
 
-### 路由逻辑
+### 水印作为 AI 检测信号
 
-1. **TC260 元数据路由** — 如果图片的 TC260 `ContentProducer` 字段已知（如 `doubao`、`jimeng`），优先使用对应的位置解析器，以低阈值（0.08）在精确位置检测
-2. **手动 `--producer` 覆盖** — 指定后跳过元数据检测，直接使用对应引擎
-3. **通用 NCC 模板匹配** — 无元数据或无 producer 指定时，遍历所有注册配置，取最高置信度
-
-### 技术方案
-
-采用**逆 alpha 混合**（reverse alpha blending）：
+当图片没有 C2PA/TC260 元数据时（如截图、重新保存），可见水印作为 **ironclad** 级别信号参与 AI 检测评分：
 
 ```
-original = (pixel - alpha × logo) / (1 - alpha)
+AI Detect:  🤖 99%  Confirmed AI-generated
+    Visible AI Watermark (gemini)=100%
 ```
-
-- 多档 alpha gain 尝试（0.6–1.3）
-- 亚像素精调（±0.5px，±2% 缩放）
-- 边缘残余邻域修复
-- 最多 4 轮迭代去除
-
-**Gemini** 使用固定尺寸目录匹配（官方 Gemini 输出尺寸 → 已知水印大小 + 边距），加上近官方尺寸的投影推算。
-
-**豆包 / 即梦** 使用分数定位（alpha map 尺寸和边距按图片宽度等比缩放），alpha map 在 2048px 基准宽度下提取。
 
 ### 参考项目
 
-本实现参考了以下开源项目：
-
-- **[gemini-watermark-remover](https://github.com/GargantuaX/gemini-watermark-remover)** — Gemini Sparkle 水印的 alpha map 数据（`embeddedAlphaMaps.js`）和尺寸目录（`geminiSizeCatalog.js`）
-- **[remove-ai-watermarks](https://github.com/wiltodelta/remove-ai-watermarks)** — 豆包 "豆包AI生成" 和即梦 "★ 即梦AI" 文字水印的 alpha map 资产和分数定位参数
+- **[gemini-watermark-remover](https://github.com/GargantuaX/gemini-watermark-remover)** — Gemini Sparkle 水印的 alpha map 数据和尺寸目录
+- **[remove-ai-watermarks](https://github.com/wiltodelta/remove-ai-watermarks)** — 豆包/即梦文字水印的 alpha map 资产和分数定位参数
+- **[doubao-watermark-remover](https://github.com/zhengsuanfa/doubao-watermark-remover)** — 豆包水印的简单背景替换方案
 
 ### 局限性
 
 - 逆 alpha 混合在纯色/渐变背景上效果最好，复杂纹理区域可能有轻微残影
-- 文字水印的 alpha map 在 2048px 基准宽度下训练，大幅偏离此尺寸的图片可能定位偏差
 - 仅支持叠加型可见水印（白/灰半透明覆盖），不支持植入型水印
 
 ---
