@@ -32,7 +32,6 @@ const ContentProducerKey = "ContentProducer"
 const (
 	ProviderGemini = "gemini"
 	ProviderDoubao = "doubao"
-	ProviderJimeng = "jimeng"
 )
 
 // DetectResult holds structured image detection data.
