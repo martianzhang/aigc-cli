@@ -44,41 +44,59 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 	var seeds []seedScore
 
 	if cfg.PositionResolver != nil {
-		// Use image-relative positions (for text watermarks like Doubao, Jimeng).
+		// Use image-relative positions + NCC scale/position alignment
+		// (matching the reference project's _aligned_alpha_map approach).
 		srcW, srcH := alphaData.Width, alphaData.Height
 		positions := cfg.PositionResolver(w, h)
 		for _, pos := range positions {
 			if pos.W < 16 || pos.H < 16 {
 				continue
 			}
+			// Try fixed geometry first
 			rsAlpha := resizeAlpha(alphaData.Data, srcW, srcH, pos.W, pos.H)
 			rsGrad := sobelMagnitude(rsAlpha, pos.W, pos.H)
+			fixed := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, pos.X, pos.Y, pos.W, pos.H)
 
-			// Score at resolver position first, then refine ±3px for best alignment
-			var best *candidate
-			for dy := -3; dy <= 3; dy++ {
-				for dx := -3; dx <= 3; dx++ {
-					cx, cy := pos.X+dx, pos.Y+dy
-					if cx < 0 || cy < 0 || cx+pos.W > w || cy+pos.H > h {
-						continue
-					}
-					cand := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, cx, cy, pos.W, pos.H)
-					if cand == nil {
-						continue
-					}
-					if best == nil || cand.confidence > best.confidence {
-						best = cand
-						best.x, best.y = cx, cy
+			// NCC alignment: search scale 0.88-1.12 × position ±3px
+			var aligned *candidate
+			for scale := 0.88; scale <= 1.121; scale += 0.02 {
+				sw := int(math.Round(float64(pos.W) * scale))
+				sh := int(math.Round(float64(pos.H) * scale))
+				if sw < 16 || sh < 16 || sw > pos.W*2 || sh > pos.H*2 {
+					continue
+				}
+				rsA := resizeAlpha(alphaData.Data, srcW, srcH, sw, sh)
+				rsG := sobelMagnitude(rsA, sw, sh)
+				for dy := -3; dy <= 3; dy++ {
+					for dx := -3; dx <= 3; dx++ {
+						cx, cy := pos.X+dx, pos.Y+dy
+						if cx < 0 || cy < 0 || cx+sw > w || cy+sh > h {
+							continue
+						}
+						cand := scoreCandidateRect(gray, grad, w, h, rsA, rsG, cx, cy, sw, sh)
+						if cand == nil {
+							continue
+						}
+						if aligned == nil || cand.confidence > aligned.confidence {
+							aligned = cand
+							aligned.x, aligned.y = cx, cy
+							aligned.w, aligned.h = sw, sh
+						}
 					}
 				}
+			}
+
+			// Pick the better of fixed vs aligned
+			best := fixed
+			if aligned != nil && (best == nil || aligned.confidence > best.confidence) {
+				best = aligned
 			}
 			if best == nil {
 				continue
 			}
-			best.w, best.h = pos.W, pos.H
-			sz := pos.W
-			if pos.H < sz {
-				sz = pos.H
+			sz := best.w
+			if best.h < sz {
+				sz = best.h
 			}
 			best.size = sz
 			sizeWeight := math.Min(1, math.Cbrt(float64(sz)/float64(srcW)))

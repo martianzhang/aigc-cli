@@ -27,7 +27,8 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 	if dw <= 0 || dh <= 0 {
 		dw, dh = det.size, det.size
 	}
-	size := dh // use height for square sub-pixel logic; width may differ
+	size := dh           // use height for square sub-pixel logic; width may differ
+	isTextWM := dw != dh // rectangular alpha = text watermark
 
 	type trialResult struct {
 		dst      *image.RGBA
@@ -91,9 +92,14 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 			}
 		}
 
-		// Phase 3: edge cleanup (only for square marks)
+		// Phase 3: edge cleanup
 		if dw == dh {
 			best.dst = blendEdgeResidual(best.dst, best.alpha, det.x, det.y, size)
+		} else {
+			// Text watermark residual cleanup: dilate alpha mask + inpaint,
+			// matching the reference project's approach (cv2.inpaint with
+			// residual_alpha_floor=0.05, dilate=5, radius=2).
+			best.dst = inpaintResidual(best.dst, best.alpha, det.x, det.y, dw, dh, 0.05, 5, 2)
 		}
 
 		// Stop if no improvement
@@ -101,6 +107,16 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 			return current
 		}
 		baseResidual = best.residual
+
+		// Over-subtraction guard for text watermarks: if the recovered glyph area
+		// is more than 25 gray levels below the surrounding background ring, fall
+		// back to inpainting from the original (avoids dark pits).
+		if isTextWM && pass == 0 && best.residual < baseResidual {
+			bodyDark := checkOversubtraction(img, best.alpha, det.x, det.y, dw, dh)
+			if bodyDark {
+				return inpaintResidual(cloneToRGBA(img), best.alpha, det.x, det.y, dw, dh, 0.05, 9, 4)
+			}
+		}
 
 		// Stop early if residual is low enough
 		if best.residual <= 0.25 {
@@ -528,6 +544,149 @@ func computeResidual(dst *image.RGBA, alpha []float64, x, y, size int) float64 {
 		score = 0
 	}
 	return score
+}
+
+// checkOversubtraction predicts whether reverse-alpha would create a dark pit
+// (glyph body >25 gray levels below surrounding background ring).
+// Mirrors the reference project's _reverse_alpha_oversubtracts gate.
+func checkOversubtraction(img image.Image, alpha []float64, ax, ay, aw, ah int) bool {
+	b := img.Bounds()
+	iw, ih := b.Dx(), b.Dy()
+	if aw < 4 || ah < 4 {
+		return false
+	}
+	// Check if alpha is strong enough to over-subtract
+	var maxA float64
+	for i := range alpha {
+		if alpha[i] > maxA {
+			maxA = alpha[i]
+		}
+	}
+	if maxA < 0.2 {
+		return false
+	}
+	// Build body mask (alpha > 0.15 = glyph strokes)
+	bodyMask := make([]bool, aw*ah)
+	hasBody := false
+	for row := 0; row < ah; row++ {
+		for col := 0; col < aw; col++ {
+			if alpha[row*aw+col] > 0.15 {
+				bodyMask[row*aw+col] = true
+				hasBody = true
+			}
+		}
+	}
+	if !hasBody {
+		return false
+	}
+	// Sample surrounding background ring (pad = 60% of height)
+	pad := maxInt(4, int(float64(ah)*0.6))
+	ry1 := maxInt(0, ay-pad)
+	ry2 := minInt(ih, ay+ah+pad)
+	rx1 := maxInt(0, ax-pad)
+	rx2 := minInt(iw, ax+aw+pad)
+	// Compute ring stats and body prediction
+	var ringSum, ringCount float64
+	var bodyDarkSum, bodyDarkCount float64
+	logo := 255.0 // white logo
+
+	for y := ry1; y < ry2; y++ {
+		for x := rx1; x < rx2; x++ {
+			inBody := x >= ax && x < ax+aw && y >= ay && y < ay+ah
+			r, g, bl, _ := img.At(x, y).RGBA()
+			lum := (0.2126*float64(r>>8) + 0.7152*float64(g>>8) + 0.0722*float64(bl>>8))
+
+			if inBody {
+				col, row := x-ax, y-ay
+				if bodyMask[row*aw+col] {
+					a := alpha[row*aw+col]
+					if a > 0.99 {
+						a = 0.99
+					}
+					predicted := (lum - a*logo) / (1.0 - a)
+					bodyDarkSum += predicted
+					bodyDarkCount++
+				}
+			} else {
+				ringSum += lum
+				ringCount++
+			}
+		}
+	}
+	if ringCount < 10 || bodyDarkCount < 1 {
+		return false
+	}
+	bg := ringSum / ringCount
+	predictedCore := bodyDarkSum / bodyDarkCount
+	return predictedCore < bg-25.0
+}
+
+// inpaintResidual removes residual watermark edges using dilate + inpaint,
+// matching the reference project's approach (cv2.inpaint Navier-Stokes).
+// Pixels where alpha > floor are dilated by `dilate` pixels, then each masked
+// pixel is replaced by inverse-distance weighted neighborhood colors.
+func inpaintResidual(src *image.RGBA, alpha []float64, ax, ay, aw, ah int, floor float64, dilate, radius int) *image.RGBA {
+	b := src.Bounds()
+	imgW, imgH := b.Dx(), b.Dy()
+
+	// Build binary mask: dilate the alpha footprint
+	mask := make([][]bool, imgH)
+	for y := range mask {
+		mask[y] = make([]bool, imgW)
+	}
+	for row := 0; row < ah; row++ {
+		for col := 0; col < aw; col++ {
+			if alpha[row*aw+col] > floor {
+				py, px := ay+row, ax+col
+				for dy := -dilate; dy <= dilate; dy++ {
+					for dx := -dilate; dx <= dilate; dx++ {
+						ny, nx := py+dy, px+dx
+						if nx >= 0 && nx < imgW && ny >= 0 && ny < imgH {
+							mask[ny][nx] = true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	dst := cloneToRGBA(src)
+	for y := 0; y < imgH; y++ {
+		for x := 0; x < imgW; x++ {
+			if !mask[y][x] {
+				continue
+			}
+			var sumR, sumG, sumB, sumW float64
+			for dy := -radius; dy <= radius; dy++ {
+				for dx := -radius; dx <= radius; dx++ {
+					if dx == 0 && dy == 0 {
+						continue
+					}
+					nx, ny := x+dx, y+dy
+					if nx < 0 || nx >= imgW || ny < 0 || ny >= imgH {
+						continue
+					}
+					if mask[ny][nx] {
+						continue // skip other masked pixels
+					}
+					dist := float64(dx*dx + dy*dy)
+					w := 1.0 / (dist + 0.1)
+					off := dst.PixOffset(nx, ny)
+					sumR += float64(src.Pix[off+0]) * w
+					sumG += float64(src.Pix[off+1]) * w
+					sumB += float64(src.Pix[off+2]) * w
+					sumW += w
+				}
+			}
+			if sumW > 0 {
+				off := dst.PixOffset(x, y)
+				dst.Pix[off+0] = clampByte(sumR / sumW)
+				dst.Pix[off+1] = clampByte(sumG / sumW)
+				dst.Pix[off+2] = clampByte(sumB / sumW)
+			}
+		}
+	}
+	return dst
 }
 
 // cloneToRGBA converts any image to *image.RGBA.
