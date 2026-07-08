@@ -254,43 +254,259 @@ func resizeAlpha(src []float64, sw, sh, dw, dh int) []float64 {
 	return dst
 }
 
-// extractTextMask extracts a binary mask of watermark-like pixels from a region.
-// Criteria: bright (luma > logoMinLuma), low-saturation (channel spread < maxSat),
-// and brighter than local background (luma > localBg + tophatDelta).
-// Returns a bw×bh float64 slice (1.0 = likely watermark pixel, 0.0 = background).
-func extractTextMask(gray, grad []float64, imgW, imgH, bx, by, bw, bh int,
-	logoMinLuma float64, maxSat float64, tophatDelta float64) []float64 {
+// ── Binary mask extraction + NCC alignment (text watermarks) ──────────
 
-	mask := make([]float64, bw*bh)
+// TextMarkParams holds the per-mark tuning for binary mask extraction.
+// Mirrors TextMarkConfig from the remove-ai-watermarks reference project.
+type TextMarkParams struct {
+	MaxSaturation  float64 // max RGB channel spread to count as "grayish"
+	LogoMinLuma    float64 // minimum absolute brightness for watermark pixels
+	TophatDelta    float64 // minimum brightness above local background
+	MorphOpenSize  int     // morphological open kernel side
+	AlignSearchMin float64 // minimum scale for NCC alignment search
+	AlignSearchMax float64 // maximum scale for NCC alignment search
+}
 
-	// Compute local background using a strong blur (sigma ~ box height * 0.4)
+// DefaultDoubaoParams returns the reference project's Doubao tuning.
+func DefaultDoubaoParams() TextMarkParams {
+	return TextMarkParams{
+		MaxSaturation:  55,
+		LogoMinLuma:    150,
+		TophatDelta:    12,
+		MorphOpenSize:  5,
+		AlignSearchMin: 0.60,
+		AlignSearchMax: 1.40,
+	}
+}
+
+// extractBinaryMask extracts a binary mask of watermark-like pixels from a
+// region of the image. A pixel is marked if it is:
+//   - Low-saturation (max RGB channel spread < MaxSaturation)
+//   - Brighter than local background by > TophatDelta (white top-hat)
+//   - Absolutely bright (luma > LogoMinLuma)
+//
+// The mask is cleaned with morphological close (5×5) then open (MorphOpenSize).
+// This mirrors extract_mask() from the remove-ai-watermarks reference project.
+//
+// Returns a bw×bh float64 slice (1.0 = watermark pixel, 0.0 = background).
+func extractBinaryMask(img image.Image, bx, by, bw, bh int, p TextMarkParams) []float64 {
+	if bh < 16 || bw < 16 {
+		return make([]float64, bw*bh)
+	}
+
+	// Extract RGB + luma for the region
+	rCh := make([]float64, bw*bh)
+	gCh := make([]float64, bw*bh)
+	bCh := make([]float64, bw*bh)
+	luma := make([]float64, bw*bh)
+	for y := 0; y < bh; y++ {
+		for x := 0; x < bw; x++ {
+			cr, cg, cb, _ := img.At(bx+x, by+y).RGBA()
+			r8, g8, b8 := float64(cr>>8), float64(cg>>8), float64(cb>>8)
+			i := y*bw + x
+			rCh[i] = r8
+			gCh[i] = g8
+			bCh[i] = b8
+			luma[i] = (0.2126*r8 + 0.7152*g8 + 0.0722*b8) / 255.0
+		}
+	}
+
+	// Local background: Gaussian blur of luma (sigma ~ box height * 0.4)
 	sigma := math.Max(4.0, float64(bh)*0.4)
-	localBg := gaussianBlur(gray, imgW, imgH, sigma)
+	localBg := gaussianBlur(luma, bw, bh, sigma)
 
-	for row := 0; row < bh; row++ {
-		for col := 0; col < bw; col++ {
-			absY := by + row
-			absX := bx + col
-			if absY < 0 || absY >= imgH || absX < 0 || absX >= imgW {
-				continue
+	// Build binary mask
+	mask := make([]float64, bw*bh)
+	for i := 0; i < bw*bh; i++ {
+		l := luma[i] * 255.0
+		bg := localBg[i] * 255.0
+		tophat := l - bg
+
+		mx := math.Max(rCh[i], math.Max(gCh[i], bCh[i]))
+		mn := math.Min(rCh[i], math.Min(gCh[i], bCh[i]))
+		sat := mx - mn
+
+		if sat < p.MaxSaturation && tophat > p.TophatDelta && l > p.LogoMinLuma {
+			mask[i] = 1.0
+		}
+	}
+
+	// Morphological close (5×5) then open (MorphOpenSize)
+	mask = dilateBinary(mask, bw, bh, 5)
+	mask = erodeBinary(mask, bw, bh, 5)
+	mask = erodeBinary(mask, bw, bh, p.MorphOpenSize)
+	mask = dilateBinary(mask, bw, bh, p.MorphOpenSize)
+
+	return mask
+}
+
+// dilateBinary applies a max filter (dilation) with a square kernel of side k.
+func dilateBinary(data []float64, w, h, k int) []float64 {
+	out := make([]float64, w*h)
+	half := k / 2
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			mx := 0.0
+			for dy := -half; dy <= half; dy++ {
+				for dx := -half; dx <= half; dx++ {
+					nx, ny := x+dx, y+dy
+					if nx < 0 || ny < 0 || nx >= w || ny >= h {
+						continue
+					}
+					if data[ny*w+nx] > mx {
+						mx = data[ny*w+nx]
+					}
+				}
 			}
-			luma := gray[absY*imgW+absX] * 255.0 // convert from [0,1] to [0,255]
+			out[y*w+x] = mx
+		}
+	}
+	return out
+}
 
-			// White top-hat: luma - local background
-			bg := localBg[absY*imgW+absX] * 255.0
-			tophat := luma - bg
+// erodeBinary applies a min filter (erosion) with a square kernel of side k.
+// Out-of-bounds is treated as 0 (erodes edges).
+func erodeBinary(data []float64, w, h, k int) []float64 {
+	out := make([]float64, w*h)
+	half := k / 2
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			mn := 1.0
+			for dy := -half; dy <= half; dy++ {
+				for dx := -half; dx <= half; dx++ {
+					nx, ny := x+dx, y+dy
+					if nx < 0 || ny < 0 || nx >= w || ny >= h {
+						mn = 0.0 // out-of-bounds = 0 → erodes
+						continue
+					}
+					if data[ny*w+nx] < mn {
+						mn = data[ny*w+nx]
+					}
+				}
+			}
+			out[y*w+x] = mn
+		}
+	}
+	return out
+}
 
-			// Saturation estimate: use gradient magnitude as a proxy
-			// (actual saturation requires RGB, but gradient catches edges)
-			sat := grad[absY*imgW+absX] * 255.0
+// alignByNCC finds the best watermark position by sliding the alpha silhouette
+// over a binary mask at multiple scales. This mirrors _aligned_alpha_map()
+// from the remove-ai-watermarks reference project, which uses cv2.matchTemplate
+// with TM_CCOEFF_NORMED (zero-mean NCC).
+//
+// Returns: bestX, bestY (absolute position in original image), bestW, bestH
+// (alpha dimensions at best scale), bestScore (NCC confidence).
+func alignByNCC(mask []float64, maskW, maskH, maskX, maskY int,
+	srcAlpha []float64, srcW, srcH, expectW int, p TextMarkParams,
+) (bestX, bestY, bestW, bestH int, bestScore float64) {
 
-			// Watermark pixels are: bright, brighter than background, not too saturated
-			if luma >= logoMinLuma && tophat > tophatDelta && sat < maxSat {
-				mask[row*bw+col] = 1.0
+	// Build alpha silhouette (binary: alpha > 0.15)
+	silAlpha := make([]float64, srcW*srcH)
+	for i := range srcAlpha {
+		if srcAlpha[i] > 0.15 {
+			silAlpha[i] = 1.0
+		}
+	}
+
+	// Scale search: 11 steps from AlignSearchMin to AlignSearchMax
+	nSteps := 11
+	scales := make([]float64, nSteps)
+	for i := 0; i < nSteps; i++ {
+		scales[i] = p.AlignSearchMin + (p.AlignSearchMax-p.AlignSearchMin)*float64(i)/float64(nSteps-1)
+	}
+
+	bestScore = -1.0
+	bestX, bestY = maskX, maskY
+	bestW, bestH = expectW, int(float64(expectW)*float64(srcH)/float64(srcW))
+
+	for _, scale := range scales {
+		aw := int(math.Round(float64(expectW) * scale))
+		ah := int(math.Round(float64(aw) * float64(srcH) / float64(srcW)))
+		if aw < 8 || ah < 4 || aw >= maskW || ah >= maskH {
+			continue
+		}
+
+		// Resize silhouette to this scale
+		rsSil := resizeAlpha(silAlpha, srcW, srcH, aw, ah)
+
+		// Precompute template stats
+		var tSum, tSumSq float64
+		n := float64(aw * ah)
+		for i := range rsSil {
+			tSum += rsSil[i]
+			tSumSq += rsSil[i] * rsSil[i]
+		}
+		tMean := tSum / n
+		tStdSq := tSumSq/n - tMean*tMean
+		if tStdSq < 1e-10 {
+			continue
+		}
+		tStd := math.Sqrt(tStdSq)
+
+		// Coarse search (stride 4)
+		coarseBX, coarseBY := 0, 0
+		coarseBest := -1.0
+		for my := 0; my+ah <= maskH; my += 4 {
+			for mx := 0; mx+aw <= maskW; mx += 4 {
+				score := nccRegionFast(mask, maskW, mx, my, aw, ah, rsSil, tMean, tStd)
+				if score > coarseBest {
+					coarseBest = score
+					coarseBX = mx
+					coarseBY = my
+				}
+			}
+		}
+
+		// Fine search (stride 1, ±4 around best)
+		fineMinX := maxInt(0, coarseBX-4)
+		fineMaxX := minInt(maskW-aw, coarseBX+4)
+		fineMinY := maxInt(0, coarseBY-4)
+		fineMaxY := minInt(maskH-ah, coarseBY+4)
+		for my := fineMinY; my <= fineMaxY; my++ {
+			for mx := fineMinX; mx <= fineMaxX; mx++ {
+				score := nccRegionFast(mask, maskW, mx, my, aw, ah, rsSil, tMean, tStd)
+				if score > bestScore {
+					bestScore = score
+					bestX = maskX + mx
+					bestY = maskY + my
+					bestW = aw
+					bestH = ah
+				}
 			}
 		}
 	}
-	return mask
+
+	if bestScore < 0 {
+		return 0, 0, 0, 0, 0
+	}
+	return bestX, bestY, bestW, bestH, bestScore
+}
+
+// nccRegionFast computes zero-mean NCC between a region of the mask and a
+// pre-resized template. Template mean and std are precomputed.
+func nccRegionFast(mask []float64, maskW, mx, my, aw, ah int,
+	template []float64, tMean, tStd float64) float64 {
+
+	n := float64(aw * ah)
+	var mSum, mSumSq, dot float64
+	for y := 0; y < ah; y++ {
+		mi := (my+y)*maskW + mx
+		ti := y * aw
+		for x := 0; x < aw; x++ {
+			mv := mask[mi+x]
+			tv := template[ti+x]
+			mSum += mv
+			mSumSq += mv * mv
+			dot += mv * tv
+		}
+	}
+	mMean := mSum / n
+	mStdSq := mSumSq/n - mMean*mMean
+	if mStdSq < 1e-10 {
+		return 0
+	}
+	return (dot/n - mMean*tMean) / (math.Sqrt(mStdSq) * tStd)
 }
 
 // insertTop5 inserts a candidate into a sorted slice, keeping at most n.
