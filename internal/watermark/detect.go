@@ -52,7 +52,7 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 		// 4. Use the best match position for removal
 		srcW, srcH := alphaData.Width, alphaData.Height
 		positions := cfg.PositionResolver(w, h)
-		params := DefaultDoubaoParams()
+		params := paramsForConfig(cfg.Name)
 
 		for _, pos := range positions {
 			if pos.W < 16 || pos.H < 10 {
