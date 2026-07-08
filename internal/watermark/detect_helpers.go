@@ -279,6 +279,30 @@ func DefaultDoubaoParams() TextMarkParams {
 	}
 }
 
+// DefaultJimengParams returns the reference project's Jimeng tuning.
+// Same mask extraction params as Doubao (both ByteDance text marks),
+// but a wider alignment search range to handle unknown scaling behavior.
+func DefaultJimengParams() TextMarkParams {
+	return TextMarkParams{
+		MaxSaturation:  55,
+		LogoMinLuma:    150,
+		TophatDelta:    12,
+		MorphOpenSize:  5,
+		AlignSearchMin: 0.60,
+		AlignSearchMax: 1.40,
+	}
+}
+
+// paramsForConfig returns the TextMarkParams for a given config name.
+func paramsForConfig(name string) TextMarkParams {
+	switch name {
+	case "jimeng":
+		return DefaultJimengParams()
+	default:
+		return DefaultDoubaoParams()
+	}
+}
+
 // extractBinaryMask extracts a binary mask of watermark-like pixels from a
 // region of the image. A pixel is marked if it is:
 //   - Low-saturation (max RGB channel spread < MaxSaturation)

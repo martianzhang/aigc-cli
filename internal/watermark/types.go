@@ -10,6 +10,7 @@ const (
 	TypeUnknown Type = iota
 	TypeGeminiSparkle
 	TypeDoubao
+	TypeJimeng
 )
 
 // AlphaMap holds a pre-calibrated transparency mask for a watermark.
