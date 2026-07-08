@@ -19,8 +19,15 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 
 	srcAlpha := cfg.AlphaMap.Data
 	srcW, srcH := cfg.AlphaMap.Width, cfg.AlphaMap.Height
-	size := det.size
 	logo := cfg.LogoColor
+
+	// For PositionResolver configs (text watermarks), use the detected rectangle dimensions.
+	// For square alpha maps, det.w and det.h are 0, so fall back to det.size.
+	dw, dh := det.w, det.h
+	if dw <= 0 || dh <= 0 {
+		dw, dh = det.size, det.size
+	}
+	size := dh // use height for square sub-pixel logic; width may differ
 
 	type trialResult struct {
 		dst      *image.RGBA
@@ -34,13 +41,13 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 	baseResidual := math.MaxFloat64
 
 	for pass := 0; pass < 4; pass++ {
-		baseAlpha := resizeAlpha(srcAlpha, srcW, srcH, size, size)
+		baseAlpha := resizeAlpha(srcAlpha, srcW, srcH, dw, dh)
 		best := trialResult{residual: math.MaxFloat64}
 
 		// Phase 1: try multiple alpha gains
 		for _, gain := range defaultAlphaGains {
-			dst := applyReverseAlpha(current, baseAlpha, det.x, det.y, size, logo, gain)
-			residual := computeResidual(dst, baseAlpha, det.x, det.y, size)
+			dst := applyReverseAlphaRect(current, baseAlpha, det.x, det.y, dw, dh, logo, gain)
+			residual := computeResidualRect(dst, baseAlpha, det.x, det.y, dw, dh)
 			if residual < best.residual {
 				best = trialResult{dst, baseAlpha, residual, gain}
 			}
@@ -49,22 +56,26 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 			break
 		}
 
-		// Phase 2: sub-pixel refinement
-		for _, dx := range []float64{-0.5, -0.25, 0.25, 0.5} {
-			for _, dy := range []float64{-0.5, -0.25, 0.25, 0.5} {
-				for _, sc := range []float64{0.98, 1.0, 1.02} {
-					warped := warpAlphaMap(srcAlpha, srcW, srcH, size, dx, dy, sc)
-					dst := applyReverseAlpha(current, warped, det.x, det.y, size, logo, best.gain)
-					residual := computeResidual(dst, warped, det.x, det.y, size)
-					if residual < best.residual {
-						best = trialResult{dst, warped, residual, best.gain}
+		// Phase 2: sub-pixel refinement (only for square marks)
+		if dw == dh {
+			for _, dx := range []float64{-0.5, -0.25, 0.25, 0.5} {
+				for _, dy := range []float64{-0.5, -0.25, 0.25, 0.5} {
+					for _, sc := range []float64{0.98, 1.0, 1.02} {
+						warped := warpAlphaMap(srcAlpha, srcW, srcH, size, dx, dy, sc)
+						dst := applyReverseAlpha(current, warped, det.x, det.y, size, logo, best.gain)
+						residual := computeResidual(dst, warped, det.x, det.y, size)
+						if residual < best.residual {
+							best = trialResult{dst, warped, residual, best.gain}
+						}
 					}
 				}
 			}
 		}
 
-		// Phase 3: edge cleanup
-		best.dst = blendEdgeResidual(best.dst, best.alpha, det.x, det.y, size)
+		// Phase 3: edge cleanup (only for square marks)
+		if dw == dh {
+			best.dst = blendEdgeResidual(best.dst, best.alpha, det.x, det.y, size)
+		}
 
 		// Stop if no improvement
 		if best.residual >= baseResidual {
@@ -350,6 +361,73 @@ func clampIdx(v, max int) int {
 		return max - 1
 	}
 	return v
+}
+
+// applyReverseAlphaRect is like applyReverseAlpha but for rectangular regions (dw × dh).
+func applyReverseAlphaRect(img image.Image, alpha []float64,
+	x, y, dw, dh int, logo [3]float64, gain float64) *image.RGBA {
+
+	b := img.Bounds()
+	dst := cloneToRGBA(img)
+
+	for dy := 0; dy < dh; dy++ {
+		for dx := 0; dx < dw; dx++ {
+			rawAlpha := alpha[dy*dw+dx]
+			signalAlpha := (rawAlpha - 0.0118) * gain
+			if signalAlpha < 0.002 {
+				continue
+			}
+			a := rawAlpha * gain
+			if a > 0.99 {
+				a = 0.99
+			}
+			inv := 1.0 - a
+
+			px, py := x+dx, y+dy
+			if px < b.Min.X || px >= b.Max.X || py < b.Min.Y || py >= b.Max.Y {
+				continue
+			}
+
+			off := dst.PixOffset(px, py)
+			r := float64(dst.Pix[off+0]) + 0.5
+			g := float64(dst.Pix[off+1]) + 0.5
+			bl := float64(dst.Pix[off+2]) + 0.5
+
+			nr := (r - a*logo[0]) / inv
+			ng := (g - a*logo[1]) / inv
+			nb := (bl - a*logo[2]) / inv
+
+			dst.Pix[off+0] = clampByte(nr)
+			dst.Pix[off+1] = clampByte(ng)
+			dst.Pix[off+2] = clampByte(nb)
+		}
+	}
+	return dst
+}
+
+// computeResidualRect is like computeResidual but for rectangular regions (dw × dh).
+func computeResidualRect(dst *image.RGBA, alpha []float64, x, y, dw, dh int) float64 {
+	b := dst.Bounds()
+	if x+dw > b.Dx() || y+dh > b.Dy() {
+		return 1
+	}
+
+	region := make([]float64, dw*dh)
+	for dy := 0; dy < dh; dy++ {
+		for dx := 0; dx < dw; dx++ {
+			off := dst.PixOffset(x+dx, y+dy)
+			r := float64(dst.Pix[off+0])
+			g := float64(dst.Pix[off+1])
+			bl := float64(dst.Pix[off+2])
+			region[dy*dw+dx] = (0.2126*r + 0.7152*g + 0.0722*bl) / 255.0
+		}
+	}
+
+	score := ncc(region, alpha)
+	if score < 0 {
+		score = 0
+	}
+	return score
 }
 
 // applyReverseAlpha performs reverse alpha blending on the watermark region.

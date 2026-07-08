@@ -43,12 +43,28 @@ func DetectWatermark(img image.Image) []Detection {
 // RemoveWatermark detects and removes the best-matching watermark from an image.
 // Returns the cleaned image and a result descriptor.
 func RemoveWatermark(img image.Image) (*image.RGBA, *Result, error) {
+	return RemoveWatermarkHinted(img, "")
+}
+
+// RemoveWatermarkHinted detects and removes a watermark, preferring a specific
+// config when the producer is known from TC260 metadata (e.g., "doubao", "jimeng").
+func RemoveWatermarkHinted(img image.Image, producer string) (*image.RGBA, *Result, error) {
 	detections := DetectWatermark(img)
 	if len(detections) == 0 {
 		return nil, &Result{Removed: false}, nil
 	}
 
 	best := detections[0]
+	// If the producer is known from TC260, prefer its config even if another
+	// has slightly higher confidence (known positions beat template false positives).
+	if producer != "" {
+		for _, d := range detections {
+			if d.Name == producer || strings.Contains(d.Name, producer) {
+				best = d
+				break
+			}
+		}
+	}
 	cfg, ok := findConfigByName(best.Name)
 	if !ok {
 		return nil, nil, fmt.Errorf("watermark: unknown config %q", best.Name)
@@ -74,6 +90,11 @@ func RemoveWatermark(img image.Image) (*image.RGBA, *Result, error) {
 
 // RemoveFile loads an image, removes watermarks, and saves the result.
 func RemoveFile(inputPath, outputPath string) (*Result, error) {
+	return RemoveFileHinted(inputPath, outputPath, "")
+}
+
+// RemoveFileHinted is like RemoveFile but with a producer hint from metadata.
+func RemoveFileHinted(inputPath, outputPath, producer string) (*Result, error) {
 	f, err := os.Open(inputPath)
 	if err != nil {
 		return nil, err
@@ -86,7 +107,7 @@ func RemoveFile(inputPath, outputPath string) (*Result, error) {
 	}
 	f.Close()
 
-	dst, res, err := RemoveWatermark(img)
+	dst, res, err := RemoveWatermarkHinted(img, producer)
 	if err != nil {
 		return nil, err
 	}

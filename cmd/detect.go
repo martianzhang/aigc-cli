@@ -39,8 +39,9 @@ Analyzes images through multiple signals:
 
 All signals are fused into a single AIGen confidence score with emoji.
 Use --remove-watermark to detect and remove visible AI watermarks
-(Gemini sparkle). Metadata (C2PA/TC260/EXIF) is also stripped during
-re-encoding, removing "Made with AI" labels on social platforms.
+(Gemini sparkle, Doubao "豆包AI生成", Jimeng "★ 即梦AI"). Metadata
+(C2PA/TC260/EXIF) is also stripped during re-encoding, removing
+"Made with AI" labels on social platforms.
 
 Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
 	RunE: runDetect,
@@ -49,6 +50,7 @@ Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
 var detectJSON bool
 var detectPreview bool
 var detectRemoveWM bool
+var detectWatermarkProvider string
 
 func runDetect(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
@@ -159,8 +161,12 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	}
 	if detectRemoveWM {
 		outPath := cleanPath(path)
-		// Try visible watermark detection + removal
-		res, err := watermark.RemoveFile(path, outPath)
+		// Use TC260 metadata as a hint for which watermark engine to prefer
+		producer := detectWatermarkProvider
+		if producer == "" && result.TC260 != nil && result.TC260.Present {
+			producer = result.TC260.Provider
+		}
+		res, err := watermark.RemoveFileHinted(path, outPath, producer)
 		if err == nil && res.Removed {
 			fmt.Printf("  Watermark removed (%s) → %s\n", res.Name, outPath)
 			if detectPreview {
@@ -448,5 +454,6 @@ func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
-	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "detect and remove visible AI watermarks (Gemini sparkle), also strips metadata")
+	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "detect and remove visible AI watermarks (Gemini/Doubao/Jimeng), also strips metadata")
+	detectCmd.Flags().StringVar(&detectWatermarkProvider, "watermark", "", `watermark provider hint: "gemini", "doubao", "jimeng" (auto-detected from TC260 if omitted)`)
 }

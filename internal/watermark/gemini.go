@@ -238,42 +238,20 @@ func init() {
 
 	am := NewAlphaMap(96, 96, data)
 
-	// Register all Gemini watermark configurations.
-	// Detection uses resolveWatermarkConfigs() for position, not the margin range
-	// from these configs. The configs here provide thresholds and alpha maps.
-	type gc struct {
-		name   string
-		size   int
-		mx, my int
-		thresh float64
-	}
-	configs := []gc{
-		{"gemini-v2", 96, 192, 192, 0.30},
-		{"gemini-v1", 96, 64, 64, 0.28},
-		{"gemini-48", 48, 32, 32, 0.25},
-		{"gemini-48-lg", 48, 96, 96, 0.25},
-		{"gemini-36", 36, 96, 96, 0.22},
-		{"gemini-3.x-image-0.5k", 48, 32, 32, 0.25},
-		{"gemini-3.x-image-1k", 48, 32, 32, 0.25},
-		{"gemini-3.x-image-2k", 96, 64, 64, 0.28},
-		{"gemini-3.x-image-4k", 96, 64, 64, 0.28},
-		{"gemini-3.x-image-2k-new-margin", 96, 192, 192, 0.30},
-		{"gemini-2.5-flash-image-1k", 48, 32, 32, 0.25},
-	}
-
-	for _, c := range configs {
-		Register(Config{
-			Type:            TypeGeminiSparkle,
-			Name:            c.name,
-			AlphaMap:        am,
-			DefaultSize:     c.size,
-			DefaultMarginX:  c.mx,
-			DefaultMarginY:  c.my,
-			LogoColor:       [3]float64{255, 255, 255},
-			DetectThreshold: c.thresh,
-			MinSizeScale:    0.5,
-			MaxSizeScale:    2.0,
-			MarginRange:     8, // narrow — we use catalog positions, not range search
-		})
-	}
+	// Register Gemini watermark configs. The `resolveWatermarkConfigs()` catalog
+	// handles all size/margin variations — these configs just provide the alpha map
+	// and threshold. Keep entries minimal to avoid false-positive competition.
+	Register(Config{
+		Type:            TypeGeminiSparkle,
+		Name:            "gemini",
+		AlphaMap:        am,
+		DefaultSize:     96,
+		DefaultMarginX:  64,
+		DefaultMarginY:  64,
+		LogoColor:       [3]float64{255, 255, 255},
+		DetectThreshold: 0.35,
+		MinSizeScale:    0.5,
+		MaxSizeScale:    2.0,
+		MarginRange:     8,
+	})
 }
