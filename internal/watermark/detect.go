@@ -44,37 +44,78 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 	var seeds []seedScore
 
 	if cfg.PositionResolver != nil {
-		// Text watermark (Doubao/Jimeng): use PositionResolver position directly.
-		// Alignment search (scale + position) is skipped for performance;
-		// the PositionResolver position is accurate enough from the reference project's
-		// width-relative fractions. Small misalignments are handled by the
-		// ±1px refinement in removeWatermark and the inpaint residual pass.
+		// Text watermark (Doubao): binary mask extraction + NCC alignment search.
+		// This mirrors the reference project's approach:
+		// 1. Calculate a generous search box in the bottom-right corner
+		// 2. Extract a binary mask of watermark-like pixels (bright, low-sat, tophat)
+		// 3. NCC-align the alpha silhouette against the binary mask at multiple scales
+		// 4. Use the best match position for removal
 		srcW, srcH := alphaData.Width, alphaData.Height
 		positions := cfg.PositionResolver(w, h)
+		params := DefaultDoubaoParams()
 
 		for _, pos := range positions {
-			if pos.W < 16 || pos.H < 16 {
+			if pos.W < 16 || pos.H < 10 {
 				continue
 			}
-			rsAlpha := resizeAlpha(alphaData.Data, srcW, srcH, pos.W, pos.H)
-			rsGrad := sobelMagnitude(rsAlpha, pos.W, pos.H)
-			cand := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, pos.X, pos.Y, pos.W, pos.H)
-			if cand == nil {
+
+			// Build a generous search box around the expected position.
+			// The actual watermark may be at a different position/scale than
+			// the PositionResolver calculates (observed on 2848×1600 images
+			// where the watermark scales with height, not width).
+			searchPadX := maxInt(60, int(float64(pos.W)*0.5))
+			searchPadY := maxInt(30, int(float64(pos.H)*0.5))
+			bx := maxInt(0, pos.X-searchPadX)
+			by := maxInt(0, pos.Y-searchPadY)
+			bw := minInt(w, pos.W+searchPadX*2)
+			bh := minInt(h, pos.H+searchPadY*2)
+			if bx+bw > w {
+				bw = w - bx
+			}
+			if by+bh > h {
+				bh = h - by
+			}
+			if bw < pos.W+20 || bh < pos.H+10 {
 				continue
 			}
-			cand.w, cand.h = pos.W, pos.H
-			sz := pos.W
-			if pos.H < sz {
-				sz = pos.H
+
+			// Extract binary mask from the search box
+			mask := extractBinaryMask(img, bx, by, bw, bh, params)
+
+			// NCC alignment search: find exact watermark position
+			bestX, bestY, bestW, bestH, bestScore := alignByNCC(
+				mask, bw, bh, bx, by,
+				alphaData.Data, srcW, srcH, pos.W, params,
+			)
+
+			if bestScore > 0.05 {
+				sz := bestW
+				if bestH < sz {
+					sz = bestH
+				}
+				cand := &candidate{
+					x:          bestX,
+					y:          bestY,
+					size:       sz,
+					w:          bestW,
+					h:          bestH,
+					confidence: bestScore,
+				}
+				seeds = append(seeds, seedScore{bestX, bestY, sz, bestScore, cand})
+			} else {
+				// Fallback: use PositionResolver position directly (for light/white
+				// backgrounds where binary mask extraction can't find the watermark).
+				// The TC260 metadata already confirmed this is a Doubao image.
+				cand := &candidate{
+					x:          pos.X,
+					y:          pos.Y,
+					size:       minInt(pos.W, pos.H),
+					w:          pos.W,
+					h:          pos.H,
+					confidence: 0.15, // low confidence — fallback, not NCC-verified
+				}
+				seeds = append(seeds, seedScore{pos.X, pos.Y, minInt(pos.W, pos.H), 0.15, cand})
 			}
-			cand.size = sz
-			sizeWeight := math.Min(1, math.Cbrt(float64(sz)/float64(srcW)))
-			adjusted := cand.confidence * sizeWeight
-			if adjusted < 0.08 {
-				continue
-			}
-			cand.confidence = adjusted
-			seeds = append(seeds, seedScore{pos.X, pos.Y, sz, adjusted, cand})
 		}
 	} else {
 		// Use Gemini catalog positions

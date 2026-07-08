@@ -41,6 +41,18 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 	current := cloneToRGBA(img)
 	baseResidual := math.MaxFloat64
 
+	// Light background guard: on bright backgrounds (e.g., white images),
+	// the watermark is nearly invisible (tophat ≈ 4*alpha ≈ 2.6 levels).
+	// Reverse alpha amplifies noise by 1/(1-alpha) ≈ 3x, creating more
+	// artifacts than it fixes. Skip reverse alpha entirely and use inpaint.
+	if isTextWM {
+		bgLuma := meanBackgroundLuma(img, det.x, det.y, dw, dh)
+		if bgLuma > 200 {
+			baseAlpha := resizeAlpha(srcAlpha, srcW, srcH, dw, dh)
+			return inpaintResidual(current, baseAlpha, det.x, det.y, dw, dh, 0.05, 7, 3)
+		}
+	}
+
 	for pass := 0; pass < 4; pass++ {
 		baseAlpha := resizeAlpha(srcAlpha, srcW, srcH, dw, dh)
 		best := trialResult{residual: math.MaxFloat64}
@@ -73,9 +85,10 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 			}
 		} else {
 			// Position refinement for rectangular alpha maps (text watermarks).
-			// Shift position by ±1px to better align with the actual mark.
-			for _, dxi := range []int{-1, 0, 1} {
-				for _, dyi := range []int{-1, 0, 1} {
+			// Search ±3px to compensate for alpha map position mismatches
+			// across different Doubao model versions.
+			for _, dxi := range []int{-3, -2, -1, 0, 1, 2, 3} {
+				for _, dyi := range []int{-3, -2, -1, 0, 1, 2, 3} {
 					if dxi == 0 && dyi == 0 {
 						continue
 					}
@@ -99,7 +112,7 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 			// Text watermark residual cleanup: dilate alpha mask + inpaint,
 			// matching the reference project's approach (cv2.inpaint with
 			// residual_alpha_floor=0.05, dilate=5, radius=2).
-			best.dst = inpaintResidual(best.dst, best.alpha, det.x, det.y, dw, dh, 0.05, 5, 2)
+			best.dst = inpaintResidual(best.dst, best.alpha, det.x, det.y, dw, dh, 0.03, 7, 3)
 		}
 
 		// Stop if no improvement
@@ -621,19 +634,22 @@ func checkOversubtraction(img image.Image, alpha []float64, ax, ay, aw, ah int) 
 	return predictedCore < bg-25.0
 }
 
-// inpaintResidual removes residual watermark edges using dilate + inpaint,
-// matching the reference project's approach (cv2.inpaint Navier-Stokes).
-// Pixels where alpha > floor are dilated by `dilate` pixels, then each masked
-// pixel is replaced by inverse-distance weighted neighborhood colors.
+// inpaintResidual removes residual watermark by progressive boundary-growing
+// inpaint. Pixels where alpha > floor are dilated by `dilate` pixels to form
+// a mask, then masked pixels are replaced layer by layer from the outside in:
+//  1. Find masked pixels adjacent to non-masked (boundary layer)
+//  2. Replace each with IDW average of non-masked neighbors (radius `radius`)
+//  3. Mark as non-masked (becomes valid neighbor for next layer)
+//  4. Repeat until no masked pixels remain
+//
+// This mirrors cv2.inpaint's Telea algorithm: a small-radius IDW is sufficient
+// because each layer propagates the outer background inward.
 func inpaintResidual(src *image.RGBA, alpha []float64, ax, ay, aw, ah int, floor float64, dilate, radius int) *image.RGBA {
 	b := src.Bounds()
 	imgW, imgH := b.Dx(), b.Dy()
 
-	// Build binary mask: dilate the alpha footprint
-	mask := make([][]bool, imgH)
-	for y := range mask {
-		mask[y] = make([]bool, imgW)
-	}
+	// Build flat binary mask: dilate the alpha footprint
+	mask := make([]bool, imgW*imgH)
 	for row := 0; row < ah; row++ {
 		for col := 0; col < aw; col++ {
 			if alpha[row*aw+col] > floor {
@@ -642,7 +658,7 @@ func inpaintResidual(src *image.RGBA, alpha []float64, ax, ay, aw, ah int, floor
 					for dx := -dilate; dx <= dilate; dx++ {
 						ny, nx := py+dy, px+dx
 						if nx >= 0 && nx < imgW && ny >= 0 && ny < imgH {
-							mask[ny][nx] = true
+							mask[ny*imgW+nx] = true
 						}
 					}
 				}
@@ -651,11 +667,38 @@ func inpaintResidual(src *image.RGBA, alpha []float64, ax, ay, aw, ah int, floor
 	}
 
 	dst := cloneToRGBA(src)
-	for y := 0; y < imgH; y++ {
-		for x := 0; x < imgW; x++ {
-			if !mask[y][x] {
-				continue
+
+	// Progressive boundary-growing inpaint
+	for {
+		// Find boundary pixels: masked pixels with at least one non-masked neighbor
+		type bp struct{ x, y int }
+		var boundary []bp
+		for y := 0; y < imgH; y++ {
+			for x := 0; x < imgW; x++ {
+				if !mask[y*imgW+x] {
+					continue
+				}
+				// Check 4-connectivity for boundary detection
+				for _, d := range [4][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+					nx, ny := x+d[0], y+d[1]
+					if nx < 0 || ny < 0 || nx >= imgW || ny >= imgH {
+						continue
+					}
+					if !mask[ny*imgW+nx] {
+						boundary = append(boundary, bp{x, y})
+						break
+					}
+				}
 			}
+		}
+
+		if len(boundary) == 0 {
+			break // all inpainted
+		}
+
+		// Inpaint boundary pixels using IDW from non-masked neighbors
+		for _, p := range boundary {
+			x, y := p.x, p.y
 			var sumR, sumG, sumB, sumW float64
 			for dy := -radius; dy <= radius; dy++ {
 				for dx := -radius; dx <= radius; dx++ {
@@ -666,15 +709,15 @@ func inpaintResidual(src *image.RGBA, alpha []float64, ax, ay, aw, ah int, floor
 					if nx < 0 || nx >= imgW || ny < 0 || ny >= imgH {
 						continue
 					}
-					if mask[ny][nx] {
-						continue // skip other masked pixels
+					if mask[ny*imgW+nx] {
+						continue // skip masked pixels
 					}
 					dist := float64(dx*dx + dy*dy)
 					w := 1.0 / (dist + 0.1)
 					off := dst.PixOffset(nx, ny)
-					sumR += float64(src.Pix[off+0]) * w
-					sumG += float64(src.Pix[off+1]) * w
-					sumB += float64(src.Pix[off+2]) * w
+					sumR += float64(dst.Pix[off+0]) * w
+					sumG += float64(dst.Pix[off+1]) * w
+					sumB += float64(dst.Pix[off+2]) * w
 					sumW += w
 				}
 			}
@@ -685,8 +728,45 @@ func inpaintResidual(src *image.RGBA, alpha []float64, ax, ay, aw, ah int, floor
 				dst.Pix[off+2] = clampByte(sumB / sumW)
 			}
 		}
+
+		// Unmask boundary pixels (they're now valid neighbors for next layer)
+		for _, p := range boundary {
+			mask[p.y*imgW+p.x] = false
+		}
 	}
+
 	return dst
+}
+
+// meanBackgroundLuma samples the background ring around the watermark area
+// and returns the mean luma (0-255). Used to detect light backgrounds where
+// reverse alpha blending would amplify noise.
+func meanBackgroundLuma(img image.Image, ax, ay, aw, ah int) float64 {
+	b := img.Bounds()
+	iw, ih := b.Dx(), b.Dy()
+	pad := maxInt(4, int(float64(ah)*0.6))
+	ry1 := maxInt(0, ay-pad)
+	ry2 := minInt(ih, ay+ah+pad)
+	rx1 := maxInt(0, ax-pad)
+	rx2 := minInt(iw, ax+aw+pad)
+
+	var sum float64
+	var count int
+	for y := ry1; y < ry2; y++ {
+		for x := rx1; x < rx2; x++ {
+			inWM := x >= ax && x < ax+aw && y >= ay && y < ay+ah
+			if inWM {
+				continue
+			}
+			r, g, bl, _ := img.At(x, y).RGBA()
+			sum += 0.2126*float64(r>>8) + 0.7152*float64(g>>8) + 0.0722*float64(bl>>8)
+			count++
+		}
+	}
+	if count == 0 {
+		return 128
+	}
+	return sum / float64(count)
 }
 
 // cloneToRGBA converts any image to *image.RGBA.

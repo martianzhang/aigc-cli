@@ -464,5 +464,5 @@ func init() {
 	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "detect and remove visible AI watermarks (Gemini/Doubao/Jimeng), also strips metadata")
 	detectCmd.Flags().StringVar(&detectWmProducer, "producer", "",
 		`watermark producer override (`+strings.Join([]string{service.ProviderGemini, service.ProviderDoubao}, "/")+`)`+
-		` (auto-detected from TC260 if omitted)`)
+			` (auto-detected from TC260 if omitted)`)
 }
