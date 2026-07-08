@@ -25,6 +25,16 @@ import (
 	"github.com/richardwooding/c2pa"
 )
 
+// TC260 field keys.
+const ContentProducerKey = "ContentProducer"
+
+// Known watermark provider names (map TC260 ContentProducer to config names).
+const (
+	ProviderGemini = "gemini"
+	ProviderDoubao = "doubao"
+	ProviderJimeng = "jimeng"
+)
+
 // DetectResult holds structured image detection data.
 type DetectResult struct {
 	Path      string            `json:"path"`
@@ -344,7 +354,7 @@ func parseTC260Result(tc260data string) *TC260Result {
 		}
 	}
 
-	if cp, ok := result.Fields["ContentProducer"]; ok {
+	if cp, ok := result.Fields[ContentProducerKey]; ok {
 		result.Provider = resolveContentProducer(cp)
 	}
 
@@ -1171,7 +1181,7 @@ func scanEXIFForTC260(exifData []byte) string {
 				// Try flat parsing
 				var flat map[string]string
 				if json.Unmarshal([]byte(jsonStr), &flat) == nil {
-					if cp, ok := flat["ContentProducer"]; ok && cp != "" {
+					if cp, ok := flat[ContentProducerKey]; ok && cp != "" {
 						return jsonStr
 					}
 				}
@@ -1179,7 +1189,7 @@ func scanEXIFForTC260(exifData []byte) string {
 				var nested map[string]map[string]string
 				if json.Unmarshal([]byte(jsonStr), &nested) == nil {
 					if aigc, ok := nested["AIGC"]; ok {
-						if cp, ok := aigc["ContentProducer"]; ok && cp != "" {
+						if cp, ok := aigc[ContentProducerKey]; ok && cp != "" {
 							return jsonStr
 						}
 					}
@@ -1199,7 +1209,7 @@ func formatTC260(data map[string]string) string {
 		if v == "" {
 			continue
 		}
-		if k == "ContentProducer" {
+		if k == ContentProducerKey {
 			if name := resolveContentProducer(v); name != "" {
 				fmt.Fprintf(&result, "    Provider: %s\n", name)
 				continue
