@@ -80,6 +80,7 @@ make cover
 | `docs/guide-video.md` | 修改 `video` 命令参数或行为 |
 | `docs/guide-chat.md` | 修改 `chat` 命令参数或行为 |
 | `docs/guide-detect.md` | 修改 `detect` 命令参数或行为 |
+| `docs/guide-watermark.md` | 修改水印引擎（新增/修改平台、算法变更、alpha map） |
 | `docs/guide-midjourney.md` | 修改 `midjourney` 命令参数或行为 |
 | `docs/guide-ideas.md` | 修改 `ideas` 命令参数或行为 |
 | `docs/guide-commands.md` | 修改 `models`/`task`/`balance`/`dry-run` 等辅助命令 |
