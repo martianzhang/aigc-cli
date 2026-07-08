@@ -40,7 +40,7 @@ func init() {
 				return nil
 			}
 			marginX := int(math.Round(float64(w) * marginRFrac))
-			marginY := int(math.Round(float64(h) * marginBFrac))
+			marginY := int(math.Round(float64(w) * marginBFrac)) // all fractions are of image WIDTH
 			x := w - marginX - szW
 			y := h - marginY - szH
 			if x < 0 || y < 0 || x+szW > w || y+szH > h {

@@ -45,8 +45,6 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 
 	if cfg.PositionResolver != nil {
 		// Use image-relative positions (for text watermarks like Doubao, Jimeng).
-		// Alpha map is rectangular; we resize to the full rectangle and score with
-		// scoreCandidateRect.
 		srcW, srcH := alphaData.Width, alphaData.Height
 		positions := cfg.PositionResolver(w, h)
 		for _, pos := range positions {
@@ -55,23 +53,41 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 			}
 			rsAlpha := resizeAlpha(alphaData.Data, srcW, srcH, pos.W, pos.H)
 			rsGrad := sobelMagnitude(rsAlpha, pos.W, pos.H)
-			cand := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, pos.X, pos.Y, pos.W, pos.H)
-			if cand == nil {
+
+			// Score at resolver position first, then refine ±3px for best alignment
+			var best *candidate
+			for dy := -3; dy <= 3; dy++ {
+				for dx := -3; dx <= 3; dx++ {
+					cx, cy := pos.X+dx, pos.Y+dy
+					if cx < 0 || cy < 0 || cx+pos.W > w || cy+pos.H > h {
+						continue
+					}
+					cand := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, cx, cy, pos.W, pos.H)
+					if cand == nil {
+						continue
+					}
+					if best == nil || cand.confidence > best.confidence {
+						best = cand
+						best.x, best.y = cx, cy
+					}
+				}
+			}
+			if best == nil {
 				continue
 			}
+			best.w, best.h = pos.W, pos.H
 			sz := pos.W
 			if pos.H < sz {
 				sz = pos.H
 			}
-			cand.x, cand.y = pos.X, pos.Y
-			cand.size = sz
+			best.size = sz
 			sizeWeight := math.Min(1, math.Cbrt(float64(sz)/float64(srcW)))
-			adjusted := cand.confidence * sizeWeight
+			adjusted := best.confidence * sizeWeight
 			if adjusted < 0.08 {
 				continue
 			}
-			cand.confidence = adjusted
-			seeds = append(seeds, seedScore{pos.X, pos.Y, sz, adjusted, cand})
+			best.confidence = adjusted
+			seeds = append(seeds, seedScore{best.x, best.y, sz, adjusted, best})
 		}
 	} else {
 		// Use Gemini catalog positions
