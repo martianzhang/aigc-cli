@@ -44,120 +44,37 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 	var seeds []seedScore
 
 	if cfg.PositionResolver != nil {
-		// Follow the reference project's _aligned_alpha_map approach:
-		//   1. Define a detection box (larger than the alpha map)
-		//   2. Extract a binary mask of watermark-like pixels (bright, low-sat)
-		//   3. Match the glyph silhouette against this mask using TM_CCOEFF_NORMED
+		// Text watermark (Doubao/Jimeng): use PositionResolver position directly.
+		// Alignment search (scale + position) is skipped for performance;
+		// the PositionResolver position is accurate enough from the reference project's
+		// width-relative fractions. Small misalignments are handled by the
+		// ±1px refinement in removeWatermark and the inpaint residual pass.
 		srcW, srcH := alphaData.Width, alphaData.Height
 		positions := cfg.PositionResolver(w, h)
-
-		// Build the glyph silhouette (binary: 1 where alpha > 0.15)
-		sil := make([]float64, srcW*srcH)
-		for i, v := range alphaData.Data {
-			if v > 0.15 {
-				sil[i] = 1.0
-			}
-		}
 
 		for _, pos := range positions {
 			if pos.W < 16 || pos.H < 16 {
 				continue
 			}
-			// Compute fixed position score (grayscale NCC, as before)
 			rsAlpha := resizeAlpha(alphaData.Data, srcW, srcH, pos.W, pos.H)
 			rsGrad := sobelMagnitude(rsAlpha, pos.W, pos.H)
-			fixed := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, pos.X, pos.Y, pos.W, pos.H)
-
-			// Define a detection box around the expected position (wider than alpha map,
-			// similar to the reference project's locate() which uses width_frac=0.22 etc.)
-			boxPad := int(float64(pos.W) * 0.2) // 20% padding on each side
-			bx := maxInt(0, pos.X-boxPad)
-			by := maxInt(0, pos.Y-boxPad)
-			bw := minInt(w-bx, pos.W+2*boxPad)
-			bh := minInt(h-by, pos.H+2*boxPad)
-			// Extract a binary mask of watermark-like pixels within the detection box.
-			// If box is too small, skip alignment and use fixed position only.
-			doAlign := bw >= pos.W+4 && bh >= pos.H+4
-			// Criteria (matching the reference project): bright (luma > 150),
-			// low-saturation (channel spread < 55), and brighter than local background.
-			boxMask := extractTextMask(gray, grad, w, h, bx, by, bw, bh, 150, 55, 12)
-
-			// TM_CCOEFF_NORMED search: match glyph silhouette against box mask
-			expectedW := pos.W
-			var aligned *candidate
-			if doAlign {
-				for scale := 0.88; scale <= 1.121; scale += 0.02 {
-					sw := int(math.Round(float64(expectedW) * scale))
-					sh := int(math.Round(float64(pos.H) * scale))
-					if sw < 16 || sh < 16 || sw > bw || sh > bh {
-						continue
-					}
-					// Resize silhouette to this scale
-					t := resizeAlpha(sil, srcW, srcH, sw, sh)
-					// MatchTemplate equivalent: NCC of silhouette vs mask region
-					maxScore, bestOx, bestOy := -1.0, 0, 0
-					maxOx := bw - sw
-					maxOy := bh - sh
-					for oy := 0; oy <= maxOy; oy++ {
-						for ox := 0; ox <= maxOx; ox++ {
-							// Extract mask region
-							maskRegion := make([]float64, sw*sh)
-							for row := 0; row < sh; row++ {
-								for col := 0; col < sw; col++ {
-									maskRegion[row*sw+col] = boxMask[(oy+row)*bw+ox+col]
-								}
-							}
-							score := ncc(maskRegion, t)
-							if score > maxScore {
-								maxScore = score
-								bestOx, bestOy = ox, oy
-							}
-						}
-					}
-					if maxScore < 0 {
-						continue
-					}
-					// Compute the absolute position
-					absX, absY := bx+bestOx, by+bestOy
-					// Score the alpha map at this position using grayscale NCC
-					rsA := resizeAlpha(alphaData.Data, srcW, srcH, sw, sh)
-					rsG := sobelMagnitude(rsA, sw, sh)
-					cand := scoreCandidateRect(gray, grad, w, h, rsA, rsG, absX, absY, sw, sh)
-					if cand == nil {
-						continue
-					}
-					cand.x, cand.y = absX, absY
-					cand.w, cand.h = sw, sh
-					if aligned == nil || cand.confidence > aligned.confidence {
-						aligned = cand
-					}
-				}
-			}
-
-			// Pick the better of fixed vs aligned
-			best := fixed
-			if aligned != nil && (best == nil || aligned.confidence > best.confidence) {
-				best = aligned
-			}
-			if best == nil {
+			cand := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, pos.X, pos.Y, pos.W, pos.H)
+			if cand == nil {
 				continue
 			}
-			best.w, best.h = best.w, best.h
-			if best.w <= 0 || best.h <= 0 {
-				best.w, best.h = pos.W, pos.H
+			cand.w, cand.h = pos.W, pos.H
+			sz := pos.W
+			if pos.H < sz {
+				sz = pos.H
 			}
-			sz := best.w
-			if best.h < sz {
-				sz = best.h
-			}
-			best.size = sz
+			cand.size = sz
 			sizeWeight := math.Min(1, math.Cbrt(float64(sz)/float64(srcW)))
-			adjusted := best.confidence * sizeWeight
+			adjusted := cand.confidence * sizeWeight
 			if adjusted < 0.08 {
 				continue
 			}
-			best.confidence = adjusted
-			seeds = append(seeds, seedScore{best.x, best.y, sz, adjusted, best})
+			cand.confidence = adjusted
+			seeds = append(seeds, seedScore{pos.X, pos.Y, sz, adjusted, cand})
 		}
 	} else {
 		// Use Gemini catalog positions

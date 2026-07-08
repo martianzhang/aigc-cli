@@ -10,7 +10,6 @@ const (
 	TypeUnknown Type = iota
 	TypeGeminiSparkle
 	TypeDoubao
-	TypeJimeng
 )
 
 // AlphaMap holds a pre-calibrated transparency mask for a watermark.
@@ -89,7 +88,8 @@ type Result struct {
 type Detection struct {
 	Name       string  `json:"name"`
 	Confidence float64 `json:"confidence"`
-	X, Y       int     `json:"x"`
+	X          int     `json:"x"`
+	Y          int     `json:"y"`
 	Size       int     `json:"size"`
 }
 
