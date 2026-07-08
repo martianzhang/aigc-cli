@@ -56,7 +56,7 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 			break
 		}
 
-		// Phase 2: sub-pixel refinement (only for square marks)
+		// Phase 2: sub-pixel refinement
 		if dw == dh {
 			for _, dx := range []float64{-0.5, -0.25, 0.25, 0.5} {
 				for _, dy := range []float64{-0.5, -0.25, 0.25, 0.5} {
@@ -67,6 +67,25 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 						if residual < best.residual {
 							best = trialResult{dst, warped, residual, best.gain}
 						}
+					}
+				}
+			}
+		} else {
+			// Position refinement for rectangular alpha maps (text watermarks).
+			// Shift position by ±1px to better align with the actual mark.
+			for _, dxi := range []int{-1, 0, 1} {
+				for _, dyi := range []int{-1, 0, 1} {
+					if dxi == 0 && dyi == 0 {
+						continue
+					}
+					dx, dy := det.x+dxi, det.y+dyi
+					if dx < 0 || dy < 0 || dx+dw > img.Bounds().Dx() || dy+dh > img.Bounds().Dy() {
+						continue
+					}
+					dst2 := applyReverseAlphaRect(current, best.alpha, dx, dy, dw, dh, logo, best.gain)
+					residual := computeResidualRect(dst2, best.alpha, dx, dy, dw, dh)
+					if residual < best.residual {
+						best = trialResult{dst2, best.alpha, residual, best.gain}
 					}
 				}
 			}
