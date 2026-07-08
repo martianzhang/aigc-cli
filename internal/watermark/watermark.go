@@ -67,16 +67,18 @@ func RemoveWatermark(img image.Image) (*image.RGBA, *Result, error) {
 // RemoveWatermarkHinted detects and removes a watermark, preferring a specific
 // config when the producer is known from TC260 metadata (e.g., "doubao", "jimeng").
 func RemoveWatermarkHinted(img image.Image, producer string) (*image.RGBA, *Result, error) {
-	// When the producer is known, try the hinted config FIRST with a relaxed
-	// threshold (the PositionResolver knows the exact location — no false positives).
+	// When the producer is known, try the hinted config FIRST.
+	// For PositionResolver configs (Doubao/Jimeng), use a relaxed threshold
+	// because the exact position is known — no false positive risk.
+	// For Gemini, use the normal threshold to avoid weak matches.
 	if producer != "" {
 		if cfg, ok := findConfigByName(producer); ok {
-			origThresh := cfg.DetectThreshold
-			cfg.DetectThreshold = 0.08
 			det := detectWatermark(img, cfg)
-			cfg.DetectThreshold = origThresh
-			if det != nil && det.confidence >= 0.08 {
-				// det.w/det.h are already set by scoreCandidateRect to the scaled dimensions
+			passThreshold := cfg.DetectThreshold
+			if cfg.PositionResolver != nil {
+				passThreshold = 0.08 // relaxed for known-position text marks
+			}
+			if det != nil && det.confidence >= passThreshold {
 				dst := removeWatermark(img, det, cfg)
 				region := fmt.Sprintf("%d,%d,%d,%d", det.x, det.y, det.size, det.size)
 				return dst, &Result{

@@ -254,6 +254,45 @@ func resizeAlpha(src []float64, sw, sh, dw, dh int) []float64 {
 	return dst
 }
 
+// extractTextMask extracts a binary mask of watermark-like pixels from a region.
+// Criteria: bright (luma > logoMinLuma), low-saturation (channel spread < maxSat),
+// and brighter than local background (luma > localBg + tophatDelta).
+// Returns a bw×bh float64 slice (1.0 = likely watermark pixel, 0.0 = background).
+func extractTextMask(gray, grad []float64, imgW, imgH, bx, by, bw, bh int,
+	logoMinLuma float64, maxSat float64, tophatDelta float64) []float64 {
+
+	mask := make([]float64, bw*bh)
+
+	// Compute local background using a strong blur (sigma ~ box height * 0.4)
+	sigma := math.Max(4.0, float64(bh)*0.4)
+	localBg := gaussianBlur(gray, imgW, imgH, sigma)
+
+	for row := 0; row < bh; row++ {
+		for col := 0; col < bw; col++ {
+			absY := by + row
+			absX := bx + col
+			if absY < 0 || absY >= imgH || absX < 0 || absX >= imgW {
+				continue
+			}
+			luma := gray[absY*imgW+absX] * 255.0 // convert from [0,1] to [0,255]
+
+			// White top-hat: luma - local background
+			bg := localBg[absY*imgW+absX] * 255.0
+			tophat := luma - bg
+
+			// Saturation estimate: use gradient magnitude as a proxy
+			// (actual saturation requires RGB, but gradient catches edges)
+			sat := grad[absY*imgW+absX] * 255.0
+
+			// Watermark pixels are: bright, brighter than background, not too saturated
+			if luma >= logoMinLuma && tophat > tophatDelta && sat < maxSat {
+				mask[row*bw+col] = 1.0
+			}
+		}
+	}
+	return mask
+}
+
 // insertTop5 inserts a candidate into a sorted slice, keeping at most n.
 func insertTop5(slice *[]candidate, c *candidate, n int) {
 	*slice = append(*slice, *c)
