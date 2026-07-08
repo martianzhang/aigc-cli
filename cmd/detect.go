@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"image"
 	_ "image/gif"
+	"image/jpeg"
 	_ "image/jpeg"
+	"image/png"
 	_ "image/png"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	_ "golang.org/x/image/bmp"
@@ -34,6 +37,9 @@ Analyzes images through multiple signals:
   - ONNX model-based AI generation detection (requires download)
 
 All signals are fused into a single AIGen confidence score with emoji.
+Use --remove-watermark to strip AI provenance metadata from images.
+Note: this does NOT remove visible watermarks — it only removes embedded
+C2PA/TC260/EXIF metadata that platforms use to display "Made with AI" labels.
 
 Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
 	RunE: runDetect,
@@ -41,6 +47,7 @@ Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
 
 var detectJSON bool
 var detectPreview bool
+var detectRemoveWM bool
 
 func runDetect(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
@@ -148,6 +155,11 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	}
 	if detectPreview {
 		service.PreviewFile(path)
+	}
+	if detectRemoveWM {
+		if err := stripMetadata(path); err == nil {
+			fmt.Printf("  AI metadata removed → %s\n", cleanPath(path))
+		}
 	}
 	return nil
 }
@@ -375,6 +387,43 @@ func modelSizeLabel(modelPath string) string {
 	}
 }
 
+// cleanPath returns the output path for a metadata-stripped copy.
+func cleanPath(path string) string {
+	ext := filepath.Ext(path)
+	return strings.TrimSuffix(path, ext) + "_clean" + ext
+}
+
+// stripMetadata decodes and re-encodes the image, removing all embedded
+// metadata (C2PA, TC260, EXIF, XMP, etc.). Go's image encoders only write
+// essential pixel data, discarding ancillary chunks and metadata segments.
+func stripMetadata(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return fmt.Errorf("decode: %w", err)
+	}
+	f.Close()
+
+	outPath := cleanPath(path)
+	out, err := os.Create(outPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".jpg", ".jpeg":
+		return jpeg.Encode(out, img, &jpeg.Options{Quality: 95})
+	default:
+		return png.Encode(out, img)
+	}
+}
+
 func configDir() string {
 	home, _ := os.UserHomeDir()
 	if home == "" {
@@ -387,4 +436,5 @@ func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
+	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "strip AI provenance metadata (C2PA/TC260/EXIF), not visible watermarks")
 }
