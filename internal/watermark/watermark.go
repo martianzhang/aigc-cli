@@ -1,7 +1,11 @@
 package watermark
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -9,6 +13,124 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+// TC260 metadata constants for watermark injection.
+const (
+	tc260ChunkKey = "TC260"
+	tc260Label    = "1"
+)
+
+// AddWatermarkFile adds a visible watermark to an image file and saves the result.
+// For known producers (gemini/doubao/jimeng), the watermark matches the AI provider's
+// visible mark. For unknown producers, the producer text is rendered as a watermark.
+//
+// Known producers also get TC260 AIGC metadata injected into the output file
+// (as a PNG text chunk), so the result appears AI-generated to detection tools.
+// Gemini images skip metadata injection (C2PA requires cryptographic signing).
+func AddWatermarkFile(inputPath, outputPath, producer string) (*Result, error) {
+	f, err := os.Open(inputPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+	f.Close()
+
+	dst, res, err := AddWatermark(img, producer)
+	if err != nil {
+		return nil, err
+	}
+
+	if outputPath == "" {
+		outputPath = strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + "_watermarked.png"
+	}
+
+	out, err := os.Create(outputPath)
+	if err != nil {
+		return nil, err
+	}
+	defer out.Close()
+
+	// Encode as PNG (supports metadata text chunks)
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, dst); err != nil {
+		return nil, fmt.Errorf("encode: %w", err)
+	}
+
+	encoded := buf.Bytes()
+
+	// Inject TC260 metadata for known Chinese AI providers
+	if producer == "doubao" || producer == "jimeng" {
+		encoded, err = embedPNGTextChunk(encoded, tc260ChunkKey, makeTC260JSON(producer))
+		if err != nil {
+			return nil, fmt.Errorf("embed metadata: %w", err)
+		}
+	}
+
+	if _, err := out.Write(encoded); err != nil {
+		return nil, fmt.Errorf("write: %w", err)
+	}
+
+	res.Region = fmt.Sprintf("%s -> %s", inputPath, outputPath)
+	return res, nil
+}
+
+// makeTC260JSON creates a TC260 JSON string for the given producer.
+func makeTC260JSON(producer string) string {
+	// Flat format: {"Label":"1","ContentProducer":"doubao"}
+	data, _ := json.Marshal(map[string]string{
+		"Label":           tc260Label,
+		"ContentProducer": producer,
+	})
+	return string(data)
+}
+
+// embedPNGTextChunk inserts a tEXt chunk before IEND in PNG-encoded bytes.
+// Properly parses PNG chunk structure to find the real IEND chunk.
+func embedPNGTextChunk(pngData []byte, key, value string) ([]byte, error) {
+	// Parse PNG chunks to find IEND (the chunk type marker, not a compressed
+	// data coincidence).
+	var iendIdx int
+	found := false
+	pos := 8 // skip PNG signature
+	for pos+8 <= len(pngData) {
+		length := int(binary.BigEndian.Uint32(pngData[pos : pos+4]))
+		if chunkType := string(pngData[pos+4 : pos+8]); chunkType == "IEND" {
+			iendIdx = pos
+			found = true
+			break
+		}
+		pos += 12 + length
+	}
+	if !found {
+		return nil, fmt.Errorf("PNG: IEND chunk not found")
+	}
+
+	// Build tEXt chunk: length + "tEXt" + key\0value + CRC
+	chunkData := append([]byte(key), 0)
+	chunkData = append(chunkData, []byte(value)...)
+
+	chunk := make([]byte, 4+4+len(chunkData)+4)
+	binary.BigEndian.PutUint32(chunk[0:4], uint32(len(chunkData))) // length
+	copy(chunk[4:8], "tEXt")                                       // type
+	copy(chunk[8:8+len(chunkData)], chunkData)                     // data
+
+	// CRC32 of type + data
+	crc := crc32.NewIEEE()
+	crc.Write(chunk[4 : 8+len(chunkData)])
+	binary.BigEndian.PutUint32(chunk[8+len(chunkData):12+len(chunkData)], crc.Sum32())
+
+	// Insert before IEND
+	result := make([]byte, 0, len(pngData)+len(chunk))
+	result = append(result, pngData[:iendIdx]...)
+	result = append(result, chunk...)
+	result = append(result, pngData[iendIdx:]...)
+	return result, nil
+}
 
 // ProducerToConfig maps a TC260 ContentProducer value to a registered config name.
 // Handles direct name match and substring match (e.g., "字节跳动 (ByteDance) — 豆包" → "doubao").
