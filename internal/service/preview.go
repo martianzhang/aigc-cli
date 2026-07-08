@@ -253,7 +253,7 @@ func urlToFilename(rawURL, ext string) string {
 func isImageFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp":
+	case ".png", ".jpg", ".jpeg", ".jfif", ".gif", ".webp", ".bmp":
 		return true
 	}
 	return false
@@ -264,7 +264,7 @@ func mimeFromExt(ext string) string {
 	switch ext {
 	case ".png":
 		return "image/png"
-	case ".jpg", ".jpeg":
+	case ".jpg", ".jpeg", ".jfif":
 		return "image/jpeg"
 	case ".gif":
 		return "image/gif"

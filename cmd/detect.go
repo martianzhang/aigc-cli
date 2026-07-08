@@ -21,6 +21,7 @@ import (
 	"github.com/martianzhang/apimart-cli/internal/forensic"
 	"github.com/martianzhang/apimart-cli/internal/onnx"
 	"github.com/martianzhang/apimart-cli/internal/service"
+	"github.com/martianzhang/apimart-cli/internal/watermark"
 )
 
 var detectCmd = &cobra.Command{
@@ -37,9 +38,9 @@ Analyzes images through multiple signals:
   - ONNX model-based AI generation detection (requires download)
 
 All signals are fused into a single AIGen confidence score with emoji.
-Use --remove-watermark to strip AI provenance metadata from images.
-Note: this does NOT remove visible watermarks — it only removes embedded
-C2PA/TC260/EXIF metadata that platforms use to display "Made with AI" labels.
+Use --remove-watermark to detect and remove visible AI watermarks
+(Gemini sparkle). Metadata (C2PA/TC260/EXIF) is also stripped during
+re-encoding, removing "Made with AI" labels on social platforms.
 
 Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
 	RunE: runDetect,
@@ -153,12 +154,23 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	if err := service.PrintDetectResult(os.Stdout, result, true); err != nil {
 		return err
 	}
-	if detectPreview {
+	if detectPreview && !detectRemoveWM {
 		service.PreviewFile(path)
 	}
 	if detectRemoveWM {
-		if err := stripMetadata(path); err == nil {
-			fmt.Printf("  AI metadata removed → %s\n", cleanPath(path))
+		outPath := cleanPath(path)
+		// Try visible watermark detection + removal
+		res, err := watermark.RemoveFile(path, outPath)
+		if err == nil && res.Removed {
+			fmt.Printf("  Watermark removed (%s) → %s\n", res.Name, outPath)
+			if detectPreview {
+				service.PreviewFile(outPath)
+			}
+		} else {
+			// Fallback: strip metadata only
+			if err := stripMetadata(path); err == nil {
+				fmt.Printf("  AI metadata removed → %s\n", outPath)
+			}
 		}
 	}
 	return nil
@@ -436,5 +448,5 @@ func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
-	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "strip AI provenance metadata (C2PA/TC260/EXIF), not visible watermarks")
+	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "detect and remove visible AI watermarks (Gemini sparkle), also strips metadata")
 }
