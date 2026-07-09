@@ -153,6 +153,12 @@ func ProducerToConfig(producer string) string {
 		"google":    "gemini",
 		"gemini":    "gemini",
 		"baidu":     "baidu",
+		"智谱":        "zhipu",
+		"zhipu":     "zhipu",
+		"zhipuai":   "zhipu",
+		"chatglm":   "zhipu",
+		"glm":       "zhipu",
+		"清言":        "zhipu",
 	}
 	for key, name := range brandAliases {
 		if strings.Contains(lower, key) {

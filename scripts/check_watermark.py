@@ -60,6 +60,18 @@ WATERMARK_CONFIGS = {
         "color": "#4444FF",
         "name": "Doubao (豆包AI生成)",
     },
+    "zhipu": {
+        # Native 234×60 at 1024px shorter side; scales with min(w,h).
+        "size": None,
+        "positions": lambda w, h: [
+            (
+                w - int(round(w * 0.0126953125)) - int(round(234 * min(w, h) / 1024)),
+                h - int(round(w * 0.0078125)) - int(round(60 * min(w, h) / 1024)),
+            ),
+        ],
+        "color": "#FF44FF",
+        "name": "Zhipu Qingyan (智谱清言)",
+    },
 }
 
 

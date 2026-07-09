@@ -71,6 +71,20 @@ WM_PARAMS = {
         "margin_r_frac": 0.0288,
         "margin_b_frac": 0.0288,
     },
+    "baidu": {
+        "native_w": 1024,
+        "alpha_w": 187,
+        "alpha_h": 51,
+        "margin_r_frac": 0.00293,
+        "margin_b_frac": 0.00293,
+    },
+    "zhipu": {
+        "native_w": 1024,
+        "alpha_w": 234,
+        "alpha_h": 60,
+        "margin_r_frac": 0.0126953125,
+        "margin_b_frac": 0.0078125,
+    },
 }
 
 
@@ -226,7 +240,7 @@ def main():
     parser.add_argument("--wm-h", type=int, default=None, help="Watermark height")
     parser.add_argument(
         "--producer",
-        choices=["doubao", "jimeng", "gemini"],
+        choices=["doubao", "jimeng", "gemini", "baidu", "zhipu"],
         default=None,
         help="Watermark producer for auto-positioning",
     )

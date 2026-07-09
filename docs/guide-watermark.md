@@ -13,6 +13,8 @@
 | **Gemini** (Google) | ✦ 星形 Sparkle | 图标（48-96px） | `gemini_bg_96.png` | 右下角，固定像素边距 |
 | **豆包** (ByteDance) | "豆包AI生成" | 文字（335×83 @2048px） | `doubao_alpha.png` | 右下角，按图片短边缩放 |
 | **即梦** (ByteDance) | "★ 即梦AI" | 文字（414×118 @2048px） | `jimeng_alpha.png` | 右下角，按图片短边缩放 |
+| **百度** (Baidu) | "百度 AI生成" | 文字（187×51 @1024px） | `baidu_alpha.png` | 右下角，按图片短边缩放 |
+| **智谱清言** (Zhipu / ChatGLM) | "智谱清言" | 文字（234×60 @1024px） | `zhipu_alpha.png` | 右下角，按图片短边缩放 |
 
 ---
 

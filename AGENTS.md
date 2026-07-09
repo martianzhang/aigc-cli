@@ -284,6 +284,7 @@ python scripts/check_watermark.py .testdata/doubao-snap/PixPin_xxx.png --report
 - `doubao-snap`  — 豆包网页截图 "AI 生成" 左上角 118x58
 - `baidu`        — 百度 "百度 AI生成" 右下角 139x42
 - `doubao`       — 豆包嵌入水印 右下角（动态尺寸）
+- `zhipu`        — 智谱清言 "智谱清言" 右下角 234x60（@1024px 短边缩放）
 
 **新增水印类型时**，必须在 `WATERMARK_CONFIGS` 中添加对应条目（大小、位置计算函数），保持与 Go 代码 `badge.go` 中 `Register(Config{...})` 配置一致。
 
@@ -295,7 +296,7 @@ python scripts/check_watermark.py .testdata/doubao-snap/PixPin_xxx.png --report
 
 ### 6B.2 verify_watermark.py — 量化验证
 
-输出 PASS/WARN/FAIL 判断，适合 CI 回归测试。支持 `doubao`、`jimeng`、`gemini` 三种嵌入水印。
+输出 PASS/WARN/FAIL 判断，适合 CI 回归测试。支持 `doubao`、`jimeng`、`gemini`、`baidu`、`zhipu` 等嵌入水印。
 
 ```bash
 # 自动检测水印位置
