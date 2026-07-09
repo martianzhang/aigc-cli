@@ -266,10 +266,8 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		service.PreviewFile(path)
 	}
 	if detectRemoveWM {
-		// Auto-load all custom watermarks from the watermark directory
-		if err := watermark.LoadWatermarkPNGsFromDir(watermarkDir()); err != nil {
-			// Non-fatal: directory may not exist or be empty
-		}
+		// Load custom watermarks from the watermark directory (may not exist)
+		_ = watermark.LoadWatermarkPNGsFromDir(watermarkDir())
 
 		if detectWmProducer == "" && !detectConfirmed {
 			return fmt.Errorf("--confirm is required with --remove-watermark when not using --producer: you must confirm you respect intellectual property rights and comply with applicable laws")
