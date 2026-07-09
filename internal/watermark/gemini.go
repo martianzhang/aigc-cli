@@ -145,7 +145,6 @@ var officialGeminiSizes = func() []watermarkEntry {
 // resolveWatermarkConfigs returns candidate watermark positions for the given image dimensions,
 // following the reference project's catalog-first + near-official-projection approach.
 func resolveWatermarkConfigs(w, h int) []watermarkEntry {
-	type dimKey struct{ w, h int }
 	var candidates []watermarkEntry
 
 	// 1. Exact official match

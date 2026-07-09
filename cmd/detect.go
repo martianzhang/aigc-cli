@@ -153,7 +153,7 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	// Detect visible AI watermarks (Gemini/Doubao/Jimeng) for AI detection signal.
 	// Only run when no ironclad C2PA/TC260 metadata exists — that's when a visible
 	// watermark left behind on a re-saved/re-encoded image carries decisive weight.
-	if !(opts.C2PAPresent && opts.C2PASource == "AI Generated") && !opts.TC260Present {
+	if (!opts.C2PAPresent || opts.C2PASource != "AI Generated") && !opts.TC260Present {
 		f, fErr := os.Open(path)
 		if fErr == nil {
 			img, _, decErr := image.Decode(f)
@@ -288,7 +288,7 @@ func detectOneFileJSON(path, pathOverride string, aiDetector *onnx.Detector, res
 		NoiseScore:     noiseScore,
 		JPEGScore:      jpegScore,
 	}
-	if !(opts.C2PAPresent && opts.C2PASource == "AI Generated") && !opts.TC260Present {
+	if (!opts.C2PAPresent || opts.C2PASource != "AI Generated") && !opts.TC260Present {
 		f, fErr := os.Open(path)
 		if fErr == nil {
 			img, _, decErr := image.Decode(f)

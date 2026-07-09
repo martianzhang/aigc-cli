@@ -134,16 +134,6 @@ func RegisteredTypes() []string {
 	return names
 }
 
-// findConfig returns the config for a given type.
-func findConfig(t Type) (Config, bool) {
-	for _, c := range registry {
-		if c.Type == t {
-			return c, true
-		}
-	}
-	return Config{}, false
-}
-
 // findConfigByName returns the config with the given name.
 func findConfigByName(name string) (Config, bool) {
 	for _, c := range registry {
