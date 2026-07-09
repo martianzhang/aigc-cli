@@ -30,9 +30,11 @@ const ContentProducerKey = "ContentProducer"
 
 // Known watermark provider names (map TC260 ContentProducer to config names).
 const (
-	ProviderGemini = "gemini"
-	ProviderDoubao = "doubao"
-	ProviderJimeng = "jimeng"
+	ProviderGemini     = "gemini"
+	ProviderDoubao     = "doubao"
+	ProviderJimeng     = "jimeng"
+	ProviderDoubaoSnap = "doubao-snap"
+	ProviderBaidu      = "baidu"
 )
 
 // DetectResult holds structured image detection data.

@@ -52,4 +52,7 @@ image_*.md
 # Project docs
 TODO.md
 
+# Test images (copied from reference projects, not committed)
+.testdata/
+
 

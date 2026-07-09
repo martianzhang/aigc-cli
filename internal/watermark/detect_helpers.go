@@ -298,8 +298,24 @@ func paramsForConfig(name string) TextMarkParams {
 	switch name {
 	case "jimeng":
 		return DefaultJimengParams()
+	case "doubao-snap", "baidu":
+		return DefaultBadgeParams()
 	default:
 		return DefaultDoubaoParams()
+	}
+}
+
+// DefaultBadgeParams returns params for UI badge watermarks (screenshots).
+// The badge text is white on dark background, so we use a wider search range
+// for DPI variations and a lower tophat threshold since text is high-contrast.
+func DefaultBadgeParams() TextMarkParams {
+	return TextMarkParams{
+		MaxSaturation:  80,   // wider saturation tolerance for badge text
+		LogoMinLuma:    60,   // lower brightness threshold (badge text may be dimmer)
+		TophatDelta:    8,    // lower tophat threshold (high contrast on dark bg)
+		MorphOpenSize:  3,    // smaller kernel for badge text
+		AlignSearchMin: 0.50, // wider range for DPI variations
+		AlignSearchMax: 2.00,
 	}
 }
 

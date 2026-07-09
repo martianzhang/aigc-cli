@@ -11,6 +11,16 @@ const (
 	TypeGeminiSparkle
 	TypeDoubao
 	TypeJimeng
+	TypeDoubaoSnap // "AI 生成" UI badge (screenshot from Doubao web)
+	TypeBaidu      // "百度 AI生成" UI badge (screenshot from Baidu web)
+)
+
+// RemoveStrategy controls how a watermark is removed.
+type RemoveStrategy int
+
+const (
+	RemoveAlphaBlend RemoveStrategy = iota // reverse alpha blending (default)
+	RemoveInpaint                          // inpaint only (UI badges with opaque background)
 )
 
 // AlphaMap holds a pre-calibrated transparency mask for a watermark.
@@ -73,6 +83,10 @@ type Config struct {
 	// PositionResolver overrides DefaultSize/Margin with image-relative positions.
 	// When set, DefaultSize and DefaultMargin* serve as fallback only.
 	PositionResolver PositionResolver
+	// RemoveStrategy controls how the watermark is removed.
+	// Default (RemoveAlphaBlend) uses reverse alpha blending.
+	// Set RemoveInpaint for UI badges with opaque backgrounds.
+	RemoveStrategy RemoveStrategy
 }
 
 // Result holds the outcome of a watermark removal operation.

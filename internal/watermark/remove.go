@@ -30,6 +30,16 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 	size := dh           // use height for square sub-pixel logic; width may differ
 	isTextWM := dw != dh // rectangular alpha = text watermark
 
+	// UI badge watermarks: inpaint text pixels only. The alpha map has been
+	// cleaned with --floor 0.10 to zero out the dark badge background; only
+	// text pixels (alpha > 0.15) remain active. The inpaint area is small
+	// enough that progressive boundary-growing produces a clean, blur-free
+	// result without the column-median noise and edge artifacts.
+	if cfg.RemoveStrategy == RemoveInpaint {
+		baseAlpha := resizeAlpha(srcAlpha, srcW, srcH, dw, dh)
+		return inpaintResidual(cloneToRGBA(img), baseAlpha, det.x, det.y, dw, dh, 0.08, 2, 3)
+	}
+
 	type trialResult struct {
 		dst      *image.RGBA
 		alpha    []float64
@@ -781,4 +791,97 @@ func cloneToRGBA(src image.Image) *image.RGBA {
 	dst := image.NewRGBA(b)
 	draw.Draw(dst, b, src, b.Min, draw.Src)
 	return dst
+}
+
+// inpaintBadgeMedian replaces the badge area using per-column median sampling
+// from above the badge (and from left/right samples as fallback). This produces
+// a natural-looking fill that preserves background gradients, unlike IDW inpaint
+// which creates a blurry block for large mask areas.
+func inpaintBadgeMedian(src *image.RGBA, srcAlpha []float64, srcW, srcH, ax, ay, aw, ah int) *image.RGBA {
+	b := src.Bounds()
+	imgW := b.Dx()
+	imgH := b.Dy()
+
+	dst := cloneToRGBA(src)
+
+	// Resize alpha to match the detected badge dimensions
+	alpha := resizeAlpha(srcAlpha, srcW, srcH, aw, ah)
+
+	// Determine which pixels to replace (alpha > 0.10 covers the entire badge
+	// including its semi-transparent dark background).
+	// We'll compute per-column median from pixels above the badge.
+	for col := 0; col < aw; col++ {
+		// Collect samples from above the badge (up to 60px)
+		var samplesR, samplesG, samplesB []float64
+		sampleY1 := maxInt(0, ay-60)
+		for sy := sampleY1; sy < ay; sy++ {
+			px := ax + col
+			if px >= 0 && px < imgW {
+				off := dst.PixOffset(px, sy)
+				samplesR = append(samplesR, float64(src.Pix[off+0]))
+				samplesG = append(samplesG, float64(src.Pix[off+1]))
+				samplesB = append(samplesB, float64(src.Pix[off+2]))
+			}
+		}
+
+		// Also sample from left/right of the badge for extra context
+		if col < aw/2 {
+			// Sample from left of the badge
+			sx := maxInt(0, ax-5)
+			for sy := ay; sy < ay+ah; sy++ {
+				off := src.PixOffset(sx, sy)
+				samplesR = append(samplesR, float64(src.Pix[off+0]))
+				samplesG = append(samplesG, float64(src.Pix[off+1]))
+				samplesB = append(samplesB, float64(src.Pix[off+2]))
+			}
+		} else {
+			// Sample from right of the badge
+			sx := minInt(imgW-1, ax+aw+5)
+			for sy := ay; sy < ay+ah; sy++ {
+				off := src.PixOffset(sx, sy)
+				samplesR = append(samplesR, float64(src.Pix[off+0]))
+				samplesG = append(samplesG, float64(src.Pix[off+1]))
+				samplesB = append(samplesB, float64(src.Pix[off+2]))
+			}
+		}
+
+		// Compute median
+		bgR := medianFloat(samplesR)
+		bgG := medianFloat(samplesG)
+		bgB := medianFloat(samplesB)
+
+		// Apply to all badge pixels in this column where alpha > 0.10
+		for row := 0; row < ah; row++ {
+			if alpha[row*aw+col] > 0.10 {
+				px, py := ax+col, ay+row
+				if px < 0 || py < 0 || px >= imgW || py >= imgH {
+					continue
+				}
+				off := dst.PixOffset(px, py)
+				dst.Pix[off+0] = clampByte(bgR)
+				dst.Pix[off+1] = clampByte(bgG)
+				dst.Pix[off+2] = clampByte(bgB)
+			}
+		}
+	}
+
+	return dst
+}
+
+// medianFloat returns the median of a float64 slice.
+func medianFloat(s []float64) float64 {
+	if len(s) == 0 {
+		return 128
+	}
+	// Simple insertion sort for small slices
+	for i := 1; i < len(s); i++ {
+		key := s[i]
+		j := i - 1
+		for j >= 0 && s[j] > key {
+			s[j+1] = s[j]
+			j--
+		}
+		s[j+1] = key
+	}
+	return s[len(s)/2]
 }
