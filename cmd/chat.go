@@ -163,7 +163,7 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "remove_watermark",
-			Description: "检测并移除图片中的可见 AI 水印（豆包/即梦/百度/智谱清言等），恢复原始图像。完全离线运行，无需 API Key。适合：用户要求去掉图片上的 AI 生成水印、清理 AI 痕迹。",
+			Description: "⚠️ 检测并移除图片中的可见 AI 水印（豆包/即梦/百度/智谱清言等）。仅限合法用途（如修复个人旧照片），禁止去除他人版权水印。完全离线运行，无需 API Key。",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
@@ -179,7 +179,7 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "add_watermark",
-			Description: "向图片添加可见 AI 水印（用于测试去水印效果）。已知厂商使用其注册水印样式；未知名称按文字渲染。完全离线运行，无需 API Key。",
+			Description: "向图片添加可见 AI 水印（仅用于创建去水印算法的测试样本，不注入任何元数据）。已知厂商使用其注册水印样式；未知名称按文字渲染。完全离线运行，无需 API Key。",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {

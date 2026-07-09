@@ -237,14 +237,16 @@ aigc-cli detect --json image.png
 
 ### 用法
 
+> ⚠️ 使用 `--remove-watermark` 前必须通过 `--confirm` 确认您尊重知识产权并遵守适用法律法规。
+
 ```bash
 # 自动检测并去除（优先使用 TC260 ContentProducer 路由）
-aigc-cli detect --remove-watermark image.png
+aigc-cli detect --remove-watermark --confirm image.png
 
 # 手动指定 producer
-aigc-cli detect --remove-watermark --producer doubao image.png
-aigc-cli detect --remove-watermark --producer jimeng image.png
-aigc-cli detect --remove-watermark --producer gemini image.png
+aigc-cli detect --remove-watermark --confirm --producer doubao image.png
+aigc-cli detect --remove-watermark --confirm --producer jimeng image.png
+aigc-cli detect --remove-watermark --confirm --producer gemini image.png
 
 # 加水印（详见 guide-watermark.md）
 aigc-cli detect --add-watermark image.png --producer doubao

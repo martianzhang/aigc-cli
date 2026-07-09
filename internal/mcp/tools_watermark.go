@@ -54,7 +54,7 @@ func removeWatermarkHandler() server.ToolHandlerFunc {
 		if out == "" {
 			out = defaultCleanPath(path)
 		}
-		return mcp.NewToolResultText(fmt.Sprintf("Watermark removed (engine: %s). Output: %s", res.Name, out)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Watermark removed (engine: %s). Output: %s\n\n⚠️ 合规提醒: 请确保您有权处理该图片。本功能仅限合法用途，禁止去除他人版权水印。", res.Name, out)), nil
 	}
 }
 
@@ -85,10 +85,6 @@ func addWatermarkHandler() server.ToolHandlerFunc {
 			ext := filepath.Ext(path)
 			out = strings.TrimSuffix(path, ext) + "_watermarked.png"
 		}
-		note := ""
-		if producer == "doubao" || producer == "jimeng" {
-			note = " (TC260 metadata injected)"
-		}
-		return mcp.NewToolResultText(fmt.Sprintf("Watermark added (engine: %s%s). Output: %s", res.Name, note, out)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Watermark added (engine: %s). Output: %s", res.Name, out)), nil
 	}
 }

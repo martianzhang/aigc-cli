@@ -257,7 +257,7 @@ func detectHandler() server.ToolHandlerFunc {
 
 func newRemoveWatermarkTool() mcp.Tool {
 	return mcp.NewTool("remove_watermark",
-		mcp.WithDescription("检测并移除图片中的可见 AI 水印（豆包/即梦/百度/智谱清言等），恢复原始图像。完全离线运行，无需 API Key。输出为 <原图>_clean<ext>。"),
+		mcp.WithDescription("⚠️  检测并移除图片中的可见 AI 水印（豆包/即梦/百度/智谱清言等）。\n\n仅用于验证检测算法或合法修复用途（如修复个人旧照片）。\n禁止用于去除他人版权图片的水印。\n\n完全离线运行，无需 API Key。输出为 <原图>_clean<ext>。"),
 		mcp.WithString("file_path",
 			mcp.Required(),
 			mcp.Description("待去水印图片的本地路径"),
@@ -273,7 +273,7 @@ func newRemoveWatermarkTool() mcp.Tool {
 
 func newAddWatermarkTool() mcp.Tool {
 	return mcp.NewTool("add_watermark",
-		mcp.WithDescription("向图片添加可见 AI 水印（用于测试去水印效果）。已知厂商（gemini/doubao/jimeng/baidu/zhipu）使用其注册 alpha map；未知名称按文字渲染。完全离线运行，无需 API Key。输出为 <原图>_watermarked.png。"),
+		mcp.WithDescription("向图片添加可见 AI 水印（仅用于创建去水印算法的测试样本，不注入任何元数据）。已知厂商（gemini/doubao/jimeng/baidu/zhipu）使用其注册 alpha map；未知名称按文字渲染。完全离线运行，无需 API Key。输出为 <原图>_watermarked.png。"),
 		mcp.WithString("file_path",
 			mcp.Required(),
 			mcp.Description("待加水印图片的本地路径"),

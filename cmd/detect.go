@@ -28,26 +28,27 @@ var detectCmd = &cobra.Command{
 	Use:          "detect <file...>",
 	Short:        "Detect watermarks, metadata, and AIGC signals in images",
 	SilenceUsage: true,
-	Long: `Analyzes images through multiple signals:
-  - C2PA Content Credentials (tamper-evident provenance metadata)
-  - TC260 AIGC labels (China GB 45438-2025)
-  - SynthID invisible watermarks (inferred from C2PA vendor)
-  - FFT power spectrum analysis (pixel-level frequency artifacts)
-  - ONNX model-based AI generation detection (requires download)
+	Long: `AIGC 检测与研究工具 — 通过多信号融合分析图片是否为 AI 生成。
 
-All signals are fused into a single AIGen confidence score with emoji.
-Use --remove-watermark to detect and remove visible AI watermarks
-(Gemini sparkle, Doubao "豆包AI生成", Jimeng "★ 即梦AI", Baidu "百度 AI生成", Zhipu "智谱清言"). Metadata
-(C2PA/TC260/EXIF) is also stripped during re-encoding, removing
-"Made with AI" labels on social platforms.
+分析信号包括:
+  - C2PA Content Credentials（防篡改溯源元数据）
+  - TC260 AIGC 标签（国标 GB 45438-2025）
+  - SynthID 隐形水印（从 C2PA 厂商推断）
+  - FFT 频谱分析（像素级频域伪影）
+  - ONNX 模型推理（需下载模型）
+  - 可见 AI 水印检测（Gemini/豆包/即梦/百度/智谱清言）
 
-Use --add-watermark with --producer to ADD a visible AI watermark
-to an image (for testing). Known producers use their registered
-alpha map and position; unknown producers render the text as a
-watermark using a built-in bitmap font. For doubao/jimeng, TC260
-AIGC metadata is also injected into the output.
+所有信号融合为单一 AIGen 置信度评分（含 emoji）。
 
-Supports PNG, JPEG, WebP, GIF, and BMP formats.`,
+⚠️ 合规声明
+--remove-watermark 功能仅用于验证水印检测算法的准确性，以及
+在合法场景下（如修复个人旧照片）使用。使用前必须通过
+--confirm 确认您尊重知识产权并遵守适用法律法规。
+禁止用于去除他人版权图片的水印或任何侵权用途。
+
+--add-watermark 仅用于为去水印算法创建测试样本，不注入任何元数据。
+
+支持 PNG、JPEG、WebP、GIF、BMP 格式。`,
 	RunE: runDetect,
 }
 
@@ -56,6 +57,7 @@ var detectPreview bool
 var detectRemoveWM bool
 var detectAddWM bool
 var detectWmProducer string
+var detectConfirmed bool
 
 func runDetect(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
@@ -183,6 +185,9 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		service.PreviewFile(path)
 	}
 	if detectRemoveWM {
+		if !detectConfirmed {
+			return fmt.Errorf("--confirm is required with --remove-watermark: you must confirm you respect intellectual property rights and comply with applicable laws")
+		}
 		outPath := cleanPath(path)
 		// Use TC260 metadata as a hint for which watermark engine to prefer
 		producer := detectWmProducer
@@ -514,8 +519,9 @@ func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
-	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "detect and remove visible AI watermarks (Gemini/Doubao/Jimeng/Baidu/Zhipu), also strips metadata")
-	detectCmd.Flags().BoolVar(&detectAddWM, "add-watermark", false, "add a visible AI watermark to the image (requires --producer)")
+	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "⚠️  remove visible AI watermarks (requires --confirm). Only for legal use such as restoring personal photos. NOT for removing copyright watermarks.")
+	detectCmd.Flags().BoolVar(&detectAddWM, "add-watermark", false, "add a visible AI watermark for testing removal (no metadata injected)")
+	detectCmd.Flags().BoolVar(&detectConfirmed, "confirm", false, "confirm you respect intellectual property rights and comply with applicable laws (required with --remove-watermark)")
 	detectCmd.Flags().StringVar(&detectWmProducer, "producer", "",
 		`watermark producer override (`+strings.Join([]string{service.ProviderGemini, service.ProviderDoubao, service.ProviderJimeng, service.ProviderDoubaoSnap, service.ProviderBaidu, service.ProviderZhipu}, "/")+`)`+
 			` (for --add-watermark: the text to render as watermark if not a known name)`)
