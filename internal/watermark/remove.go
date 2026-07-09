@@ -16,6 +16,9 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 	if det == nil || det.size < 4 {
 		return cloneToRGBA(img)
 	}
+	if cfg.RemoveStrategy == RemoveSkip {
+		return cloneToRGBA(img)
+	}
 
 	srcAlpha := cfg.AlphaMap.Data
 	srcW, srcH := cfg.AlphaMap.Width, cfg.AlphaMap.Height
@@ -36,6 +39,15 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 	// enough that progressive boundary-growing produces a clean, blur-free
 	// result without the column-median noise and edge artifacts.
 	if cfg.RemoveStrategy == RemoveInpaint {
+		// Badge watermarks (doubao-snap, baidu) have an opaque/semi-opaque
+		// dark background that must be removed in addition to the text.
+		// inpaintBadgeMedian replaces the entire badge area (alpha > 0.10)
+		// using per-column median sampling from above the badge, preserving
+		// background gradients without blurring. This is more suitable than
+		// inpaintResidual for large opaque badge areas.
+		if cfg.Type == TypeDoubaoSnap || cfg.Type == TypeBaidu {
+			return inpaintBadgeMedian(cloneToRGBA(img), srcAlpha, srcW, srcH, det.x, det.y, dw, dh, 0.10)
+		}
 		baseAlpha := resizeAlpha(srcAlpha, srcW, srcH, dw, dh)
 		return inpaintResidual(cloneToRGBA(img), baseAlpha, det.x, det.y, dw, dh, 0.08, 2, 3)
 	}
@@ -141,7 +153,11 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 		// is more than 25 gray levels below the surrounding background ring, fall
 		// back to inpainting from the original (avoids dark pits).
 		if isTextWM && pass == 0 && best.residual < baseResidual {
-			bodyDark := checkOversubtraction(img, best.alpha, det.x, det.y, dw, dh)
+			margin := cfg.OversubtractMargin
+			if margin <= 0 {
+				margin = 25.0
+			}
+			bodyDark := checkOversubtraction(img, best.alpha, det.x, det.y, dw, dh, margin)
 			if bodyDark {
 				return inpaintResidual(cloneToRGBA(img), best.alpha, det.x, det.y, dw, dh, 0.05, 9, 4)
 			}
@@ -428,6 +444,9 @@ func clampIdx(v, max int) int {
 }
 
 // applyReverseAlphaRect is like applyReverseAlpha but for rectangular regions (dw × dh).
+// original = (pixel - alpha*logo) / (1 - alpha), with alpha clamped to [0, 0.99] to
+// bound noise amplification. A small baseline (0.0118) is subtracted before the gain
+// test so near-zero alpha pixels are skipped.
 func applyReverseAlphaRect(img image.Image, alpha []float64,
 	x, y, dw, dh int, logo [3]float64, gain float64) *image.RGBA {
 
@@ -576,9 +595,10 @@ func computeResidual(dst *image.RGBA, alpha []float64, x, y, size int) float64 {
 }
 
 // checkOversubtraction predicts whether reverse-alpha would create a dark pit
-// (glyph body >25 gray levels below surrounding background ring).
+// (glyph body >darkMargin gray levels below surrounding background ring).
 // Mirrors the reference project's _reverse_alpha_oversubtracts gate.
-func checkOversubtraction(img image.Image, alpha []float64, ax, ay, aw, ah int) bool {
+// darkMargin is data-driven per producer (cfg.OversubtractMargin, default 25).
+func checkOversubtraction(img image.Image, alpha []float64, ax, ay, aw, ah int, darkMargin float64) bool {
 	b := img.Bounds()
 	iw, ih := b.Dx(), b.Dy()
 	if aw < 4 || ah < 4 {
@@ -647,7 +667,7 @@ func checkOversubtraction(img image.Image, alpha []float64, ax, ay, aw, ah int) 
 	}
 	bg := ringSum / ringCount
 	predictedCore := bodyDarkSum / bodyDarkCount
-	return predictedCore < bg-25.0
+	return predictedCore < bg-darkMargin
 }
 
 // inpaintResidual removes residual watermark by progressive boundary-growing
@@ -754,6 +774,14 @@ func inpaintResidual(src *image.RGBA, alpha []float64, ax, ay, aw, ah int, floor
 	return dst
 }
 
+// cloneToRGBA converts any image to *image.RGBA.
+func cloneToRGBA(src image.Image) *image.RGBA {
+	b := src.Bounds()
+	dst := image.NewRGBA(b)
+	draw.Draw(dst, b, src, b.Min, draw.Src)
+	return dst
+}
+
 // meanBackgroundLuma samples the background ring around the watermark area
 // and returns the mean luma (0-255). Used to detect light backgrounds where
 // reverse alpha blending would amplify noise.
@@ -785,19 +813,31 @@ func meanBackgroundLuma(img image.Image, ax, ay, aw, ah int) float64 {
 	return sum / float64(count)
 }
 
-// cloneToRGBA converts any image to *image.RGBA.
-func cloneToRGBA(src image.Image) *image.RGBA {
-	b := src.Bounds()
-	dst := image.NewRGBA(b)
-	draw.Draw(dst, b, src, b.Min, draw.Src)
-	return dst
-}
-
-// inpaintBadgeMedian replaces the badge area using per-column median sampling
-// from above the badge (and from left/right samples as fallback). This produces
-// a natural-looking fill that preserves background gradients, unlike IDW inpaint
-// which creates a blurry block for large mask areas.
-func inpaintBadgeMedian(src *image.RGBA, srcAlpha []float64, srcW, srcH, ax, ay, aw, ah int) *image.RGBA {
+// inpaintBadgeMedian replaces the watermark area with a natural-looking fill.
+//
+// Strategy: TEXTURE COPY from directly above the watermark strip.
+//
+//	For a corner-anchored watermark, the region directly above is the natural
+//	continuation of the background. Copying that patch preserves noise,
+//	subtle color variation and any gradient — avoiding the flat "color block"
+//	artifact that a single median fill produces (fill std collapses to ~0
+//	while the surrounding region has std ~15, and the eye picks that up
+//	immediately).
+//
+// After the copy we apply per-channel luma correction (aligning the copied
+// patch's mean to the mean of the 8 rows immediately above the strip) and
+// cross-fade the top 3 rows into the natural image above, so the seam
+// disappears.
+//
+// If the watermark is too close to the image top for a full texture copy,
+// we fall back to per-column median fill.
+//
+// alphaFloor controls which pixels get replaced:
+//   - 0.10 for opaque badges (doubao-snap): only the dark badge body
+//   - -1.0 for embedded text watermarks: the entire rectangle, since the whole
+//     region is contaminated by the alpha-blend and low-alpha edges also carry
+//     watermark signal
+func inpaintBadgeMedian(src *image.RGBA, srcAlpha []float64, srcW, srcH, ax, ay, aw, ah int, alphaFloor float64) *image.RGBA {
 	b := src.Bounds()
 	imgW := b.Dx()
 	imgH := b.Dy()
@@ -807,54 +847,42 @@ func inpaintBadgeMedian(src *image.RGBA, srcAlpha []float64, srcW, srcH, ax, ay,
 	// Resize alpha to match the detected badge dimensions
 	alpha := resizeAlpha(srcAlpha, srcW, srcH, aw, ah)
 
-	// Determine which pixels to replace (alpha > 0.10 covers the entire badge
-	// including its semi-transparent dark background).
-	// We'll compute per-column median from pixels above the badge.
+	// Primary strategy: tile-and-reflect texture from directly above the strip.
+	// Needs at least a few rows above to sample; otherwise fall back to median.
+	if ay >= 6 {
+		return textureCopyFill(src, dst, alpha, ax, ay, aw, ah, alphaFloor)
+	}
+
+	// Fallback: per-column median from a tall strip above the badge.
+	// Used when there isn't enough vertical room to copy a full texture patch.
+	sampleHeight := maxInt(60, ah*2)
+	sampleY1 := maxInt(0, ay-sampleHeight)
+
 	for col := 0; col < aw; col++ {
-		// Collect samples from above the badge (up to 60px)
 		var samplesR, samplesG, samplesB []float64
-		sampleY1 := maxInt(0, ay-60)
+		px := ax + col
+		if px < 0 || px >= imgW {
+			continue
+		}
 		for sy := sampleY1; sy < ay; sy++ {
-			px := ax + col
-			if px >= 0 && px < imgW {
-				off := dst.PixOffset(px, sy)
-				samplesR = append(samplesR, float64(src.Pix[off+0]))
-				samplesG = append(samplesG, float64(src.Pix[off+1]))
-				samplesB = append(samplesB, float64(src.Pix[off+2]))
-			}
+			off := src.PixOffset(px, sy)
+			samplesR = append(samplesR, float64(src.Pix[off+0]))
+			samplesG = append(samplesG, float64(src.Pix[off+1]))
+			samplesB = append(samplesB, float64(src.Pix[off+2]))
+		}
+		if len(samplesR) == 0 {
+			continue
 		}
 
-		// Also sample from left/right of the badge for extra context
-		if col < aw/2 {
-			// Sample from left of the badge
-			sx := maxInt(0, ax-5)
-			for sy := ay; sy < ay+ah; sy++ {
-				off := src.PixOffset(sx, sy)
-				samplesR = append(samplesR, float64(src.Pix[off+0]))
-				samplesG = append(samplesG, float64(src.Pix[off+1]))
-				samplesB = append(samplesB, float64(src.Pix[off+2]))
-			}
-		} else {
-			// Sample from right of the badge
-			sx := minInt(imgW-1, ax+aw+5)
-			for sy := ay; sy < ay+ah; sy++ {
-				off := src.PixOffset(sx, sy)
-				samplesR = append(samplesR, float64(src.Pix[off+0]))
-				samplesG = append(samplesG, float64(src.Pix[off+1]))
-				samplesB = append(samplesB, float64(src.Pix[off+2]))
-			}
-		}
-
-		// Compute median
 		bgR := medianFloat(samplesR)
 		bgG := medianFloat(samplesG)
 		bgB := medianFloat(samplesB)
 
-		// Apply to all badge pixels in this column where alpha > 0.10
+		// Apply to badge pixels in this column where alpha > alphaFloor
 		for row := 0; row < ah; row++ {
-			if alpha[row*aw+col] > 0.10 {
-				px, py := ax+col, ay+row
-				if px < 0 || py < 0 || px >= imgW || py >= imgH {
+			if alpha[row*aw+col] > alphaFloor {
+				py := ay + row
+				if py < 0 || py >= imgH {
 					continue
 				}
 				off := dst.PixOffset(px, py)
@@ -866,6 +894,145 @@ func inpaintBadgeMedian(src *image.RGBA, srcAlpha []float64, srcW, srcH, ax, ay,
 	}
 
 	return dst
+}
+
+// textureCopyFill replaces watermark pixels by TILING a small band of texture
+// from directly above the strip (with vertical reflection), plus per-channel
+// luma correction and top-edge feathering.
+//
+// Why tile-and-reflect instead of a full-height patch copy: on natural images
+// the region directly above the watermark often contains image content that
+// transitions right where the watermark begins (e.g. a horizon or gradient).
+// Copying ah rows would drag that content into the fill and create a false
+// gradient. Using only the last N rows immediately above the strip (the
+// "true local background") and reflecting them to fill ah rows gives natural
+// texture without dragging distant content along for the ride.
+//
+// Preconditions:
+//   - dst is already a clone of src (this function writes into dst)
+//   - alpha has been resized to (aw, ah)
+//   - ay >= 1 (there's at least one row above the strip)
+func textureCopyFill(src, dst *image.RGBA, alpha []float64, ax, ay, aw, ah int, alphaFloor float64) *image.RGBA {
+	b := src.Bounds()
+	imgW := b.Dx()
+	imgH := b.Dy()
+
+	// Texture band: the last bandHeight rows immediately above the watermark.
+	// Small (~ah/3) so we sample only truly-local background, not distant
+	// image content that happens to sit farther above.
+	bandHeight := maxInt(6, minInt(ah/3, ay))
+	bandTop := ay - bandHeight
+
+	// Vertical reflection lookup: fill row -> source y in the band.
+	// The band is walked top-down, then bottom-up, then top-down, ... so ah
+	// fill rows are covered without a visible periodic seam.
+	sourceRow := func(row int) int {
+		period := 2 * bandHeight
+		p := row % period
+		if p < bandHeight {
+			return bandTop + p
+		}
+		return bandTop + (period - 1 - p)
+	}
+
+	// Compute per-channel luma offset: match the mean of pixels the tiled
+	// texture will contribute to the mean of the band itself. Uniform offset
+	// preserves the texture's std (avoiding the "flat color block" look).
+	ringHeight := minInt(8, bandHeight)
+	var ringR, ringG, ringB, ringN float64
+	var patchR, patchG, patchB, patchN float64
+	for row := 0; row < ah; row++ {
+		for col := 0; col < aw; col++ {
+			if alpha[row*aw+col] <= alphaFloor {
+				continue
+			}
+			px := ax + col
+			if px < 0 || px >= imgW {
+				continue
+			}
+			sy := sourceRow(row)
+			if sy >= 0 && sy < imgH {
+				off := src.PixOffset(px, sy)
+				patchR += float64(src.Pix[off+0])
+				patchG += float64(src.Pix[off+1])
+				patchB += float64(src.Pix[off+2])
+				patchN++
+			}
+			for ry := ay - ringHeight; ry < ay; ry++ {
+				if ry < 0 || ry >= imgH {
+					continue
+				}
+				off := src.PixOffset(px, ry)
+				ringR += float64(src.Pix[off+0])
+				ringG += float64(src.Pix[off+1])
+				ringB += float64(src.Pix[off+2])
+				ringN++
+			}
+		}
+	}
+	var dR, dG, dB float64
+	if patchN > 0 && ringN > 0 {
+		dR = clampFloat(ringR/ringN-patchR/patchN, -25, 25)
+		dG = clampFloat(ringG/ringN-patchG/patchN, -25, 25)
+		dB = clampFloat(ringB/ringN-patchB/patchN, -25, 25)
+	}
+
+	// Copy the patch with per-channel offset. Feather the top rows into the
+	// natural image content above so the horizontal seam is invisible.
+	featherRows := maxInt(2, minInt(4, ah/8))
+	for row := 0; row < ah; row++ {
+		py := ay + row
+		if py < 0 || py >= imgH {
+			continue
+		}
+		for col := 0; col < aw; col++ {
+			if alpha[row*aw+col] <= alphaFloor {
+				continue
+			}
+			px := ax + col
+			if px < 0 || px >= imgW {
+				continue
+			}
+			sy := sourceRow(row)
+			soff := src.PixOffset(px, sy)
+			r := float64(src.Pix[soff+0]) + dR
+			g := float64(src.Pix[soff+1]) + dG
+			bb := float64(src.Pix[soff+2]) + dB
+
+			// Top-edge feather: blend copied pixel with the pixel just above
+			// the strip (natural content) so the horizontal seam vanishes.
+			if row < featherRows {
+				blend := float64(row+1) / float64(featherRows+1) // 0..1 ramp
+				aboveY := ay - featherRows + row
+				if aboveY >= 0 && aboveY < ay {
+					aoff := src.PixOffset(px, aboveY)
+					ar := float64(src.Pix[aoff+0])
+					ag := float64(src.Pix[aoff+1])
+					ab := float64(src.Pix[aoff+2])
+					r = ar*(1-blend) + r*blend
+					g = ag*(1-blend) + g*blend
+					bb = ab*(1-blend) + bb*blend
+				}
+			}
+
+			off := dst.PixOffset(px, py)
+			dst.Pix[off+0] = clampByte(r)
+			dst.Pix[off+1] = clampByte(g)
+			dst.Pix[off+2] = clampByte(bb)
+		}
+	}
+	return dst
+}
+
+// clampFloat clamps v to [lo, hi].
+func clampFloat(v, lo, hi float64) float64 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
 }
 
 // medianFloat returns the median of a float64 slice.

@@ -12,7 +12,7 @@ const (
 	TypeDoubao
 	TypeJimeng
 	TypeDoubaoSnap // "AI 生成" UI badge (screenshot from Doubao web)
-	TypeBaidu      // "百度 AI生成" UI badge (screenshot from Baidu web)
+	TypeBaidu      // "百度 AI生成" embedded text watermark
 )
 
 // RemoveStrategy controls how a watermark is removed.
@@ -21,6 +21,7 @@ type RemoveStrategy int
 const (
 	RemoveAlphaBlend RemoveStrategy = iota // reverse alpha blending (default)
 	RemoveInpaint                          // inpaint only (UI badges with opaque background)
+	RemoveSkip                             // detection only, skip removal
 )
 
 // AlphaMap holds a pre-calibrated transparency mask for a watermark.
@@ -87,6 +88,12 @@ type Config struct {
 	// Default (RemoveAlphaBlend) uses reverse alpha blending.
 	// Set RemoveInpaint for UI badges with opaque backgrounds.
 	RemoveStrategy RemoveStrategy
+	// OversubtractMargin is the over-subtraction guard threshold in gray
+	// levels: when reverse-alpha would darken the glyph body more than this
+	// below the surrounding background ring, fall back to inpainting. 0 means
+	// use the default (25). This is data-driven per producer so it can be
+	// tuned (or emitted by the alpha-map generator) for each watermark type.
+	OversubtractMargin float64
 }
 
 // Result holds the outcome of a watermark removal operation.
@@ -106,6 +113,8 @@ type Detection struct {
 	X          int     `json:"x"`
 	Y          int     `json:"y"`
 	Size       int     `json:"size"`
+	W          int     `json:"w"` // width of detected watermark (0 for square)
+	H          int     `json:"h"` // height of detected watermark (0 for square)
 }
 
 // registry holds all registered watermark configs.
@@ -168,4 +177,11 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func absInt(a int) int {
+	if a < 0 {
+		return -a
+	}
+	return a
 }

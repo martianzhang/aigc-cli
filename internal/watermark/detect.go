@@ -44,7 +44,7 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 	var seeds []seedScore
 
 	if cfg.PositionResolver != nil {
-		// Text watermark (Doubao): binary mask extraction + NCC alignment search.
+		// Text watermark (Doubao/Baidu/Jimeng): binary mask extraction + NCC alignment search.
 		// This mirrors the reference project's approach:
 		// 1. Calculate a generous search box in the bottom-right corner
 		// 2. Extract a binary mask of watermark-like pixels (bright, low-sat, tophat)
@@ -88,9 +88,9 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 				alphaData.Data, srcW, srcH, pos.W, params,
 			)
 
-			// For badges (RemoveInpaint), also try direct grayscale NCC at expected position
+			// For badges (RemoveInpaint/RemoveSkip), also try direct grayscale NCC at expected position
 			// as fallback — the binary mask may miss the badge on noisy screenshots.
-			if bestScore < 0.15 && cfg.RemoveStrategy == RemoveInpaint {
+			if bestScore < 0.15 && (cfg.RemoveStrategy == RemoveInpaint || cfg.RemoveStrategy == RemoveSkip) {
 				rsAlpha := resizeAlpha(alphaData.Data, srcW, srcH, pos.W, pos.H)
 				rsGrad := sobelMagnitude(rsAlpha, pos.W, pos.H)
 				if cand := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, pos.X, pos.Y, pos.W, pos.H); cand != nil {
@@ -104,7 +104,33 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 				}
 			}
 
-			if bestScore > 0.05 {
+			// For RemoveAlphaBlend watermarks (embedded text), compare NCC result with
+			// the PositionResolver geometry. On bright backgrounds the binary mask only
+			// captures partial watermark features, causing NCC to find an offset/partial
+			// position. Prefer the geometry position when:
+			//   - NCC score is weak (below threshold)
+			//   - NCC position deviates significantly from geometry
+			useGeometry := false
+			if cfg.RemoveStrategy == RemoveAlphaBlend {
+				const maxOffset = 6 // max allowed deviation from geometry position (px)
+				dx := absInt(bestX - pos.X)
+				dy := absInt(bestY - pos.Y)
+				if bestScore <= 0.05 || dx > maxOffset || dy > maxOffset || bestW < pos.W/2 {
+					useGeometry = true
+				}
+			}
+
+			if useGeometry {
+				cand := &candidate{
+					x:          pos.X,
+					y:          pos.Y,
+					size:       minInt(pos.W, pos.H),
+					w:          pos.W,
+					h:          pos.H,
+					confidence: cfg.DetectThreshold + 0.05,
+				}
+				seeds = append(seeds, seedScore{pos.X, pos.Y, minInt(pos.W, pos.H), cfg.DetectThreshold + 0.05, cand})
+			} else if bestScore > 0.05 {
 				sz := bestW
 				if bestH < sz {
 					sz = bestH
@@ -121,16 +147,19 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 			} else {
 				// Fallback: use PositionResolver position directly (for light/white
 				// backgrounds where binary mask extraction can't find the watermark).
-				// The TC260 metadata already confirmed this is a Doubao image.
+				fbConfidence := 0.15
+				if cfg.RemoveStrategy == RemoveInpaint || cfg.RemoveStrategy == RemoveSkip {
+					fbConfidence = 0.30
+				}
 				cand := &candidate{
 					x:          pos.X,
 					y:          pos.Y,
 					size:       minInt(pos.W, pos.H),
 					w:          pos.W,
 					h:          pos.H,
-					confidence: 0.15, // low confidence — fallback, not NCC-verified
+					confidence: fbConfidence,
 				}
-				seeds = append(seeds, seedScore{pos.X, pos.Y, minInt(pos.W, pos.H), 0.15, cand})
+				seeds = append(seeds, seedScore{pos.X, pos.Y, minInt(pos.W, pos.H), fbConfidence, cand})
 			}
 		}
 	} else {
