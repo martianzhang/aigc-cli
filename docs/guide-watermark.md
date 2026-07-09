@@ -161,7 +161,59 @@ original = (watermarked - α × logo) / (1 - α)
 
 ---
 
-## 添加新水印模型的步骤
+## 网页 UI Badge 水印
+
+> 本类水印来自 **AI 平台的网页界面叠加层**，而非图片文件内嵌。用户通过截图捕获，badge 是前端 CSS 固定定位元素，带有深色圆角底框和白色文字。去除方式为纯 inpaint（不可逆 alpha 混合）。
+
+### 已实现
+
+| 代号 | 来源 | 文字 | Alpha Map | 位置 | 检测 NCC |
+|---|---|---|---|---|---|
+| **doubao-snap** | 豆包网页截图 | "AI 生成" | `internal/watermark/doubao_snap_alpha_data.go`（118×58） | **左上角** | 0.65 |
+| **baidu** | 百度文心一言 | "百度 AI生成" | `internal/watermark/baidu_alpha_data.go`（139×42） | **右下角** | 0.77 |
+
+Alpha map PNG 保存在 `scripts/assets/` 目录供参考（`doubao_alpha.png`、`jimeng_alpha.png` 等）。
+
+### 与嵌入式水印的核心区别
+
+### 与嵌入式水印的核心区别
+
+| 维度 | 嵌入式水印（Gemini/豆包/即梦） | UI Badge 水印（doubao-snap / baidu） |
+|---|---|---|
+| **来源** | 图片下载时自带 | 网页截图时捕获 |
+| **底框** | 无——纯文字半透明叠加 | 有——**深灰不透明/半透明圆角底框**（118×58 整块） |
+| **位置** | 右下角，按图缩放 | 左上角，**固定 CSS 像素尺寸** |
+| **渲染** | `alpha * logo + (1-alpha) * 原图` | CSS 叠加层，可能带阴影/边框 |
+| **去除方式** | 逆 alpha 混合还原原图 | **不能逆 alpha**——底框遮住了原图，只能 inpaint |
+| **检测区域** | 右下角 | 左上角 |
+| **尺寸稳定性** | 按图片 `min(w,h)` 等比缩放 | **固定尺寸**（不受截图分辨率影响，但需处理 1x/2x DPI） |
+
+### 设计思路
+
+#### 检测
+
+与现有文字水印共用二值掩码提取 + NCC 对齐框架，但搜索区域改为**左上角**：
+
+1. **搜索范围**：图片左上角 ±100px × ±80px（覆盖常见页面布局变化）
+2. **多尺度 NCC**：比嵌入式的搜索范围更宽（[0.5, 1.5]），因为截图 DPI 缩放可能导致 badge 渲染为整数倍大小
+3. **检测信号融合**：spatial + variance（左上角区域通常背景简单，gradient 信号可靠性不如右下角）
+
+#### 去除
+
+**不**使用 reverse alpha blending（底框不是 alpha 叠加，而是覆盖），改为**纯渐进式 inpaint**：
+
+1. **mask 生成**：alpha map 二值化（`alpha > 0.15`）+ 膨胀 3-5px（吸收阴影/边框）
+2. **渐进式 inpaint**：从 mask 边缘向中心逐层填充（和现有 `inpaintResidual` 一致），radius=3-5
+3. **无需多轮迭代**：一次 inpaint 即可，因为不需要恢复底下的原图
+
+### 添加新 UI Badge
+
+每个 badge 添加步骤与嵌入式水印的 6 步流程相同（见下文），只需注意：
+
+1. `RemoveStrategy` 设为 `RemoveInpaint`
+2. PositionResolver 返回固定尺寸（CSS 像素，不缩放）
+3. `DefaultBadgeParams()` 使用更宽的搜索范围（[0.5, 2.0]）
+4. 位置根据截图实际位置设定（左上角或右下角）
 
 ### 1. 准备 Alpha Map
 
@@ -173,7 +225,7 @@ python scripts/generate_alpha_go.py model_alpha.png modelAlphaRaw \
     --comment "MyModel watermark, 200x50, captured at 1024px"
 ```
 
-`scripts/` 目录下已有参考 alpha 资产：
+`scripts/assets/` 目录下已有参考 alpha 资产：
 - `doubao_alpha.png` (335×83)
 - `jimeng_alpha.png` (414×118)
 - `gemini_bg_96.png` (96×96)

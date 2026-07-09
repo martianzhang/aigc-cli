@@ -517,6 +517,6 @@ func init() {
 	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "detect and remove visible AI watermarks (Gemini/Doubao/Jimeng), also strips metadata")
 	detectCmd.Flags().BoolVar(&detectAddWM, "add-watermark", false, "add a visible AI watermark to the image (requires --producer)")
 	detectCmd.Flags().StringVar(&detectWmProducer, "producer", "",
-		`watermark producer override (`+strings.Join([]string{service.ProviderGemini, service.ProviderDoubao, service.ProviderJimeng}, "/")+`)`+
+		`watermark producer override (`+strings.Join([]string{service.ProviderGemini, service.ProviderDoubao, service.ProviderJimeng, service.ProviderDoubaoSnap, service.ProviderBaidu}, "/")+`)`+
 			` (for --add-watermark: the text to render as watermark if not a known name)`)
 }

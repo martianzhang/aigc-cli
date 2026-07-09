@@ -106,6 +106,13 @@ def main():
     parser.add_argument("--output", default=None, help="Output Go source file path")
     parser.add_argument("--comment", default=None, help="Additional comment text")
     parser.add_argument("--values-per", type=int, default=16, help="Float64 values per line (default: 16)")
+    parser.add_argument("--trim", action="store_true", help="Trim transparent/background pixels from edges")
+    parser.add_argument("--trim-threshold", type=float, default=0.05,
+                        help="Alpha threshold for trimming (default: 0.05)")
+    parser.add_argument("--floor", type=float, default=None,
+                        help="Zero out alpha values below this threshold (e.g., 0.10 removes faint background)")
+    parser.add_argument("--pad", type=int, default=2,
+                        help="Padding pixels around trimmed area (default: 2)")
 
     args = parser.parse_args()
 
@@ -114,7 +121,28 @@ def main():
         sys.exit(1)
 
     w, h, data = png_to_float64_array(args.input)
-    print(f"Image: {args.input}")
+    alpha_2d = data.reshape(h, w)
+
+    if args.trim:
+        # Find tight bbox of pixels above threshold
+        rows, cols = np.where(alpha_2d > args.trim_threshold)
+        if len(rows) > 0:
+            y1, y2 = max(0, rows.min() - args.pad), min(h, rows.max() + args.pad + 1)
+            x1, x2 = max(0, cols.min() - args.pad), min(w, cols.max() + args.pad + 1)
+            old_w, old_h = w, h
+            alpha_2d = alpha_2d[y1:y2, x1:x2]
+            w, h = alpha_2d.shape[1], alpha_2d.shape[0]
+            data = alpha_2d.flatten()
+            print(f"  Trimmed: ({old_w}x{old_h}) -> ({w}x{h}), offset=({x1},{y1})")
+        else:
+            print(f"  Warning: no pixels above threshold {args.trim_threshold}, keeping original")
+
+    if args.floor is not None:
+        n_before = (data > 0).sum()
+        data = np.where(data < args.floor, 0.0, data)
+        n_after = (data > 0).sum()
+        print(f"  Floor({args.floor:.2f}): {n_before} -> {n_after} non-zero pixels ({n_before-n_after} zeroed)")
+
     print(f"  Dimensions: {w}x{h}")
     print(f"  Pixels: {len(data)}")
     print(f"  Alpha range: [{data.min():.4f}, {data.max():.4f}]")

@@ -88,6 +88,22 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 				alphaData.Data, srcW, srcH, pos.W, params,
 			)
 
+			// For badges (RemoveInpaint), also try direct grayscale NCC at expected position
+			// as fallback — the binary mask may miss the badge on noisy screenshots.
+			if bestScore < 0.15 && cfg.RemoveStrategy == RemoveInpaint {
+				rsAlpha := resizeAlpha(alphaData.Data, srcW, srcH, pos.W, pos.H)
+				rsGrad := sobelMagnitude(rsAlpha, pos.W, pos.H)
+				if cand := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, pos.X, pos.Y, pos.W, pos.H); cand != nil {
+					cand.w, cand.h = pos.W, pos.H
+					cand.size = minInt(pos.W, pos.H)
+					if cand.confidence > 0.12 {
+						bestX, bestY = pos.X, pos.Y
+						bestW, bestH = pos.W, pos.H
+						bestScore = cand.confidence
+					}
+				}
+			}
+
 			if bestScore > 0.05 {
 				sz := bestW
 				if bestH < sz {
