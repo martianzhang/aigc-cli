@@ -26,6 +26,7 @@ import (
 	"github.com/martianzhang/apimart-cli/internal/client"
 	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/apimart-cli/internal/watermark"
 )
 
 // chatStdout and chatStderr are the output writers used by the chat REPL.
@@ -154,6 +155,39 @@ var agentToolDefs = []types.ToolDefinition{
 					"limit": {"type": "integer", "description": "Max results to return (default 5)"},
 					"random": {"type": "boolean", "description": "Get random ideas instead of keyword search"}
 				}
+			}`),
+		},
+	},
+	// --- Watermark tools ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "remove_watermark",
+			Description: "检测并移除图片中的可见 AI 水印（豆包/即梦/百度/智谱清言等），恢复原始图像。完全离线运行，无需 API Key。适合：用户要求去掉图片上的 AI 生成水印、清理 AI 痕迹。",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"file_path": {"type": "string", "description": "待去水印图片的本地路径"},
+					"producer": {"type": "string", "description": "水印厂商提示（gemini/doubao/jimeng/baidu/zhipu）。可留空，留空时自动检测"},
+					"output_path": {"type": "string", "description": "输出路径（可选，默认 <原图>_clean<ext>）"}
+				},
+				"required": ["file_path"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "add_watermark",
+			Description: "向图片添加可见 AI 水印（用于测试去水印效果）。已知厂商使用其注册水印样式；未知名称按文字渲染。完全离线运行，无需 API Key。",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"file_path": {"type": "string", "description": "待加水印图片的本地路径"},
+					"producer": {"type": "string", "description": "水印厂商名（gemini/doubao/jimeng/baidu/zhipu）或自定义文字"},
+					"output_path": {"type": "string", "description": "输出路径（可选，默认 <原图>_watermarked.png）"}
+				},
+				"required": ["file_path", "producer"]
 			}`),
 		},
 	},
@@ -1436,6 +1470,13 @@ type generateVideoArgs struct {
 	Resolution string `json:"resolution,omitempty"`
 }
 
+// watermarkArgs is the JSON structure for remove_watermark / add_watermark tool arguments.
+type watermarkArgs struct {
+	FilePath   string `json:"file_path"`
+	Producer   string `json:"producer,omitempty"`
+	OutputPath string `json:"output_path,omitempty"`
+}
+
 // resolveFileRefs scans JSON argument strings for @filename patterns and
 // replaces them with the file contents. e.g. {"prompt":"@prompt.md"} reads
 // prompt.md and uses its content as the prompt value.
@@ -1511,6 +1552,10 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeWebFetch(args)
 	case "read_file":
 		return executeReadFile(args)
+	case "remove_watermark":
+		return executeRemoveWatermark(args)
+	case "add_watermark":
+		return executeAddWatermark(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}
@@ -1670,6 +1715,58 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 	}
 
 	return fmt.Sprintf("Successfully generated %d video(s).\nFiles saved locally:\n  %s\nUser can use /preview to view them.", len(saved), strings.Join(saved, "\n  "))
+}
+
+// executeRemoveWatermark runs visible-AI-watermark removal and returns a text summary.
+func executeRemoveWatermark(argsJSON string) string {
+	var a watermarkArgs
+	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if a.FilePath == "" {
+		return "Error: file_path is required"
+	}
+	res, err := watermark.RemoveFileHinted(a.FilePath, a.OutputPath, a.Producer)
+	if err != nil {
+		return fmt.Sprintf("Error: remove failed: %v", err)
+	}
+	if !res.Removed {
+		return "No visible AI watermark detected/removed."
+	}
+	out := a.OutputPath
+	if out == "" {
+		ext := filepath.Ext(a.FilePath)
+		out = strings.TrimSuffix(a.FilePath, ext) + "_clean" + ext
+	}
+	return fmt.Sprintf("Successfully removed watermark (engine: %s). Output: %s", res.Name, out)
+}
+
+// executeAddWatermark runs visible-AI-watermark addition and returns a text summary.
+func executeAddWatermark(argsJSON string) string {
+	var a watermarkArgs
+	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if a.FilePath == "" {
+		return "Error: file_path is required"
+	}
+	if a.Producer == "" {
+		return "Error: producer is required (known: gemini/doubao/jimeng/baidu/zhipu, or custom text)"
+	}
+	res, err := watermark.AddWatermarkFile(a.FilePath, a.OutputPath, a.Producer)
+	if err != nil {
+		return fmt.Sprintf("Error: add failed: %v", err)
+	}
+	out := a.OutputPath
+	if out == "" {
+		ext := filepath.Ext(a.FilePath)
+		out = strings.TrimSuffix(a.FilePath, ext) + "_watermarked.png"
+	}
+	note := ""
+	if a.Producer == "doubao" || a.Producer == "jimeng" {
+		note = " (TC260 metadata injected)"
+	}
+	return fmt.Sprintf("Successfully added watermark (engine: %s%s). Output: %s", res.Name, note, out)
 }
 
 // --- Midjourney agent tools ---

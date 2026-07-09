@@ -143,6 +143,8 @@ aigc-cli chat --message "生成一段日落海滩的视频"
 | `balance` | 查询 API 余额 | `cmd/balance.go: getBalanceText` |
 | `task` | 查询异步任务状态 | `cmd/task.go: queryTaskText` |
 | `read_file` | 读取本地文本文件 | `cmd/chat.go: executeReadFile` |
+| `remove_watermark` | 检测并移除图片中的可见 AI 水印（豆包/即梦/百度/智谱清言等） | `internal/watermark: RemoveFileHinted` |
+| `add_watermark` | 向图片添加可见 AI 水印（测试去水印用） | `internal/watermark: AddWatermarkFile` |
 
 所有工具通过共享函数实现，`chat` 和对应的 CLI 命令走同一份代码，无重复逻辑。
 

@@ -80,6 +80,8 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `get_balance` | Query token and user balance | ✅ |
 | `get_task` | Query async task status and results | ✅ |
 | `detect_image` | Detect C2PA / SynthID / TC260 watermarks, AIGC, and EXIF metadata | ❌ |
+| `remove_watermark` | Detect and remove a visible AI watermark (Doubao/Jimeng/Baidu/Zhipu), restore original image | ❌ |
+| `add_watermark` | Add a visible AI watermark to an image (for testing), known producers use their alpha map | ❌ |
 
 ## Configuration
 
