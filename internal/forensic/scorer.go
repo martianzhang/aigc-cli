@@ -79,7 +79,7 @@ func Analyze(opts Options) *Result {
 		return r
 	}
 
-	// 3. Visible AI watermark: ironclad if detected (Gemini/Doubao/Jimeng sparkle/text).
+	// 3. Visible AI watermark: ironclad if detected (Gemini/Doubao/Jimeng/Baidu/Zhipu sparkle/text).
 	// Catches re-saved images that lost C2PA/TC260 metadata but still carry the
 	// visible mark — common when screenshots or re-encodes strip metadata.
 	if opts.WatermarkPresent {
@@ -202,7 +202,7 @@ type Options struct {
 	FFTScore         float64 // 0-1, -1 = unavailable
 	NoiseScore       float64 // SRM noise residual score, 0-1, -1 = unavailable
 	JPEGScore        float64 // JPEG double quantization, 0-1, -1 = unavailable
-	WatermarkPresent bool    // visible AI watermark detected (Gemini/Doubao/Jimeng)
+	WatermarkPresent bool    // visible AI watermark detected (Gemini/Doubao/Jimeng/Baidu/Zhipu)
 	WatermarkName    string  // detected watermark name, e.g. "gemini", "doubao"
 }
 

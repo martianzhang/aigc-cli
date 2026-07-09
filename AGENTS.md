@@ -194,7 +194,6 @@ aigc-cli/
 ├── main.go           # 入口
 ├── Makefile          # 统一构建入口
 ├── AGENTS.md         # ← 当前文件
-└── TODO.md           # 已知问题清单
 ```
 
 ### 5.1 HTTP 代理（http_proxy）
@@ -216,13 +215,6 @@ aigc-cli/
 - **配置文件**位于 `~/.config/aigc-cli/config.yaml`
 
 ### 5.2 已知技术债务
-
-详见 [TODO.md](TODO.md)，当前重点关注：
-
-- `cmd/midjourney.go` 的 `newMJClient()` 递归调用（P0）
-- MCP handler 返回 `nil, error`（P0）
-- `handleSSE` 的 `os.Stdout` 耦合（P1）
-- 全局变量传参模式（P1）
 
 ---
 
