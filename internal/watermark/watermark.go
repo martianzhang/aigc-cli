@@ -228,13 +228,14 @@ func RemoveWatermarkHinted(img image.Image, producer string) (*image.RGBA, *Resu
 		return nil, nil, fmt.Errorf("watermark: unknown config %q", best.Name)
 	}
 
-	// Create a candidate from the detection
+	// Create a candidate from the detection.
+	// NOTE: intentionally omit w/h so removeWatermark falls back to a square
+	// region (det.size) — this matches the pre-rework behavior where the
+	// rectangle dimensions were not plumbed through.
 	det := &candidate{
 		x:          best.X,
 		y:          best.Y,
 		size:       best.Size,
-		w:          best.W,
-		h:          best.H,
 		confidence: best.Confidence,
 	}
 
