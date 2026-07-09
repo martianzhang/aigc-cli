@@ -58,8 +58,14 @@ var detectRemoveWM bool
 var detectAddWM bool
 var detectWmProducer string
 var detectConfirmed bool
+var detectLearnWM string // --learn-watermark {name}
 
 func runDetect(cmd *cobra.Command, args []string) error {
+	// --learn-watermark: learn a custom watermark from seed images
+	if detectLearnWM != "" {
+		return runLearnWatermark(detectLearnWM)
+	}
+
 	if len(args) > 0 {
 		return detectFiles(args, "")
 	}
@@ -90,6 +96,81 @@ func runDetect(cmd *cobra.Command, args []string) error {
 	tmpFile.Close()
 
 	return detectFiles([]string{tmpFile.Name()}, "(stdin)")
+}
+
+// runLearnWatermark learns a custom watermark from seed images in the watermark dir.
+func runLearnWatermark(name string) error {
+	dir := watermarkDir()
+	blackPath, err := findSeedFile(dir, name, "black")
+	if err != nil {
+		return fmt.Errorf("load %s black seed: %w", name, err)
+	}
+	grayPath, err := findSeedFile(dir, name, "gray")
+	if err != nil {
+		return fmt.Errorf("load %s gray seed: %w", name, err)
+	}
+
+	blackImg, err := loadImage(blackPath)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", blackPath, err)
+	}
+	grayImg, err := loadImage(grayPath)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", grayPath, err)
+	}
+
+	b := blackImg.Bounds()
+	g := grayImg.Bounds()
+	if b.Dx() != g.Dx() || b.Dy() != g.Dy() {
+		return fmt.Errorf("black and gray images must have same dimensions: black=%dx%d, gray=%dx%d",
+			b.Dx(), b.Dy(), g.Dx(), g.Dy())
+	}
+
+	lr := watermark.LearnWatermark(blackImg, grayImg, name)
+
+	outputPath := filepath.Join(dir, name+".watermark.png")
+	if err := watermark.SaveWatermarkPNG(outputPath, lr); err != nil {
+		return fmt.Errorf("save watermark: %w", err)
+	}
+
+	fmt.Printf("Watermark config saved: %s\n", outputPath)
+	fmt.Printf("  Name:             %s\n", lr.Name)
+	fmt.Printf("  Alpha map:        %dx%d\n", lr.AlphaMap.Width, lr.AlphaMap.Height)
+	fmt.Printf("  Native width:     %dpx\n", lr.NativeWidth)
+	fmt.Printf("  Margin X frac:    %.6f\n", lr.MarginXFrac)
+	fmt.Printf("  Margin Y frac:    %.6f\n", lr.MarginYFrac)
+	fmt.Printf("  Detect threshold: %.2f\n", lr.DetectThreshold)
+	fmt.Printf("  Remove strategy:  %s\n", lr.RemoveStrategy)
+	fmt.Println()
+	fmt.Printf("Use: aigc-cli detect <image> --remove-watermark --producer %s\n", name)
+
+	return nil
+}
+
+// loadImage decodes an image from a file path.
+func loadImage(path string) (image.Image, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+	return img, nil
+}
+
+// findSeedFile looks for {name}.{type}.png or {name}.{type}.jpg in dir.
+func findSeedFile(dir, name, typ string) (string, error) {
+	exts := []string{".png", ".jpg", ".jpeg"}
+	for _, ext := range exts {
+		path := filepath.Join(dir, name+"."+typ+ext)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("no %s seed found: tried %s.%s.{png,jpg,jpeg}", typ, name, typ)
 }
 
 func detectFiles(paths []string, pathOverride string) error {
@@ -185,11 +266,16 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		service.PreviewFile(path)
 	}
 	if detectRemoveWM {
-		if !detectConfirmed {
-			return fmt.Errorf("--confirm is required with --remove-watermark: you must confirm you respect intellectual property rights and comply with applicable laws")
+		// Auto-load all custom watermarks from the watermark directory
+		if err := watermark.LoadWatermarkPNGsFromDir(watermarkDir()); err != nil {
+			// Non-fatal: directory may not exist or be empty
 		}
+
+		if detectWmProducer == "" && !detectConfirmed {
+			return fmt.Errorf("--confirm is required with --remove-watermark when not using --producer: you must confirm you respect intellectual property rights and comply with applicable laws")
+		}
+
 		outPath := cleanPath(path)
-		// Use TC260 metadata as a hint for which watermark engine to prefer
 		producer := detectWmProducer
 		if producer == "" && result.TC260 != nil && result.TC260.Present {
 			if cp := result.TC260.Fields[service.ContentProducerKey]; cp != "" {
@@ -222,9 +308,6 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 			fmt.Fprintf(os.Stderr, "  Error: %v\n", err)
 		} else {
 			metaNote := ""
-			if producer == "doubao" || producer == "jimeng" {
-				metaNote = " + TC260 metadata"
-			}
 			fmt.Printf("  Watermark added (%s%s) → %s\n", res.Name, metaNote, outPath)
 			if detectPreview {
 				service.PreviewFile(outPath)
@@ -515,14 +598,19 @@ func configDir() string {
 	return filepath.Join(home, ".config", "aigc-cli")
 }
 
+// watermarkDir returns the directory for custom watermark configs.
+func watermarkDir() string {
+	return filepath.Join(configDir(), "watermark")
+}
+
 func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
-	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "⚠️  remove visible AI watermarks (requires --confirm). Only for legal use such as restoring personal photos. NOT for removing copyright watermarks.")
+	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "⚠️  remove visible AI watermarks. Use --producer {name} for custom watermarks, or --confirm for built-in gemini. Only for legal use such as restoring personal photos. NOT for removing copyright watermarks.")
 	detectCmd.Flags().BoolVar(&detectAddWM, "add-watermark", false, "add a visible AI watermark for testing removal (no metadata injected)")
-	detectCmd.Flags().BoolVar(&detectConfirmed, "confirm", false, "confirm you respect intellectual property rights and comply with applicable laws (required with --remove-watermark)")
+	detectCmd.Flags().BoolVar(&detectConfirmed, "confirm", false, "confirm you respect intellectual property rights and comply with applicable laws (required with --remove-watermark when not using --producer)")
 	detectCmd.Flags().StringVar(&detectWmProducer, "producer", "",
-		`watermark producer override (`+strings.Join([]string{service.ProviderGemini, service.ProviderDoubao, service.ProviderJimeng, service.ProviderDoubaoSnap, service.ProviderBaidu, service.ProviderZhipu}, "/")+`)`+
-			` (for --add-watermark: the text to render as watermark if not a known name)`)
+		`watermark producer name: "gemini" (built-in) or a name learned via --learn-watermark`)
+	detectCmd.Flags().StringVar(&detectLearnWM, "learn-watermark", "", "learn a custom watermark from ~/.config/aigc-cli/watermark/{name}.black.png + {name}.gray.png")
 }

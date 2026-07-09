@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -30,7 +31,7 @@ func defaultCleanPath(path string) string {
 }
 
 // removeWatermarkHandler handles the remove_watermark tool call.
-// Detects and removes a visible AI watermark (doubao/jimeng/baidu/zhipu/...).
+// Detects and removes a visible AI watermark (built-in gemini, or custom via learn-watermark).
 func removeWatermarkHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
@@ -41,6 +42,9 @@ func removeWatermarkHandler() server.ToolHandlerFunc {
 
 		producer := req.GetString("producer", "")
 		outputPath := req.GetString("output_path", "")
+
+		// Auto-load custom watermarks from config directory
+		loadCustomWatermarks()
 
 		res, err := watermark.RemoveFileHinted(path, outputPath, producer)
 		if err != nil {
@@ -58,6 +62,16 @@ func removeWatermarkHandler() server.ToolHandlerFunc {
 	}
 }
 
+// loadCustomWatermarks loads all .watermark.png files from the config directory.
+func loadCustomWatermarks() {
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		return
+	}
+	dir := filepath.Join(home, ".config", "aigc-cli", "watermark")
+	watermark.LoadWatermarkPNGsFromDir(dir)
+}
+
 // addWatermarkHandler handles the add_watermark tool call.
 // Adds a visible AI watermark for testing purposes.
 func addWatermarkHandler() server.ToolHandlerFunc {
@@ -70,7 +84,7 @@ func addWatermarkHandler() server.ToolHandlerFunc {
 
 		producer, err := req.RequireString("producer")
 		if err != nil {
-			return mcp.NewToolResultError("producer is required (known: gemini/doubao/jimeng/baidu/zhipu, or custom text)"), nil
+			return mcp.NewToolResultError("producer is required (known: gemini, or custom text)"), nil
 		}
 
 		outputPath := req.GetString("output_path", "")

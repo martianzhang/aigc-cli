@@ -9,11 +9,6 @@ type Type int
 const (
 	TypeUnknown Type = iota
 	TypeGeminiSparkle
-	TypeDoubao
-	TypeJimeng
-	TypeDoubaoSnap // "AI 生成" UI badge (screenshot from Doubao web)
-	TypeBaidu      // "百度 AI生成" embedded text watermark
-	TypeZhipu      // "智谱清言" embedded text watermark (Zhipu Qingyan / ChatGLM)
 )
 
 // RemoveStrategy controls how a watermark is removed.
