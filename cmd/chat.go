@@ -800,7 +800,8 @@ func readLineStdin() (string, error) {
 
 // runInteractiveChat enters an interactive multi-turn chat REPL.
 // Conversation history accumulates across turns. Streaming is enabled by default.
-// Agent Loop is enabled by default — LLM can call generate_image / generate_video tools.
+// Agent Loop is enabled by default — LLM can call generate_image / generate_video /
+// remove_watermark / add_watermark and other registered tools.
 func runInteractiveChat(cmd *cobra.Command) error {
 	// Load chat config for Agent Loop settings
 	var chatCfg *types.ChatDefaults

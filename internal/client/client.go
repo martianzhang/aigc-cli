@@ -169,7 +169,7 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 	if req.Stream {
 		w := req.OutputWriter
 		if w == nil {
-			w = os.Stdout // backward compatibility: default to stdout
+			w = io.Discard // safe fallback; callers should always set OutputWriter
 		}
 		return handleSSE(resp, w)
 	}

@@ -37,7 +37,7 @@ var detectCmd = &cobra.Command{
 
 All signals are fused into a single AIGen confidence score with emoji.
 Use --remove-watermark to detect and remove visible AI watermarks
-(Gemini sparkle, Doubao "豆包AI生成", Jimeng "★ 即梦AI"). Metadata
+(Gemini sparkle, Doubao "豆包AI生成", Jimeng "★ 即梦AI", Baidu "百度 AI生成", Zhipu "智谱清言"). Metadata
 (C2PA/TC260/EXIF) is also stripped during re-encoding, removing
 "Made with AI" labels on social platforms.
 
@@ -150,7 +150,7 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		JPEGScore:      jpegScore,
 	}
 
-	// Detect visible AI watermarks (Gemini/Doubao/Jimeng) for AI detection signal.
+	// Detect visible AI watermarks (Gemini/Doubao/Jimeng/Baidu/Zhipu) for AI detection signal.
 	// Only run when no ironclad C2PA/TC260 metadata exists — that's when a visible
 	// watermark left behind on a re-saved/re-encoded image carries decisive weight.
 	if (!opts.C2PAPresent || opts.C2PASource != "AI Generated") && !opts.TC260Present {
@@ -514,7 +514,7 @@ func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
-	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "detect and remove visible AI watermarks (Gemini/Doubao/Jimeng), also strips metadata")
+	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "detect and remove visible AI watermarks (Gemini/Doubao/Jimeng/Baidu/Zhipu), also strips metadata")
 	detectCmd.Flags().BoolVar(&detectAddWM, "add-watermark", false, "add a visible AI watermark to the image (requires --producer)")
 	detectCmd.Flags().StringVar(&detectWmProducer, "producer", "",
 		`watermark producer override (`+strings.Join([]string{service.ProviderGemini, service.ProviderDoubao, service.ProviderJimeng, service.ProviderDoubaoSnap, service.ProviderBaidu, service.ProviderZhipu}, "/")+`)`+
