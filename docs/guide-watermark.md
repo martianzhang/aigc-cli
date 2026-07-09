@@ -2,6 +2,8 @@
 
 > 可见 AI 水印的检测、去除与添加。本项目统一了两种架构不同的水印引擎（Gemini Sparkle / 文字水印），共用逆 alpha 混合核心算法，但检测与定位策略各自独立。
 
+> ⚠️ **法律声明**：本软件的水印功能仅供合法的图像编辑与修复用途，例如修复个人旧照片、去除自己相机添加的日期水印等。用户应确保使用本软件不侵犯他人知识产权或违反相关法律法规。软件作者不对用户的使用行为承担任何法律责任。请勿将本软件用于未经授权的图片下载、版权图片去除水印、或任何侵权用途。
+
 ---
 
 ## 概述
@@ -125,22 +127,21 @@ original = (watermarked - α × logo) / (1 - α)
 
 ## 加水印流程（`--add-watermark`）
 
+> ⚠️ **法律声明**：加水印功能**仅用于验证去水印算法的正确性**（添加已知水印 → 去除 → 对比还原质量）。请勿将本功能用于伪造 AI 生成内容、误导检测系统或任何侵权用途。用户应自行承担一切使用责任。
+
 ```
   1. 确定 producer
      ├─ 已知名称（gemini/doubao/jimeng/baidu/zhipu）
      └─ 自定义文字 → 用 basicfont.Face7x13 渲染到 RGBA
-  
+
   2. 计算位置
      ├─ 已知：PositionResolver（或 Gemini catalog）
      └─ 自定义：右下角 10px margin + 按宽高比缩放
-  
+
   3. 叠加
      result = alpha * logo + (1 - alpha) * original
-  
-  4. 注入元数据（仅 doubao/jimeng）
-     └─ PNG text chunk "TC260": {"Label":"1","ContentProducer":"doubao"}
-  
-  5. 保存为 PNG
+
+  4. 保存为 PNG（纯明水印，不注入任何元数据）
 ```
 
 ---
