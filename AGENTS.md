@@ -88,7 +88,7 @@ make cover
 | `docs/guide-video.md` | 修改 `video` 命令参数或行为 |
 | `docs/guide-chat.md` | 修改 `chat` 命令参数或行为 |
 | `docs/guide-detect.md` | 修改 `detect` 命令参数或行为 |
-| `docs/guide-watermark.md` | 修改水印引擎（新增/修改平台、算法变更、alpha map） |
+| `docs/guide-watermark.md` | 修改水印引擎（学习/去除/添加流程） |
 | `docs/guide-midjourney.md` | 修改 `midjourney` 命令参数或行为 |
 | `docs/guide-ideas.md` | 修改 `ideas` 命令参数或行为 |
 | `docs/guide-commands.md` | 修改 `models`/`task`/`balance`/`dry-run` 等辅助命令 |
@@ -247,229 +247,62 @@ aigc-cli/
 
 ## 六-B、scripts/ 辅助脚本说明
 
-新增或修改去水印功能时，必须用以下脚本验证效果。所有脚本依赖 `pip install Pillow numpy`。
+`scripts/check_watermark.py` 和 `scripts/verify_watermark.py` 可用于验证去水印效果。
+
+所有脚本依赖 `pip install Pillow numpy`。
 
 ### 6B.1 check_watermark.py — 可视化诊断
 
-并排对比原图和 clean 图，生成差异热力图，标注已知水印的预期位置。
+并排对比原图和 clean 图，生成差异热力图：
 
 ```bash
-# 自动查找 *_clean.*
-python scripts/check_watermark.py <原图>
-
-# 指定 clean 图 + 详细报告
 python scripts/check_watermark.py <原图> <clean图> --report
-
-# 只看水印位置标柱（无 clean 图时）
-python scripts/check_watermark.py <原图> --no-clean
-
-# 示例
-python scripts/check_watermark.py .testdata/doubao-snap/PixPin_xxx.png --report
 ```
-
-输出文件：
-- `<原图名>_diff_compare.png`  并排对比（原图 | clean | 热力图）
-- `<原图名>_diff_heatmap.png`  单独的热力图
-- `<原图名>_wm_region.png`     水印区域裁剪放大图
-
-支持的水印类型（`WATERMARK_CONFIGS` 字典，在脚本顶部）：
-- `doubao-snap`  — 豆包网页截图 "AI 生成" 左上角 118x58
-- `baidu`        — 百度 "百度 AI生成" 右下角 139x42
-- `doubao`       — 豆包嵌入水印 右下角（动态尺寸）
-- `zhipu`        — 智谱清言 "智谱清言" 右下角 234x60（@1024px 短边缩放）
-
-**新增水印类型时**，必须在 `WATERMARK_CONFIGS` 中添加对应条目（大小、位置计算函数），保持与 Go 代码 `badge.go` 中 `Register(Config{...})` 配置一致。
-
-判断标准（`--report` 输出）：
-- 平均差异 < 2/255  → 移除失败（检测可能未触发）
-- 平均差异 2~10    → 移除不完整
-- 平均差异 10~30   → 部分处理
-- 平均差异 > 30    → 处理成功
 
 ### 6B.2 verify_watermark.py — 量化验证
 
-输出 PASS/WARN/FAIL 判断，适合 CI 回归测试。支持 `doubao`、`jimeng`、`gemini`、`baidu`、`zhipu` 等嵌入水印。
+输出 PASS/WARN/FAIL，适合 CI 回归测试：
 
 ```bash
-# 自动检测水印位置
 python scripts/verify_watermark.py <原图> <clean图>
-
-# 指定 producer
-python scripts/verify_watermark.py <原图> <clean图> --producer doubao
-
-# 手动指定水印位置（非标准图片）
-python scripts/verify_watermark.py <原图> <clean图> --wm-x 1686 --wm-y 1931 --wm-w 335 --wm-h 83
-
-# 裁剪水印区域保存
-python scripts/verify_watermark.py <原图> <clean图> --producer doubao --crop
 ```
-
-退出码：0=完全移除，1=部分残留，2=错误。
-
-### 6B.3 generate_alpha_go.py — 水印 alpha map 生成
-
-将水印 alpha map PNG 图片转换为 Go 源代码中的 float64 数组，用于新增水印类型时注册。
-
-```bash
-# 基本用法
-python scripts/generate_alpha_go.py alpha.png modelAlphaRaw
-
-# 指定包名和输出路径
-python scripts/generate_alpha_go.py alpha.png modelAlphaRaw \
-    --pkg watermark --output internal/watermark/model_alpha.go
-
-# 带注释说明
-python scripts/generate_alpha_go.py alpha.png myAlphaRaw \
-    --comment "MyModel visible watermark, 200x50"
-
-# 修剪透明边缘（用于抠出浮动水印的实际区域）
-python scripts/generate_alpha_go.py alpha.png modelAlphaRaw \
-    --trim --trim-threshold 0.05 --pad 2
-
-# 清理低 alpha 背景噪声（用于 UI badge 水印，背景有 ~0.10 半透明值）
-python scripts/generate_alpha_go.py alpha.png badgeAlphaRaw \
-    --floor 0.10
-```
-
-输入格式：
-- 灰度图：像素值/255 = alpha
-- RGB/RGBA：max(R,G,B)/255 = alpha
-
-### 6B.4 visible_alpha_solve.py — 两拍法提取精确 alpha map
-
-从**黑底+灰底两张受控截图**中数学求解嵌入水印的精确 alpha map。
-这是参考项目（wiltodelta/remove-ai-watermarks）使用的标准方法，
-对 alpha-blended 嵌入水印的提取精度达到 NCC 0.9998。
-
-```bash
-# 基本用法（黑底+灰底两张图）
-python scripts/visible_alpha_solve.py <厂商名> <黑底图> <灰底图>
-
-# 示例
-python scripts/visible_alpha_solve.py kling kling_black.png kling_gray.png
-
-# 左上角水印（默认右下角，用 --corner bl 切换）
-python scripts/visible_alpha_solve.py samsung samsung_black.png samsung_gray.png --corner bl
-```
-
-输出文件（到 `scripts/assets/`）：
-- `<name>_alpha.png`          精确 alpha map（可直接用于 `generate_alpha_go.py`）
-- `<name>_alpha_data.go`      含 `Register(Config{...})` 的 Go 源文件（需核对后使用）
-
-同时打印几何参数常量，用于填写 `PositionResolver`。
 
 ---
 
-## 新增水印通用流程
+## 新增水印流程
 
-嵌入水印和 UI badge 是两种不同性质的水印，新增支持的操作流程不同。
+本项目**不内置任何厂商水印**（仅 Gemini 例外）。用户通过 `--learn-watermark` 自行学习水印。
 
-### 流程 A：嵌入水印（两拍法，推荐）
+### 流程：两拍法学习自定义水印
 
-适用于 AI 平台生成图片时自带的 alpha-blended 水印（如豆包、即梦）。
+1. 到 AI 平台生成两张纯色图（文生图，开启"添加水印"）：
 
-**Step 1: 准备纯色种子图**
-
-用任意绘图工具生成三张 **2048x2048** 的纯色 PNG：
-
-| 文件名 | 颜色 | 用途 |
+| 文件名 | 颜色 | Prompt |
 |---|---|---|
-| `seed_black.png` | RGB(0, 0, 0) | 定位水印位置 + 直接反推 alpha |
-| `seed_gray.png` | RGB(128, 128, 128) | 精确求解 alpha（消除渐变背景干扰） |
-| `seed_white.png` | RGB(255, 255, 255) | 验证水印颜色为白色（备用） |
+| `<name>.black.png` | RGB(0,0,0) | "Generate a pure black image, RGB(0,0,0), no content. 1:1" |
+| `<name>.gray.png` | RGB(128,128,128) | "Generate a pure gray image, RGB(128,128,128), no content. 1:1" |
 
-纯黑和纯灰是必须的，纯白可选（仅用于交叉验证）。
-
-**Step 2: 到 AI 平台生成带水印的图**
-
-打开目标 AI 平台，用**文生图**功能（不是图生图），使用以下 prompt：
-
-生成纯黑底图：
-```
-帮我画 请生成一张纯黑色图片，RGB(0,0,0)，不要添加任何内容。比例 1:1
-```
-
-生成纯灰底图（关键：要写具体数字，AI 容易把"灰色"理解为浅灰）：
-```
-帮我画 请生成一张中灰色图片，RGB(128,128,128)，不要添加任何内容。比例 1:1
-```
-
-生成纯白底图（可选，用于交叉验证）：
-```
-帮我画 请生成一张纯白色图片，RGB(255,255,255)，不要添加任何内容。比例 1:1
-```
-
-英文版 prompt（部分平台不支持中文）：
-
-```
-Generate a pure black image, RGB(0,0,0), no content. Aspect ratio 1:1.
-Generate a pure gray image, RGB(128,128,128), no content. Aspect ratio 1:1.
-Generate a pure white image, RGB(255,255,255), no content. Aspect ratio 1:1.
-```
-
-> ⚠️ 关键原则：
-> - **必须下载原始输出文件**（原始 PNG/JPEG），**不能截图**
-> - 不要裁剪、编辑或重新保存
-> - 确保平台的"添加水印"选项是开启状态
-> - 如果平台支持多种分辨率，每种分辨率都生成一份，**确保所有图片分辨率一致**
-> - 下载后检查灰底图的 RGB 值是否接近 128（用 PS/画图打开看），如果 AI 生成的灰色不对，重试或调整提示词
-
-**Step 3: 命名规则**
-
-```
-<厂商名>_black_<宽>x<高>_<序号>.png      # 黑底
-<厂商名>_gray_<宽>x<高>_<序号>.png       # 灰底
-<厂商名>_white_<宽>x<高>_<序号>.png      # 白底（可选）
-```
-
-例如：
-```
-baidu_black_2048x2048_1.png
-baidu_gray_2048x2048_1.png
-```
-
-**Step 4: 运行两拍法脚本**
+2. 放到 `~/.config/aigc-cli/watermark/` 目录：
 
 ```bash
-# 提取 alpha map + 生成 Go 注册代码
-python scripts/visible_alpha_solve.py baidu baidu_black.png baidu_gray.png
-
-# 输出：
-#   scripts/assets/baidu_alpha.png       ← 精确 alpha map
-#   scripts/assets/baidu_alpha_data.go   ← Go 注册代码（需核对）
+cp <name>.black.png <name>.gray.png ~/.config/aigc-cli/watermark/
 ```
 
-**Step 5: 核对并整合到项目中**
-
-1. 确认 `baidu_alpha_data.go` 中的 `Type`、`Name`、`PositionResolver` 正确
-2. 在 `internal/watermark/types.go` 中添加对应的 `Type` 常量
-3. 在 `internal/watermark/` 下创建对应的引擎文件（参考 `doubao.go`、`jimeng.go`）
-4. 在 `scripts/check_watermark.py` 的 `WATERMARK_CONFIGS` 中添加对应条目（用于可视化诊断）
-5. `make fmt && make build && make test`
-6. 用 `check_watermark.py --report` 验证效果
-
-**备用方案**：如果平台没有"图生图"功能，无法生成纯色底图，可生成 10-12 张**内容不同但分辨率相同**的普通图片，水印是唯一共同元素，通过逐像素取 min/median 来分离水印。
-
-### 流程 B：UI Badge 水印（仅检测）
-
-适用于浏览器截图中的 CSS 渲染 badge（如 `doubao-snap`）。
-
-这类水印不是 alpha-blended，两拍法不适用，只能用截图方式建立 alpha map。
-alpha map 精度有限，只用于 AIGC 检测（forensic 信号），不走去除流程。
+3. 学习：
 
 ```bash
-# Step 1: 截图 badge 区域为 PNG
-# Step 2: 用 generate_alpha_go.py 生成 Go 源文件
-python scripts/generate_alpha_go.py badge.png badgeNameAlphaRaw \
-    --pkg watermark \
-    --output internal/watermark/badge_name_alpha_data.go \
-    --comment "Xxx watermark badge, 200x50" \
-    --floor 0.10
-
-# Step 3: 在 types.go 中添加 TypeXxxBadge 常量
-# Step 4: 在 badge.go 中用 Register 注册，RemoveStrategy 设为 RemoveSkip
-# Step 5: make fmt && make build && make test
+aigc-cli detect --learn-watermark <name>
 ```
+
+输出 `~/.config/aigc-cli/watermark/<name>.watermark.png`，自包含格式（灰度图 + PNG tEXt 元数据）。
+
+4. 使用：
+
+```bash
+aigc-cli detect photo.png --remove-watermark --producer <name>
+```
+
+`scripts/assets/` 目录下有参考种子图（`baidu.black.png`、`baidu.gray.png`、`doubao.black.png`、`doubao.gray.png` 等），可用作测试数据。
 
 ---
 

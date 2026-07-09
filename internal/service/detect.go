@@ -28,16 +28,6 @@ import (
 // TC260 field keys.
 const ContentProducerKey = "ContentProducer"
 
-// Known watermark provider names (map TC260 ContentProducer to config names).
-const (
-	ProviderGemini     = "gemini"
-	ProviderDoubao     = "doubao"
-	ProviderJimeng     = "jimeng"
-	ProviderDoubaoSnap = "doubao-snap"
-	ProviderBaidu      = "baidu"
-	ProviderZhipu      = "zhipu"
-)
-
 // DetectResult holds structured image detection data.
 type DetectResult struct {
 	Path      string            `json:"path"`

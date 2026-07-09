@@ -359,7 +359,7 @@ def main():
     flat = alpha_img.flatten().astype(np.float64) / 255.0
     print(f"\n  Go variable: {var_name}")
     print(f"  Array size: {len(flat)} floats ({info['width']}x{info['height']})")
-    print(f"  Use: python scripts/generate_alpha_go.py {png_path} {var_name} --floor 0.05")
+    print(f"  Or use: aigc-cli detect --learn-watermark {args.name}")
     print(f"\n{'='*60}")
 
 
