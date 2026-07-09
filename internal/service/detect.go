@@ -35,6 +35,7 @@ const (
 	ProviderJimeng     = "jimeng"
 	ProviderDoubaoSnap = "doubao-snap"
 	ProviderBaidu      = "baidu"
+	ProviderZhipu      = "zhipu"
 )
 
 // DetectResult holds structured image detection data.
