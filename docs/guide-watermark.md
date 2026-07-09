@@ -41,11 +41,11 @@ original = (watermarked - α × logo) / (1 - α)
 
 > **Gemini stays a SEPARATE engine**: its multi-size fixed-slot sparkle model is genuinely different, not a tuned variant of this one.
 
-| 维度 | Gemini (Sparkle) | 豆包/即梦 (文字) |
+| 维度 | Gemini (Sparkle) | 文字水印（豆包/即梦/百度/智谱） |
 |---|---|---|
 | **水印本质** | 半透明白色星形图标 | 中文文字叠加层 |
-| **Alpha Map 尺寸** | 48×48 / 96×96（正方形） | 335×83 / 414×118（长方形） |
-| **Alpha Map 来源** | 纯黑背景捕获图取 max(R,G,B)/255 | 黑+灰两色捕获图上做三次背景拟合（参考项目 `visible_alpha_solve.py`） |
+| **Alpha Map 尺寸** | 48×48 / 96×96（正方形） | 335×83 / 414×118 / 187×51 / 234×60（长方形） |
+| **Alpha Map 来源** | 纯黑背景捕获图取 max(R,G,B)/255 | 黑+灰两色捕获图上做三次背景拟合（参考项目 `visible_alpha_solve.py`）；百度/智谱走两拍法（`scripts/visible_alpha_solve.py`） |
 
 ### 检测方法
 
@@ -86,10 +86,10 @@ original = (watermarked - α × logo) / (1 - α)
   │      └─ 如果 C2PA "AI Generated" 或 TC260 已存在 → 跳过水印检测（已铁证）
   │
   ├─ 2. 可见水印检测（每次 detect 运行）
-  │      ├─ Gemini: resolveWatermarkConfigs() → NCC 评分 → coarse+fine 搜索
-  │      ├─ Doubao: extractBinaryMask() → alignByNCC() → 多尺度 NCC 对齐
-  │      └─ Jimeng: 同上
-  │      └─ 检测到水印 → forensic.Analyze 接收 WatermarkPresent → ironclad 信号
+│      ├─ Gemini: resolveWatermarkConfigs() → NCC 评分 → coarse+fine 搜索
+│      ├─ 文字水印 (Doubao/Jimeng/Baidu/Zhipu):
+│      │      extractBinaryMask() → alignByNCC() → 多尺度 NCC 对齐
+│      └─ 检测到水印 → forensic.Analyze 接收 WatermarkPresent → ironclad 信号
   │
   ├─ 3. 其他分析（ONNX / FFT / 噪声 / JPEG）
   │
@@ -127,7 +127,7 @@ original = (watermarked - α × logo) / (1 - α)
 
 ```
   1. 确定 producer
-     ├─ 已知名称（gemini/doubao/jimeng）
+     ├─ 已知名称（gemini/doubao/jimeng/baidu/zhipu）
      └─ 自定义文字 → 用 basicfont.Face7x13 渲染到 RGBA
   
   2. 计算位置
@@ -156,7 +156,7 @@ original = (watermarked - α × logo) / (1 - α)
 
 ### 文字水印 — 几何定位 + NCC 对齐
 
-1. **PositionResolver**：基于图片 `min(w,h)` 按比例缩放 alpha map 尺寸（2048px 基准）
+1. **PositionResolver**：基于图片 `min(w,h)` 按比例缩放 alpha map 尺寸（豆包/即梦 2048px 基准，百度/智谱 1024px 基准）
 2. **二值掩码提取**：在预期位置周围 ±60px 区域提取 bright + low-sat + tophat 像素
 3. **NCC 对齐搜索**：11 个 scale step（[0.6, 1.4]）× coarse stride 4 + fine stride 1
 4. **回退**：白色/浅色背景上 NCC 对齐失败（tophat < 12）→ 直接用 PositionResolver 位置
@@ -172,15 +172,14 @@ original = (watermarked - α × logo) / (1 - α)
 | 代号 | 来源 | 文字 | Alpha Map | 位置 | 检测 NCC |
 |---|---|---|---|---|---|
 | **doubao-snap** | 豆包网页截图 | "AI 生成" | `internal/watermark/doubao_snap_alpha_data.go`（118×58） | **左上角** | 0.65 |
-| **baidu** | 百度文心一言 | "百度 AI生成" | `internal/watermark/baidu_alpha_data.go`（139×42） | **右下角** | 0.77 |
 
-Alpha map PNG 保存在 `scripts/assets/` 目录供参考（`doubao_alpha.png`、`jimeng_alpha.png` 等）。
+> 注：百度（Baidu）与智谱（Zhipu）是**嵌入式文字水印**（右下角、按短边缩放、逆 alpha 混合去除），并非网页 UI badge。详见上方「概述」表格与「检测流程」。
+
+Alpha map PNG 保存在 `scripts/assets/` 目录供参考（`doubao_alpha.png`、`jimeng_alpha.png`、`baidu_alpha.png`、`zhipu_alpha.png` 等）。
 
 ### 与嵌入式水印的核心区别
 
-### 与嵌入式水印的核心区别
-
-| 维度 | 嵌入式水印（Gemini/豆包/即梦） | UI Badge 水印（doubao-snap / baidu） |
+| 维度 | 嵌入式水印（Gemini/豆包/即梦/百度/智谱） | UI Badge 水印（doubao-snap） |
 |---|---|---|
 | **来源** | 图片下载时自带 | 网页截图时捕获 |
 | **底框** | 无——纯文字半透明叠加 | 有——**深灰不透明/半透明圆角底框**（118×58 整块） |
@@ -228,8 +227,10 @@ python scripts/generate_alpha_go.py model_alpha.png modelAlphaRaw \
 ```
 
 `scripts/assets/` 目录下已有参考 alpha 资产：
-- `doubao_alpha.png` (335×83)
-- `jimeng_alpha.png` (414×118)
+- `doubao_alpha.png` (335×83 @2048px)
+- `jimeng_alpha.png` (414×118 @2048px)
+- `baidu_alpha.png` (187×51 @1024px)
+- `zhipu_alpha.png` (234×60 @1024px)
 - `gemini_bg_96.png` (96×96)
 - `gemini_bg_48.png` (48×48)
 
@@ -301,7 +302,7 @@ func DefaultMyModelParams() TextMarkParams {
 在 `cmd/detect.go` 中：
 - 在 `init()` 的 `--producer` 帮助文本中添加新名称
 - 在 `service/detect.go` 中添加 `ProviderMyModel` 常量
-- 在 `ProduceToConfig` 中添加子串匹配
+- 在 `ProducerToConfig` 中添加子串匹配
 
 ### 6. 更新脚本 alpha 资产
 
@@ -322,6 +323,6 @@ func DefaultMyModelParams() TextMarkParams {
 ## 局限性
 
 - 逆 alpha 混合在纯色/渐变背景上效果最好，复杂纹理区域可能有轻微残影
-- 文字水印的 alpha map 在 2048px 基准宽度下训练，大幅偏离此尺寸的图片可能需扩大搜索范围
+- 文字水印的 alpha map 以 2048px（豆包/即梦）或 1024px（百度/智谱）基准宽度训练，大幅偏离此尺寸的图片可能需扩大搜索范围
 - 仅支持叠加型可见水印（白/灰半透明覆盖），不支持植入型/隐写水印
 - Gemini C2PA 元数据需要数字签名，加水印时无法伪造（仅注 TC260）

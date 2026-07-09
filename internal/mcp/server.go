@@ -92,6 +92,8 @@ func NewServer(cfg *Config) *server.MCPServer {
 	s.AddTool(newGetBalanceTool(), getBalanceHandler(cfg))
 	s.AddTool(newGetTaskTool(), getTaskHandler(cfg))
 	s.AddTool(newDetectTool(), detectHandler())
+	s.AddTool(newRemoveWatermarkTool(), removeWatermarkHandler())
+	s.AddTool(newAddWatermarkTool(), addWatermarkHandler())
 
 	return s
 }
@@ -251,4 +253,37 @@ func detectHandler() server.ToolHandlerFunc {
 
 		return mcp.NewToolResultText(string(data)), nil
 	}
+}
+
+func newRemoveWatermarkTool() mcp.Tool {
+	return mcp.NewTool("remove_watermark",
+		mcp.WithDescription("检测并移除图片中的可见 AI 水印（豆包/即梦/百度/智谱清言等），恢复原始图像。完全离线运行，无需 API Key。输出为 <原图>_clean<ext>。"),
+		mcp.WithString("file_path",
+			mcp.Required(),
+			mcp.Description("待去水印图片的本地路径"),
+		),
+		mcp.WithString("producer",
+			mcp.Description("水印厂商提示（gemini/doubao/jimeng/baidu/zhipu）。留空则自动检测（依赖 TC260 元数据或通用检测）"),
+		),
+		mcp.WithString("output_path",
+			mcp.Description("输出路径（可选，默认 <原图>_clean<ext>）"),
+		),
+	)
+}
+
+func newAddWatermarkTool() mcp.Tool {
+	return mcp.NewTool("add_watermark",
+		mcp.WithDescription("向图片添加可见 AI 水印（用于测试去水印效果）。已知厂商（gemini/doubao/jimeng/baidu/zhipu）使用其注册 alpha map；未知名称按文字渲染。完全离线运行，无需 API Key。输出为 <原图>_watermarked.png。"),
+		mcp.WithString("file_path",
+			mcp.Required(),
+			mcp.Description("待加水印图片的本地路径"),
+		),
+		mcp.WithString("producer",
+			mcp.Required(),
+			mcp.Description("水印厂商名（gemini/doubao/jimeng/baidu/zhipu）或自定义文字"),
+		),
+		mcp.WithString("output_path",
+			mcp.Description("输出路径（可选，默认 <原图>_watermarked.png）"),
+		),
+	)
 }
