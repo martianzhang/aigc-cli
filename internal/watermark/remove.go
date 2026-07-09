@@ -33,19 +33,12 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 	size := dh           // use height for square sub-pixel logic; width may differ
 	isTextWM := dw != dh // rectangular alpha = text watermark
 
-	// UI badge watermarks: inpaint text pixels only. The alpha map has been
-	// cleaned with --floor 0.10 to zero out the dark badge background; only
-	// text pixels (alpha > 0.15) remain active. The inpaint area is small
-	// enough that progressive boundary-growing produces a clean, blur-free
-	// result without the column-median noise and edge artifacts.
 	if cfg.RemoveStrategy == RemoveInpaint {
-		// Badge watermarks (doubao-snap, baidu) have an opaque/semi-opaque
-		// dark background that must be removed in addition to the text.
+		// Badge watermarks have an opaque/semi-opaque dark background.
 		// inpaintBadgeMedian replaces the entire badge area (alpha > 0.10)
 		// using per-column median sampling from above the badge, preserving
-		// background gradients without blurring. This is more suitable than
-		// inpaintResidual for large opaque badge areas.
-		if cfg.Type == TypeDoubaoSnap || cfg.Type == TypeBaidu {
+		// background gradients without blurring.
+		if cfg.Name == "doubao-snap" || cfg.Name == "baidu" {
 			return inpaintBadgeMedian(cloneToRGBA(img), srcAlpha, srcW, srcH, det.x, det.y, dw, dh, 0.10)
 		}
 		baseAlpha := resizeAlpha(srcAlpha, srcW, srcH, dw, dh)

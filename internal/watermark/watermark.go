@@ -11,8 +11,8 @@ import (
 )
 
 // AddWatermarkFile adds a visible watermark to an image file and saves the result.
-// For known producers (gemini/doubao/jimeng), the watermark matches the AI provider's
-// visible mark. For unknown producers, the producer text is rendered as a watermark.
+// For gemini, the watermark matches the AI provider's visible mark.
+// For unknown producers, the producer text is rendered as a watermark.
 //
 // Note: This function only adds a visible watermark for testing the removal feature.
 // It does NOT inject TC260 or any other metadata — the output is a plain PNG
@@ -55,7 +55,7 @@ func AddWatermarkFile(inputPath, outputPath, producer string) (*Result, error) {
 }
 
 // ProducerToConfig maps a TC260 ContentProducer value to a registered config name.
-// Handles direct name match and substring match (e.g., "字节跳动 (ByteDance) — 豆包" → "doubao").
+// Only gemini is built-in; all other watermarks must be learned via learn-watermark.
 func ProducerToConfig(producer string) string {
 	if producer == "" {
 		return ""
@@ -64,28 +64,8 @@ func ProducerToConfig(producer string) string {
 		return producer
 	}
 	lower := strings.ToLower(producer)
-	// Brand aliases: TC260 provider strings are descriptive (e.g.
-	// "字节跳动 (ByteDance) — 豆包/即梦/火山引擎") and don't equal a config
-	// name. Match by substring so ByteDance → doubao, Google → gemini, etc.
-	brandAliases := map[string]string{
-		"字节跳动":      "doubao",
-		"bytedance": "doubao",
-		"doubao":    "doubao",
-		"jimeng":    "jimeng",
-		"google":    "gemini",
-		"gemini":    "gemini",
-		"baidu":     "baidu",
-		"智谱":        "zhipu",
-		"zhipu":     "zhipu",
-		"zhipuai":   "zhipu",
-		"chatglm":   "zhipu",
-		"glm":       "zhipu",
-		"清言":        "zhipu",
-	}
-	for key, name := range brandAliases {
-		if strings.Contains(lower, key) {
-			return name
-		}
+	if strings.Contains(lower, "google") || strings.Contains(lower, "gemini") {
+		return "gemini"
 	}
 	for _, cfg := range registry {
 		if strings.Contains(lower, cfg.Name) {
