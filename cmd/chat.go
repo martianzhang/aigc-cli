@@ -163,12 +163,12 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "remove_watermark",
-			Description: "⚠️ 检测并移除图片中的可见 AI 水印（豆包/即梦/百度/智谱清言等）。仅限合法用途（如修复个人旧照片），禁止去除他人版权水印。完全离线运行，无需 API Key。",
+			Description: "⚠️ 检测并移除图片中的可见 AI 水印（内置 gemini，其他需通过 learn-watermark 学习）。仅限合法用途（如修复个人旧照片），禁止去除他人版权水印。完全离线运行，无需 API Key。",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"file_path": {"type": "string", "description": "待去水印图片的本地路径"},
-					"producer": {"type": "string", "description": "水印厂商提示（gemini/doubao/jimeng/baidu/zhipu）。可留空，留空时自动检测"},
+					"producer": {"type": "string", "description": "水印厂商提示（内置 gemini，其他需 learn-watermark 学习）。可留空，留空时自动检测"},
 					"output_path": {"type": "string", "description": "输出路径（可选，默认 <原图>_clean<ext>）"}
 				},
 				"required": ["file_path"]
@@ -179,12 +179,12 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "add_watermark",
-			Description: "向图片添加可见 AI 水印（仅用于创建去水印算法的测试样本，不注入任何元数据）。已知厂商使用其注册水印样式；未知名称按文字渲染。完全离线运行，无需 API Key。",
+			Description: "向图片添加可见 AI 水印（仅用于创建去水印算法的测试样本，不注入任何元数据）。gemini 使用注册水印样式；未知名称按文字渲染。完全离线运行，无需 API Key。",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"file_path": {"type": "string", "description": "待加水印图片的本地路径"},
-					"producer": {"type": "string", "description": "水印厂商名（gemini/doubao/jimeng/baidu/zhipu）或自定义文字"},
+					"producer": {"type": "string", "description": "水印厂商名（内置 gemini，其他需 learn-watermark 学习）或自定义文字"},
 					"output_path": {"type": "string", "description": "输出路径（可选，默认 <原图>_watermarked.png）"}
 				},
 				"required": ["file_path", "producer"]
@@ -1727,6 +1727,10 @@ func executeRemoveWatermark(argsJSON string) string {
 	if a.FilePath == "" {
 		return "Error: file_path is required"
 	}
+
+	// Auto-load custom watermarks from config directory
+	watermark.LoadWatermarkPNGsFromDir(watermarkChatDir())
+
 	res, err := watermark.RemoveFileHinted(a.FilePath, a.OutputPath, a.Producer)
 	if err != nil {
 		return fmt.Sprintf("Error: remove failed: %v", err)
@@ -1742,6 +1746,15 @@ func executeRemoveWatermark(argsJSON string) string {
 	return fmt.Sprintf("Successfully removed watermark (engine: %s). Output: %s", res.Name, out)
 }
 
+// watermarkChatDir returns the path to the custom watermark config directory.
+func watermarkChatDir() string {
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		return ".config/aigc-cli/watermark"
+	}
+	return filepath.Join(home, ".config", "aigc-cli", "watermark")
+}
+
 // executeAddWatermark runs visible-AI-watermark addition and returns a text summary.
 func executeAddWatermark(argsJSON string) string {
 	var a watermarkArgs
@@ -1752,7 +1765,7 @@ func executeAddWatermark(argsJSON string) string {
 		return "Error: file_path is required"
 	}
 	if a.Producer == "" {
-		return "Error: producer is required (known: gemini/doubao/jimeng/baidu/zhipu, or custom text)"
+		return "Error: producer is required (known: gemini, or custom text)"
 	}
 	res, err := watermark.AddWatermarkFile(a.FilePath, a.OutputPath, a.Producer)
 	if err != nil {
@@ -1763,11 +1776,7 @@ func executeAddWatermark(argsJSON string) string {
 		ext := filepath.Ext(a.FilePath)
 		out = strings.TrimSuffix(a.FilePath, ext) + "_watermarked.png"
 	}
-	note := ""
-	if a.Producer == "doubao" || a.Producer == "jimeng" {
-		note = " (TC260 metadata injected)"
-	}
-	return fmt.Sprintf("Successfully added watermark (engine: %s%s). Output: %s", res.Name, note, out)
+	return fmt.Sprintf("Successfully added watermark (engine: %s). Output: %s", res.Name, out)
 }
 
 // --- Midjourney agent tools ---

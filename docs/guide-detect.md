@@ -225,31 +225,44 @@ aigc-cli detect --json image.png
 
 ## 可见水印检测与去除
 
-> 详细文档见 [guide-watermark.md](guide-watermark.md) — 包括引擎架构对比、检测/去除/添加流程、位置确定策略、添加新模型步骤。
+> 详细文档见 [guide-watermark.md](guide-watermark.md) — 包括引擎架构、学习/去除/添加流程。
 
 支持检测与去除以下可见 AI 水印：
 
-| 平台 | 水印内容 | 类型 |
+| 水印 | 类型 | 说明 |
 |---|---|---|
-| **Gemini** (Google) | ✦ Sparkle 图标 | 右下角固定像素边距 |
-| **豆包** (ByteDance) | "豆包AI生成" 文字 | 右下角按图片短边缩放 |
-| **即梦** (ByteDance) | "★ 即梦AI" 文字 | 右下角按图片短边缩放 |
+| **Gemini** (Google) | 内置 | ✦ Sparkle 图标，右下角固定像素边距 |
+| **自定义水印** | 用户学习 | 通过 `--learn-watermark` 从种子图学习 |
+
+### 学习自定义水印
+
+去 AI 平台生成两张纯色图（黑底 + 灰底，文生图，开启"添加水印"），下载原始文件放到 `~/.config/aigc-cli/watermark/`：
+
+```
+~/.config/aigc-cli/watermark/
+├── myai.black.png      # 黑底 RGB(0,0,0)
+└── myai.gray.png       # 灰底 RGB(128,128,128)
+```
+
+```bash
+# 学习（自动输出 myai.watermark.png）
+aigc-cli detect --learn-watermark myai
+```
 
 ### 用法
 
-> ⚠️ 使用 `--remove-watermark` 前必须通过 `--confirm` 确认您尊重知识产权并遵守适用法律法规。
-
 ```bash
-# 自动检测并去除（优先使用 TC260 ContentProducer 路由）
+# 用自定义水印配置去水印（不需要 --confirm）
+aigc-cli detect --remove-watermark --producer myai image.png
+
+# 用内置 Gemini 去水印（需要 --confirm）
+aigc-cli detect --remove-watermark --producer gemini --confirm image.png
+
+# 自动检测（不指定 producer，会扫所有已加载的）
 aigc-cli detect --remove-watermark --confirm image.png
 
-# 手动指定 producer
-aigc-cli detect --remove-watermark --confirm --producer doubao image.png
-aigc-cli detect --remove-watermark --confirm --producer jimeng image.png
-aigc-cli detect --remove-watermark --confirm --producer gemini image.png
-
 # 加水印（详见 guide-watermark.md）
-aigc-cli detect --add-watermark image.png --producer doubao
+aigc-cli detect --add-watermark image.png --producer gemini
 aigc-cli detect --add-watermark image.png --producer "CustomText"
 ```
 
@@ -266,7 +279,6 @@ AI Detect:  🤖 99%  Confirmed AI-generated
 
 - **[gemini-watermark-remover](https://github.com/GargantuaX/gemini-watermark-remover)** — Gemini Sparkle 水印的 alpha map 数据和尺寸目录
 - **[remove-ai-watermarks](https://github.com/wiltodelta/remove-ai-watermarks)** — 豆包/即梦文字水印的 alpha map 资产和分数定位参数
-- **[doubao-watermark-remover](https://github.com/zhengsuanfa/doubao-watermark-remover)** — 豆包水印的简单背景替换方案
 
 ### 局限性
 
