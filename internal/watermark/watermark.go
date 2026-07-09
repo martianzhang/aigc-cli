@@ -142,6 +142,23 @@ func ProducerToConfig(producer string) string {
 		return producer
 	}
 	lower := strings.ToLower(producer)
+	// Brand aliases: TC260 provider strings are descriptive (e.g.
+	// "字节跳动 (ByteDance) — 豆包/即梦/火山引擎") and don't equal a config
+	// name. Match by substring so ByteDance → doubao, Google → gemini, etc.
+	brandAliases := map[string]string{
+		"字节跳动":      "doubao",
+		"bytedance": "doubao",
+		"doubao":    "doubao",
+		"jimeng":    "jimeng",
+		"google":    "gemini",
+		"gemini":    "gemini",
+		"baidu":     "baidu",
+	}
+	for key, name := range brandAliases {
+		if strings.Contains(lower, key) {
+			return name
+		}
+	}
 	for _, cfg := range registry {
 		if strings.Contains(lower, cfg.Name) {
 			return cfg.Name
@@ -228,14 +245,16 @@ func RemoveWatermarkHinted(img image.Image, producer string) (*image.RGBA, *Resu
 		return nil, nil, fmt.Errorf("watermark: unknown config %q", best.Name)
 	}
 
-	// Create a candidate from the detection.
-	// NOTE: intentionally omit w/h so removeWatermark falls back to a square
-	// region (det.size) — this matches the pre-rework behavior where the
-	// rectangle dimensions were not plumbed through.
+	// Create a candidate from the detection. Carry the detected rectangle
+	// dimensions (w/h) so removeWatermark uses the full watermark bounds
+	// (isTextWM path) rather than a square det.size region — required to
+	// cover the whole watermark.
 	det := &candidate{
 		x:          best.X,
 		y:          best.Y,
 		size:       best.Size,
+		w:          best.W,
+		h:          best.H,
 		confidence: best.Confidence,
 	}
 
