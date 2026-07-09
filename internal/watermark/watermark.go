@@ -164,6 +164,8 @@ func DetectWatermark(img image.Image) []Detection {
 				X:          det.x,
 				Y:          det.y,
 				Size:       det.size,
+				W:          det.w,
+				H:          det.h,
 			})
 		}
 	}
@@ -228,7 +230,11 @@ func RemoveWatermarkHinted(img image.Image, producer string) (*image.RGBA, *Resu
 
 	// Create a candidate from the detection
 	det := &candidate{
-		x: best.X, y: best.Y, size: best.Size,
+		x:          best.X,
+		y:          best.Y,
+		size:       best.Size,
+		w:          best.W,
+		h:          best.H,
 		confidence: best.Confidence,
 	}
 
