@@ -104,33 +104,7 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 				}
 			}
 
-			// For RemoveAlphaBlend watermarks (embedded text), compare NCC result with
-			// the PositionResolver geometry. On bright backgrounds the binary mask only
-			// captures partial watermark features, causing NCC to find an offset/partial
-			// position. Prefer the geometry position when:
-			//   - NCC score is weak (below threshold)
-			//   - NCC position deviates significantly from geometry
-			useGeometry := false
-			if cfg.RemoveStrategy == RemoveAlphaBlend {
-				const maxOffset = 6 // max allowed deviation from geometry position (px)
-				dx := absInt(bestX - pos.X)
-				dy := absInt(bestY - pos.Y)
-				if bestScore <= 0.05 || dx > maxOffset || dy > maxOffset || bestW < pos.W/2 {
-					useGeometry = true
-				}
-			}
-
-			if useGeometry {
-				cand := &candidate{
-					x:          pos.X,
-					y:          pos.Y,
-					size:       minInt(pos.W, pos.H),
-					w:          pos.W,
-					h:          pos.H,
-					confidence: cfg.DetectThreshold + 0.05,
-				}
-				seeds = append(seeds, seedScore{pos.X, pos.Y, minInt(pos.W, pos.H), cfg.DetectThreshold + 0.05, cand})
-			} else if bestScore > 0.05 {
+			if bestScore > 0.05 {
 				sz := bestW
 				if bestH < sz {
 					sz = bestH
