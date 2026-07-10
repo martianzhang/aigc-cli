@@ -1,6 +1,6 @@
 # 水印引擎指南
 
-> 可见 AI 水印的检测、去除与添加。核心算法是逆 alpha 混合，所有水印共享同一套去除引擎。检测分两条路径：Gemini Sparkle（内置）和自定义文字水印（通过 `--learn-watermark` 学习）。
+> 可见 AI 水印的检测、去除与添加。核心算法是逆 alpha 混合，所有水印共享同一套去除引擎。所有水印均通过 `--learn-watermark` 从种子图学习得到，不内置任何厂商的水印数据。
 
 > ⚠️ **法律声明**
 >
@@ -21,8 +21,7 @@
 
 | 水印 | 类型 | 说明 |
 |---|---|---|
-| **Gemini** (Google) | 内置 | ✦ Sparkle 图标，右下角固定像素边距。检测依赖尺寸目录，无法通过 `--learn-watermark` 学习 |
-| **自定义水印** | 用户学习 | 通过 `--learn-watermark` 从黑底+灰底种子图自动求解 alpha map |
+| **水印**（任意厂商） | 用户学习 | 通过 `--learn-watermark` 从黑底+灰底种子图自动求解 alpha map。本工具不内置任何厂商的水印数据 |
 
 ---
 
@@ -62,8 +61,8 @@ original = (watermarked - α × logo) / (1 - α)
 
 | 文件名 | 颜色 | Prompt |
 |---|---|---|
-| `myai.black.png` | RGB(0,0,0) | "Generate a pure black image, RGB(0,0,0), no content. Aspect ratio 1:1." |
-| `myai.gray.png` | RGB(128,128,128) | "Generate a pure gray image, RGB(128,128,128), no content. Aspect ratio 1:1." |
+| `myai.black.png` | RGB(0,0,0) | "帮我画 请生成一张纯黑色图片，RGB (0,0,0)，不要添加任何内容，不要渐变，不要哑光。比例 1:1" |
+| `myai.gray.png` | RGB(128,128,128) | "帮我画 请生成一张中灰色图片，RGB(128,128,128)，不要添加任何内容，不要渐变，不要哑光。比例 1:1" |
 
 > 必须下载原始输出文件（原始 PNG/JPEG），不能截图。确保两张图分辨率一致。
 
@@ -98,14 +97,11 @@ aigc-cli detect --learn-watermark myai \
 ## 去水印（`--remove-watermark`）
 
 ```bash
-# 用自定义水印（不需要 --confirm）
+# 指定水印
 aigc-cli detect photo.png --remove-watermark --producer myai
 
-# 用内置 Gemini（需要 --confirm）
-aigc-cli detect photo.png --remove-watermark --producer gemini --confirm
-
-# 自动检测（不指定 producer，会扫所有已加载的）
-aigc-cli detect photo.png --remove-watermark --confirm
+# 自动检测（不指定 --producer，会扫所有已学习的配置取最高置信度）
+aigc-cli detect photo.png --remove-watermark
 ```
 
 ### 流程
@@ -135,10 +131,10 @@ aigc-cli detect photo.png --remove-watermark --confirm
 > ⚠️ 仅用于验证去水印算法的正确性，不注入任何元数据。
 
 ```bash
-# 用内置 Gemini 样式
-aigc-cli detect photo.png --add-watermark --producer gemini
+# 用已学习的水印
+aigc-cli detect photo.png --add-watermark --producer {name}
 
-# 用自定义文字
+# 用自定义文字（任意字符串，自动渲染为水印）
 aigc-cli detect photo.png --add-watermark --producer "MyWatermark"
 ```
 
@@ -171,5 +167,5 @@ aigc-cli detect photo.png --add-watermark --producer "MyWatermark"
 
 - 逆 alpha 混合在纯色/渐变背景上效果最好，复杂纹理区域可能有轻微残影
 - 仅支持叠加型可见水印（白/灰半透明覆盖），不支持植入型/隐写水印
-- Gemini Sparkle 无法通过 `--learn-watermark` 学习（检测依赖硬编码尺寸目录）
+- Gemini Sparkle 可通过 `--learn-watermark` 学习（检测使用尺寸目录定位 + 直接 NCC 匹配）
 - `--learn-watermark` 假设水印为白色（255,255,255），非白色水印需手动调整

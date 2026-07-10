@@ -6,10 +6,6 @@ import (
 	"math"
 )
 
-// defaultAlphaGains lists alpha multipliers tried during removal,
-// from most conservative to most aggressive.
-var defaultAlphaGains = []float64{0.6, 0.8, 1.0, 1.15, 1.3}
-
 // removeWatermark removes a detected watermark using reverse alpha blending.
 // It tries multiple alpha gains and sub-pixel refinements.
 func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
@@ -72,8 +68,14 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 		baseAlpha := resizeAlpha(srcAlpha, srcW, srcH, dw, dh)
 		best := trialResult{residual: math.MaxFloat64}
 
-		// Phase 1: try multiple alpha gains
-		for _, gain := range defaultAlphaGains {
+		// Phase 1: try multiple alpha gains.
+		// Use per-config gains (set by RegisterLearnResult based on watermark type),
+		// or fall back to sparkle-safe defaults for manually-built configs.
+		gains := cfg.AlphaGains
+		if len(gains) == 0 {
+			gains = SparkleAlphaGains
+		}
+		for _, gain := range gains {
 			dst := applyReverseAlphaRect(current, baseAlpha, det.x, det.y, dw, dh, logo, gain)
 			residual := computeResidualRect(dst, baseAlpha, det.x, det.y, dw, dh)
 			if residual < best.residual {

@@ -387,7 +387,7 @@ func cornerLum(img image.Image, w, h int) float64 {
 // Shared core used by both the constant-model and gradient-model paths.
 func computeAlphaWith(black, gray image.Image, w, h int,
 	bgB, bgG *bgModel,
-	noiseFloorB, noiseFloorG, noiseGate float64,
+	noiseFloorB, noiseFloorG float64,
 	gradient bool) *AlphaMap {
 
 	data := make([]float64, w*h)
@@ -450,9 +450,18 @@ func computeAlphaWith(black, gray image.Image, w, h int,
 	// Spatial smoothing
 	smoothed := gaussianBlur(data, w, h, 1.0)
 
-	// Noise gate
+	// Noise gate — fixed at 0.001 (only true numerical noise).
+	// The per-pixel noiseFloor (= 3*background_std) already handles
+	// all per-seed noise suppression in the alpha computation.
+	//
+	// A dynamic gate (e.g. max(0.005, min(0.03, stdSum/200))) was
+	// found to conflict with the TrimAlphaMap threshold for low-alpha
+	// watermarks: the gate cut before the trim, removing faint sparkle
+	// edges that the trim should have preserved.  Since the noise floor
+	// already does the suppression, this gate only needs to eliminate
+	// floating-point epsilon noise.
 	for i, v := range smoothed {
-		if v < noiseGate {
+		if v < 0.001 {
 			smoothed[i] = 0
 		}
 	}
@@ -507,12 +516,11 @@ func SolveAlphaMap(black, gray image.Image) *AlphaMap {
 	bgConstB, bgConstG := calibrateBackground(black, gray, w, h)
 	noiseFloorB := maxFloat(3.0, 3.0*bgConstB.lumStd)
 	noiseFloorG := maxFloat(3.0, 3.0*bgConstG.lumStd)
-	noiseGate := maxFloat(0.005, minFloat(0.03, (bgConstB.lumStd+bgConstG.lumStd)/200.0))
 
 	// Strategy 1: constant bg model
 	constB := &bgModel{baseR: bgConstB.baseR, baseG: bgConstB.baseG, baseB: bgConstB.baseB}
 	constG := &bgModel{baseR: bgConstG.baseR, baseG: bgConstG.baseG, baseB: bgConstG.baseB}
-	resultConst := computeAlphaWith(black, gray, w, h, constB, constG, noiseFloorB, noiseFloorG, noiseGate, false)
+	resultConst := computeAlphaWith(black, gray, w, h, constB, constG, noiseFloorB, noiseFloorG, false)
 
 	// Strategy 2: gradient bg model
 	gradB := &bgModel{
@@ -525,7 +533,7 @@ func SolveAlphaMap(black, gray image.Image) *AlphaMap {
 		gxR: bgConstG.gxR, gxG: bgConstG.gxG, gxB: bgConstG.gxB,
 		gyR: bgConstG.gyR, gyG: bgConstG.gyG, gyB: bgConstG.gyB,
 	}
-	resultGrad := computeAlphaWith(black, gray, w, h, gradB, gradG, noiseFloorB, noiseFloorG, noiseGate, true)
+	resultGrad := computeAlphaWith(black, gray, w, h, gradB, gradG, noiseFloorB, noiseFloorG, true)
 
 	// Pick the model with higher concentration (more signal per pixel)
 	scoreConst := alphaConcentration(resultConst)
@@ -706,18 +714,31 @@ func LearnWatermark(black, gray image.Image, name string) *LearnResult {
 	imgW := b.Dx()
 	imgH := b.Dy()
 	alpha := SolveAlphaMap(black, gray)
-	// Trim using a 0.02 threshold.  The noise gate in SolveAlphaMap
-	// has already zeroed out stray noise, so this threshold cleanly
-	// isolates the watermark footprint.
-	trimmed, offsetX, offsetY, _, _ := TrimAlphaMap(alpha, 0.02)
+	// Trim using an adaptive threshold that preserves faint sparkle edges.
+	// A fixed 0.02 is too aggressive for low-alpha patterns (Gemini sparkle
+	// max α≈0.28); use max(0.005, max_alpha*0.02) so the threshold stays
+	// proportional to the watermark's actual strength.
+	var maxAlpha float64
+	for _, v := range alpha.Data {
+		if v > maxAlpha {
+			maxAlpha = v
+		}
+	}
+	trimThreshold := maxFloat(0.005, maxAlpha*0.02)
+	trimmed, offsetX, offsetY, _, _ := TrimAlphaMap(alpha, trimThreshold)
 	marginX := imgW - offsetX - trimmed.Width
 	marginY := imgH - offsetY - trimmed.Height
 	marginXFrac := float64(marginX) / float64(imgW)
 	marginYFrac := float64(marginY) / float64(imgW)
 
 	// Data-driven detection threshold: 90th percentile of non-zero alpha,
-	// clamped to [0.15, 0.40].  Adapts to both faint sparkle and bright text.
+	// but always ≥ 0.25 for watermarks named "gemini" (sparkle needs a
+	// higher threshold to avoid false-positive weak matches that result
+	// in ineffective removal).
 	detectThreshold := estimateThreshold(trimmed)
+	if name == "gemini" && detectThreshold < 0.25 {
+		detectThreshold = 0.25
+	}
 
 	return &LearnResult{
 		Name:               name,
@@ -765,11 +786,14 @@ func estimateThreshold(am *AlphaMap) float64 {
 // The alpha map is stored as grayscale pixels; all metadata is embedded
 // in PNG tEXt chunks.
 func SaveWatermarkPNG(path string, lr *LearnResult) error {
-	img := image.NewGray(image.Rect(0, 0, lr.AlphaMap.Width, lr.AlphaMap.Height))
+	// Save as 16-bit grayscale PNG to preserve float32 alpha precision.
+	// uint8 would quantize alpha to 256 levels; uint16 gives 65536 levels
+	// which is sufficient for lossless float32 storage.
+	img := image.NewGray16(image.Rect(0, 0, lr.AlphaMap.Width, lr.AlphaMap.Height))
 	for y := 0; y < lr.AlphaMap.Height; y++ {
 		for x := 0; x < lr.AlphaMap.Width; x++ {
-			v := uint8(math.Round(lr.AlphaMap.Data[y*lr.AlphaMap.Width+x] * 255))
-			img.SetGray(x, y, color.Gray{Y: v})
+			v := uint16(math.Round(lr.AlphaMap.Data[y*lr.AlphaMap.Width+x] * 65535))
+			img.SetGray16(x, y, color.Gray16{Y: v})
 		}
 	}
 	var buf bytes.Buffer
@@ -849,7 +873,10 @@ func LoadWatermarkPNG(path string) (*LearnResult, error) {
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			r, _, _, _ := img.At(x, y).RGBA()
-			alphaData[y*w+x] = float64(r>>8) / 255.0
+			// RGBA() always returns 16-bit values [0, 65535].
+			// For 8-bit PNG: r = Y*257 (Go scales 8→16), so r/65535 = Y/255
+			// For 16-bit PNG: r = Y directly, so r/65535 gives full precision
+			alphaData[y*w+x] = float64(r) / 65535.0
 		}
 	}
 	am := &AlphaMap{Width: w, Height: h, Data: alphaData}
@@ -919,6 +946,41 @@ func RegisterWatermarkPNG(path string) error {
 }
 
 // RegisterLearnResult creates a runtime Config from a LearnResult.
+// It auto-selects the detection strategy based on alpha map shape:
+//
+//   - Square-like (aspect ratio < 2:1, e.g. banana/Gemini sparkle):
+//     no PositionResolver → detectWatermark uses direct NCC matching
+//     (same path as the built-in Gemini config).
+//
+//   - Rectangular (aspect ratio ≥ 2:1, e.g. doubao/baidu/zhipu text badges):
+//     PositionResolver set → detectWatermark uses binary mask + NCC path.
+//
+// Pre-defined alpha gain profiles for different watermark types.
+// The removal loop tries each gain in order and picks the one with
+// the lowest NCC residual (best removal).  Lower gains are safer
+// (less over-subtraction), higher gains remove more aggressively.
+//
+// SparkleAlphaGains: 0.6 → 0.8 → 1.0 → 1.3
+//
+//	For Gemini sparkle (diffuse glow, low contrast).  Gains > 1.3 risk
+//	creating visible dark halos around the sparkle.  0.6-0.8 handle
+//	the gentle alpha blend well; 1.0-1.3 are tried for images where
+//	the watermark is particularly faint.
+//
+// TextAlphaGains: 1.0 → 1.5 → 2.0 → 2.5 → 3.0
+//
+//	For text badge watermarks (doubao/baidu/zhipu/jimeng).  The
+//	two-capture method systematically underestimates text alpha
+//	(learned max ≈ 0.25-0.35, true alpha ≈ 0.7-1.0) because the
+//	text glyphs cover only a small fraction of the badge area while
+//	the method averages over the entire badge.  Higher gains
+//	compensate.  3.0 is the maximum — above this, even the NCC
+//	residual increases from over-subtraction artifacts.
+var (
+	SparkleAlphaGains = []float64{0.6, 0.8, 1.0, 1.3}
+	TextAlphaGains    = []float64{1.0, 1.5, 2.0, 2.5, 3.0}
+)
+
 func RegisterLearnResult(lr *LearnResult) {
 	alphaW := lr.AlphaMap.Width
 	alphaH := lr.AlphaMap.Height
@@ -932,21 +994,47 @@ func RegisterLearnResult(lr *LearnResult) {
 	case "skip":
 		removeStrategy = RemoveSkip
 	}
-	Register(Config{
+
+	// Shared config fields
+	cfg := Config{
 		Type:               TypeUnknown,
 		Name:               lr.Name,
 		AlphaMap:           lr.AlphaMap,
-		DefaultSize:        minInt(alphaW, alphaH),
-		DefaultMarginX:     int(math.Round(float64(nativeW) * marginXFrac)),
-		DefaultMarginY:     int(math.Round(float64(nativeW) * marginYFrac)),
 		LogoColor:          [3]float64{255, 255, 255},
 		DetectThreshold:    lr.DetectThreshold,
-		MinSizeScale:       0.5,
-		MaxSizeScale:       2.0,
-		MarginRange:        16,
 		RemoveStrategy:     removeStrategy,
 		OversubtractMargin: lr.OversubtractMargin,
-		PositionResolver: func(w, h int) []Position {
+	}
+
+	// Detect alpha map shape. Square-ish (< 2:1 aspect ratio) means
+	// sparkle-like → use direct NCC path (no PositionResolver).
+	// Rectangular (≥ 2:1) means text-like → use binary mask + NCC path.
+	ratio := float64(maxInt(alphaW, alphaH)) / float64(minInt(alphaW, alphaH))
+	// Per-type alpha gains: text watermarks need stronger removal because
+	// the two-capture method systematically underestimates their alpha.
+	// Assign alpha gain profile based on watermark shape
+	if ratio < 2.0 {
+		cfg.AlphaGains = SparkleAlphaGains
+	} else {
+		cfg.AlphaGains = TextAlphaGains
+	}
+	if ratio < 2.0 {
+		// Sparkle-like: use direct NCC matching (no PositionResolver).
+		// Position is computed from margins in detectWatermark's fallback.
+		cfg.NativeWidth = nativeW
+		cfg.DefaultSize = minInt(alphaW, alphaH)
+		cfg.DefaultMarginX = int(math.Round(float64(nativeW) * marginXFrac))
+		cfg.DefaultMarginY = int(math.Round(float64(nativeW) * marginYFrac))
+	} else {
+		// Text-like: use PositionResolver for binary mask + NCC path.
+		cfg.NativeWidth = nativeW
+		cfg.DefaultSize = minInt(alphaW, alphaH)
+		cfg.DefaultMarginX = int(math.Round(float64(nativeW) * marginXFrac))
+		cfg.DefaultMarginY = int(math.Round(float64(nativeW) * marginYFrac))
+		cfg.MinSizeScale = 0.5
+		cfg.MaxSizeScale = 2.0
+		cfg.MarginRange = 16
+		cfg.PositionResolver = func(w, h int) []Position {
 			shorter := w
 			if h < shorter {
 				shorter = h
@@ -965,8 +1053,10 @@ func RegisterLearnResult(lr *LearnResult) {
 				return nil
 			}
 			return []Position{{X: x, Y: y, W: szW, H: szH}}
-		},
-	})
+		}
+	}
+
+	Register(cfg)
 }
 
 // LoadWatermarkPNGsFromDir loads all .watermark.png files from a directory.
