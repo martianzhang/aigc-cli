@@ -488,6 +488,60 @@ func alphaConcentration(am *AlphaMap) float64 {
 	return (mass / nz) * areaRatio
 }
 
+// medianFilter3x3 applies a 3×3 median filter to an image's RGB channels.
+// This removes isolated outlier pixels (e.g. hot pixels in noisy seeds)
+// while preserving edges and watermark strokes — unlike a Gaussian blur
+// which would smear outliers into neighbors.
+//
+// Used to denoise seed images before alpha computation.  High-noise seeds
+// (std > 8) produce inflated noiseFloor thresholds that suppress weak
+// watermark signal.  Median filtering the seed first drops the effective
+// noise std, which lowers the noiseFloor and recovers faint alpha.
+func medianFilter3x3(img image.Image) *image.RGBA {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	dst := image.NewRGBA(b)
+
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			var rVals, gVals, bVals [9]float64
+			count := 0
+			for dy := -1; dy <= 1; dy++ {
+				for dx := -1; dx <= 1; dx++ {
+					nx, ny := x+dx, y+dy
+					if nx < b.Min.X || nx >= b.Max.X || ny < b.Min.Y || ny >= b.Max.Y {
+						continue
+					}
+					r, g, bv, _ := img.At(nx, ny).RGBA()
+					rVals[count] = float64(r >> 8)
+					gVals[count] = float64(g >> 8)
+					bVals[count] = float64(bv >> 8)
+					count++
+				}
+			}
+			if count == 0 {
+				r, g, bv, _ := img.At(x, y).RGBA()
+				dst.Set(x, y, color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(bv >> 8), A: 255})
+				continue
+			}
+			rSorted := rVals[:count]
+			gSorted := gVals[:count]
+			bSorted := bVals[:count]
+			sort.Float64s(rSorted)
+			sort.Float64s(gSorted)
+			sort.Float64s(bSorted)
+			mid := count / 2
+			dst.Set(x, y, color.RGBA{
+				R: uint8(rSorted[mid]),
+				G: uint8(gSorted[mid]),
+				B: uint8(bSorted[mid]),
+				A: 255,
+			})
+		}
+	}
+	return dst
+}
+
 // SolveAlphaMap solves for the alpha map from black and gray seed images
 // using the two-capture method.  It auto-adapts between two strategies:
 //
@@ -501,6 +555,13 @@ func alphaConcentration(am *AlphaMap) float64 {
 //
 // Both models are computed and the one with higher alpha concentration
 // (more watermark signal per pixel) is selected automatically.
+//
+// Before computing alpha, seed images are pre-denoised with a 3×3 median
+// filter when their noise level is high (edge noise > 5).  This removes
+// isolated outlier pixels that inflate the noise floor and suppress weak
+// watermark signal — a problem observed on seeds from platforms with noisy
+// generation pipelines.  The median filter preserves edges and strokes,
+// unlike a Gaussian blur which would smear outliers into neighboring pixels.
 func SolveAlphaMap(black, gray image.Image) *AlphaMap {
 	b := black.Bounds()
 	g := gray.Bounds()
@@ -510,6 +571,17 @@ func SolveAlphaMap(black, gray image.Image) *AlphaMap {
 	}
 	if g.Dy() < h {
 		h = g.Dy()
+	}
+
+	// Pre-denoise: if seed noise is high, apply 3×3 median filter to remove
+	// isolated outlier pixels before alpha computation.  The noise floor is
+	// 3× background std, so outliers with std > 5 inflate the floor to > 15
+	// and suppress weak watermark alpha.  Median filtering preserves edges
+	// (watermark strokes) while removing salt-and-pepper noise.
+	bgPreB, bgPreG := calibrateBackground(black, gray, w, h)
+	if bgPreB.lumStd > 5 || bgPreG.lumStd > 5 {
+		black = medianFilter3x3(black)
+		gray = medianFilter3x3(gray)
 	}
 
 	// Shared noise parameters (computed from corner std, not gradient-dependent)
@@ -545,9 +617,15 @@ func SolveAlphaMap(black, gray image.Image) *AlphaMap {
 	return resultConst
 }
 
-// combineSeeds averages multiple black (or gray) seed images into one,
+// combineSeeds merges multiple black (or gray) seed images into one,
 // after calibrating each seed's background to a common baseline.
 // This extracts the common watermark signal while canceling per-image noise.
+//
+// Uses per-pixel MEDIAN aggregation instead of mean: median is robust to
+// outlier pixels (e.g. hot pixels with value 236 on a black seed) that
+// would skew the mean and inflate the noise floor.  For N seeds, a single
+// outlier pixel can shift the mean by outlier/N, but the median is
+// completely unaffected as long as outliers are < 50% of the samples.
 func combineSeeds(seeds []image.Image, bgBase float64) *image.RGBA {
 	if len(seeds) == 0 {
 		return nil
@@ -555,10 +633,12 @@ func combineSeeds(seeds []image.Image, bgBase float64) *image.RGBA {
 	b := seeds[0].Bounds()
 	w, h := b.Dx(), b.Dy()
 
-	// Accumulate per-pixel RGB values across all seeds
-	type acc struct{ r, g, b float64 }
-	accum := make([]acc, w*h)
-	var n float64
+	// Collect per-pixel calibrated values from all valid seeds
+	type pxChan struct {
+		r, g, b []float64
+	}
+	accum := make([]pxChan, w*h)
+	var n int
 
 	for _, img := range seeds {
 		ib := img.Bounds()
@@ -570,10 +650,10 @@ func combineSeeds(seeds []image.Image, bgBase float64) *image.RGBA {
 		var bgN float64
 		for y := 0; y < 40 && y < h; y++ {
 			for x := 0; x < 40 && x < w; x++ {
-				r, g, b, _ := img.At(x, y).RGBA()
+				r, g, bv, _ := img.At(x, y).RGBA()
 				bgR += float64(r >> 8)
 				bgG += float64(g >> 8)
-				bgB += float64(b >> 8)
+				bgB += float64(bv >> 8)
 				bgN++
 			}
 		}
@@ -592,11 +672,11 @@ func combineSeeds(seeds []image.Image, bgBase float64) *image.RGBA {
 
 		for y := 0; y < h; y++ {
 			for x := 0; x < w; x++ {
-				r, g, b, _ := img.At(x, y).RGBA()
+				r, g, bv, _ := img.At(x, y).RGBA()
 				idx := y*w + x
-				accum[idx].r += float64(r>>8) + shiftR
-				accum[idx].g += float64(g>>8) + shiftG
-				accum[idx].b += float64(b>>8) + shiftB
+				accum[idx].r = append(accum[idx].r, float64(r>>8)+shiftR)
+				accum[idx].g = append(accum[idx].g, float64(g>>8)+shiftG)
+				accum[idx].b = append(accum[idx].b, float64(bv>>8)+shiftB)
 			}
 		}
 		n++
@@ -606,15 +686,22 @@ func combineSeeds(seeds []image.Image, bgBase float64) *image.RGBA {
 		return nil
 	}
 
-	// Build the averaged image
+	// Build the median-aggregated image
 	dst := image.NewRGBA(image.Rect(0, 0, w, h))
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			idx := y*w + x
-			r := clampByte(accum[idx].r / n)
-			g := clampByte(accum[idx].g / n)
-			b := clampByte(accum[idx].b / n)
-			dst.Set(x, y, color.RGBA{R: r, G: g, B: b, A: 255})
+			rSorted := accum[idx].r
+			gSorted := accum[idx].g
+			bSorted := accum[idx].b
+			sort.Float64s(rSorted)
+			sort.Float64s(gSorted)
+			sort.Float64s(bSorted)
+			mid := len(rSorted) / 2
+			r := clampByte(rSorted[mid])
+			g := clampByte(gSorted[mid])
+			bv := clampByte(bSorted[mid])
+			dst.Set(x, y, color.RGBA{R: r, G: g, B: bv, A: 255})
 		}
 	}
 	return dst

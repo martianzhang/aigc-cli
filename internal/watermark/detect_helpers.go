@@ -268,28 +268,35 @@ type TextMarkParams struct {
 }
 
 // DefaultDoubaoParams returns the reference project's Doubao tuning.
+// Text watermarks (doubao/jimeng) scale with image dimensions, but the
+// exact scaling behavior varies across model versions and image aspect
+// ratios.  A wide alignment search (0.50–2.00) ensures the NCC can find
+// the watermark even when PositionResolver's estimate is significantly off.
 func DefaultDoubaoParams() TextMarkParams {
 	return TextMarkParams{
 		MaxSaturation:  55,
 		LogoMinLuma:    150,
 		TophatDelta:    12,
 		MorphOpenSize:  5,
-		AlignSearchMin: 0.60,
-		AlignSearchMax: 1.40,
+		AlignSearchMin: 0.50,
+		AlignSearchMax: 2.00,
 	}
 }
 
 // DefaultJimengParams returns the reference project's Jimeng tuning.
-// Same mask extraction params as Doubao (both ByteDance text marks),
-// but a wider alignment search range to handle unknown scaling behavior.
+// Same mask extraction params as Doubao (both ByteDance text marks).
+// The wide alignment search (0.50–2.00) handles unknown scaling behavior:
+// Jimeng watermarks have been observed to scale with image height rather
+// than width on some outputs, causing PositionResolver's width-based
+// estimate to be off by up to 2×.
 func DefaultJimengParams() TextMarkParams {
 	return TextMarkParams{
 		MaxSaturation:  55,
 		LogoMinLuma:    150,
 		TophatDelta:    12,
 		MorphOpenSize:  5,
-		AlignSearchMin: 0.60,
-		AlignSearchMax: 1.40,
+		AlignSearchMin: 0.50,
+		AlignSearchMax: 2.00,
 	}
 }
 
