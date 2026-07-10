@@ -690,6 +690,7 @@ var tc260ProviderCodes = map[string]string{
 	"1191110000802100433B": "百度 (Baidu) — 文心一言",
 	"119144030071526726XG": "腾讯 (Tencent) — 混元",
 	"1191330106MA2CFLDG4R": "阿里巴巴 (Alibaba) — 通义千问 / 通义万相",
+	"1191440101MA9Y9T4H7A": "阿里巴巴 (Alibaba) — 通义千问(qwen)",
 	// ── 以下为常见大模型厂商（需要实际图片确认编码） ──
 	// To add: generate an image with the provider's tool, run
 	//   aigc-cli detect --verbose <image>

@@ -545,6 +545,36 @@ func SolveAlphaMap(black, gray image.Image) *AlphaMap {
 	return resultConst
 }
 
+// SolveAlphaMapMulti averages multiple SolveAlphaMap results from
+// multiple black/gray seed pairs, producing a lower-noise alpha map.
+// Each pair contributes equally.  All pairs must have the same dimensions.
+func SolveAlphaMapMulti(pairs []struct{ Black, Gray image.Image }) *AlphaMap {
+	if len(pairs) == 0 {
+		return nil
+	}
+	// Compute alpha map from the first pair to determine dimensions
+	first := SolveAlphaMap(pairs[0].Black, pairs[0].Gray)
+	n := len(pairs)
+	w, h := first.Width, first.Height
+	avg := make([]float64, w*h)
+	copy(avg, first.Data)
+
+	// Average remaining pairs
+	for i := 1; i < n; i++ {
+		am := SolveAlphaMap(pairs[i].Black, pairs[i].Gray)
+		if am.Width != w || am.Height != h {
+			continue // skip mismatched pairs
+		}
+		for j := range avg {
+			avg[j] += am.Data[j]
+		}
+	}
+	for i := range avg {
+		avg[i] /= float64(n)
+	}
+	return &AlphaMap{Width: w, Height: h, Data: avg}
+}
+
 // maxFloat returns the larger of two float64 values.
 func maxFloat(a, b float64) float64 {
 	if a > b {
@@ -697,19 +727,8 @@ type LearnResult struct {
 	OversubtractMargin float64
 }
 
-// LearnWatermark solves the alpha map from black+gray seed images and
-// auto-derives all config parameters.  Uses mass-preserving trimming
-// (keeps 99.5% of alpha energy) to adapt automatically to both bright
-// text marks and faint sparkle patterns.
-func LearnWatermark(black, gray image.Image, name string) *LearnResult {
-	b := black.Bounds()
-	imgW := b.Dx()
-	imgH := b.Dy()
-	alpha := SolveAlphaMap(black, gray)
-	// Trim using an adaptive threshold that preserves faint sparkle edges.
-	// A fixed 0.02 is too aggressive for low-alpha patterns (Gemini sparkle
-	// max α≈0.28); use max(0.005, max_alpha*0.02) so the threshold stays
-	// proportional to the watermark's actual strength.
+// buildLearnResult creates a LearnResult from a computed alpha map.
+func buildLearnResult(alpha *AlphaMap, imgW, imgH int, name, removeStrategy string) *LearnResult {
 	var maxAlpha float64
 	for _, v := range alpha.Data {
 		if v > maxAlpha {
@@ -723,10 +742,6 @@ func LearnWatermark(black, gray image.Image, name string) *LearnResult {
 	marginXFrac := float64(marginX) / float64(imgW)
 	marginYFrac := float64(marginY) / float64(imgW)
 
-	// Data-driven detection threshold: 90th percentile of non-zero alpha,
-	// but always ≥ 0.25 for watermarks named "gemini" (sparkle needs a
-	// higher threshold to avoid false-positive weak matches that result
-	// in ineffective removal).
 	detectThreshold := estimateThreshold(trimmed)
 	if name == "gemini" && detectThreshold < 0.25 {
 		detectThreshold = 0.25
@@ -739,9 +754,27 @@ func LearnWatermark(black, gray image.Image, name string) *LearnResult {
 		MarginXFrac:        marginXFrac,
 		MarginYFrac:        marginYFrac,
 		DetectThreshold:    detectThreshold,
-		RemoveStrategy:     "alpha_blend",
+		RemoveStrategy:     removeStrategy,
 		OversubtractMargin: 0,
 	}
+}
+
+// LearnWatermark solves the alpha map from black+gray seed images and
+// auto-derives all config parameters.
+func LearnWatermark(black, gray image.Image, name string, removeStrategy string) *LearnResult {
+	b := black.Bounds()
+	alpha := SolveAlphaMap(black, gray)
+	return buildLearnResult(alpha, b.Dx(), b.Dy(), name, removeStrategy)
+}
+
+// LearnWatermarkMulti averages multiple seed pairs for lower-noise alpha maps.
+func LearnWatermarkMulti(pairs []struct{ Black, Gray image.Image }, name string, removeStrategy string) *LearnResult {
+	if len(pairs) == 0 {
+		return nil
+	}
+	b := pairs[0].Black.Bounds()
+	alpha := SolveAlphaMapMulti(pairs)
+	return buildLearnResult(alpha, b.Dx(), b.Dy(), name, removeStrategy)
 }
 
 // estimateThreshold computes a data-driven detection threshold from the
