@@ -803,7 +803,7 @@ func buildLearnResult(alpha *AlphaMap, imgW, imgH int, name, removeStrategy stri
 	marginX := imgW - offsetX - trimmed.Width
 	marginY := imgH - offsetY - trimmed.Height
 	marginXFrac := float64(marginX) / float64(imgW)
-	marginYFrac := float64(marginY) / float64(imgW)
+	marginYFrac := float64(marginY) / float64(imgH)
 
 	detectThreshold := estimateThreshold(trimmed)
 	if name == "gemini" && detectThreshold < 0.25 {
@@ -1134,7 +1134,7 @@ func RegisterLearnResult(lr *LearnResult) {
 				return nil
 			}
 			mx := int(math.Round(float64(w) * marginXFrac))
-			my := int(math.Round(float64(w) * marginYFrac))
+			my := int(math.Round(float64(h) * marginYFrac))
 			x := w - mx - szW
 			y := h - my - szH
 			if x < 0 || y < 0 || x+szW > w || y+szH > h {
