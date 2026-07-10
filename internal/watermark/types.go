@@ -66,9 +66,10 @@ type Config struct {
 	Type           Type
 	Name           string
 	AlphaMap       *AlphaMap
-	DefaultSize    int // default watermark size in px
-	DefaultMarginX int // default right/bottom margin in px
-	DefaultMarginY int
+	DefaultSize    int        // default watermark size in px (at NativeWidth)
+	DefaultMarginX int        // default right margin in px (at NativeWidth)
+	DefaultMarginY int        // default bottom margin in px (at NativeWidth)
+	NativeWidth    int        // image width the alpha map was calibrated at
 	LogoColor      [3]float64 // RGB of watermark color (255 for white)
 	// Detection thresholds
 	DetectThreshold float64 // minimum NCC score to consider detected
@@ -90,6 +91,10 @@ type Config struct {
 	// use the default (25). This is data-driven per producer so it can be
 	// tuned (or emitted by the alpha-map generator) for each watermark type.
 	OversubtractMargin float64
+	// AlphaGains overrides the default alpha gain sequence for this config.
+	// If nil or empty, the engine uses a built-in default appropriate for
+	// the watermark type (sparkle vs text).
+	AlphaGains []float64
 }
 
 // Result holds the outcome of a watermark removal operation.

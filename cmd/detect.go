@@ -36,15 +36,14 @@ var detectCmd = &cobra.Command{
   - SynthID 隐形水印（从 C2PA 厂商推断）
   - FFT 频谱分析（像素级频域伪影）
   - ONNX 模型推理（需下载模型）
-  - 可见 AI 水印检测（Gemini/豆包/即梦/百度/智谱清言）
+  - 可见 AI 水印检测（需通过 --learn-watermark 学习后方可检测）
 
 所有信号融合为单一 AIGen 置信度评分（含 emoji）。
 
 ⚠️ 合规声明
---remove-watermark 功能仅用于验证水印检测算法的准确性，以及
-在合法场景下（如修复个人旧照片）使用。使用前必须通过
---confirm 确认您尊重知识产权并遵守适用法律法规。
-禁止用于去除他人版权图片的水印或任何侵权用途。
+本项目不内置任何厂商的水印去除能力。--remove-watermark 仅对用户
+通过 --learn-watermark 自行学习的水印生效。用户应自行确保使用
+行为符合适用法律法规。
 
 --add-watermark 仅用于为去水印算法创建测试样本，不注入任何元数据。
 
@@ -57,7 +56,6 @@ var detectPreview bool
 var detectRemoveWM bool
 var detectAddWM bool
 var detectWmProducer string
-var detectConfirmed bool
 var detectLearnWM string // --learn-watermark {name}
 
 func runDetect(cmd *cobra.Command, args []string) error {
@@ -284,10 +282,6 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	if detectRemoveWM {
 		// Load custom watermarks from the watermark directory (may not exist)
 		_ = watermark.LoadWatermarkPNGsFromDir(watermarkDir())
-
-		if detectWmProducer == "" && !detectConfirmed {
-			return fmt.Errorf("--confirm is required with --remove-watermark when not using --producer: you must confirm you respect intellectual property rights and comply with applicable laws")
-		}
 
 		outPath := cleanPath(path)
 		producer := detectWmProducer
@@ -636,10 +630,9 @@ func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
-	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "⚠️  remove visible AI watermarks. Use --producer {name} for custom watermarks, or --confirm for built-in gemini. Only for legal use such as restoring personal photos. NOT for removing copyright watermarks.")
+	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "remove visible AI watermarks learned via --learn-watermark. Requires --producer {name}.")
 	detectCmd.Flags().BoolVar(&detectAddWM, "add-watermark", false, "add a visible AI watermark for testing removal (no metadata injected)")
-	detectCmd.Flags().BoolVar(&detectConfirmed, "confirm", false, "confirm you respect intellectual property rights and comply with applicable laws (required with --remove-watermark when not using --producer)")
 	detectCmd.Flags().StringVar(&detectWmProducer, "producer", "",
-		`watermark producer name: "gemini" (built-in) or a name learned via --learn-watermark`)
+		`watermark producer name learned via --learn-watermark, e.g. "gemini"`)
 	detectCmd.Flags().StringVar(&detectLearnWM, "learn-watermark", "", "learn a custom watermark from ~/.config/aigc-cli/watermark/{name}.black.png + {name}.gray.png")
 }

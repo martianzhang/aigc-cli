@@ -137,8 +137,36 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 			}
 		}
 	} else {
-		// Use Gemini catalog positions
-		seedEntries := resolveWatermarkConfigs(w, h)
+		var seedEntries []watermarkEntry
+
+		// Gemini sparkle position follows fixed-pixel rules (catalog),
+		// regardless of how the alpha map was obtained (learned or
+		// hardcoded).  Always use the catalog for Gemini.
+		// Other learned watermarks use their NativeWidth-scaled position.
+		if cfg.Name == "gemini" {
+			seedEntries = resolveWatermarkConfigs(w, h)
+		} else if cfg.NativeWidth > 0 {
+			sz := int(math.Round(float64(cfg.DefaultSize) * float64(w) / float64(cfg.NativeWidth)))
+			mx := int(math.Round(float64(cfg.DefaultMarginX) * float64(w) / float64(cfg.NativeWidth)))
+			my := int(math.Round(float64(cfg.DefaultMarginY) * float64(w) / float64(cfg.NativeWidth)))
+			if sz < 16 {
+				sz = 16
+			}
+			if sz > 192 {
+				sz = 192
+			}
+			cx := w - mx - sz
+			cy := h - my - sz
+			if cx >= 0 && cy >= 0 && cx+sz <= w && cy+sz <= h {
+				seedEntries = []watermarkEntry{{
+					logoSize: sz, marginX: mx, marginY: my,
+					name: cfg.Name,
+				}}
+			}
+		} else {
+			seedEntries = resolveWatermarkConfigs(w, h)
+		}
+
 		for _, entry := range seedEntries {
 			sz := entry.logoSize
 			cx := w - entry.marginX - sz
@@ -213,10 +241,10 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 		}
 	}
 
-	// Expand search region. Use ±50px or 5% of image width, whichever is larger,
-	// to handle screenshots and re-saved images where the watermark position
-	// drifts from the catalog-calculated position.
-	searchPad := maxInt(50, int(float64(w)*0.05))
+	// Expand search region. Learned alpha maps need a wider search because
+	// watermark position can drift from the catalog position by up to 200px
+	// on large images (observed on 2528×1696 Gemini outputs).
+	searchPad := maxInt(100, int(float64(w)*0.10))
 	sizePad := maxInt(24, int(float64(maxSize)*0.3))
 	searchLeft := maxInt(0, minX-searchPad)
 	searchRight := minInt(w, maxX+searchPad)

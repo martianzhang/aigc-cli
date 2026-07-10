@@ -271,7 +271,7 @@ python scripts/verify_watermark.py <原图> <clean图>
 
 ## 新增水印流程
 
-本项目**不内置任何厂商水印**（仅 Gemini 例外）。用户通过 `--learn-watermark` 自行学习水印。
+本项目**不内置任何厂商的水印数据**。所有水印均由用户自行生成。
 
 ### 流程：两拍法学习自定义水印
 
