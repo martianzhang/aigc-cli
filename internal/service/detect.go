@@ -350,6 +350,12 @@ func parseTC260Result(tc260data string) *TC260Result {
 	if cp, ok := result.Fields[ContentProducerKey]; ok {
 		result.Provider = resolveContentProducer(cp)
 	}
+	// Some providers only include ContentPropagator (same entity code).
+	if result.Provider == "" {
+		if cp, ok := result.Fields["ContentPropagator"]; ok {
+			result.Provider = resolveContentProducer(cp)
+		}
+	}
 
 	return result
 }
@@ -584,6 +590,9 @@ chunks:
 		switch chunkType {
 		case "tEXt":
 			if k, v, ok := parsePNGText(data); ok {
+				if k == "AIGC" {
+					k = "TC260" // TC260 label in tEXt chunk
+				}
 				textChunks[k] = v
 			}
 		case "zTXt":
