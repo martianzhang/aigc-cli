@@ -553,14 +553,6 @@ func maxFloat(a, b float64) float64 {
 	return b
 }
 
-// minFloat returns the smaller of two float64 values.
-func minFloat(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // TrimAlphaMap trims transparent edges from the alpha map.
 // Pixels below threshold are considered transparent and guide the
 // bounding box; a 2-pixel padding is added around the result.
