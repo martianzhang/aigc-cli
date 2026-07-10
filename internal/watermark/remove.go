@@ -132,10 +132,13 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 			// at the sparkle center.
 			best.dst = inpaintResidual(best.dst, best.alpha, det.x, det.y, size, size, 0.01, 3, 3)
 		} else {
-			// Text watermark residual cleanup: dilate alpha mask + inpaint,
-			// matching the reference project's approach (cv2.inpaint with
-			// residual_alpha_floor=0.05, dilate=5, radius=2).
-			best.dst = inpaintResidual(best.dst, best.alpha, det.x, det.y, dw, dh, 0.03, 7, 3)
+			// Text watermark residual cleanup: dilate alpha mask + inpaint.
+			// Floor 0.01 (not 0.03) ensures anti-aliased glyph edges where
+			// the alpha map is faint (0.01–0.03) are still covered — these
+			// pixels carry real watermark signal (observed on black/gray
+			// seeds where R can be 160+ despite alpha < 0.012) and must
+			// not be left as residual bright spots.
+			best.dst = inpaintResidual(best.dst, best.alpha, det.x, det.y, dw, dh, 0.01, 7, 3)
 		}
 
 		// Stop if no improvement
