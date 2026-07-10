@@ -139,6 +139,16 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 			// seeds where R can be 160+ despite alpha < 0.012) and must
 			// not be left as residual bright spots.
 			best.dst = inpaintResidual(best.dst, best.alpha, det.x, det.y, dw, dh, 0.01, 7, 3)
+
+			// Full-rectangle fallback: the learned alpha map may not cover
+			// the entire watermark footprint — anti-aliased edges where
+			// alpha decays to exactly 0 (outside the two-capture method's
+			// sensitivity) still carry watermark signal (observed R=156 on
+			// black seeds).  Inpaint the entire detected rectangle to
+			// guarantee no residual survives inside the watermark bounding
+			// box.  This is safe because the rectangle is already known to
+			// be the watermark area.
+			best.dst = inpaintRect(best.dst, det.x, det.y, dw, dh)
 		}
 
 		// Stop if no improvement
@@ -764,6 +774,97 @@ func inpaintResidual(src *image.RGBA, alpha []float64, ax, ay, aw, ah int, floor
 		}
 
 		// Unmask boundary pixels (they're now valid neighbors for next layer)
+		for _, p := range boundary {
+			mask[p.y*imgW+p.x] = false
+		}
+	}
+
+	return dst
+}
+
+// inpaintRect replaces all pixels in the rectangular region (ax,ay,aw,ah)
+// with progressive boundary-growing inpaint from the surrounding area.
+// Unlike inpaintResidual which uses an alpha-gated mask, this covers the
+// ENTIRE rectangle — used as a fallback for text watermarks where the
+// learned alpha map has zero-valued edges that still carry watermark signal.
+func inpaintRect(src *image.RGBA, ax, ay, aw, ah int) *image.RGBA {
+	b := src.Bounds()
+	imgW, imgH := b.Dx(), b.Dy()
+
+	// Build mask covering the full rectangle
+	mask := make([]bool, imgW*imgH)
+	for y := ay; y < ay+ah && y < imgH; y++ {
+		if y < 0 {
+			continue
+		}
+		for x := ax; x < ax+aw && x < imgW; x++ {
+			if x < 0 {
+				continue
+			}
+			mask[y*imgW+x] = true
+		}
+	}
+
+	dst := cloneToRGBA(src)
+
+	// Progressive boundary-growing inpaint (same algorithm as inpaintResidual)
+	for {
+		type bp struct{ x, y int }
+		var boundary []bp
+		for y := 0; y < imgH; y++ {
+			for x := 0; x < imgW; x++ {
+				if !mask[y*imgW+x] {
+					continue
+				}
+				for _, d := range [4][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+					nx, ny := x+d[0], y+d[1]
+					if nx < 0 || ny < 0 || nx >= imgW || ny >= imgH {
+						continue
+					}
+					if !mask[ny*imgW+nx] {
+						boundary = append(boundary, bp{x, y})
+						break
+					}
+				}
+			}
+		}
+
+		if len(boundary) == 0 {
+			break
+		}
+
+		for _, p := range boundary {
+			x, y := p.x, p.y
+			var sumR, sumG, sumB, sumW float64
+			for dy := -3; dy <= 3; dy++ {
+				for dx := -3; dx <= 3; dx++ {
+					if dx == 0 && dy == 0 {
+						continue
+					}
+					nx, ny := x+dx, y+dy
+					if nx < 0 || nx >= imgW || ny < 0 || ny >= imgH {
+						continue
+					}
+					if mask[ny*imgW+nx] {
+						continue
+					}
+					dist := float64(dx*dx + dy*dy)
+					w := 1.0 / (dist + 0.1)
+					off := dst.PixOffset(nx, ny)
+					sumR += float64(dst.Pix[off+0]) * w
+					sumG += float64(dst.Pix[off+1]) * w
+					sumB += float64(dst.Pix[off+2]) * w
+					sumW += w
+				}
+			}
+			if sumW > 0 {
+				off := dst.PixOffset(x, y)
+				dst.Pix[off+0] = clampByte(sumR / sumW)
+				dst.Pix[off+1] = clampByte(sumG / sumW)
+				dst.Pix[off+2] = clampByte(sumB / sumW)
+			}
+		}
+
 		for _, p := range boundary {
 			mask[p.y*imgW+p.x] = false
 		}
