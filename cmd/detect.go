@@ -293,6 +293,10 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 				producer = watermark.ProducerToConfig(result.TC260.Provider)
 			}
 		}
+		// C2PA vendor fallback (Gemini has no TC260, only C2PA)
+		if producer == "" && result.C2PA != nil && result.C2PA.Present {
+			producer = watermark.ProducerToConfig(result.C2PA.Vendor)
+		}
 		res, err := watermark.RemoveFileHinted(path, outPath, producer)
 		if err == nil && res.Removed {
 			fmt.Printf("  Watermark removed (%s) → %s\n", res.Name, outPath)

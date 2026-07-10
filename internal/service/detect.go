@@ -684,7 +684,8 @@ func extractC2PAInfo(data []byte) (vendor, software, version, sourceType string)
 // then copy the ContentProducer value and share it to add here.
 // References: GB 45438-2025, TC260 service provider encoding rules.
 var tc260ProviderCodes = map[string]string{
-	"1191110102MACQD9K640": "字节跳动 (ByteDance) — 豆包 / 即梦 / 火山引擎",
+	"1191110102MACQD9K640": "字节跳动 (ByteDance) — 豆包(doubao) / 火山引擎",
+	"119144030008867405X2": "字节跳动 (ByteDance) — 即梦(jimeng)",
 	"1191110108MA01KP2T5U": "智谱AI (Zhipu) — 清言 / GLM",
 	"1191110000802100433B": "百度 (Baidu) — 文心一言",
 	"119144030071526726XG": "腾讯 (Tencent) — 混元",
