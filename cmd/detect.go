@@ -56,7 +56,12 @@ var detectPreview bool
 var detectRemoveWM bool
 var detectAddWM bool
 var detectWmProducer string
-var detectLearnWM string // --learn-watermark {name}
+var detectLearnWM string          // --learn-watermark {name}
+var detectLearnStrategy string    // --strategy for learn-watermark
+var detectNativeWidth int         // --native-width for imported alpha maps
+var detectMarginXFrac float64     // --margin-x-frac
+var detectMarginYFrac float64     // --margin-y-frac
+var detectDetectThreshold float64 // --detect-threshold
 
 func runDetect(cmd *cobra.Command, args []string) error {
 	// --learn-watermark: learn a custom watermark from seed images
@@ -96,36 +101,137 @@ func runDetect(cmd *cobra.Command, args []string) error {
 	return detectFiles([]string{tmpFile.Name()}, "(stdin)")
 }
 
+// findSeedPairs finds all numbered seed pairs for a given name.
+// Returns pairs of (black, gray) paths, where the first pair is the
+// un-numbered one ({name}.black.png + {name}.gray.png) and subsequent
+// pairs are {name}.N.black.png + {name}.N.gray.png.
+func findSeedPairs(dir, name string) ([][2]string, error) {
+	var pairs [][2]string
+	for i := 0; i <= 99; i++ {
+		var suffix string
+		if i == 0 {
+			suffix = ""
+		} else {
+			suffix = fmt.Sprintf(".%d", i)
+		}
+		b, errB := findSeedFile(dir, name+suffix, "black")
+		g, errG := findSeedFile(dir, name+suffix, "gray")
+		if errB != nil || errG != nil {
+			if i == 0 {
+				continue // no seeds at all
+			}
+			break
+		}
+		pairs = append(pairs, [2]string{b, g})
+	}
+	if len(pairs) == 0 {
+		return nil, fmt.Errorf("no seed pair found for %s", name)
+	}
+	return pairs, nil
+}
+
 // runLearnWatermark learns a custom watermark from seed images in the watermark dir.
+// Also supports importing a pre-existing alpha map from {name}.alpha.png or {name}.png
+// with position metadata provided via flags.
 func runLearnWatermark(name string) error {
 	dir := watermarkDir()
-	blackPath, err := findSeedFile(dir, name, "black")
+	pairs, err := findSeedPairs(dir, name)
 	if err != nil {
-		return fmt.Errorf("load %s black seed: %w", name, err)
-	}
-	grayPath, err := findSeedFile(dir, name, "gray")
-	if err != nil {
-		return fmt.Errorf("load %s gray seed: %w", name, err)
+		// No seed images — try importing a pre-made alpha map.
+		// Look for {name}.alpha.png first, then {name}.png.
+		alphaPath := filepath.Join(dir, name+".alpha.png")
+		if _, statErr := os.Stat(alphaPath); statErr != nil {
+			alphaPath = filepath.Join(dir, name+".png")
+			if _, statErr := os.Stat(alphaPath); statErr != nil {
+				return fmt.Errorf("no seeds or alpha map found for %s", name)
+			}
+		}
+		alphaImg, loadErr := loadImage(alphaPath)
+		if loadErr != nil {
+			return fmt.Errorf("read %s: %w", alphaPath, loadErr)
+		}
+		b := alphaImg.Bounds()
+		if b.Dx() == 0 || b.Dy() == 0 {
+			return fmt.Errorf("alpha map %s has zero dimensions", alphaPath)
+		}
+
+		strategy := detectLearnStrategy
+		if strategy == "" {
+			strategy = "alpha_blend"
+		}
+		lr := &watermark.LearnResult{
+			Name:               name,
+			NativeWidth:        detectNativeWidth,
+			MarginXFrac:        detectMarginXFrac,
+			MarginYFrac:        detectMarginYFrac,
+			DetectThreshold:    detectDetectThreshold,
+			RemoveStrategy:     strategy,
+			OversubtractMargin: 0,
+		}
+		// Build alpha map from the imported image
+		alphaData := make([]float64, b.Dx()*b.Dy())
+		for y := 0; y < b.Dy(); y++ {
+			for x := 0; x < b.Dx(); x++ {
+				r, _, _, _ := alphaImg.At(x, y).RGBA()
+				alphaData[y*b.Dx()+x] = float64(r) / 65535.0
+			}
+		}
+		lr.AlphaMap = &watermark.AlphaMap{Width: b.Dx(), Height: b.Dy(), Data: alphaData}
+
+		outputPath := filepath.Join(dir, name+".watermark.png")
+		if err := watermark.SaveWatermarkPNG(outputPath, lr); err != nil {
+			return fmt.Errorf("save watermark: %w", err)
+		}
+		fmt.Printf("\nWatermark config saved: %s\n", outputPath)
+		fmt.Printf("  Name:             %s\n", lr.Name)
+		fmt.Printf("  Alpha map:        %dx%d\n", lr.AlphaMap.Width, lr.AlphaMap.Height)
+		fmt.Printf("  Native width:     %dpx\n", lr.NativeWidth)
+		fmt.Printf("  Margin X frac:    %.6f\n", lr.MarginXFrac)
+		fmt.Printf("  Margin Y frac:    %.6f\n", lr.MarginYFrac)
+		fmt.Printf("  Detect threshold: %.2f\n", lr.DetectThreshold)
+		fmt.Printf("  Remove strategy:  %s\n", lr.RemoveStrategy)
+		fmt.Println()
+		fmt.Printf("Use: aigc-cli detect <image> --remove-watermark --producer %s\n", name)
+		return nil
 	}
 
-	blackImg, err := loadImage(blackPath)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", blackPath, err)
+	// Load all seed image pairs
+	type seedPair struct {
+		black, gray image.Image
 	}
-	grayImg, err := loadImage(grayPath)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", grayPath, err)
+	var seedPairs []seedPair
+	var firstBounds struct{ w, h int }
+	for i, paths := range pairs {
+		blackImg, err := loadImage(paths[0])
+		if err != nil {
+			return fmt.Errorf("read %s: %w", paths[0], err)
+		}
+		grayImg, err := loadImage(paths[1])
+		if err != nil {
+			return fmt.Errorf("read %s: %w", paths[1], err)
+		}
+		b := blackImg.Bounds()
+		g := grayImg.Bounds()
+		if b.Dx() != g.Dx() || b.Dy() != g.Dy() {
+			return fmt.Errorf("black and gray must have same dimensions: %s %dx%d vs %dx%d",
+				paths[0], b.Dx(), b.Dy(), g.Dx(), g.Dy())
+		}
+		if i == 0 {
+			firstBounds.w, firstBounds.h = b.Dx(), b.Dy()
+		} else if b.Dx() != firstBounds.w || b.Dy() != firstBounds.h {
+			fmt.Printf("  ⚠  Pair %d dimensions differ (%dx%d vs %dx%d), skipping\n",
+				i+1, b.Dx(), b.Dy(), firstBounds.w, firstBounds.h)
+			continue
+		}
+		seedPairs = append(seedPairs, seedPair{blackImg, grayImg})
 	}
 
-	b := blackImg.Bounds()
-	g := grayImg.Bounds()
-	if b.Dx() != g.Dx() || b.Dy() != g.Dy() {
-		return fmt.Errorf("black and gray images must have same dimensions: black=%dx%d, gray=%dx%d",
-			b.Dx(), b.Dy(), g.Dx(), g.Dy())
+	if len(seedPairs) == 0 {
+		return fmt.Errorf("no valid seed pairs found for %s", name)
 	}
 
-	// Seed quality assessment
-	sq := watermark.AssessSeedQuality(blackImg, grayImg)
+	// Quality assessment on the first pair
+	sq := watermark.AssessSeedQuality(seedPairs[0].black, seedPairs[0].gray)
 	fmt.Println("Seed quality:")
 	fmt.Printf("  Background:  black=%.1f (expect ~0), gray=%.1f (expect ~128)  %s\n",
 		sq.BlackBG, sq.GrayBG, scoreTag(sq.BGScore))
@@ -135,12 +241,29 @@ func runLearnWatermark(name string) error {
 		sq.BlackNoise, sq.GrayNoise, scoreTag(sq.NoiseScore))
 	fmt.Printf("  WM signal:   max=%.0f (good>50)  %s\n",
 		sq.SignalMax, scoreTag(sq.SignalScore))
+	if len(seedPairs) > 1 {
+		fmt.Printf("  Pairs:       %d (averaged)\n", len(seedPairs))
+	}
 
 	if sq.BGScore == watermark.SeedFail || sq.NoiseScore == watermark.SeedFail {
 		fmt.Println("  ⚠  Low quality seeds — alpha map may be noisy. Try regenerating seed images.")
 	}
 
-	lr := watermark.LearnWatermark(blackImg, grayImg, name)
+	strategy := detectLearnStrategy
+	if strategy == "" {
+		strategy = "alpha_blend"
+	}
+
+	var lr *watermark.LearnResult
+	if len(seedPairs) == 1 {
+		lr = watermark.LearnWatermark(seedPairs[0].black, seedPairs[0].gray, name, strategy)
+	} else {
+		wmPairs := make([]struct{ Black, Gray image.Image }, len(seedPairs))
+		for i, sp := range seedPairs {
+			wmPairs[i] = struct{ Black, Gray image.Image }{sp.black, sp.gray}
+		}
+		lr = watermark.LearnWatermarkMulti(wmPairs, name, strategy)
+	}
 
 	outputPath := filepath.Join(dir, name+".watermark.png")
 	if err := watermark.SaveWatermarkPNG(outputPath, lr); err != nil {
@@ -638,5 +761,18 @@ func init() {
 	detectCmd.Flags().BoolVar(&detectAddWM, "add-watermark", false, "add a visible AI watermark for testing removal (no metadata injected)")
 	detectCmd.Flags().StringVar(&detectWmProducer, "producer", "",
 		`watermark producer name learned via --learn-watermark, e.g. "gemini"`)
-	detectCmd.Flags().StringVar(&detectLearnWM, "learn-watermark", "", "learn a custom watermark from ~/.config/aigc-cli/watermark/{name}.black.png + {name}.gray.png")
+	detectCmd.Flags().StringVar(&detectLearnWM, "learn-watermark", "", `learn a watermark from seed images in ~/.config/aigc-cli/watermark/
+  {name}.black.png + {name}.gray.png (single pair)
+  {name}.2.black.png + {name}.2.gray.png (2nd pair, averaged for lower noise)
+  {name}.3.black.png + ... (any number of pairs, all averaged) `)
+	detectCmd.Flags().StringVar(&detectLearnStrategy, "strategy", "alpha_blend",
+		`removal strategy: "alpha_blend" (default, reverse alpha blending) or "inpaint" (texture fill for badge-type watermarks)`)
+	detectCmd.Flags().IntVar(&detectNativeWidth, "native-width", 1024,
+		"native image width the alpha map was calibrated at (for imported alpha maps)")
+	detectCmd.Flags().Float64Var(&detectMarginXFrac, "margin-x-frac", 0.02,
+		"right margin fraction of image width (for imported alpha maps)")
+	detectCmd.Flags().Float64Var(&detectMarginYFrac, "margin-y-frac", 0.02,
+		"bottom margin fraction of image width (for imported alpha maps)")
+	detectCmd.Flags().Float64Var(&detectDetectThreshold, "detect-threshold", 0.25,
+		"minimum NCC confidence for detection (for imported alpha maps)")
 }
