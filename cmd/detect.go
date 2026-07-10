@@ -10,6 +10,7 @@ import (
 	"image/png"
 	_ "image/png"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -102,27 +103,32 @@ func runDetect(cmd *cobra.Command, args []string) error {
 }
 
 // findSeedPairs finds all numbered seed pairs for a given name.
-// Returns pairs of (black, gray) paths, where the first pair is the
-// un-numbered one ({name}.black.png + {name}.gray.png) and subsequent
-// pairs are {name}.N.black.png + {name}.N.gray.png.
+// Accepts both {name}.black.png and {name}.0.black.png as the first pair.
 func findSeedPairs(dir, name string) ([][2]string, error) {
 	var pairs [][2]string
 	for i := 0; i <= 99; i++ {
-		var suffix string
+		var suffixes []string
 		if i == 0 {
-			suffix = ""
+			suffixes = []string{"", ".0"} // try both unnumbered and .0
 		} else {
-			suffix = fmt.Sprintf(".%d", i)
+			suffixes = []string{fmt.Sprintf(".%d", i)}
 		}
-		b, errB := findSeedFile(dir, name+suffix, "black")
-		g, errG := findSeedFile(dir, name+suffix, "gray")
-		if errB != nil || errG != nil {
+		var found bool
+		for _, suffix := range suffixes {
+			b, errB := findSeedFile(dir, name+suffix, "black")
+			g, errG := findSeedFile(dir, name+suffix, "gray")
+			if errB == nil && errG == nil {
+				pairs = append(pairs, [2]string{b, g})
+				found = true
+				break
+			}
+		}
+		if !found {
 			if i == 0 {
 				continue // no seeds at all
 			}
 			break
 		}
-		pairs = append(pairs, [2]string{b, g})
 	}
 	if len(pairs) == 0 {
 		return nil, fmt.Errorf("no seed pair found for %s", name)
@@ -223,6 +229,47 @@ func runLearnWatermark(name string) error {
 				i+1, b.Dx(), b.Dy(), firstBounds.w, firstBounds.h)
 			continue
 		}
+		// Sample background quality for both seeds
+		sample := 40
+		var blackLum, grayLum, blackVar, grayVar float64
+		var bN float64
+		for y := 0; y < sample && y < b.Dy(); y++ {
+			for x := 0; x < sample && x < b.Dx(); x++ {
+				br, bg, bb, _ := blackImg.At(x, y).RGBA()
+				gr, gg, gb, _ := grayImg.At(x, y).RGBA()
+				bL := (float64(br>>8) + float64(bg>>8) + float64(bb>>8)) / 3.0
+				gL := (float64(gr>>8) + float64(gg>>8) + float64(gb>>8)) / 3.0
+				blackLum += bL
+				grayLum += gL
+				blackVar += bL * bL
+				grayVar += gL * gL
+				bN++
+			}
+		}
+		if bN > 0 {
+			blackLum /= bN
+			grayLum /= bN
+			blackVar = math.Sqrt(blackVar/bN - blackLum*blackLum)
+			grayVar = math.Sqrt(grayVar/bN - grayLum*grayLum)
+		}
+		if blackLum > 80 {
+			fmt.Printf("  Pair %d: black bg=%.1f (too bright), skipping\n", i+1, blackLum)
+			continue
+		}
+		// Print quality line for this pair
+		bgTag := "[GOOD]"
+		if blackLum > 5 || grayLum < 120 || grayLum > 135 {
+			bgTag = "[WARN]"
+		}
+		noiseTag := "[GOOD]"
+		if blackVar > 3 || grayVar > 3 {
+			noiseTag = "[WARN]"
+		}
+		// Extract filename for display
+		bName := filepath.Base(paths[0])
+		fmt.Printf("  %s: black=%.1f gray=%.1f noise=%.1f/%.1f bg=%s noise=%s\n",
+			bName, blackLum, grayLum, blackVar, grayVar, bgTag, noiseTag)
+
 		seedPairs = append(seedPairs, seedPair{blackImg, grayImg})
 	}
 
@@ -255,15 +302,13 @@ func runLearnWatermark(name string) error {
 	}
 
 	var lr *watermark.LearnResult
-	if len(seedPairs) == 1 {
-		lr = watermark.LearnWatermark(seedPairs[0].black, seedPairs[0].gray, name, strategy)
-	} else {
-		wmPairs := make([]struct{ Black, Gray image.Image }, len(seedPairs))
-		for i, sp := range seedPairs {
-			wmPairs[i] = struct{ Black, Gray image.Image }{sp.black, sp.gray}
-		}
-		lr = watermark.LearnWatermarkMulti(wmPairs, name, strategy)
+	blacks := make([]image.Image, len(seedPairs))
+	grays := make([]image.Image, len(seedPairs))
+	for i, sp := range seedPairs {
+		blacks[i] = sp.black
+		grays[i] = sp.gray
 	}
+	lr = watermark.LearnWatermarkMulti(blacks, grays, name, strategy)
 
 	outputPath := filepath.Join(dir, name+".watermark.png")
 	if err := watermark.SaveWatermarkPNG(outputPath, lr); err != nil {

@@ -545,34 +545,97 @@ func SolveAlphaMap(black, gray image.Image) *AlphaMap {
 	return resultConst
 }
 
-// SolveAlphaMapMulti averages multiple SolveAlphaMap results from
-// multiple black/gray seed pairs, producing a lower-noise alpha map.
-// Each pair contributes equally.  All pairs must have the same dimensions.
-func SolveAlphaMapMulti(pairs []struct{ Black, Gray image.Image }) *AlphaMap {
-	if len(pairs) == 0 {
+// combineSeeds averages multiple black (or gray) seed images into one,
+// after calibrating each seed's background to a common baseline.
+// This extracts the common watermark signal while canceling per-image noise.
+func combineSeeds(seeds []image.Image, bgBase float64) *image.RGBA {
+	if len(seeds) == 0 {
 		return nil
 	}
-	// Compute alpha map from the first pair to determine dimensions
-	first := SolveAlphaMap(pairs[0].Black, pairs[0].Gray)
-	n := len(pairs)
-	w, h := first.Width, first.Height
-	avg := make([]float64, w*h)
-	copy(avg, first.Data)
+	b := seeds[0].Bounds()
+	w, h := b.Dx(), b.Dy()
 
-	// Average remaining pairs
-	for i := 1; i < n; i++ {
-		am := SolveAlphaMap(pairs[i].Black, pairs[i].Gray)
-		if am.Width != w || am.Height != h {
-			continue // skip mismatched pairs
+	// Accumulate per-pixel RGB values across all seeds
+	type acc struct{ r, g, b float64 }
+	accum := make([]acc, w*h)
+	var n float64
+
+	for _, img := range seeds {
+		ib := img.Bounds()
+		if ib.Dx() != w || ib.Dy() != h {
+			continue
 		}
-		for j := range avg {
-			avg[j] += am.Data[j]
+		// Estimate this seed's average background from the top-left corner
+		var bgR, bgG, bgB float64
+		var bgN float64
+		for y := 0; y < 40 && y < h; y++ {
+			for x := 0; x < 40 && x < w; x++ {
+				r, g, b, _ := img.At(x, y).RGBA()
+				bgR += float64(r >> 8)
+				bgG += float64(g >> 8)
+				bgB += float64(b >> 8)
+				bgN++
+			}
+		}
+		if bgN == 0 {
+			continue
+		}
+		bgR /= bgN
+		bgG /= bgN
+		bgB /= bgN
+
+		// Shift this seed's pixels so its background matches bgBase
+		// watermark = pixel - bg  →  calibrated = bgBase + watermark
+		shiftR := bgBase - bgR
+		shiftG := bgBase - bgG
+		shiftB := bgBase - bgB
+
+		for y := 0; y < h; y++ {
+			for x := 0; x < w; x++ {
+				r, g, b, _ := img.At(x, y).RGBA()
+				idx := y*w + x
+				accum[idx].r += float64(r>>8) + shiftR
+				accum[idx].g += float64(g>>8) + shiftG
+				accum[idx].b += float64(b>>8) + shiftB
+			}
+		}
+		n++
+	}
+
+	if n == 0 {
+		return nil
+	}
+
+	// Build the averaged image
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			idx := y*w + x
+			r := clampByte(accum[idx].r / n)
+			g := clampByte(accum[idx].g / n)
+			b := clampByte(accum[idx].b / n)
+			dst.Set(x, y, color.RGBA{R: r, G: g, B: b, A: 255})
 		}
 	}
-	for i := range avg {
-		avg[i] /= float64(n)
+	return dst
+}
+
+// SolveAlphaMapMulti averages seed IMAGES at the pixel level (not alpha maps).
+// All black seeds are background-calibrated to ~0 and averaged together;
+// all gray seeds are background-calibrated to ~128 and averaged together.
+// The two composites are then solved via the standard two-capture method.
+// This extracts the common watermark signal while canceling per-image noise.
+// Pairs are NOT required — every black and every gray contributes independently.
+func SolveAlphaMapMulti(blacks, grays []image.Image) *AlphaMap {
+	if len(blacks) == 0 || len(grays) == 0 {
+		return nil
 	}
-	return &AlphaMap{Width: w, Height: h, Data: avg}
+	compositeBlack := combineSeeds(blacks, 0)
+	compositeGray := combineSeeds(grays, 128)
+	if compositeBlack == nil || compositeGray == nil {
+		return nil
+	}
+	return SolveAlphaMap(compositeBlack, compositeGray)
 }
 
 // maxFloat returns the larger of two float64 values.
@@ -768,12 +831,12 @@ func LearnWatermark(black, gray image.Image, name string, removeStrategy string)
 }
 
 // LearnWatermarkMulti averages multiple seed pairs for lower-noise alpha maps.
-func LearnWatermarkMulti(pairs []struct{ Black, Gray image.Image }, name string, removeStrategy string) *LearnResult {
-	if len(pairs) == 0 {
+func LearnWatermarkMulti(blacks, grays []image.Image, name string, removeStrategy string) *LearnResult {
+	if len(blacks) == 0 || len(grays) == 0 {
 		return nil
 	}
-	b := pairs[0].Black.Bounds()
-	alpha := SolveAlphaMapMulti(pairs)
+	b := blacks[0].Bounds()
+	alpha := SolveAlphaMapMulti(blacks, grays)
 	return buildLearnResult(alpha, b.Dx(), b.Dy(), name, removeStrategy)
 }
 
