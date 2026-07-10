@@ -93,15 +93,6 @@ func TestAllProviders_WatermarkRemoval(t *testing.T) {
 					continue
 				}
 
-				// Skip watermark removal on seed images (black/gray/white
-				// backgrounds).  Seeds are calibration inputs, not real
-				// images — running reverse alpha blending on them produces
-				// artifacts (e.g. residual bright pixels on a black seed)
-				// that are meaningless to verify.
-				if isSeed {
-					continue
-				}
-
 				// Run removal with producer hint
 				dst, res, err := RemoveWatermarkHinted(img, pt.name)
 				if err != nil {
