@@ -126,6 +126,22 @@ func runLearnWatermark(name string) error {
 			b.Dx(), b.Dy(), g.Dx(), g.Dy())
 	}
 
+	// Seed quality assessment
+	sq := watermark.AssessSeedQuality(blackImg, grayImg)
+	fmt.Println("Seed quality:")
+	fmt.Printf("  Background:  black=%.1f (expect ~0), gray=%.1f (expect ~128)  %s\n",
+		sq.BlackBG, sq.GrayBG, scoreTag(sq.BGScore))
+	fmt.Printf("  Gradient:    gx=%.4f gy=%.4f (threshold |g|<0.01)  %s\n",
+		sq.Gx, sq.Gy, scoreTag(sq.GradientScore))
+	fmt.Printf("  Edge noise:  black=%.1f, gray=%.1f (good<5, warn<15)  %s\n",
+		sq.BlackNoise, sq.GrayNoise, scoreTag(sq.NoiseScore))
+	fmt.Printf("  WM signal:   max=%.0f (good>50)  %s\n",
+		sq.SignalMax, scoreTag(sq.SignalScore))
+
+	if sq.BGScore == watermark.SeedFail || sq.NoiseScore == watermark.SeedFail {
+		fmt.Println("  ⚠  Low quality seeds — alpha map may be noisy. Try regenerating seed images.")
+	}
+
 	lr := watermark.LearnWatermark(blackImg, grayImg, name)
 
 	outputPath := filepath.Join(dir, name+".watermark.png")
@@ -133,7 +149,7 @@ func runLearnWatermark(name string) error {
 		return fmt.Errorf("save watermark: %w", err)
 	}
 
-	fmt.Printf("Watermark config saved: %s\n", outputPath)
+	fmt.Printf("\nWatermark config saved: %s\n", outputPath)
 	fmt.Printf("  Name:             %s\n", lr.Name)
 	fmt.Printf("  Alpha map:        %dx%d\n", lr.AlphaMap.Width, lr.AlphaMap.Height)
 	fmt.Printf("  Native width:     %dpx\n", lr.NativeWidth)
@@ -582,9 +598,24 @@ func stripMetadata(path string) error {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".jpg", ".jpeg":
-		return jpeg.Encode(out, img, &jpeg.Options{Quality: 95})
+		q := watermark.EstimateJPEGQuality(path)
+		return jpeg.Encode(out, img, &jpeg.Options{Quality: q})
 	default:
 		return png.Encode(out, img)
+	}
+}
+
+// scoreTag returns [GOOD] / [WARN] / [FAIL] for a seed quality level.
+func scoreTag(l watermark.SeedQualityLevel) string {
+	switch l {
+	case watermark.SeedGood:
+		return "[GOOD]"
+	case watermark.SeedWarn:
+		return "[WARN]"
+	case watermark.SeedFail:
+		return "[FAIL]"
+	default:
+		return "[?]"
 	}
 }
 
