@@ -137,11 +137,13 @@ func TestResolveContentProducer(t *testing.T) {
 		code string
 		want string
 	}{
-		{"1191110102MACQD9K640", "字节跳动 (ByteDance) — 豆包 / 即梦 / 火山引擎"},
+		{"1191110102MACQD9K640", "字节跳动 (ByteDance) — 豆包(doubao) / 火山引擎"},
 		{"1191110108MA01KP2T5U", "智谱AI (Zhipu) — 清言 / GLM"},
 		{"1191110000802100433B", "百度 (Baidu) — 文心一言"},
+		{"119144030008867405X2", "字节跳动 (ByteDance) — 即梦(jimeng)"},
 		// With full 27-char code: version(2) + entity(20) + service(5)
-		{"001191110102MACQD9K64000000", "字节跳动 (ByteDance) — 豆包 / 即梦 / 火山引擎"},
+		{"001191110102MACQD9K64000000", "字节跳动 (ByteDance) — 豆包(doubao) / 火山引擎"},
+		{"00119144030008867405X210001", "字节跳动 (ByteDance) — 即梦(jimeng)"},
 		{"unknown_code", ""},
 		{"", ""},
 	}
@@ -165,7 +167,7 @@ func TestParseTC260Result(t *testing.T) {
 		{
 			name:     "flat JSON",
 			input:    `{"Label":"1","ContentProducer":"1191110102MACQD9K640"}`,
-			wantProv: "字节跳动 (ByteDance) — 豆包 / 即梦 / 火山引擎",
+			wantProv: "字节跳动 (ByteDance) — 豆包(doubao) / 火山引擎",
 			wantLen:  2,
 		},
 		{
@@ -183,7 +185,7 @@ func TestParseTC260Result(t *testing.T) {
 		{
 			name:     "HTML escaped inner JSON",
 			input:    `&quot;{\&quot;Label\&quot;:\&quot;1\&quot;,\&quot;ContentProducer\&quot;:\&quot;1191110102MACQD9K640\&quot;}&quot;`,
-			wantProv: "字节跳动 (ByteDance) — 豆包 / 即梦 / 火山引擎",
+			wantProv: "字节跳动 (ByteDance) — 豆包(doubao) / 火山引擎",
 			wantLen:  2,
 		},
 	}
@@ -302,9 +304,15 @@ func TestFormatTC260(t *testing.T) {
 			wantLen:  0,
 		},
 		{
-			name:     "known provider",
+			name:     "known provider (doubao)",
 			input:    map[string]string{"Label": "1", "ContentProducer": "1191110102MACQD9K640"},
-			wantCont: []string{"Label: 1", "Provider: 字节跳动 (ByteDance) — 豆包 / 即梦 / 火山引擎"},
+			wantCont: []string{"Label: 1", "Provider: 字节跳动 (ByteDance) — 豆包(doubao) / 火山引擎"},
+			wantLen:  2,
+		},
+		{
+			name:     "known provider (jimeng)",
+			input:    map[string]string{"Label": "1", "ContentProducer": "119144030008867405X2"},
+			wantCont: []string{"Label: 1", "Provider: 字节跳动 (ByteDance) — 即梦(jimeng)"},
 			wantLen:  2,
 		},
 		{
