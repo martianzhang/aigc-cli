@@ -74,6 +74,13 @@ type agentDone struct {
 // clearChat signals clearing the conversation.
 type clearChat struct{}
 
+// compactDone is sent when the conversation has been compacted.
+type compactDone struct {
+	summary string
+	err     error
+}
+
+// message
 // ---------------------------------------------------------------------------
 // Message model
 // ---------------------------------------------------------------------------
@@ -107,6 +114,9 @@ type chatModel struct {
 	// Streaming accumulator — content being built for the current assistant
 	// turn. Flushed into messages[] when the turn finishes.
 	streamBuf *strings.Builder
+
+	// compacting is true while the /compact goroutine is running.
+	compacting bool
 
 	// Conversation history for API requests (types.ChatMessage, not TUI message)
 	history []types.ChatMessage
@@ -233,10 +243,13 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 	s.Spinner = spinner.Dot
 
 	// Build completion list from tool definitions
-	completions := []string{"/exit", "/quit", "/q", "/clear", "/reset", "/help", "/?", "/tools"}
+	completions := []string{"/exit", "/quit", "/q", "/clear", "/reset", "/new", "/help", "/?", "/tools"}
 	for _, t := range tools {
 		completions = append(completions, "/"+t.Function.Name)
 	}
+
+	// Pre-fill with welcome message so renderMessages always renders messages
+	welcomeMsg := buildWelcomeBanner()
 
 	return chatModel{
 		state:       tuiIdle,
@@ -251,6 +264,7 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 		maxTokens:   maxTok,
 		input:       ti,
 		spinner:     s,
+		messages:    []message{{role: "system", content: welcomeMsg}},
 		completions: completions,
 		cycleIdx:    -1,
 		histIdx:     -1,
@@ -286,13 +300,14 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.styles.header = m.styles.header.Width(msg.Width - 2)
 		m.input.SetWidth(msg.Width - 6)
 		if !m.ready {
-			m.viewport = viewport.New(msg.Width-2, msg.Height-8)
+			m.viewport = viewport.New(msg.Width-2, msg.Height-12)
 			m.viewport.YPosition = 1
 			m.viewport.Style = m.styles.messages
+			m.viewport.SetContent(m.renderMessages())
 			m.ready = true
 		} else {
 			m.viewport.Width = msg.Width - 2
-			m.viewport.Height = msg.Height - 8
+			m.viewport.Height = msg.Height - 12
 		}
 		m.viewport.GotoBottom()
 		return m, nil
@@ -393,9 +408,34 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refreshViewport()
 		return m, nil
 
+	// ---- compact conversation -------------------------------------------
+	case compactDone:
+		m.state = tuiIdle
+		m.compacting = false
+		m.input.Focus()
+		m.input.Reset()
+
+		if msg.err != nil {
+			m.err = msg.err
+			m.messages = append(m.messages, message{
+				role:    "system",
+				content: fmt.Sprintf("Compact failed: %v", msg.err),
+			})
+			m.refreshViewport()
+			return m, nil
+		}
+
+		// Replace TUI messages with the compacted summary
+		m.messages = []message{
+			{role: "system", content: "Compacted conversation into summary below."},
+			{role: "system", content: msg.summary},
+		}
+		m.refreshViewport()
+		return m, nil
+
 	// ---- clear chat ------------------------------------------------------
 	case clearChat:
-		m.messages = nil
+		m.messages = []message{{role: "system", content: buildWelcomeBanner()}}
 		m.history = nil
 		if m.system != "" {
 			m.history = append(m.history, types.ChatMessage{Role: "system", Content: m.system})
@@ -406,6 +446,12 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent("")
 		m.viewport.GotoBottom()
 		return m, nil
+
+		// ---- mouse events (scroll viewport) ---------------------------------
+	case tea.MouseMsg:
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 
 	// ---- spinner tick ----------------------------------------------------
 	case spinner.TickMsg:
@@ -458,6 +504,12 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyTab:
 		return m.handleTabCompletion()
+
+	case tea.KeyPgUp, tea.KeyPgDown:
+		// Page scrolling works even while processing
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 
 	case tea.KeyF1:
 		m.showHelp()
@@ -524,7 +576,7 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 	case input == "/exit" || input == "/quit" || input == "/q":
 		return m, tea.Quit
 
-	case input == "/clear" || input == "/reset":
+	case input == "/clear" || input == "/reset" || input == "/new":
 		return m, send(clearChat{})
 
 	case input == "/help" || input == "/?" || input == "?":
@@ -536,6 +588,18 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 		m.showTools()
 		m.input.Reset()
 		return m, nil
+
+	case input == "/compact":
+		m.input.Reset()
+		m.input.Blur()
+		m.state = tuiProcessing
+		m.compacting = true
+		m.err = nil
+		m.mu.Lock()
+		count := len(m.history)
+		m.mu.Unlock()
+		go m.compactConversation(count)
+		return m, m.spinner.Tick
 
 	case strings.HasPrefix(input, "/preview"):
 		return m.handlePreview(input)
@@ -552,6 +616,67 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 }
 
 // pushHistory adds a non-empty command to history, deduplicating the last entry.
+// compactConversation sends the full history to the API for summarisation
+// and sends a compactDone message back to the TUI with the result.
+func (m *chatModel) compactConversation(count int) {
+	prog := getProgram(m)
+
+	m.mu.Lock()
+	history := make([]types.ChatMessage, len(m.history))
+	copy(history, m.history)
+	m.mu.Unlock()
+
+	if len(history) == 0 {
+		prog.Send(compactDone{err: fmt.Errorf("no conversation to compact")})
+		return
+	}
+
+	summarizePrompt := `Please provide a detailed summary of our conversation above. Capture: 1) the user's goals and requirements, 2) key decisions made, 3) any files created or modified, 4) current status of any ongoing work. Be thorough — this summary will replace the conversation history so nothing important should be lost.`
+
+	req := &types.ChatRequest{
+		Model:    m.model,
+		Messages: append(history, types.ChatMessage{Role: "user", Content: summarizePrompt}),
+		Stream:   false,
+	}
+	if m.temperature > 0 {
+		t := m.temperature
+		req.Temperature = &t
+	}
+	if m.maxTokens > 0 {
+		t := m.maxTokens
+		req.MaxTokens = &t
+	}
+
+	result, err := m.client.ChatCompletion(req)
+	if err != nil {
+		prog.Send(compactDone{err: err})
+		return
+	}
+
+	if len(result.Choices) == 0 {
+		prog.Send(compactDone{err: fmt.Errorf("API returned no choices")})
+		return
+	}
+
+	summary := result.Choices[0].Message.Content
+
+	// Replace history with the original system prompt + compacted summary
+	m.mu.Lock()
+	if m.system != "" {
+		m.history = []types.ChatMessage{
+			{Role: "system", Content: m.system},
+			{Role: "system", Content: "Previous conversation summary:\n\n" + summary},
+		}
+	} else {
+		m.history = []types.ChatMessage{
+			{Role: "system", Content: "Previous conversation summary:\n\n" + summary},
+		}
+	}
+	m.mu.Unlock()
+
+	prog.Send(compactDone{summary: fmt.Sprintf("Compacted %d messages into 1 summary:\n\n%s", count, summary)})
+}
+
 func (m *chatModel) pushHistory(cmd string) {
 	if cmd == "" {
 		return
@@ -592,6 +717,10 @@ func (m *chatModel) handleHistoryNext() (tea.Model, tea.Cmd) {
 }
 
 func (m *chatModel) handleUserMessage(input string) (tea.Model, tea.Cmd) {
+	// Remove initial welcome message on first real message
+	if len(m.messages) == 1 && m.messages[0].role == "system" {
+		m.messages = nil
+	}
 	// Add user message to display
 	m.messages = append(m.messages, message{role: "user", content: input})
 
@@ -610,9 +739,7 @@ func (m *chatModel) handleUserMessage(input string) (tea.Model, tea.Cmd) {
 	m.err = nil
 
 	// Render user message immediately
-	rendered := m.renderMessages()
-	m.viewport.SetContent(rendered)
-	m.viewport.GotoBottom()
+	m.refreshViewport()
 
 	// Start agent loop in a goroutine
 	go m.runTUIAgentLoop()
@@ -949,13 +1076,12 @@ func (m *chatModel) modelDisplay() string {
 
 // renderMessages returns the rendered viewport content from stored messages.
 func (m *chatModel) renderMessages() string {
-	if len(m.messages) == 0 {
-		return "  Welcome! Type a message to start chatting.\n  • /help for available commands\n  • Ctrl+C or /exit to quit\n"
-	}
 	var b strings.Builder
-	for _, msg := range m.messages {
+	for i, msg := range m.messages {
+		if i > 0 {
+			b.WriteByte('\n') // blank line between messages
+		}
 		b.WriteString(m.renderOneMessage(msg))
-		b.WriteByte('\n')
 	}
 	return b.String()
 }
@@ -964,36 +1090,83 @@ func (m *chatModel) renderMessages() string {
 // streaming content.
 func (m *chatModel) renderMessagesWithStream() string {
 	var b strings.Builder
-	for _, msg := range m.messages {
+	for i, msg := range m.messages {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
 		b.WriteString(m.renderOneMessage(msg))
-		b.WriteByte('\n')
 	}
-	// Append streaming content if any
 	if m.streamBuf.Len() > 0 {
+		b.WriteString("\n")
 		b.WriteString(m.styles.asstMsg.Render("Assistant:"))
 		b.WriteByte('\n')
 		b.WriteString(m.streamBuf.String())
-		b.WriteByte('\n')
 	}
 	return b.String()
 }
 
 func (m *chatModel) renderOneMessage(msg message) string {
+	const indent = "  "
 	switch msg.role {
 	case "user":
-		return m.styles.userMsg.Render("You:") + "\n" + msg.content
+		// blue left bracket + bold label
+		header := lipgloss.NewStyle().Foreground(lipgloss.Color("#66AAFF")).Render("┃")
+		label := m.styles.userMsg.Render("You:")
+		return header + " " + label + "\n" + indent + msg.content
 	case "assistant":
-		return m.styles.asstMsg.Render("Assistant:") + "\n" + msg.content
+		// green left bracket + green label
+		header := lipgloss.NewStyle().Foreground(lipgloss.Color("#55DD99")).Render("┃")
+		label := m.styles.asstMsg.Render("Assistant:")
+		return header + " " + label + "\n" + indent + msg.content
 	case "system":
 		return m.styles.sysMsg.Render(msg.content)
 	case "tool":
+		header := m.styles.toolMsg.Render("┃")
 		if msg.tool != "" {
-			return m.styles.toolMsg.Render("🛠️  "+msg.tool+":") + "\n" + msg.content
+			return header + " " + m.styles.toolMsg.Render("🛠️  "+msg.tool+":") + "\n" + indent + msg.content
 		}
-		return m.styles.toolMsg.Render(msg.content)
+		return header + " " + msg.content
 	default:
 		return msg.content
 	}
+}
+
+// buildWelcomeBanner returns the startup welcome screen text.
+func buildWelcomeBanner() string {
+	green := lipgloss.NewStyle().Foreground(lipgloss.Color("#55DD99"))
+	yellow := lipgloss.NewStyle().Foreground(lipgloss.Color("#DDCC44"))
+	gray := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+
+	a := lipgloss.NewStyle().Foreground(lipgloss.Color("#66DDEE"))
+	i := lipgloss.NewStyle().Foreground(lipgloss.Color("#55DD99"))
+	g := lipgloss.NewStyle().Foreground(lipgloss.Color("#DDCC44"))
+	c := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF8866"))
+
+	b := strings.Builder{}
+	b.WriteByte('\n')
+	b.WriteString(a.Render("      █████") + "  " + i.Render(" ██") + "  " + g.Render(" ██████   ") + "  " + c.Render("   ██████ "))
+	b.WriteString("\n")
+	b.WriteString(a.Render("    ██   ██") + "  " + i.Render(" ██") + "  " + g.Render("██        ") + "  " + c.Render(" ██       "))
+	b.WriteString("\n")
+	b.WriteString(a.Render("   ████████") + "  " + i.Render(" ██") + "  " + g.Render("██     ███") + "  " + c.Render("██        "))
+	b.WriteString("\n")
+	b.WriteString(a.Render("  ██     ██") + "  " + i.Render(" ██") + "  " + g.Render("██      ██") + "  " + c.Render(" ██       "))
+	b.WriteString("\n")
+	b.WriteString(a.Render(" ██      ██") + "  " + i.Render(" ██") + "  " + g.Render("  ██████  ") + "  " + c.Render("   ██████ "))
+	b.WriteString("\n")
+
+	b.WriteString(gray.Render("  ──────────────────────────────────────"))
+	b.WriteString("\n")
+	b.WriteString(green.Render("  💬  Type a message to start chatting"))
+	b.WriteString("\n")
+	b.WriteString(yellow.Render("  ⌨️  /help  —  commands & shortcuts"))
+	b.WriteString("\n")
+	b.WriteString(gray.Render("  🚀  Tab complete  ·  Ctrl+C quit"))
+	b.WriteString("\n")
+	b.WriteString(gray.Render("  ──────────────────────────────────────"))
+	b.WriteString("\n")
+
+	return b.String()
 }
 
 // renderStatus builds the status bar text.
@@ -1006,6 +1179,9 @@ func (m *chatModel) renderStatus() string {
 		}
 		return fmt.Sprintf("● Ready  |  Model: %s  |  F1: Help  |  Ctrl+C: Quit", modelInfo)
 	case tuiProcessing:
+		if m.compacting {
+			return m.spinner.View() + " Compacting…  |  Esc: Cancel"
+		}
 		return m.spinner.View() + " Processing…  |  Esc: Cancel"
 	case tuiToolCall:
 		return m.spinner.View() + " " + m.toolMsg + "  |  Esc: Cancel"
@@ -1114,7 +1290,8 @@ func (m *chatModel) refreshViewport() {
 func (m *chatModel) showHelp() {
 	help := `Available commands:
   /exit, /quit, /q  Exit the chat
-  /clear, /reset    Clear conversation history
+  /clear, /reset, /new  Clear conversation history
+  /compact             Compact conversation (summarize to save context)
   /help, /?         Show this help
   /tools            List available tools
   /<tool> <args>    Call a tool directly (e.g. /generate_image {"prompt":"a cat"})
@@ -1214,11 +1391,11 @@ func runChatTUI(cmd *cobra.Command) error {
 		chatTemperature, chatMaxTokens)
 	tuiModel.history = history
 
-	// Create the Bubble Tea program with alt screen and signal handling
-	// (tea.WithSignalHandler handles Ctrl+C properly, restoring terminal)
+	// Create the Bubble Tea program with alt screen + mouse support
 	p := tea.NewProgram(
 		&tuiModel,
 		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
 	)
 
 	// Listen for SIGTERM to cleanly exit

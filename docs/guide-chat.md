@@ -59,7 +59,7 @@ aigc-cli chat -v
 | `Ctrl+C` `Ctrl+D` | 退出 |
 | `Esc` | 取消正在进行的 API 调用 |
 | `F1` `/help` `/`?` | 显示帮助 |
-| `/clear` `/reset` | 清除对话历史 |
+| `/clear` `/reset` `/new` | 清除对话历史 |
 | `/tools` | 列出可用工具 |
 | `/<tool> <json>` | 直接调用工具 |
 | `/preview <file>` | 预览图片/视频 |
