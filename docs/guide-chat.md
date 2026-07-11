@@ -25,61 +25,58 @@ aigc-cli chat --model claude-sonnet-4-20250514
 aigc-cli chat -v
 ```
 
-支持以下命令和快捷操作：
+> 交互模式现在使用 **Bubble Tea TUI**（全屏终端界面），替代了旧版的原始终端模式。
+> 提供更好的视觉体验、实时状态反馈和工具调用可视化。
+
+### TUI 界面布局
+
+进入交互模式后，终端会切换到全屏 TUI，包含以下区域：
+
+```
+┌──────────────────────────────────────┐
+│ 💬 Chat with AI — Model: deepseek-v4  │  ← 顶部栏
+├──────────────────────────────────────┤
+│                                      │
+│  You: 1+1等于几？                    │  ← 消息区
+│  ─────────────────────────────────   │     （可滚动画板）
+│  Assistant: 2                        │
+│                                      │
+│  🛠️  generate_image:                 │
+│  ✓ Successfully generated 1 image(s) │
+│                                      │
+├──────────────────────────────────────┤
+│ 输入消息... (Enter to send)            │  ← 输入框
+├──────────────────────────────────────┤
+│ ● Ready | Model: deepseek-v4 | F1   │  ← 状态栏
+└──────────────────────────────────────┘
+```
+
+### 命令与快捷键
 
 | 操作 | 说明 |
-|---|---|---|
+|---|---|
 | `/exit` `/quit` `/q` | 退出 |
-| `exit` `quit` `bye` | 同上（无需 `/`） |
-| `退出` `再见` | 同上（中文） |
-| `Ctrl+C` | 中断当前操作并退出 |
-| `Ctrl+D` | 退出 |
+| `Ctrl+C` `Ctrl+D` | 退出 |
+| `Esc` | 取消正在进行的 API 调用 |
+| `F1` `/help` `/`?` | 显示帮助 |
 | `/clear` `/reset` | 清除对话历史 |
-| `/help` | 显示帮助 |
+| `/tools` | 列出可用工具 |
+| `/<tool> <json>` | 直接调用工具 |
+| `/preview <file>` | 预览图片/视频 |
+| `!<command>` | 执行 Shell 命令 |
 
-### 多行输入
+> **多行输入：** 按 `Alt+Enter` 或 `Ctrl+J` 换行，`Enter` 提交消息。
+> 输入框最高支持 5 行，超出会自动滚动。
 
-输入较长的 prompt 时支持两种多行方式：
+### 交互示例
 
-- **行尾 `\` + Enter**：类 Shell 续行，适合边想边写。`\` 会被替换为换行符，最终作为完整消息提交：
-  ```
-  >>> 请帮我写一段Python代码，\
-  ... 实现一个简单的Web服务器，\
-  ... 使用Flask框架
-  ```
-  输出将为 `请帮我写一段Python代码，\n实现一个简单的Web服务器，\n使用Flask框架`
-
-- **`` ``` `` + 空行提交**：适合粘贴大段文本。输入 `` ``` `` 开头后，每行逐条读取，空行结束并提交：
-  ```
-  >>> ```
-  ... 第一段内容
-  ... 第二段内容
-  ... （空行）
-  ```
-
-交互式对话示例（回复流式输出，逐 token 实时显示）：
-
-```
+```bash
+# 直接进入交互式 TUI 对话
 $ aigc-cli chat
-Interactive chat mode. Type /help for commands, /exit or Ctrl+C to quit.
-Model: deepseek-v4-flash | Mode: stream
-
->>> 1+1等于几？
-2
-
->>> 画一只猫在星空下
-[tool] generate_image:
-  prompt=画一只猫在星空下
-  size=16:9
-  quality=high
-⠋ ░░░░░░░░░░░░░░░░░░░░ 0%
-...
-[tool] done in 8.5s: Successfully generated 1 image(s)
-图片已保存到 output/image_task_xxx.png
-
->>> /exit
-Bye!
 ```
+
+在 TUI 中输入消息后，AI 回复将流式逐 token 实时显示。工具调用时，状态栏会显示
+spinner 和进度信息。
 
 `-v` 模式下每轮结束后额外显示耗时、token 和费用（输出到 stderr，不影响对话内容）：
 
