@@ -18,10 +18,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/atotto/clipboard"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
@@ -66,9 +69,10 @@ type toolDone struct {
 
 // agentDone is sent when the agent loop finishes for one user turn.
 type agentDone struct {
-	result  *types.ChatResponse
-	elapsed time.Duration
-	err     error
+	result       *types.ChatResponse
+	elapsed      time.Duration
+	err          error
+	assistantMsg *types.ChatMessage
 }
 
 // clearChat signals clearing the conversation.
@@ -115,8 +119,15 @@ type chatModel struct {
 	// turn. Flushed into messages[] when the turn finishes.
 	streamBuf *strings.Builder
 
+	// msgCache caches the rendered messages (without streaming) so we don't
+	// re-render all messages on every streamChunk.
+	msgCache string
+
 	// compacting is true while the /compact goroutine is running.
 	compacting bool
+
+	// busy prevents new user input while an agent loop is in progress.
+	busy bool
 
 	// Conversation history for API requests (types.ChatMessage, not TUI message)
 	history []types.ChatMessage
@@ -243,7 +254,7 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 	s.Spinner = spinner.Dot
 
 	// Build completion list from tool definitions
-	completions := []string{"/exit", "/quit", "/q", "/clear", "/reset", "/new", "/help", "/?", "/tools"}
+	completions := []string{"/exit", "/quit", "/q", "/clear", "/reset", "/new", "/help", "/?", "/tools", "/copy"}
 	for _, t := range tools {
 		completions = append(completions, "/"+t.Function.Name)
 	}
@@ -257,7 +268,6 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 		agentTools:  tools,
 		maxIters:    maxIt,
 		model:       mdl,
-		system:      sys,
 		cmd:         cobraCmd,
 		verbose:     verb,
 		temperature: temp,
@@ -270,6 +280,7 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 		histIdx:     -1,
 		streamBuf:   &strings.Builder{},
 		mu:          &sync.Mutex{},
+		system:      sys, // store original for /clear; date hint in history separately
 		ctx:         ctx,
 		cancel:      cancel,
 		styles:      defaultChatStyles(),
@@ -363,6 +374,11 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// ---- agent loop finished ---------------------------------------------
 	case agentDone:
 		m.state = tuiIdle
+		m.busy = false
+		// Append assistant response to history (from the goroutine via msg)
+		if msg.assistantMsg != nil {
+			m.history = append(m.history, *msg.assistantMsg)
+		}
 		// Flush stream buffer into a proper message
 		if m.streamBuf.Len() > 0 {
 			m.messages = append(m.messages, message{
@@ -412,6 +428,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case compactDone:
 		m.state = tuiIdle
 		m.compacting = false
+		m.busy = false
 		m.input.Focus()
 		m.input.Reset()
 
@@ -447,13 +464,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.GotoBottom()
 		return m, nil
 
-		// ---- mouse events (scroll viewport) ---------------------------------
-	case tea.MouseMsg:
-		var cmd tea.Cmd
-		m.viewport, cmd = m.viewport.Update(msg)
-		return m, cmd
-
-	// ---- spinner tick ----------------------------------------------------
+		// ---- spinner tick ----------------------------------------------------
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
@@ -532,6 +543,9 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cycleIdx = -1
 			return m, cmd
 		}
+		if m.busy || m.compacting {
+			return m, nil
+		}
 		return m.handleSubmitInput()
 
 	case tea.KeyCtrlJ:
@@ -586,6 +600,11 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 
 	case input == "/tools":
 		m.showTools()
+		m.input.Reset()
+		return m, nil
+
+	case input == "/copy":
+		m.handleCopy()
 		m.input.Reset()
 		return m, nil
 
@@ -728,13 +747,12 @@ func (m *chatModel) handleUserMessage(input string) (tea.Model, tea.Cmd) {
 	m.mu.Lock()
 	m.history = append(m.history, types.ChatMessage{Role: "user", Content: input})
 	m.mu.Unlock()
-
-	// Clear input
 	m.input.Reset()
 	m.input.Blur()
 
 	// Switch state
 	m.state = tuiProcessing
+	m.busy = true
 	m.streamBuf.Reset()
 	m.err = nil
 
@@ -858,7 +876,10 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleShellCommand executes a !command.
+// handleShellCommand executes a !command synchronously.
+// Shell commands are usually instant (< 1s), so synchronous execution avoids
+// race conditions where the next user message is processed before the
+// shell output is written to history.
 func (m *chatModel) handleShellCommand(input string) (tea.Model, tea.Cmd) {
 	cmdLine := strings.TrimSpace(input[1:])
 	if cmdLine == "" {
@@ -872,20 +893,36 @@ func (m *chatModel) handleShellCommand(input string) (tea.Model, tea.Cmd) {
 
 	m.messages = append(m.messages, message{
 		role:    "tool",
-		content: fmt.Sprintf("Running: %s …", cmdLine),
+		content: fmt.Sprintf("Running: %s \u2026", cmdLine),
 		tool:    "shell",
 	})
+	m.refreshViewport()
 
-	go func() {
-		prog := getProgram(m)
-		result := executeShellCommand(cmdLine)
-		summary := summarizeToolResult("shell", result)
-		// For shell commands, show the full output instead of just the summary
-		prog.Send(toolDone{name: "shell", summary: summary, content: result})
-		prog.Send(agentDone{})
-	}()
+	// Run synchronously — shell commands are fast and this avoids
+	// race conditions with subsequent user messages.
+	result := executeShellCommand(cmdLine)
 
-	return m, m.spinner.Tick
+	// Store in history as system message so the model treats it as
+	// contextual information rather than a user query.
+	m.mu.Lock()
+	m.history = append(m.history, types.ChatMessage{
+		Role:    "system",
+		Content: fmt.Sprintf("Shell command `%s` returned:\n%s", cmdLine, result),
+	})
+	m.mu.Unlock()
+
+	// Update the tool message with the result
+	for i := len(m.messages) - 1; i >= 0; i-- {
+		if m.messages[i].role == "tool" && m.messages[i].tool == "shell" {
+			m.messages[i].content = result
+			break
+		}
+	}
+	m.state = tuiIdle
+	m.input.Focus()
+	m.refreshViewport()
+
+	return m, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -907,6 +944,7 @@ func (m *chatModel) runTUIAgentLoop() {
 		turnCount++
 
 		m.mu.Lock()
+
 		req := &types.ChatRequest{
 			Model:    m.model,
 			Messages: m.history,
@@ -974,10 +1012,10 @@ func (m *chatModel) runTUIAgentLoop() {
 			continue
 		}
 
-		// Text response — already streamed via progWriter
-		m.mu.Lock()
-		m.history = append(m.history, choice.Message)
-		m.mu.Unlock()
+		// Text response — already streamed via progWriter.
+		// Don't append to history here — the goroutine's m is a
+		// different copy of the model. Pass the message through
+		// agentDone so the main goroutine appends to its copy.
 
 		if turnCount >= m.maxIters {
 			prog.Send(toolDone{
@@ -986,7 +1024,12 @@ func (m *chatModel) runTUIAgentLoop() {
 			})
 		}
 
-		prog.Send(agentDone{result: result, elapsed: time.Since(agentStart), err: nil})
+		prog.Send(agentDone{
+			result:       result,
+			elapsed:      time.Since(agentStart),
+			err:          nil,
+			assistantMsg: &choice.Message,
+		})
 		return
 	}
 
@@ -1075,20 +1118,8 @@ func (m *chatModel) modelDisplay() string {
 // ---------------------------------------------------------------------------
 
 // renderMessages returns the rendered viewport content from stored messages.
+// Updates msgCache so streamChunk rendering can skip re-rendering all messages.
 func (m *chatModel) renderMessages() string {
-	var b strings.Builder
-	for i, msg := range m.messages {
-		if i > 0 {
-			b.WriteByte('\n') // blank line between messages
-		}
-		b.WriteString(m.renderOneMessage(msg))
-	}
-	return b.String()
-}
-
-// renderMessagesWithStream returns rendered messages plus any in-progress
-// streaming content.
-func (m *chatModel) renderMessagesWithStream() string {
 	var b strings.Builder
 	for i, msg := range m.messages {
 		if i > 0 {
@@ -1096,13 +1127,40 @@ func (m *chatModel) renderMessagesWithStream() string {
 		}
 		b.WriteString(m.renderOneMessage(msg))
 	}
-	if m.streamBuf.Len() > 0 {
-		b.WriteString("\n")
-		b.WriteString(m.styles.asstMsg.Render("Assistant:"))
-		b.WriteByte('\n')
-		b.WriteString(m.streamBuf.String())
+	m.msgCache = b.String()
+	return m.msgCache
+}
+
+// renderMessagesWithStream returns cached messages plus any in-progress
+// streaming content — much faster than re-rendering all messages on every chunk.
+func (m *chatModel) renderMessagesWithStream() string {
+	if m.streamBuf.Len() == 0 {
+		return m.msgCache
 	}
-	return b.String()
+	return m.msgCache + "\n" + m.styles.asstMsg.Render("Assistant:") + "\n" + m.streamBuf.String()
+}
+
+// renderMarkdown renders markdown to terminal-styled text via glamour.
+// Skips rendering for plain text (no markdown syntax) to avoid extra whitespace.
+func (m *chatModel) renderMarkdown(text string) string {
+	// Only use glamour if the text contains markdown syntax
+	if !containsMarkdown(text) {
+		return text
+	}
+	rendered, err := glamour.Render(text, "dark")
+	if err != nil {
+		return text
+	}
+	return strings.TrimSpace(rendered)
+}
+
+// containsMarkdown reports whether text likely contains markdown formatting.
+func containsMarkdown(s string) bool {
+	return strings.Contains(s, "**") || strings.Contains(s, "##") ||
+		strings.Contains(s, "`") || strings.Contains(s, "*") ||
+		strings.Contains(s, "---") || strings.Contains(s, "[") && strings.Contains(s, "](") ||
+		strings.HasPrefix(s, "#") || strings.HasPrefix(s, ">") ||
+		strings.HasPrefix(s, "-") || strings.HasPrefix(s, "1.")
 }
 
 func (m *chatModel) renderOneMessage(msg message) string {
@@ -1117,7 +1175,8 @@ func (m *chatModel) renderOneMessage(msg message) string {
 		// green left bracket + green label
 		header := lipgloss.NewStyle().Foreground(lipgloss.Color("#55DD99")).Render("┃")
 		label := m.styles.asstMsg.Render("Assistant:")
-		return header + " " + label + "\n" + indent + msg.content
+		rendered := m.renderMarkdown(msg.content)
+		return header + " " + label + "\n" + indent + rendered
 	case "system":
 		return m.styles.sysMsg.Render(msg.content)
 	case "tool":
@@ -1292,14 +1351,15 @@ func (m *chatModel) showHelp() {
   /exit, /quit, /q  Exit the chat
   /clear, /reset, /new  Clear conversation history
   /compact             Compact conversation (summarize to save context)
-  /help, /?         Show this help
-  /tools            List available tools
-  /<tool> <args>    Call a tool directly (e.g. /generate_image {"prompt":"a cat"})
-  /preview <file>   Preview an image/video with system viewer
-  !<command>        Run a shell command
-  Ctrl+C/D          Quit
-  Esc               Cancel current operation
-  F1                Show this help`
+  /copy                Copy last assistant response to clipboard
+  /help, /?            Show this help
+  /tools               List available tools
+  /<tool> <args>       Call a tool directly (e.g. /generate_image {"prompt":"a cat"})
+  /preview <file>      Preview an image/video with system viewer
+  !<command>           Run a shell command
+  Ctrl+C/D             Quit
+  Esc                  Cancel current operation
+  F1                   Show this help`
 	m.messages = append(m.messages, message{role: "system", content: help})
 	m.refreshViewport()
 }
@@ -1321,6 +1381,23 @@ func (m *chatModel) showTools() {
 	}
 	b.WriteString("\nUsage: /<tool_name> <json_args>")
 	m.messages = append(m.messages, message{role: "system", content: b.String()})
+	m.refreshViewport()
+}
+
+// handleCopy copies the last assistant response to the system clipboard.
+func (m *chatModel) handleCopy() {
+	for i := len(m.messages) - 1; i >= 0; i-- {
+		if m.messages[i].role == "assistant" && m.messages[i].content != "" {
+			if err := clipboard.WriteAll(m.messages[i].content); err != nil {
+				m.messages = append(m.messages, message{role: "system", content: fmt.Sprintf("Copy failed: %v", err)})
+			} else {
+				m.messages = append(m.messages, message{role: "system", content: "\u2713 Last response copied to clipboard"})
+			}
+			m.refreshViewport()
+			return
+		}
+	}
+	m.messages = append(m.messages, message{role: "system", content: "Nothing to copy \u2014 no assistant response found."})
 	m.refreshViewport()
 }
 
@@ -1375,11 +1452,13 @@ func runChatTUI(cmd *cobra.Command) error {
 	agentTools := buildAgentTools(chatCfg)
 	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
 
-	// Initialize history with system prompt
+	// Initialize history with system prompt + current date context
 	history := []types.ChatMessage{}
+	sysContent := fmt.Sprintf("今天是 %s。你只需要在用户明确询问日期时才回答日期，其他时候不要主动提及。", time.Now().Format("2006年1月2日"))
 	if chatSystem != "" {
-		history = append(history, types.ChatMessage{Role: "system", Content: chatSystem})
+		sysContent += "\n" + chatSystem
 	}
+	history = append(history, types.ChatMessage{Role: "system", Content: sysContent})
 
 	model := shared.Model
 	if model == "" && chatCfg != nil {
@@ -1391,11 +1470,11 @@ func runChatTUI(cmd *cobra.Command) error {
 		chatTemperature, chatMaxTokens)
 	tuiModel.history = history
 
-	// Create the Bubble Tea program with alt screen + mouse support
+	// Create the Bubble Tea program with alt screen
+	// (No mouse capture — lets native text selection work)
 	p := tea.NewProgram(
 		&tuiModel,
 		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
 	)
 
 	// Listen for SIGTERM to cleanly exit
