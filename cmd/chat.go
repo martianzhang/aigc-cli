@@ -1,30 +1,24 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
-	"syscall"
 	"time"
-	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
-	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
 	"github.com/martianzhang/apimart-cli/internal/watermark"
 )
@@ -32,17 +26,8 @@ import (
 // chatStdout and chatStderr are the output writers used by the chat REPL.
 // They default to chatStdout/chatStderr but can be overridden in tests to
 // capture output without touching real file descriptors.
-var (
-	chatStdout io.Writer = os.Stdout
-	chatStderr io.Writer = os.Stderr
-)
-
-// Command history for readLineRaw up/down arrows.
-var cmdHistory []string
-
-// errInterrupted is returned by readLineRaw when Ctrl+C is pressed in raw mode.
-// In raw mode, Ctrl+C is byte 0x03 (not SIGINT), so we handle it as a sentinel error.
-var errInterrupted = errors.New("interrupted")
+var chatStdout io.Writer = os.Stdout
+var chatStderr io.Writer = os.Stderr
 
 // Tool definitions for Agent Loop
 var agentToolDefs = []types.ToolDefinition{
@@ -239,6 +224,25 @@ var agentToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
+			Name:        "grep",
+			Description: "Search files for a pattern (regex). Returns matching lines with file paths and line numbers. Searches the current directory by default. Use this when the user asks to find text in files, search code, or locate something in the project.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"pattern": {"type": "string", "description": "Regex pattern to search for (Go regexp syntax)"},
+					"path": {"type": "string", "description": "Directory or file to search in (default: current directory)"},
+					"include": {"type": "string", "description": "Glob pattern to filter files (e.g. '*.go', '**/*.md'). Only search files matching this pattern."},
+					"ignore_case": {"type": "boolean", "description": "Case insensitive search (default: false)"},
+					"context": {"type": "integer", "description": "Number of context lines before/after each match (default: 0)"},
+					"max_matches": {"type": "integer", "description": "Max matches to return (default: 20, max: 100)"}
+				},
+				"required": ["pattern"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
 			Name:        "read_file",
 			Description: "Read the contents of a local text file (e.g. .txt, .md, .yaml, .json, .go). Use when the user asks about or references a local file.",
 			Parameters: json.RawMessage(`{
@@ -312,7 +316,8 @@ func runChat(cmd *cobra.Command, args []string) error {
 	isInteractive := !isPiped && (chatInteractive || !cmd.Flags().Changed("message"))
 
 	if isInteractive {
-		return runInteractiveChat(cmd)
+		// Use the Bubble Tea TUI for interactive chat (refactored from runInteractiveChat)
+		return runChatTUI(cmd)
 	}
 
 	// Single-turn mode with agent loop
@@ -394,828 +399,6 @@ func printUsageStats(result *types.ChatResponse, elapsed time.Duration) {
 	}
 	parts = append(parts, fmt.Sprintf("Time: %v", elapsed.Round(time.Millisecond)))
 	fmt.Fprintln(chatStderr, "---  "+strings.Join(parts, "  |  "))
-}
-
-// getFileCompletions returns file/directory names matching the given prefix.
-// Used by readLineRaw for Tab completion of file paths (/preview, @filename).
-func getFileCompletions(prefix string) []string {
-	dir := "."
-	base := prefix
-	if idx := strings.LastIndexAny(prefix, `/\`); idx >= 0 {
-		dir = prefix[:idx]
-		base = prefix[idx+1:]
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-	var matches []string
-	for _, e := range entries {
-		name := e.Name()
-		if !strings.HasPrefix(name, base) {
-			continue
-		}
-		match := name
-		if e.IsDir() {
-			match += string(filepath.Separator)
-		}
-		if dir != "." {
-			match = dir + string(filepath.Separator) + match
-		}
-		matches = append(matches, match)
-	}
-	return matches
-}
-
-// backspaceRune removes the rune before cursor position in buf.
-// Returns new buf and cursor pos, or pos=-1 if no character to delete.
-func backspaceRune(buf []byte, pos int) ([]byte, int) {
-	if pos <= 0 {
-		return buf, -1
-	}
-	// Find start of previous rune (walking back through continuation bytes)
-	prev := pos - 1
-	for prev >= 0 && buf[prev] >= 128 && buf[prev]&0xC0 == 0x80 {
-		prev--
-	}
-	n := pos - prev
-	copy(buf[prev:], buf[pos:])
-	buf = buf[:len(buf)-n]
-	return buf, prev
-}
-
-// redrawFrom redraws the buffer from cursor position on stderr.
-func redrawFrom(buf []byte, pos int) {
-	fmt.Fprint(chatStderr, "\b"+string(buf[pos:])+" ")
-	for i := 0; i < len(buf)-pos+1; i++ {
-		fmt.Fprint(chatStderr, "\b")
-	}
-}
-
-// readLineRaw reads one line from a raw-mode terminal with readline shortcuts.
-// Echoes characters to stderr. Returns io.EOF on Ctrl+D.
-// Supports:
-//
-//	Ctrl+A  Home        Beginning of line
-//	Ctrl+E  End         End of line
-//	Tab     Command completion
-//	Ctrl+U  Kill        Clear whole line
-//	Ctrl+K  Kill right  Clear to end of line
-//	Ctrl+W  Backword    Delete word backwards
-//	Ctrl+L  Clear       Clear screen
-//	Ctrl+D  EOF         Exit
-//	\ + Enter           Line continuation (multi-line)
-//	Up/Down arrows      Command history
-//	Left/Right arrows   Move cursor
-//
-// Command history is shared across calls to readLineRaw.
-// completions is a list of command strings for Tab completion.
-func readLineRaw(completions []string) (string, error) {
-	buf := make([]byte, 0, 256)
-	pos := 0 // cursor position within buf
-	histIdx := -1
-
-	// Completion cycle state
-	var cycleMatches []string // current cycle matches
-	var cycleIdx int          // index into cycleMatches
-	var cycleBase string      // original input that started the cycle
-
-	// Package-level history slice shared across calls
-	history := &cmdHistory
-
-	// Buffered reader for efficient byte/rune reading
-	reader := bufio.NewReaderSize(os.Stdin, 64)
-
-	for {
-		ch, err := reader.ReadByte()
-		if err != nil {
-			return "", err
-		}
-
-		// Multi-byte sequences (escape codes: arrow keys, etc.)
-		if ch == 27 {
-			// If nothing buffered, it's a bare Escape key press — clear current line
-			if reader.Buffered() == 0 {
-				for i := 0; i < len(buf); i++ {
-					fmt.Fprint(chatStderr, "\b \b")
-				}
-				buf = buf[:0]
-				pos = 0
-				continue
-			}
-			ch2, err := reader.ReadByte()
-			if err != nil {
-				continue
-			}
-			if ch2 == '[' {
-				// Terminal escape sequence: arrow keys (ESC [ A) or CSI u (ESC [ 13;5 u)
-				dir, err := reader.ReadByte()
-				if err != nil {
-					continue
-				}
-				if dir >= '0' && dir <= '9' {
-					// CSI u sequence: ESC [ <keycode> ; <modifier> u
-					// Not all terminals support this, so we just drain it.
-					for {
-						b, err := reader.ReadByte()
-						if err != nil || b == 'u' {
-							break
-						}
-					}
-				} else {
-					switch dir {
-					case 'A': // Up arrow — history back
-						if len(*history) > 0 && histIdx < len(*history)-1 {
-							histIdx++
-							for i := 0; i < len(buf); i++ {
-								fmt.Fprint(chatStderr, "\b \b")
-							}
-							buf = []byte((*history)[len(*history)-1-histIdx])
-							pos = len(buf)
-							fmt.Fprint(chatStderr, string(buf))
-						}
-					case 'B': // Down arrow — history forward
-						if histIdx > 0 {
-							histIdx--
-							for i := 0; i < len(buf); i++ {
-								fmt.Fprint(chatStderr, "\b \b")
-							}
-							buf = []byte((*history)[len(*history)-1-histIdx])
-							pos = len(buf)
-							fmt.Fprint(chatStderr, string(buf))
-						} else if histIdx == 0 {
-							histIdx = -1
-							for i := 0; i < len(buf); i++ {
-								fmt.Fprint(chatStderr, "\b \b")
-							}
-							buf = buf[:0]
-							pos = 0
-						}
-					case 'C': // Right arrow
-						if pos < len(buf) {
-							fmt.Fprint(chatStderr, string(buf[pos]))
-							pos++
-						}
-					case 'D': // Left arrow
-						if pos > 0 {
-							pos--
-							fmt.Fprint(chatStderr, "\b")
-						}
-					}
-				}
-			}
-			continue
-		}
-
-		switch ch {
-		case 3: // Ctrl+C (raw mode: byte, not SIGINT)
-			fmt.Fprint(chatStderr, "\r\n")
-			return "", errInterrupted
-
-		case 4: // Ctrl+D
-			return "", io.EOF
-
-		case 13: // Enter
-			// Line continuation: trailing \ + Enter → insert newline instead of submitting
-			if len(buf) > 0 && buf[len(buf)-1] == '\\' {
-				buf[len(buf)-1] = '\n'
-				fmt.Fprint(chatStderr, "\r\n")
-				pos = len(buf)
-				continue
-			}
-			fmt.Fprint(chatStderr, "\r\n")
-			line := string(buf)
-			// Save to history (non-empty, dedup last)
-			if line != "" && (len(*history) == 0 || (*history)[len(*history)-1] != line) {
-				*history = append(*history, line)
-			}
-			return line, nil
-
-		case 127, 8: // Backspace
-			if buf, pos = backspaceRune(buf, pos); pos >= 0 {
-				redrawFrom(buf, pos)
-			}
-
-		case 9: // Tab — completion cycling
-			if len(buf) > 0 && pos == len(buf) {
-				inputLine := string(buf)
-
-				// Detect file path completion context
-				filePrefix := ""
-				isFileCtx := false
-				if strings.HasPrefix(inputLine, "/preview ") {
-					filePrefix = strings.TrimPrefix(inputLine, "/preview ")
-					isFileCtx = true
-				} else if atIdx := strings.LastIndex(inputLine, "@"); atIdx >= 0 {
-					filePrefix = inputLine[atIdx+1:]
-					isFileCtx = true
-				}
-
-				// Check if we're continuing a cycle
-				inCycle := len(cycleMatches) > 0 && inputLine == cycleBase
-
-				if isFileCtx {
-					if !inCycle {
-						cycleMatches = getFileCompletions(filePrefix)
-						cycleIdx = -1
-						cycleBase = inputLine
-					}
-				} else if !isFileCtx {
-					prefix := strings.TrimSpace(inputLine)
-					if prefix == "" {
-						break
-					}
-					if !inCycle {
-						cycleMatches = nil
-						for _, c := range completions {
-							if strings.HasPrefix(c, prefix) {
-								cycleMatches = append(cycleMatches, c)
-							}
-						}
-						cycleIdx = -1
-						cycleBase = inputLine
-					}
-				} else {
-					break
-				}
-
-				if len(cycleMatches) == 0 {
-					break
-				}
-
-				// Advance cycle
-				cycleIdx = (cycleIdx + 1) % len(cycleMatches)
-				match := cycleMatches[cycleIdx]
-
-				// Replace buffer with the match
-				for i := 0; i < len(buf); i++ {
-					fmt.Fprint(chatStderr, "\b \b")
-				}
-
-				if isFileCtx {
-					if strings.HasPrefix(cycleBase, "/preview ") {
-						buf = []byte("/preview " + match)
-					} else if atIdx := strings.LastIndex(cycleBase, "@"); atIdx >= 0 {
-						buf = []byte(cycleBase[:atIdx+1] + match)
-					}
-				} else {
-					buf = []byte(match)
-				}
-				pos = len(buf)
-				cycleBase = string(buf) // keep cycle alive for next Tab
-				fmt.Fprint(chatStderr, string(buf))
-			}
-
-		case 1: // Ctrl+A — beginning of line
-			if pos > 0 {
-				fmt.Fprint(chatStderr, "\r")
-				// Move cursor back pos positions from current
-				for i := 0; i < pos; i++ {
-					fmt.Fprint(chatStderr, "\b")
-				}
-				pos = 0
-			}
-
-		case 5: // Ctrl+E — end of line
-			if pos < len(buf) {
-				fmt.Fprint(chatStderr, string(buf[pos:]))
-				pos = len(buf)
-			}
-
-		case 11: // Ctrl+K — kill to end of line
-			if pos < len(buf) {
-				// Clear from cursor to end
-				for i := pos; i < len(buf); i++ {
-					fmt.Fprint(chatStderr, " ")
-				}
-				// Move back
-				for i := pos; i < len(buf); i++ {
-					fmt.Fprint(chatStderr, "\b")
-				}
-				buf = buf[:pos]
-			}
-
-		case 21: // Ctrl+U — kill whole line
-			if len(buf) > 0 {
-				// Clear displayed text
-				for i := 0; i < len(buf); i++ {
-					fmt.Fprint(chatStderr, "\b \b")
-				}
-				buf = buf[:0]
-				pos = 0
-			}
-
-		case 12: // Ctrl+L — clear screen
-			fmt.Fprint(chatStderr, "\033[2J\033[H")
-			// Re-prompt
-			fmt.Fprint(chatStderr, ">>> ")
-			fmt.Fprint(chatStderr, string(buf))
-
-		case 23: // Ctrl+W — delete word backwards
-			if pos > 0 {
-				// Find start of word to delete
-				end := pos
-				start := end
-				// Skip spaces
-				for start > 0 && buf[start-1] == ' ' {
-					start--
-				}
-				// Skip word chars
-				for start > 0 && buf[start-1] != ' ' {
-					start--
-				}
-				// Delete from start to end
-				n := end - start
-				copy(buf[start:], buf[end:])
-				buf = buf[:len(buf)-n]
-				// Move cursor to start
-				for i := 0; i < pos-start; i++ {
-					fmt.Fprint(chatStderr, "\b")
-				}
-				pos = start
-				// Redraw from cursor
-				fmt.Fprint(chatStderr, string(buf[pos:]))
-				// Clear leftover chars
-				for i := 0; i < n; i++ {
-					fmt.Fprint(chatStderr, " ")
-				}
-				// Move back
-				for i := 0; i < len(buf)-pos+n; i++ {
-					fmt.Fprint(chatStderr, "\b")
-				}
-			}
-
-		default:
-			if ch >= 32 { // printable — could be start of multi-byte UTF-8
-				// Put the byte back and read a complete rune
-				if err := reader.UnreadByte(); err != nil {
-					// Fallback: insert byte directly
-					buf = append(buf, 0)
-					copy(buf[pos+1:], buf[pos:])
-					buf[pos] = ch
-					fmt.Fprint(chatStderr, string(buf[pos:]))
-					pos++
-					for i := pos; i < len(buf); i++ {
-						fmt.Fprint(chatStderr, "\b")
-					}
-					continue
-				}
-				r, _, err := reader.ReadRune()
-				if err != nil {
-					continue
-				}
-				// Encode the rune back to UTF-8 bytes
-				runeBytes := make([]byte, 4)
-				n := utf8.EncodeRune(runeBytes, r)
-				runeBytes = runeBytes[:n]
-				// Insert all bytes at cursor position
-				for _, b := range runeBytes {
-					buf = append(buf, 0)
-					copy(buf[pos+1:], buf[pos:])
-					buf[pos] = b
-					pos++
-				}
-				// Redraw from cursor
-				fmt.Fprint(chatStderr, string(buf[pos-n:]))
-				// Move cursor back for characters after the inserted ones
-				for i := pos; i < len(buf); i++ {
-					fmt.Fprint(chatStderr, "\b")
-				}
-			}
-		}
-	}
-}
-
-// readLineStdin reads one line from a non-terminal stdin (e.g. piped input).
-func readLineStdin() (string, error) {
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		return scanner.Text(), nil
-	}
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-	return "", io.EOF
-}
-
-// runInteractiveChat enters an interactive multi-turn chat REPL.
-// Conversation history accumulates across turns. Streaming is enabled by default.
-// Agent Loop is enabled by default — LLM can call generate_image / generate_video /
-// remove_watermark / add_watermark and other registered tools.
-func runInteractiveChat(cmd *cobra.Command) error {
-	// Load chat config for Agent Loop settings
-	var chatCfg *types.ChatDefaults
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
-		chatCfg = shared.Cfg.Defaults.Chat
-		if shared.Model == "" && chatCfg.Model != "" {
-			shared.Model = chatCfg.Model
-		}
-	}
-
-	// Determine max iterations per user message (default 10)
-	maxIterations := 10
-	if chatCfg != nil && chatCfg.MaxIterations > 0 {
-		maxIterations = chatCfg.MaxIterations
-	}
-
-	// Build allowed tool list based on tools/disable_tools config
-	agentTools := buildAgentTools(chatCfg)
-
-	// Initialize conversation history
-	history := []types.ChatMessage{}
-	if chatSystem != "" {
-		history = append(history, types.ChatMessage{Role: "system", Content: chatSystem})
-	}
-
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
-	stream := !chatNoStream
-
-	// Signal handling (Ctrl+C) — cancel context to abort API calls / polling
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	c.SetContext(ctx) // make all client HTTP requests and polling loops cancellable
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		select {
-		case <-sigCh:
-			cancel() // cancel pending HTTP calls and polling loops
-		case <-ctx.Done():
-		}
-	}()
-
-	// Raw terminal mode state. Toggled on/off around blocking operations
-	// because on Windows, raw mode prevents Ctrl+C from generating SIGINT.
-	var rawState *term.State
-	isRaw := false
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		s, err := term.MakeRaw(int(os.Stdin.Fd()))
-		if err == nil {
-			isRaw = true
-			rawState = s
-		}
-	}
-	defer func() {
-		if rawState != nil {
-			term.Restore(int(os.Stdin.Fd()), rawState)
-		}
-	}()
-
-	// exitRawMode restores cooked mode so Ctrl+C generates proper SIGINT.
-	exitRawMode := func() {
-		if rawState != nil {
-			term.Restore(int(os.Stdin.Fd()), rawState)
-			rawState = nil
-		}
-	}
-	// enterRawMode re-enters raw mode for fancy input handling.
-	enterRawMode := func() {
-		if !isRaw {
-			return
-		}
-		if rawState != nil {
-			return // already in raw mode
-		}
-		if term.IsTerminal(int(os.Stdin.Fd())) {
-			s, err := term.MakeRaw(int(os.Stdin.Fd()))
-			if err == nil {
-				rawState = s
-			}
-		}
-	}
-
-	fmt.Fprint(chatStderr, "\r\nInteractive chat mode. Type /help for commands, /exit or Ctrl+C to quit.\r\n")
-
-	// Show current model and stream mode at startup
-	modelDisplay := shared.Model
-	if modelDisplay == "" {
-		if chatCfg != nil && chatCfg.Model != "" {
-			modelDisplay = chatCfg.Model
-		} else {
-			modelDisplay = "<API default>"
-		}
-	}
-	streamMode := "stream"
-	if chatNoStream {
-		streamMode = "no-stream"
-	}
-	fmt.Fprintf(chatStderr, "Model: %s | Mode: %s\r\n", modelDisplay, streamMode)
-
-	// Build Tab-completion candidates
-	completions := []string{"/exit", "/clear", "/help", "/?", "/tools", "/preview"}
-	for _, t := range agentTools {
-		completions = append(completions, "/"+t.Function.Name)
-	}
-
-	for {
-		fmt.Fprint(chatStderr, ">>> ")
-
-		// Read one line, using raw mode if available
-		var input string
-		var err error
-		if isRaw {
-			input, err = readLineRaw(completions)
-		} else {
-			input, err = readLineStdin()
-		}
-		if err == io.EOF {
-			fmt.Fprint(chatStderr, "\r\nBye!\r\n")
-			return nil
-		}
-		if errors.Is(err, errInterrupted) {
-			fmt.Fprint(chatStderr, "\r\nBye!\r\n")
-			return nil
-		}
-		if err != nil {
-			// stdin read error — clean exit
-			return nil
-		}
-
-		input = strings.TrimSpace(input)
-		if input == "" {
-			continue
-		}
-
-		// Multi-line input: starting with ``` enters multi-line mode.
-		// Each line is read separately; empty line submits.
-		if strings.HasPrefix(input, "```") {
-			var lines []string
-			rest := strings.TrimPrefix(input, "```")
-			if rest != "" {
-				lines = append(lines, rest)
-			}
-			for {
-				fmt.Fprint(chatStderr, "... ")
-				var line string
-				var err error
-				if isRaw {
-					line, err = readLineRaw(completions)
-				} else {
-					line, err = readLineStdin()
-				}
-				if err != nil {
-					break
-				}
-				if strings.TrimSpace(line) == "" {
-					break
-				}
-				lines = append(lines, line)
-			}
-			input = strings.Join(lines, "\n")
-			if input == "" {
-				continue
-			}
-		}
-
-		// Handle commands
-		switch strings.ToLower(input) {
-		case "/exit", "/quit", "/q", "exit", "quit", "bye", "goodbye", "退出", "再见":
-			fmt.Fprint(chatStderr, "\r\nBye!\r\n")
-			return nil
-		case "/clear", "/reset":
-			history = history[:0]
-			if chatSystem != "" {
-				history = append(history, types.ChatMessage{Role: "system", Content: chatSystem})
-			}
-			fmt.Fprint(chatStderr, "Conversation history cleared.\r\n")
-			continue
-		case "/compact":
-			// Count non-system messages to determine if there's anything to compact
-			nonSysCount := len(history)
-			for _, msg := range history {
-				if msg.Role == "system" {
-					nonSysCount--
-				}
-			}
-			if nonSysCount == 0 {
-				fmt.Fprint(chatStderr, "Nothing to compact — conversation is empty.\r\n")
-				continue
-			}
-
-			exitRawMode()
-
-			fmt.Fprint(chatStderr, "\r\nCompacting conversation...\r\n")
-
-			// Build a request: send the full history + a summarization instruction
-			compactReq := &types.ChatRequest{
-				Model:    shared.Model,
-				Messages: history,
-				Stream:   false,
-			}
-			compactReq.Messages = append(compactReq.Messages, types.ChatMessage{
-				Role:    "user",
-				Content: "Please provide a detailed summary of our conversation above. Capture: 1) the user's goals and requirements, 2) key decisions made, 3) any files created or modified, 4) current status of any ongoing work. Be thorough — this summary will replace the conversation history so nothing important should be lost.",
-			})
-
-			result, err := c.ChatCompletion(compactReq)
-			if err != nil {
-				fmt.Fprintf(chatStderr, "Compact failed: %v\r\n", err)
-				enterRawMode()
-				continue
-			}
-
-			summary := ""
-			if result != nil && len(result.Choices) > 0 {
-				summary = result.Choices[0].Message.Content
-			}
-			if summary == "" {
-				fmt.Fprint(chatStderr, "Compact failed: got empty response.\r\n")
-				enterRawMode()
-				continue
-			}
-
-			oldCount := len(history)
-			history = history[:0]
-			if chatSystem != "" {
-				history = append(history, types.ChatMessage{Role: "system", Content: chatSystem})
-			}
-			history = append(history, types.ChatMessage{
-				Role:    "system",
-				Content: "[Compacted conversation history]\n" + summary + "\n[End of compacted history]",
-			})
-
-			fmt.Fprintf(chatStderr, "\r\n✓ Compacted: %d messages → 1 summary\r\n", oldCount)
-			enterRawMode()
-			continue
-		case "/help", "/?", "?":
-			fmt.Fprint(chatStderr,
-				"Available commands:\r\n"+
-					"  /exit, /quit, /q  Exit\r\n"+
-					"  exit, quit, bye   Same (without /)\r\n"+
-					"  Ctrl+C            Exit\r\n"+
-					"  Ctrl+D            Exit\r\n"+
-					"  /clear, /reset    Clear conversation history\r\n"+
-					"  /compact          Compact conversation (summarize to save context)\r\n"+
-					"  /tools            List available tools\r\n"+
-					"  /<tool> <json|--flags>  Direct tool call (no LLM)\r\n"+
-					"  /preview <file>   Preview image/video with system viewer\r\n"+
-					"  !<command>        Run a shell command\r\n"+
-					"  \\ + Enter         Line continuation (multi-line input)\r\n"+
-					"  ```...empty line  Multi-line paste mode\r\n"+
-					"  /help             Show this help\r\n")
-			modelDisplay := shared.Model
-			if modelDisplay == "" {
-				modelDisplay = "<API default>"
-			}
-			fmt.Fprintf(chatStderr, "Model: %s | Stream: %v\r\n", modelDisplay, stream)
-			if chatSystem != "" {
-				fmt.Fprintf(chatStderr, "System: %s\r\n", chatSystem)
-			}
-			if len(agentTools) > 0 {
-				toolNames := make([]string, len(agentTools))
-				for i, t := range agentTools {
-					toolNames[i] = t.Function.Name
-				}
-				fmt.Fprintf(chatStderr, "Tools: %s | Max iterations: %d\r\n", strings.Join(toolNames, ", "), maxIterations)
-			}
-			fmt.Fprint(chatStderr, "Use -v/--verbose to show token & timing stats.\r\n")
-			fmt.Fprint(chatStderr, "Use /{tool_name} <json> to call a tool directly (e.g. /generate_image {\"prompt\":\"a cat\"})\r\n")
-			continue
-		case "/tools":
-			if len(agentTools) == 0 {
-				fmt.Fprint(chatStderr, "No tools available.\r\n")
-			} else {
-				fmt.Fprint(chatStderr, "Available tools:\r\n")
-				for _, t := range agentTools {
-					fmt.Fprintf(chatStderr, "  /%s\r\n", t.Function.Name)
-					if desc := t.Function.Description; desc != "" {
-						fmt.Fprintf(chatStderr, "    %s\r\n", desc)
-					}
-				}
-				fmt.Fprint(chatStderr, "\r\nUsage: /<tool_name> <json_args>\r\n")
-				fmt.Fprint(chatStderr, "e.g. /generate_image {\"prompt\":\"a cat\"}\r\n")
-			}
-			continue
-		}
-
-		// Check for preview command: /preview <filepath>
-		if strings.HasPrefix(strings.TrimSpace(input), "/preview") {
-			parts := strings.SplitN(input, " ", 2)
-			filePath := ""
-			if len(parts) == 2 {
-				filePath = strings.TrimSpace(parts[1])
-			}
-			if filePath == "" {
-				fmt.Fprint(chatStderr, "Usage: /preview <filepath>\r\n\r\n")
-				// Show recently generated files as hints
-				recent := previewLatestFiles("")
-				if len(recent) > 0 {
-					fmt.Fprint(chatStderr, "Recent files:\r\n")
-					for _, f := range recent {
-						fmt.Fprintf(chatStderr, "  /preview %s\r\n", f)
-					}
-					fmt.Fprint(chatStderr, "\r\n")
-				}
-				continue
-			}
-			if err := service.PreviewFile(filePath); err != nil {
-				fmt.Fprintf(chatStderr, "Preview failed: %v\r\n", err)
-			}
-			fmt.Fprint(chatStderr, "\r\n")
-			continue
-		}
-
-		// Check for shell command: !<command>
-		if strings.HasPrefix(strings.TrimSpace(input), "!") {
-			cmdLine := strings.TrimSpace(input)[1:]
-			if cmdLine != "" {
-				exitRawMode()
-				fmt.Fprintf(chatStderr, "\r\nRunning: %s\r\n", cmdLine)
-				result := executeShellCommand(cmdLine)
-				fmt.Fprintf(chatStderr, "\r\nResult:\r\n%s\r\n", result)
-				fmt.Fprint(chatStderr, "\r\n")
-				enterRawMode()
-				continue
-			}
-		}
-
-		// Direct tool call: /<tool_name> <json> or /<tool_name> --flag value
-		// Non-structured args (bare text) fall through to LLM for interpretation.
-		if strings.HasPrefix(input, "/") && !strings.HasPrefix(input, "//") {
-			spaceIdx := strings.Index(input, " ")
-			cmdName := input[1:]
-			argsJSON := ""
-			if spaceIdx > 0 {
-				cmdName = input[1:spaceIdx]
-				argsJSON = strings.TrimSpace(input[spaceIdx+1:])
-			}
-			// Accept either JSON or --flag / key=value format
-			if !json.Valid([]byte(argsJSON)) && argsJSON != "" {
-				if converted := parseFlagsToJSON(argsJSON); converted != "" {
-					argsJSON = converted
-				}
-			}
-			if json.Valid([]byte(argsJSON)) {
-				// Silently ignore known CLI-only flags that have no tool parameter equivalent
-				cliOnlyFlags := map[string]bool{"preview": true, "dry-run": true, "save-images": true, "verbose": true, "json": true}
-				if argsJSON != "" && argsJSON != "{}" {
-					var schema struct {
-						Properties map[string]any `json:"properties"`
-					}
-					for _, t := range agentTools {
-						if t.Function.Name == cmdName && len(t.Function.Parameters) > 0 {
-							json.Unmarshal(t.Function.Parameters, &schema)
-							var parsed map[string]any
-							if err := json.Unmarshal([]byte(argsJSON), &parsed); err == nil {
-								for k := range parsed {
-									if _, ok := schema.Properties[k]; !ok && !cliOnlyFlags[k] {
-										fmt.Fprintf(chatStderr, "\r\n[warning] /%s: unknown flag --%s\r\n", cmdName, k)
-									}
-								}
-							}
-							break
-						}
-					}
-				}
-				executed := false
-				for _, t := range agentTools {
-					if t.Function.Name == cmdName {
-						executed = true
-						exitRawMode()
-						tc := types.ToolCall{
-							ID:   "direct",
-							Type: "function",
-							Function: types.ToolCallFunction{
-								Name:      cmdName,
-								Arguments: argsJSON,
-							},
-						}
-						result := executeToolCall(c, tc)
-						fmt.Fprintf(chatStderr, "\r\n%s\r\n", result)
-						fmt.Fprint(chatStderr, "\r\n")
-						enterRawMode()
-						break
-					}
-				}
-				if executed {
-					continue
-				}
-			}
-			// Not valid JSON/flags or unknown command → fall through to LLM
-		}
-
-		// Add user message to history
-		history = append(history, types.ChatMessage{Role: "user", Content: input})
-
-		// Exit raw mode before blocking operations so Ctrl+C generates SIGINT
-		exitRawMode()
-
-		// Run agent loop
-		_, err = runAgentLoop(ctx, c, &history, agentTools, maxIterations, cmd)
-		if err != nil {
-			// cancelled — exit immediately
-			if errors.Is(err, context.Canceled) {
-				return nil
-			}
-			fmt.Fprintf(chatStderr, "\r\nError: %v\r\n", err)
-			history = history[:len(history)-1]
-		}
-
-		fmt.Fprint(chatStderr, "\r\n")
-
-		// Re-enter raw mode for next prompt
-		enterRawMode()
-	}
 }
 
 // runAgentLoop executes the tool-calling loop: send request → check tool_calls → execute → repeat.
@@ -1551,6 +734,8 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeTaskQuery(args)
 	case "web_fetch":
 		return executeWebFetch(args)
+	case "grep":
+		return executeGrep(args)
 	case "read_file":
 		return executeReadFile(args)
 	case "remove_watermark":
@@ -1563,63 +748,6 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 }
 
 // summarizeToolResult returns a one-line summary of a tool's result for user display.
-// inferValue parses a string into the most specific type (bool→int→float→string).
-func inferValue(s string) any {
-	if s == "true" || s == "false" {
-		return s == "true"
-	}
-	if n, err := strconv.Atoi(s); err == nil {
-		return n
-	}
-	if f, err := strconv.ParseFloat(s, 64); err == nil {
-		return f
-	}
-	return s
-}
-
-// parseFlagsToJSON converts "--flag value" or "key=value" style args to JSON.
-// Bare words are collected and set as "keywords" for the tool.
-func parseFlagsToJSON(s string) string {
-	parts := strings.Fields(s)
-	if len(parts) == 0 {
-		return ""
-	}
-	hasStructured := false
-	for _, p := range parts {
-		if strings.HasPrefix(p, "--") || strings.Contains(p, "=") {
-			hasStructured = true
-			break
-		}
-	}
-	if !hasStructured {
-		return ""
-	}
-	obj := make(map[string]any)
-	var bareWords []string
-	for i := 0; i < len(parts); i++ {
-		p := parts[i]
-		if eq := strings.Index(p, "="); eq > 0 {
-			obj[p[:eq]] = inferValue(p[eq+1:])
-		} else if strings.HasPrefix(p, "--") {
-			key := p[2:]
-			if i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "--") && !strings.Contains(parts[i+1], "=") {
-				i++
-				obj[key] = inferValue(parts[i])
-			} else {
-				obj[key] = true
-			}
-		} else {
-			bareWords = append(bareWords, p)
-		}
-	}
-	if len(bareWords) > 0 {
-		if _, has := obj["keywords"]; !has {
-			obj["keywords"] = strings.Join(bareWords, " ")
-		}
-	}
-	data, _ := json.Marshal(obj)
-	return string(data)
-}
 
 func summarizeToolResult(toolName, result string) string {
 	// Truncate long results to first meaningful line
@@ -2059,6 +1187,276 @@ func executeReadFile(argsJSON string) string {
 //   - SHELL env var (if set and executable)
 //   - Windows: pwsh > powershell > cmd
 //   - Others: zsh > bash > sh
+//
+// executeGrep searches files for a regex pattern and returns matching lines.
+// grepArgs holds parsed arguments for the grep tool.
+type grepArgs struct {
+	Pattern    string
+	Path       string
+	Include    string
+	IgnoreCase bool
+	Context    int
+	MaxMatches int
+}
+
+func executeGrep(argsJSON string) string {
+	var raw struct {
+		Pattern    string `json:"pattern"`
+		Path       string `json:"path"`
+		Include    string `json:"include"`
+		IgnoreCase bool   `json:"ignore_case"`
+		Context    int    `json:"context"`
+		MaxMatches int    `json:"max_matches"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &raw); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	args := grepArgs{
+		Pattern:    raw.Pattern,
+		Path:       raw.Path,
+		Include:    raw.Include,
+		IgnoreCase: raw.IgnoreCase,
+		Context:    raw.Context,
+		MaxMatches: raw.MaxMatches,
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.Pattern == "" {
+		return "Error: pattern is required"
+	}
+
+	searchPath := args.Path
+	if searchPath == "" {
+		var err error
+		searchPath, err = filepath.Abs(".")
+		if err != nil {
+			return fmt.Sprintf("Error: cannot get current directory: %v", err)
+		}
+	}
+	if args.MaxMatches <= 0 {
+		args.MaxMatches = 20
+	} else if args.MaxMatches > 100 {
+		args.MaxMatches = 100
+	}
+	if args.Context < 0 {
+		args.Context = 0
+	} else if args.Context > 10 {
+		args.Context = 10
+	}
+
+	// Prefer rg (ripgrep), then grep, then Go fallback
+	if hasExecutable("rg") {
+		return grepWithRipgrep(&args, searchPath)
+	}
+	if hasExecutable("grep") {
+		return grepWithGrep(&args, searchPath)
+	}
+	return grepGoImpl(&args, searchPath)
+}
+
+// grepWithRipgrep searches using ripgrep (rg) — the fastest option.
+func grepWithRipgrep(args *grepArgs, searchPath string) string {
+	rgArgs := []string{"--no-heading", "--line-number", "--color", "never"}
+	if args.IgnoreCase {
+		rgArgs = append(rgArgs, "-i")
+	}
+	if args.Context > 0 {
+		rgArgs = append(rgArgs, "-C", fmt.Sprintf("%d", args.Context))
+	}
+	if args.Include != "" {
+		rgArgs = append(rgArgs, "-g", args.Include)
+	}
+	// rg --max-count limits matches per file; we want total, so use -m
+	rgArgs = append(rgArgs, "-m", fmt.Sprintf("%d", args.MaxMatches))
+	rgArgs = append(rgArgs, "--", args.Pattern, searchPath)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "rg", rgArgs...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// rg exits 1 when no matches — that's not an error
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return fmt.Sprintf("No matches found for pattern %q in %s", args.Pattern, searchPath)
+		}
+		return fmt.Sprintf("rg error: %v\n%s", err, string(out))
+	}
+	if len(out) == 0 {
+		return fmt.Sprintf("No matches found for pattern %q in %s", args.Pattern, searchPath)
+	}
+	return string(out)
+}
+
+// grepWithGrep searches using system grep (GNU or BSD).
+func grepWithGrep(args *grepArgs, searchPath string) string {
+	grepArgs := []string{"-rn", "--color=never"} // recursive, line numbers
+	if args.IgnoreCase {
+		grepArgs = append(grepArgs, "-i")
+	}
+	if args.Context > 0 {
+		grepArgs = append(grepArgs, "-C", fmt.Sprintf("%d", args.Context))
+	} else {
+		grepArgs = append(grepArgs, "-m", fmt.Sprintf("%d", args.MaxMatches))
+	}
+	if args.Include != "" {
+		grepArgs = append(grepArgs, "--include", args.Include)
+	}
+	// Skip binary files and hidden dirs
+	grepArgs = append(grepArgs, "--binary-files=without-match", "--exclude-dir=.git")
+	grepArgs = append(grepArgs, "-e", args.Pattern, searchPath)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "grep", grepArgs...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return fmt.Sprintf("No matches found for pattern %q in %s", args.Pattern, searchPath)
+		}
+		return fmt.Sprintf("grep error: %v\n%s", err, string(out))
+	}
+	if len(out) == 0 {
+		return fmt.Sprintf("No matches found for pattern %q in %s", args.Pattern, searchPath)
+	}
+	// Limit output lines
+	result := string(out)
+	lines := strings.Split(result, "\n")
+	if len(lines) > args.MaxMatches {
+		lines = lines[:args.MaxMatches]
+		result = strings.Join(lines, "\n") + "\n...(truncated, max matches reached)"
+	}
+	return result
+}
+
+// grepGoImpl is the pure-Go fallback when no system grep tool is available.
+func grepGoImpl(args *grepArgs, searchPath string) string {
+	re, err := regexp.Compile(args.Pattern)
+	if err != nil {
+		return fmt.Sprintf("Error: invalid regex pattern '%s': %v", args.Pattern, err)
+	}
+
+	isDir := false
+	if fi, err := os.Stat(searchPath); err == nil {
+		isDir = fi.IsDir()
+	}
+
+	type match struct {
+		file    string
+		lineNum int
+		line    string
+		before  []string
+		after   []string
+	}
+	var matches []match
+
+	walkFn := func(fpath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			name := info.Name()
+			if name != "." && name != ".." && strings.HasPrefix(name, ".") {
+				return filepath.SkipDir
+			}
+			if name == "node_modules" || name == "vendor" || name == "dist" || name == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if args.Include != "" {
+			matched, err := filepath.Match(args.Include, info.Name())
+			if err != nil || !matched {
+				return nil
+			}
+		}
+		ext := strings.ToLower(filepath.Ext(fpath))
+		switch ext {
+		case ".txt", ".md", ".yaml", ".yml", ".json", ".go", ".py", ".js", ".ts",
+			".css", ".html", ".sh", ".bash", ".toml", ".ini", ".cfg", ".conf",
+			".xml", ".svg", ".env", ".example":
+		default:
+			return nil
+		}
+		content, err := os.ReadFile(fpath)
+		if err != nil {
+			return nil
+		}
+		lines := strings.Split(string(content), "\n")
+		for i, line := range lines {
+			matchLine := line
+			if args.IgnoreCase {
+				matchLine = strings.ToLower(line)
+			}
+			if re.MatchString(matchLine) {
+				m := match{
+					file:    fpath,
+					lineNum: i + 1,
+					line:    line,
+				}
+				if args.Context > 0 {
+					start := i - args.Context
+					if start < 0 {
+						start = 0
+					}
+					for j := start; j < i; j++ {
+						m.before = append(m.before, lines[j])
+					}
+					end := i + args.Context
+					if end >= len(lines) {
+						end = len(lines) - 1
+					}
+					for j := i + 1; j <= end; j++ {
+						m.after = append(m.after, lines[j])
+					}
+				}
+				matches = append(matches, m)
+				if len(matches) >= args.MaxMatches {
+					return filepath.SkipAll
+				}
+			}
+		}
+		return nil
+	}
+
+	if isDir {
+		filepath.Walk(searchPath, walkFn)
+	} else {
+		info, err := os.Stat(searchPath)
+		if err != nil {
+			return fmt.Sprintf("Error: cannot access %s: %v", searchPath, err)
+		}
+		walkFn(searchPath, info, nil)
+	}
+
+	if len(matches) == 0 {
+		return fmt.Sprintf("No matches found for pattern %q in %s", args.Pattern, searchPath)
+	}
+
+	var b strings.Builder
+	truncated := len(matches) >= args.MaxMatches
+	currentFile := ""
+	for _, m := range matches {
+		if m.file != currentFile {
+			currentFile = m.file
+			fmt.Fprintf(&b, "\n%s:\n", m.file)
+		}
+		for _, l := range m.before {
+			fmt.Fprintf(&b, "  %s\n", l)
+		}
+		fmt.Fprintf(&b, "> %4d:  %s\n", m.lineNum, strings.TrimRight(m.line, "\r"))
+		for _, l := range m.after {
+			fmt.Fprintf(&b, "  %s\n", l)
+		}
+	}
+	if truncated {
+		b.WriteString("\n...(truncated, max matches reached)")
+	}
+	return b.String()
+}
+
 func executeShellCommand(cmdLine string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
