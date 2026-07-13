@@ -383,8 +383,10 @@ func executeShellCommand(cmdLine string) string {
 	defer cancel()
 
 	if runtime.GOOS == "windows" {
+		// Windows 默认输出编码为 GBK/CP936，需切换到 UTF-8 避免中文乱码
 		switch {
 		case hasExecutable("pwsh"):
+			cmdLine = "$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + cmdLine
 			cmd := exec.CommandContext(ctx, "pwsh", "-NoProfile", "-Command", cmdLine)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -392,6 +394,7 @@ func executeShellCommand(cmdLine string) string {
 			}
 			return string(out)
 		case hasExecutable("powershell"):
+			cmdLine = "$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + cmdLine
 			cmd := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", cmdLine)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -399,6 +402,7 @@ func executeShellCommand(cmdLine string) string {
 			}
 			return string(out)
 		default:
+			cmdLine = "chcp 65001 >NUL & " + cmdLine
 			cmd := exec.CommandContext(ctx, "cmd", "/c", cmdLine)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
