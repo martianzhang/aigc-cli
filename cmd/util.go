@@ -1,0 +1,124 @@
+package cmd
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/martianzhang/apimart-cli/internal/client"
+	"github.com/martianzhang/apimart-cli/internal/config"
+	"github.com/martianzhang/apimart-cli/internal/provider"
+	"github.com/martianzhang/apimart-cli/internal/service"
+)
+
+// readInput reads content from a file path, stdin ("-"), or returns the raw string.
+func readInput(input string) ([]byte, error) {
+	switch {
+	case input == "-":
+		// Don't block if stdin is a terminal with no piped input
+		stat, err := os.Stdin.Stat()
+		if err == nil && (stat.Mode()&os.ModeCharDevice) != 0 {
+			return nil, fmt.Errorf("stdin is a terminal — pipe input or use --prompt")
+		}
+		return io.ReadAll(os.Stdin)
+	case isFile(input):
+		return os.ReadFile(input)
+	default:
+		return []byte(input), nil
+	}
+}
+
+// isFile returns true if the given path points to an existing file.
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
+// httpGet performs an HTTP GET or resolves a data URI / base64 string.
+func httpGet(rawURL string) ([]byte, error) {
+	return service.FetchImage(rawURL)
+}
+
+// applyTimeout sets the HTTP client timeout from CLI flag / config, falling back to modDefault.
+// Priority: --timeout flag > defaults.{mod}.timeout > timeout > modDefault.
+func applyTimeout(c client.APIClient, modKey string, modDefault time.Duration) {
+	d := modDefault
+	// 1. CLI --timeout flag (global override)
+	if shared.TimeoutFlag > 0 {
+		d = time.Duration(shared.TimeoutFlag) * time.Second
+		c.SetTimeout(d)
+		return
+	}
+	// 2. Config file
+	if cfg, err := config.LoadDefaults(shared.CfgFile); err == nil && cfg != nil {
+		var modTimeout *int
+		if cfg.Defaults != nil {
+			switch modKey {
+			case "image":
+				if cfg.Defaults.Image != nil {
+					modTimeout = cfg.Defaults.Image.Timeout
+				}
+			case "video":
+				if cfg.Defaults.Video != nil {
+					modTimeout = cfg.Defaults.Video.Timeout
+				}
+			case "midjourney":
+				if cfg.Defaults.Midjourney != nil {
+					modTimeout = cfg.Defaults.Midjourney.Timeout
+				}
+			}
+		}
+		if modTimeout != nil && *modTimeout > 0 {
+			d = time.Duration(*modTimeout) * time.Second
+		} else if cfg.Timeout != nil && *cfg.Timeout > 0 {
+			d = time.Duration(*cfg.Timeout) * time.Second
+		}
+	}
+	c.SetTimeout(d)
+}
+
+// isOpenRouterProvider determines whether the current base URL points to OpenRouter.
+func isOpenRouterProvider() bool {
+	return provider.IsOpenRouter(shared.APIBase)
+}
+
+// isAPIMartProvider determines whether to use APIMart async mode.
+// Known APIMart domains: apimart.ai, apib.ai, aiuxu.com, aishuch.com
+// Known sync domains: openai.com, openrouter.ai
+// All other domains default to sync (OpenAI-compatible relay).
+func isAPIMartProvider() bool {
+	switch shared.Mode {
+	case "async":
+		return true
+	case "sync":
+		return false
+	default: // auto -- detect from base URL
+		base := shared.APIBase
+		if base == "" {
+			base = "https://api.apimart.ai"
+		}
+		return provider.IsAPIMart(base)
+	}
+}
+
+// setIntFlag sets a *int field from a cobra flag if changed.
+func setIntFlag(cmd *cobra.Command, name string, target **int, val int) {
+	if cmd.Flags().Changed(name) {
+		v := val
+		*target = &v
+	}
+}
+
+// setBoolFlag sets a *bool field from a cobra flag if changed.
+func setBoolFlag(cmd *cobra.Command, name string, target **bool, val bool) {
+	if cmd.Flags().Changed(name) {
+		v := val
+		*target = &v
+	}
+}
