@@ -235,7 +235,8 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 	ti.Prompt = ""
 	ti.ShowLineNumbers = false
 	ti.CharLimit = 0
-	ti.MaxWidth = 80
+	// 999 effectively removes the width cap — real width is set via SetWidth on resize
+	ti.MaxWidth = 999
 	ti.MaxHeight = 5
 	// Minimal style — no cursor line highlight
 	ti.FocusedStyle.CursorLine = lipgloss.NewStyle()
@@ -301,15 +302,21 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.styles.header = m.styles.header.Width(msg.Width - 2)
 		m.input.SetWidth(msg.Width - 6)
+		// Reserve at least 6 lines for chrome (header + input box + status bar + padding)
+		chromeHeight := 6
+		vpHeight := msg.Height - chromeHeight
+		if vpHeight < 3 {
+			vpHeight = 3
+		}
 		if !m.ready {
-			m.viewport = viewport.New(msg.Width-2, msg.Height-12)
+			m.viewport = viewport.New(msg.Width-2, vpHeight)
 			m.viewport.YPosition = 1
 			m.viewport.Style = m.styles.messages
 			m.viewport.SetContent(m.renderMessages())
 			m.ready = true
 		} else {
 			m.viewport.Width = msg.Width - 2
-			m.viewport.Height = msg.Height - 12
+			m.viewport.Height = vpHeight
 		}
 		m.viewport.GotoBottom()
 		return m, nil
