@@ -1,7 +1,5 @@
 package types
 
-
-
 type Config struct {
 	APIKey     string          `mapstructure:"api_key" yaml:"api_key,omitempty"`
 	BaseURL    string          `mapstructure:"base_url" yaml:"base_url,omitempty"`

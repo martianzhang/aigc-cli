@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
 )
 
 // standardLumTable is the IJG-recommended luminance quantization table for quality 100.
