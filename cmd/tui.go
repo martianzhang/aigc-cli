@@ -194,13 +194,13 @@ func defaultChatStyles() chatStyles {
 		messages: lipgloss.NewStyle().
 			Padding(0, 1),
 		inputBox: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.Border{Left: "┃"}, false, false, false, true).
 			BorderForeground(lipgloss.Color("#335577")).
-			Padding(0, 1),
+			PaddingLeft(1),
 		shellInputBox: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.Border{Left: "┃"}, false, false, false, true).
 			BorderForeground(lipgloss.Color("#DD8833")).
-			Padding(0, 1),
+			PaddingLeft(1),
 		statusBar: lipgloss.NewStyle().
 			Padding(0, 1).
 			Background(lipgloss.Color("#222222")).
