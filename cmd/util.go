@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -12,6 +13,7 @@ import (
 	"github.com/martianzhang/apimart-cli/internal/config"
 	"github.com/martianzhang/apimart-cli/internal/provider"
 	"github.com/martianzhang/apimart-cli/internal/service"
+	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
 // readInput reads content from a file path, stdin ("-"), or returns the raw string.
@@ -121,4 +123,32 @@ func setBoolFlag(cmd *cobra.Command, name string, target **bool, val bool) {
 		v := val
 		*target = &v
 	}
+}
+
+// extractExt returns the file extension from a URL, defaulting to .mp4.
+func extractExt(rawURL string) string {
+	return service.ExtractExt(rawURL)
+}
+
+// downloadVideos downloads all generated videos. Returns paths to saved files.
+func downloadVideos(videos []types.VideoResult, taskID string) ([]string, error) {
+	var saved []string
+	for i, vid := range videos {
+		for j, url := range vid.URL {
+			resp, err := httpGet(url)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to download video %d-%d: %v\n", i, j, err)
+				continue
+			}
+			ext := extractExt(url)
+			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_%s_%d_%d%s", taskID, i, j, ext))
+			if err := os.WriteFile(filename, resp, 0644); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
+				continue
+			}
+			fmt.Printf("Saved: %s\n", filename)
+			saved = append(saved, filename)
+		}
+	}
+	return saved, nil
 }
