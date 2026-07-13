@@ -549,13 +549,6 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 	return req, nil
 }
 
-func setFloatFlag(cmd *cobra.Command, name string, target **float64, val float64) {
-	if cmd.Flags().Changed(name) {
-		v := val
-		*target = &v
-	}
-}
-
 // toURLs converts a single URL string to a slice (for MJ API compatibility).
 func toURLs(url string) []string {
 	if url == "" {

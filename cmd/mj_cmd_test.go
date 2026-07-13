@@ -4,83 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
-
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
 // ============================================================================
 // MJ flag helpers
 // ============================================================================
-
-func TestSetMJIntFlag_changed(t *testing.T) {
-	cmd := &cobra.Command{}
-	cmd.Flags().Int("test-flag", 0, "")
-	cmd.Flags().Set("test-flag", "42")
-
-	var target *int
-	setMJIntFlag(cmd, "test-flag", &target, 42)
-	if target == nil || *target != 42 {
-		t.Error("setMJIntFlag should set target when flag is changed")
-	}
-}
-
-func TestSetMJIntFlag_notChanged(t *testing.T) {
-	cmd := &cobra.Command{}
-	cmd.Flags().Int("test-flag", 0, "")
-
-	var target *int
-	setMJIntFlag(cmd, "test-flag", &target, 42)
-	if target != nil {
-		t.Error("setMJIntFlag should not set target when flag is not changed")
-	}
-}
-
-func TestSetMJFloatFlag_changed(t *testing.T) {
-	cmd := &cobra.Command{}
-	cmd.Flags().Float64("test-flag", 0, "")
-	cmd.Flags().Set("test-flag", "1.5")
-
-	var target *float64
-	setMJFloatFlag(cmd, "test-flag", &target, 1.5)
-	if target == nil || *target != 1.5 {
-		t.Error("setMJFloatFlag should set target when flag is changed")
-	}
-}
-
-func TestSetMJFloatFlag_notChanged(t *testing.T) {
-	cmd := &cobra.Command{}
-	cmd.Flags().Float64("test-flag", 0, "")
-
-	var target *float64
-	setMJFloatFlag(cmd, "test-flag", &target, 1.5)
-	if target != nil {
-		t.Error("setMJFloatFlag should not set target when flag is not changed")
-	}
-}
-
-func TestSetMJBoolFlag_changed(t *testing.T) {
-	cmd := &cobra.Command{}
-	cmd.Flags().Bool("test-flag", false, "")
-	cmd.Flags().Set("test-flag", "true")
-
-	var target *bool
-	setMJBoolFlag(cmd, "test-flag", &target, true)
-	if target == nil || *target != true {
-		t.Error("setMJBoolFlag should set target when flag is changed")
-	}
-}
-
-func TestSetMJBoolFlag_notChanged(t *testing.T) {
-	cmd := &cobra.Command{}
-	cmd.Flags().Bool("test-flag", false, "")
-
-	var target *bool
-	setMJBoolFlag(cmd, "test-flag", &target, true)
-	if target != nil {
-		t.Error("setMJBoolFlag should not set target when flag is not changed")
-	}
-}
 
 // ============================================================================
 // buildMJCurl
