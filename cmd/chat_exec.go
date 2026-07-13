@@ -85,6 +85,8 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeGrep(args)
 	case "read_file":
 		return executeReadFile(args)
+	case "find":
+		return executeFindFiles(args)
 	case "remove_watermark":
 		return executeRemoveWatermark(args)
 	case "add_watermark":
@@ -344,4 +346,67 @@ type balanceQueryArgs struct {
 
 type taskQueryArgs struct {
 	TaskID string `json:"task_id"`
+}
+
+// executeFindFiles finds files by name/pattern under a directory (safe, pure Go).
+func executeFindFiles(argsJSON string) string {
+	var params struct {
+		Pattern   string `json:"pattern"`
+		Path      string `json:"path"`
+		MaxResult int    `json:"max_results"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &params); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if params.Pattern == "" {
+		return "Error: pattern is required"
+	}
+	root := params.Path
+	if root == "" {
+		root = "."
+	}
+	maxResults := params.MaxResult
+	if maxResults <= 0 {
+		maxResults = 30
+	} else if maxResults > 100 {
+		maxResults = 100
+	}
+
+	var results []string
+	filepath.Walk(root, func(fpath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			// Skip hidden directories
+			if info.Name() != "." && strings.HasPrefix(info.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if len(results) >= maxResults {
+			return filepath.SkipAll
+		}
+		matched, _ := filepath.Match(params.Pattern, info.Name())
+		if !matched {
+			matched = strings.Contains(strings.ToLower(info.Name()), strings.ToLower(params.Pattern))
+		}
+		if matched {
+			size := info.Size()
+			sizeStr := fmt.Sprintf("%d B", size)
+			if size > 1024*1024 {
+				sizeStr = fmt.Sprintf("%.1f MB", float64(size)/(1024*1024))
+			} else if size > 1024 {
+				sizeStr = fmt.Sprintf("%.1f KB", float64(size)/1024)
+			}
+			results = append(results, fmt.Sprintf("%s  (%s, %s)", fpath, sizeStr, info.ModTime().Format("2006-01-02")))
+		}
+		return nil
+	})
+
+	if len(results) == 0 {
+		return fmt.Sprintf("No files found matching %q under %s", params.Pattern, root)
+	}
+	header := fmt.Sprintf("Found %d file(s) matching %q under %s:\n", len(results), params.Pattern, root)
+	return header + strings.Join(results, "\n")
 }
