@@ -230,4 +230,20 @@ var agentToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "find",
+			Description: "Recursively find files by name/pattern under a directory (like fd/find). Supports glob patterns. Use this when the user asks to find files, list images in a folder, search for documents, or explore the project structure.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"pattern": {"type": "string", "description": "Glob or substring to match filenames against, e.g. \"*.png\", \"test*.go\", \"README\""},
+					"path": {"type": "string", "description": "Root directory to search (default: current directory \".\")"},
+					"max_results": {"type": "integer", "description": "Maximum results to return (default: 30, max: 100)"}
+				},
+				"required": ["pattern"]
+			}`),
+		},
+	},
 }
