@@ -70,31 +70,6 @@ func registerSharedFlags(cmd *cobra.Command) {
 }
 
 // ============================================================================
-// Flag helpers (pointer-aware)
-// ============================================================================
-
-func setMJIntFlag(cmd *cobra.Command, name string, target **int, val int) {
-	if cmd.Flags().Changed(name) {
-		v := val
-		*target = &v
-	}
-}
-
-func setMJFloatFlag(cmd *cobra.Command, name string, target **float64, val float64) {
-	if cmd.Flags().Changed(name) {
-		v := val
-		*target = &v
-	}
-}
-
-func setMJBoolFlag(cmd *cobra.Command, name string, target **bool, val bool) {
-	if cmd.Flags().Changed(name) {
-		v := val
-		*target = &v
-	}
-}
-
-// ============================================================================
 // Prompt resolver
 // ============================================================================
 

@@ -125,6 +125,14 @@ func setBoolFlag(cmd *cobra.Command, name string, target **bool, val bool) {
 	}
 }
 
+// setFloatFlag sets a *float64 field from a cobra flag if changed.
+func setFloatFlag(cmd *cobra.Command, name string, target **float64, val float64) {
+	if cmd.Flags().Changed(name) {
+		v := val
+		*target = &v
+	}
+}
+
 // extractExt returns the file extension from a URL, defaulting to .mp4.
 func extractExt(rawURL string) string {
 	return service.ExtractExt(rawURL)
