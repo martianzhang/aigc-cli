@@ -345,61 +345,6 @@ func runChat(cmd *cobra.Command, args []string) error {
 
 // sendChatRequest applies defaults, sends the request, and prints output.
 // Usage stats are shown only when --verbose is set.
-func sendChatRequest(cmd *cobra.Command, req *types.ChatRequest) error {
-	// Apply defaults
-	if !cmd.Flags().Changed("stream") {
-		req.Stream = true
-	}
-
-	// Merge config defaults
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
-		if shared.Cfg.Defaults.Chat.Model != "" {
-			req.Model = shared.Cfg.Defaults.Chat.Model
-		}
-	}
-
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
-	req.OutputWriter = chatStdout
-
-	start := time.Now()
-	result, err := c.ChatCompletion(req)
-	if err != nil {
-		return fmt.Errorf("chat failed: %w", err)
-	}
-	elapsed := time.Since(start)
-
-	// Non-streaming: print result (streaming already written to OutputWriter)
-	if !req.Stream && result != nil && len(result.Choices) > 0 {
-		fmt.Println(result.Choices[0].Message.Content)
-	}
-
-	// Usage stats (to stderr, only with --verbose)
-	if shared.Verbose {
-		printUsageStats(result, elapsed)
-	}
-
-	return nil
-}
-
-// printUsageStats prints token/cost/timing stats to stderr.
-func printUsageStats(result *types.ChatResponse, elapsed time.Duration) {
-	if result == nil {
-		return
-	}
-	parts := []string{}
-	if result.Model != "" {
-		parts = append(parts, fmt.Sprintf("Model: %s", result.Model))
-	}
-	if result.Usage != nil {
-		parts = append(parts, fmt.Sprintf("Tokens: %d↑ + %d↓ = %d",
-			result.Usage.PromptTokens, result.Usage.CompletionTokens, result.Usage.TotalTokens))
-		if result.Usage.Cost > 0 {
-			parts = append(parts, fmt.Sprintf("Cost: $%.6f", result.Usage.Cost))
-		}
-	}
-	parts = append(parts, fmt.Sprintf("Time: %v", elapsed.Round(time.Millisecond)))
-	fmt.Fprintln(chatStderr, "---  "+strings.Join(parts, "  |  "))
-}
 
 // runAgentLoop executes the tool-calling loop: send request → check tool_calls → execute → repeat.
 // history is modified in-place (appended with assistant + tool messages).
@@ -497,68 +442,6 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 	return nil, nil
 }
 
-func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
-	// JSON input
-	if chatJSONFlag != "" {
-		data, err := readInput(chatJSONFlag)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read JSON input: %w", err)
-		}
-		req := &types.ChatRequest{}
-		if err := json.Unmarshal(data, req); err != nil {
-			return nil, fmt.Errorf("failed to parse JSON: %w", err)
-		}
-		return req, nil
-	}
-
-	var messages []types.ChatMessage
-
-	if chatSystem != "" {
-		messages = append(messages, types.ChatMessage{Role: "system", Content: chatSystem})
-	}
-
-	for _, msg := range chatMessages {
-		messages = append(messages, types.ChatMessage{Role: "user", Content: msg})
-	}
-
-	// If no --message, read from stdin
-	if len(messages) == 0 {
-		data, err := readInput("-")
-		if err != nil {
-			return nil, fmt.Errorf("failed to read prompt from stdin: %w", err)
-		}
-		prompt := strings.TrimSpace(string(data))
-		if prompt != "" {
-			messages = append(messages, types.ChatMessage{Role: "user", Content: prompt})
-		}
-	}
-
-	if len(messages) == 0 {
-		return nil, fmt.Errorf("message is required (use --message or pipe to stdin)")
-	}
-
-	req := &types.ChatRequest{
-		Model:    shared.Model,
-		Messages: messages,
-		Stream:   !chatNoStream,
-	}
-
-	setFloatFlag(cmd, "temperature", &req.Temperature, chatTemperature)
-	setIntFlag(cmd, "max-tokens", &req.MaxTokens, chatMaxTokens)
-
-	return req, nil
-}
-
-// toURLs converts a single URL string to a slice (for MJ API compatibility).
-func toURLs(url string) []string {
-	if url == "" {
-		return nil
-	}
-	return []string{url}
-}
-
-// buildAgentTools returns the list of tool definitions based on config.
-// Applies tools (whitelist) and disable_tools (blacklist) glob patterns.
 func buildAgentTools(cfg *types.ChatDefaults) []types.ToolDefinition {
 	if cfg != nil && len(cfg.DisableTools) > 0 {
 		// Check if all tools are disabled via "*"
@@ -850,7 +733,7 @@ func executeRemoveWatermark(argsJSON string) string {
 	}
 
 	// Auto-load custom watermarks from config directory
-	watermark.LoadWatermarkPNGsFromDir(watermarkChatDir())
+	watermark.LoadWatermarkPNGsFromDir(watermarkDir())
 
 	res, err := watermark.RemoveFileHinted(a.FilePath, a.OutputPath, a.Producer)
 	if err != nil {
@@ -865,15 +748,6 @@ func executeRemoveWatermark(argsJSON string) string {
 		out = strings.TrimSuffix(a.FilePath, ext) + "_clean" + ext
 	}
 	return fmt.Sprintf("Successfully removed watermark (engine: %s). Output: %s", res.Name, out)
-}
-
-// watermarkChatDir returns the path to the custom watermark config directory.
-func watermarkChatDir() string {
-	home, _ := os.UserHomeDir()
-	if home == "" {
-		return ".config/aigc-cli/watermark"
-	}
-	return filepath.Join(home, ".config", "aigc-cli", "watermark")
 }
 
 // executeAddWatermark runs visible-AI-watermark addition and returns a text summary.
@@ -930,20 +804,8 @@ func executeMidjourney(c *client.Client, toolName, argsJSON string) string {
 			Speed:     args.Speed,
 		}
 		// Merge config defaults
-		if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Midjourney != nil {
-			d := shared.Cfg.Defaults.Midjourney
-			if mjReq.Speed == "" && d.Speed != "" {
-				mjReq.Speed = d.Speed
-			}
-			if mjReq.Version == "" && d.Version != "" {
-				mjReq.Version = d.Version
-			}
-			if mjReq.Style == "" && d.Style != "" {
-				mjReq.Style = d.Style
-			}
-			if mjReq.Size == "" && d.Size != "" {
-				mjReq.Size = d.Size
-			}
+		if shared.Cfg != nil && shared.Cfg.Defaults != nil {
+			shared.Cfg.Defaults.Midjourney.MergeIntoImagine(mjReq)
 		}
 		text, err := midjourneySubmitAndGetText(mjClient, "imagine", mjReq)
 		if err != nil {
