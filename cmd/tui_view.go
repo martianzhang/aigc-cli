@@ -299,6 +299,7 @@ func (m *chatModel) showHelp() {
   /<tool> <args>       Call a tool directly (e.g. /generate_image {"prompt":"a cat"})
   /preview <file>      Preview an image/video with system viewer
   !<command>           Run a shell command
+  PgUp/PgDn            Scroll conversation output
   Ctrl+C/D             Quit
   Esc                  Cancel current operation
   F1                   Show this help`
