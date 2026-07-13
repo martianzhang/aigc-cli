@@ -326,7 +326,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// ---- streaming -------------------------------------------------------
 	case streamChunk:
-		m.streamBuf.WriteString(string(msg))
+		m.streamBuf.WriteString(strings.ReplaceAll(string(msg), "\r", ""))
 		rendered := m.renderMessagesWithStream()
 		m.viewport.SetContent(rendered)
 		m.viewport.GotoBottom()
@@ -381,7 +381,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.streamBuf.Len() > 0 {
 			m.messages = append(m.messages, message{
 				role:    "assistant",
-				content: m.streamBuf.String(),
+				content: strings.ReplaceAll(m.streamBuf.String(), "\r", ""),
 			})
 		}
 		m.streamBuf.Reset()
