@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -161,43 +160,6 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
-}
-
-// videoDispatchCtx holds provider context for video strategy matching.
-// Built from local variables in runVideo, not global state.
-type videoDispatchCtx struct {
-	isOpenRouter bool
-	isYunwu      bool
-}
-
-// videoStrategy defines a dispatch rule for video generation.
-type videoStrategy struct {
-	match func(req *types.VideoGenerateRequest, ctx *videoDispatchCtx) bool
-	run   func(*types.VideoGenerateRequest) error
-}
-
-// videoStrategies is the ordered dispatch table for video generation.
-// First match wins. Add a new entry here when adding a new provider.
-var videoStrategies = []videoStrategy{
-	{
-		// OpenRouter: dedicated video API (submit → poll → download)
-		match: func(req *types.VideoGenerateRequest, ctx *videoDispatchCtx) bool {
-			return ctx.isOpenRouter
-		},
-		run: runOpenRouterVideo,
-	},
-	{
-		// Yunwu (云雾AI): unified video API (submit → poll → download)
-		match: func(req *types.VideoGenerateRequest, ctx *videoDispatchCtx) bool {
-			return ctx.isYunwu
-		},
-		run: runYunwuVideo,
-	},
-	{
-		// Default: APIMart async task-based generation
-		match: func(req *types.VideoGenerateRequest, ctx *videoDispatchCtx) bool { return true },
-		run:   runAPIMartVideo,
-	},
 }
 
 // runAPIMartVideo handles video generation via APIMart async task API.
@@ -437,122 +399,6 @@ func runVideoRemix(cmd *cobra.Command) error {
 }
 
 // resolveVideoPrompt resolves the video prompt (shared by normal and remix modes).
-func resolveVideoPrompt() (string, error) {
-	prompt := vidPrompt
-	if prompt == "" {
-		prompt = "-"
-	}
-	if prompt == "-" || isFile(prompt) {
-		data, err := readInput(prompt)
-		if err != nil {
-			return "", fmt.Errorf("failed to read prompt: %w", err)
-		}
-		return string(data), nil
-	}
-	return prompt, nil
-}
-
-func buildVideoRequest(cmd *cobra.Command) (*types.VideoGenerateRequest, error) {
-	if shared.JSONInput != "" {
-		data, err := readInput(shared.JSONInput)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read JSON input: %w", err)
-		}
-		req := &types.VideoGenerateRequest{}
-		if err := json.Unmarshal(data, req); err != nil {
-			return nil, fmt.Errorf("failed to parse JSON: %w", err)
-		}
-		return req, nil
-	}
-
-	prompt, err := resolveVideoPrompt()
-	if err != nil {
-		return nil, err
-	}
-
-	req := &types.VideoGenerateRequest{
-		Model:      shared.Model,
-		Prompt:     prompt,
-		Size:       vidSize,
-		Resolution: vidResolution,
-		ImageURLs:  vidImageURLs,
-		VideoURLs:  vidVideoURLs,
-		AudioURLs:  vidAudioURLs,
-	}
-
-	setIntFlag(cmd, "duration", &req.Duration, vidDuration)
-	setIntFlag(cmd, "seed", &req.Seed, vidSeed)
-	setBoolFlag(cmd, "generate-audio", &req.GenerateAudio, vidGenerateAudio)
-	setBoolFlag(cmd, "return-last-frame", &req.ReturnLastFrame, vidReturnLastFrame)
-
-	// --first-frame / --last-frame → image_with_roles
-	if cmd.Flags().Changed("first-frame") || cmd.Flags().Changed("last-frame") {
-		var roles []types.ImageWithRole
-		if cmd.Flags().Changed("first-frame") {
-			roles = append(roles, types.ImageWithRole{URL: vidFirstFrame, Role: "first_frame"})
-		}
-		if cmd.Flags().Changed("last-frame") {
-			roles = append(roles, types.ImageWithRole{URL: vidLastFrame, Role: "last_frame"})
-		}
-		req.ImageWithRoles = roles
-	}
-
-	// --tool
-	for _, t := range vidTools {
-		req.Tools = append(req.Tools, types.VideoTool{Type: t})
-	}
-
-	return req, nil
-}
-
-// setIntFlag sets a *int field from a cobra flag if changed.
-func setIntFlag(cmd *cobra.Command, name string, target **int, val int) {
-	if cmd.Flags().Changed(name) {
-		v := val
-		*target = &v
-	}
-}
-
-// setBoolFlag sets a *bool field from a cobra flag if changed.
-func setBoolFlag(cmd *cobra.Command, name string, target **bool, val bool) {
-	if cmd.Flags().Changed(name) {
-		v := val
-		*target = &v
-	}
-}
-
-func buildVideoCurl(req *types.VideoGenerateRequest) string {
-	body, _ := json.Marshal(req)
-	base := shared.APIBase
-	if base == "" {
-		base = "https://api.apimart.ai/v1" // matches client.defaultBaseURL
-	}
-	base = strings.TrimRight(base, "/")
-	url := base + "/videos/generations"
-
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", shared.APIKey)
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(body))
-	return cmd
-}
-
-func buildVideoRemixCurl(req *types.VideoRemixRequest) string {
-	body, _ := json.Marshal(req)
-	base := shared.APIBase
-	if base == "" {
-		base = "https://api.apimart.ai/v1"
-	}
-	base = strings.TrimRight(base, "/")
-	url := fmt.Sprintf("%s/videos/%s/remix", base, vidTaskID)
-
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", shared.APIKey)
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(body))
-	return cmd
-}
-
 // downloadVideos downloads all generated videos. Returns paths to saved files.
 func downloadVideos(videos []types.VideoResult, taskID string) ([]string, error) {
 	var saved []string
