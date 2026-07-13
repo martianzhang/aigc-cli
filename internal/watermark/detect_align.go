@@ -4,7 +4,6 @@ import (
 	"math"
 )
 
-
 func alignByNCC(mask []float64, maskW, maskH, maskX, maskY int,
 	srcAlpha []float64, srcW, srcH, expectW int, p TextMarkParams,
 ) (bestX, bestY, bestW, bestH int, bestScore float64) {
