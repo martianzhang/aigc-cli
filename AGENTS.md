@@ -170,6 +170,51 @@ CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值
 type: `feat` / `fix` / `refactor` / `docs` / `test` / `chore` / `style`
 scope: `image` / `video` / `chat` / `ideas` / `midjourney` / `mcp` / `config` / `docs` / `skill`
 
+### 4.7 文件规模与共享工具
+
+#### 4.7.1 文件规模
+
+单个 `.go` 文件尽量控制在 200 行以内（不含空白行和注释）。超过后建议按功能域拆分到独立文件，便于 AI 分析。拆分时保持 `package cmd` 不变，不修改任何代码逻辑。
+
+示例：`cmd/image.go`（823 行 → 5 个文件）
+
+| 文件 | 职责 | 行数 |
+|---|---|---|
+| `image.go` | 命令定义、`runImageGenerate`、标志注册、`init` | ~175 |
+| `image_request.go` | 请求构建（`buildImageRequest`、`buildImageCurl`）和输入解析 | ~70 |
+| `image_dispatch.go` | 策略上下文/类型/路由表（`imageDispatchCtx`、`imageStrategy`、`imageStrategies`） | ~45 |
+| `image_runners.go` | 各 Provider 执行函数（`runSyncImage`、`runAsyncImage`、`runOpenRouterDedicatedImage`）和 `downloadImages` | ~210 |
+| `image_helpers.go` | Image 模块专有辅助函数（`loadImageDefaults`、`savePromptFile`、`generateImageAndSave`） | ~155 |
+
+同样，`cmd/video.go`（901 行 → 5 个文件）：
+
+| 文件 | 职责 | 行数 |
+|---|---|---|
+| `video.go` | 命令定义、`runVideo`、job 持久化、标志注册、`init` | ~185 |
+| `video_request.go` | 请求构建（`buildVideoRequest`、`buildVideoCurl`、`resolveVideoPrompt`） | ~110 |
+| `video_dispatch.go` | 策略上下文/类型/路由表（`videoDispatchCtx`、`videoStrategy`、`videoStrategies`） | ~45 |
+| `video_runners.go` | 各 Provider 执行函数（`runAPIMartVideo`、`runYunwuVideo`、`runVideoRemix`、`runOpenRouterVideo`/`Resume`） | ~430 |
+| `video_helpers.go` | Video 模块专有辅助函数（`loadVideoDefaults`、`generateVideoAndSave`） | ~125 |
+
+#### 4.7.2 共享工具文件 `cmd/util.go`
+
+跨模块复用的公共函数放在 `cmd/util.go` 中，不挂靠在任何一个命令文件上。当前已提取的共享函数：
+
+| 函数 | 调用方 | 职责 |
+|---|---|---|
+| `readInput` | image / video / midjourney / chat (25 处) | 从文件、stdin 或字符串读取输入 |
+| `isFile` | image / video / midjourney | 判断路径是否为已有文件 |
+| `httpGet` | image / video | HTTP GET 或 data URI 转二进制 |
+| `applyTimeout` | image / video / midjourney | 按优先级设置 HTTP 客户端超时 |
+| `isOpenRouterProvider` | image / models / video / chat | 判断当前 base URL 是否为 OpenRouter |
+| `isAPIMartProvider` | image / chat | 判断是否使用 APIMart 异步模式 |
+| `setIntFlag` | video / chat | 按 cobra flag 是否变更设置 `*int` 字段 |
+| `setBoolFlag` | video / chat | 按 cobra flag 是否变更设置 `*bool` 字段 |
+| `extractExt` | video / models | 从 URL 提取文件扩展名，默认 `.mp4` |
+| `downloadVideos` | video / midjourney / task | 下载生成的视频列表到输出目录 |
+
+**规则**：新增的跨命令公共函数必须放在 `cmd/util.go` 中，不要放在某个命令的专属文件（如 `image_*.go`）里。如果某个函数理论上可以独立存在、不依赖具体命令的业务逻辑，它就是共享工具函数。
+
 ---
 
 ## 五、项目架构
@@ -177,8 +222,17 @@ scope: `image` / `video` / `chat` / `ideas` / `midjourney` / `mcp` / `config` / 
 ```
 aigc-cli/
 ├── cmd/              # cobra 命令定义（薄层：解析参数→调用逻辑→输出结果）
-│   ├── image.go      # 图片生成
-│   ├── video.go      # 视频生成
+│   ├── image.go      # 图片生成（命令定义 + 主流程）
+│   ├── image_request.go
+│   ├── image_dispatch.go
+│   ├── image_runners.go
+│   ├── image_helpers.go
+│   ├── util.go       # 跨命令共享工具函数（readInput / isFile / httpGet / applyTimeout / provider 检测）
+│   ├── video.go      # 视频生成（命令定义 + 主流程）
+│   ├── video_request.go
+│   ├── video_dispatch.go
+│   ├── video_runners.go
+│   ├── video_helpers.go
 │   ├── chat.go       # AI 对话
 │   ├── ideas.go      # 提示词灵感搜索
 │   └── ...
@@ -214,7 +268,7 @@ aigc-cli/
 - **文件上传**在 client 层自动处理本地路径→URL 转换
 - **配置文件**位于 `~/.config/aigc-cli/config.yaml`
 
-### 5.2 已知技术债务
+### 5.1 已知技术债务
 
 ---
 
