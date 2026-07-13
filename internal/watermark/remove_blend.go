@@ -4,6 +4,7 @@ import (
 	"image"
 	"math"
 )
+
 func blendEdgeResidual(src *image.RGBA, alpha []float64, ax, ay, size int) *image.RGBA {
 	b := src.Bounds()
 	imgW := b.Dx()

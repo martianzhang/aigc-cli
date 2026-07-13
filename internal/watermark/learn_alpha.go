@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"sort"
 )
+
 func computeAlphaWith(black, gray image.Image, w, h int,
 	bgB, bgG *bgModel,
 	noiseFloorB, noiseFloorG float64,

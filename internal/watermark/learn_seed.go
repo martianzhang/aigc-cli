@@ -4,6 +4,7 @@ import (
 	"image"
 	"math"
 )
+
 type bgModel struct {
 	baseR, baseG, baseB float64
 	gxR, gxG, gxB       float64 // horizontal gradient (per column)
@@ -357,4 +358,3 @@ func cornerLum(img image.Image, w, h int) float64 {
 	}
 	return sum / n
 }
-

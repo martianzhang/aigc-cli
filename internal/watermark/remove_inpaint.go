@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/draw"
 )
+
 func checkOversubtraction(img image.Image, alpha []float64, ax, ay, aw, ah int, darkMargin float64) bool {
 	b := img.Bounds()
 	iw, ih := b.Dx(), b.Dy()
