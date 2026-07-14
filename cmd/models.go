@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -104,7 +102,6 @@ func runModelsMarketplace(mediaType string) error {
 	}
 	printAPIURL(firstURL)
 
-	httpClient := httpProxyClient()
 	pageSize := 50
 	page := 1
 	var allModels []types.MarketplaceModel
@@ -116,7 +113,7 @@ func runModelsMarketplace(mediaType string) error {
 			url += "&type=" + mediaType
 		}
 
-		resp, err := httpClient.Get(url)
+		resp, err := http.DefaultClient.Get(url)
 		if err != nil {
 			return fmt.Errorf("failed to fetch models (page %d): %w", page, err)
 		}
@@ -187,7 +184,7 @@ func runModelsMarketplace(mediaType string) error {
 			line := fmt.Sprintf("    %-30s", m.ModelName)
 			// --price (bare) adds pricing column
 			if cmdPriceChanged {
-				line += fmt.Sprintf("  %-12s", formatPrice(m))
+				line += fmt.Sprintf("  %-12s", m.FormatPrice())
 			}
 			tags := strings.Join(m.Tags, ", ")
 			if tags != "" {
@@ -217,8 +214,7 @@ func runModelsOpenRouterDiscovery(mediaType string) error {
 
 	printAPIURL(endpoint)
 
-	client := httpProxyClient()
-	resp, err := client.Get(endpoint)
+	resp, err := http.DefaultClient.Get(endpoint)
 	if err != nil {
 		return fmt.Errorf("failed to fetch %s models: %w", mediaType, err)
 	}
@@ -317,7 +313,7 @@ func runModelsOpenAI() error {
 		base = "https://api.openai.com"
 	}
 	base = strings.TrimRight(base, "/")
-	if !hasVersionSuffix(base) {
+	if !client.HasVersionSuffix(base) {
 		base += "/v1"
 	}
 	printAPIURL(base + "/models")
@@ -353,7 +349,7 @@ func runModelsDetail(modelID string) error {
 		base = "https://api.openai.com"
 	}
 	base = strings.TrimRight(base, "/")
-	if !hasVersionSuffix(base) {
+	if !client.HasVersionSuffix(base) {
 		base += "/v1"
 	}
 	printAPIURL(base + "/models/" + modelID)
@@ -383,22 +379,6 @@ func runModelsDetail(modelID string) error {
 	return nil
 }
 
-func formatPrice(m types.MarketplaceModel) string {
-	if !m.Pricing.HasPrice {
-		return "—"
-	}
-	unit := m.Pricing.PriceUnit
-	if unit == "" {
-		unit = "/次"
-	}
-	switch m.Pricing.BillingType {
-	case "per_token":
-		return fmt.Sprintf("$%.4f%s", m.Pricing.StartingPrice, unit)
-	default:
-		return fmt.Sprintf("$%.4f%s", m.Pricing.StartingPrice, unit)
-	}
-}
-
 // runModelsPricing fetches and displays detailed pricing for a single model.
 func runModelsPricing(modelName string) error {
 	base := mainDomain(shared.APIBase)
@@ -406,8 +386,7 @@ func runModelsPricing(modelName string) error {
 
 	printAPIURL(pricingURL)
 
-	c := httpProxyClient()
-	resp, err := c.Get(pricingURL)
+	resp, err := http.DefaultClient.Get(pricingURL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch pricing: %w", err)
 	}
@@ -496,26 +475,6 @@ func mainDomain(baseURL string) string {
 	return baseURL
 }
 
-// httpProxyClient returns an HTTP client that respects the configured proxy.
-func httpProxyClient() *http.Client {
-	transport := &http.Transport{}
-	proxyURL := shared.HTTPProxy
-	if proxyURL == "" {
-		proxyURL = os.Getenv("APIMART_HTTP_PROXY")
-	}
-	if proxyURL == "" {
-		proxyURL = os.Getenv("HTTP_PROXY")
-	}
-	if proxyURL != "" {
-		if parsed, err := url.Parse(proxyURL); err == nil {
-			transport.Proxy = http.ProxyURL(parsed)
-		}
-	} else {
-		transport.Proxy = http.ProxyFromEnvironment
-	}
-	return &http.Client{Transport: transport}
-}
-
 func init() {
 	modelsCmd.Flags().StringVarP(&modelType, "type", "t", "", "Filter by media type (APIMart marketplace): image, video, chat")
 	modelsCmd.Flags().StringVarP(&priceArg, "price", "p", "", "Show pricing column (no arg) or model pricing details (with model name) (APIMart only)")
@@ -525,23 +484,4 @@ func init() {
 // printAPIURL prints the API endpoint being called in a consistent format.
 func printAPIURL(apiURL string) {
 	fmt.Printf("API: %s\n", apiURL)
-}
-
-// hasVersionSuffix reports whether urlStr ends with a version path segment like /v1, /v2.
-// Copied from internal/client/client.go (unexported helper).
-func hasVersionSuffix(urlStr string) bool {
-	lastSlash := strings.LastIndex(urlStr, "/")
-	if lastSlash < 0 || lastSlash == len(urlStr)-1 {
-		return false
-	}
-	seg := urlStr[lastSlash+1:]
-	if len(seg) < 2 || seg[0] != 'v' {
-		return false
-	}
-	for i := 1; i < len(seg); i++ {
-		if seg[i] < '0' || seg[i] > '9' {
-			return false
-		}
-	}
-	return true
 }

@@ -18,10 +18,10 @@ func TestFormatPrice_perGeneration(t *testing.T) {
 			BillingType:   "per_generation",
 		},
 	}
-	got := formatPrice(m)
+	got := m.FormatPrice()
 	want := "$0.0060/次"
 	if got != want {
-		t.Errorf("formatPrice() = %q, want %q", got, want)
+		t.Errorf("FormatPrice() = %q, want %q", got, want)
 	}
 }
 
@@ -34,10 +34,10 @@ func TestFormatPrice_perToken(t *testing.T) {
 			BillingType:   "per_token",
 		},
 	}
-	got := formatPrice(m)
+	got := m.FormatPrice()
 	want := "$4.0000/1K tokens"
 	if got != want {
-		t.Errorf("formatPrice() = %q, want %q", got, want)
+		t.Errorf("FormatPrice() = %q, want %q", got, want)
 	}
 }
 
@@ -47,10 +47,10 @@ func TestFormatPrice_noPrice(t *testing.T) {
 			HasPrice: false,
 		},
 	}
-	got := formatPrice(m)
+	got := m.FormatPrice()
 	want := "—"
 	if got != want {
-		t.Errorf("formatPrice() = %q, want %q", got, want)
+		t.Errorf("FormatPrice() = %q, want %q", got, want)
 	}
 }
 
@@ -63,10 +63,10 @@ func TestFormatPrice_emptyUnit(t *testing.T) {
 			BillingType:   "per_generation",
 		},
 	}
-	got := formatPrice(m)
+	got := m.FormatPrice()
 	want := "$0.0100/次"
 	if got != want {
-		t.Errorf("formatPrice() = %q, want %q", got, want)
+		t.Errorf("FormatPrice() = %q, want %q", got, want)
 	}
 }
 
