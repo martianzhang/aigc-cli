@@ -21,20 +21,29 @@ func (m *chatModel) runTUIAgentLoop() {
 	turnCount := 0
 	agentStart := time.Now()
 
+	// Take a snapshot of current history (already includes the latest user
+	// message appended by handleUserMessage on the main thread).
+	// The goroutine works exclusively on this local copy — never on m.history
+	// directly — and sends it back via agentDone.history. This avoids the
+	// Bubble Tea value-copy trap where a goroutine's mutations to the current
+	// Update copy are silently discarded.
+	m.mu.Lock()
+	localHistory := make([]types.ChatMessage, len(m.history))
+	copy(localHistory, m.history)
+	m.mu.Unlock()
+
 	for turnCount < m.maxIters {
 		select {
 		case <-m.ctx.Done():
-			prog.Send(agentDone{err: m.ctx.Err()})
+			prog.Send(agentDone{err: m.ctx.Err(), history: localHistory})
 			return
 		default:
 		}
 		turnCount++
 
-		m.mu.Lock()
-
 		req := &types.ChatRequest{
 			Model:    m.model,
-			Messages: m.history,
+			Messages: localHistory,
 			Stream:   true,
 		}
 		if len(m.agentTools) > 0 {
@@ -48,7 +57,6 @@ func (m *chatModel) runTUIAgentLoop() {
 			t := m.maxTokens
 			req.MaxTokens = &t
 		}
-		m.mu.Unlock()
 
 		// progWriter sends content to the assistant message area.
 		pw := &progWriter{prog: prog}
@@ -62,7 +70,7 @@ func (m *chatModel) runTUIAgentLoop() {
 		chatStderr = oldStderr
 
 		if err != nil {
-			prog.Send(agentDone{err: err})
+			prog.Send(agentDone{err: err, history: localHistory})
 			return
 		}
 		if len(result.Choices) == 0 {
@@ -72,9 +80,7 @@ func (m *chatModel) runTUIAgentLoop() {
 
 		// Tool calls
 		if choice.FinishReason == "tool_calls" && len(choice.Message.ToolCalls) > 0 {
-			m.mu.Lock()
-			m.history = append(m.history, choice.Message)
-			m.mu.Unlock()
+			localHistory = append(localHistory, choice.Message)
 
 			for _, tc := range choice.Message.ToolCalls {
 				prog.Send(toolStart{name: tc.Function.Name})
@@ -88,22 +94,16 @@ func (m *chatModel) runTUIAgentLoop() {
 				summary := summarizeToolResult(tc.Function.Name, toolResult)
 				prog.Send(toolDone{name: tc.Function.Name, summary: summary, content: toolResult})
 
-				m.mu.Lock()
-				m.history = append(m.history, types.ChatMessage{
+				localHistory = append(localHistory, types.ChatMessage{
 					Role:       "tool",
 					ToolCallID: tc.ID,
 					Content:    toolResult,
 				})
-				m.mu.Unlock()
 			}
 			continue
 		}
 
 		// Text response — already streamed via progWriter.
-		// Don't append to history here — the goroutine's m is a
-		// different copy of the model. Pass the message through
-		// agentDone so the main goroutine appends to its copy.
-
 		if turnCount >= m.maxIters {
 			prog.Send(toolDone{
 				name:    "info",
@@ -111,16 +111,18 @@ func (m *chatModel) runTUIAgentLoop() {
 			})
 		}
 
+		localHistory = append(localHistory, choice.Message)
 		prog.Send(agentDone{
 			result:       result,
 			elapsed:      time.Since(agentStart),
 			err:          nil,
 			assistantMsg: &choice.Message,
+			history:      localHistory,
 		})
 		return
 	}
 
-	prog.Send(agentDone{})
+	prog.Send(agentDone{history: localHistory})
 }
 
 // ---------------------------------------------------------------------------

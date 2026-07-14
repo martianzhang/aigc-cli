@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 
@@ -98,7 +99,14 @@ func runChat(cmd *cobra.Command, args []string) error {
 	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
 	history := req.Messages
 	_, err = runAgentLoop(context.Background(), c, &history, agentTools, maxIterations, cmd)
-	return err
+	if err != nil {
+		return err
+	}
+	if shared.Verbose && len(history) > len(req.Messages) {
+		added := len(history) - len(req.Messages)
+		fmt.Fprintf(chatStderr, "Agent loop completed: %d additional messages accumulated (tool calls + responses)\n", added)
+	}
+	return nil
 }
 
 // generateImageArgs is the JSON structure for generate_image tool arguments.

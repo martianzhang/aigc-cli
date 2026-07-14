@@ -208,21 +208,24 @@ func (m *chatModel) compactConversation(count int) {
 
 	summary := result.Choices[0].Message.Content
 
-	// Replace history with the original system prompt + compacted summary
-	m.mu.Lock()
-	if m.system != "" {
-		m.history = []types.ChatMessage{
-			{Role: "system", Content: m.system},
-			{Role: "system", Content: "Previous conversation summary:\n\n" + summary},
-		}
-	} else {
-		m.history = []types.ChatMessage{
-			{Role: "system", Content: "Previous conversation summary:\n\n" + summary},
-		}
+	// Build the compacted history locally — don't write to m.history
+	// from a goroutine (same Bubble Tea value-copy trap).
+	var newHistory []types.ChatMessage
+	if len(history) > 0 && history[0].Role == "system" {
+		// Preserve the original system message (includes date context)
+		newHistory = append(newHistory, history[0])
+	} else if m.system != "" {
+		newHistory = append(newHistory, types.ChatMessage{Role: "system", Content: m.system})
 	}
-	m.mu.Unlock()
+	newHistory = append(newHistory, types.ChatMessage{
+		Role:    "system",
+		Content: "Previous conversation summary:\n\n" + summary,
+	})
 
-	prog.Send(compactDone{summary: fmt.Sprintf("Compacted %d messages into 1 summary:\n\n%s", count, summary)})
+	prog.Send(compactDone{
+		summary:    fmt.Sprintf("Compacted %d messages into 1 summary:\n\n%s", count, summary),
+		newHistory: newHistory,
+	})
 }
 
 func (m *chatModel) pushHistory(cmd string) {
@@ -369,6 +372,22 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 			go func() {
 				prog := getProgram(m)
 				prog.Send(toolStart{name: cmdName})
+
+				// Take snapshot of history (same principle as runTUIAgentLoop)
+				m.mu.Lock()
+				localHistory := make([]types.ChatMessage, len(m.history))
+				copy(localHistory, m.history)
+				m.mu.Unlock()
+
+				// Synthesize an assistant tool_call message so the model
+				// sees the full conversational context (assistant requested
+				// a tool → tool returned result).
+				localHistory = append(localHistory, types.ChatMessage{
+					Role:      "assistant",
+					Content:   "",
+					ToolCalls: []types.ToolCall{tc},
+				})
+
 				// Redirect stderr during tool execution
 				oldStderr := chatStderr
 				chatStderr = &logWriter{prog: prog}
@@ -377,16 +396,13 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 				summary := summarizeToolResult(cmdName, result)
 				prog.Send(toolDone{name: cmdName, summary: summary, content: result})
 
-				// Also add to conversation history as a tool message
-				m.mu.Lock()
-				m.history = append(m.history, types.ChatMessage{
+				localHistory = append(localHistory, types.ChatMessage{
 					Role:       "tool",
 					ToolCallID: tc.ID,
 					Content:    result,
 				})
-				m.mu.Unlock()
 
-				prog.Send(agentDone{})
+				prog.Send(agentDone{history: localHistory})
 			}()
 
 			return m, m.spinner.Tick
@@ -431,14 +447,13 @@ func (m *chatModel) handleShellCommand(input string) (tea.Model, tea.Cmd) {
 	// race conditions with subsequent user messages.
 	result := executeShellCommand(cmdLine)
 
-	// Store in history as system message so the model treats it as
-	// contextual information rather than a user query.
-	m.mu.Lock()
+	// Store in history as user message (not system) so it doesn't dilute
+	// the system prompt. The model sees it as contextual information
+	// provided by the user, not as an instruction-level directive.
 	m.history = append(m.history, types.ChatMessage{
-		Role:    "system",
-		Content: fmt.Sprintf("Shell command `%s` returned:\n%s", cmdLine, result),
+		Role:    "user",
+		Content: fmt.Sprintf("(I ran the shell command `%s` and got:\n%s)", cmdLine, result),
 	})
-	m.mu.Unlock()
 
 	// Update the tool message with the result
 	for i := len(m.messages) - 1; i >= 0; i-- {
