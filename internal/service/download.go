@@ -13,21 +13,6 @@ import (
 	"strings"
 )
 
-// DownloadFile downloads a URL to a local file path.
-func DownloadFile(url, dest string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(dest, data, 0644)
-}
-
 // ExtractExt returns the file extension from a URL, defaulting to ".mp4".
 func ExtractExt(rawURL string) string {
 	if idx := strings.Index(rawURL, "?"); idx != -1 {

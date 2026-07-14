@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -170,7 +169,7 @@ func handleMCPAPIMartImage(c client.APIClient, req *types.GenerateRequest, outpu
 					ext = ".png"
 				}
 				filename := filepath.Join(outputDir, fmt.Sprintf("apimart_%s_%d_%d%s", taskData.ID, i, j, ext))
-				if err := downloadFile(url, filename); err != nil {
+				if err := client.DownloadFile(http.DefaultClient, url, filename); err != nil {
 					continue
 				}
 				savedFiles = append(savedFiles, filename)
@@ -304,23 +303,4 @@ func handleMCPAPIMartVideo(c client.APIClient, req *types.VideoGenerateRequest) 
 	taskInfo := resp.Data[0]
 	text := fmt.Sprintf("视频任务已提交。\n\nTask ID: %s\nStatus: %s\n\n视频生成耗时较长（通常 30-180 秒），请使用 get_task 工具传入此 task_id 查询生成结果。", taskInfo.TaskID, taskInfo.Status)
 	return mcp.NewToolResultText(text), nil
-}
-
-// httpGetBytes performs a simple GET request and returns the body bytes.
-func httpGetBytes(url string) ([]byte, error) {
-	resp, err := http.DefaultClient.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
-}
-
-// downloadFile downloads a URL to a local file path.
-func downloadFile(url, dest string) error {
-	data, err := httpGetBytes(url)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(dest, data, 0644)
 }
