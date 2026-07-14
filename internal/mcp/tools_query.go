@@ -199,16 +199,8 @@ func handleMCPGetOpenRouterJob(c client.APIClient, jobID, outputDir string) (*mc
 	case "completed":
 		b.WriteString("\n视频:\n")
 		for i, u := range statusResp.UnsignedURLs {
-			ext := ".mp4"
-			if idx := strings.LastIndex(u, "."); idx > 0 && len(u)-idx < 6 {
-				ext = u[idx:]
-			}
-			filename := fmt.Sprintf("video_%s_%d%s", jobID, i, ext)
-			fullpath := filename
-			if outputDir != "" {
-				fullpath = outputDir + "/" + filename
-			}
-			if err := c.OpenRouterVideoDownload(u, fullpath); err == nil {
+			fullpath, err := service.DownloadFile(u, outputDir, fmt.Sprintf("video_%s_%d", jobID, i))
+			if err == nil {
 				fmt.Fprintf(&b, "  %s\n", fullpath)
 			} else {
 				fmt.Fprintf(&b, "  %s (download failed: %v)\n", u, err)

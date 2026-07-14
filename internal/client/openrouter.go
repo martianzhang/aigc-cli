@@ -134,33 +134,6 @@ func (c *Client) OpenRouterVideoGet(jobID string) (*types.OpenRouterVideoStatusR
 	return &result, nil
 }
 
-// OpenRouterVideoDownload downloads the video from an unsigned URL and saves it.
-func (c *Client) OpenRouterVideoDownload(url, dest string) error {
-	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create download request: %w", err)
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return fmt.Errorf("download request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("download returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read download response: %w", err)
-	}
-
-	return os.WriteFile(dest, data, 0644)
-}
-
 // OpenRouterVideoPollUntilComplete polls a video job until completion or failure.
 // pollInterval: time between polls (default 30s if zero).
 // maxWait: maximum total wait time (default 5min if zero).

@@ -11,10 +11,9 @@ import (
 
 // mockAPIClient implements client.APIClient for testing MCP handlers.
 type mockAPIClient struct {
-	getTaskFn                 func(taskID string) (*types.TaskData, error)
-	openRouterVideoGetFn      func(jobID string) (*types.OpenRouterVideoStatusResponse, error)
-	openRouterVideoDownloadFn func(url, dest string) error
-	openRouterVideoSubmitFn   func(req *types.OpenRouterVideoRequest) (*types.OpenRouterVideoSubmitResponse, error)
+	getTaskFn               func(taskID string) (*types.TaskData, error)
+	openRouterVideoGetFn    func(jobID string) (*types.OpenRouterVideoStatusResponse, error)
+	openRouterVideoSubmitFn func(req *types.OpenRouterVideoRequest) (*types.OpenRouterVideoSubmitResponse, error)
 }
 
 func (m *mockAPIClient) SetTimeout(d time.Duration) {}
@@ -67,12 +66,6 @@ func (m *mockAPIClient) OpenRouterVideoGet(jobID string) (*types.OpenRouterVideo
 		return m.openRouterVideoGetFn(jobID)
 	}
 	return &types.OpenRouterVideoStatusResponse{ID: jobID, Status: "completed"}, nil
-}
-func (m *mockAPIClient) OpenRouterVideoDownload(url, dest string) error {
-	if m.openRouterVideoDownloadFn != nil {
-		return m.openRouterVideoDownloadFn(url, dest)
-	}
-	return nil
 }
 func (m *mockAPIClient) OpenRouterVideoPollUntilComplete(pollingURL string, pollInterval, maxWait time.Duration) (*types.OpenRouterVideoStatusResponse, error) {
 	return nil, nil
@@ -167,9 +160,6 @@ func TestHandleMCPGetOpenRouterJob_completed(t *testing.T) {
 				UnsignedURLs: []string{"https://example.com/video.mp4"},
 				Usage:        &types.OpenRouterUsage{TotalCost: 0.1},
 			}, nil
-		},
-		openRouterVideoDownloadFn: func(url, dest string) error {
-			return nil
 		},
 	}
 	result, err := handleMCPGetOpenRouterJob(mock, "job_789", t.TempDir())

@@ -338,7 +338,7 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) error {
 		ext := extractExt(u)
 		filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_%s_%d%s", submitResp.ID, i, ext))
 		fmt.Printf("Downloading video %d/%d...\n", i+1, len(pollResp.UnsignedURLs))
-		if err := c.OpenRouterVideoDownload(u, filename); err != nil {
+		if err := service.SaveResource(u, filename); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to download video %d: %v\n", i, err)
 			continue
 		}
@@ -405,7 +405,7 @@ func runOpenRouterVideoResume(jobID string) error {
 		ext := extractExt(u)
 		filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_%s_%d%s", info.JobID, i, ext))
 		fmt.Printf("Downloading video %d/%d...\n", i+1, len(statusResp.UnsignedURLs))
-		if err := c.OpenRouterVideoDownload(u, filename); err != nil {
+		if err := service.SaveResource(u, filename); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to download video %d: %v\n", i, err)
 			continue
 		}

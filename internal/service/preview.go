@@ -25,7 +25,7 @@ import (
 func PreviewFile(path string) error {
 	// Detect URL — download to temp file first
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
-		data, err := FetchImage(path)
+		data, err := FetchBytes(path)
 		if err != nil {
 			return fmt.Errorf("failed to download %s: %w", path, err)
 		}

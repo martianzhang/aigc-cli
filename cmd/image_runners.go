@@ -155,7 +155,7 @@ func downloadImages(images []types.ImageResult, taskID string) ([]string, error)
 	var saved []string
 	for i, img := range images {
 		for j, url := range img.URL {
-			data, err := service.FetchImage(url)
+			data, err := service.FetchBytes(url)
 			if err != nil {
 				// Save raw data as text file for manual recovery
 				prefix := fmt.Sprintf("image_%s_%d_%d", taskID, i, j)
