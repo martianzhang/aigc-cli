@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -143,15 +145,10 @@ func downloadVideos(videos []types.VideoResult, taskID string) ([]string, error)
 	var saved []string
 	for i, vid := range videos {
 		for j, url := range vid.URL {
-			resp, err := httpGet(url)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to download video %d-%d: %v\n", i, j, err)
-				continue
-			}
 			ext := extractExt(url)
 			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_%s_%d_%d%s", taskID, i, j, ext))
-			if err := os.WriteFile(filename, resp, 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
+			if err := client.DownloadFile(http.DefaultClient, url, filename); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to download video %d-%d: %v\n", i, j, err)
 				continue
 			}
 			fmt.Printf("Saved: %s\n", filename)
@@ -159,4 +156,54 @@ func downloadVideos(videos []types.VideoResult, taskID string) ([]string, error)
 		}
 	}
 	return saved, nil
+}
+
+// saveImage downloads a single image from a URL and saves it to disk.
+func saveImage(imageURL, taskID string, index int) (string, error) {
+	body, err := httpGet(imageURL)
+	if err != nil {
+		return "", err
+	}
+	ext := filepath.Ext(imageURL)
+	if ext == "" {
+		ext = ".png"
+	}
+	filename := filepath.Join(shared.OutputDir, fmt.Sprintf("image_%s_%d%s", taskID, index, ext))
+	if err := os.WriteFile(filename, body, 0644); err != nil {
+		return "", fmt.Errorf("failed to save %s: %w", filename, err)
+	}
+	return filename, nil
+}
+
+// printUsage prints token usage and cost information.
+func printUsage(usage *types.OpenAIImageUsage) {
+	if usage == nil {
+		return
+	}
+	var parts []string
+	if usage.PromptTokens > 0 {
+		parts = append(parts, fmt.Sprintf("%d in", usage.PromptTokens))
+	}
+	if usage.CompletionTokens > 0 {
+		parts = append(parts, fmt.Sprintf("%d out", usage.CompletionTokens))
+	}
+	if usage.TotalTokens > 0 {
+		parts = append(parts, fmt.Sprintf("%d total", usage.TotalTokens))
+	}
+	tokenStr := ""
+	if len(parts) > 0 {
+		tokenStr = strings.Join(parts, " / ")
+	}
+	if tokenStr != "" || usage.Cost > 0 {
+		if tokenStr != "" {
+			fmt.Printf("Tokens: %s", tokenStr)
+		}
+		if usage.Cost > 0 {
+			if tokenStr != "" {
+				fmt.Printf(" | ")
+			}
+			fmt.Printf("Cost: $%.5f", usage.Cost)
+		}
+		fmt.Println()
+	}
 }

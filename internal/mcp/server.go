@@ -287,3 +287,16 @@ func newAddWatermarkTool() mcp.Tool {
 		),
 	)
 }
+
+// extFromURL extracts the file extension from a URL, stripping query parameters.
+// Returns defaultExt when the URL has no recognizable extension.
+func extFromURL(rawURL string, defaultExt string) string {
+	if idx := strings.Index(rawURL, "?"); idx >= 0 {
+		rawURL = rawURL[:idx]
+	}
+	ext := filepath.Ext(rawURL)
+	if ext == "" || len(ext) > 5 {
+		return defaultExt
+	}
+	return ext
+}
