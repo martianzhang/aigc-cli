@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/martianzhang/apimart-cli/internal/client"
 )
 
 const ortVersion = "1.27.0"
@@ -88,7 +90,7 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
-	client := &http.Client{
+	httpClient := &http.Client{
 		Timeout:   600 * time.Second,
 		Transport: transport,
 	}
@@ -100,7 +102,7 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 	if _, err := os.Stat(libPath); err != nil || detectForce {
 		fmt.Printf("Downloading ONNX Runtime %s (%s)...\n", ortVersion, runtime.GOOS)
 		archivePath := filepath.Join(modelsDir, ortInfo.archiveName)
-		if err := downloadFile(client, ortInfo.url, archivePath); err != nil {
+		if err := client.DownloadFile(httpClient, ortInfo.url, archivePath); err != nil {
 			return fmt.Errorf("ONNX Runtime download failed: %w", err)
 		}
 		fmt.Println("  Extracting...")
@@ -121,7 +123,7 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Downloading %s model - %s (%s)...\n", modelID, info.desc, info.size)
-	if err := downloadFile(client, info.url, modelPath); err != nil {
+	if err := client.DownloadFile(httpClient, info.url, modelPath); err != nil {
 		return fmt.Errorf("model download failed: %w", err)
 	}
 	fmt.Println("  Done.")
@@ -175,43 +177,6 @@ func getORTDownloadInfo() ortDownloadInfo {
 			internalPath: fmt.Sprintf("onnxruntime-linux-%s-%s/lib/libonnxruntime.so", arch, ortVersion),
 		}
 	}
-}
-
-// downloadFile downloads a URL to a local file path.
-func downloadFile(client *http.Client, url, dest string) error {
-	resp, err := client.Get(url)
-	if err != nil {
-		return fmt.Errorf("HTTP request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
-	tmpDest := dest + ".tmp"
-	f, err := os.Create(tmpDest)
-	if err != nil {
-		return fmt.Errorf("cannot create %s: %w", tmpDest, err)
-	}
-
-	written, err := io.Copy(f, resp.Body)
-	if err != nil {
-		f.Close()
-		os.Remove(tmpDest)
-		return fmt.Errorf("download failed: %w", err)
-	}
-	f.Close()
-
-	if written == 0 {
-		os.Remove(tmpDest)
-		return fmt.Errorf("downloaded file is empty")
-	}
-
-	if err := os.Rename(tmpDest, dest); err != nil {
-		return fmt.Errorf("rename failed: %w", err)
-	}
-	return nil
 }
 
 func extractRuntime(archivePath, modelsDir, libName string, info ortDownloadInfo) error {
