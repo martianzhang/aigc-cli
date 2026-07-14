@@ -13,8 +13,6 @@ import (
 const (
 	configDir     = ".config/aigc-cli"
 	configFile    = "config"
-	configExt     = "yaml"
-	envPrefix     = "APIMART"
 	defaultAPIURL = "https://api.apimart.ai"
 )
 
@@ -22,14 +20,11 @@ const (
 // Supports both OPENAI_* and APIMART_* environment variables for compatibility.
 func Load(customPath string) (*types.Config, error) {
 	v := viper.New()
-	v.SetEnvPrefix(envPrefix)
-	v.AutomaticEnv()
 
 	// Bind well-known env vars to config keys.
-	// Support both OPENAI_* (preferred) and APIMART_* (backward compat) prefixes.
-	_ = v.BindEnv("api_key", "OPENAI_API_KEY", "APIMART_API_KEY")
-	_ = v.BindEnv("base_url", "OPENAI_BASE_URL", "APIMART_API_BASE")
-	_ = v.BindEnv("http_proxy", "OPENAI_HTTP_PROXY", "APIMART_HTTP_PROXY", "HTTP_PROXY")
+	_ = v.BindEnv("api_key", "OPENAI_API_KEY")
+	_ = v.BindEnv("base_url", "OPENAI_BASE_URL")
+	_ = v.BindEnv("http_proxy", "OPENAI_HTTP_PROXY", "HTTP_PROXY")
 
 	if customPath != "" {
 		v.SetConfigFile(customPath)
