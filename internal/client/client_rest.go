@@ -29,44 +29,6 @@ func HasVersionSuffix(urlStr string) bool {
 	return true
 }
 
-// DownloadFile downloads a URL to a local file path using the given HTTP client.
-// Uses a temporary file for atomic writes and validates the response status code.
-func DownloadFile(httpClient *http.Client, url, dest string) error {
-	resp, err := httpClient.Get(url)
-	if err != nil {
-		return fmt.Errorf("HTTP request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
-	tmpDest := dest + ".tmp"
-	f, err := os.Create(tmpDest)
-	if err != nil {
-		return fmt.Errorf("cannot create %s: %w", tmpDest, err)
-	}
-
-	written, err := io.Copy(f, resp.Body)
-	if err != nil {
-		f.Close()
-		os.Remove(tmpDest)
-		return fmt.Errorf("download failed: %w", err)
-	}
-	f.Close()
-
-	if written == 0 {
-		os.Remove(tmpDest)
-		return fmt.Errorf("downloaded file is empty")
-	}
-
-	if err := os.Rename(tmpDest, dest); err != nil {
-		return fmt.Errorf("rename failed: %w", err)
-	}
-	return nil
-}
-
 // isLocalFile returns true if the path points to an existing file.
 func isLocalFile(path string) bool {
 	info, err := os.Stat(path)

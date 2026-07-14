@@ -143,7 +143,7 @@ func generateImageAndSave(c client.APIClient, req *types.GenerateRequest) ([]str
 			saved = append(saved, filename)
 		} else if img.URL != "" {
 			taskID := fmt.Sprintf("sync_%d", resp.Created)
-			filename, saveErr := saveImage(img.URL, taskID, i)
+			filename, saveErr := service.DownloadFile(img.URL, shared.OutputDir, fmt.Sprintf("image_%s_%d", taskID, i))
 			if saveErr != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, saveErr)
 				continue

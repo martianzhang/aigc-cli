@@ -3,9 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -42,11 +40,6 @@ func isFile(path string) bool {
 		return false
 	}
 	return !info.IsDir()
-}
-
-// httpGet performs an HTTP GET or resolves a data URI / base64 string.
-func httpGet(rawURL string) ([]byte, error) {
-	return service.FetchImage(rawURL)
 }
 
 // applyTimeout sets the HTTP client timeout from CLI flag / config, falling back to modDefault.
@@ -145,9 +138,8 @@ func downloadVideos(videos []types.VideoResult, taskID string) ([]string, error)
 	var saved []string
 	for i, vid := range videos {
 		for j, url := range vid.URL {
-			ext := extractExt(url)
-			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_%s_%d_%d%s", taskID, i, j, ext))
-			if err := client.DownloadFile(http.DefaultClient, url, filename); err != nil {
+			filename, err := service.DownloadFile(url, shared.OutputDir, fmt.Sprintf("video_%s_%d_%d", taskID, i, j))
+			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to download video %d-%d: %v\n", i, j, err)
 				continue
 			}
@@ -156,23 +148,6 @@ func downloadVideos(videos []types.VideoResult, taskID string) ([]string, error)
 		}
 	}
 	return saved, nil
-}
-
-// saveImage downloads a single image from a URL and saves it to disk.
-func saveImage(imageURL, taskID string, index int) (string, error) {
-	body, err := httpGet(imageURL)
-	if err != nil {
-		return "", err
-	}
-	ext := filepath.Ext(imageURL)
-	if ext == "" {
-		ext = ".png"
-	}
-	filename := filepath.Join(shared.OutputDir, fmt.Sprintf("image_%s_%d%s", taskID, index, ext))
-	if err := os.WriteFile(filename, body, 0644); err != nil {
-		return "", fmt.Errorf("failed to save %s: %w", filename, err)
-	}
-	return filename, nil
 }
 
 // printUsage prints token usage and cost information.

@@ -13,6 +13,7 @@ import (
 
 	"github.com/martianzhang/apimart-cli/internal/client"
 	"github.com/martianzhang/apimart-cli/internal/provider"
+	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -243,13 +244,8 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 			b.WriteString("\n图片:\n")
 			for i, img := range task.Result.Images {
 				for j, url := range img.URL {
-					ext := extFromURL(url, ".png")
-					filename := fmt.Sprintf("image_%s_%d_%d%s", task.ID, i, j, ext)
-					fullpath := filename
-					if outputDir != "" {
-						fullpath = outputDir + "/" + filename
-					}
-					if err := client.DownloadFile(http.DefaultClient, url, fullpath); err == nil {
+					fullpath, err := service.DownloadFile(url, outputDir, fmt.Sprintf("image_%s_%d_%d", task.ID, i, j))
+					if err == nil {
 						fmt.Fprintf(&b, "  %s\n", fullpath)
 					} else {
 						fmt.Fprintf(&b, "  %s (download failed: %v)\n", url, err)
@@ -261,13 +257,8 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 			b.WriteString("\n视频:\n")
 			for i, vid := range task.Result.Videos {
 				for j, url := range vid.URL {
-					ext := extFromURL(url, ".mp4")
-					filename := fmt.Sprintf("video_%s_%d_%d%s", task.ID, i, j, ext)
-					fullpath := filename
-					if outputDir != "" {
-						fullpath = outputDir + "/" + filename
-					}
-					if err := client.DownloadFile(http.DefaultClient, url, fullpath); err == nil {
+					fullpath, err := service.DownloadFile(url, outputDir, fmt.Sprintf("video_%s_%d_%d", task.ID, i, j))
+					if err == nil {
 						fmt.Fprintf(&b, "  %s\n", fullpath)
 					} else {
 						fmt.Fprintf(&b, "  %s (download failed: %v)\n", url, err)

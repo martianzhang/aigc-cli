@@ -43,7 +43,7 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest)
 			fmt.Printf("Image %d saved: %s\n", i+1, filename)
 		} else if img.URL != "" {
 			taskID := fmt.Sprintf("%d", time.Now().Unix())
-			filename, err := saveImage(img.URL, taskID, i)
+			filename, err := service.DownloadFile(img.URL, shared.OutputDir, fmt.Sprintf("image_%s_%d", taskID, i))
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, err)
 				continue
@@ -87,7 +87,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 			fmt.Printf("Image %d: %s\n", i+1, filename)
 		} else if img.URL != "" {
 			taskID := fmt.Sprintf("sync_%d", syncResp.Created)
-			filename, err := saveImage(img.URL, taskID, i)
+			filename, err := service.DownloadFile(img.URL, shared.OutputDir, fmt.Sprintf("image_%s_%d", taskID, i))
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, err)
 				continue
