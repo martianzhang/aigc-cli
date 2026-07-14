@@ -199,3 +199,83 @@ func SavePrompt(outputDir, taskID, prompt string) {
 	}
 	fmt.Printf("Prompt saved: %s\n", filename)
 }
+
+// extFromSource extracts the file extension from a source URL, stripping query params.
+func extFromSource(source string) string {
+	if idx := strings.Index(source, "?"); idx >= 0 {
+		source = source[:idx]
+	}
+	ext := filepath.Ext(source)
+	if ext == "" || len(ext) > 5 {
+		return ""
+	}
+	return ext
+}
+
+// SaveResource saves content from source (HTTP URL, data URI, or base64) to dest.
+// For HTTP URLs uses http.DefaultClient with atomic write.
+func SaveResource(source, dest string) error {
+	cleaned := strings.TrimSpace(source)
+
+	if strings.HasPrefix(cleaned, "http://") || strings.HasPrefix(cleaned, "https://") {
+		resp, err := http.DefaultClient.Get(cleaned)
+		if err != nil {
+			return fmt.Errorf("HTTP request failed: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("HTTP %d", resp.StatusCode)
+		}
+
+		tmpDest := dest + ".tmp"
+		f, err := os.Create(tmpDest)
+		if err != nil {
+			return fmt.Errorf("cannot create %s: %w", tmpDest, err)
+		}
+
+		written, err := io.Copy(f, resp.Body)
+		if err != nil {
+			f.Close()
+			os.Remove(tmpDest)
+			return fmt.Errorf("download failed: %w", err)
+		}
+		f.Close()
+
+		if written == 0 {
+			os.Remove(tmpDest)
+			return fmt.Errorf("downloaded file is empty")
+		}
+
+		if err := os.Rename(tmpDest, dest); err != nil {
+			return fmt.Errorf("rename failed: %w", err)
+		}
+		return nil
+	}
+
+	// data URI — strip header and decode
+	if strings.HasPrefix(cleaned, "data:") {
+		commaIdx := strings.Index(cleaned, ",")
+		if commaIdx >= 0 {
+			if data, err := decodeBase64Any(cleaned[commaIdx+1:]); err == nil {
+				return os.WriteFile(dest, data, 0644)
+			}
+		}
+		return fmt.Errorf("data URI contains no decodable image data")
+	}
+
+	// Raw base64 — try to decode
+	if data, err := decodeBase64Any(cleaned); err == nil {
+		return os.WriteFile(dest, data, 0644)
+	}
+
+	return fmt.Errorf("unsupported source: %.60s", cleaned)
+}
+
+// DownloadFile saves a resource (HTTP URL, data URI, or base64) to outputDir
+// with auto-naming: <taskID><ext>. The extension comes from the source URL.
+func DownloadFile(source, outputDir, taskID string) (string, error) {
+	ext := extFromSource(source)
+	filename := filepath.Join(outputDir, taskID+ext)
+	return filename, SaveResource(source, filename)
+}

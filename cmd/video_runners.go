@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
+	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -151,15 +152,10 @@ func runYunwuVideo(req *types.VideoGenerateRequest) error {
 
 	// Step 3: Download
 	fmt.Println()
-	ext := extractExt(videoURL)
-	filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_yunwu_%s%s", taskID, ext))
 	fmt.Printf("Downloading video...\n")
-	body, err := httpGet(videoURL)
+	filename, err := service.DownloadFile(videoURL, shared.OutputDir, fmt.Sprintf("video_yunwu_%s", taskID))
 	if err != nil {
 		return fmt.Errorf("failed to download video: %w", err)
-	}
-	if err := os.WriteFile(filename, body, 0644); err != nil {
-		return fmt.Errorf("failed to save %s: %w", filename, err)
 	}
 	fmt.Printf("Saved: %s\n", filename)
 

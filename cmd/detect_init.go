@@ -6,16 +6,14 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/apimart-cli/internal/client"
+	"github.com/martianzhang/apimart-cli/internal/service"
 )
 
 const ortVersion = "1.27.0"
@@ -86,15 +84,6 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot create directory %s: %w", modelsDir, err)
 	}
 
-	transport := http.DefaultClient.Transport
-	if transport == nil {
-		transport = http.DefaultTransport
-	}
-	httpClient := &http.Client{
-		Timeout:   600 * time.Second,
-		Transport: transport,
-	}
-
 	// ── Download ONNX Runtime (shared across all models) ──
 	ortInfo := getORTDownloadInfo()
 	libName := ortInfo.libName
@@ -102,7 +91,7 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 	if _, err := os.Stat(libPath); err != nil || detectForce {
 		fmt.Printf("Downloading ONNX Runtime %s (%s)...\n", ortVersion, runtime.GOOS)
 		archivePath := filepath.Join(modelsDir, ortInfo.archiveName)
-		if err := client.DownloadFile(httpClient, ortInfo.url, archivePath); err != nil {
+		if err := service.SaveResource(ortInfo.url, archivePath); err != nil {
 			return fmt.Errorf("ONNX Runtime download failed: %w", err)
 		}
 		fmt.Println("  Extracting...")
@@ -123,7 +112,7 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Downloading %s model - %s (%s)...\n", modelID, info.desc, info.size)
-	if err := client.DownloadFile(httpClient, info.url, modelPath); err != nil {
+	if err := service.SaveResource(info.url, modelPath); err != nil {
 		return fmt.Errorf("model download failed: %w", err)
 	}
 	fmt.Println("  Done.")

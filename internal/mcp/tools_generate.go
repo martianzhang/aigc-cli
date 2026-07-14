@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/martianzhang/apimart-cli/internal/client"
 	"github.com/martianzhang/apimart-cli/internal/provider"
+	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -164,9 +164,8 @@ func handleMCPAPIMartImage(c client.APIClient, req *types.GenerateRequest, outpu
 	if taskData.Result != nil && len(taskData.Result.Images) > 0 {
 		for i, img := range taskData.Result.Images {
 			for j, url := range img.URL {
-				ext := extFromURL(url, ".png")
-				filename := filepath.Join(outputDir, fmt.Sprintf("image_%s_%d_%d%s", taskData.ID, i, j, ext))
-				if err := client.DownloadFile(http.DefaultClient, url, filename); err != nil {
+				filename, err := service.DownloadFile(url, outputDir, fmt.Sprintf("image_%s_%d_%d", taskData.ID, i, j))
+				if err != nil {
 					continue
 				}
 				savedFiles = append(savedFiles, filename)
