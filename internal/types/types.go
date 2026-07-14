@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"strconv"
 )
@@ -372,6 +373,18 @@ type MarketplaceModel struct {
 	Pricing     MarketplacePricing `json:"pricing"`
 	CallCount   int64              `json:"call_count"`
 	DiscountPct int                `json:"discount_percent"`
+}
+
+// FormatPrice formats the model's starting price for display.
+func (m MarketplaceModel) FormatPrice() string {
+	if !m.Pricing.HasPrice {
+		return "—"
+	}
+	unit := m.Pricing.PriceUnit
+	if unit == "" {
+		unit = "/次"
+	}
+	return fmt.Sprintf("$%.4f%s", m.Pricing.StartingPrice, unit)
 }
 
 type MarketplaceVendor struct {
