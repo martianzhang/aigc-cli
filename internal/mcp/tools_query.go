@@ -49,7 +49,7 @@ func listModelsHandler() server.ToolHandlerFunc {
 		for vName, mods := range vendorMap {
 			fmt.Fprintf(&b, "%s:\n", vName)
 			for _, m := range mods {
-				price := formatPrice(m)
+				price := m.FormatPrice()
 				fmt.Fprintf(&b, "  %-30s  %s\n", m.ModelName, price)
 			}
 			b.WriteString("\n")
@@ -252,7 +252,7 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 					if outputDir != "" {
 						fullpath = outputDir + "/" + filename
 					}
-					if err := downloadFile(url, fullpath); err == nil {
+					if err := client.DownloadFile(http.DefaultClient, url, fullpath); err == nil {
 						fmt.Fprintf(&b, "  %s\n", fullpath)
 					} else {
 						fmt.Fprintf(&b, "  %s (download failed: %v)\n", url, err)
@@ -273,7 +273,7 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 					if outputDir != "" {
 						fullpath = outputDir + "/" + filename
 					}
-					if err := downloadFile(url, fullpath); err == nil {
+					if err := client.DownloadFile(http.DefaultClient, url, fullpath); err == nil {
 						fmt.Fprintf(&b, "  %s\n", fullpath)
 					} else {
 						fmt.Fprintf(&b, "  %s (download failed: %v)\n", url, err)
@@ -344,16 +344,4 @@ func fetchModels(baseURL, mediaType, _ string) ([]types.MarketplaceModel, error)
 	}
 
 	return allModels, nil
-}
-
-// formatPrice formats a model's starting price for display.
-func formatPrice(m types.MarketplaceModel) string {
-	if !m.Pricing.HasPrice {
-		return "—"
-	}
-	unit := m.Pricing.PriceUnit
-	if unit == "" {
-		unit = "/次"
-	}
-	return fmt.Sprintf("$%.4f%s", m.Pricing.StartingPrice, unit)
 }
