@@ -69,12 +69,12 @@ func decodeBase64Image(b64 string) ([]byte, error) {
 	return nil, fmt.Errorf("unknown image format: first bytes %x", data[:4])
 }
 
-// FetchImage gets image bytes from a URL or data URI.
+// FetchBytes gets raw bytes from a URL, data URI, or base64 string.
 // Supports:
-//   - HTTP/HTTPS URLs (download via GET)
+//   - HTTP/HTTPS URLs (download via GET with http.DefaultClient)
 //   - data: URIs (e.g. data:image/png;base64,...)
-//   - Raw base64 strings (starts with /9j for JPEG)
-func FetchImage(rawURL string) ([]byte, error) {
+//   - Raw base64 strings
+func FetchBytes(rawURL string) ([]byte, error) {
 	// Strip whitespace that may appear in API responses
 	cleaned := strings.TrimSpace(rawURL)
 
@@ -173,7 +173,7 @@ func stripWhitespace(s string) string {
 }
 
 // SaveBase64Fallback saves raw image data as a .txt file (pure base64, no headers).
-// Used when FetchImage cannot decode the data as an image.
+// Used when FetchBytes cannot decode the data as an image.
 func SaveBase64Fallback(outputDir, prefix, raw string, index int) string {
 	filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d.txt", prefix, index))
 	// Save pure base64 data — no comments, base64 -d reads this directly

@@ -8,6 +8,7 @@ import (
 
 	"github.com/martianzhang/apimart-cli/internal/client"
 	"github.com/martianzhang/apimart-cli/internal/config"
+	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
@@ -87,7 +88,7 @@ func generateVideoAndSave(c *client.Client, req *types.VideoGenerateRequest) ([]
 		var saved []string
 		for i, u := range pollResp.UnsignedURLs {
 			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("video_%s_%d.mp4", submitResp.ID, i))
-			if err := c.OpenRouterVideoDownload(u, filename); err != nil {
+			if err := service.SaveResource(u, filename); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
 				continue
 			}

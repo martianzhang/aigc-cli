@@ -29,7 +29,6 @@ type APIClient interface {
 	OpenRouterVideoSubmit(req *types.OpenRouterVideoRequest) (*types.OpenRouterVideoSubmitResponse, error)
 	OpenRouterVideoPoll(pollingURL string) (*types.OpenRouterVideoStatusResponse, error)
 	OpenRouterVideoGet(jobID string) (*types.OpenRouterVideoStatusResponse, error)
-	OpenRouterVideoDownload(url, dest string) error
 	OpenRouterVideoPollUntilComplete(pollingURL string, pollInterval, maxWait time.Duration) (*types.OpenRouterVideoStatusResponse, error)
 	YunwuVideoSubmit(req *types.VideoGenerateRequest) (*types.YunwuVideoCreateResponse, error)
 	YunwuVideoQuery(taskID string) (*types.YunwuVideoQueryResponse, error)
