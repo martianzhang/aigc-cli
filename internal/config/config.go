@@ -23,7 +23,7 @@ func Load(customPath string) (*types.Config, error) {
 	// Bind well-known env vars to config keys.
 	_ = v.BindEnv("api_key", "OPENAI_API_KEY")
 	_ = v.BindEnv("base_url", "OPENAI_BASE_URL")
-	_ = v.BindEnv("http_proxy", "HTTP_PROXY")
+	_ = v.BindEnv("http_proxy", "HTTP_PROXY", "HTTPS_PROXY")
 
 	if customPath != "" {
 		v.SetConfigFile(customPath)
