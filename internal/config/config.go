@@ -17,14 +17,13 @@ const (
 )
 
 // Load reads the YAML config from ~/.config/aigc-cli/config.yaml or a custom path.
-// Supports both OPENAI_* and APIMART_* environment variables for compatibility.
 func Load(customPath string) (*types.Config, error) {
 	v := viper.New()
 
 	// Bind well-known env vars to config keys.
 	_ = v.BindEnv("api_key", "OPENAI_API_KEY")
 	_ = v.BindEnv("base_url", "OPENAI_BASE_URL")
-	_ = v.BindEnv("http_proxy", "OPENAI_HTTP_PROXY", "HTTP_PROXY")
+	_ = v.BindEnv("http_proxy", "HTTP_PROXY")
 
 	if customPath != "" {
 		v.SetConfigFile(customPath)
