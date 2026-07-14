@@ -36,10 +36,8 @@ make release  # 交叉编译（所有平台）
 # 方式一：命令行参数
 aigc-cli image --prompt "..." --api-key "sk-xxx"
 
-# 方式二：环境变量（支持两套命名）
+# 方式二：环境变量
 export OPENAI_API_KEY="sk-xxx"
-# 或兼容旧的：
-# export APIMART_API_KEY="sk-xxx"
 
 # 方式三：配置文件
 ```
@@ -59,7 +57,7 @@ api_key: "sk-xxx"
 # mode: "auto"
 
 # HTTP 代理
-# 也可通过 OPENAI_HTTP_PROXY 或 APIMART_HTTP_PROXY 环境变量设置
+# 也可通过 HTTP_PROXY 环境变量设置
 http_proxy: "http://127.0.0.1:7890"
 
 # 图片下载目录（默认当前目录 "."）
@@ -110,4 +108,4 @@ aigc-cli image --prompt "..." --http-proxy "socks5://127.0.0.1:1080"
 **CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值**
 
 代理优先级：
-**`--http-proxy` 参数 > `OPENAI_HTTP_PROXY` / `APIMART_HTTP_PROXY` 环境变量 > `HTTP_PROXY` 标准环境变量**
+**`--http-proxy` 参数 > `HTTP_PROXY` / `HTTPS_PROXY` 标准环境变量**

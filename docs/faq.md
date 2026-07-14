@@ -15,7 +15,7 @@ go install github.com/martianzhang/apimart-cli@latest
 支持三种方式（优先级从高到低）：
 
 1. `--api-key` 命令行参数
-2. `OPENAI_API_KEY` 或 `APIMART_API_KEY` 环境变量
+2. `OPENAI_API_KEY` 环境变量
 3. `~/.config/aigc-cli/config.yaml` 配置文件
 
 详见 [installation.md](installation.md)。

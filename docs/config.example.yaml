@@ -2,10 +2,10 @@
 # Place this file at ~/.config/aigc-cli/config.yaml
 # or pass --config /path/to/config.yaml at runtime
 
-# API key (can also be set via OPENAI_API_KEY or APIMART_API_KEY env var)
+# API key (can also be set via OPENAI_API_KEY env var)
 api_key: "your-api-key-here"
 
-# API base URL (can also be set via OPENAI_BASE_URL or APIMART_API_BASE env var)
+# API base URL (can also be set via OPENAI_BASE_URL env var)
 # ── 按 Provider 取消注释 ──
 # OpenAI:    https://api.openai.com/v1
 # OpenRouter: https://openrouter.ai/api/v1
@@ -13,7 +13,7 @@ api_key: "your-api-key-here"
 # 任意中转:   https://your-relay.com/v1
 base_url: "https://api.apimart.ai"
 
-# HTTP proxy (can also be set via OPENAI_HTTP_PROXY or APIMART_HTTP_PROXY env var, or --http-proxy CLI flag)
+# HTTP proxy (can also be set via HTTP_PROXY / HTTPS_PROXY env vars, or --http-proxy CLI flag)
 # http_proxy: "http://127.0.0.1:7890"
 
 # Verbose output: show full result JSON (can also use --verbose / -v CLI flag)

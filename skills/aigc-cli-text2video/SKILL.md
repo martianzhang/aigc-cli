@@ -14,7 +14,7 @@ description: Use "aigc-cli video" to generate videos via the APIMart API (doubao
 ## 前置条件
 
 1. 项目已安装 `aigc-cli`（`go install` 或 `make build`）
-2. 已配置 API Key（`~/.config/aigc-cli/config.yaml` 或 `APIMART_API_KEY` 环境变量）
+2. 已配置 API Key（`~/.config/aigc-cli/config.yaml` 或 `OPENAI_API_KEY` 环境变量）
    - 视频默认参数在 `defaults.video` 下配置
 
 ## 何时使用
