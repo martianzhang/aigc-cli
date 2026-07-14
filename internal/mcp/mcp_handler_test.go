@@ -162,7 +162,7 @@ func TestHandleMCPGetOpenRouterJob_completed(t *testing.T) {
 			}, nil
 		},
 	}
-	result, err := handleMCPGetOpenRouterJob(mock, "job_789", t.TempDir())
+	result, err := handleMCPGetOpenRouterJob(mock, "job_789", t.TempDir(), "test-key")
 	if err != nil {
 		t.Fatalf("handleMCPGetOpenRouterJob returned error: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestHandleMCPGetOpenRouterJob_pending(t *testing.T) {
 			}, nil
 		},
 	}
-	result, err := handleMCPGetOpenRouterJob(mock, "job_pending", t.TempDir())
+	result, err := handleMCPGetOpenRouterJob(mock, "job_pending", t.TempDir(), "test-key")
 	if err != nil {
 		t.Fatalf("handleMCPGetOpenRouterJob returned error: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestHandleMCPGetOpenRouterJob_failed(t *testing.T) {
 			}, nil
 		},
 	}
-	result, err := handleMCPGetOpenRouterJob(mock, "job_fail", t.TempDir())
+	result, err := handleMCPGetOpenRouterJob(mock, "job_fail", t.TempDir(), "test-key")
 	if err != nil {
 		t.Fatalf("handleMCPGetOpenRouterJob returned error: %v", err)
 	}

@@ -212,6 +212,37 @@ func extFromSource(source string) string {
 	return ext
 }
 
+// saveHTTPResponse writes the HTTP response body to dest atomically.
+func saveHTTPResponse(resp *http.Response, dest string) error {
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	tmpDest := dest + ".tmp"
+	f, err := os.Create(tmpDest)
+	if err != nil {
+		return fmt.Errorf("cannot create %s: %w", tmpDest, err)
+	}
+
+	written, err := io.Copy(f, resp.Body)
+	if err != nil {
+		f.Close()
+		os.Remove(tmpDest)
+		return fmt.Errorf("download failed: %w", err)
+	}
+	f.Close()
+
+	if written == 0 {
+		os.Remove(tmpDest)
+		return fmt.Errorf("downloaded file is empty")
+	}
+
+	if err := os.Rename(tmpDest, dest); err != nil {
+		return fmt.Errorf("rename failed: %w", err)
+	}
+	return nil
+}
+
 // SaveResource saves content from source (HTTP URL, data URI, or base64) to dest.
 // For HTTP URLs uses http.DefaultClient with atomic write.
 func SaveResource(source, dest string) error {
@@ -223,34 +254,7 @@ func SaveResource(source, dest string) error {
 			return fmt.Errorf("HTTP request failed: %w", err)
 		}
 		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("HTTP %d", resp.StatusCode)
-		}
-
-		tmpDest := dest + ".tmp"
-		f, err := os.Create(tmpDest)
-		if err != nil {
-			return fmt.Errorf("cannot create %s: %w", tmpDest, err)
-		}
-
-		written, err := io.Copy(f, resp.Body)
-		if err != nil {
-			f.Close()
-			os.Remove(tmpDest)
-			return fmt.Errorf("download failed: %w", err)
-		}
-		f.Close()
-
-		if written == 0 {
-			os.Remove(tmpDest)
-			return fmt.Errorf("downloaded file is empty")
-		}
-
-		if err := os.Rename(tmpDest, dest); err != nil {
-			return fmt.Errorf("rename failed: %w", err)
-		}
-		return nil
+		return saveHTTPResponse(resp, dest)
 	}
 
 	// data URI — strip header and decode
@@ -270,6 +274,28 @@ func SaveResource(source, dest string) error {
 	}
 
 	return fmt.Errorf("unsupported source: %.60s", cleaned)
+}
+
+// SaveResourceWithAuth saves an HTTP resource with an Authorization header.
+// For unsigned URLs (non-OpenRouter API), delegates to SaveResource.
+func SaveResourceWithAuth(source, apiKey, dest string) error {
+	cleaned := strings.TrimSpace(source)
+
+	if strings.HasPrefix(cleaned, "https://openrouter.ai/api/") {
+		req, err := http.NewRequest("GET", cleaned, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("HTTP request failed: %w", err)
+		}
+		defer resp.Body.Close()
+		return saveHTTPResponse(resp, dest)
+	}
+
+	return SaveResource(source, dest)
 }
 
 // DownloadFile saves a resource (HTTP URL, data URI, or base64) to outputDir

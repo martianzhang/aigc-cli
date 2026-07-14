@@ -179,13 +179,13 @@ func getTaskHandler(cfg *Config) server.ToolHandlerFunc {
 		p := provider.Detect(cfg.BaseURL)
 
 		if p == provider.OpenRouter {
-			return handleMCPGetOpenRouterJob(c, taskID, cfg.Output)
+			return handleMCPGetOpenRouterJob(c, taskID, cfg.Output, cfg.APIKey)
 		}
 		return handleMCPGetAPIMartTask(c, taskID, cfg.Output)
 	}
 }
 
-func handleMCPGetOpenRouterJob(c client.APIClient, jobID, outputDir string) (*mcp.CallToolResult, error) {
+func handleMCPGetOpenRouterJob(c client.APIClient, jobID, outputDir, apiKey string) (*mcp.CallToolResult, error) {
 	statusResp, err := c.OpenRouterVideoGet(jobID)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to query job: %v", err)), nil
@@ -203,7 +203,14 @@ func handleMCPGetOpenRouterJob(c client.APIClient, jobID, outputDir string) (*mc
 			if err == nil {
 				fmt.Fprintf(&b, "  %s\n", fullpath)
 			} else {
-				fmt.Fprintf(&b, "  %s (download failed: %v)\n", u, err)
+				// Unsigned URL failed; try authenticated fallback
+				fallback := fmt.Sprintf("https://openrouter.ai/api/v1/videos/%s/content?index=%d", jobID, i)
+				fullpath, err = service.DownloadFile(fallback, outputDir, fmt.Sprintf("video_%s_%d", jobID, i))
+				if err == nil {
+					fmt.Fprintf(&b, "  %s\n", fullpath)
+				} else {
+					fmt.Fprintf(&b, "  %s (download failed: %v)\n", u, err)
+				}
 			}
 		}
 		if statusResp.Usage != nil && statusResp.Usage.TotalCost > 0 {
