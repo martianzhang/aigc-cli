@@ -22,7 +22,7 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 	// /v1, /v2, /v3, append "/v1" as the default API version for backward
 	// compatibility (e.g. bare "https://api.openai.com" → "https://api.openai.com/v1").
 	baseURL = strings.TrimRight(baseURL, "/")
-	if !hasVersionSuffix(baseURL) {
+	if !HasVersionSuffix(baseURL) {
 		baseURL += "/v1"
 	}
 

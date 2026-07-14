@@ -78,38 +78,38 @@ func TestIsLocalFile_directory(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestHasVersionSuffix_v1(t *testing.T) {
-	if !hasVersionSuffix("https://api.openai.com/v1") {
-		t.Error("hasVersionSuffix should detect /v1")
+	if !HasVersionSuffix("https://api.openai.com/v1") {
+		t.Error("HasVersionSuffix should detect /v1")
 	}
 }
 
 func TestHasVersionSuffix_v2(t *testing.T) {
-	if !hasVersionSuffix("https://relay.com/v2") {
-		t.Error("hasVersionSuffix should detect /v2")
+	if !HasVersionSuffix("https://relay.com/v2") {
+		t.Error("HasVersionSuffix should detect /v2")
 	}
 }
 
 func TestHasVersionSuffix_noVersion(t *testing.T) {
-	if hasVersionSuffix("https://api.openai.com") {
-		t.Error("hasVersionSuffix should be false for bare domain")
+	if HasVersionSuffix("https://api.openai.com") {
+		t.Error("HasVersionSuffix should be false for bare domain")
 	}
 }
 
 func TestHasVersionSuffix_trailingSlash(t *testing.T) {
-	if hasVersionSuffix("https://api.openai.com/") {
-		t.Error("hasVersionSuffix should be false for trailing slash")
+	if HasVersionSuffix("https://api.openai.com/") {
+		t.Error("HasVersionSuffix should be false for trailing slash")
 	}
 }
 
 func TestHasVersionSuffix_nonNumeric(t *testing.T) {
-	if hasVersionSuffix("https://example.com/version") {
-		t.Error("hasVersionSuffix should be false for non-numeric segment")
+	if HasVersionSuffix("https://example.com/version") {
+		t.Error("HasVersionSuffix should be false for non-numeric segment")
 	}
 }
 
 func TestHasVersionSuffix_emptyLastSegment(t *testing.T) {
-	if hasVersionSuffix("https://example.com/v") {
-		t.Error("hasVersionSuffix should be false for just 'v'")
+	if HasVersionSuffix("https://example.com/v") {
+		t.Error("HasVersionSuffix should be false for just 'v'")
 	}
 }
 
