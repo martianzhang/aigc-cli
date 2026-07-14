@@ -185,12 +185,13 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "web_fetch",
-			Description: "Fetch a URL and return its text content. Use this when you need to read web pages, check current information, or access online resources.",
+			Description: "Fetch a URL and return its text content. Use this when you need to read web pages, check current information, or access online resources. If the content is large, use offset to paginate through it.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"url": {"type": "string", "description": "URL to fetch (http:// or https://)"},
-					"max_length": {"type": "integer", "description": "Max characters to return (default 5000)"}
+					"max_length": {"type": "integer", "description": "Max characters to return (default 5000, max 50000)"},
+					"offset": {"type": "integer", "description": "Byte offset to start reading from (default 0). Use this to paginate through large pages — the response tells you how many bytes remain and what offset to use next."}
 				},
 				"required": ["url"]
 			}`),
@@ -220,11 +221,13 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "read_file",
-			Description: "Read the contents of a local text file (e.g. .txt, .md, .yaml, .json, .go). Use when the user asks about or references a local file.",
+			Description: "Read the contents of a local text file (e.g. .txt, .md, .yaml, .json, .go). Use when the user asks about or references a local file. Supports pagination via offset/limit for large files.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"filepath": {"type": "string", "description": "Path to the local file to read (relative to current directory or absolute)"}
+					"filepath": {"type": "string", "description": "Path to the local file to read (relative to current directory or absolute)"},
+					"offset": {"type": "integer", "description": "Byte offset to start reading from (default 0). Use this to read the next chunk — the response tells you the file size and what offset to use next."},
+					"limit": {"type": "integer", "description": "Max bytes to return (default 10000, max 100000)"}
 				},
 				"required": ["filepath"]
 			}`),
