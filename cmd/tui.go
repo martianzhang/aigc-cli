@@ -59,11 +59,14 @@ type toolDone struct {
 }
 
 // agentDone is sent when the agent loop finishes for one user turn.
+// history carries the complete accumulated history from the goroutine;
+// the main thread replaces m.history with it (fixes tool_calls + tool result loss).
 type agentDone struct {
 	result       *types.ChatResponse
 	elapsed      time.Duration
 	err          error
 	assistantMsg *types.ChatMessage
+	history      []types.ChatMessage // complete history from goroutine (replaces m.history)
 }
 
 // clearChat signals clearing the conversation.
@@ -71,8 +74,9 @@ type clearChat struct{}
 
 // compactDone is sent when the conversation has been compacted.
 type compactDone struct {
-	summary string
-	err     error
+	summary    string
+	err        error
+	newHistory []types.ChatMessage // new history built by the goroutine
 }
 
 // message
@@ -373,8 +377,13 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentDone:
 		m.state = tuiIdle
 		m.busy = false
-		// Append assistant response to history (from the goroutine via msg)
-		if msg.assistantMsg != nil {
+		// Replace history with the goroutine's accumulated snapshot.
+		// This is the ONLY path by which history is updated: the goroutine
+		// never writes m.history directly (it works on a local copy).
+		if msg.history != nil {
+			m.history = msg.history
+		} else if msg.assistantMsg != nil {
+			// Fallback for direct calls that may not carry full history
 			m.history = append(m.history, *msg.assistantMsg)
 		}
 		// Flush stream buffer into a proper message
@@ -444,6 +453,10 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.messages = []message{
 			{role: "system", content: "Compacted conversation into summary below."},
 			{role: "system", content: msg.summary},
+		}
+		// Replace history with the goroutine's compacted version
+		if msg.newHistory != nil {
+			m.history = msg.newHistory
 		}
 		m.refreshViewport()
 		return m, nil
