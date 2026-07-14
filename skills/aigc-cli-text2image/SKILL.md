@@ -10,7 +10,7 @@ description: Use "aigc-cli image" to generate images via OpenAI-compatible APIs 
 ## 前置条件
 
 1. 项目已安装 `aigc-cli`（`go install` 或 `make build`）
-2. 已配置 API Key（`~/.config/aigc-cli/config.yaml` 或 `OPENAI_API_KEY` / `APIMART_API_KEY` 环境变量）
+2. 已配置 API Key（`~/.config/aigc-cli/config.yaml` 或 `OPENAI_API_KEY` 环境变量）
    - 图片默认参数在 `defaults.image` 下配置
    - Midjourney / Grok 等模型参数在 `defaults.midjourney` 下配置
 

@@ -184,7 +184,7 @@ aigc-cli midjourney (或 mj)
 **CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值**
 
 代理优先级：
-**`--http-proxy` 参数 > `OPENAI_HTTP_PROXY` / `APIMART_HTTP_PROXY` 环境变量 > `HTTP_PROXY` 标准环境变量**
+**`--http-proxy` 参数 > `HTTP_PROXY` / `HTTPS_PROXY` 标准环境变量**
 
 ---
 
