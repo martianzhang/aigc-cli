@@ -18,6 +18,7 @@ import (
 type webFetchArgs struct {
 	URL       string `json:"url"`
 	MaxLength int    `json:"max_length"`
+	Offset    int    `json:"offset"`
 }
 
 func executeIdeasSearch(argsJSON string) string {
@@ -88,11 +89,20 @@ func executeWebFetch(argsJSON string) string {
 	if args.URL == "" {
 		return "Error: url is required"
 	}
+	if args.Offset < 0 {
+		return "Error: offset must be non-negative"
+	}
 	if args.MaxLength <= 0 {
 		args.MaxLength = 5000
 	}
 	if args.MaxLength > 50000 {
 		args.MaxLength = 50000
+	}
+
+	// How much to read: offset + requested + buffer; cap at 200K
+	readLen := args.Offset + args.MaxLength + 5000
+	if readLen > 200000 {
+		readLen = 200000
 	}
 
 	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -111,17 +121,39 @@ func executeWebFetch(argsJSON string) string {
 		return fmt.Sprintf("Error: %s returned status %d", args.URL, resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, int64(args.MaxLength)*3))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, int64(readLen)))
 	if err != nil {
 		return fmt.Sprintf("Error: failed to read response: %v", err)
 	}
 
-	content := string(body)
-	if len(content) > args.MaxLength {
-		content = content[:args.MaxLength] + "\n\n...(truncated)"
+	totalSize := len(body)
+	if args.Offset >= totalSize {
+		return fmt.Sprintf("Page has %d bytes, but offset %d is past the end. Use offset=0 to read from the beginning.", totalSize, args.Offset)
 	}
 
-	return fmt.Sprintf("Content from %s:\n\n%s", args.URL, content)
+	end := args.Offset + args.MaxLength
+	if end > totalSize {
+		end = totalSize
+	}
+	content := string(body[args.Offset:end])
+	remaining := totalSize - end
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Content from %s\n", args.URL))
+	b.WriteString(fmt.Sprintf("Fetched: %d bytes\n", totalSize))
+	b.WriteString(fmt.Sprintf("Showing bytes %d-%d", args.Offset, end))
+	if remaining > 0 {
+		b.WriteString(fmt.Sprintf(" (%d bytes remaining)\n\n", remaining))
+	} else {
+		b.WriteString("\n\n")
+	}
+	b.WriteString(content)
+
+	if remaining > 0 {
+		b.WriteString(fmt.Sprintf("\n\nContent truncated. Use web_fetch(url=%q, offset=%d) to read the next section.", args.URL, end))
+	}
+
+	return b.String()
 }
 
 func printToolArgs(argsJSON string) {
@@ -149,6 +181,8 @@ func printToolArgs(argsJSON string) {
 func executeReadFile(argsJSON string) string {
 	var args struct {
 		Filepath string `json:"filepath"`
+		Offset   int    `json:"offset"`
+		Limit    int    `json:"limit"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return fmt.Sprintf("Error: invalid arguments: %v", err)
@@ -156,6 +190,16 @@ func executeReadFile(argsJSON string) string {
 	if args.Filepath == "" {
 		return "Error: filepath is required"
 	}
+	if args.Offset < 0 {
+		return "Error: offset must be non-negative"
+	}
+	if args.Limit <= 0 {
+		args.Limit = 10000
+	}
+	if args.Limit > 100000 {
+		args.Limit = 100000
+	}
+
 	fpath := strings.TrimPrefix(args.Filepath, "@")
 	ext := strings.ToLower(filepath.Ext(fpath))
 	switch ext {
@@ -165,15 +209,44 @@ func executeReadFile(argsJSON string) string {
 	default:
 		return fmt.Sprintf("Error: cannot read %s files for security reasons", ext)
 	}
+
 	content, err := os.ReadFile(fpath)
 	if err != nil {
 		return fmt.Sprintf("Error: cannot read %s: %v", fpath, err)
 	}
-	if len(content) > 10000 {
-		content = content[:10000]
-		return fmt.Sprintf("File is large, showing first 10000 bytes:\n\n%s\n\n...(truncated)", string(content))
+
+	totalSize := len(content)
+	if args.Offset >= totalSize {
+		return fmt.Sprintf("File %s has %d bytes, but offset %d is past the end. Use offset=0 to read from the beginning.", fpath, totalSize, args.Offset)
 	}
-	return fmt.Sprintf("```\n%s\n```", string(content))
+
+	// Return the requested slice
+	end := args.Offset + args.Limit
+	if end > totalSize {
+		end = totalSize
+	}
+	chunk := string(content[args.Offset:end])
+	remaining := totalSize - end
+
+	// Build response with continuation metadata
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("File: %s\n", fpath))
+	b.WriteString(fmt.Sprintf("Size: %d bytes\n", totalSize))
+	b.WriteString(fmt.Sprintf("Showing bytes %d-%d", args.Offset, end))
+	if remaining > 0 {
+		b.WriteString(fmt.Sprintf(" (%d bytes remaining)\n\n", remaining))
+	} else {
+		b.WriteString("\n\n")
+	}
+	b.WriteString("```\n")
+	b.WriteString(chunk)
+	b.WriteString("\n```")
+
+	if remaining > 0 {
+		b.WriteString(fmt.Sprintf("\n\nFile has more content. Use read_file(filepath=%q, offset=%d) to read the next %d bytes.", fpath, end, args.Limit))
+	}
+
+	return b.String()
 }
 
 // grepArgs holds parsed arguments for the grep tool.
