@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
@@ -34,7 +33,6 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest)
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	for i, img := range orResp.Data {
-		// Save base64 image
 		if img.B64JSON != "" {
 			prefix := fmt.Sprintf("image_%d", time.Now().Unix())
 			filename, err := service.SaveBase64Image(shared.OutputDir, prefix, img.B64JSON, i)
@@ -44,59 +42,20 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest)
 			}
 			fmt.Printf("Image %d saved: %s\n", i+1, filename)
 		} else if img.URL != "" {
-			// Download from URL
-			body, err := httpGet(img.URL)
+			taskID := fmt.Sprintf("%d", time.Now().Unix())
+			filename, err := saveImage(img.URL, taskID, i)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, err)
 				continue
 			}
-			ext := filepath.Ext(img.URL)
-			if ext == "" {
-				ext = ".png"
-			}
-			ts := time.Now().Unix()
-			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("image_%d_%d%s", ts, i, ext))
-			if err := os.WriteFile(filename, body, 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
-				continue
-			}
-			fmt.Printf("Image %d: %s\n", i+1, img.URL)
-			fmt.Printf("Saved: %s\n", filename)
+			fmt.Printf("Image %d: %s\n", i+1, filename)
 		}
 		if img.RevisedPrompt != "" {
 			fmt.Printf("  Revised prompt: %s\n", img.RevisedPrompt)
 		}
 	}
 
-	// Show usage / cost
-	if orResp.Usage != nil {
-		parts := []string{}
-		if orResp.Usage.PromptTokens > 0 {
-			parts = append(parts, fmt.Sprintf("%d in", orResp.Usage.PromptTokens))
-		}
-		if orResp.Usage.CompletionTokens > 0 {
-			parts = append(parts, fmt.Sprintf("%d out", orResp.Usage.CompletionTokens))
-		}
-		if orResp.Usage.TotalTokens > 0 {
-			parts = append(parts, fmt.Sprintf("%d total", orResp.Usage.TotalTokens))
-		}
-		tokenStr := ""
-		if len(parts) > 0 {
-			tokenStr = strings.Join(parts, " / ")
-		}
-		if tokenStr != "" || orResp.Usage.Cost > 0 {
-			if tokenStr != "" {
-				fmt.Printf("Tokens: %s", tokenStr)
-			}
-			if orResp.Usage.Cost > 0 {
-				if tokenStr != "" {
-					fmt.Printf(" | ")
-				}
-				fmt.Printf("Cost: $%.5f", orResp.Usage.Cost)
-			}
-			fmt.Println()
-		}
-	}
+	printUsage(orResp.Usage)
 
 	return nil
 }
@@ -118,7 +77,6 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 	}
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 	for i, img := range syncResp.Data {
-		// Save base64 image data
 		if img.B64JSON != "" {
 			taskID := fmt.Sprintf("image_sync_%d", syncResp.Created)
 			filename, err := service.SaveBase64Image(shared.OutputDir, taskID, img.B64JSON, i)
@@ -128,20 +86,10 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 			}
 			fmt.Printf("Image %d: %s\n", i+1, filename)
 		} else if img.URL != "" {
-			// Download from URL
-			body, err := httpGet(img.URL)
+			taskID := fmt.Sprintf("sync_%d", syncResp.Created)
+			filename, err := saveImage(img.URL, taskID, i)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, err)
-				continue
-			}
-			ext := filepath.Ext(img.URL)
-			if ext == "" {
-				ext = ".png"
-			}
-			taskID := fmt.Sprintf("sync_%d", syncResp.Created)
-			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("image_%s_%d%s", taskID, i, ext))
-			if err := os.WriteFile(filename, body, 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
 				continue
 			}
 			fmt.Printf("Image %d: %s\n", i+1, filename)
@@ -154,34 +102,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 		}
 	}
 
-	if syncResp.Usage != nil {
-		parts := []string{}
-		if syncResp.Usage.PromptTokens > 0 {
-			parts = append(parts, fmt.Sprintf("%d in", syncResp.Usage.PromptTokens))
-		}
-		if syncResp.Usage.CompletionTokens > 0 {
-			parts = append(parts, fmt.Sprintf("%d out", syncResp.Usage.CompletionTokens))
-		}
-		if syncResp.Usage.TotalTokens > 0 {
-			parts = append(parts, fmt.Sprintf("%d total", syncResp.Usage.TotalTokens))
-		}
-		tokenStr := ""
-		if len(parts) > 0 {
-			tokenStr = strings.Join(parts, " / ")
-		}
-		if tokenStr != "" || syncResp.Usage.Cost > 0 {
-			if tokenStr != "" {
-				fmt.Printf("Tokens: %s", tokenStr)
-			}
-			if syncResp.Usage.Cost > 0 {
-				if tokenStr != "" {
-					fmt.Printf(" | ")
-				}
-				fmt.Printf("Cost: $%.5f", syncResp.Usage.Cost)
-			}
-			fmt.Println()
-		}
-	}
+	printUsage(syncResp.Usage)
 
 	return nil
 }

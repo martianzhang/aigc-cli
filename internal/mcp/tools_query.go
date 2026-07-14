@@ -243,11 +243,8 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 			b.WriteString("\n图片:\n")
 			for i, img := range task.Result.Images {
 				for j, url := range img.URL {
-					ext := ".png"
-					if idx := strings.LastIndex(url, "."); idx > 0 && len(url)-idx < 6 {
-						ext = url[idx:]
-					}
-					filename := fmt.Sprintf("apimart_%s_%d_%d%s", task.ID, i, j, ext)
+					ext := extFromURL(url, ".png")
+					filename := fmt.Sprintf("image_%s_%d_%d%s", task.ID, i, j, ext)
 					fullpath := filename
 					if outputDir != "" {
 						fullpath = outputDir + "/" + filename
@@ -264,11 +261,8 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 			b.WriteString("\n视频:\n")
 			for i, vid := range task.Result.Videos {
 				for j, url := range vid.URL {
-					ext := ".mp4"
-					if idx := strings.LastIndex(url, "."); idx > 0 && len(url)-idx < 6 {
-						ext = url[idx:]
-					}
-					filename := fmt.Sprintf("apimart_%s_v%d_%d%s", task.ID, i, j, ext)
+					ext := extFromURL(url, ".mp4")
+					filename := fmt.Sprintf("video_%s_%d_%d%s", task.ID, i, j, ext)
 					fullpath := filename
 					if outputDir != "" {
 						fullpath = outputDir + "/" + filename

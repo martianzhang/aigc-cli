@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/martianzhang/apimart-cli/internal/client"
 	"github.com/martianzhang/apimart-cli/internal/config"
@@ -143,19 +142,10 @@ func generateImageAndSave(c client.APIClient, req *types.GenerateRequest) ([]str
 			fmt.Printf("Image %d: %s\n", i+1, filename)
 			saved = append(saved, filename)
 		} else if img.URL != "" {
-			body, getErr := httpGet(img.URL)
-			if getErr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, getErr)
-				continue
-			}
-			ext := filepath.Ext(img.URL)
-			if ext == "" {
-				ext = ".png"
-			}
 			taskID := fmt.Sprintf("sync_%d", resp.Created)
-			filename := filepath.Join(shared.OutputDir, fmt.Sprintf("image_%s_%d%s", taskID, i, ext))
-			if writeErr := os.WriteFile(filename, body, 0644); writeErr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, writeErr)
+			filename, saveErr := saveImage(img.URL, taskID, i)
+			if saveErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, saveErr)
 				continue
 			}
 			fmt.Printf("Image %d: %s\n", i+1, filename)

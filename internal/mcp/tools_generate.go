@@ -164,11 +164,8 @@ func handleMCPAPIMartImage(c client.APIClient, req *types.GenerateRequest, outpu
 	if taskData.Result != nil && len(taskData.Result.Images) > 0 {
 		for i, img := range taskData.Result.Images {
 			for j, url := range img.URL {
-				ext := filepath.Ext(url)
-				if ext == "" {
-					ext = ".png"
-				}
-				filename := filepath.Join(outputDir, fmt.Sprintf("apimart_%s_%d_%d%s", taskData.ID, i, j, ext))
+				ext := extFromURL(url, ".png")
+				filename := filepath.Join(outputDir, fmt.Sprintf("image_%s_%d_%d%s", taskData.ID, i, j, ext))
 				if err := client.DownloadFile(http.DefaultClient, url, filename); err != nil {
 					continue
 				}
