@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/martianzhang/apimart-cli/internal/provider"
 	"github.com/martianzhang/apimart-cli/internal/types"
 	"io"
 	"net/http"
@@ -35,7 +36,8 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 		// Fall back to HTTP_PROXY, HTTPS_PROXY, NO_PROXY, ALL_PROXY env vars
 		transport.Proxy = http.ProxyFromEnvironment
 	}
-	return &Client{
+
+	c := &Client{
 		baseURL: baseURL,
 		apiKey:  apiKey,
 		httpClient: &http.Client{
@@ -43,6 +45,24 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 			Timeout:   DefaultTimeout,
 		},
 	}
+
+	// Build default headers sent on every request.
+	// Env vars (OPENAI_REFERER, OPENAI_APP_TITLE) take precedence — checked
+	// per-request in setOpenRouterHeaders/openRouterHeaders, so defaults here
+	// are pure built-in fallbacks.
+	headers := map[string]string{
+		"User-Agent": "aigc-cli/" + Version,
+	}
+	if provider.IsOpenRouter(baseURL) {
+		// Built-in OpenRouter identity: lets the tool appear in OpenRouter
+		// rankings and analytics even when the user hasn't set env vars.
+		headers[headerReferer] = "https://github.com/martianzhang/aigc-cli"
+		headers[headerTitle] = "aigc-cli"
+		headers["X-OpenRouter-Categories"] = "cli-agent"
+	}
+	c.defaultHeaders = headers
+
+	return c
 }
 
 // Submit sends a generation request and returns the task submission response.

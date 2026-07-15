@@ -420,6 +420,9 @@ func isNoAPIKeyRequired(cmd *cobra.Command) bool {
 }
 
 func init() {
+	// Propagate version to client package so User-Agent reflects the real version.
+	client.Version = Version
+
 	rootCmd.PersistentFlags().StringVar(&shared.CfgFile, "config", "", "path to config file (default ~/.config/aigc-cli/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&shared.APIKey, "api-key", "", "API key (env: OPENAI_API_KEY)")
 	rootCmd.PersistentFlags().StringVar(&shared.APIBase, "api-base", "", "API base URL (env: OPENAI_BASE_URL)")
