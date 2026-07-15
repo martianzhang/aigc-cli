@@ -4,6 +4,26 @@
 
 详见 [docs/guide-detect.md](guide-detect.md)。
 
+## Shell 补全
+
+生成并启用 shell 命令补全脚本（bash/zsh/fish/powershell）：
+
+```bash
+# Bash
+source <(aigc-cli completion bash)
+
+# Zsh
+source <(aigc-cli completion zsh)
+
+# Fish
+aigc-cli completion fish | source
+
+# 持久化安装（写入 shell rc，每次登录自动生效）
+echo 'source <(aigc-cli completion bash)' >> ~/.bashrc
+```
+
+启用后，输入 `aigc-cli im+Tab` 自动补全为 `aigc-cli image`，输入 `aigc-cli --mod+Tab` 自动补全为 `--model`，无需记忆全部命令和参数名。
+
 ## 查询模型列表
 
 支持三个数据源，自动根据 API 地址选择：

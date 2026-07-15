@@ -28,7 +28,7 @@ var rootCmd = &cobra.Command{
 	Version:       Version,
 	SilenceErrors: true,
 	CompletionOptions: cobra.CompletionOptions{
-		HiddenDefaultCmd: true, // hide "completion" to avoid confusion with LLM completion
+		HiddenDefaultCmd: false,
 	},
 	Long: `Unified CLI for OpenAI-compatible APIs. Supports OpenAI, OpenRouter, APIMart and any
 OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
