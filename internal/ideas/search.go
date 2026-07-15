@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	ideasDirName  = ".config/aigc-cli"
+	ideasDirName  = ".config/aigc-cli/ideas"
 	ideasFileName = "ideas.json"
 )
 

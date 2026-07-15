@@ -17,7 +17,7 @@ func ideasDir() (string, error) {
 }
 
 // resolveIdeasDataPath returns the path to an existing external ideas.json.
-// Order: config ideas.data_path → ~/.config/aigc-cli/ideas.json → empty.
+// Order: config ideas.data_path → ~/.config/aigc-cli/ideas/ideas.json → empty.
 func resolveIdeasDataPath(cfg *types.Config) string {
 	if cfg != nil && cfg.Ideas != nil && cfg.Ideas.DataPath != "" {
 		return cfg.Ideas.DataPath
@@ -26,7 +26,7 @@ func resolveIdeasDataPath(cfg *types.Config) string {
 	if err != nil {
 		return ""
 	}
-	p := filepath.Join(dir, "ideas.json")
+	p := filepath.Join(dir, "ideas", "ideas.json")
 	if _, err := os.Stat(p); err == nil {
 		return p
 	}
@@ -43,5 +43,5 @@ func ideasDataSavePath(cfg *types.Config) string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "ideas.json")
+	return filepath.Join(dir, "ideas", "ideas.json")
 }
