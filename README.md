@@ -124,6 +124,7 @@ aigc-cli
 ├── balance    查询余额（兼容 APIMart 余额查询）
 ├── preview    用系统默认程序预览生成的图片/视频
 ├── detect     检测水印、元数据和 AIGC（多信号融合 + emoji）             →  docs/guide-detect.md
+├── completion 生成 shell 补全脚本（bash/zsh/fish/powershell）
 ├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/mcp.md
 │
 │   # 全局标志
@@ -135,6 +136,25 @@ aigc-cli
 │   --save-prompt  将提示词保存为 .md 文件
 │   --http-proxy   指定 HTTP 代理
 ```
+
+### 启用 Tab 补全
+
+安装后，在 shell rc 文件中加入以下一行即可启用命令和参数补全：
+
+```bash
+# Bash
+echo 'source <(aigc-cli completion bash)' >> ~/.bashrc
+
+# Zsh
+echo 'source <(aigc-cli completion zsh)' >> ~/.zshrc
+
+# Fish
+aigc-cli completion fish > ~/.config/fish/completions/aigc-cli.fish
+```
+
+重新加载 shell 后，输入 `aigc-cli im+Tab` 会自动补全为 `aigc-cli image`。
+
+---
 
 ### Midjourney 子命令一览
 
