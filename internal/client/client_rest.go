@@ -85,6 +85,11 @@ func (c *Client) doJSONWithHeaders(method, path string, body, result interface{}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
+	// Apply client-level default headers (lowest priority).
+	for k, v := range c.defaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
+	// Apply per-request extra headers (override defaults).
 	for k, v := range extraHeaders {
 		httpReq.Header.Set(k, v)
 	}
@@ -127,6 +132,11 @@ func (c *Client) doGetWithHeaders(path string, result interface{}, extraHeaders 
 	}
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
+	// Apply client-level default headers (lowest priority).
+	for k, v := range c.defaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
+	// Apply per-request extra headers (override defaults).
 	for k, v := range extraHeaders {
 		httpReq.Header.Set(k, v)
 	}

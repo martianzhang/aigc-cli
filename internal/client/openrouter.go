@@ -71,7 +71,7 @@ func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.Op
 	c.httpClient.Timeout = openrouterRequestTimeout
 	defer func() { c.httpClient.Timeout = oldTimeout }()
 
-	headers := openRouterHeaders()
+	headers := c.openRouterHeaders()
 	var result types.OpenAIImageResponse
 	if err := c.doJSONWithHeaders(http.MethodPost, "/images", bodyMap, &result, headers); err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.Op
 
 // OpenRouterVideoSubmit submits a video generation job and returns the job info.
 func (c *Client) OpenRouterVideoSubmit(req *types.OpenRouterVideoRequest) (*types.OpenRouterVideoSubmitResponse, error) {
-	headers := openRouterHeaders()
+	headers := c.openRouterHeaders()
 	var result types.OpenRouterVideoSubmitResponse
 	if err := c.doJSONWithHeaders(http.MethodPost, "/videos", req, &result, headers); err != nil {
 		return nil, err
@@ -126,7 +126,7 @@ func (c *Client) OpenRouterVideoPoll(pollingURL string) (*types.OpenRouterVideoS
 // OpenRouterVideoGet queries a video job by its ID via GET /v1/videos/{id}.
 func (c *Client) OpenRouterVideoGet(jobID string) (*types.OpenRouterVideoStatusResponse, error) {
 	path := "/videos/" + jobID
-	headers := openRouterHeaders()
+	headers := c.openRouterHeaders()
 	var result types.OpenRouterVideoStatusResponse
 	if err := c.doGetWithHeaders(path, &result, headers); err != nil {
 		return nil, err
@@ -195,8 +195,14 @@ func extractJobID(pollingURL string) string {
 }
 
 // openRouterHeaders returns the OpenRouter-specific HTTP headers as a map.
-func openRouterHeaders() map[string]string {
+// Priority: env var > defaultHeaders > nothing.
+func (c *Client) openRouterHeaders() map[string]string {
 	h := make(map[string]string)
+	// Apply default headers first as fallback.
+	for k, v := range c.defaultHeaders {
+		h[k] = v
+	}
+	// Env vars override defaults (highest priority).
 	if ref := os.Getenv("OPENAI_REFERER"); ref != "" {
 		h[headerReferer] = ref
 	}
