@@ -1,30 +1,120 @@
 package ideas
 
 import (
-	"encoding/json"
+	"database/sql"
 	"fmt"
-	"math/rand"
-	"os"
-	"path/filepath"
+	"math"
+	"strings"
 )
 
-const (
-	ideasDirName  = ".config/aigc-cli/ideas"
-	ideasFileName = "ideas.json"
-)
+// SearchDBResults searches the database for entries matching keywords.
+// Returns ranked SearchResults and the total count of matches.
+// The caller is responsible for closing the database.
+func SearchDBResults(db *sql.DB, keywords string, limit int) ([]SearchResult, int, error) {
+	queryTerms := tokenize(keywords)
+	if len(queryTerms) == 0 {
+		return nil, 0, nil
+	}
 
-// SearchText searches the local ideas database for the given keywords and returns formatted results.
-func SearchText(keywords string, limit int) (string, error) {
-	entries, err := LoadIdeas("")
+	totalDocs, avgDocLen, err := GetCorpusStats(db)
 	if err != nil {
-		return "", fmt.Errorf("failed to load ideas: %w", err)
+		return nil, 0, fmt.Errorf("failed to read corpus stats: %w", err)
+	}
+	if totalDocs == 0 {
+		return nil, 0, nil
+	}
+
+	globalIDF := make(map[string]float64, len(queryTerms))
+	for _, t := range queryTerms {
+		df, _, err := GetTermDocFreq(db, t)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to query term %q: %w", t, err)
+		}
+		fd := float64(df)
+		fn := float64(totalDocs)
+		globalIDF[t] = math.Log(1 + (fn-fd+0.5)/(fd+0.5))
+	}
+
+	candidateIDs, err := QueryCandidateIDs(db, queryTerms)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query candidates: %w", err)
+	}
+	if len(candidateIDs) == 0 {
+		return nil, 0, nil
+	}
+
+	entries, err := LoadEntries(db, candidateIDs)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to load candidates: %w", err)
 	}
 	if len(entries) == 0 {
+		return nil, 0, nil
+	}
+
+	idx := BuildBM25IndexWithStats(entries, globalIDF, avgDocLen)
+	results := searchIdeas(entries, idx, keywords)
+	if limit > 0 && limit < len(results) {
+		results = results[:limit]
+	}
+	return results, len(results), nil
+}
+
+// SearchText searches the local ideas database for the given keywords
+// and returns formatted results. Uses SQLite with inverted index for
+// candidate filtering, then the same BM25 + n-gram + RRF ranking.
+func SearchText(keywords string, limit int) (string, error) {
+	db, err := OpenDB("")
+	if err != nil {
+		return "", fmt.Errorf("failed to open ideas database: %w\n  Run 'aigc-cli ideas init' to download and build it", err)
+	}
+	defer db.Close()
+
+	queryTerms := tokenize(keywords)
+	if len(queryTerms) == 0 {
+		return "", fmt.Errorf("no searchable terms in query")
+	}
+
+	totalDocs, avgDocLen, err := GetCorpusStats(db)
+	if err != nil {
+		return "", fmt.Errorf("failed to read corpus stats: %w", err)
+	}
+	if totalDocs == 0 {
 		return "No ideas found in the database. Run `aigc-cli ideas init` to download.", nil
 	}
 
-	idx := BuildBM25Index(entries)
+	// Compute IDF for each query term from the full corpus.
+	globalIDF := make(map[string]float64, len(queryTerms))
+	for _, t := range queryTerms {
+		df, _, err := GetTermDocFreq(db, t)
+		if err != nil {
+			return "", fmt.Errorf("failed to query term %q: %w", t, err)
+		}
+		fd := float64(df)
+		fn := float64(totalDocs)
+		globalIDF[t] = math.Log(1 + (fn-fd+0.5)/(fd+0.5))
+	}
 
+	// Query inverted index for candidate entry IDs (AND filter).
+	candidateIDs, err := QueryCandidateIDs(db, queryTerms)
+	if err != nil {
+		return "", fmt.Errorf("failed to query candidates: %w", err)
+	}
+	if len(candidateIDs) == 0 {
+		return "No matching prompts found.", nil
+	}
+
+	entries, err := LoadEntries(db, candidateIDs)
+	if err != nil {
+		return "", fmt.Errorf("failed to load candidate entries: %w", err)
+	}
+	if len(entries) == 0 {
+		return "No matching prompts found.", nil
+	}
+
+	// Build BM25 index on the candidate set with global IDF.
+	idx := BuildBM25IndexWithStats(entries, globalIDF, avgDocLen)
+
+	// Run the full search pipeline (BM25 + n-gram + RRF).
 	results := searchIdeas(entries, idx, keywords)
 	if len(results) == 0 {
 		return "No matching prompts found.", nil
@@ -40,55 +130,50 @@ func SearchText(keywords string, limit int) (string, error) {
 
 // SearchRandom returns random ideas from the database.
 func SearchRandom(limit int) (string, error) {
-	entries, err := LoadIdeas("")
+	db, err := OpenDB("")
 	if err != nil {
-		return "", fmt.Errorf("failed to load ideas: %w", err)
+		return "", fmt.Errorf("failed to open ideas database: %w\n  Run 'aigc-cli ideas init' to download and build it", err)
+	}
+	defer db.Close()
+
+	entries, err := LoadRandomEntries(db, limit)
+	if err != nil {
+		return "", fmt.Errorf("failed to load random entries: %w", err)
 	}
 	if len(entries) == 0 {
 		return "No ideas found in the database. Run `aigc-cli ideas init` to download.", nil
 	}
 
-	indices := rand.Perm(len(entries))
-	if limit <= 0 || limit > len(entries) {
-		limit = len(entries)
-	}
-
-	results := make([]SearchResult, limit)
-	for i := 0; i < limit; i++ {
-		results[i] = SearchResult{Entry: entries[indices[i]]}
+	results := make([]SearchResult, len(entries))
+	for i, e := range entries {
+		results[i] = SearchResult{Entry: e}
 	}
 	return FormatResultsMarkdown(results, "random", len(entries)), nil
 }
 
-// LoadIdeas reads ideas.json from the given path, or the default location if path is empty.
-func LoadIdeas(dataPath string) ([]IdeaEntry, error) {
-	path := dataPath
-	if path == "" {
-		var err error
-		path, err = defaultIdeasPath()
-		if err != nil {
-			return nil, err
+// SearchByImage finds entries whose image_urls contain the given filename.
+// Kept for backward compatibility — new callers should use SearchEntriesByImage.
+func SearchByImage(entries []IdeaEntry, filename string) []SearchResult {
+	fn := strings.ToLower(filename)
+	seen := make(map[string]bool)
+	var results []SearchResult
+	for _, e := range entries {
+		for _, url := range e.ImageURLs {
+			if strings.Contains(strings.ToLower(url), fn) {
+				key := url
+				if key == "" {
+					key = e.SourceURL
+				}
+				if key == "" {
+					key = e.Title + "|" + e.Prompt
+				}
+				if !seen[key] {
+					seen[key] = true
+					results = append(results, SearchResult{Entry: e, Score: 1})
+				}
+				break
+			}
 		}
 	}
-	data, err := os.ReadFile(filepath.Clean(path))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("ideas.json not found at %s.\n  Run 'aigc-cli ideas init' to download the prompt dataset,\n  or place ideas.json at ~/.config/aigc-cli/ideas.json", path)
-		}
-		return nil, fmt.Errorf("cannot read %s: %w", path, err)
-	}
-	var entries []IdeaEntry
-	if err := json.Unmarshal(data, &entries); err != nil {
-		return nil, fmt.Errorf("invalid ideas.json: %w", err)
-	}
-	return entries, nil
-}
-
-// defaultIdeasPath returns the default path to ideas.json.
-func defaultIdeasPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("cannot determine home directory: %w", err)
-	}
-	return filepath.Join(home, ideasDirName, ideasFileName), nil
+	return results
 }

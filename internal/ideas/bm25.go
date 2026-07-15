@@ -34,6 +34,20 @@ type bm25Index struct {
 
 // BuildBM25Index walks all entries, tokenizes once (in parallel), and pre-computes everything.
 func BuildBM25Index(entries []IdeaEntry) *bm25Index {
+	return buildBM25IndexWithStats(entries, nil, 0)
+}
+
+// BuildBM25IndexWithStats is like BuildBM25Index but uses pre-computed IDF and
+// avgDocLen from the full corpus. This is used when the index is built on a
+// subset of entries (search candidates) but needs corpus-level statistics
+// for correct BM25 scoring.
+// If globalIDF or avgDocLen are zero, falls back to computing them from the
+// provided entries (same as BuildBM25Index).
+func BuildBM25IndexWithStats(entries []IdeaEntry, globalIDF map[string]float64, avgDocLen float64) *bm25Index {
+	return buildBM25IndexWithStats(entries, globalIDF, avgDocLen)
+}
+
+func buildBM25IndexWithStats(entries []IdeaEntry, globalIDF map[string]float64, avgDocLen float64) *bm25Index {
 	n := len(entries)
 	idx := &bm25Index{
 		docCount:  n,
@@ -104,10 +118,17 @@ func BuildBM25Index(entries []IdeaEntry) *bm25Index {
 	}
 	idx.avgDocLen = float64(totalTokens) / float64(max(n, 1))
 
-	for term, df := range docFreq {
-		fd := float64(df)
-		fn := float64(n)
-		idx.idf[term] = math.Log(1 + (fn-fd+0.5)/(fd+0.5))
+	if globalIDF != nil {
+		// Use pre-computed IDF from the full corpus.
+		idx.idf = globalIDF
+		idx.avgDocLen = avgDocLen
+	} else {
+		// Compute IDF from the provided entries.
+		for term, df := range docFreq {
+			fd := float64(df)
+			fn := float64(n)
+			idx.idf[term] = math.Log(1 + (fn-fd+0.5)/(fd+0.5))
+		}
 	}
 
 	return idx
@@ -355,30 +376,4 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []SearchResu
 // SearchIdeas searches the indexed entries by keywords.
 func SearchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []SearchResult {
 	return searchIdeas(entries, idx, query)
-}
-
-// SearchByImage finds entries whose image_urls contain the given filename.
-func SearchByImage(entries []IdeaEntry, filename string) []SearchResult {
-	fn := strings.ToLower(filename)
-	seen := make(map[string]bool)
-	var results []SearchResult
-	for _, e := range entries {
-		for _, url := range e.ImageURLs {
-			if strings.Contains(strings.ToLower(url), fn) {
-				key := url
-				if key == "" {
-					key = e.SourceURL
-				}
-				if key == "" {
-					key = e.Title + "|" + e.Prompt
-				}
-				if !seen[key] {
-					seen[key] = true
-					results = append(results, SearchResult{Entry: e, Score: 1})
-				}
-				break
-			}
-		}
-	}
-	return results
 }

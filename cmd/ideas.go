@@ -27,9 +27,9 @@ const ideasDefaultLimit = 8
 // ideasCmd represents the `aigc-cli ideas` command.
 var ideasCmd = &cobra.Command{
 	Use:          "ideas [keywords]",
-	Short:        "Search AI image prompt ideas from local ideas.json",
+	Short:        "Search AI image prompt ideas from local index",
 	SilenceUsage: true,
-	Long: `Search AI image generation prompt ideas from a local ideas.json file.
+	Long: `Search AI image generation prompt ideas from a locally indexed database.
 
 Outputs markdown by default, with each result containing
 reference images, full prompt text, and metadata.
@@ -43,7 +43,7 @@ Keywords can be passed as arguments or via stdin:
   echo "cyberpunk city" | aigc-cli ideas
   aigc-cli ideas --json "cat" | jq '.results[].prompt'
 
-Data file: ~/.config/aigc-cli/ideas.json (run "aigc-cli ideas init" to download).`,
+Data: ~/.config/aigc-cli/ideas/ (run "aigc-cli ideas init" to download and index).`,
 	RunE: runIdeas,
 }
 
@@ -53,40 +53,52 @@ func runIdeas(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	entries, err := ideas.LoadIdeas(resolveIdeasDataPath(shared.Cfg))
+	db, err := ideas.OpenDB(resolveIdeasDBPath(shared.Cfg))
 	if err != nil {
-		return err
+		return fmt.Errorf("ideas database not found: %w\n  Run 'aigc-cli ideas init' to download and build it", err)
 	}
-	if len(entries) == 0 {
-		fmt.Println("ideas.json is empty. Run `aigc-cli ideas init` to download.")
-		return nil
-	}
-
-	var idx *ideas.BM25Index
-	if keywords != "" {
-		idx = ideas.BuildBM25Index(entries)
-	}
+	defer db.Close()
 
 	var results []ideas.SearchResult
+	var total int
+
 	if ideasFindImage != "" {
-		results = ideas.SearchByImage(entries, ideasFindImage)
+		entries, err := ideas.SearchEntriesByImage(db, ideasFindImage)
+		if err != nil {
+			return fmt.Errorf("failed to search by image: %w", err)
+		}
 		keywords = "图片: " + ideasFindImage
+		for _, e := range entries {
+			results = append(results, ideas.SearchResult{Entry: e, Score: 1})
+		}
+		total = len(results)
 	} else if keywords != "" {
-		results = ideas.SearchIdeas(entries, idx, keywords)
+		results, total, err = ideas.SearchDBResults(db, keywords, ideasLimit)
+		if err != nil {
+			return fmt.Errorf("search failed: %w", err)
+		}
 	} else {
+		// No keywords and no --find-image: random.
 		ideasRandom = true
-		ideasLimit = 1
-		for i := range entries {
-			results = append(results, ideas.SearchResult{Entry: entries[i]})
+		limit := ideasLimit
+		if limit <= 0 {
+			limit = ideasDefaultLimit
+		}
+		entries, err := ideas.LoadRandomEntries(db, limit)
+		if err != nil {
+			return fmt.Errorf("failed to load random entries: %w", err)
 		}
 		keywords = "随机灵感"
+		for _, e := range entries {
+			results = append(results, ideas.SearchResult{Entry: e})
+		}
+		total = len(results)
 	}
+
 	if len(results) == 0 {
 		fmt.Println("没有找到匹配的提示词。")
 		return nil
 	}
-
-	total := len(results)
 
 	if ideasRandom {
 		rand.Shuffle(len(results), func(i, j int) {
@@ -144,7 +156,7 @@ func resolveIdeasKeywords(args []string) (string, error) {
 
 func init() {
 	f := ideasCmd.Flags()
-	f.IntVarP(&ideasLimit, "limit", "l", ideasDefaultLimit, "Number of results to show (default 8)")
+	f.IntVarP(&ideasLimit, "limit", "l", ideasDefaultLimit, "Number of results to show")
 	f.BoolVar(&ideasRandom, "random", false, "Shuffle matched results randomly (default: ranked by relevance)")
 	f.BoolVar(&ideasJSON, "json", false, "Output as JSON instead of markdown")
 	f.BoolVar(&ideasSaveImages, "save", false, "Download reference images to local directory")
