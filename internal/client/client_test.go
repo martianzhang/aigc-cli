@@ -184,11 +184,15 @@ func TestSetOpenRouterHeaders_envNotSet(t *testing.T) {
 	req, _ := http.NewRequest("GET", "https://example.com", nil)
 	c.setOpenRouterHeaders(req)
 
-	if req.Header.Get("HTTP-Referer") != "" {
-		t.Error("HTTP-Referer should not be set when env is empty")
+	// When env vars are not set, built-in defaults should apply.
+	if req.Header.Get("HTTP-Referer") == "" {
+		t.Error("HTTP-Referer should fall back to default when env is empty")
 	}
-	if req.Header.Get("X-OpenRouter-Title") != "" {
-		t.Error("X-OpenRouter-Title should not be set when env is empty")
+	if req.Header.Get("X-OpenRouter-Title") == "" {
+		t.Error("X-OpenRouter-Title should fall back to default when env is empty")
+	}
+	if req.Header.Get("User-Agent") == "" {
+		t.Error("User-Agent should be set by default")
 	}
 }
 

@@ -38,12 +38,18 @@ const (
 // before creating clients (safe for single-threaded CLI usage).
 var DefaultTimeout = defaultHTTPTimeout
 
+// Version is the client version string used in the User-Agent header.
+// Set at build time via ldflags (e.g. -X github.com/martianzhang/apimart-cli/internal/client.Version=1.0.0).
+// Defaults to "dev" when not set.
+var Version = "dev"
+
 // Client is the API client for image generation, chat, and more.
 type Client struct {
-	baseURL    string
-	apiKey     string
-	httpClient *http.Client
-	ctx        context.Context // optional, for cancellation (set by SetContext)
+	baseURL        string
+	apiKey         string
+	httpClient     *http.Client
+	ctx            context.Context // optional, for cancellation (set by SetContext)
+	defaultHeaders map[string]string
 }
 
 // SetContext sets an optional context for cancellation support.

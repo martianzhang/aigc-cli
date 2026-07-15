@@ -78,9 +78,17 @@ func (c *Client) GetModelOpenAI(modelID string) (*types.OpenAIModel, error) {
 
 // --- Helpers ---
 
-// setOpenRouterHeaders adds optional OpenRouter-specific headers.
-// Reads environment variables directly to avoid storing provider-specific state.
+// setOpenRouterHeaders sets OpenRouter-specific headers on the request.
+// Priority: env var > defaultHeaders > nothing.
+// Also sets User-Agent from defaultHeaders if not already set.
 func (c *Client) setOpenRouterHeaders(req *http.Request) {
+	// Apply default headers first as fallback.
+	for k, v := range c.defaultHeaders {
+		if req.Header.Get(k) == "" {
+			req.Header.Set(k, v)
+		}
+	}
+	// Env vars override defaults (highest priority).
 	if ref := os.Getenv("OPENAI_REFERER"); ref != "" {
 		req.Header.Set(headerReferer, ref)
 	}
