@@ -5,11 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/martianzhang/apimart-cli/internal/ideas"
 	"github.com/martianzhang/apimart-cli/internal/service"
 )
 
 // saveIdeaImages downloads and saves idea images to the output directory.
-func saveIdeaImages(entries []IdeaEntry) ([]string, error) {
+func saveIdeaImages(entries []ideas.IdeaEntry) ([]string, error) {
 	var saved []string
 	if err := os.MkdirAll(shared.OutputDir, 0755); err != nil {
 		return saved, fmt.Errorf("cannot create output directory: %w", err)
@@ -20,7 +21,6 @@ func saveIdeaImages(entries []IdeaEntry) ([]string, error) {
 				continue
 			}
 			path := filepath.Join(shared.OutputDir, filepath.Base(imgURL))
-			// Skip if already exists
 			if _, err := os.Stat(path); err == nil {
 				saved = append(saved, path)
 				continue
