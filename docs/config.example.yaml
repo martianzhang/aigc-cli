@@ -93,13 +93,11 @@ defaults:
     #   - "generate_video"
     # allow_tool_override: false      # true=LLM参数优先, false=配置强制覆盖LLM（默认false,省钱）
 
-# Ideas prompt search data and cache.
-# ideas.json and the search index cache are stored at ~/.config/aigc-cli/ by default.
-# Cache is enabled by default. Uncomment to customize paths or disable caching:
+# Ideas prompt search data.
+# ideas.json is stored at ~/.config/aigc-cli/ideas/ by default.
+# Uncomment to customize the data path:
 # ideas:
-#   data_path: "~/.config/aigc-cli/ideas.json"   # custom ideas.json path
-#   index_path: "~/.config/aigc-cli/ideas.index"  # custom index cache path
-#   cache_enabled: false                          # set false to disable caching
+#   data_path: "~/.config/aigc-cli/ideas/ideas.json"   # custom ideas.json path
 
 # AIGC detection (detect command).
 # ONNX Runtime + model files are stored at ~/.config/aigc-cli/models/ by default.

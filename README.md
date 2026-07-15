@@ -15,7 +15,7 @@
 
 | | | |
 |---|---|---|
-| 🤖 | **MCP Server** | 接入 Claude Desktop、Cursor 等 AI 客户端，对话中直接生成图片视频，无需切工具、无需复制粘贴。 |
+| 🤖 | **MCP Server** | 接入 Claude Desktop、Cursor 等 AI 客户端，对话中直接生成图片视频、搜索灵感库、查询模型定价，无需切工具。 |
 | 🔬 | **AIGC 检测引擎** | 离线多信号融合：C2PA Content Credentials、TC260（国标 GB 45438-2025）、SynthID 隐形水印、ONNX 模型推理、FFT 频谱分析、SRM 噪声残差、JPEG 量化检测。全部本地运行，无需 API Key。 |
 | 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 在 OpenAI / OpenRouter / 任意中转之间切换，命令完全不变，Provider 自动适配。 |
 
@@ -71,7 +71,7 @@ aigc-cli chat --message "Hello"
 }
 ```
 
-AI 代理可以在对话中直接生成图片、创建视频、查询模型、检测 AIGC。详见 [docs/mcp.md](docs/mcp.md)。
+AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库、查询模型定价、检测 AIGC。详见 [docs/mcp.md](docs/mcp.md)。
 
 ---
 
@@ -117,7 +117,7 @@ aigc-cli
 ├── midjourney Midjourney 完整流水线（17 子命令）                          →  docs/guide-midjourney.md
 │   └── mj     别名，同上
 ├── chat       AI 对话 / 交互式 REPL / Agent Loop（工具调用）              →  docs/guide-chat.md
-├── ideas      提示词灵感搜索（关键词 / 随机 / 图文，支持 BM25 + n-gram）   →  docs/guide-ideas.md
+├── ideas      提示词灵感搜索（关键词 / 随机，默认不加参数随机一条）       →  docs/guide-ideas.md
 ├── models     模型列表（OpenRouter 发现 / OpenAI 兼容）
 │   └── --price    查看模型定价
 ├── task       查询异步任务状态（兼容 APIMart 异步任务）
@@ -171,7 +171,7 @@ aigc-cli midjourney (或 mj)
 | [Midjourney 生成](docs/guide-midjourney.md) | 17 个子命令完整说明：imagine、blend、upscale 等 |
 | [AI 对话](docs/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
 | [AIGC 检测](docs/guide-detect.md) | 多信号融合、ONNX 模型、FFT 频谱、emoji 输出 |
-| [提示词灵感](docs/guide-ideas.md) | 从 Image2Studio 搜索 AI 图片提示词灵感 |
+| [提示词灵感](docs/guide-ideas.md) | 离线 BM25 搜索引擎，万级提示词数据集 |
 | [其他命令](docs/guide-commands.md) | models、task、balance、dry-run、API 参考 |
 | [API 参考来源](docs/api-reference.md) | 各 Provider 接口规范来源、检测机制、策略路由 |
 | [常见问题](docs/faq.md) | 安装、使用、MCP、费用等常见问题解答 |

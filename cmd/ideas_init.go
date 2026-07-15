@@ -23,7 +23,7 @@ var ideasInitCmd = &cobra.Command{
 	SilenceUsage: true,
 	Long: `Download the AI image prompt ideas dataset.
 
-The data is saved to ~/.config/aigc-cli/ideas.json (or the configured ideas.data_path).
+The data is saved to ~/.config/aigc-cli/ideas/ideas.json (or the configured ideas.data_path).
 
 Proxy settings from config.yaml, env vars (HTTP_PROXY), or --http-proxy flag
 are automatically respected.`,
@@ -37,7 +37,7 @@ func runIdeasInit(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("cannot determine ideas data directory: %w", err)
 		}
-		targetPath = filepath.Join(dir, "ideas.json")
+		targetPath = filepath.Join(dir, "ideas", "ideas.json")
 	}
 
 	if _, err := os.Stat(targetPath); err == nil {

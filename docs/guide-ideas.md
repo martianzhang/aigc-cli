@@ -2,18 +2,18 @@
 
 从本地的 `ideas.json` 文件中搜索 AI 图片生成提示词，找到高质量的风格参考和提示词示例。
 
-无需 API Key。数据来自开源社区整理的优质提示词库，数据文件存储在 **`~/.config/aigc-cli/ideas.json`**（默认位置）。
+无需 API Key。数据来自开源社区整理的优质提示词库，数据文件存储在 **`~/.config/aigc-cli/ideas/ideas.json`**（默认位置）。
 
 ## 数据准备
 
 ### 首次初始化（推荐）
 
 ```bash
-# 自动下载 ideas.json 并建立搜索索引缓存
+# 自动下载 ideas.json
 aigc-cli ideas init
 ```
 
-此命令会从 GitHub 下载约 26K 条提示词数据到 `~/.config/aigc-cli/ideas.json`，并在启用缓存时预构建搜索索引。
+此命令会从 GitHub 下载约 26K 条提示词数据到 `~/.config/aigc-cli/ideas.json`。
 
 ### 通过 Makefile（开发者用）
 
@@ -22,38 +22,22 @@ aigc-cli ideas init
 make ideas-data
 ```
 
-### 搜索索引缓存（默认开启）
-
-缓存默认开启，无需配置。首次搜索自动建立索引并缓存到 `~/.config/aigc-cli/ideas.index`，后续搜索跳过索引构建，启动速度提升 **50-300ms**。
-
-缓存与数据一致性通过 **SHA256 校验**保证：当 `ideas.json` 内容变更（新增/修改条目）时，旧缓存自动失效并重建，无需手动干预。
-
-如需自定义路径或关闭缓存，在 `~/.config/aigc-cli/config.yaml` 中配置：
-
-```yaml
-ideas:
-  cache_enabled: false                            # 关闭缓存
-  data_path: "~/.config/aigc-cli/ideas.json"       # 自定义数据路径
-  index_path: "~/.config/aigc-cli/ideas.index"     # 自定义缓存路径
-```
-
-数据来源可见文末[数据来源与版权](#数据来源与版权)章节。
+搜索索引在首次使用时自动构建（并行分词，约 <1 秒），数据来源可见文末[数据来源与版权](#数据来源与版权)章节。
 
 ## 基本用法
 
 ```bash
-# 搜索提示词（默认 limit=8）
+# 搜索提示词
 aigc-cli ideas "cinematic portrait"
 
-# 多要一些结果
+# 随机一条灵感（默认行为：不加参数时自动随机返回一条）
+aigc-cli ideas
+
+# 随机多条
+aigc-cli ideas --random --limit 3
+
+# 多要一些搜索结果
 aigc-cli ideas "luxury perfume" --limit 10
-
-# 随机抽取（搭配关键词）
-aigc-cli ideas "portrait" --random
-
-# 随机灵感：不提供关键词，从全量数据中随机返回
-aigc-cli ideas --random
-aigc-cli ideas --random --limit 1    # 只随机显示一个
 
 # 从 stdin 读取关键词
 echo "cyberpunk city" | aigc-cli ideas
@@ -139,7 +123,7 @@ aigc-cli ideas "cat" --json \
 
 ### 添加自定义数据
 
-用户可以直接编辑 `~/.config/aigc-cli/ideas.json`，按上述格式在数组末尾追加新条目。编辑后删除缓存文件 `~/.config/aigc-cli/ideas.index`，下次搜索时索引会自动重建（基于 SHA256 校验）。
+用户可以直接编辑 `~/.config/aigc-cli/ideas.json`，按上述格式在数组末尾追加新条目。下次搜索时索引会自动重建。
 
 也可以通过 AI 编程工具（如 OpenCode、Cursor、GitHub Copilot、Claude Code 等）辅助添加 — 本格式说明即为明确的 schema 参考，AI 可据此生成合规的数据条目。
 
@@ -149,10 +133,10 @@ aigc-cli ideas "cat" --json \
 |---|---|---|
 | `keywords` | | 搜索关键词（位置参数，也从 stdin 读取） |
 | `--limit` | `-l` | 返回 N 条结果，默认 8 |
-| `--random` | | 从全量结果中随机抽取；不提供关键词时单独使用则从全部数据中随机返回 |
+| `--random` | | 从全量结果中随机抽取；不加参数时默认随机返回一条 |
 | `--json` | | 输出 JSON 格式（默认 Markdown） |
 | `--save` | | 下载参考图片到本地目录 |
-| `--output` | | 输出目录（仅 `--save` 时生效，图片存到 `{output}/ideas/images/`） |
+| `--find-image` | | 按参考图片文件名搜索 |
 
 ## 图片保存
 

@@ -14,11 +14,9 @@ type Config struct {
 	Detect     *DetectConfig   `mapstructure:"detect" yaml:"detect,omitempty"`
 }
 
-// IdeasConfig controls the ideas prompt data and search index cache behavior.
+// IdeasConfig controls the ideas prompt data path.
 type IdeasConfig struct {
-	DataPath     string `mapstructure:"data_path" yaml:"data_path,omitempty"`
-	IndexPath    string `mapstructure:"index_path" yaml:"index_path,omitempty"`
-	CacheEnabled bool   `mapstructure:"cache_enabled" yaml:"cache_enabled"`
+	DataPath string `mapstructure:"data_path" yaml:"data_path,omitempty"`
 }
 
 // DetectConfig controls the AIGC detection behavior.
