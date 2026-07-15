@@ -332,22 +332,6 @@ func executeMidjourney(c *client.Client, toolName, argsJSON string) string {
 	return "Error: unknown midjourney tool"
 }
 
-// --- Ideas, balance, task agent tools ---
-
-type ideasSearchArgs struct {
-	Keywords string `json:"keywords"`
-	Limit    int    `json:"limit"`
-	Random   bool   `json:"random"`
-}
-
-type balanceQueryArgs struct {
-	Scope string `json:"scope"`
-}
-
-type taskQueryArgs struct {
-	TaskID string `json:"task_id"`
-}
-
 // executeFindFiles finds files by name/pattern under a directory (safe, pure Go).
 func executeFindFiles(argsJSON string) string {
 	var params struct {
