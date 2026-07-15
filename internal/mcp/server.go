@@ -12,6 +12,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/martianzhang/apimart-cli/internal/ideas"
 	"github.com/martianzhang/apimart-cli/internal/provider"
 	"github.com/martianzhang/apimart-cli/internal/service"
 	"github.com/martianzhang/apimart-cli/internal/types"
@@ -94,6 +95,7 @@ func NewServer(cfg *Config) *server.MCPServer {
 	s.AddTool(newDetectTool(), detectHandler())
 	s.AddTool(newRemoveWatermarkTool(), removeWatermarkHandler())
 	s.AddTool(newAddWatermarkTool(), addWatermarkHandler())
+	s.AddTool(newSearchIdeasTool(), searchIdeasHandler())
 
 	return s
 }
@@ -286,4 +288,48 @@ func newAddWatermarkTool() mcp.Tool {
 			mcp.Description("输出路径（可选，默认 <原图>_watermarked.png）"),
 		),
 	)
+}
+
+func newSearchIdeasTool() mcp.Tool {
+	return mcp.NewTool("search_ideas",
+		mcp.WithDescription("搜索本地灵感库，返回 AI 图片生成提示词及可下载的参考图片。支持多语言关键词搜索——如果用户输入的是中文、日文等非英文，建议先用英文翻译再搜索，同时也用原语言搜索一次，合并结果以获得更全面的匹配。支持随机获取（设置 random=true）。"),
+		mcp.WithString("keywords",
+			mcp.Description("搜索关键词，支持中文/英文/日文等多语言。建议同时用英文翻译后再搜一次以匹配更多结果。留空则返回随机灵感。"),
+		),
+		mcp.WithInteger("limit",
+			mcp.Description("返回结果数量上限（默认 5）"),
+		),
+		mcp.WithBoolean("random",
+			mcp.Description("设为 true 随机返回灵感，忽略 keywords"),
+		),
+	)
+}
+
+// searchIdeasHandler handles the search_ideas tool call.
+func searchIdeasHandler() server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args, ok := req.Params.Arguments.(map[string]interface{})
+		if !ok {
+			return mcp.NewToolResultError("invalid arguments"), nil
+		}
+
+		keywords, _ := args["keywords"].(string)
+		random, _ := args["random"].(bool)
+		limit := 5
+		if v, ok := args["limit"].(float64); ok && v > 0 {
+			limit = int(v)
+		}
+
+		var result string
+		var err error
+		if random || keywords == "" {
+			result, err = ideas.SearchRandom(limit)
+		} else {
+			result, err = ideas.SearchText(keywords, limit)
+		}
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(result), nil
+	}
 }

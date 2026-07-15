@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/martianzhang/apimart-cli/internal/ideas"
 )
 
 type webFetchArgs struct {
@@ -34,7 +36,7 @@ func executeIdeasSearch(argsJSON string) string {
 		args.Limit = 5
 	}
 	if args.Random {
-		text, err := searchIdeasRandom(args.Limit)
+		text, err := ideas.SearchRandom(args.Limit)
 		if err != nil {
 			return fmt.Sprintf("Error: %v", err)
 		}
@@ -43,7 +45,7 @@ func executeIdeasSearch(argsJSON string) string {
 	if args.Keywords == "" {
 		return "Error: keywords is required (or set random=true for random ideas)"
 	}
-	text, err := searchIdeasText(args.Keywords, args.Limit)
+	text, err := ideas.SearchText(args.Keywords, args.Limit)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
@@ -139,18 +141,18 @@ func executeWebFetch(argsJSON string) string {
 	remaining := totalSize - end
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Content from %s\n", args.URL))
-	b.WriteString(fmt.Sprintf("Fetched: %d bytes\n", totalSize))
-	b.WriteString(fmt.Sprintf("Showing bytes %d-%d", args.Offset, end))
+	fmt.Fprintf(&b, "Content from %s\n", args.URL)
+	fmt.Fprintf(&b, "Fetched: %d bytes\n", totalSize)
+	fmt.Fprintf(&b, "Showing bytes %d-%d", args.Offset, end)
 	if remaining > 0 {
-		b.WriteString(fmt.Sprintf(" (%d bytes remaining)\n\n", remaining))
+		fmt.Fprintf(&b, " (%d bytes remaining)\n\n", remaining)
 	} else {
 		b.WriteString("\n\n")
 	}
 	b.WriteString(content)
 
 	if remaining > 0 {
-		b.WriteString(fmt.Sprintf("\n\nContent truncated. Use web_fetch(url=%q, offset=%d) to read the next section.", args.URL, end))
+		fmt.Fprintf(&b, "\n\nContent truncated. Use web_fetch(url=%q, offset=%d) to read the next section.", args.URL, end)
 	}
 
 	return b.String()
@@ -230,11 +232,11 @@ func executeReadFile(argsJSON string) string {
 
 	// Build response with continuation metadata
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("File: %s\n", fpath))
-	b.WriteString(fmt.Sprintf("Size: %d bytes\n", totalSize))
-	b.WriteString(fmt.Sprintf("Showing bytes %d-%d", args.Offset, end))
+	fmt.Fprintf(&b, "File: %s\n", fpath)
+	fmt.Fprintf(&b, "Size: %d bytes\n", totalSize)
+	fmt.Fprintf(&b, "Showing bytes %d-%d", args.Offset, end)
 	if remaining > 0 {
-		b.WriteString(fmt.Sprintf(" (%d bytes remaining)\n\n", remaining))
+		fmt.Fprintf(&b, " (%d bytes remaining)\n\n", remaining)
 	} else {
 		b.WriteString("\n\n")
 	}
@@ -243,7 +245,7 @@ func executeReadFile(argsJSON string) string {
 	b.WriteString("\n```")
 
 	if remaining > 0 {
-		b.WriteString(fmt.Sprintf("\n\nFile has more content. Use read_file(filepath=%q, offset=%d) to read the next %d bytes.", fpath, end, args.Limit))
+		fmt.Fprintf(&b, "\n\nFile has more content. Use read_file(filepath=%q, offset=%d) to read the next %d bytes.", fpath, end, args.Limit)
 	}
 
 	return b.String()

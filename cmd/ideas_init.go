@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/martianzhang/apimart-cli/internal/ideas"
 )
 
 const ideasDataURL = "https://raw.githubusercontent.com/martianzhang/apimart-cli/refs/heads/main/docs/ideas.json"
@@ -17,12 +19,11 @@ const ideasDataURL = "https://raw.githubusercontent.com/martianzhang/apimart-cli
 // ideasInitCmd represents the `aigc-cli ideas init` subcommand.
 var ideasInitCmd = &cobra.Command{
 	Use:          "init",
-	Short:        "Download ideas data and build search index cache",
+	Short:        "Download ideas data",
 	SilenceUsage: true,
-	Long: `Download the AI image prompt ideas dataset and build the search index cache.
+	Long: `Download the AI image prompt ideas dataset.
 
-The data is saved to ~/.config/aigc-cli/ideas.json (or the configured ideas.data_path)
-and the search index is cached at ~/.config/aigc-cli/ideas.index for fast startup.
+The data is saved to ~/.config/aigc-cli/ideas.json (or the configured ideas.data_path).
 
 Proxy settings from config.yaml, env vars (HTTP_PROXY), or --http-proxy flag
 are automatically respected.`,
@@ -30,7 +31,6 @@ are automatically respected.`,
 }
 
 func runIdeasInit(cmd *cobra.Command, args []string) error {
-	// Determine target path for ideas.json
 	targetPath := ideasDataSavePath(shared.Cfg)
 	if targetPath == "" {
 		dir, err := ideasDir()
@@ -40,18 +40,15 @@ func runIdeasInit(cmd *cobra.Command, args []string) error {
 		targetPath = filepath.Join(dir, "ideas.json")
 	}
 
-	// Don't re-download if already exists
 	if _, err := os.Stat(targetPath); err == nil {
 		fmt.Fprintf(os.Stderr, "%s already exists.\n  To re-download the latest data, delete it first:\n    rm %s\n  Then run 'aigc-cli ideas init' again.\n", targetPath, targetPath)
 		return fmt.Errorf("ideas data already exists")
 	}
 
-	// Download — uses http.DefaultClient which inherits proxy from ConfigureDefaultClient
 	fmt.Printf("Downloading ideas data from GitHub...\n")
 
 	client := &http.Client{
-		Timeout: 120 * time.Second,
-		// Inherits proxy transport from http.DefaultClient
+		Timeout:   120 * time.Second,
 		Transport: http.DefaultClient.Transport,
 	}
 	if client.Transport == nil {
@@ -73,35 +70,21 @@ func runIdeasInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
 
-	// Validate JSON before saving
-	var entries []IdeaEntry
+	var entries []ideas.IdeaEntry
 	if err := json.Unmarshal(rawData, &entries); err != nil {
 		return fmt.Errorf("downloaded data is corrupted (invalid JSON): %w", err)
 	}
 	fmt.Printf("Downloaded %d prompt entries.\n", len(entries))
 
-	// Ensure directory exists
 	dir := filepath.Dir(targetPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("cannot create directory %s: %w", dir, err)
 	}
 
-	// Save ideas.json
 	if err := os.WriteFile(targetPath, rawData, 0644); err != nil {
 		return fmt.Errorf("cannot save %s: %w", targetPath, err)
 	}
 	fmt.Printf("Saved to %s\n", targetPath)
-
-	// Build and cache search index
-	if isIdeasCacheEnabled(shared.Cfg) {
-		fmt.Println("Building search index...")
-		idx := buildBM25Index(entries)
-		hash := computeHash(rawData)
-		saveCachedIndex(shared.Cfg, idx, hash)
-		fmt.Println("Search index cached.")
-	} else {
-		fmt.Println("Tip: enable ideas.cache_enabled in config.yaml to cache the search index for faster startup.")
-	}
 
 	return nil
 }

@@ -1,37 +1,16 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/martianzhang/apimart-cli/internal/ideas"
 )
-
-// --- data structures ---
-
-// IdeaEntry represents a single prompt entry in ideas.json.
-type IdeaEntry struct {
-	Title     string   `json:"title,omitempty"`
-	TitleZh   string   `json:"title_zh,omitempty"`
-	Prompt    string   `json:"prompt"`
-	PromptZh  string   `json:"prompt_zh,omitempty"`
-	ImageURLs []string `json:"image_urls,omitempty"`
-	SourceURL string   `json:"source_url,omitempty"`
-	Author    string   `json:"author,omitempty"`
-	License   string   `json:"license,omitempty"`
-	Lang      string   `json:"lang"`
-}
-
-// searchResult pairs an entry with its relevance score.
-type searchResult struct {
-	entry IdeaEntry
-	score int
-}
 
 // ideas flag variables
 var (
@@ -69,44 +48,38 @@ Data file: ~/.config/aigc-cli/ideas.json (run "aigc-cli ideas init" to download)
 }
 
 func runIdeas(cmd *cobra.Command, args []string) error {
-	// Resolve keywords
 	keywords, err := resolveIdeasKeywords(args)
 	if err != nil {
 		return err
 	}
 
-	// Load ideas.json (from external file)
-	entries, rawData, err := loadIdeas()
+	entries, err := ideas.LoadIdeas(resolveIdeasDataPath(shared.Cfg))
 	if err != nil {
 		return err
 	}
-
-	// Load or build BM25 index (cache-supported)
-	var idx *bm25Index
-	if keywords != "" {
-		hash := computeHash(rawData)
-		idx = loadCachedIndex(shared.Cfg, hash)
-		if idx == nil {
-			idx = buildBM25Index(entries)
-			saveCachedIndex(shared.Cfg, idx, hash)
-		}
+	if len(entries) == 0 {
+		fmt.Println("ideas.json is empty. Run `aigc-cli ideas init` to download.")
+		return nil
 	}
 
-	// Search
-	var results []searchResult
+	var idx *ideas.BM25Index
+	if keywords != "" {
+		idx = ideas.BuildBM25Index(entries)
+	}
+
+	var results []ideas.SearchResult
 	if ideasFindImage != "" {
-		results = searchByImage(entries, ideasFindImage)
+		results = ideas.SearchByImage(entries, ideasFindImage)
 		keywords = "图片: " + ideasFindImage
 	} else if keywords != "" {
-		results = searchIdeas(entries, idx, keywords)
-	} else if ideasRandom {
-		// --random without keywords: return all entries randomly
+		results = ideas.SearchIdeas(entries, idx, keywords)
+	} else {
+		ideasRandom = true
+		ideasLimit = 1
 		for i := range entries {
-			results = append(results, searchResult{entry: entries[i]})
+			results = append(results, ideas.SearchResult{Entry: entries[i]})
 		}
 		keywords = "随机灵感"
-	} else {
-		return fmt.Errorf("keywords or --find-image are required")
 	}
 	if len(results) == 0 {
 		fmt.Println("没有找到匹配的提示词。")
@@ -115,30 +88,26 @@ func runIdeas(cmd *cobra.Command, args []string) error {
 
 	total := len(results)
 
-	// Randomize if --random flag is set (shuffles matched results)
 	if ideasRandom {
 		rand.Shuffle(len(results), func(i, j int) {
 			results[i], results[j] = results[j], results[i]
 		})
 	}
 
-	// Apply limit
 	limit := ideasLimit
 	if limit > total {
 		limit = total
 	}
 	results = results[:limit]
 
-	// --preview implies --save: system viewer needs files on disk
 	if ideasPreview && !ideasSaveImages {
 		ideasSaveImages = true
 	}
 
-	// Save images if requested
 	if ideasSaveImages {
-		var entries []IdeaEntry
+		var entries []ideas.IdeaEntry
 		for _, r := range results {
-			entries = append(entries, r.entry)
+			entries = append(entries, r.Entry)
 		}
 		saved, _ := saveIdeaImages(entries)
 		if ideasJSON {
@@ -147,7 +116,6 @@ func runIdeas(cmd *cobra.Command, args []string) error {
 		return outputMarkdown(results, keywords, total, saved)
 	}
 
-	// Output
 	if ideasJSON {
 		return outputJSON(results, total)
 	}
@@ -172,23 +140,6 @@ func resolveIdeasKeywords(args []string) (string, error) {
 		return "", fmt.Errorf("failed to read stdin: %w", err)
 	}
 	return strings.TrimSpace(string(data)), nil
-}
-
-// --- data loading ---
-
-func loadIdeas() (entries []IdeaEntry, rawData []byte, err error) {
-	path := resolveIdeasDataPath(shared.Cfg)
-	if path == "" {
-		return nil, nil, fmt.Errorf("ideas.json not found.\n  Run 'aigc-cli ideas init' to download the prompt dataset,\n  or place ideas.json at ~/.config/aigc-cli/ideas.json")
-	}
-	data, err := os.ReadFile(filepath.Clean(path))
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot read %s: %w", path, err)
-	}
-	if err := json.Unmarshal(data, &entries); err != nil {
-		return nil, nil, fmt.Errorf("invalid ideas.json: %w", err)
-	}
-	return entries, data, nil
 }
 
 func init() {

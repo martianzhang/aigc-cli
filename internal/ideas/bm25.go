@@ -1,4 +1,4 @@
-package cmd
+package ideas
 
 import (
 	"math"
@@ -17,7 +17,9 @@ const (
 	rrfK   = 30.0 // RRF fusion constant
 )
 
-// bm25Index holds precomputed corpus statistics and pre-tokenized data.
+// BM25Index holds precomputed corpus statistics and pre-tokenized data.
+type BM25Index = bm25Index
+
 type bm25Index struct {
 	avgDocLen float64
 	docCount  int
@@ -30,8 +32,8 @@ type bm25Index struct {
 	docTexts  []string         // pre-computed searchableText, for n-gram
 }
 
-// buildBM25Index walks all entries, tokenizes once (in parallel), and pre-computes everything.
-func buildBM25Index(entries []IdeaEntry) *bm25Index {
+// BuildBM25Index walks all entries, tokenizes once (in parallel), and pre-computes everything.
+func BuildBM25Index(entries []IdeaEntry) *bm25Index {
 	n := len(entries)
 	idx := &bm25Index{
 		docCount:  n,
@@ -195,8 +197,11 @@ func tokenize(text string) []string {
 // splitTokens converts a rune buffer into one or more tokens.
 // CJK-only buffers longer than 2 are split into overlapping 2-grams.
 func splitTokens(buf []rune) []string {
-	if len(buf) < 2 {
+	if len(buf) == 0 {
 		return nil
+	}
+	if len(buf) == 1 {
+		return []string{string(buf)}
 	}
 	allCJK := true
 	for _, r := range buf {
@@ -260,7 +265,7 @@ func andFilter(docSet map[string]int, terms []string) bool {
 
 // --- search ---
 
-func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResult {
+func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []SearchResult {
 	queryTerms := tokenize(query)
 	if len(queryTerms) == 0 {
 		return nil
@@ -278,7 +283,6 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResu
 			continue
 		}
 		s := idx.bm25Score(i, queryTerms)
-		// Title boost: multiply BM25 by 2 if any query term appears in the title
 		titleBoost := false
 		for _, t := range queryTerms {
 			if containsWord(entries[i].Title+" "+entries[i].TitleZh, t) {
@@ -297,7 +301,7 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResu
 		return nil
 	}
 
-	// Phase 2: n-gram cosine similarity (uses pre-computed docTexts)
+	// Phase 2: n-gram cosine similarity
 	queryNgrams := ngramSet(query, 3)
 	type ngramScored struct {
 		entryIdx int
@@ -311,7 +315,6 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResu
 	}
 
 	// Phase 3: RRF fusion
-	// Sort candidates by BM25 descending for BM25 ranks
 	sort.Slice(candidates, func(i, j int) bool {
 		return candidates[i].bm25 > candidates[j].bm25
 	})
@@ -320,7 +323,6 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResu
 		bm25Ranks[c.entryIdx] = i + 1
 	}
 
-	// Sort by n-gram cosine descending for n-gram ranks
 	sort.Slice(ngramCandidates, func(i, j int) bool {
 		return ngramCandidates[i].cosine > ngramCandidates[j].cosine
 	})
@@ -329,7 +331,6 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResu
 		ngramRanks[c.entryIdx] = i + 1
 	}
 
-	// RRF: combine ranks
 	rrf := make(map[int]float64)
 	for _, c := range candidates {
 		r1 := float64(bm25Ranks[c.entryIdx])
@@ -337,25 +338,30 @@ func searchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []searchResu
 		rrf[c.entryIdx] = 1.0/(rrfK+r1) + 1.0/(rrfK+r2)
 	}
 
-	results := make([]searchResult, 0, len(candidates))
+	results := make([]SearchResult, 0, len(candidates))
 	for _, c := range candidates {
-		results = append(results, searchResult{
-			entry: entries[c.entryIdx],
-			score: int(rrf[c.entryIdx] * 1000),
+		results = append(results, SearchResult{
+			Entry: entries[c.entryIdx],
+			Score: int(rrf[c.entryIdx] * 1000),
 		})
 	}
 
 	sort.Slice(results, func(i, j int) bool {
-		return results[i].score > results[j].score
+		return results[i].Score > results[j].Score
 	})
 	return results
 }
 
-// searchByImage finds entries whose image_urls contain the given filename.
-func searchByImage(entries []IdeaEntry, filename string) []searchResult {
+// SearchIdeas searches the indexed entries by keywords.
+func SearchIdeas(entries []IdeaEntry, idx *bm25Index, query string) []SearchResult {
+	return searchIdeas(entries, idx, query)
+}
+
+// SearchByImage finds entries whose image_urls contain the given filename.
+func SearchByImage(entries []IdeaEntry, filename string) []SearchResult {
 	fn := strings.ToLower(filename)
 	seen := make(map[string]bool)
-	var results []searchResult
+	var results []SearchResult
 	for _, e := range entries {
 		for _, url := range e.ImageURLs {
 			if strings.Contains(strings.ToLower(url), fn) {
@@ -368,7 +374,7 @@ func searchByImage(entries []IdeaEntry, filename string) []searchResult {
 				}
 				if !seen[key] {
 					seen[key] = true
-					results = append(results, searchResult{entry: e, score: 1})
+					results = append(results, SearchResult{Entry: e, Score: 1})
 				}
 				break
 			}

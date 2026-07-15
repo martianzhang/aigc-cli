@@ -108,11 +108,11 @@ var agentToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "ideas",
-			Description: "Search AI image prompt ideas from the local ideas database. Use when the user needs inspiration for image prompts, or use random=true for a random surprise idea.",
+			Description: "Search AI image prompt ideas from the local ideas database. Supports cross-language keyword search — if the user's query is in Chinese, Japanese, etc., also translate to English and search both languages for broader results. Use random=true for a random surprise idea.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"keywords": {"type": "string", "description": "Search keywords (ignored when random=true)"},
+					"keywords": {"type": "string", "description": "Search keywords (ignored when random=true). Supports Chinese, Japanese, English etc. — translate to English and search both for better cross-language results."},
 					"limit": {"type": "integer", "description": "Max results to return (default 5)"},
 					"random": {"type": "boolean", "description": "Get random ideas instead of keyword search"}
 				}
