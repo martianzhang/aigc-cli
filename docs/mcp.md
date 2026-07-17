@@ -105,19 +105,10 @@ aigc-cli mcp --api-key sk-xxx --output ./downloads
 You can list all MCP tools and their schemas by sending a `tools/list` request via stdio:
 
 ```bash
-printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"notifications/initialized"}\n{"jsonrpc":"2.0","id":3,"method":"tools/list"}\n' | aigc-cli mcp | python3 -c "
-import sys, json
-for line in sys.stdin:
-    try:
-        obj = json.loads(line)
-        if 'result' in obj and 'tools' in obj['result']:
-            for tool in obj['result']['tools']:
-                print(tool['name'])
-    except: pass
-"
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"notifications/initialized"}\n{"jsonrpc":"2.0","id":3,"method":"tools/list"}\n' | aigc-cli mcp | jq -r '.result.tools[]?.name // empty'
 ```
 
-Or pipe to `python3 -m json.tool` for the full formatted JSON output.
+Or pipe to `jq .` for the full formatted JSON of each response message.
 
 ## Dynamic Tool Descriptions
 
