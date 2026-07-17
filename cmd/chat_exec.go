@@ -91,6 +91,10 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeRemoveWatermark(args)
 	case "add_watermark":
 		return executeAddWatermark(args)
+	case "generate_speech":
+		return executeGenerateSpeech(args)
+	case "transcribe_audio":
+		return executeTranscribeAudio(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}
@@ -393,4 +397,95 @@ func executeFindFiles(argsJSON string) string {
 	}
 	header := fmt.Sprintf("Found %d file(s) matching %q under %s:\n", len(results), params.Pattern, root)
 	return header + strings.Join(results, "\n")
+}
+
+// executeGenerateSpeech runs TTS and returns a text summary for the LLM.
+func executeGenerateSpeech(argsJSON string) string {
+	var params struct {
+		Input  string `json:"input"`
+		Model  string `json:"model"`
+		Voice  string `json:"voice"`
+		Format string `json:"format"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &params); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if params.Input == "" {
+		return "Error: input is required"
+	}
+	if params.Voice == "" {
+		return "Error: voice is required"
+	}
+	model := params.Model
+	if model == "" {
+		if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil && shared.Cfg.Defaults.Audio.Model != "" {
+			model = shared.Cfg.Defaults.Audio.Model
+		} else {
+			return "Error: model is required"
+		}
+	}
+	format := params.Format
+	if format == "" {
+		format = "mp3"
+	}
+
+	req := &types.AudioSpeechRequest{
+		Model:          model,
+		Input:          params.Input,
+		Voice:          params.Voice,
+		ResponseFormat: format,
+	}
+
+	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	applyTimeout(c, "audio", client.AudioTimeout)
+
+	audioData, _, err := c.AudioSpeech(req)
+	if err != nil {
+		return fmt.Sprintf("Error: TTS failed: %v", err)
+	}
+
+	filename, err := saveAudioFile(audioData, format)
+	if err != nil {
+		return fmt.Sprintf("Error: failed to save audio: %v", err)
+	}
+
+	return fmt.Sprintf("Speech generated and saved to: %s\nFormat: %s\nSize: %d bytes\nModel: %s\nVoice: %s",
+		filename, format, len(audioData), model, params.Voice)
+}
+
+// executeTranscribeAudio runs STT and returns a text summary for the LLM.
+func executeTranscribeAudio(argsJSON string) string {
+	var params struct {
+		FilePath string `json:"file_path"`
+		Model    string `json:"model"`
+		Language string `json:"language"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &params); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if params.FilePath == "" {
+		return "Error: file_path is required"
+	}
+	model := params.Model
+	if model == "" {
+		if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil && shared.Cfg.Defaults.Audio.Model != "" {
+			model = shared.Cfg.Defaults.Audio.Model
+		} else {
+			return "Error: model is required"
+		}
+	}
+
+	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	applyTimeout(c, "audio", client.AudioTimeout)
+
+	resp, err := c.AudioTranscribeMultipart(model, params.FilePath, params.Language)
+	if err != nil {
+		return fmt.Sprintf("Error: STT failed: %v", err)
+	}
+
+	result := fmt.Sprintf("Transcription result (model: %s):\n%s", model, resp.Text)
+	if resp.Usage != nil && resp.Usage.Cost > 0 {
+		result += fmt.Sprintf("\n(Cost: $%.5f)", resp.Usage.Cost)
+	}
+	return result
 }

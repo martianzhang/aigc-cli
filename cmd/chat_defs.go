@@ -180,6 +180,40 @@ var agentToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
+	// --- Audio tools ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "generate_speech",
+			Description: "Convert text to spoken audio (TTS). The audio is saved to a local file — provide the filename to the user.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"input": {"type": "string", "description": "Text to convert to speech"},
+					"model": {"type": "string", "description": "TTS model (default: gpt-4o-mini-tts)"},
+					"voice": {"type": "string", "description": "Voice name: alloy, nova, echo, fable, onyx, shimmer, coral, verse, ballad, ash, sage, marin, cedar"},
+					"format": {"type": "string", "description": "Audio format: mp3, wav, opus, aac, flac, pcm (default: mp3)", "enum": ["mp3", "wav", "opus", "aac", "flac", "pcm"]}
+				},
+				"required": ["input", "voice"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "transcribe_audio",
+			Description: "Transcribe an audio file to text (STT). Provide a local file path to the audio file.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"file_path": {"type": "string", "description": "Path to the local audio file to transcribe"},
+					"model": {"type": "string", "description": "STT model (default: whisper-large-v3)"},
+					"language": {"type": "string", "description": "Language hint (ISO-639-1, e.g. en, ja, zh)"}
+				},
+				"required": ["file_path"]
+			}`),
+		},
+	},
 	// --- Web tools ---
 	{
 		Type: "function",

@@ -300,3 +300,96 @@ func handleMCPAPIMartVideo(c client.APIClient, req *types.VideoGenerateRequest) 
 	text := fmt.Sprintf("视频任务已提交。\n\nTask ID: %s\nStatus: %s\n\n视频生成耗时较长（通常 30-180 秒），请使用 get_task 工具传入此 task_id 查询生成结果。", taskInfo.TaskID, taskInfo.Status)
 	return mcp.NewToolResultText(text), nil
 }
+
+// generateSpeechHandler creates the handler for generate_speech, capturing the config.
+func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		if cfg.APIKey == "" {
+			return mcp.NewToolResultError("API Key not configured"), nil
+		}
+
+		input, err := request.RequireString("input")
+		if err != nil {
+			return mcp.NewToolResultError("input is required"), nil
+		}
+
+		req := &types.AudioSpeechRequest{
+			Model:          request.GetString("model", ""),
+			Input:          input,
+			Voice:          request.GetString("voice", ""),
+			ResponseFormat: request.GetString("format", "mp3"),
+		}
+
+		if req.Model == "" {
+			if cfg.Defaults.Audio != nil && cfg.Defaults.Audio.Model != "" {
+				req.Model = cfg.Defaults.Audio.Model
+			} else {
+				return mcp.NewToolResultError("model is required: set model in request or defaults.audio.model in config.yaml"), nil
+			}
+		}
+		if req.Voice == "" {
+			if cfg.Defaults.Audio != nil && cfg.Defaults.Audio.Voice != "" {
+				req.Voice = cfg.Defaults.Audio.Voice
+			}
+		}
+		if req.Voice == "" {
+			return mcp.NewToolResultError("voice is required"), nil
+		}
+
+		c := client.New(cfg.APIKey, cfg.BaseURL, cfg.Proxy)
+		audioData, _, err := c.AudioSpeech(req)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("TTS failed: %v", err)), nil
+		}
+
+		ext := "." + req.ResponseFormat
+		ts := time.Now().Unix()
+		filename := filepath.Join(cfg.Output, fmt.Sprintf("speech_%d%s", ts, ext))
+		if err := os.WriteFile(filename, audioData, 0644); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to save audio: %v", err)), nil
+		}
+
+		return mcp.NewToolResultText(fmt.Sprintf("Speech saved: %s\nFormat: %s\nSize: %d bytes\nModel: %s\nVoice: %s",
+			filename, req.ResponseFormat, len(audioData), req.Model, req.Voice)), nil
+	}
+}
+
+// transcribeAudioHandler creates the handler for transcribe_audio, capturing the config.
+func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		if cfg.APIKey == "" {
+			return mcp.NewToolResultError("API Key not configured"), nil
+		}
+
+		filePath, err := request.RequireString("file_path")
+		if err != nil {
+			return mcp.NewToolResultError("file_path is required"), nil
+		}
+
+		model := request.GetString("model", "")
+		if model == "" {
+			if cfg.Defaults.Audio != nil && cfg.Defaults.Audio.Model != "" {
+				model = cfg.Defaults.Audio.Model
+			} else {
+				return mcp.NewToolResultError("model is required: set model in request or defaults.audio.model in config.yaml"), nil
+			}
+		}
+
+		language := request.GetString("language", "")
+
+		c := client.New(cfg.APIKey, cfg.BaseURL, cfg.Proxy)
+		resp, err := c.AudioTranscribeMultipart(model, filePath, language)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("STT failed: %v", err)), nil
+		}
+
+		text := resp.Text
+		detail := fmt.Sprintf("Model: %s\n", model)
+		if resp.Usage != nil {
+			detail += fmt.Sprintf("Audio: %.1fs | Cost: $%.5f\n", resp.Usage.Seconds, resp.Usage.Cost)
+		}
+		detail += "\n" + text
+
+		return mcp.NewToolResultText(detail), nil
+	}
+}

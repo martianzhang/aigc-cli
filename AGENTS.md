@@ -91,6 +91,7 @@ make cover
 | `docs/guide-watermark.md` | 修改水印引擎（学习/去除/添加流程） |
 | `docs/guide-midjourney.md` | 修改 `midjourney` 命令参数或行为 |
 | `docs/guide-ideas.md` | 修改 `ideas` 命令参数或行为 |
+| `docs/guide-audio.md` | 修改 `audio` 命令参数或行为 |
 | `docs/guide-commands.md` | 修改 `models`/`task`/`balance`/`dry-run` 等辅助命令 |
 | `docs/faq.md` | 新增常见问题 |
 | `docs/mcp.md` | 修改 MCP 工具定义或配置方式 |

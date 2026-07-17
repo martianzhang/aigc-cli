@@ -85,6 +85,15 @@ func (m *mockAPIClient) MidjourneyGetTask(taskID string) (*types.MJTaskData, err
 func (m *mockAPIClient) MidjourneyPollTask(taskID string) (*types.MJTaskData, error) {
 	return nil, nil
 }
+func (m *mockAPIClient) AudioSpeech(req *types.AudioSpeechRequest) ([]byte, string, error) {
+	return nil, "", nil
+}
+func (m *mockAPIClient) AudioTranscribe(req *types.AudioTranscribeRequest) (*types.AudioTranscribeResponse, error) {
+	return nil, nil
+}
+func (m *mockAPIClient) AudioTranscribeMultipart(model, filePath, language string) (*types.AudioTranscribeResponse, error) {
+	return nil, nil
+}
 
 // compile-time check
 var _ client.APIClient = (*mockAPIClient)(nil)

@@ -71,6 +71,18 @@ func buildVideoDesc(d *types.VideoDefaults, baseURL string) string {
 	return b.String()
 }
 
+// buildAudioDesc builds the generate_speech tool description with config defaults injected.
+func buildAudioDesc(d *types.AudioDefaults, baseURL string) string {
+	b := new(strings.Builder)
+	p := provider.Detect(baseURL)
+	fmt.Fprintf(b, "Generate speech audio from text via %s.\n\n当前配置（在 ~/.config/aigc-cli/config.yaml 中修改）:\n", p)
+	if d != nil {
+		fmt.Fprintf(b, "  model = %s | voice = %s | format = %s\n", d.Model, d.Voice, d.ResponseFormat)
+	}
+	b.WriteString("\n策略: 参数已设好默认值，不要主动填写。只有在用户提示词中明确指定了某个参数时，才传入对应参数覆盖。")
+	return b.String()
+}
+
 // NewServer creates and configures an MCP server with all APIMart tools.
 // Handlers are implemented as closures capturing the config.
 func NewServer(cfg *Config) *server.MCPServer {
@@ -84,10 +96,13 @@ func NewServer(cfg *Config) *server.MCPServer {
 	// Build descriptions with config defaults
 	imgDesc := buildImageDesc(cfg.Defaults.Image, cfg.BaseURL)
 	videoDesc := buildVideoDesc(cfg.Defaults.Video, cfg.BaseURL)
+	audioDesc := buildAudioDesc(cfg.Defaults.Audio, cfg.BaseURL)
 
 	// Register tools with config captured via closures
 	s.AddTool(newGenerateImageTool(imgDesc), generateImageHandler(cfg))
 	s.AddTool(newGenerateVideoTool(videoDesc), generateVideoHandler(cfg))
+	s.AddTool(newGenerateSpeechTool(audioDesc), generateSpeechHandler(cfg))
+	s.AddTool(newTranscribeAudioTool(audioDesc), transcribeAudioHandler(cfg))
 	s.AddTool(newListModelsTool(), listModelsHandler())
 	s.AddTool(newGetModelPricingTool(), getModelPricingHandler())
 	s.AddTool(newGetBalanceTool(), getBalanceHandler(cfg))
@@ -174,6 +189,44 @@ func newGenerateVideoTool(desc string) mcp.Tool {
 		),
 		mcp.WithBoolean("generate_audio",
 			mcp.Description("Generate AI audio for the video"),
+		),
+	)
+	return t
+}
+
+func newGenerateSpeechTool(desc string) mcp.Tool {
+	t := mcp.NewTool("generate_speech",
+		mcp.WithDescription(desc),
+		mcp.WithString("input",
+			mcp.Required(),
+			mcp.Description("Text to convert to speech"),
+		),
+		mcp.WithString("model",
+			mcp.Description("TTS model (e.g. openai/gpt-4o-mini-tts)"),
+		),
+		mcp.WithString("voice",
+			mcp.Required(),
+			mcp.Description("Voice name (e.g. alloy, nova, echo, fable)"),
+		),
+		mcp.WithString("format",
+			mcp.Description("Audio format: mp3, wav, opus, aac, flac, pcm (default: mp3)"),
+		),
+	)
+	return t
+}
+
+func newTranscribeAudioTool(desc string) mcp.Tool {
+	t := mcp.NewTool("transcribe_audio",
+		mcp.WithDescription(desc),
+		mcp.WithString("file_path",
+			mcp.Required(),
+			mcp.Description("Path to the audio file to transcribe"),
+		),
+		mcp.WithString("model",
+			mcp.Description("STT model (e.g. openai/whisper-large-v3)"),
+		),
+		mcp.WithString("language",
+			mcp.Description("Language hint (ISO-639-1, e.g. en, ja, zh)"),
 		),
 	)
 	return t

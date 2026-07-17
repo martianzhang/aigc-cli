@@ -7,17 +7,19 @@ import (
 )
 
 const (
-	defaultBaseURL    = "https://api.apimart.ai"
-	imageSubmitPath   = "/images/generations"
-	videoSubmitPath   = "/videos/generations"
-	yunwuVideoSubPath = "/video/create"
-	yunwuVideoQryPath = "/video/query"
-	chatPath          = "/chat/completions"
-	uploadPath        = "/uploads/images"
-	taskPath          = "/tasks/%s"
-	tokenBalancePath  = "/balance"
-	userBalancePath   = "/user/balance"
-	modelsPath        = "/models"
+	defaultBaseURL      = "https://api.apimart.ai"
+	imageSubmitPath     = "/images/generations"
+	videoSubmitPath     = "/videos/generations"
+	yunwuVideoSubPath   = "/video/create"
+	yunwuVideoQryPath   = "/video/query"
+	chatPath            = "/chat/completions"
+	audioSpeechPath     = "/audio/speech"
+	audioTranscribePath = "/audio/transcriptions"
+	uploadPath          = "/uploads/images"
+	taskPath            = "/tasks/%s"
+	tokenBalancePath    = "/balance"
+	userBalancePath     = "/user/balance"
+	modelsPath          = "/models"
 	// OpenRouter-specific header names
 	headerReferer = "HTTP-Referer"
 	headerTitle   = "X-OpenRouter-Title"
@@ -32,6 +34,7 @@ const (
 	ImageTimeout = 180 * time.Second
 	VideoTimeout = 600 * time.Second
 	MJTimeout    = 600 * time.Second
+	AudioTimeout = 120 * time.Second
 )
 
 // DefaultTimeout is the timeout used by New(). Commands can override this

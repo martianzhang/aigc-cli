@@ -42,6 +42,11 @@ defaults:
   #   n: 1
   # video:
   #   # OpenAI 视频尚未公开 API，可用 OpenRouter 中转
+  # audio:
+  #   # OpenAI TTS 模型
+  #   # model: "gpt-4o-mini-tts"
+  #   # voice: "alloy"
+  #   # response_format: "mp3"
   # chat:
   #   model: "gpt-4o"
 
@@ -51,6 +56,10 @@ defaults:
   #   size: "1:1"
   # video:
   #   model: "google/veo-3.1"
+  # audio:
+  #   model: "openai/gpt-4o-mini-tts-2025-12-15"   # 或 google/gemini-3.1-flash-tts-preview
+  #   voice: "alloy"
+  #   response_format: "mp3"
   # chat:
   #   model: "openai/gpt-4o"
 
@@ -73,6 +82,12 @@ defaults:
     # resolution: "480p"
     # duration: 5
     # timeout: 600                  # HTTP timeout in seconds (video takes longer)
+
+  audio:
+    model: "gpt-4o-mini-tts"         # TTS 模型
+    # voice: "alloy"                   # 默认声音
+    # response_format: "mp3"           # mp3, wav, opus, aac, flac, pcm
+    # timeout: 120                     # HTTP timeout in seconds
 
   midjourney:
     # speed: "relax"              # relax (default) / fast / turbo

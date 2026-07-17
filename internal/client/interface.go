@@ -35,4 +35,9 @@ type APIClient interface {
 	MidjourneySubmit(action string, reqBody any) (*types.MJSubmitResponse, error)
 	MidjourneyGetTask(taskID string) (*types.MJTaskData, error)
 	MidjourneyPollTask(taskID string) (*types.MJTaskData, error)
+
+	// Audio (TTS/STT)
+	AudioSpeech(req *types.AudioSpeechRequest) ([]byte, string, error)
+	AudioTranscribe(req *types.AudioTranscribeRequest) (*types.AudioTranscribeResponse, error)
+	AudioTranscribeMultipart(model, filePath, language string) (*types.AudioTranscribeResponse, error)
 }
