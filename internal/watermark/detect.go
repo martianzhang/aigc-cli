@@ -15,6 +15,13 @@ type candidate struct {
 	confidence float64
 }
 
+// seedScore holds a scored candidate at a catalog seed position.
+type seedScore struct {
+	x, y, size int
+	confidence float64
+	cand       *candidate
+}
+
 // detectWatermark performs catalog-first watermark detection.
 // Strategy (matching the reference project):
 //
@@ -23,25 +30,40 @@ type candidate struct {
 //  3. If the best seed passes threshold + 0.08, return immediately (high confidence)
 //  4. Otherwise, do a limited coarse+fine search around the best seed positions
 func detectWatermark(img image.Image, cfg Config) *candidate {
-	b := img.Bounds()
-	w, h := b.Dx(), b.Dy()
-	if w < 64 || h < 64 {
+	gray, grad, seeds := evaluateSeeds(img, cfg)
+	if len(seeds) == 0 {
 		return nil
 	}
 
-	// Precompute grayscale + gradient once
-	gray := toGrayscale(img, w, h)
-	grad := sobelMagnitude(gray, w, h)
+	// 3. If best seed passes high threshold, return immediately.
+	//    For PositionResolver configs (text watermarks), skip the fine search
+	//    entirely — the exact position is known, no need to refine.
+	if len(seeds) > 0 && (cfg.PositionResolver != nil || seeds[0].confidence >= cfg.DetectThreshold+0.08) {
+		return seeds[0].cand
+	}
+
+	// 4. Limited coarse+fine search around the top few seed positions (Gemini only)
+	if cfg.PositionResolver != nil {
+		return nil
+	}
+
+	return refinePosition(img, gray, grad, seeds, cfg)
+}
+
+// evaluateSeeds resolves seed positions and scores them. Returns the
+// precomputed grayscale/gradient arrays and the sorted seed list.
+// Shared by detectWatermark and RemoveWatermarkHinted.
+func evaluateSeeds(img image.Image, cfg Config) (gray, grad []float64, seeds []seedScore) {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if w < 64 || h < 64 {
+		return nil, nil, nil
+	}
+
+	gray = toGrayscale(img, w, h)
+	grad = sobelMagnitude(gray, w, h)
 	alphaData := cfg.AlphaMap
 	alphaSize := cfg.DefaultSize
-
-	// 1. Resolve seed positions
-	type seedScore struct {
-		x, y, size int
-		confidence float64
-		cand       *candidate
-	}
-	var seeds []seedScore
 
 	if cfg.PositionResolver != nil {
 		// Text watermark (Doubao/Baidu/Jimeng): binary mask extraction + NCC alignment search.
@@ -203,15 +225,19 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 		}
 	}
 
-	// 3. If best seed passes high threshold, return immediately.
-	//    For PositionResolver configs (text watermarks), skip the fine search
-	//    entirely — the exact position is known, no need to refine.
-	if len(seeds) > 0 && (cfg.PositionResolver != nil || seeds[0].confidence >= cfg.DetectThreshold+0.08) {
-		return seeds[0].cand
-	}
+	return gray, grad, seeds
+}
 
-	// 4. Limited coarse+fine search around the top few seed positions (Gemini only)
-	if len(seeds) == 0 || cfg.PositionResolver != nil {
+// refinePosition runs a limited coarse+fine search around seed positions
+// to refine the exact watermark location. Returns the best refined candidate
+// or seeds[0] as fallback. Position validation rejects candidates too far
+// from any seed to prevent false positives in image texture.
+func refinePosition(img image.Image, gray, grad []float64, seeds []seedScore, cfg Config) *candidate {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	alphaData := cfg.AlphaMap
+	alphaSize := cfg.DefaultSize
+	if len(seeds) == 0 {
 		return nil
 	}
 
@@ -241,9 +267,6 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 		}
 	}
 
-	// Expand search region. Learned alpha maps need a wider search because
-	// watermark position can drift from the catalog position by up to 200px
-	// on large images (observed on 2528×1696 Gemini outputs).
 	searchPad := maxInt(100, int(float64(w)*0.10))
 	sizePad := maxInt(24, int(float64(maxSize)*0.3))
 	searchLeft := maxInt(0, minX-searchPad)
@@ -316,10 +339,26 @@ func detectWatermark(img image.Image, cfg Config) *candidate {
 		}
 	}
 
+	// Position validation: candidates must be near at least one seed position
 	if best != nil {
+		maxDrift := float64(searchPad)
+		if maxDrift < 100 {
+			maxDrift = 100
+		}
+		valid := false
+		for _, s := range seeds {
+			dx := float64(best.x - s.x)
+			dy := float64(best.y - s.y)
+			if math.Sqrt(dx*dx+dy*dy) <= maxDrift {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return seeds[0].cand
+		}
 		return best
 	}
 
-	// Fall back to best seed
 	return seeds[0].cand
 }
