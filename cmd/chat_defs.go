@@ -207,7 +207,7 @@ var agentToolDefs = []types.ToolDefinition{
 				"type": "object",
 				"properties": {
 					"file_path": {"type": "string", "description": "Path to the local audio file to transcribe"},
-					"model": {"type": "string", "description": "STT model (default: whisper-large-v3)"},
+					"model": {"type": "string", "description": "STT model (default: whisper-1)"},
 					"language": {"type": "string", "description": "Language hint (ISO-639-1, e.g. en, ja, zh)"}
 				},
 				"required": ["file_path"]

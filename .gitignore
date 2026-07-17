@@ -53,6 +53,7 @@ audio_*.opus
 audio_*.aac
 audio_*.flac
 audio_*.pcm
+audio_*.md
 
 # Coverage output
 *.out

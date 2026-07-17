@@ -321,10 +321,10 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		if req.Model == "" {
-			if cfg.Defaults.Audio != nil && cfg.Defaults.Audio.Model != "" {
-				req.Model = cfg.Defaults.Audio.Model
+			if cfg.Defaults.Audio != nil && cfg.Defaults.Audio.SpeakModel != "" {
+				req.Model = cfg.Defaults.Audio.SpeakModel
 			} else {
-				return mcp.NewToolResultError("model is required: set model in request or defaults.audio.model in config.yaml"), nil
+				req.Model = "gpt-4o-mini-tts"
 			}
 		}
 		if req.Voice == "" {
@@ -368,10 +368,10 @@ func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 
 		model := request.GetString("model", "")
 		if model == "" {
-			if cfg.Defaults.Audio != nil && cfg.Defaults.Audio.Model != "" {
-				model = cfg.Defaults.Audio.Model
+			if cfg.Defaults.Audio != nil && cfg.Defaults.Audio.TranscribeModel != "" {
+				model = cfg.Defaults.Audio.TranscribeModel
 			} else {
-				return mcp.NewToolResultError("model is required: set model in request or defaults.audio.model in config.yaml"), nil
+				model = "whisper-1"
 			}
 		}
 

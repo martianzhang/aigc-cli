@@ -45,6 +45,23 @@ func saveAudioFile(data []byte, format string) (string, error) {
 	return filename, nil
 }
 
+// saveTranscriptionFile saves transcription text to audio_<timestamp>.md.
+// Returns the full path to the saved file.
+func saveTranscriptionFile(text string) (string, error) {
+	dir := shared.OutputDir
+	if dir == "" {
+		dir = "."
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create output directory: %w", err)
+	}
+	filename := filepath.Join(dir, fmt.Sprintf("audio_%d.md", time.Now().Unix()))
+	if err := os.WriteFile(filename, []byte(text), 0644); err != nil {
+		return "", fmt.Errorf("failed to save transcription: %w", err)
+	}
+	return filename, nil
+}
+
 // audioFormatFromContentType extracts the best-guess response_format from a Content-Type header.
 func audioFormatFromContentType(contentType string) string {
 	ct := strings.ToLower(contentType)

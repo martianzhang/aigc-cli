@@ -43,8 +43,8 @@ defaults:
   # video:
   #   # OpenAI 视频尚未公开 API，可用 OpenRouter 中转
   # audio:
-  #   # OpenAI TTS 模型
-  #   # model: "gpt-4o-mini-tts"
+  #   speak_model: "gpt-4o-mini-tts"
+  #   transcribe_model: "whisper-1"
   #   # voice: "alloy"
   #   # response_format: "mp3"
   # chat:
@@ -57,7 +57,8 @@ defaults:
   # video:
   #   model: "google/veo-3.1"
   # audio:
-  #   model: "openai/gpt-4o-mini-tts-2025-12-15"   # 或 google/gemini-3.1-flash-tts-preview
+  #   speak_model: "openai/gpt-4o-mini-tts-2025-12-15"   # 或 google/gemini-3.1-flash-tts-preview
+  #   transcribe_model: "openai/whisper-1"
   #   voice: "alloy"
   #   response_format: "mp3"
   # chat:
@@ -84,7 +85,8 @@ defaults:
     # timeout: 600                  # HTTP timeout in seconds (video takes longer)
 
   audio:
-    model: "gpt-4o-mini-tts"         # TTS 模型
+    speak_model: "gpt-4o-mini-tts"     # TTS 模型
+    transcribe_model: "whisper-1"      # STT 模型
     # voice: "alloy"                   # 默认声音
     # response_format: "mp3"           # mp3, wav, opus, aac, flac, pcm
     # timeout: 120                     # HTTP timeout in seconds
