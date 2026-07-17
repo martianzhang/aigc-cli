@@ -1,0 +1,306 @@
+# 音频生成（文字转语音 TTS）
+
+支持文字转语音（Text-to-Speech，TTS）和语音转文字（Speech-to-Text，STT），通过统一的 `audio` 命令提供。
+
+> 📝 **本文档为调研 + 实现参考**，描述各 Provider 的音频 API 差异、实现思路及最终方案。当前实现位于 `feature/audio` 分支，未合并到 main。
+
+---
+
+## 接口兼容性总览
+
+目前已确认支持 TTS 的 Provider 如下，Yunwu（云雾 AI）暂未发现公开的 TTS/STT 端点：
+
+| Provider | TTS 端点 | STT 端点 | 兼容性 |
+|---|---|---|---|
+| **OpenAI** | `POST /v1/audio/speech` | `POST /v1/audio/transcriptions` | 基准实现 |
+| **OpenRouter** | `POST /api/v1/audio/speech` | `POST /api/v1/audio/transcriptions` | OpenAI 完全兼容，SDK 直连 |
+| **APIMart** | `POST /v1/audio/speech` | `POST /v1/audio/transcriptions` | OpenAI 兼容 |
+| **Yunwu** | ❌ 未发现 | ❌ 未发现 | — |
+
+> Yunwu 官网自称"完全兼容 OpenAI API 协议"且聚合了 500+ 模型，理论上 `/v1/audio/speech` 透传可能也能通，但公开文档和定价页中均未列出 TTS 相关模型或接口，其视频 API 走的是自定义端点（`/v1/video/create` + `/v1/video/query`）。建议后续实现时实测确认。
+
+检测逻辑：沿用现有 `base_url` 自动识别机制（OpenAI / OpenRouter / APIMart），无需新增 Provider 类型。Yunwu 走通用 OpenAI 兼容兜底逻辑。
+
+### OpenAI TTS 参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `model` | string | 是 | `gpt-4o-mini-tts`（推荐）、`tts-1`、`tts-1-hd` |
+| `input` | string | 是 | 要合成的文本 |
+| `voice` | string | 是 | 13 种内置声音：`alloy`、`ash`、`ballad`、`coral`、`echo`、`fable`、`nova`、`onyx`、`sage`、`shimmer`、`verse`、`marin`、`cedar` |
+| `response_format` | string | 否 | `mp3`（默认）、`opus`、`aac`、`flac`、`wav`、`pcm` |
+| `speed` | number | 否 | 语速 0.25-4.0，默认 1.0 |
+| `instructions` | string | 否 | 语气控制（如 "Speak in a cheerful tone"），仅 `gpt-4o-mini-tts` 支持 |
+
+### OpenRouter TTS 参数
+
+OpenRouter 透传 OpenAI 格式，额外支持 Provider 专属参数：
+
+```json
+{
+  "model": "openai/gpt-4o-mini-tts-2025-12-15",
+  "input": "Hello world",
+  "voice": "alloy",
+  "response_format": "mp3",
+  "speed": 1.0,
+  "provider": {
+    "options": {
+      "openai": { "instructions": "Speak in a warm tone." },
+      "azure": { "style": "cheerful", "styledegree": 1.2 }
+    }
+  }
+}
+```
+
+支持的模型（截至 2026 年 7 月）：
+
+| 模型 Slug | Provider | 特点 |
+|---|---|---|
+| `openai/gpt-4o-mini-tts-2025-12-15` | OpenAI | `instructions` 语气控制，13 种声音 |
+| `google/gemini-3.1-flash-tts-preview` | Google | 70+ 语言, 200+ 内联音频标签, 双说话人 |
+| `mistralai/voxtral-mini-tts-2603` | Mistral | 零样本声音克隆, 多语言 |
+| `microsoft/mai-voice-2` | Microsoft Azure | SSML 风格（cheerful/sad/excited） |
+| `hexgrad/kokoro-82m` | 开源 | 轻量 82M 参数, 8 语言, 54 种预设声音 |
+| `x-ai/grok-voice-tts-1.0` | xAI | 20+ 语言, 5 种声音, 内联语音标签 |
+| `canopylabs/orpheus-3b-0.1-ft` | Canopy Labs | 英语, 7 种预设声音, 自然韵律 |
+| `sesame/csm-1b` | Sesame | 对话式语音, 英语 |
+| `zyphra/zonos-v0.1-*` | Zyphra | 英语, 英美口音 |
+
+> 模型列表可通过 `GET /api/v1/models?output_modalities=speech` 动态发现。
+
+### APIMart TTS 参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `model` | string | 是 | `gpt-4o-mini-tts`（目前唯一） |
+| `input` | string | 是 | 最大 4096 字符 |
+| `voice` | string | 是 | 6 种：`alloy`、`echo`、`fable`、`onyx`、`nova`、`shimmer` |
+| `response_format` | string | 否 | `wav`（默认）、`opus`、`aac`、`flac`、`pcm` |
+| `speed` | number | 否 | 0.25-4.0，默认 1.0 |
+
+---
+
+## 响应格式
+
+TTS 端点返回**二进制音频流**（非 JSON），需根据 `response_format` 保存为对应扩展名：
+
+| response_format | Content-Type | 扩展名 | 说明 |
+|---|---|---|---|
+| `mp3` | `audio/mpeg` | `.mp3` | 通用压缩格式 |
+| `opus` | `audio/opus` | `.opus` | 低延迟流式 |
+| `aac` | `audio/aac` | `.aac` | 数字音频压缩 |
+| `flac` | `audio/flac` | `.flac` | 无损压缩 |
+| `wav` | `audio/wav` | `.wav` | 未压缩，低延迟 |
+| `pcm` | `audio/pcm` | `.pcm` | 纯裸采样（24kHz 16-bit signed LE） |
+
+OpenRouter 仅支持 `mp3` 和 `pcm`。
+
+---
+
+## 语音转文字（STT）
+
+所有 Provider 也支持 STT，通过 `POST /v1/audio/transcriptions` 端点：
+
+### OpenAI 格式（JSON body + base64）
+
+```bash
+AUDIO_BASE64=$(base64 < audio.wav | tr -d '\n')
+
+curl https://openrouter.ai/api/v1/audio/transcriptions \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "openai/whisper-large-v3",
+    "input_audio": {
+      "data": "'"$AUDIO_BASE64"'",
+      "format": "wav"
+    }
+  }'
+```
+
+### Multipart/form-data（兼容 OpenAI SDK）
+
+```bash
+curl https://openrouter.ai/api/v1/audio/transcriptions \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -F file="@audio.wav" \
+  -F model="openai/whisper-large-v3"
+```
+
+### 响应格式
+
+```json
+{
+  "text": "Hello, this is a test.",
+  "usage": {
+    "seconds": 9.2,
+    "total_tokens": 113,
+    "input_tokens": 83,
+    "output_tokens": 30,
+    "cost": 0.000508
+  }
+}
+```
+
+支持的音频格式：`wav`、`mp3`、`flac`、`m4a`、`ogg`、`webm`、`aac`。
+
+---
+
+## Provider 差异对比
+
+| 维度 | OpenAI | OpenRouter | APIMart |
+|---|---|---|---|
+| **TTS 端点** | `/v1/audio/speech` | `/api/v1/audio/speech` | `/v1/audio/speech` |
+| **可用模型数** | 3 | 10+（聚合多厂商） | 1 |
+| **声音数** | 13 内置 + 自定义 | 随模型变化 | 6 |
+| **输出格式** | mp3/opus/aac/flac/wav/pcm | mp3/pcm | wav/opus/aac/flac/pcm |
+| **`instructions`** | ✅ | 透传（OpenAI 模型） | ❌ |
+| **`speed`** | ✅ 0.25-4.0 | 透传 | ✅ 0.25-4.0 |
+| **流式响应** | ✅ chunk transfer | 二进制流 | 二进制流 |
+| **STT 支持** | ✅ | ✅ | ✅ |
+| **定价** | 按字符 | 按字符（模型各异） | 按字符 |
+| **自定义声音** | ✅ 需申请 | ❌ | ❌ |
+| **最大输入** | 无明确限制 | 无明确限制 | 4096 字符 |
+
+---
+
+## 与现有架构的对比（视频 `generate-audio`）
+
+现有 `video` 命令已支持 `--generate-audio` 参数，用于给生成的视频配上 AI 音频。这是通过 OpenRouter 视频 API 的 `generate_audio` 字段实现的**视频配乐**功能，与独立的 TTS/STT 端点不同：
+
+| 维度 | 现有 `video --generate-audio` | 新增 `audio` 命令 |
+|---|---|---|
+| 端点 | `POST /v1/videos/generations` | `POST /v1/audio/speech` |
+| 用途 | 给生成的视频附加音频 | 独立的文字转语音 |
+| 输出 | 带音频的视频文件 | 纯音频文件（mp3/wav 等） |
+| 定制能力 | 无（由模型决定） | 可选择声音、语速、格式 |
+
+两者是互补关系，不冲突。
+
+---
+
+## 实现思路
+
+### 命令行设计
+
+```bash
+# TTS：文字转语音
+aigc-cli audio speak --model "openai/gpt-4o-mini-tts" \
+  --input "你好，世界" \
+  --voice "alloy" \
+  --format "mp3"
+
+# 从文件读取
+aigc-cli audio speak --model "openai/gpt-4o-mini-tts" --input text.txt --voice nova
+
+# 从 stdin 读取
+echo "Hello world" | aigc-cli audio speak --model "openai/gpt-4o-mini-tts" --voice alloy
+
+# 生成后自动播放
+aigc-cli audio speak --model "openai/gpt-4o-mini-tts" --input "Hi" --voice alloy --play
+
+# STT：语音转文字（自动 multipart upload）
+aigc-cli audio transcribe --model "openai/whisper-large-v3" --input recording.wav
+
+# STT：指定语言
+aigc-cli audio transcribe --model "openai/whisper-1" --input speech.mp3 --language en
+
+# STT：base64 输入
+cat recording.wav | base64 | aigc-cli audio transcribe --model "openai/whisper-1" --format wav
+
+# Dry-run 查看等价 curl
+aigc-cli audio speak --model "openai/gpt-4o-mini-tts" --input "Hello" --voice alloy --dry-run
+```
+
+### 文件拆分（参考 image/video 模式）
+
+| 文件 | 职责 | 预估行数 |
+|---|---|---|
+| `audio.go` | 命令定义、`runAudioSpeak`、`runAudioTranscribe`、标志注册、`init` | ~280 行 |
+| `audio_request.go` | 请求构建（`buildAudioSpeechRequest`）、dry-run curl 生成、maskKey | ~80 行 |
+| `audio_helpers.go` | 音频文件保存、格式扩展名映射、Content-Type 解析 | ~70 行 |
+
+### Provider 自动适配
+
+已有 `internal/provider/detect.go` 根据 `base_url` 自动识别，直接复用：
+
+```go
+switch provider.Detect(baseURL) {
+case provider.OpenRouter:
+    // POST /api/v1/audio/speech
+case provider.APIMart:
+    // POST /v1/audio/speech
+default: // OpenAI / 通用中转
+    // POST /v1/audio/speech
+}
+```
+
+三个 Provider 的端点格式完全一致（OpenAI 兼容），差异仅在 URL 路径前缀。
+
+### 请求参数
+
+```go
+type AudioSpeechRequest struct {
+    Model          string  `json:"model"`
+    Input          string  `json:"input"`
+    Voice          string  `json:"voice"`
+    ResponseFormat string  `json:"response_format,omitempty"`
+    Speed          float64 `json:"speed,omitempty"`
+    Instructions   string  `json:"instructions,omitempty"` // OpenAI gpt-4o-mini-tts only
+}
+```
+
+### 关键设计决策
+
+1. **二进制流处理**：TTS 返回裸音频流，响应体直接写文件。需要与 JSON 响应的 API（如 STT）区分处理
+2. **输出文件命名**：自动以 `audio_<timestamp>.<ext>` 命名，或通过 `--output` 指定
+3. **格式默认值**：
+   - TTS 默认 `mp3`（各 Provider 都支持）
+   - STT 默认 `json`（返回转录文本）
+4. **STT 文件上传**：需要支持 base64 JSON 和 multipart/form-data 两种方式
+5. **流式播放**：可选的 `--play` 参数，生成后自动调用系统播放器（参考 `--preview`）
+
+### MCP 工具
+
+参考 `tools_generate.go` 的模式，新增 MCP 工具：
+
+```go
+mcp.WithTool("generate_speech",
+    mcp.Description("Convert text to speech audio"),
+    mcp.WithString("model", mcp.Description("TTS model")),
+    mcp.WithString("input", mcp.Description("Text to speak"), mcp.Required()),
+    mcp.WithString("voice", mcp.Description("Voice name"), mcp.Required()),
+    mcp.WithString("format", mcp.Description("Audio format: mp3, wav, opus")),
+)
+```
+
+---
+
+## 参考文档
+
+| Provider | 参考来源 |
+|---|---|
+| OpenAI TTS | https://developers.openai.com/api/docs/guides/text-to-speech |
+| OpenRouter TTS | https://openrouter.ai/docs/guides/overview/multimodal/tts |
+| OpenRouter STT | https://openrouter.ai/docs/guides/overview/multimodal/stt |
+| OpenRouter Blog (Audio API 发布) | https://openrouter.ai/blog/announcements/announcing-audio-apis/ |
+| OpenRouter TTS 模型列表 | https://openrouter.ai/collections/text-to-speech-models |
+| APIMart TTS | https://docs.apimart.ai/en/api-reference/audios/tts |
+
+---
+
+## 实现状态
+
+| 模块 | 状态 | 说明 |
+|---|---|---|
+| `internal/types/audio_types.go` | ✅ 已完成 | AudioSpeechRequest、AudioTranscribeRequest/Response 类型 |
+| `internal/client/client_audio.go` | ✅ 已完成 | AudioSpeech（二进制）、AudioTranscribe（JSON）、AudioTranscribeMultipart |
+| `internal/client/client.go` | ✅ 已完成 | 路径和超时常量 |
+| `internal/client/interface.go` | ✅ 已完成 | APIClient 接口新增三个方法 |
+| `cmd/audio.go` | ✅ 已完成 | `audio speak` + `audio transcribe` 子命令 |
+| `cmd/audio_request.go` | ✅ 已完成 | 请求构建 + dry-run curl |
+| `cmd/audio_helpers.go` | ✅ 已完成 | 文件保存 + 格式解析 |
+| `internal/types/types_config.go` | ✅ 已完成 | AudioDefaults 配置结构体 |
+| `internal/mcp/tools_generate.go` | ✅ 已完成 | generate_speech、transcribe_audio 处理器 |
+| `internal/mcp/server.go` | ✅ 已完成 | MCP 工具注册 + description builder |
+| `docs/guide-audio.md` | ✅ 已完成 | 本文档 |

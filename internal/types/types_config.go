@@ -49,6 +49,7 @@ type ConfigDefaults struct {
 	Video      *VideoDefaults      `mapstructure:"video" yaml:"video"`
 	Midjourney *MidjourneyDefaults `mapstructure:"midjourney" yaml:"midjourney"`
 	Chat       *ChatDefaults       `mapstructure:"chat" yaml:"chat"`
+	Audio      *AudioDefaults      `mapstructure:"audio" yaml:"audio"`
 }
 
 // ChatDefaults holds default values for chat completion.
@@ -172,6 +173,14 @@ func (d *MidjourneyDefaults) MergeIntoImagine(req *MJImagineRequest) {
 	if req.Niji == nil && d.Niji != nil {
 		req.Niji = d.Niji
 	}
+}
+
+// AudioDefaults holds default values for audio generation and transcription.
+type AudioDefaults struct {
+	Model          string `mapstructure:"model" yaml:"model,omitempty"`
+	Voice          string `mapstructure:"voice" yaml:"voice,omitempty"`
+	ResponseFormat string `mapstructure:"response_format" yaml:"response_format,omitempty"`
+	Timeout        *int   `mapstructure:"timeout" yaml:"timeout,omitempty"`
 }
 
 // MergeIntoVideo applies non-zero default values to a video generation request.

@@ -46,6 +46,14 @@ video_*.mp4
 video_*.webm
 image_*.md
 
+# Generated audio files (audio_ prefix)
+audio_*.mp3
+audio_*.wav
+audio_*.opus
+audio_*.aac
+audio_*.flac
+audio_*.pcm
+
 # Coverage output
 *.out
 
