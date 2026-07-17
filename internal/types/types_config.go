@@ -177,10 +177,11 @@ func (d *MidjourneyDefaults) MergeIntoImagine(req *MJImagineRequest) {
 
 // AudioDefaults holds default values for audio generation and transcription.
 type AudioDefaults struct {
-	Model          string `mapstructure:"model" yaml:"model,omitempty"`
-	Voice          string `mapstructure:"voice" yaml:"voice,omitempty"`
-	ResponseFormat string `mapstructure:"response_format" yaml:"response_format,omitempty"`
-	Timeout        *int   `mapstructure:"timeout" yaml:"timeout,omitempty"`
+	SpeakModel      string `mapstructure:"speak_model" yaml:"speak_model,omitempty"`
+	TranscribeModel string `mapstructure:"transcribe_model" yaml:"transcribe_model,omitempty"`
+	Voice           string `mapstructure:"voice" yaml:"voice,omitempty"`
+	ResponseFormat  string `mapstructure:"response_format" yaml:"response_format,omitempty"`
+	Timeout         *int   `mapstructure:"timeout" yaml:"timeout,omitempty"`
 }
 
 // MergeIntoVideo applies non-zero default values to a video generation request.

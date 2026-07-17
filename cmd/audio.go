@@ -75,21 +75,21 @@ Input can be a local audio file path, or piped base64 data via stdin (auto-detec
 Large files are sent as multipart/form-data; other input uses JSON body.
 
 Examples:
-  aigc-cli audio transcribe --model whisper-large-v3 --input recording.wav
+  aigc-cli audio transcribe --model whisper-1 --input recording.wav
   aigc-cli audio transcribe --model whisper-1 --input speech.mp3 --language en
   cat recording.wav | base64 | aigc-cli audio transcribe --model whisper-1 --format wav`,
 	RunE: runAudioTranscribe,
 }
 
 func runAudioSpeak(cmd *cobra.Command, args []string) error {
-	req, err := buildAudioSpeechRequest(cmd)
+	req, err := buildAudioSpeechRequest()
 	if err != nil {
 		return err
 	}
 
 	if cfg, err := config.LoadDefaults(shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Audio != nil {
 		if req.Model == "" {
-			req.Model = cfg.Defaults.Audio.Model
+			req.Model = cfg.Defaults.Audio.SpeakModel
 		}
 		if req.Voice == "" && cfg.Defaults.Audio.Voice != "" {
 			req.Voice = cfg.Defaults.Audio.Voice
@@ -100,7 +100,7 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 	}
 
 	if req.Model == "" {
-		return fmt.Errorf("model is required: set via --model flag or defaults.audio.model in config.yaml")
+		req.Model = "gpt-4o-mini-tts"
 	}
 	if req.Voice == "" {
 		return fmt.Errorf("voice is required: set via --voice flag")
@@ -163,12 +163,12 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 
 func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 	if audioTranscribeModel == "" {
-		if cfg, err := config.LoadDefaults(shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Audio != nil && cfg.Defaults.Audio.Model != "" {
-			audioTranscribeModel = cfg.Defaults.Audio.Model
+		if cfg, err := config.LoadDefaults(shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Audio != nil && cfg.Defaults.Audio.TranscribeModel != "" {
+			audioTranscribeModel = cfg.Defaults.Audio.TranscribeModel
 		}
 	}
 	if audioTranscribeModel == "" {
-		return fmt.Errorf("model is required: set via --model flag or defaults.audio.model in config.yaml")
+		audioTranscribeModel = "whisper-1"
 	}
 
 	// Auto-detect piped stdin when --input is not specified
@@ -216,10 +216,18 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Model: %s\n", audioTranscribeModel)
 		fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 		if sttResp.Usage != nil {
-			fmt.Printf("Audio: %.1fs | Cost: $%.5f\n", sttResp.Usage.Seconds, sttResp.Usage.Cost)
+			costStr := ""
+			if sttResp.Usage.Cost > 0 {
+				costStr = fmt.Sprintf(" | Cost: $%.5f", sttResp.Usage.Cost)
+			}
+			fmt.Printf("Audio: %.1fs%s\n", sttResp.Usage.Seconds, costStr)
 		}
-		fmt.Println()
-		fmt.Println(sttResp.Text)
+
+		filename, err := saveTranscriptionFile(sttResp.Text)
+		if err != nil {
+			return fmt.Errorf("failed to save transcription: %w", err)
+		}
+		fmt.Printf("Saved: %s\n", filename)
 		return nil
 	}
 
@@ -262,10 +270,18 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Model: %s\n", audioTranscribeModel)
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 	if sttResp.Usage != nil {
-		fmt.Printf("Audio: %.1fs | Cost: $%.5f\n", sttResp.Usage.Seconds, sttResp.Usage.Cost)
+		costStr := ""
+		if sttResp.Usage.Cost > 0 {
+			costStr = fmt.Sprintf(" | Cost: $%.5f", sttResp.Usage.Cost)
+		}
+		fmt.Printf("Audio: %.1fs%s\n", sttResp.Usage.Seconds, costStr)
 	}
-	fmt.Println()
-	fmt.Println(sttResp.Text)
+
+	filename, err := saveTranscriptionFile(sttResp.Text)
+	if err != nil {
+		return fmt.Errorf("failed to save transcription: %w", err)
+	}
+	fmt.Printf("Saved: %s\n", filename)
 	return nil
 }
 
@@ -300,7 +316,7 @@ func registerAudioSpeakFlags(cmd *cobra.Command) {
 func registerAudioTranscribeFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
 	f.StringVarP(&audioTranscribeInput, "input", "i", "", "Audio file path or omit to auto-detect piped base64 stdin")
-	f.StringVarP(&audioTranscribeModel, "model", "m", "", "STT model (e.g. openai/whisper-large-v3)")
+	f.StringVarP(&audioTranscribeModel, "model", "m", "", "STT model (e.g. openai/whisper-1)")
 	f.StringVar(&audioTranscribeFormat, "format", "", "Audio format: wav, mp3, flac, m4a, ogg (auto-detected from file extension)")
 	f.StringVarP(&audioTranscribeLanguage, "language", "l", "", "Language hint (ISO-639-1, e.g. en, ja, zh)")
 	f.Float64Var(&audioTranscribeTemperature, "temperature", 0, "Sampling temperature 0-1 (default: 0)")

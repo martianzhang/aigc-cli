@@ -77,7 +77,7 @@ func buildAudioDesc(d *types.AudioDefaults, baseURL string) string {
 	p := provider.Detect(baseURL)
 	fmt.Fprintf(b, "Generate speech audio from text via %s.\n\n当前配置（在 ~/.config/aigc-cli/config.yaml 中修改）:\n", p)
 	if d != nil {
-		fmt.Fprintf(b, "  model = %s | voice = %s | format = %s\n", d.Model, d.Voice, d.ResponseFormat)
+		fmt.Fprintf(b, "  speak_model = %s | transcribe_model = %s | voice = %s | format = %s\n", d.SpeakModel, d.TranscribeModel, d.Voice, d.ResponseFormat)
 	}
 	b.WriteString("\n策略: 参数已设好默认值，不要主动填写。只有在用户提示词中明确指定了某个参数时，才传入对应参数覆盖。")
 	return b.String()
@@ -223,7 +223,7 @@ func newTranscribeAudioTool(desc string) mcp.Tool {
 			mcp.Description("Path to the audio file to transcribe"),
 		),
 		mcp.WithString("model",
-			mcp.Description("STT model (e.g. openai/whisper-large-v3)"),
+			mcp.Description("STT model (e.g. openai/whisper-1)"),
 		),
 		mcp.WithString("language",
 			mcp.Description("Language hint (ISO-639-1, e.g. en, ja, zh)"),

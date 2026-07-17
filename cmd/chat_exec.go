@@ -418,10 +418,10 @@ func executeGenerateSpeech(argsJSON string) string {
 	}
 	model := params.Model
 	if model == "" {
-		if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil && shared.Cfg.Defaults.Audio.Model != "" {
-			model = shared.Cfg.Defaults.Audio.Model
+		if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil && shared.Cfg.Defaults.Audio.SpeakModel != "" {
+			model = shared.Cfg.Defaults.Audio.SpeakModel
 		} else {
-			return "Error: model is required"
+			model = "gpt-4o-mini-tts"
 		}
 	}
 	format := params.Format
@@ -468,10 +468,10 @@ func executeTranscribeAudio(argsJSON string) string {
 	}
 	model := params.Model
 	if model == "" {
-		if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil && shared.Cfg.Defaults.Audio.Model != "" {
-			model = shared.Cfg.Defaults.Audio.Model
+		if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil && shared.Cfg.Defaults.Audio.TranscribeModel != "" {
+			model = shared.Cfg.Defaults.Audio.TranscribeModel
 		} else {
-			return "Error: model is required"
+			model = "whisper-1"
 		}
 	}
 

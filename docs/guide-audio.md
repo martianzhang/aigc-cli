@@ -110,7 +110,7 @@ curl https://openrouter.ai/api/v1/audio/transcriptions \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openai/whisper-large-v3",
+    "model": "openai/whisper-1",
     "input_audio": {
       "data": "'"$AUDIO_BASE64"'",
       "format": "wav"
@@ -124,7 +124,7 @@ curl https://openrouter.ai/api/v1/audio/transcriptions \
 curl https://openrouter.ai/api/v1/audio/transcriptions \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -F file="@audio.wav" \
-  -F model="openai/whisper-large-v3"
+  -F model="openai/whisper-1"
 ```
 
 ### 响应格式
@@ -200,7 +200,7 @@ echo "Hello world" | aigc-cli audio speak --model "openai/gpt-4o-mini-tts" --voi
 aigc-cli audio speak --model "openai/gpt-4o-mini-tts" --input "Hi" --voice alloy --play
 
 # STT：语音转文字（自动 multipart upload）
-aigc-cli audio transcribe --model "openai/whisper-large-v3" --input recording.wav
+aigc-cli audio transcribe --model "openai/whisper-1" --input recording.wav
 
 # STT：指定语言
 aigc-cli audio transcribe --model "openai/whisper-1" --input speech.mp3 --language en

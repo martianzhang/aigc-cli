@@ -7,13 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/martianzhang/apimart-cli/internal/types"
 )
 
-// buildAudioSpeechRequest builds an AudioSpeechRequest from cobra flags and stdin/file input.
-func buildAudioSpeechRequest(cmd *cobra.Command) (*types.AudioSpeechRequest, error) {
+// buildAudioSpeechRequest builds an AudioSpeechRequest from flags and stdin/file input.
+func buildAudioSpeechRequest() (*types.AudioSpeechRequest, error) {
 	// Auto-detect piped stdin when --input is not specified
 	src := audioSpeechInput
 	if src == "" {
@@ -42,20 +40,8 @@ func buildAudioSpeechRequest(cmd *cobra.Command) (*types.AudioSpeechRequest, err
 		Instructions:   audioSpeechInstructions,
 	}
 
-	if req.Model == "" {
-		return nil, fmt.Errorf("model is required: set via --model flag or defaults.audio.model in config.yaml")
-	}
 	if req.Input == "" {
 		return nil, fmt.Errorf("input text is required: set via --input flag, file path, or stdin")
-	}
-	if req.Voice == "" {
-		return nil, fmt.Errorf("voice is required: set via --voice flag")
-	}
-	if req.ResponseFormat == "" {
-		req.ResponseFormat = "mp3"
-	}
-	if req.Speed == 0 {
-		req.Speed = 1.0
 	}
 
 	return req, nil
