@@ -128,13 +128,54 @@ func RemoveWatermarkHinted(img image.Image, producer string) (*image.RGBA, *Resu
 	// When the producer is known, try the hinted config FIRST.
 	// For PositionResolver configs (Doubao/Jimeng), use a relaxed threshold
 	// because the exact position is known — no false positive risk.
-	// For Gemini, use the normal threshold to avoid weak matches.
+	// For Gemini, use the normal threshold first, then retry with a relaxed
+	// threshold if the normal one fails. Position validation in detectWatermark
+	// prevents false positives at wrong positions even with relaxed thresholds.
 	if producer != "" {
 		if cfg, ok := findConfigByName(producer); ok {
 			det := detectWatermark(img, cfg)
 			passThreshold := cfg.DetectThreshold
 			if cfg.PositionResolver != nil {
 				passThreshold = 0.08 // relaxed for known-position text marks
+			}
+			// When the producer is known from metadata, retry by scoring seed
+			// positions directly with a relaxed threshold.  The watermark is
+			// expected to be present; a weak NCC match at a catalog position
+			// is still meaningful.  We skip the coarse+fine search here —
+			// it can drift to a different seed position on low-contrast
+			// images, producing removal at the wrong location.
+			//
+			// When multiple seeds pass the relaxed threshold, we remove at
+			// all of them sequentially — the sparkle can span several catalog
+			// positions on large images, and a single-position removal leaves
+			// residual watermark at adjacent positions.
+			if (det == nil || det.confidence < passThreshold) && cfg.PositionResolver == nil {
+				_, _, seeds := evaluateSeeds(img, cfg)
+				var mergedDst *image.RGBA
+				var mergedResult *Result
+				for _, s := range seeds {
+					if s.confidence >= 0.15 {
+						src := img
+						if mergedDst != nil {
+							src = mergedDst
+						}
+						dst := removeWatermark(src, s.cand, cfg)
+						res := &Result{
+							Removed:    true,
+							Name:       cfg.Name,
+							Confidence: s.confidence,
+							Size:       s.cand.size,
+							Region:     fmt.Sprintf("%d,%d,%d,%d", s.cand.x, s.cand.y, s.cand.size, s.cand.size),
+						}
+						mergedDst = dst
+						if mergedResult == nil || s.confidence > mergedResult.Confidence {
+							mergedResult = res
+						}
+					}
+				}
+				if mergedDst != nil {
+					return mergedDst, mergedResult, nil
+				}
 			}
 			if det != nil && det.confidence >= passThreshold {
 				dst := removeWatermark(img, det, cfg)
@@ -147,10 +188,14 @@ func RemoveWatermarkHinted(img image.Image, producer string) (*image.RGBA, *Resu
 					Region:     region,
 				}, nil
 			}
+			// Producer hint was given but detection failed — don't fall back
+			// to generic detection. Other configs may produce false positives
+			// on images from a different producer.
+			return nil, &Result{Removed: false}, nil
 		}
 	}
 
-	// Fall back to generic detection
+	// Fall back to generic detection (only when no producer hint was given)
 	detections := DetectWatermark(img)
 	if len(detections) == 0 {
 		return nil, &Result{Removed: false}, nil
