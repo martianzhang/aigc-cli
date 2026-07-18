@@ -36,8 +36,9 @@ var (
 )
 
 var audioCmd = &cobra.Command{
-	Use:   "audio",
-	Short: "Audio operations: text-to-speech and speech-to-text",
+	Use:     "audio",
+	Aliases: []string{"voice"},
+	Short:   "Audio operations (also: voice)",
 	Long: `Generate speech from text (TTS) or transcribe audio to text (STT).
 
 Supports OpenAI, OpenRouter, and APIMart providers with automatic detection.

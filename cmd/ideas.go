@@ -27,7 +27,8 @@ const ideasDefaultLimit = 8
 // ideasCmd represents the `aigc-cli ideas` command.
 var ideasCmd = &cobra.Command{
 	Use:          "ideas [keywords]",
-	Short:        "Search AI image prompt ideas from local ideas.json",
+	Aliases:      []string{"idea"},
+	Short:        "Search AI image prompt ideas (also: idea)",
 	SilenceUsage: true,
 	Long: `Search AI image generation prompt ideas from a local ideas.json file.
 

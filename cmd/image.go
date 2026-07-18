@@ -35,7 +35,8 @@ var (
 // imageCmd represents the `aigc-cli image` command.
 var imageCmd = &cobra.Command{
 	Use:          "image",
-	Short:        "Generate images (supports OpenAI sync & APIMart async)",
+	Aliases:      []string{"img"},
+	Short:        "Generate images (also: img)",
 	SilenceUsage: true,
 	Long: `Generate images via any OpenAI-compatible API.
 
