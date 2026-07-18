@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/martianzhang/apimart-cli/internal/client"
-	"github.com/martianzhang/apimart-cli/internal/types"
-	"github.com/martianzhang/apimart-cli/internal/watermark"
+	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
 func resolveFileRefs(argsJSON string) string {

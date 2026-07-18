@@ -19,8 +19,8 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/martianzhang/apimart-cli/internal/client"
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/spf13/cobra"
 )
 

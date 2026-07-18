@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/martianzhang/apimart-cli/internal/ideas"
+	"github.com/martianzhang/aigc-cli/internal/ideas"
 )
 
 // --- resolveIdeasKeywords ---

@@ -42,7 +42,7 @@ const (
 var DefaultTimeout = defaultHTTPTimeout
 
 // Version is the client version string used in the User-Agent header.
-// Set at build time via ldflags (e.g. -X github.com/martianzhang/apimart-cli/internal/client.Version=1.0.0).
+// Set at build time via ldflags (e.g. -X github.com/martianzhang/aigc-cli/internal/client.Version=1.0.0).
 // Defaults to "dev" when not set.
 var Version = "dev"
 

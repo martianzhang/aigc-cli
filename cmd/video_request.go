@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // resolveVideoPrompt resolves the video prompt (shared by normal and remix modes).

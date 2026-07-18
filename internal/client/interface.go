@@ -3,7 +3,7 @@ package client
 import (
 	"time"
 
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // APIClient defines the interface for API operations.

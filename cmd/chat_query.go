@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/martianzhang/apimart-cli/internal/ideas"
+	"github.com/martianzhang/aigc-cli/internal/ideas"
 )
 
 type webFetchArgs struct {

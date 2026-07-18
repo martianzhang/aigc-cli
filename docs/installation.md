@@ -5,14 +5,14 @@
 ### go install
 
 ```bash
-go install github.com/martianzhang/apimart-cli@latest
+go install github.com/martianzhang/aigc-cli@latest
 ```
 
 ### 从源码构建
 
 ```bash
-git clone https://github.com/martianzhang/apimart-cli.git
-cd apimart-cli
+git clone https://github.com/martianzhang/aigc-cli.git
+cd aigc-cli
 make build
 ```
 

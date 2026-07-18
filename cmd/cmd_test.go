@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/apimart-cli/internal/service"
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 func TestExtractExt_hasExtension(t *testing.T) {

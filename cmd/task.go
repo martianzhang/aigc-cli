@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/apimart-cli/internal/client"
-	"github.com/martianzhang/apimart-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 )
 
 // queryTaskText queries a task by ID and returns a text summary.

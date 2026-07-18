@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/martianzhang/apimart-cli/internal/watermark"
+	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
 // findSeedPairs finds all numbered seed pairs for a given name.

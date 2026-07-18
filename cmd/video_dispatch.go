@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // videoDispatchCtx holds provider context for video strategy matching.

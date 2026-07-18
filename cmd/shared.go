@@ -3,7 +3,7 @@ package cmd
 import (
 	"io"
 
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // SharedConfig holds all shared configuration values that were previously
