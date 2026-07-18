@@ -84,6 +84,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `detect_image` | Detect C2PA / SynthID / TC260 watermarks, AIGC, and EXIF metadata | ❌ |
 | `remove_watermark` | Detect and remove a visible AI watermark (Doubao/Jimeng/Baidu/Zhipu), restore original image | ❌ |
 | `add_watermark` | Add a visible AI watermark to an image (for testing), known producers use their alpha map | ❌ |
+| `remove_background` | Remove image background using RMBG 2.0 AI semantic segmentation, optionally replace with color or another image | ❌ |
 
 ## Configuration
 

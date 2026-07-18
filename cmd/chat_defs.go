@@ -119,6 +119,24 @@ var agentToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
+	// --- Image tools ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "remove_background",
+			Description: "Remove image background using RMBG 2.0 AI semantic segmentation. Completely offline, no API key needed. Supports optional background replacement with color (e.g. #FF0000) or another image, and cropping to subject (autocrop). Requires model downloaded via 'aigc-cli background init'.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"file_path": {"type": "string", "description": "Path to the image file"},
+					"output_path": {"type": "string", "description": "Optional output path (default: <input>_removebg.png)"},
+					"replace_color": {"type": "string", "description": "Replace background with hex color (e.g. #FF0000)"},
+					"autocrop": {"type": "boolean", "description": "Crop to foreground bounding box"}
+				},
+				"required": ["file_path"]
+			}`),
+		},
+	},
 	// --- Watermark tools ---
 	{
 		Type: "function",

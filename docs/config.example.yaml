@@ -121,3 +121,9 @@ defaults:
 # detect:
 #   models_dir: "~/.config/aigc-cli/models"    # custom models directory
 #   model: "vit-base"                          # "vit-base" (default, 86M) or "distilled-vit" (11.8M)
+
+# Background removal (background command).
+# Uses RMBG 2.0 ONNX model at ~/.config/aigc-cli/models/ by default.
+# background:
+#   models_dir: "~/.config/aigc-cli/models"    # custom models directory
+#   model: "rmbg-2.0"                          # model identifier (default: rmbg-2.0)

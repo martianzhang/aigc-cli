@@ -229,7 +229,9 @@ func extractTGZ(archivePath, modelsDir, internalPath, libName string) error {
 		if err != nil {
 			return err
 		}
-		if header.Name != internalPath {
+		// Normalize path: tar entries may be prefixed with "./"
+		name := strings.TrimPrefix(header.Name, "./")
+		if name != internalPath {
 			continue
 		}
 		out, err := os.Create(target)

@@ -1,17 +1,18 @@
 package types
 
 type Config struct {
-	APIKey     string          `mapstructure:"api_key" yaml:"api_key,omitempty"`
-	BaseURL    string          `mapstructure:"base_url" yaml:"base_url,omitempty"`
-	HTTPProxy  string          `mapstructure:"http_proxy" yaml:"http_proxy,omitempty"`
-	Verbose    bool            `mapstructure:"verbose" yaml:"verbose"`
-	SavePrompt bool            `mapstructure:"save_prompt" yaml:"save_prompt"`
-	Mode       string          `mapstructure:"mode" yaml:"mode,omitempty"`
-	OutputDir  string          `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
-	Timeout    *int            `mapstructure:"timeout" yaml:"timeout,omitempty"`
-	Defaults   *ConfigDefaults `mapstructure:"defaults" yaml:"defaults,omitempty"`
-	Ideas      *IdeasConfig    `mapstructure:"ideas" yaml:"ideas,omitempty"`
-	Detect     *DetectConfig   `mapstructure:"detect" yaml:"detect,omitempty"`
+	APIKey     string            `mapstructure:"api_key" yaml:"api_key,omitempty"`
+	BaseURL    string            `mapstructure:"base_url" yaml:"base_url,omitempty"`
+	HTTPProxy  string            `mapstructure:"http_proxy" yaml:"http_proxy,omitempty"`
+	Verbose    bool              `mapstructure:"verbose" yaml:"verbose"`
+	SavePrompt bool              `mapstructure:"save_prompt" yaml:"save_prompt"`
+	Mode       string            `mapstructure:"mode" yaml:"mode,omitempty"`
+	OutputDir  string            `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
+	Timeout    *int              `mapstructure:"timeout" yaml:"timeout,omitempty"`
+	Defaults   *ConfigDefaults   `mapstructure:"defaults" yaml:"defaults,omitempty"`
+	Ideas      *IdeasConfig      `mapstructure:"ideas" yaml:"ideas,omitempty"`
+	Detect     *DetectConfig     `mapstructure:"detect" yaml:"detect,omitempty"`
+	Background *BackgroundConfig `mapstructure:"background" yaml:"background,omitempty"`
 }
 
 // IdeasConfig controls the ideas prompt data path.
@@ -27,6 +28,16 @@ type DetectConfig struct {
 	// Model selects which ONNX model to use.
 	// Supported: "vit-base" (86M params, default), "distilled-vit" (11.8M params)
 	// Add new models here as the project grows.
+	Model string `mapstructure:"model" yaml:"model,omitempty"`
+}
+
+// BackgroundConfig controls the RMBG-based background removal behavior.
+type BackgroundConfig struct {
+	// ModelsDir is the directory where ONNX Runtime and RMBG model files are stored.
+	// Default: ~/.config/aigc-cli/models (same as detect.models_dir).
+	ModelsDir string `mapstructure:"models_dir" yaml:"models_dir,omitempty"`
+	// Model selects which RMBG ONNX model to use.
+	// Supported: "rmbg-2.0" (default)
 	Model string `mapstructure:"model" yaml:"model,omitempty"`
 }
 

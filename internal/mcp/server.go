@@ -112,6 +112,7 @@ func NewServer(cfg *Config) *server.MCPServer {
 	s.AddTool(newAddWatermarkTool(), addWatermarkHandler())
 	s.AddTool(newSearchIdeasTool(), searchIdeasHandler())
 	s.AddTool(newDescribeImageTool(), describeImageHandler())
+	s.AddTool(newRemoveBackgroundTool(), removeBackgroundHandler())
 
 	return s
 }
