@@ -111,6 +111,7 @@ func NewServer(cfg *Config) *server.MCPServer {
 	s.AddTool(newRemoveWatermarkTool(), removeWatermarkHandler())
 	s.AddTool(newAddWatermarkTool(), addWatermarkHandler())
 	s.AddTool(newSearchIdeasTool(), searchIdeasHandler())
+	s.AddTool(newDescribeImageTool(), describeImageHandler())
 
 	return s
 }
@@ -384,5 +385,55 @@ func searchIdeasHandler() server.ToolHandlerFunc {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 		return mcp.NewToolResultText(result), nil
+	}
+}
+
+func newDescribeImageTool() mcp.Tool {
+	return mcp.NewTool("describe_image",
+		mcp.WithDescription("Read or write the caption/description of an image file. Provide file_path and optional caption to write. If caption is omitted, reads the current caption. Supports JPEG and PNG."),
+		mcp.WithString("file_path",
+			mcp.Required(),
+			mcp.Description("Path to the image file"),
+		),
+		mcp.WithString("caption",
+			mcp.Description("Caption text to write. Omit to just read. Use empty string to clear."),
+		),
+	)
+}
+
+func describeImageHandler() server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		path, err := req.RequireString("file_path")
+		if err != nil {
+			return mcp.NewToolResultError("file_path is required"), nil
+		}
+		if !filepath.IsAbs(path) {
+			abs, err := filepath.Abs(path)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("invalid path: %v", err)), nil
+			}
+			path = abs
+		}
+
+		caption := req.GetString("caption", "")
+
+		if _, hasCaption := req.GetArguments()["caption"]; hasCaption {
+			if err := service.WriteDescription(path, caption); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("write caption failed: %v", err)), nil
+			}
+			if caption == "" {
+				return mcp.NewToolResultText(fmt.Sprintf("Caption cleared for %s", filepath.Base(path))), nil
+			}
+			return mcp.NewToolResultText(fmt.Sprintf("Caption set: %s", caption)), nil
+		}
+
+		current, err := service.ReadDescription(path)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("read caption failed: %v", err)), nil
+		}
+		if current == "" {
+			return mcp.NewToolResultText(fmt.Sprintf("No caption set for %s", filepath.Base(path))), nil
+		}
+		return mcp.NewToolResultText(fmt.Sprintf("Caption: %s", current)), nil
 	}
 }
