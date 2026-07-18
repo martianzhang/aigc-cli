@@ -115,6 +115,7 @@ aigc-cli
 ├── image      图片生成（同步/异步/OpenRouter 专用 API / Grok Edit）        →  docs/guide-image.md
 ├── video      视频生成（OpenRouter / 云雾 + VEO3 Remix）                    →  docs/guide-video.md
 ├── audio      音频：文字转语音（TTS）和语音转文字（STT）                  →  docs/guide-audio.md
+├── background 去背景 / 换背景 / AI 辅助去背                               →  docs/guide-background.md
 ├── midjourney Midjourney 完整流水线（17 子命令）                          →  docs/guide-midjourney.md
 │   └── mj     别名，同上
 ├── chat       AI 对话 / 交互式 REPL / Agent Loop（工具调用）              →  docs/guide-chat.md
