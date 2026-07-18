@@ -16,7 +16,8 @@ import (
 
 var backgroundCmd = &cobra.Command{
 	Use:          "background <file...>",
-	Short:        "Remove or replace image background (chroma key)",
+	Aliases:      []string{"bg"},
+	Short:        "Remove or replace image background (also: bg)",
 	SilenceUsage: true,
 	Long: `Remove or replace the solid-color background from images.
 
@@ -366,11 +367,12 @@ func init() {
 
 	// Main operation flags
 	backgroundCmd.Flags().BoolVar(&bgRemove, "remove", false, "remove background (output transparent PNG)")
-	backgroundCmd.Flags().StringVar(&bgReplace, "replace", "", "replace background: hex color (#RRGGBB) or image path")
+	backgroundCmd.Flags().BoolVar(&bgRemove, "rm", false, "shorthand for --remove")
+	backgroundCmd.Flags().StringVarP(&bgReplace, "replace", "r", "", "replace background: hex color (#RRGGBB) or image path")
 	backgroundCmd.Flags().BoolVar(&bgMaskOnly, "mask-only", false, "output grayscale alpha mask for debugging")
 
 	// Autocrop flags
-	backgroundCmd.Flags().BoolVar(&bgAutocrop, "autocrop", false, "crop to foreground bounding box")
+	backgroundCmd.Flags().BoolVarP(&bgAutocrop, "autocrop", "c", false, "crop to foreground bounding box")
 	backgroundCmd.Flags().BoolVar(&bgAutocrop, "ac", false, "shorthand for --autocrop")
 	backgroundCmd.Flags().StringVar(&bgPadding, "padding", "", "padding: single value (\"20\") or four values (\"10,20,10,20\": top,right,bottom,left)")
 	backgroundCmd.Flags().StringVar(&bgAspectRatio, "aspect-ratio", "", "force output aspect ratio (e.g. \"1:1\", \"16:9\")")
@@ -386,12 +388,12 @@ func init() {
 	backgroundCmd.Flags().IntVar(&bgClose, "close-radius", 0, "morphological closing radius to fill interior holes (0 = disable)")
 
 	// Output flags
-	backgroundCmd.Flags().BoolVar(&bgJSON, "json", false, "JSON output")
-	backgroundCmd.Flags().BoolVar(&bgPreview, "preview", false, "open result in system viewer")
+	backgroundCmd.Flags().BoolVarP(&bgJSON, "json", "j", false, "JSON output")
+	backgroundCmd.Flags().BoolVarP(&bgPreview, "preview", "p", false, "open result in system viewer")
 	backgroundCmd.Flags().StringVarP(&bgOutput, "output", "o", "", "output directory (default: current directory)")
 
 	// Shadow flags
-	backgroundCmd.Flags().BoolVar(&bgShadow, "shadow", false, "add drop shadow behind subject")
+	backgroundCmd.Flags().BoolVarP(&bgShadow, "shadow", "s", false, "add drop shadow behind subject")
 	backgroundCmd.Flags().StringVar(&bgShadowOffset, "shadow-offset", "4,4", "shadow offset in pixels (\"dx,dy\")")
 	backgroundCmd.Flags().IntVar(&bgShadowBlur, "shadow-blur", 6, "shadow blur radius in pixels")
 	backgroundCmd.Flags().StringVar(&bgShadowColor, "shadow-color", "#000000", "shadow color (hex)")

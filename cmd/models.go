@@ -22,7 +22,8 @@ var (
 // modelsCmd represents the `aigc-cli models` command.
 var modelsCmd = &cobra.Command{
 	Use:          "models [--type image|video|chat] [--price [model-name]]",
-	Short:        "List available AI models",
+	Aliases:      []string{"model"},
+	Short:        "List available AI models (also: model)",
 	SilenceUsage: true,
 	Long: `List models from any OpenAI-compatible API.
 

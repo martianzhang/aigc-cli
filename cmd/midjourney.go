@@ -93,7 +93,7 @@ var (
 var midjourneyCmd = &cobra.Command{
 	Use:          "midjourney",
 	Aliases:      []string{"mj"},
-	Short:        "Midjourney image generation (APIMart async task-based)",
+	Short:        "Midjourney image generation (also: mj)",
 	SilenceUsage: true,
 	Long: `Generate and edit images via Midjourney on APIMart.
 

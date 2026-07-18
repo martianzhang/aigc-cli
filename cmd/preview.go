@@ -60,7 +60,8 @@ func previewLatestFiles(prefix string) []string {
 // previewCmd represents the `aigc-cli preview` command.
 var previewCmd = &cobra.Command{
 	Use:          "preview <file...>",
-	Short:        "Preview images and videos in the terminal",
+	Aliases:      []string{"pr"},
+	Short:        "Preview images and videos (also: pr)",
 	SilenceUsage: true,
 	Long: `Preview images and videos by opening them with the system default application.
 
