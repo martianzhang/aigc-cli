@@ -13,11 +13,12 @@ import (
 // ── JPEG metadata parsing ──
 
 type jpegInfo struct {
-	comment   string
-	software  string
-	hasC2PA   bool
-	tc260Data string      // China TC260 AIGC label (from EXIF/XMP)
-	camera    *CameraInfo // EXIF camera metadata
+	comment          string
+	software         string
+	imageDescription string // EXIF ImageDescription (0x010E)
+	hasC2PA          bool
+	tc260Data        string // China TC260 AIGC label (from EXIF/XMP)
+	camera           *CameraInfo
 }
 
 // readJPEGInfo reads JPEG markers and extracts comment and software tags.
@@ -79,6 +80,9 @@ func readJPEGInfo(r io.Reader) jpegInfo {
 		case 0xE1: // APP1 — EXIF / XMP
 			if len(segData) > 6 && string(segData[:6]) == "Exif\000\000" {
 				exifData := segData[6:]
+				if desc := readExifImageDescription(exifData); desc != "" {
+					info.imageDescription = desc
+				}
 				if sw := readExifSoftware(exifData); sw != "" {
 					info.software = sw
 				}
@@ -96,6 +100,52 @@ func readJPEGInfo(r io.Reader) jpegInfo {
 	}
 
 	return info
+}
+
+// readExifImageDescription parses EXIF IFD0 to find the ImageDescription tag (0x010E).
+func readExifImageDescription(exifData []byte) string {
+	if len(exifData) < 8 {
+		return ""
+	}
+	byteOrder := string(exifData[:2])
+	var order binary.ByteOrder
+	switch byteOrder {
+	case "II":
+		order = binary.LittleEndian
+	case "MM":
+		order = binary.BigEndian
+	default:
+		return ""
+	}
+	if order.Uint16(exifData[2:4]) != 42 {
+		return ""
+	}
+	ifdOffset := int(order.Uint32(exifData[4:8]))
+	if ifdOffset+2 > len(exifData) {
+		return ""
+	}
+	numEntries := int(order.Uint16(exifData[ifdOffset : ifdOffset+2]))
+	offset := ifdOffset + 2
+	for i := 0; i < numEntries && offset+12 <= len(exifData); i++ {
+		tag := order.Uint16(exifData[offset : offset+2])
+		if tag == 0x010E { // ImageDescription
+			typ := order.Uint16(exifData[offset+2 : offset+4])
+			count := order.Uint32(exifData[offset+4 : offset+8])
+			if typ == 2 { // ASCII
+				totalSize := int(count)
+				if totalSize <= 4 {
+					data := exifData[offset+8 : offset+8+totalSize]
+					return strings.TrimRight(string(data), "\x00")
+				}
+				off := int(order.Uint32(exifData[offset+8 : offset+12]))
+				if off+totalSize <= len(exifData) {
+					return strings.TrimRight(string(exifData[off:off+totalSize]), "\x00")
+				}
+			}
+		}
+		offset += 12
+	}
+	return ""
 }
 
 // readExifSoftware does a minimal parse of the EXIF IFD0 to find the Software tag (0x0131).
