@@ -412,7 +412,7 @@ func hasFlagChanged(cmd *cobra.Command, name string) bool {
 // an API key (e.g. "ideas", "detect" and their sub-commands).
 func isNoAPIKeyRequired(cmd *cobra.Command) bool {
 	for c := cmd; c != nil; c = c.Parent() {
-		if c.Name() == "ideas" || c.Name() == "detect" {
+		if c.Name() == "ideas" || c.Name() == "detect" || c.Name() == "background" {
 			return true
 		}
 	}
