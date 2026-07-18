@@ -10,7 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/martianzhang/apimart-cli/internal/watermark"
+	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
 // resolveAbsPath resolves a possibly-relative path to an absolute one.

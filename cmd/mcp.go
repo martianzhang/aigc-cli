@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"github.com/martianzhang/apimart-cli/internal/client"
-	"github.com/martianzhang/apimart-cli/internal/config"
-	"github.com/martianzhang/apimart-cli/internal/mcp"
+	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/mcp"
 	"github.com/spf13/cobra"
 )
 

@@ -1,8 +1,8 @@
 package client
 
 import (
-	"github.com/martianzhang/apimart-cli/internal/provider"
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/types"
 	"net/http"
 	"os"
 )

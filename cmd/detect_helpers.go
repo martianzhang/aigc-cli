@@ -15,10 +15,10 @@ import (
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
 
-	"github.com/martianzhang/apimart-cli/internal/forensic"
-	"github.com/martianzhang/apimart-cli/internal/onnx"
-	"github.com/martianzhang/apimart-cli/internal/service"
-	"github.com/martianzhang/apimart-cli/internal/watermark"
+	"github.com/martianzhang/aigc-cli/internal/forensic"
+	"github.com/martianzhang/aigc-cli/internal/onnx"
+	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
 // --- analysis functions ---

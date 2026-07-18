@@ -1,6 +1,6 @@
 package main
 
-import "github.com/martianzhang/apimart-cli/cmd"
+import "github.com/martianzhang/aigc-cli/cmd"
 
 func main() {
 	cmd.Execute()

@@ -12,10 +12,10 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/martianzhang/apimart-cli/internal/ideas"
-	"github.com/martianzhang/apimart-cli/internal/provider"
-	"github.com/martianzhang/apimart-cli/internal/service"
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ideas"
+	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // Config holds the configuration for the MCP server.

@@ -118,7 +118,7 @@ import (
 
     "github.com/spf13/cobra"  // 第三方
 
-    "github.com/martianzhang/apimart-cli/internal/types"  // 内部包
+    "github.com/martianzhang/aigc-cli/internal/types"  // 内部包
 )
 ```
 

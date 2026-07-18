@@ -179,7 +179,7 @@ aigc-cli ideas "cat" --save --output ./my-ideas
 
 **如果您是原作者，不希望您的作品出现在本数据集中**，请通过以下方式联系，我们会在收到通知后 **7 个工作日内**移除相关内容：
 
-1. 提交 [GitHub Issue](https://github.com/martianzhang/apimart-cli/issues)（推荐）
+1. 提交 [GitHub Issue](https://github.com/martianzhang/aigc-cli/issues)（推荐）
 2. 在对应数据源平台直接删除原内容（重新同步时自动去除）
 
 也欢迎通过项目主页的微信公众号联系维护者。

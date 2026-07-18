@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/apimart-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
 const ortVersion = "1.27.0"

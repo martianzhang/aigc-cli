@@ -5,10 +5,10 @@
 ### 如何安装？
 
 ```bash
-go install github.com/martianzhang/apimart-cli@latest
+go install github.com/martianzhang/aigc-cli@latest
 ```
 
-或从 [GitHub Releases](https://github.com/martianzhang/apimart-cli/releases) 下载预编译二进制。
+或从 [GitHub Releases](https://github.com/martianzhang/aigc-cli/releases) 下载预编译二进制。
 
 ### 如何配置 API Key？
 
@@ -238,7 +238,7 @@ export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
 
 ### 我是原作者，如何移除我的提示词？
 
-请提交 [GitHub Issue](https://github.com/martianzhang/apimart-cli/issues) 注明需要移除的内容，我们会在 7 个工作日内处理。建议附上 `source_url` 或数据中的 `title` 以便定位。
+请提交 [GitHub Issue](https://github.com/martianzhang/aigc-cli/issues) 注明需要移除的内容，我们会在 7 个工作日内处理。建议附上 `source_url` 或数据中的 `title` 以便定位。
 
 ### 这些数据能用于商业用途吗？
 

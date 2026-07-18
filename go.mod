@@ -1,4 +1,4 @@
-module github.com/martianzhang/apimart-cli
+module github.com/martianzhang/aigc-cli
 
 go 1.25.5
 

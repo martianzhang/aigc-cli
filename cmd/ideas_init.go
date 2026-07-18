@@ -11,10 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/apimart-cli/internal/ideas"
+	"github.com/martianzhang/aigc-cli/internal/ideas"
 )
 
-const ideasDataURL = "https://raw.githubusercontent.com/martianzhang/apimart-cli/refs/heads/main/docs/ideas.json"
+const ideasDataURL = "https://raw.githubusercontent.com/martianzhang/aigc-cli/refs/heads/main/docs/ideas.json"
 
 // ideasInitCmd represents the `aigc-cli ideas init` subcommand.
 var ideasInitCmd = &cobra.Command{

@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/martianzhang/apimart-cli/internal/client"
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // imageDispatchCtx holds provider/mode context for image strategy matching.

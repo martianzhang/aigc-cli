@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/apimart-cli/internal/ideas"
+	"github.com/martianzhang/aigc-cli/internal/ideas"
 )
 
 // ideas flag variables

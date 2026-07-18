@@ -7,8 +7,8 @@ import (
 
 	"github.com/charmbracelet/bubbletea"
 
-	"github.com/martianzhang/apimart-cli/internal/service"
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

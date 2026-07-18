@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/apimart-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/client"
 )
 
 // balanceCmd represents the `balance` command.

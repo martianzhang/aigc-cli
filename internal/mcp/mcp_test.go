@@ -3,7 +3,7 @@ package mcp
 import (
 	"testing"
 
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 func TestParseImageURLs_empty(t *testing.T) {

@@ -9,8 +9,8 @@
 
 ```bash
 # 克隆
-git clone https://github.com/martianzhang/apimart-cli.git
-cd apimart-cli
+git clone https://github.com/martianzhang/aigc-cli.git
+cd aigc-cli
 
 # 编译
 make build
@@ -24,7 +24,7 @@ make build
 ## 项目结构
 
 ```
-apimart-cli/
+aigc-cli/
 ├── cmd/              # CLI 命令定义（cobra）
 │   ├── root.go       # 根命令、全局 flag、配置加载
 │   ├── image.go      # 图片生成

@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/martianzhang/apimart-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // buildAudioSpeechRequest builds an AudioSpeechRequest from flags and stdin/file input.
