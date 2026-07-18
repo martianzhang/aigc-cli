@@ -14,6 +14,9 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
+var previewDetail bool
+var previewDescribe string
+
 // previewSavedFiles accumulates file paths saved during image/video generation
 // for use by the --preview flag.
 var previewSavedFiles []string
@@ -61,7 +64,7 @@ func previewLatestFiles(prefix string) []string {
 var previewCmd = &cobra.Command{
 	Use:          "preview <file...>",
 	Aliases:      []string{"pr"},
-	Short:        "Preview images and videos (also: pr)",
+	Short:        "Preview images and videos (also: pr, --detail for metadata, --describe to set caption)",
 	SilenceUsage: true,
 	Long: `Preview images and videos by opening them with the system default application.
 
@@ -77,23 +80,40 @@ Examples:
 }
 
 func runPreview(cmd *cobra.Command, args []string) error {
-	// If files are passed as arguments, preview them
 	if len(args) > 0 {
 		for _, arg := range args {
-			if err := service.PreviewFile(arg); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+			if previewDescribe != "" {
+				caption, err := readInput(previewDescribe)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error reading caption: %v\n", err)
+					continue
+				}
+				if err := service.WriteDescription(arg, string(caption)); err != nil {
+					fmt.Fprintf(os.Stderr, "Error writing caption to %s: %v\n", arg, err)
+					continue
+				}
+			}
+			if previewDetail {
+				showDetail(arg)
+			}
+			if previewDescribe == "" {
+				if err := service.PreviewFile(arg); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+				}
 			}
 		}
 		return nil
 	}
 
-	// Check if stdin is piped
+	if previewDescribe != "" {
+		return fmt.Errorf("--describe requires a file path, not stdin")
+	}
+
 	stat, err := os.Stdin.Stat()
 	if err != nil || (stat.Mode()&os.ModeCharDevice) != 0 {
 		return fmt.Errorf("no files specified: pass file paths as arguments or pipe file data to stdin")
 	}
 
-	// Read from stdin and write to a temp file, then preview
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return fmt.Errorf("failed to read stdin: %w", err)
@@ -114,9 +134,51 @@ func runPreview(cmd *cobra.Command, args []string) error {
 	}
 	tmpFile.Close()
 
+	if previewDetail {
+		showDetail(tmpFile.Name())
+	}
 	return service.PreviewFile(tmpFile.Name())
+}
+
+// showDetail prints the detect result and caption for an image file.
+func showDetail(path string) {
+	result, err := service.DetectImage(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  Detect error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("\n%s %s %s\n", strings.Repeat("━", 3), filepath.Base(path), strings.Repeat("━", 3))
+	fmt.Printf("  Size:      %s", result.SizeHuman)
+	if result.Width > 0 && result.Height > 0 {
+		fmt.Printf("  %dx%d", result.Width, result.Height)
+	}
+	fmt.Println()
+	fmt.Printf("  Format:    %s\n", result.Format)
+
+	if result.C2PA != nil && result.C2PA.Present {
+		line := fmt.Sprintf("  C2PA:      %s", result.C2PA.Vendor)
+		if result.C2PA.Source != "" {
+			line += " / " + result.C2PA.Source
+		}
+		fmt.Println(line)
+	}
+	if result.TC260 != nil && result.TC260.Present {
+		line := "  TC260:     " + result.TC260.Provider
+		if result.TC260.Data != "" {
+			line += " / " + result.TC260.Data
+		}
+		fmt.Println(line)
+	}
+	if desc, err := service.ReadDescription(path); err == nil && desc != "" {
+		desc = strings.ReplaceAll(desc, "\n", "\n               ")
+		fmt.Printf("  Caption:    %s\n", desc)
+	}
+	fmt.Println()
 }
 
 func init() {
 	rootCmd.AddCommand(previewCmd)
+	previewCmd.Flags().BoolVarP(&previewDetail, "detail", "d", false, "show image details (C2PA, TC260, caption)")
+	previewCmd.Flags().StringVar(&previewDescribe, "describe", "", "write caption to image (reads from file if path exists, else uses as text)")
 }

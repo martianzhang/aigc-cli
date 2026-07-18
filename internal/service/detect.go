@@ -37,6 +37,7 @@ type DetectResult struct {
 	Metadata  map[string]string `json:"metadata,omitempty"`
 	Comment   string            `json:"comment,omitempty"`
 	Software  string            `json:"software,omitempty"`
+	Caption   string            `json:"caption,omitempty"` // EXIF ImageDescription / XMP description
 }
 
 // CameraInfo holds EXIF camera metadata extracted from JPEG images.
@@ -188,6 +189,7 @@ func DetectImage(path string) (*DetectResult, error) {
 		}
 		result.Comment = jf.comment
 		result.Software = jf.software
+		result.Caption = jf.imageDescription
 		result.Camera = jf.camera
 		// TC260 AIGC label in EXIF (JPEG stores it in APP1 JSON)
 		if !hasTC260 && jf.tc260Data != "" {
