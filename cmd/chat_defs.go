@@ -152,6 +152,22 @@ var agentToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
+	// --- Image tools ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "describe_image",
+			Description: "Read or write the caption/description of a local image file (JPEG/PNG). Provide file_path and caption to write. Omit caption to read current caption. Use caption=\"\" to clear.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"file_path": {"type": "string", "description": "Path to the local image file"},
+					"caption": {"type": "string", "description": "Caption text to write. Omit to just read. Empty string to clear."}
+				},
+				"required": ["file_path"]
+			}`),
+		},
+	},
 	// --- Account tools ---
 	{
 		Type: "function",

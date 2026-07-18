@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
@@ -95,6 +96,8 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeGenerateSpeech(args)
 	case "transcribe_audio":
 		return executeTranscribeAudio(args)
+	case "describe_image":
+		return executeDescribeImage(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}
@@ -488,4 +491,58 @@ func executeTranscribeAudio(argsJSON string) string {
 		result += fmt.Sprintf("\n(Cost: $%.5f)", resp.Usage.Cost)
 	}
 	return result
+}
+
+// describeImageArgs is the JSON structure for describe_image tool arguments.
+type describeImageArgs struct {
+	FilePath string `json:"file_path"`
+	Caption  string `json:"caption,omitempty"`
+}
+
+// executeDescribeImage reads or writes the caption of an image file.
+func executeDescribeImage(argsJSON string) string {
+	var args describeImageArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.FilePath == "" {
+		return "Error: file_path is required"
+	}
+
+	// Resolve relative path
+	path := args.FilePath
+	if !filepath.IsAbs(path) {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Sprintf("Error: invalid path: %v", err)
+		}
+		path = abs
+	}
+
+	// Write mode
+	if args.Caption != "" || args.Caption == "" && len(argsJSON) > 0 {
+		// Check if "caption" key was actually present in the JSON
+		var raw map[string]json.RawMessage
+		if json.Unmarshal([]byte(argsJSON), &raw) == nil {
+			if _, hasCaption := raw["caption"]; hasCaption {
+				if err := service.WriteDescription(path, args.Caption); err != nil {
+					return fmt.Sprintf("Error writing caption: %v", err)
+				}
+				if args.Caption == "" {
+					return fmt.Sprintf("Caption cleared for %s", filepath.Base(path))
+				}
+				return fmt.Sprintf("Caption set: %s", args.Caption)
+			}
+		}
+	}
+
+	// Read mode
+	current, err := service.ReadDescription(path)
+	if err != nil {
+		return fmt.Sprintf("Error reading caption: %v", err)
+	}
+	if current == "" {
+		return fmt.Sprintf("No caption set for %s", filepath.Base(path))
+	}
+	return fmt.Sprintf("Caption: %s", current)
 }
