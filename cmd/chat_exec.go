@@ -3,10 +3,18 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"os"
 	"path/filepath"
 	"strings"
 
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/webp"
+
+	"github.com/martianzhang/aigc-cli/internal/background"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -88,6 +96,8 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeReadFile(args)
 	case "find":
 		return executeFindFiles(args)
+	case "remove_background":
+		return executeRemoveBackground(args)
 	case "remove_watermark":
 		return executeRemoveWatermark(args)
 	case "add_watermark":
@@ -200,6 +210,79 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 	}
 
 	return fmt.Sprintf("Successfully generated %d video(s).\nFiles saved locally:\n  %s\nUser can use /preview to view them.", len(saved), strings.Join(saved, "\n  "))
+}
+
+// executeRemoveBackground runs RMBG AI background removal and returns a text summary.
+func executeRemoveBackground(argsJSON string) string {
+	var a struct {
+		FilePath     string `json:"file_path"`
+		OutputPath   string `json:"output_path"`
+		ReplaceColor string `json:"replace_color"`
+		Autocrop     bool   `json:"autocrop"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if a.FilePath == "" {
+		return "Error: file_path is required"
+	}
+
+	// Init RMBG detector
+	if rmbgDetector == nil {
+		d, err := tryInitRMBG()
+		if err != nil {
+			return fmt.Sprintf("Error: RMBG not available — run 'aigc-cli background init' first: %v", err)
+		}
+		rmbgDetector = d
+	}
+
+	f, err := os.Open(a.FilePath)
+	if err != nil {
+		return fmt.Sprintf("Error: cannot open file: %v", err)
+	}
+	img, _, err := image.Decode(f)
+	f.Close()
+	if err != nil {
+		return fmt.Sprintf("Error: cannot decode image: %v", err)
+	}
+
+	opts := background.Defaults()
+	if a.Autocrop {
+		opts.Autocrop = true
+	}
+
+	var outPath string
+	if a.OutputPath != "" {
+		outPath = a.OutputPath
+	} else {
+		ext := filepath.Ext(a.FilePath)
+		base := strings.TrimSuffix(filepath.Base(a.FilePath), ext)
+		outPath = base + "_removebg.png"
+	}
+
+	if a.ReplaceColor != "" {
+		c, err := parseHexColor(a.ReplaceColor)
+		if err != nil {
+			return fmt.Sprintf("Error: invalid replace_color: %v", err)
+		}
+		outImg, _, err := background.ReplaceColor(img, c, &opts, rmbgDetector)
+		if err != nil {
+			return fmt.Sprintf("Error: background removal failed: %v", err)
+		}
+		if err := background.SavePNG(outPath, outImg); err != nil {
+			return fmt.Sprintf("Error: save failed: %v", err)
+		}
+		return fmt.Sprintf("Background replaced. Output: %s", outPath)
+	}
+
+	outImg, _, err := background.RemoveBackground(img, &opts, rmbgDetector)
+	if err != nil {
+		return fmt.Sprintf("Error: background removal failed: %v", err)
+	}
+	if err := background.SavePNG(outPath, outImg); err != nil {
+		return fmt.Sprintf("Error: save failed: %v", err)
+	}
+	return fmt.Sprintf("Background removed. Output: %s", outPath)
 }
 
 // executeRemoveWatermark runs visible-AI-watermark removal and returns a text summary.
