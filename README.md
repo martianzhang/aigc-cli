@@ -124,7 +124,7 @@ aigc-cli
 │   └── --price    查看模型定价
 ├── task       查询异步任务状态（兼容 APIMart 异步任务）
 ├── balance    查询余额（兼容 APIMart 余额查询）
-├── preview / pr                                                             →  docs/guide-preview.md
+├── preview / pr 看图 / --detail 元数据 / --describe 写说明                    →  docs/guide-preview.md
 ├── detect     检测水印、元数据和 AIGC（多信号融合 + emoji）             →  docs/guide-detect.md
 ├── completion 生成 shell 补全脚本（bash/zsh/fish/powershell）
 ├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/mcp.md
