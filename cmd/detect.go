@@ -38,8 +38,11 @@ var detectCmd = &cobra.Command{
 var detectJSON bool
 var detectPreview bool
 var detectRemoveWM bool
+var detectAlphaMap bool // --alpha-map: use learned alpha map removal instead of AI
+var detectMiGAN bool    // --mi-gan: force MI-GAN AI removal
 var detectAddWM bool
 var detectWmProducer string
+var detectWatermarkBox string     // --watermark-box: manual position "x,y,w,h"
 var detectLearnWM string          // --learn-watermark {name}
 var detectLearnStrategy string    // --strategy for learn-watermark
 var detectNativeWidth int         // --native-width for imported alpha maps
@@ -89,10 +92,14 @@ func init() {
 	rootCmd.AddCommand(detectCmd)
 	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
-	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "remove visible AI watermarks learned via --learn-watermark. Requires --producer {name}.")
+	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "remove visible AI watermarks (uses MI-GAN AI inpainting; on failure, try --alpha-map or --producer)")
+	detectCmd.Flags().BoolVar(&detectAlphaMap, "alpha-map", false, "use learned alpha map removal (classical, fallback when MI-GAN fails)")
+	detectCmd.Flags().BoolVar(&detectMiGAN, "mi-gan", false, "force MI-GAN AI inpainting removal (default algorithm)")
 	detectCmd.Flags().BoolVar(&detectAddWM, "add-watermark", false, "add a visible AI watermark for testing removal (no metadata injected)")
 	detectCmd.Flags().StringVar(&detectWmProducer, "producer", "",
 		`watermark producer name learned via --learn-watermark, e.g. "gemini"`)
+	detectCmd.Flags().StringVar(&detectWatermarkBox, "watermark-box", "",
+		`manual watermark position "w,h" or "x,y,w,h" (e.g. "200,60" for bottom-right, "800,900,200,60" for absolute)`)
 	detectCmd.Flags().StringVar(&detectLearnWM, "learn-watermark", "", `learn a watermark from seed images in ~/.config/aigc-cli/watermark/
   {name}.black.png + {name}.gray.png (single pair)
   {name}.2.black.png + {name}.2.gray.png (2nd pair, averaged for lower noise)
