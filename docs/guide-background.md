@@ -64,6 +64,8 @@ aigc-cli background init
 
 从 HuggingFace 下载 RMBG 2.0 模型到 `~/.config/aigc-cli/models/model-rmbg-2.0.onnx`。ONNX Runtime 与 `detect init` 共享，如果已运行过 `aigc-cli detect init`，只需下载模型文件。
 
+`init` 会同时下载 CPU 和 GPU 版 ONNX Runtime（GPU 版仅在 Linux x64 / Windows x64 可用）。运行时自动检测 CUDA，有 GPU 优先使用，没有则回退 CPU。
+
 支持 `--force` 强制重新下载：
 
 ```bash
@@ -252,9 +254,23 @@ aigc-cli background subject.png --remove -o ./output/
 
 确保同时指定了 `--shadow`（或 `-s`）和 `--remove`。投影是基于 alpha 遮罩在主体背后渲染的，所以必须在去背模式下使用。
 
-### Q: Mac Apple Silicon 可以用 GPU 加速吗？
+### Q: 支持 GPU 加速吗？
 
-ONNX Runtime 支持 CoreML Execution Provider，会自动利用 Apple Neural Engine（ANE）。目前通过 CPU 推理已经很快，后续版本会默认启用 CoreML EP。
+支持。运行时自动检测 CUDA：
+- **Linux / Windows**：如果安装了 NVIDIA GPU + CUDA Toolkit + GPU 版 ONNX Runtime（`init` 自动下载），自动使用 CUDA Execution Provider
+- **macOS Apple Silicon**：ONNX Runtime 内置 CoreML 支持，会利用 Apple Neural Engine（ANE）和 GPU 加速
+- **无 GPU**：自动回退 CPU 推理
+
+可通过环境变量控制：
+```bash
+# 指定 GPU 设备号
+export AIGC_CUDA_DEVICE=0
+
+# 强制使用 CPU（即使有 GPU）
+export AIGC_CUDA_DEVICE=-1
+
+aigc-cli background input.png --remove
+```
 
 ---
 

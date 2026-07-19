@@ -121,10 +121,16 @@ aigc-cli detect init --force
 模型文件保存到 `~/.config/aigc-cli/models/`：
 ```
 ~/.config/aigc-cli/models/
-├── onnxruntime.dll               ← ONNX Runtime 动态库（15MB）
+├── onnxruntime.dll               ← ONNX Runtime 动态库（15MB，CPU）
+├── onnxruntime_gpu.dll           ← ONNX Runtime GPU 版（Windows，可选）
+├── libonnxruntime.so             ← ONNX Runtime 动态库（Linux，CPU）
+├── libonnxruntime_gpu.so         ← ONNX Runtime GPU 版（Linux，可选）
+├── libonnxruntime.dylib          ← ONNX Runtime 动态库（macOS，CPU+CoreML）
 ├── model-vit-base.onnx           ← vit-base 模型（327MB，默认下载）
 └── model-distilled-vit.onnx      ← distilled-vit 模型（56MB）
 ```
+
+`init` 在 Linux x64 / Windows x64 上会自动同时下载 CPU 和 GPU 版 ONNX Runtime。运行时优先加载 `_gpu` 变体（如有 CUDA），否则回退 CPU。
 
 ### 检测优先级
 
@@ -139,11 +145,11 @@ ONNX 检测不可用
 
 ### 支持的平台
 
-| 平台 | 运行时文件 |
-|---|---|
-| Windows x64 | `onnxruntime.dll` |
-| Linux x64 | `libonnxruntime.so` |
-| macOS arm64 | `libonnxruntime.dylib` |
+| 平台 | CPU 运行时 | GPU 运行时 |
+|---|---|---|
+| Windows x64 | `onnxruntime.dll` | `onnxruntime_gpu.dll`（需 CUDA） |
+| Linux x64 | `libonnxruntime.so` | `libonnxruntime_gpu.so`（需 CUDA） |
+| macOS arm64 | `libonnxruntime.dylib` | 内置 CoreML（无独立 GPU 包） |
 
 ---
 
