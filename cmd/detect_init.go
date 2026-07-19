@@ -162,7 +162,7 @@ func gpuLibName() string {
 		return "libonnxruntime_gpu.so"
 	case "windows":
 		return "onnxruntime_gpu.dll"
-	default: // darwin and others — no separate CUDA GPU package
+	default:
 		return ""
 	}
 }
@@ -171,26 +171,28 @@ func gpuLibName() string {
 // Returns nil on platforms without a separate GPU package (macOS, linux arm64).
 func getGPUORTDownloadInfo() *ortDownloadInfo {
 	base := fmt.Sprintf("https://github.com/microsoft/onnxruntime/releases/download/v%s", ortVersion)
+	libName := gpuLibName()
+	if libName == "" {
+		return nil
+	}
 	switch runtime.GOOS {
 	case "linux":
 		if runtime.GOARCH != "amd64" {
-			return nil // GPU package only available for x64 Linux
+			return nil
 		}
 		return &ortDownloadInfo{
 			url:          fmt.Sprintf("%s/onnxruntime-linux-x64-gpu-%s.tgz", base, ortVersion),
 			archiveName:  fmt.Sprintf("onnxruntime-gpu-%s.tgz", ortVersion),
-			libName:      "libonnxruntime_gpu.so",
+			libName:      libName,
 			internalPath: fmt.Sprintf("onnxruntime-linux-x64-gpu-%s/lib/libonnxruntime.so", ortVersion),
 		}
-	case "windows":
+	default: // windows
 		return &ortDownloadInfo{
 			url:          fmt.Sprintf("%s/onnxruntime-win-x64-gpu-%s.zip", base, ortVersion),
 			archiveName:  fmt.Sprintf("onnxruntime-gpu-%s.zip", ortVersion),
-			libName:      "onnxruntime_gpu.dll",
+			libName:      libName,
 			internalPath: fmt.Sprintf("onnxruntime-win-x64-gpu-%s/lib/onnxruntime.dll", ortVersion),
 		}
-	default:
-		return nil // no separate GPU package on macOS
 	}
 }
 
