@@ -372,11 +372,19 @@ func RegisterLearnResult(lr *LearnResult) {
 		cfg.MaxSizeScale = 2.0
 		cfg.MarginRange = 16
 		cfg.PositionResolver = func(w, h int) []Position {
-			shorter := w
-			if h < shorter {
-				shorter = h
+			// Watermark size scales with image width.  The margin is a
+			// fraction of width/height, so the size must also use the
+			// same coordinate basis to be consistent.
+			// Cap scaling to MaxSizeScale to prevent oversized inpainting
+			// regions on high-resolution images (e.g., a 200×60 watermark
+			// at 1024 native becomes 800×240 at 4× scale on a 4096px image).
+			scale := float64(w) / float64(nativeW)
+			if scale > cfg.MaxSizeScale {
+				scale = cfg.MaxSizeScale
 			}
-			scale := float64(shorter) / float64(nativeW)
+			if scale < cfg.MinSizeScale {
+				scale = cfg.MinSizeScale
+			}
 			szW := int(math.Round(float64(alphaW) * scale))
 			szH := int(math.Round(float64(alphaH) * scale))
 			if szW < 20 || szH < 10 {

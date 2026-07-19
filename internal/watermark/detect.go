@@ -85,8 +85,25 @@ func evaluateSeeds(img image.Image, cfg Config) (gray, grad []float64, seeds []s
 			// The actual watermark may be at a different position/scale than
 			// the PositionResolver calculates (observed on 2848×1600 images
 			// where the watermark scales with height, not width).
-			searchPadX := maxInt(60, int(float64(pos.W)*0.5))
-			searchPadY := maxInt(30, int(float64(pos.H)*0.5))
+			//
+			// Aspect-ratio compensation: when the image AR diverges from the
+			// training AR (~1:1 for most AI generation), the gap between
+			// width-based and height-based position estimates grows, so the
+			// search box needs proportional widening.
+			arFactor := 1.0
+			if cfg.NativeWidth > 0 {
+				ar := float64(w) / float64(h)
+				if ar < 1.0 {
+					ar = 1.0 / ar
+				}
+				// Blend: 1:1 → 1.0, 16:9 → ~1.4, 3:1 → 2.0 (clamped)
+				arFactor = 1.0 + (ar-1.0)*0.5
+				if arFactor > 2.0 {
+					arFactor = 2.0
+				}
+			}
+			searchPadX := maxInt(60, int(float64(pos.W)*0.5*arFactor))
+			searchPadY := maxInt(30, int(float64(pos.H)*0.5*arFactor))
 			bx := maxInt(0, pos.X-searchPadX)
 			by := maxInt(0, pos.Y-searchPadY)
 			bw := minInt(w, pos.W+searchPadX*2)
