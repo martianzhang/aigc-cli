@@ -145,6 +145,11 @@ func findConfigByName(name string) (Config, bool) {
 	return Config{}, false
 }
 
+// FindConfig returns the config with the given name. Exported for external use.
+func FindConfig(name string) (Config, bool) {
+	return findConfigByName(name)
+}
+
 // clampByte clamps a float64 to [0, 255] uint8.
 func clampByte(v float64) uint8 {
 	if v < 0 {
