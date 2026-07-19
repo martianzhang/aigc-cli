@@ -86,14 +86,18 @@ func (d *Detector) init() error {
 		return fmt.Errorf("create output tensor: %w", err)
 	}
 
+	opts := ort.NewCUDASessionOptions()
 	d.session, err = ort.NewAdvancedSession(
 		d.modelPath,
 		[]string{ModelInputName},
 		[]string{ModelOutputName},
 		[]ort.Value{d.input},
 		[]ort.Value{d.output},
-		nil,
+		opts,
 	)
+	if opts != nil {
+		opts.Destroy()
+	}
 	if err != nil {
 		d.output.Destroy()
 		d.input.Destroy()
@@ -186,13 +190,23 @@ func SavePNG(path string, img image.Image) error {
 }
 
 // DefaultLibPath 返回 ONNX Runtime 共享库的路径。
+// 优先查找 GPU 版本（libonnxruntime_gpu.*），找不到则回退到 CPU 版本。
 func DefaultLibPath(modelsDir string) (string, error) {
+	// GPU variants first (if available)
+	gpuCandidates := []string{
+		modelsDir + "/libonnxruntime_gpu.dylib",
+		modelsDir + "/libonnxruntime_gpu.so",
+		modelsDir + "/onnxruntime_gpu.dll",
+	}
+	for _, c := range gpuCandidates {
+		if _, err := os.Stat(c); err == nil {
+			return c, nil
+		}
+	}
+	// CPU fallback
 	candidates := []string{
-		// macOS
 		modelsDir + "/libonnxruntime.dylib",
-		// Linux
 		modelsDir + "/libonnxruntime.so",
-		// Windows
 		modelsDir + "/onnxruntime.dll",
 	}
 	for _, c := range candidates {

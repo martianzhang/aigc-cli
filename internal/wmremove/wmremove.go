@@ -74,14 +74,18 @@ func (d *Detector) RemoveWatermark(img image.Image, mask *image.Gray) (*image.NR
 	}
 	defer outTensor.Destroy()
 
+	opts := ort.NewCUDASessionOptions()
 	session, err := ort.NewAdvancedSession(
 		d.modelPath,
 		[]string{ImageInput, MaskInput},
 		[]string{OutputName},
 		[]ort.Value{imgTensor, maskTensor},
 		[]ort.Value{outTensor},
-		nil,
+		opts,
 	)
+	if opts != nil {
+		opts.Destroy()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
@@ -153,6 +157,9 @@ func SavePNG(path string, img image.Image) error {
 
 func DefaultLibPath(modelsDir string) (string, error) {
 	for _, c := range []string{
+		modelsDir + "/libonnxruntime_gpu.dylib",
+		modelsDir + "/libonnxruntime_gpu.so",
+		modelsDir + "/onnxruntime_gpu.dll",
 		modelsDir + "/libonnxruntime.dylib",
 		modelsDir + "/libonnxruntime.so",
 		modelsDir + "/onnxruntime.dll",

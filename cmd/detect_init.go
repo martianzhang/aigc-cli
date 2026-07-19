@@ -84,24 +84,28 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot create directory %s: %w", modelsDir, err)
 	}
 
-	// ── Download ONNX Runtime (shared across all models) ──
-	ortInfo := getORTDownloadInfo()
-	libName := ortInfo.libName
-	libPath := filepath.Join(modelsDir, libName)
-	if _, err := os.Stat(libPath); err != nil || detectForce {
-		fmt.Printf("Downloading ONNX Runtime %s (%s)...\n", ortVersion, runtime.GOOS)
-		archivePath := filepath.Join(modelsDir, ortInfo.archiveName)
-		if err := service.SaveResource(ortInfo.url, archivePath); err != nil {
-			return fmt.Errorf("ONNX Runtime download failed: %w", err)
+	// ── Download ONNX Runtime CPU (shared across all models) ──
+	if err := downloadORT(modelsDir, getORTDownloadInfo(), detectForce); err != nil {
+		return err
+	}
+	// ── Download ONNX Runtime GPU (where available) ──
+	if gpu := getGPUORTDownloadInfo(); gpu != nil {
+		gpuPath := filepath.Join(modelsDir, gpu.libName)
+		if _, err := os.Stat(gpuPath); err != nil || detectForce {
+			fmt.Printf("Downloading ONNX Runtime GPU %s (%s)...\n", ortVersion, runtime.GOOS)
+			archivePath := filepath.Join(modelsDir, gpu.archiveName)
+			if err := service.SaveResource(gpu.url, archivePath); err != nil {
+				return fmt.Errorf("ONNX Runtime GPU download failed: %w", err)
+			}
+			fmt.Println("  Extracting...")
+			if err := extractRuntime(archivePath, modelsDir, gpu.libName, *gpu); err != nil {
+				return fmt.Errorf("GPU extraction failed: %w", err)
+			}
+			os.Remove(archivePath)
+			fmt.Printf("  Installed: %s\n", gpuPath)
+		} else {
+			fmt.Printf("ONNX Runtime GPU already installed: %s\n", gpuPath)
 		}
-		fmt.Println("  Extracting...")
-		if err := extractRuntime(archivePath, modelsDir, libName, ortInfo); err != nil {
-			return fmt.Errorf("extraction failed: %w", err)
-		}
-		os.Remove(archivePath)
-		fmt.Printf("  Installed: %s\n", libPath)
-	} else {
-		fmt.Printf("ONNX Runtime already installed: %s\n", libPath)
 	}
 
 	// ── Download model ──
@@ -127,6 +131,67 @@ type ortDownloadInfo struct {
 	archiveName  string
 	libName      string
 	internalPath string
+}
+
+// downloadORT downloads and extracts an ONNX Runtime package, unless it already exists.
+func downloadORT(modelsDir string, info ortDownloadInfo, force bool) error {
+	libPath := filepath.Join(modelsDir, info.libName)
+	if _, err := os.Stat(libPath); err == nil && !force {
+		fmt.Printf("ONNX Runtime already installed: %s\n", libPath)
+		return nil
+	}
+	fmt.Printf("Downloading ONNX Runtime %s (%s)...\n", ortVersion, runtime.GOOS)
+	archivePath := filepath.Join(modelsDir, info.archiveName)
+	if err := service.SaveResource(info.url, archivePath); err != nil {
+		return fmt.Errorf("ONNX Runtime download failed: %w", err)
+	}
+	fmt.Println("  Extracting...")
+	if err := extractRuntime(archivePath, modelsDir, info.libName, info); err != nil {
+		return fmt.Errorf("extraction failed: %w", err)
+	}
+	os.Remove(archivePath)
+	fmt.Printf("  Installed: %s\n", libPath)
+	return nil
+}
+
+// gpuLibName returns the GPU ONNX Runtime library filename for the current platform.
+// Returns empty string if there is no separate GPU package (macOS uses CoreML in the same binary).
+func gpuLibName() string {
+	switch runtime.GOOS {
+	case "linux":
+		return "libonnxruntime_gpu.so"
+	case "windows":
+		return "onnxruntime_gpu.dll"
+	default: // darwin and others — no separate CUDA GPU package
+		return ""
+	}
+}
+
+// getGPUORTDownloadInfo returns download info for the GPU ONNX Runtime package.
+// Returns nil on platforms without a separate GPU package (macOS, linux arm64).
+func getGPUORTDownloadInfo() *ortDownloadInfo {
+	base := fmt.Sprintf("https://github.com/microsoft/onnxruntime/releases/download/v%s", ortVersion)
+	switch runtime.GOOS {
+	case "linux":
+		if runtime.GOARCH != "amd64" {
+			return nil // GPU package only available for x64 Linux
+		}
+		return &ortDownloadInfo{
+			url:          fmt.Sprintf("%s/onnxruntime-linux-x64-gpu-%s.tgz", base, ortVersion),
+			archiveName:  fmt.Sprintf("onnxruntime-gpu-%s.tgz", ortVersion),
+			libName:      "libonnxruntime_gpu.so",
+			internalPath: fmt.Sprintf("onnxruntime-linux-x64-gpu-%s/lib/libonnxruntime.so", ortVersion),
+		}
+	case "windows":
+		return &ortDownloadInfo{
+			url:          fmt.Sprintf("%s/onnxruntime-win-x64-gpu-%s.zip", base, ortVersion),
+			archiveName:  fmt.Sprintf("onnxruntime-gpu-%s.zip", ortVersion),
+			libName:      "onnxruntime_gpu.dll",
+			internalPath: fmt.Sprintf("onnxruntime-win-x64-gpu-%s/lib/onnxruntime.dll", ortVersion),
+		}
+	default:
+		return nil // no separate GPU package on macOS
+	}
 }
 
 func getORTDownloadInfo() ortDownloadInfo {

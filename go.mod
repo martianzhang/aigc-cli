@@ -85,4 +85,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/amikos-tech/pure-onnx => github.com/martianzhang/pure-onnx v0.0.0-20260718233150-08b1a047048c
+replace github.com/amikos-tech/pure-onnx => /Users/zhangliang/workspace/github.com/martianzhang/pure-onnx

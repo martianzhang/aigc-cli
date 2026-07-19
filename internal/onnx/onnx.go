@@ -92,14 +92,18 @@ func (d *Detector) init() error {
 		return fmt.Errorf("create output tensor: %w", err)
 	}
 
+	opts := ort.NewCUDASessionOptions()
 	d.session, err = ort.NewAdvancedSession(
 		d.modelPath,
 		[]string{ModelInputName},
 		[]string{ModelOutputName},
 		[]ort.Value{d.input},
 		[]ort.Value{d.output},
-		nil,
+		opts,
 	)
+	if opts != nil {
+		opts.Destroy()
+	}
 	if err != nil {
 		d.output.Destroy()
 		d.input.Destroy()
@@ -172,15 +176,17 @@ func (d *Detector) Close() {
 	ort.DestroyEnvironment()
 }
 
-// DefaultLibPath returns the expected path for the ONNX Runtime shared library
-// based on the OS and a given models directory.
+// DefaultLibPath returns the expected path for the ONNX Runtime shared library.
+// Prefers GPU variant, falls back to CPU.
 func DefaultLibPath(modelsDir string) (string, error) {
-	candidates := []string{
+	for _, c := range []string{
+		filepath.Join(modelsDir, "libonnxruntime_gpu.dylib"),
+		filepath.Join(modelsDir, "libonnxruntime_gpu.so"),
+		filepath.Join(modelsDir, "onnxruntime_gpu.dll"),
 		filepath.Join(modelsDir, "onnxruntime.dll"),
 		filepath.Join(modelsDir, "libonnxruntime.so"),
 		filepath.Join(modelsDir, "libonnxruntime.dylib"),
-	}
-	for _, c := range candidates {
+	} {
 		if _, err := os.Stat(c); err == nil {
 			return c, nil
 		}

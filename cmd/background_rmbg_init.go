@@ -6,9 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 
-	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/spf13/cobra"
 )
 
@@ -66,24 +64,15 @@ func runBackgroundInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot create directory %s: %w", modelsDir, err)
 	}
 
-	// ── Download ONNX Runtime (shared with detect, skip if already installed) ──
-	ortInfo := getORTDownloadInfo()
-	libName := ortInfo.libName
-	libPath := filepath.Join(modelsDir, libName)
-	if _, err := os.Stat(libPath); err != nil || bgInitForce {
-		fmt.Printf("Downloading ONNX Runtime %s (%s)...\n", ortVersion, runtime.GOOS)
-		archivePath := filepath.Join(modelsDir, ortInfo.archiveName)
-		if err := service.SaveResource(ortInfo.url, archivePath); err != nil {
-			return fmt.Errorf("ONNX Runtime download failed: %w", err)
+	// ── Download ONNX Runtime CPU (shared with detect) ──
+	if err := downloadORT(modelsDir, getORTDownloadInfo(), bgInitForce); err != nil {
+		return err
+	}
+	// ── Download ONNX Runtime GPU (where available) ──
+	if gpu := getGPUORTDownloadInfo(); gpu != nil {
+		if err := downloadORT(modelsDir, *gpu, bgInitForce); err != nil {
+			return err
 		}
-		fmt.Println("  Extracting...")
-		if err := extractRuntime(archivePath, modelsDir, libName, ortInfo); err != nil {
-			return fmt.Errorf("extraction failed: %w", err)
-		}
-		os.Remove(archivePath)
-		fmt.Printf("  Installed: %s\n", libPath)
-	} else {
-		fmt.Printf("ONNX Runtime already installed: %s\n", libPath)
 	}
 
 	// ── Download RMBG 2.0 model ──
