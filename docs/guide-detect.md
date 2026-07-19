@@ -268,10 +268,12 @@ aigc-cli detect --remove-watermark --alpha-map --producer gemini image.png
 
 # 手动指定水印位置（绕过自动检测，最精确）
 aigc-cli detect --remove-watermark --watermark-box "200,60" image.png
-aigc-cli detect --remove-watermark --watermark-box "800,900,200,60" image.png
+aigc-cli detect --remove-watermark --wmb "800,900,200,60" image.png
 ```
 
-### `--watermark-box` 格式
+### `--watermark-box` / `--wmb` 格式
+
+`--wmb` 是 `--watermark-box` 的简写，两者等价。
 
 | 格式 | 示例 | 说明 |
 |---|---|---|
@@ -282,10 +284,10 @@ aigc-cli detect --remove-watermark --watermark-box "800,900,200,60" image.png
 ### 水印位置解析优先级
 
 ```
-1. --watermark-box         手动指定（最精确）
-2. 元数据 producer 已知    → PositionResolver 计算位置
+1. --watermark-box / --wmb   手动指定（最精确）
+2. 元数据 producer 已知      → PositionResolver 计算位置
 3. 通用检测 （未识别 producer） → NCC 模板匹配
-4. 右下角 fallback 区域    （300×80）
+4. 右下角 fallback 区域      （300×80）
 ```
 
 ### 加水印

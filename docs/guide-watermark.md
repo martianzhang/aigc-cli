@@ -113,26 +113,26 @@ aigc-cli detect --remove-watermark --alpha-map --producer gemini image.png
 
 ### 位置指定
 
-当自动检测位置不准时，可手动指定：
+当自动检测位置不准时，可手动指定（`--wmb` 是 `--watermark-box` 的简写）：
 
 ```bash
 # 右下角 200×60 区域（最常用，水印在右下角时）
 aigc-cli detect --remove-watermark --watermark-box "200,60" image.png
 
 # 精确坐标（左上角 800,900，宽 200，高 60）
-aigc-cli detect --remove-watermark --watermark-box "800,900,200,60" image.png
+aigc-cli detect --remove-watermark --wmb "800,900,200,60" image.png
 
 # 距右下角 10px
-aigc-cli detect --remove-watermark --watermark-box "-10,-10,200,60" image.png
+aigc-cli detect --remove-watermark --wmb "-10,-10,200,60" image.png
 ```
 
 ### 位置解析优先级
 
 ```
-1. --watermark-box         手动指定（最精确）
-2. 元数据 producer 已知    → PositionResolver 计算位置
+1. --watermark-box / --wmb   手动指定（最精确）
+2. 元数据 producer 已知      → PositionResolver 计算位置
 3. 通用检测 （未识别 producer） → NCC 模板匹配
-4. 右下角 fallback 区域    （300×80）
+4. 右下角 fallback 区域      （300×80）
 ```
 
 ### 去除流程（Alpha Map）
