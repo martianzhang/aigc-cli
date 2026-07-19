@@ -181,17 +181,17 @@ func getGPUORTDownloadInfo() *ortDownloadInfo {
 			return nil
 		}
 		return &ortDownloadInfo{
-			url:          fmt.Sprintf("%s/onnxruntime-linux-x64-gpu-%s.tgz", base, ortVersion),
-			archiveName:  fmt.Sprintf("onnxruntime-gpu-%s.tgz", ortVersion),
+			url:          fmt.Sprintf("%s/onnxruntime-linux-x64-cuda-%s.tgz", base, ortVersion),
+			archiveName:  fmt.Sprintf("onnxruntime-cuda-%s.tgz", ortVersion),
 			libName:      libName,
-			internalPath: fmt.Sprintf("onnxruntime-linux-x64-gpu-%s/lib/libonnxruntime.so", ortVersion),
+			internalPath: fmt.Sprintf("onnxruntime-linux-x64-cuda-%s/lib/libonnxruntime.so", ortVersion),
 		}
 	default: // windows
 		return &ortDownloadInfo{
-			url:          fmt.Sprintf("%s/onnxruntime-win-x64-gpu-%s.zip", base, ortVersion),
-			archiveName:  fmt.Sprintf("onnxruntime-gpu-%s.zip", ortVersion),
+			url:          fmt.Sprintf("%s/onnxruntime-win-x64-cuda-%s.zip", base, ortVersion),
+			archiveName:  fmt.Sprintf("onnxruntime-cuda-%s.zip", ortVersion),
 			libName:      libName,
-			internalPath: fmt.Sprintf("onnxruntime-win-x64-gpu-%s/lib/onnxruntime.dll", ortVersion),
+			internalPath: fmt.Sprintf("onnxruntime-win-x64-cuda-%s/lib/onnxruntime.dll", ortVersion),
 		}
 	}
 }
