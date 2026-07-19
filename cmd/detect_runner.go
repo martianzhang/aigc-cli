@@ -115,6 +115,10 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	}
 	if detectRemoveWM {
 		outPath := cleanPath(path)
+		// Load learned watermarks BEFORE checking TC260/C2PA for producer,
+		// so ProducerToConfig can match the provider name against registered
+		// config names (e.g. "doubao" in the provider description string).
+		_ = watermark.LoadWatermarkPNGsFromDir(watermarkDir())
 		producer := detectWmProducer
 		if producer == "" && result.TC260 != nil && result.TC260.Present {
 			if cp := result.TC260.Fields[service.ContentProducerKey]; cp != "" {
@@ -127,7 +131,6 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		if producer == "" && result.C2PA != nil && result.C2PA.Present {
 			producer = watermark.ProducerToConfig(result.C2PA.Vendor)
 		}
-		_ = watermark.LoadWatermarkPNGsFromDir(watermarkDir())
 
 		f, fErr := os.Open(path)
 		var dets []watermark.Detection
@@ -149,8 +152,32 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 
 		if useMIGan {
 			wmX, wmY, wmW, wmH, wmOK := resolveWMBox(producer, decodedImg, dets)
+			// When producer is known but has no PositionResolver (e.g. Gemini
+			// sparkle), resolveWMBox can't find the position because the line-143
+			// guard skipped DetectWatermark. Retry detection now for MI-GAN.
+			if !wmOK && decodedImg != nil && len(dets) == 0 && producer != "" {
+				dets = watermark.DetectWatermark(decodedImg)
+				wmX, wmY, wmW, wmH, wmOK = resolveWMBox("", decodedImg, dets)
+			}
+			// When no producer is known and auto-detection also failed, try
+			// PositionResolver from any registered config as a last resort
+			// before the blind bottom-right fallback (e.g. Doubao without
+			// --producer, where DetectWatermark may miss on some images).
+			if !wmOK && decodedImg != nil && len(dets) == 0 && producer == "" {
+				b := decodedImg.Bounds()
+				for _, name := range watermark.RegisteredTypes() {
+					if cfg, found := watermark.FindConfig(name); found && cfg.PositionResolver != nil {
+						positions := cfg.PositionResolver(b.Dx(), b.Dy())
+						if len(positions) > 0 {
+							p := positions[0]
+							wmX, wmY, wmW, wmH, wmOK = p.X, p.Y, p.W, p.H, true
+							break
+						}
+					}
+				}
+			}
 			if wmOK {
-				removed = runMIGan(path, decodedImg, wmX, wmY, wmW, wmH)
+				removed = runMIGan(path, decodedImg, wmX, wmY, wmW, wmH, producer)
 			} else if decodedImg != nil {
 				b := decodedImg.Bounds()
 				regionW, regionH := 300, 80
@@ -160,7 +187,7 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 				if regionH > b.Dy() {
 					regionH = b.Dy()
 				}
-				removed = runMIGan(path, decodedImg, b.Dx()-regionW, b.Dy()-regionH, regionW, regionH)
+				removed = runMIGan(path, decodedImg, b.Dx()-regionW, b.Dy()-regionH, regionW, regionH, producer)
 			}
 			if !removed {
 				fmt.Fprintf(os.Stderr, "  MI-GAN removal failed. Try --alpha-map or --producer <name>.\n")
@@ -170,7 +197,11 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 			if wmOK {
 				res, wmErr := watermark.RemoveFileHinted(path, outPath, producer)
 				if wmErr == nil && res.Removed {
-					fmt.Printf("  Watermark removed (alpha-map) -> %s\n", outPath)
+					if res.Name != "" {
+						fmt.Printf("  Watermark removed (alpha-map, %s) -> %s\n", res.Name, outPath)
+					} else {
+						fmt.Printf("  Watermark removed (alpha-map) -> %s\n", outPath)
+					}
 					removed = true
 				}
 			}
@@ -326,7 +357,7 @@ func buildDetails(r *forensic.Result) string {
 }
 
 // runMIGan runs MI-GAN inpainting on the given region and saves the result.
-func runMIGan(path string, img image.Image, x, y, w, h int) bool {
+func runMIGan(path string, img image.Image, x, y, w, h int, producer string) bool {
 	if img == nil {
 		fmt.Fprintf(os.Stderr, "  MI-GAN error: no image data\n")
 		return false
@@ -351,7 +382,11 @@ func runMIGan(path string, img image.Image, x, y, w, h int) bool {
 	}
 	outPath := cleanPath(path)
 	_ = wmremove.SavePNG(outPath, outImg)
-	fmt.Printf("  Watermark removed (mi-gan) -> %s\n", outPath)
+	if producer != "" {
+		fmt.Printf("  Watermark removed (mi-gan, %s) -> %s\n", producer, outPath)
+	} else {
+		fmt.Printf("  Watermark removed (mi-gan) -> %s\n", outPath)
+	}
 	return true
 }
 

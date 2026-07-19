@@ -100,6 +100,8 @@ func init() {
 		`watermark producer name learned via --learn-watermark, e.g. "gemini"`)
 	detectCmd.Flags().StringVar(&detectWatermarkBox, "watermark-box", "",
 		`manual watermark position "w,h" or "x,y,w,h" (e.g. "200,60" for bottom-right, "800,900,200,60" for absolute)`)
+	detectCmd.Flags().StringVar(&detectWatermarkBox, "wmb", "",
+		"shorthand for --watermark-box")
 	detectCmd.Flags().StringVar(&detectLearnWM, "learn-watermark", "", `learn a watermark from seed images in ~/.config/aigc-cli/watermark/
   {name}.black.png + {name}.gray.png (single pair)
   {name}.2.black.png + {name}.2.gray.png (2nd pair, averaged for lower noise)
