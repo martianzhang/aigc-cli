@@ -96,15 +96,46 @@ aigc-cli detect --learn-watermark myai \
 
 ## 去水印（`--remove-watermark`）
 
-```bash
-# 指定水印
-aigc-cli detect photo.png --remove-watermark --producer myai
+`--remove-watermark` 默认使用 **MI-GAN** AI 修补算法（ONNX 推理），需要 `migan.onnx` 模型文件。也可使用经典 Alpha Map 逆 alpha 混合算法。
 
-# 自动检测（不指定 --producer，会扫所有已学习的配置取最高置信度）
-aigc-cli detect photo.png --remove-watermark
+### 算法选择
+
+```bash
+# MI-GAN AI 修补（默认，推荐）
+aigc-cli detect --remove-watermark image.png
+
+# 强制 Alpha Map 经典算法
+aigc-cli detect --remove-watermark --alpha-map image.png
+
+# 指定水印配置（Alpha Map 模式需要）
+aigc-cli detect --remove-watermark --alpha-map --producer gemini image.png
 ```
 
-### 流程
+### 位置指定
+
+当自动检测位置不准时，可手动指定：
+
+```bash
+# 右下角 200×60 区域（最常用，水印在右下角时）
+aigc-cli detect --remove-watermark --watermark-box "200,60" image.png
+
+# 精确坐标（左上角 800,900，宽 200，高 60）
+aigc-cli detect --remove-watermark --watermark-box "800,900,200,60" image.png
+
+# 距右下角 10px
+aigc-cli detect --remove-watermark --watermark-box "-10,-10,200,60" image.png
+```
+
+### 位置解析优先级
+
+```
+1. --watermark-box         手动指定（最精确）
+2. 元数据 producer 已知    → PositionResolver 计算位置
+3. 通用检测 （未识别 producer） → NCC 模板匹配
+4. 右下角 fallback 区域    （300×80）
+```
+
+### 去除流程（Alpha Map）
 
 ```
 1. 确定 producer
@@ -122,6 +153,16 @@ aigc-cli detect photo.png --remove-watermark
    └─ 边缘清理（blendEdge / progressive inpaint）
 
 4. 重编码保存（JPEG Q95 / PNG）
+```
+
+### 去除流程（MI-GAN）
+
+```
+1. 确定 producer（同 Alpha Map 流程）
+2. 确定水印位置（同位置解析优先级）
+3. MI-GAN ONNX 推理 → 生成修补区域内容
+4. 边缘羽化（3×3 blur）→ 与原图合成
+5. 保存（JPEG Q95 / PNG）
 ```
 
 ---

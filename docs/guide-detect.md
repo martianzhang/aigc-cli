@@ -249,19 +249,48 @@ aigc-cli detect --json image.png
 aigc-cli detect --learn-watermark myai
 ```
 
-### 用法
+### 去水印
+
+两种算法：
+
+| 算法 | 方式 | 说明 |
+|---|---|---|
+| **MI-GAN**（默认） | AI 修补 | ONNX 推理，基于 LaMa 的 inpainting 模型。需要 `migan.onnx`（28MB）放在 `~/.config/aigc-cli/models/` |
+| **Alpha Map**（经典） | 逆 alpha 混合 | 需要 `--learn-watermark` 学习的水印配置 |
 
 ```bash
-# 用自定义水印配置去水印（不需要 --confirm）
-aigc-cli detect --remove-watermark --producer myai image.png
+# MI-GAN 去水印（默认，自动从 TC260/C2PA 元数据识别人，无需 --producer）
+aigc-cli detect --remove-watermark image.png
 
-# 用内置 Gemini 去水印（需要 --confirm）
-aigc-cli detect --remove-watermark --producer gemini --confirm image.png
+# 强制使用 Alpha Map 算法
+aigc-cli detect --remove-watermark --alpha-map image.png
+aigc-cli detect --remove-watermark --alpha-map --producer gemini image.png
 
-# 自动检测（不指定 producer，会扫所有已加载的）
-aigc-cli detect --remove-watermark --confirm image.png
+# 手动指定水印位置（绕过自动检测，最精确）
+aigc-cli detect --remove-watermark --watermark-box "200,60" image.png
+aigc-cli detect --remove-watermark --watermark-box "800,900,200,60" image.png
+```
 
-# 加水印（详见 guide-watermark.md）
+### `--watermark-box` 格式
+
+| 格式 | 示例 | 说明 |
+|---|---|---|
+| `w,h` | `"200,60"` | 右下角 10px 内边距，200×60 区域 |
+| `x,y,w,h` | `"800,900,200,60"` | 左上角 (800,900)，200×60 区域 |
+| `-mx,-my,w,h` | `"-10,-10,200,60"` | 负值表示距右/下边缘距离 |
+
+### 水印位置解析优先级
+
+```
+1. --watermark-box         手动指定（最精确）
+2. 元数据 producer 已知    → PositionResolver 计算位置
+3. 通用检测 （未识别 producer） → NCC 模板匹配
+4. 右下角 fallback 区域    （300×80）
+```
+
+### 加水印
+
+```bash
 aigc-cli detect --add-watermark image.png --producer gemini
 aigc-cli detect --add-watermark image.png --producer "CustomText"
 ```
@@ -282,6 +311,7 @@ AI Detect:  🤖 99%  Confirmed AI-generated
 
 ### 局限性
 
+- MI-GAN 在复杂纹理区域（如竖条纹、栏杆）可能产生不自然的修补效果，可尝试 `--watermark-box` 缩小区域
 - 逆 alpha 混合在纯色/渐变背景上效果最好，复杂纹理区域可能有轻微残影
 - 仅支持叠加型可见水印（白/灰半透明覆盖），不支持植入型水印
 
