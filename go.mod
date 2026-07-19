@@ -84,3 +84,5 @@ require (
 	golang.org/x/text v0.38.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+replace github.com/amikos-tech/pure-onnx => github.com/martianzhang/pure-onnx v0.0.0-20260718233150-08b1a047048c
