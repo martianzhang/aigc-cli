@@ -102,7 +102,13 @@ func runPrintConfig(cmd *cobra.Command) {
 	}
 	// Mask API key for display
 	if displayCfg.APIKey != "" {
-		displayCfg.APIKey = displayCfg.APIKey[:8] + "..."
+		if len(displayCfg.APIKey) > 8 {
+			displayCfg.APIKey = displayCfg.APIKey[:8] + "..."
+		} else if len(displayCfg.APIKey) > 3 {
+			displayCfg.APIKey = displayCfg.APIKey[:3] + "..."
+		} else {
+			displayCfg.APIKey = displayCfg.APIKey[:1] + "..."
+		}
 	}
 	if displayCfg.Defaults == nil {
 		displayCfg.Defaults = &types.ConfigDefaults{}

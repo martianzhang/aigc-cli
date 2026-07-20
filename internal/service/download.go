@@ -29,6 +29,11 @@ func ExtractExt(rawURL string) string {
 // On success, saves as an image file. On failure, saves the raw base64 data
 // as a text file with instructions for manual conversion.
 func SaveBase64Image(outputDir, prefix, b64 string, index int) (string, error) {
+	// Ensure output directory exists
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create output directory: %w", err)
+	}
+
 	// Try decoding as image first
 	raw, err := decodeBase64Image(b64)
 	if err == nil {
@@ -175,6 +180,12 @@ func stripWhitespace(s string) string {
 // SaveBase64Fallback saves raw image data as a .txt file (pure base64, no headers).
 // Used when FetchBytes cannot decode the data as an image.
 func SaveBase64Fallback(outputDir, prefix, raw string, index int) string {
+	// Ensure output directory exists
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to create output directory: %v\n", err)
+		return ""
+	}
+
 	filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d.txt", prefix, index))
 	// Save pure base64 data — no comments, base64 -d reads this directly
 	if err := os.WriteFile(filename, []byte(raw), 0644); err != nil {
@@ -189,6 +200,11 @@ func SaveBase64Fallback(outputDir, prefix, raw string, index int) string {
 // SavePrompt writes the generation prompt alongside result files.
 func SavePrompt(outputDir, taskID, prompt string) {
 	if prompt == "" {
+		return
+	}
+	// Ensure output directory exists
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to create output directory: %v\n", err)
 		return
 	}
 	filename := filepath.Join(outputDir, fmt.Sprintf("image_%s.md", taskID))
@@ -246,6 +262,11 @@ func saveHTTPResponse(resp *http.Response, dest string) error {
 // SaveResource saves content from source (HTTP URL, data URI, or base64) to dest.
 // For HTTP URLs uses http.DefaultClient with atomic write.
 func SaveResource(source, dest string) error {
+	// Ensure output directory exists
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
 	cleaned := strings.TrimSpace(source)
 
 	if strings.HasPrefix(cleaned, "http://") || strings.HasPrefix(cleaned, "https://") {
