@@ -106,9 +106,8 @@ func EnsureGPUInstalled(modelsDir string, force bool) error {
 func LibPath(modelsDir string) (string, error) {
 	// Platform-ordered candidates: GPU first, then CPU, matching OS extension
 	gpu := []string{"libonnxruntime_gpu.dylib", "libonnxruntime_gpu.so", "onnxruntime_gpu.dll"}
-	cpu := []string{"libonnxruntime.dylib", "libonnxruntime.so", "onnxruntime.dll"}
+	var cpu []string
 
-	// Order by OS preference (put native extension first)
 	switch runtime.GOOS {
 	case "darwin":
 		cpu = []string{"libonnxruntime.dylib", "libonnxruntime.so", "onnxruntime.dll"}

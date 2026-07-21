@@ -8,7 +8,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"sync"
 )
 
 // AudioData holds decoded PCM audio.
@@ -99,8 +98,7 @@ func findDataChunk(header []byte, r io.Reader) int {
 		if string(remaining[0:4]) == "data" {
 			return int(binary.LittleEndian.Uint32(remaining[4:8]))
 		}
-		skipSize := int(binary.LittleEndian.Uint32(remaining[4:8]))
-		offset += 8 + skipSize
+		// skip extra chunk (offset tracking not needed; falls through to stream scan)
 	}
 
 	// Scan through the stream
@@ -321,10 +319,6 @@ func NormalizeInt16(samples []int16) []int16 {
 	}
 	return out
 }
-
-// --- helper pool ---
-
-var pool16 = sync.Pool{New: func() any { return make([]int16, 0, 4096) }}
 
 // --- small helpers ---
 
