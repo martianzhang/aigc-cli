@@ -376,10 +376,11 @@ func ensureAudioRuntime() error {
 	if libDir != "" {
 		args = append(args, "-L"+libDir, "-lsherpa-onnx-c-api")
 	}
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		args = append(args, "-install_name", "@rpath/"+helperName)
 		args = append(args, "-Wl,-rpath,@loader_path")
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		args = append(args, `-Wl,-rpath,$ORIGIN`)
 	}
 	if err := runCmd("gcc", args...); err != nil {
