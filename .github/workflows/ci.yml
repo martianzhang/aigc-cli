@@ -128,7 +128,7 @@ jobs:
           # Upload main archive
           gh release upload "$tag" "${{ env.binary }}" --clobber 2>/dev/null || \
             gh release create "$tag" "${{ env.binary }}" --title "$tag" --generate-notes
-          # Upload helper library separately (for audio init download)
+          # Upload helper library separately (Unix only, compiled by build-helper.sh)
           for f in libaigc-sherpa-helper.*; do
-            [ -f "$f" ] && gh release upload "$tag" "$f" --clobber
+            [ -f "$f" ] && gh release upload "$tag" "$f" --clobber || true
           done
