@@ -87,22 +87,18 @@ jobs:
           GOOS: windows
           GOARCH: ${{ matrix.goarch }}
         run: |
-          # Install MinGW for helper compilation
           choco install mingw -y --no-progress 2>/dev/null || true
           export PATH="/c/ProgramData/chocolatey/bin:/c/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin:$PATH"
-          name="aigc-cli-${{ matrix.label }}.exe"
-          # Compile helper library
           go mod download
           bash scripts/build-helper.sh
-          # Build Go binary
+          name="aigc-cli-${{ matrix.label }}.exe"
           go build -ldflags="-s -w" -o "$name" .
-          # Collect DLLs and package
           dll_dir=$(go env GOMODCACHE)/github.com/k2-fsa/sherpa-onnx-go-windows@v1.13.4/lib
           for arch in x86_64-pc-windows-gnu i686-pc-windows-gnu; do
             [ -d "$dll_dir/$arch" ] && { cp "$dll_dir/$arch/"*.dll .; break; }
           done
-          zip "aigc-cli-${{ matrix.label }}.zip" "$name" *.dll libaigc-sherpa-helper.*
-          rm -f "$name" *.dll libaigc-sherpa-helper.*
+          7z a "aigc-cli-${{ matrix.label }}.zip" "$name" *.dll aigc-sherpa-helper.dll
+          rm -f "$name" *.dll
           echo "binary=aigc-cli-${{ matrix.label }}.zip" >> "$GITHUB_ENV"
       - name: Build (Unix - helper + binary)
         shell: bash
