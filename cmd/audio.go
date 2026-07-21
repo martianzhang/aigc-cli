@@ -247,7 +247,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 			fmt.Printf("Audio: %.1fs%s\n", sttResp.Usage.Seconds, costStr)
 		}
 
-		filename, err := saveTranscriptionFile(sttResp.Text)
+		filename, err := saveTranscriptionFile(sttResp.Text, audioTranscribeInput)
 		if err != nil {
 			return fmt.Errorf("failed to save transcription: %w", err)
 		}
@@ -301,7 +301,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Audio: %.1fs%s\n", sttResp.Usage.Seconds, costStr)
 	}
 
-	filename, err := saveTranscriptionFile(sttResp.Text)
+	filename, err := saveTranscriptionFile(sttResp.Text, audioTranscribeInput)
 	if err != nil {
 		return fmt.Errorf("failed to save transcription: %w", err)
 	}
@@ -355,9 +355,7 @@ func runLocalAudioSpeak(cmd *cobra.Command) error {
 	}
 	defer engine.Close()
 
-	silenceCAPI()
 	pcm, sampleRate, err := engine.Speak(req.Input, sid)
-	loudCAPI()
 	if err != nil {
 		return fmt.Errorf("TTS inference: %w", err)
 	}
@@ -467,9 +465,7 @@ func runLocalAudioTranscribe(cmd *cobra.Command) error {
 	}
 	defer engine.Close()
 
-	silenceCAPI() // suppress C library stderr output
 	text, err := engine.Transcribe(input)
-	loudCAPI()
 	if err != nil {
 		return fmt.Errorf("ASR inference: %w", err)
 	}
@@ -480,7 +476,7 @@ func runLocalAudioTranscribe(cmd *cobra.Command) error {
 	}
 
 	// Save transcription to file
-	filename, err := saveTranscriptionFile(text)
+	filename, err := saveTranscriptionFile(text, input)
 	if err != nil {
 		return fmt.Errorf("failed to save transcription: %w", err)
 	}

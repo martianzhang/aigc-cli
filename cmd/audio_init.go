@@ -112,13 +112,11 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 		if _, err := os.Stat(modelDir); err != nil {
 			return fmt.Errorf("model %q not installed, run 'audio init --model %s' first", modelID, modelID)
 		}
-		silenceCAPI()
 		engine, err := audio.NewTTSEngine("", modelDir)
 		if err != nil {
 			return fmt.Errorf("load model: %w", err)
 		}
 		count := engine.NumSpeakers()
-		loudCAPI()
 		engine.Close()
 		if count <= 0 {
 			fmt.Printf("Model %q has 1 voice\n", modelID)
@@ -199,8 +197,9 @@ func downloadModelFiles(info audio.ModelInfo, modelsBaseDir string, force bool) 
 	}
 	for _, f := range info.Files {
 		dest := filepath.Join(modelDir, f.Path)
-		if err := downloadSingleFile(f.URL, dest, f.Path, force); err != nil {
-			return fmt.Errorf("download %s: %w", f.Path, err)
+		label := info.ID + "/" + f.Path
+		if err := downloadSingleFile(f.URL, dest, label, force); err != nil {
+			return fmt.Errorf("download %s/%s: %w", info.ID, f.Path, err)
 		}
 	}
 	return nil
@@ -226,7 +225,7 @@ func downloadSingleFile(url, dest, label string, force bool) error {
 			for _, e := range entries {
 				if e.IsDir() || strings.HasSuffix(e.Name(), ".onnx") {
 					if !force {
-						fmt.Printf("%s: already installed\n", label)
+						fmt.Printf("%s: already installed (%s)\n", label, url)
 						return nil
 					}
 					break
@@ -243,7 +242,7 @@ func downloadSingleFile(url, dest, label string, force bool) error {
 	}
 	if strings.HasSuffix(label, ".tar.bz2") {
 		extractDir := strings.TrimSuffix(dest, ".tar.bz2")
-		fmt.Printf("Extracting...\n")
+		fmt.Printf("Extracting %s...\n", label)
 		if err := extractTarBz2(dest, extractDir); err != nil {
 			return fmt.Errorf("extract: %w", err)
 		}
