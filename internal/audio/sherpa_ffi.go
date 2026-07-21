@@ -91,7 +91,9 @@ func findHelperLib() string {
 	if name == "" {
 		return ""
 	}
-	dirs := []string{".", exeDir(), filepath.Join(audioConfigDir(), "models")}
+	// Search order: exe dir, cwd, models dir, audio models dir
+	dirs := []string{exeDir(), ".", filepath.Join(audioConfigDir(), "models"),
+		filepath.Join(audioConfigDir(), "models", "audio")}
 	for _, d := range dirs {
 		p := filepath.Join(d, name)
 		if _, err := os.Stat(p); err == nil {

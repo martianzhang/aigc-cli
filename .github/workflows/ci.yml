@@ -129,7 +129,9 @@ jobs:
           # Upload main archive
           gh release upload "$tag" "${{ env.binary }}" --clobber 2>/dev/null || \
             gh release create "$tag" "${{ env.binary }}" --title "$tag" --generate-notes
-          # Upload helper library separately (for audio init download)
-          for f in libaigc-sherpa-helper.* aigc-sherpa-helper.dll; do
+          # Upload shared libraries separately (for audio init download)
+          for f in libaigc-sherpa-helper.* aigc-sherpa-helper.dll \
+                   libsherpa-onnx-c-api.* sherpa-onnx-c-api.dll \
+                   libonnxruntime.*.dylib onnxruntime.dll libonnxruntime.so; do
             [ -f "$f" ] && gh release upload "$tag" "$f" --clobber || true
           done
