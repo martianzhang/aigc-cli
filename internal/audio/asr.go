@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
 )
@@ -63,22 +64,35 @@ func NewASREngine(libPath, modelDir string) (*ASREngine, error) {
 	return &ASREngine{recognizer: rec}, nil
 }
 
-// Transcribe transcribes a WAV file and returns the recognized text.
-func (e *ASREngine) Transcribe(wavPath string) (string, error) {
-	wave := sherpa.ReadWave(wavPath)
-	if wave == nil {
-		return "", fmt.Errorf("failed to read WAV file: %s", wavPath)
-	}
-
+// Transcribe transcribes an audio file and returns the recognized text.
+// Supports WAV, MP3, FLAC, and OGG formats.
+func (e *ASREngine) Transcribe(path string) (string, error) {
 	stream := sherpa.NewOfflineStream(e.recognizer)
 	if stream == nil {
 		return "", fmt.Errorf("failed to create offline stream")
 	}
 	defer sherpa.DeleteOfflineStream(stream)
 
-	stream.AcceptWaveform(wave.SampleRate, wave.Samples)
-	e.recognizer.Decode(stream)
+	if strings.HasSuffix(strings.ToLower(path), ".wav") {
+		wave := sherpa.ReadWave(path)
+		if wave == nil {
+			return "", fmt.Errorf("failed to read WAV: %s", path)
+		}
+		stream.AcceptWaveform(wave.SampleRate, wave.Samples)
+	} else {
+		data, err := DecodeAudioFile(path)
+		if err != nil {
+			return "", fmt.Errorf("decode audio: %w", err)
+		}
+		// Convert int16 PCM to float32 for sherpa
+		samples := make([]float32, len(data.Samples))
+		for i, s := range data.Samples {
+			samples[i] = float32(s) / 32767
+		}
+		stream.AcceptWaveform(data.SampleRate, samples)
+	}
 
+	e.recognizer.Decode(stream)
 	result := stream.GetResult()
 	if result == nil {
 		return "", fmt.Errorf("recognition returned nil")

@@ -8,6 +8,10 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/eaburns/flac"
+	"github.com/hajimehoshi/go-mp3"
+	"github.com/jfreymuth/oggvorbis"
 )
 
 // AudioData holds decoded PCM audio.
@@ -384,6 +388,157 @@ func DetectAudioFormat(path string) string {
 	default:
 		return "wav"
 	}
+}
+
+// DecodeAudioFile reads an audio file and returns PCM 16-bit mono samples.
+// Supports WAV, MP3, FLAC, and OGG/Vorbis formats via pure Go decoders.
+func DecodeAudioFile(path string) (*AudioData, error) {
+	ext := strings.ToLower(path)
+	switch {
+	case strings.HasSuffix(ext, ".wav"):
+		return ReadWAV(path)
+	case strings.HasSuffix(ext, ".mp3"):
+		return decodeMP3(path)
+	case strings.HasSuffix(ext, ".flac"):
+		return decodeFLAC(path)
+	case strings.HasSuffix(ext, ".ogg"):
+		return decodeOGG(path)
+	default:
+		// Fallback: try as WAV
+		return ReadWAV(path)
+	}
+}
+
+func decodeMP3(path string) (*AudioData, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open mp3: %w", err)
+	}
+	defer f.Close()
+
+	d, err := mp3.NewDecoder(f)
+	if err != nil {
+		return nil, fmt.Errorf("mp3 decoder: %w", err)
+	}
+
+	sr := d.SampleRate()
+	var all []int16
+	// MP3 decoder.Read returns bytes (stereo 16-bit LE interleaved)
+	byteBuf := make([]byte, 8192)
+	for {
+		n, err := d.Read(byteBuf)
+		if n > 0 {
+			// Convert bytes to int16 samples and mix stereo to mono
+			for i := 0; i+1 < n; i += 2 {
+				s := int16(int(byteBuf[i]) | int(byteBuf[i+1])<<8)
+				all = append(all, s)
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("mp3 read: %w", err)
+		}
+	}
+	if len(all) == 0 {
+		return nil, fmt.Errorf("mp3: no samples decoded")
+	}
+	return &AudioData{Samples: all, SampleRate: sr, Channels: 1}, nil
+}
+
+func decodeFLAC(path string) (*AudioData, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open flac: %w", err)
+	}
+	defer f.Close()
+
+	d, err := flac.NewDecoder(f)
+	if err != nil {
+		return nil, fmt.Errorf("flac decoder: %w", err)
+	}
+
+	sr := d.SampleRate
+	ch := d.NChannels
+	bps := d.BitsPerSample
+	var all []int16
+
+	for {
+		raw, err := d.Next()
+		if len(raw) > 0 {
+			samples := decodeFLACSamples(raw, ch, bps)
+			all = append(all, samples...)
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("flac read: %w", err)
+		}
+	}
+	return &AudioData{Samples: all, SampleRate: sr, Channels: 1}, nil
+}
+
+func decodeFLACSamples(raw []byte, ch, bps int) []int16 {
+	frameSize := (bps / 8) * ch
+	frameCount := len(raw) / frameSize
+	out := make([]int16, frameCount)
+	for i := 0; i < frameCount; i++ {
+		frame := raw[i*frameSize : i*frameSize+frameSize]
+		var sum int32
+		for c := 0; c < ch; c++ {
+			off := c * (bps / 8)
+			switch bps {
+			case 16:
+				sum += int32(int16(frame[off]) | int16(frame[off+1])<<8)
+			case 24:
+				s := int32(int8(frame[off+2]))<<16 | int32(frame[off+1])<<8 | int32(frame[off])
+				sum += s >> 8 // scale to 16-bit
+			default: // 8
+				sum += int32(int16(frame[off])-128) << 8
+			}
+		}
+		out[i] = int16(sum / int32(ch))
+	}
+	return out
+}
+
+func decodeOGG(path string) (*AudioData, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open ogg: %w", err)
+	}
+	defer f.Close()
+
+	r, err := oggvorbis.NewReader(f)
+	if err != nil {
+		return nil, fmt.Errorf("ogg decoder: %w", err)
+	}
+
+	sr := r.SampleRate()
+	ch := r.Channels()
+	var all []int16
+	buf := make([]float32, 8192*ch)
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			for i := 0; i < n; i += ch {
+				var sum float32
+				for c := 0; c < ch; c++ {
+					sum += buf[i+c]
+				}
+				all = append(all, int16(sum/float32(ch)*32767))
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("ogg read: %w", err)
+		}
+	}
+	return &AudioData{Samples: all, SampleRate: sr, Channels: 1}, nil
 }
 
 // --- sort helpers for model registry ---
