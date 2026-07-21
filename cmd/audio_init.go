@@ -226,7 +226,7 @@ func downloadSingleFile(url, dest, label string, force bool) error {
 			for _, e := range entries {
 				if e.IsDir() || strings.HasSuffix(e.Name(), ".onnx") {
 					if !force {
-						fmt.Printf("  %s: already installed\n", label)
+						fmt.Printf("%s: already installed\n", label)
 						return nil
 					}
 					break
@@ -234,16 +234,16 @@ func downloadSingleFile(url, dest, label string, force bool) error {
 			}
 		}
 	} else if _, err := os.Stat(dest); err == nil && !force {
-		fmt.Printf("  %s: already exists\n", dest)
+		fmt.Printf("%s: already exists\n", dest)
 		return nil
 	}
-	fmt.Printf("  Downloading %s...\n", label)
+	fmt.Printf("Downloading %s...\n", url)
 	if err := service.SaveResource(url, dest); err != nil {
 		return fmt.Errorf("download %s: %w", label, err)
 	}
 	if strings.HasSuffix(label, ".tar.bz2") {
 		extractDir := strings.TrimSuffix(dest, ".tar.bz2")
-		fmt.Printf("  Extracting...\n")
+		fmt.Printf("Extracting...\n")
 		if err := extractTarBz2(dest, extractDir); err != nil {
 			return fmt.Errorf("extract: %w", err)
 		}
@@ -343,29 +343,21 @@ func ensureAudioRuntime() error {
 	}
 	helperPath := filepath.Join(modelsDir, helperName)
 
-	// Check if already installed
-	if _, err := os.Stat(helperPath); err == nil {
-		return nil
-	}
-
-	// Try downloading helper + runtime libs from GitHub
 	tag := Version
 	if tag == "" || tag == "dev" {
 		tag = "latest"
 	}
 	baseURL := fmt.Sprintf("https://github.com/martianzhang/aigc-cli/releases/download/%s", tag)
 
-	if err := downloadAsset(baseURL, helperName, modelsDir); err == nil {
-		fmt.Printf("  Installed: %s\n", helperPath)
-		ensureRuntimeLibs(baseURL, modelsDir)
-		return nil
-	}
-
-	// Fallback: compile from source (requires GCC)
-	if err := compileHelper(helperPath, modelsDir); err != nil {
+	if _, err := os.Stat(helperPath); err == nil {
+		fmt.Printf("Audio helper: %s\n", helperPath)
+	} else if err := downloadAsset(baseURL, helperName, modelsDir); err == nil {
+		fmt.Printf("Audio helper: %s\n", helperPath)
+	} else if err := compileHelper(helperPath, modelsDir); err != nil {
 		return fmt.Errorf("cannot install audio runtime.\nUse a release build or run: bash scripts/build-helper.sh")
 	}
-	ensureRuntimeLibs("", modelsDir)
+
+	ensureRuntimeLibs(baseURL, modelsDir)
 	return nil
 }
 
@@ -378,15 +370,14 @@ func ensureRuntimeLibs(baseURL, dir string) {
 	for _, name := range libs[runtime.GOOS] {
 		dst := filepath.Join(dir, name)
 		if _, err := os.Stat(dst); err == nil {
+			fmt.Printf("Runtime lib: %s\n", dst)
 			continue
 		}
-		// Try Go module cache
 		if sherpaDir := findSherpaDir(); sherpaDir != "" {
 			if copySherpaLib(sherpaDir, name, dst) {
-				continue
+				fmt.Printf("Runtime lib: %s\n", dst)
 			}
 		}
-		// Try GitHub download
 		if baseURL != "" {
 			downloadAsset(baseURL, name, dir)
 		}
@@ -401,7 +392,6 @@ func copySherpaLib(sherpaDir, name, dst string) bool {
 			src := filepath.Join(libDir, e.Name(), name)
 			if data, err := os.ReadFile(src); err == nil {
 				os.WriteFile(dst, data, 0755)
-				fmt.Printf("  Installed %s\n", name)
 				return true
 			}
 		}
@@ -415,7 +405,7 @@ func downloadAsset(baseURL, name, dir string) error {
 	if _, err := os.Stat(dest); err == nil {
 		return nil
 	}
-	fmt.Printf("  Downloading %s...\n", name)
+	fmt.Printf("Downloading %s...\n", url)
 	return service.SaveResource(url, dest)
 }
 
@@ -433,7 +423,7 @@ func compileHelper(helperPath, modelsDir string) error {
 		return fmt.Errorf("sherpa-onnx headers not found")
 	}
 	libDir := findSherpaLibDir(sherpaDir)
-	fmt.Printf("  Compiling audio helper...\n")
+	fmt.Printf("Compiling audio helper...\n")
 	args := []string{"-shared", "-o", helperPath, "-I" + sherpaDir, src}
 	if libDir != "" {
 		args = append(args, "-L"+libDir, "-lsherpa-onnx-c-api")
@@ -447,7 +437,7 @@ func compileHelper(helperPath, modelsDir string) error {
 	if err := runCmd("gcc", args...); err != nil {
 		return err
 	}
-	fmt.Printf("  Installed: %s\n", helperPath)
+	fmt.Printf("Installed: %s\n", helperPath)
 	return nil
 }
 
