@@ -52,6 +52,7 @@ uses ONNX models downloaded with 'audio init'.
 
 Subcommands:
   speak / tts       Convert text to speech audio
+  play              Play an audio file (no external app needed)
   transcribe / asr  Convert audio to text
   init              Download local audio models`,
 }
@@ -72,6 +73,32 @@ Examples:
   echo "Hello" | aigc-cli audio speak --model gpt-4o-mini-tts --voice alloy
   aigc-cli audio speak --model gpt-4o-mini-tts --input "Hi" --voice alloy --format wav --speed 1.2`,
 	RunE: runAudioSpeak,
+}
+
+var playCmd = &cobra.Command{
+	Use:          "play <file>",
+	Short:        "Play an audio file through speakers",
+	SilenceUsage: true,
+	Long: `Play an audio file using Go's built-in audio decoder (no external app required).
+
+Supports WAV, MP3, FLAC, and OGG/Vorbis formats.
+
+Examples:
+  aigc-cli audio play recording.wav
+  aigc-cli audio play audio_1784644392.wav`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		path := args[0]
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("file not found: %s", path)
+		}
+		fmt.Fprintf(os.Stderr, "Playing...\n")
+		if err := audio.PlayAudioFile(path); err != nil {
+			return fmt.Errorf("playback failed: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "Done.\n")
+		return nil
+	},
 }
 
 var transcribeCmd = &cobra.Command{
@@ -499,6 +526,7 @@ func init() {
 	registerAudioSpeakFlags(speechCmd)
 	registerAudioTranscribeFlags(transcribeCmd)
 	audioCmd.AddCommand(speechCmd)
+	audioCmd.AddCommand(playCmd)
 	audioCmd.AddCommand(transcribeCmd)
 	rootCmd.AddCommand(audioCmd)
 }

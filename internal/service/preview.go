@@ -16,6 +16,8 @@ import (
 
 	"github.com/mattn/go-sixel"
 	_ "golang.org/x/image/webp"
+
+	"github.com/martianzhang/aigc-cli/internal/audio"
 )
 
 // PreviewFile opens a file or URL with the system default application.
@@ -56,6 +58,17 @@ func PreviewFile(path string) error {
 		if tryInlineImage(path) {
 			return nil
 		}
+	}
+
+	// Try in-process audio playback (no external app needed)
+	if isAudioFile(path) {
+		fmt.Fprintf(os.Stderr, "Playing...\n")
+		if err := audio.PlayAudioFile(path); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: audio playback failed: %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "Done.\n")
+		}
+		return nil
 	}
 
 	return openSystemDefault(path)
@@ -247,6 +260,16 @@ func urlToFilename(rawURL, ext string) string {
 		}
 	}
 	return name
+}
+
+// isAudioFile returns true if the file extension is a common audio format.
+func isAudioFile(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".wav", ".mp3", ".flac", ".ogg", ".opus", ".aac", ".m4a", ".pcm":
+		return true
+	}
+	return false
 }
 
 // isImageFile returns true if the file extension is a supported image type.
