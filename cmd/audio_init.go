@@ -348,37 +348,25 @@ func ensureAudioRuntime() error {
 		return nil
 	}
 
-	// Download helper + runtime libs from GitHub, or compile from source
-	exeDir := ""
-	if e, err := os.Executable(); err == nil {
-		exeDir = filepath.Dir(e)
-	}
-
-	// Put everything in the executable directory (most reliable on Windows)
-	targetDir := exeDir
-	if targetDir == "" {
-		targetDir = modelsDir
-	}
-	targetHelper := filepath.Join(targetDir, helperName)
-
+	// Try downloading helper + runtime libs from GitHub
+	// Use the VERSION env (set by CI) or extract from the Go version string
 	tag := os.Getenv("VERSION")
 	if tag == "" {
 		tag = "latest"
 	}
 	baseURL := fmt.Sprintf("https://github.com/martianzhang/aigc-cli/releases/download/%s", tag)
 
-	// Try downloading helper from GitHub
-	if err := downloadAsset(baseURL, helperName, targetDir); err == nil {
-		fmt.Printf("  Installed: %s\n", targetHelper)
-		ensureRuntimeLibs(baseURL, targetDir)
+	if err := downloadAsset(baseURL, helperName, modelsDir); err == nil {
+		fmt.Printf("  Installed: %s\n", helperPath)
+		ensureRuntimeLibs(baseURL, modelsDir)
 		return nil
 	}
 
 	// Fallback: compile from source (requires GCC)
-	if err := compileHelper(targetHelper, modelsDir); err != nil {
+	if err := compileHelper(helperPath, modelsDir); err != nil {
 		return fmt.Errorf("cannot install audio runtime.\nUse a release build or run: bash scripts/build-helper.sh")
 	}
-	ensureRuntimeLibs("", targetDir)
+	ensureRuntimeLibs("", modelsDir)
 	return nil
 }
 
