@@ -10,6 +10,10 @@ import (
 	"github.com/ebitengine/purego"
 )
 
+// openLibrary is defined in platform-specific files:
+// loadlib.go (darwin/linux) - purego.Dlopen
+// loadlib_windows.go (windows) - windows.LoadLibrary
+
 var ffi struct {
 	lib uintptr
 
@@ -47,7 +51,7 @@ func loadSherpa() error {
 	if lib == "" {
 		return fmt.Errorf("audio helper library not found (use a release build)")
 	}
-	h, err := purego.Dlopen(lib, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+	h, err := openLibrary(lib)
 	if err != nil {
 		return fmt.Errorf("load audio helper: %w (run audio init first)", err)
 	}
