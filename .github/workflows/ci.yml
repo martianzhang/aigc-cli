@@ -106,7 +106,8 @@ jobs:
           name="aigc-cli-${{ matrix.label }}"
           go build -ldflags="-s -w" -o "$name" .
           # Package: helper + sherpa-onnx lib + binary
-          sherpa_dir=$(go env GOMODCACHE)/github.com/k2-fsa/sherpa-onnx-go-${{ matrix.goos }}@v1.13.4
+          os_pkg="${{ matrix.goos }}"; [ "$os_pkg" = "darwin" ] && os_pkg="macos"
+          sherpa_dir=$(go env GOMODCACHE)/github.com/k2-fsa/sherpa-onnx-go-${os_pkg}@v1.13.4
           case "${{ matrix.label }}" in
             darwin-*) lib_dir="$sherpa_dir/lib/$(ls $sherpa_dir/lib/ | head -1)" ;;
             linux-*)  lib_dir="$sherpa_dir/lib/$(ls $sherpa_dir/lib/ | head -1)" ;;
