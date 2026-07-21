@@ -8,12 +8,18 @@ RAW_OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 RPATH="\$ORIGIN"
 
-# Normalize OS name for Windows (MSYS/MINGW/CYGWIN)
+# Normalize OS name
 case "$RAW_OS" in
   mingw*|msys*|cygwin*) OS="windows" ;;
   darwin*) OS="darwin" ;;
   linux*)  OS="linux" ;;
   *) echo "unsupported: $RAW_OS"; exit 1 ;;
+esac
+
+# Go module uses "macos" not "darwin"
+case "$OS" in
+  darwin) GO_OS="macos" ;;
+  *)     GO_OS="$OS" ;;
 esac
 
 case "$OS" in
@@ -24,7 +30,7 @@ esac
 
 # Find sherpa-onnx headers and libs in Go module cache
 GOMODCACHE=$(go env GOMODCACHE)
-PKG_NAME="sherpa-onnx-go-$OS"
+PKG_NAME="sherpa-onnx-go-$GO_OS"
 case "$OS-$ARCH" in
   darwin-arm64) SHERPA_DIR="$GOMODCACHE/github.com/k2-fsa/$PKG_NAME@v1.13.4"; LIB_DIR="$SHERPA_DIR/lib/aarch64-apple-darwin" ;;
   darwin-x86_64|darwin-amd64) SHERPA_DIR="$GOMODCACHE/github.com/k2-fsa/$PKG_NAME@v1.13.4"; LIB_DIR="$SHERPA_DIR/lib/x86_64-apple-darwin" ;;

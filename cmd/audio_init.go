@@ -398,16 +398,16 @@ func findSherpaDir() string {
 		home, _ := os.UserHomeDir()
 		gmc = filepath.Join(home, "go", "pkg", "mod")
 	}
-	osName := map[string]string{"darwin": "macos", "linux": "linux", "windows": "windows"}[runtime.GOOS]
-	dir := filepath.Join(gmc, "github.com", "k2-fsa", fmt.Sprintf("sherpa-onnx-go-%s@v1.13.4", osName))
+	goos := map[string]string{"darwin": "macos", "linux": "linux", "windows": "windows"}[runtime.GOOS]
+	dir := filepath.Join(gmc, "github.com", "k2-fsa", fmt.Sprintf("sherpa-onnx-go-%s@v1.13.4", goos))
 	if _, err := os.Stat(filepath.Join(dir, "c-api.h")); err == nil {
 		return dir
 	}
 	// Try with different version
-	dir = filepath.Join(gmc, "github.com", "k2-fsa", fmt.Sprintf("sherpa-onnx-go-%s@v1.13.4", osName))
+	dir = filepath.Join(gmc, "github.com", "k2-fsa", fmt.Sprintf("sherpa-onnx-go-%s@v1.13.4", goos))
 	entries, _ := os.ReadDir(filepath.Dir(dir))
 	for _, e := range entries {
-		if strings.Contains(e.Name(), "sherpa-onnx-go-"+osName) {
+		if strings.Contains(e.Name(), "sherpa-onnx-go-"+goos) {
 			p := filepath.Join(filepath.Dir(dir), e.Name())
 			if _, err := os.Stat(filepath.Join(p, "c-api.h")); err == nil {
 				return p
