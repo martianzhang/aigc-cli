@@ -118,24 +118,24 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 		count := engine.NumSpeakers()
 		engine.Close()
 		fmt.Printf("Model %q has %d voices (SID 0-%d)\n", modelID, count, count-1)
-		namedCount := len(audio.KokoroVoiceNames)
-		fmt.Println("\nNamed voices:")
-		type vs struct {
-			sid  int
-			name string
-		}
-		var sorted []vs
-		for name, sid := range audio.KokoroVoiceNames {
-			if sid < count {
+
+		names := voiceNamesForModel(modelID, count)
+		if len(names) > 0 {
+			fmt.Println("\nNamed voices:")
+			type vs struct {
+				sid  int
+				name string
+			}
+			var sorted []vs
+			for sid, name := range names {
 				sorted = append(sorted, vs{sid, name})
 			}
-		}
-		sort.Slice(sorted, func(i, j int) bool { return sorted[i].sid < sorted[j].sid })
-		for _, v := range sorted {
-			fmt.Printf("  %-4d  %s\n", v.sid, v.name)
-		}
-		if count > namedCount {
-			fmt.Printf("\n  ... and %d more unnamed voices (use SID number directly)\n", count-namedCount)
+			sort.Slice(sorted, func(i, j int) bool { return sorted[i].sid < sorted[j].sid })
+			for _, v := range sorted {
+				fmt.Printf("  %-4d  %s\n", v.sid, v.name)
+			}
+		} else {
+			fmt.Printf("Use --voice <SID> to select a voice (0-%d)\n", count-1)
 		}
 		return nil
 	}
@@ -289,6 +289,22 @@ func extractTarBz2(archivePath, extractDir string) error {
 		}
 	}
 	return nil
+}
+
+// voiceNamesForModel returns known voice names for a given model, or nil if unknown.
+func voiceNamesForModel(modelID string, count int) map[int]string {
+	switch modelID {
+	case "kokoro", "kokoro-en":
+		names := make(map[int]string)
+		for name, sid := range audio.KokoroVoiceNames {
+			if sid < count {
+				names[sid] = name
+			}
+		}
+		return names
+	default:
+		return nil
+	}
 }
 
 // audioModelsDir returns the base directory for audio models.
