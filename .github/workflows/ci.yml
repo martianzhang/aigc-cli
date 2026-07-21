@@ -91,7 +91,18 @@ jobs:
           [ "$GOOS" = "windows" ] && ext=".exe"
           name="aigc-cli-${{ matrix.label }}$ext"
           go build -ldflags="-s -w" -o "$name" .
+          # On Windows, bundle sherpa-onnx DLLs alongside the executable
+          if [ "$GOOS" = "windows" ]; then
+            dll_dir=$(go env GOMODCACHE)/github.com/k2-fsa/sherpa-onnx-go-windows@v1.13.4/lib
+            for arch in x86_64-pc-windows-gnu i686-pc-windows-gnu; do
+              if [ -d "$dll_dir/$arch" ]; then
+                cp "$dll_dir/$arch/"*.dll . 2>/dev/null || true
+                break
+              fi
+            done
+          fi
           echo "binary=$name" >> "$GITHUB_ENV"
+          ls -lh "$name"
       - name: Upload Release Asset
         shell: bash
         if: startsWith(github.ref, 'refs/tags/v')
