@@ -7,13 +7,15 @@
 根据 `base_url` 自动选择视频 API：
 
 | Provider | 接口 | 模式 | 参考来源 |
-|---|---|---|---|
+|---|---|---|---|---|
 | APIMart | `POST /v1/videos/generations` | 异步 task → poll → download | [APIMart Docs](https://docs.apimart.ai/en) |
 | OpenRouter | `POST /v1/videos` | 异步 submit → poll → download | [OpenRouter Video](https://openrouter.ai/docs/guides/overview/multimodal/video-generation) |
 | 云雾 Yunwu | `POST /v1/video/create` + `GET /v1/video/query?id=` | 异步 submit → poll → download | 云雾 API 文档 |
-| 其他 | 不支持 | — | — |
+| 本地模型（Ollama / LocalAI 等） | ❌ 不支持 | — | 当前无本地开源方案支持视频生成 |
+| 其他 | ❌ 不支持 | — | — |
 
 当 `base_url` 包含 `openrouter.ai` 时，自动切换到 OpenRouter 视频 API。
+当 `base_url` 指向 `localhost` / `127.0.0.1` 时，视频生成不可用 — 当前没有开源本地方案支持视频生成（Ollama 和 LocalAI 均未实现视频生成端点）。
 
 ## 基本用法
 

@@ -54,6 +54,7 @@ aigc-cli image < prompt.txt
 |---|---|---|
 | `apimart.ai` / `apib.ai` / `aiuxu.com` / `aishuch.com` | async | APIMart 异步任务 |
 | `openai.com` / `openrouter.ai` 或其他 | sync | OpenAI 兼容同步 |
+| `localhost` / `127.0.0.1` / `::1` | sync | 本地模型（自动豁免 API Key 检查） |
 
 可通过 `aigc-cli image --mode sync|async` 强制指定。
 
@@ -63,6 +64,42 @@ aigc-cli image --mode async --prompt "..."
 
 # 强制同步（即使连的是 APIMart）
 aigc-cli image --mode sync --prompt "..."
+```
+
+## 本地生成
+
+aigc-cli 支持连接本地运行的图片生成服务（Ollama / LocalAI 等），无需 API Key。aigc-cli 会自动检测 localhost 地址并跳过 Authorization 头。
+
+### Ollama
+
+Ollama 从 v0.5.0+ 开始实验性地支持 `/v1/images/generations` 端点：
+
+```bash
+# 先 pull 图片生成模型
+ollama pull x/z-image-turbo           # 6B, Apache 2.0
+ollama pull x/flux2-klein:4b          # 4B, 商业友好
+ollama pull x/flux2-klein:9b          # 9B, FLUX 非商业许可
+
+# 文生图
+aigc-cli image --api-base "http://localhost:11434" \
+  --model "x/z-image-turbo" \
+  --prompt "A cute robot learning to paint"
+```
+
+> ⚠️ Ollama 仅支持 `response_format=b64_json` 格式，不支持 URL 格式。aigc-cli 会自动处理 base64 解码保存。
+
+### LocalAI
+
+LocalAI 也支持图片生成（多后端），与 aigc-cli 无缝对接：
+
+```bash
+# Docker 启动
+docker run -p 8080:8080 localai/localai:latest
+
+# 文生图
+aigc-cli image --api-base "http://localhost:8080/v1" \
+  --model "stabilityai/sd-turbo" \
+  --prompt "a cat"
 ```
 
 ## 同步模式（OpenAI / OpenRouter）

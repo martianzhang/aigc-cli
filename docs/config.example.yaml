@@ -3,6 +3,7 @@
 # or pass --config /path/to/config.yaml at runtime
 
 # API key (can also be set via OPENAI_API_KEY env var)
+# 使用本地模型（Ollama / LM Studio / localhost）时可不填
 api_key: "your-api-key-here"
 
 # API base URL (can also be set via OPENAI_BASE_URL env var)
@@ -10,6 +11,7 @@ api_key: "your-api-key-here"
 # OpenAI:    https://api.openai.com/v1
 # OpenRouter: https://openrouter.ai/api/v1
 # APIMart:    https://api.apimart.ai
+# Ollama:    http://localhost:11434 （无需 API Key）
 # 任意中转:   https://your-relay.com/v1
 base_url: "https://api.apimart.ai"
 

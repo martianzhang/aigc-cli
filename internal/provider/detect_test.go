@@ -107,6 +107,29 @@ func TestType_String(t *testing.T) {
 	}
 }
 
+func TestIsLocalEndpoint(t *testing.T) {
+	cases := []struct {
+		url      string
+		expected bool
+	}{
+		{"http://localhost:11434", true},
+		{"http://localhost:11434/v1", true},
+		{"http://127.0.0.1:11434", true},
+		{"http://127.0.0.1:11434/v1", true},
+		{"http://::1:11434", true},
+		{"https://api.openai.com/v1", false},
+		{"https://openrouter.ai/api/v1", false},
+		{"https://api.apimart.ai", false},
+		{"http://192.168.1.100:11434", false},
+		{"", false},
+	}
+	for _, c := range cases {
+		if got := IsLocalEndpoint(c.url); got != c.expected {
+			t.Errorf("IsLocalEndpoint(%q) = %v, want %v", c.url, got, c.expected)
+		}
+	}
+}
+
 func TestType_IsAsync(t *testing.T) {
 	if !APIMart.IsAsync() {
 		t.Error("APIMart should be async")

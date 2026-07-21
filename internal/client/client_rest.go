@@ -83,7 +83,9 @@ func (c *Client) doJSONWithHeaders(method, path string, body, result interface{}
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	if c.apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
 
 	// Apply client-level default headers (lowest priority).
 	for k, v := range c.defaultHeaders {
@@ -130,7 +132,9 @@ func (c *Client) doGetWithHeaders(path string, result interface{}, extraHeaders 
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	if c.apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
 
 	// Apply client-level default headers (lowest priority).
 	for k, v := range c.defaultHeaders {

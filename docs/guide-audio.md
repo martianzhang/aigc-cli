@@ -11,15 +11,42 @@
 目前已确认支持 TTS 的 Provider 如下，Yunwu（云雾 AI）暂未发现公开的 TTS/STT 端点：
 
 | Provider | TTS 端点 | STT 端点 | 兼容性 |
-|---|---|---|---|
+|---|---|---|---|---|
 | **OpenAI** | `POST /v1/audio/speech` | `POST /v1/audio/transcriptions` | 基准实现 |
 | **OpenRouter** | `POST /api/v1/audio/speech` | `POST /api/v1/audio/transcriptions` | OpenAI 完全兼容，SDK 直连 |
 | **APIMart** | `POST /v1/audio/speech` | `POST /v1/audio/transcriptions` | OpenAI 兼容 |
 | **Yunwu** | ❌ 未发现 | ❌ 未发现 | — |
+| **本地 TTS 服务** | `POST /v1/audio/speech` | — | 见下方"本地 TTS 方案" |
 
 > Yunwu 官网自称"完全兼容 OpenAI API 协议"且聚合了 500+ 模型，理论上 `/v1/audio/speech` 透传可能也能通，但公开文档和定价页中均未列出 TTS 相关模型或接口，其视频 API 走的是自定义端点（`/v1/video/create` + `/v1/video/query`）。建议后续实现时实测确认。
 
-检测逻辑：沿用现有 `base_url` 自动识别机制（OpenAI / OpenRouter / APIMart），无需新增 Provider 类型。Yunwu 走通用 OpenAI 兼容兜底逻辑。
+检测逻辑：沿用现有 `base_url` 自动识别机制（OpenAI / OpenRouter / APIMart），无需新增 Provider 类型。Yunwu 走通用 OpenAI 兼容兜底逻辑。本地方案走 localhost 自动豁免，无需 API Key。
+
+### 本地 TTS 方案
+
+aigc-cli 的 `audio speak` 命令可直接对接以下本地 TTS 服务，无需修改代码：
+
+| 方案 | 启动方式 | 端口 | 后端引擎 | 特点 |
+|---|---|---|---|---|
+| **openedai-speech** | `docker run ... ghcr.io/matatonic/openedai-speech` | 8000 | Piper（CPU）/ XTTS v2（GPU） | 轻量专用 TTS 服务，支持声音克隆 |
+| **openai-edge-tts** | `pip install openai-edge-tts && openai-edge-tts` | 5050 | 微软 Edge TTS（免费在线） | 零 GPU，音质好，需联网 |
+| **LocalAI** | `docker run ... localai/localai:latest` | 8080 | Piper/Coqui/VibeVoice/OmniVoice/Kokoro 等 | 全能，支持 STT + LLM + Image |
+
+所有方案使用与 OpenAI 一致的请求体格式，aigc-cli 直连：
+
+```bash
+# openedai-speech（推荐）
+aigc-cli audio speak --api-base "http://localhost:8000/v1" \
+  --model "tts-1" --input "Hello" --voice "alloy"
+
+# openai-edge-tts（零 GPU）
+aigc-cli audio speak --api-base "http://localhost:5050/v1" \
+  --model "tts-1" --input "你好" --voice "alloy" --format mp3
+
+# LocalAI（全能）
+aigc-cli audio speak --api-base "http://localhost:8080/v1" \
+  --model "tts-1" --input "Hello" --voice "alloy"
+```
 
 ### OpenAI TTS 参数
 

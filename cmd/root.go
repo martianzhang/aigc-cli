@@ -71,8 +71,9 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 		// Configure global HTTP client with proxy for all requests
 		client.ConfigureDefaultClient(shared.HTTPProxy)
 		// Only require API key for commands that need it
-		// Exclude "ideas", "detect" and their sub-commands
-		if !isNoAPIKeyRequired(cmd) && shared.APIKey == "" {
+		// Exclude "ideas", "detect", "background" and their sub-commands.
+		// Also skip API key for local model endpoints (Ollama, LM Studio, etc.).
+		if !isNoAPIKeyRequired(cmd) && shared.APIKey == "" && !provider.IsLocalEndpoint(shared.APIBase) {
 			return fmt.Errorf("API key is required: set it via --api-key flag, OPENAI_API_KEY env, or config.yaml")
 		}
 		return nil

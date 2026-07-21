@@ -3,7 +3,10 @@
 // adding a new provider only requires changes here and in strategy tables.
 package provider
 
-import "strings"
+import (
+	"net/url"
+	"strings"
+)
 
 // Type represents the identified API provider.
 type Type int
@@ -88,3 +91,24 @@ func IsOpenRouter(baseURL string) bool { return Detect(baseURL) == OpenRouter }
 
 // IsYunwu is a convenience wrapper around Detect.
 func IsYunwu(baseURL string) bool { return Detect(baseURL) == Yunwu }
+
+// localHostnames lists hostnames that are considered local/loopback addresses.
+var localHostnames = map[string]bool{
+	"localhost": true,
+	"127.0.0.1": true,
+	"::1":       true,
+}
+
+// IsLocalEndpoint returns true if the base URL points to a local/loopback address.
+// Local model servers (Ollama, LM Studio, vLLM, etc.) are typically OpenAI-compatible
+// but don't require API keys.
+func IsLocalEndpoint(baseURL string) bool {
+	if baseURL == "" {
+		return false
+	}
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return false
+	}
+	return localHostnames[strings.ToLower(u.Hostname())]
+}
