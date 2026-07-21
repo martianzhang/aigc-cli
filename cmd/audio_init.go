@@ -349,9 +349,8 @@ func ensureAudioRuntime() error {
 	}
 
 	// Try downloading helper + runtime libs from GitHub
-	// Use the VERSION env (set by CI) or extract from the Go version string
-	tag := os.Getenv("VERSION")
-	if tag == "" {
+	tag := Version
+	if tag == "" || tag == "dev" {
 		tag = "latest"
 	}
 	baseURL := fmt.Sprintf("https://github.com/martianzhang/aigc-cli/releases/download/%s", tag)

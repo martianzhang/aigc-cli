@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
@@ -48,12 +49,35 @@ func loadSherpa() error {
 		return nil
 	}
 	lib := findHelperLib()
-	if lib == "" {
-		return fmt.Errorf("audio helper library not found (use a release build)")
+	if lib == "" || filepath.Dir(lib) == "." {
+		// Either not found, or found as bare name (which won't work on Windows)
+		helperName := map[string]string{
+			"darwin":  "libaigc-sherpa-helper.dylib",
+			"linux":   "libaigc-sherpa-helper.so",
+			"windows": "aigc-sherpa-helper.dll",
+		}[runtime.GOOS]
+		return fmt.Errorf("local audio not configured\nPlace %s in one of these directories:\n  - %s\n  - %s\n  - %s\nThen run 'aigc-cli audio init'",
+			helperName,
+			exeDir(),
+			filepath.Join(audioConfigDir(), "models"),
+			filepath.Join(audioConfigDir(), "models", "audio"))
 	}
 	h, err := openLibrary(lib)
 	if err != nil {
-		return fmt.Errorf("load audio helper: %w (run audio init first)", err)
+		depErr := ""
+		helperDir := filepath.Dir(lib)
+		for _, dep := range []string{"sherpa-onnx-c-api.dll", "onnxruntime.dll",
+			"libsherpa-onnx-c-api.dylib", "libsherpa-onnx-c-api.so", "libonnxruntime.so"} {
+			if _, statErr := os.Stat(filepath.Join(helperDir, dep)); statErr != nil {
+				if strings.HasSuffix(dep, ".dll") || strings.HasSuffix(dep, ".so") || strings.HasSuffix(dep, ".dylib") {
+					depErr += fmt.Sprintf("    missing: %s\n", dep)
+				}
+			}
+		}
+		if depErr != "" {
+			return fmt.Errorf("audio helper found in %s\nbut dependencies missing:\n%sExtract ALL files from the release ZIP into that directory", helperDir, depErr)
+		}
+		return fmt.Errorf("load audio helper: %w", err)
 	}
 	ffi.lib = h
 	r := func(fn any, name string) { purego.RegisterLibFunc(fn, h, name) }
@@ -82,25 +106,29 @@ func loadSherpa() error {
 	return nil
 }
 
+func libSearchPaths() []string {
+	return []string{exeDir(), ".", filepath.Join(audioConfigDir(), "models"),
+		filepath.Join(audioConfigDir(), "models", "audio")}
+}
+
 func findHelperLib() string {
-	name := map[string]string{
-		"darwin":  "libaigc-sherpa-helper.dylib",
-		"linux":   "libaigc-sherpa-helper.so",
-		"windows": "aigc-sherpa-helper.dll",
+	names := map[string][]string{
+		"darwin":  {"libaigc-sherpa-helper.dylib"},
+		"linux":   {"libaigc-sherpa-helper.so"},
+		"windows": {"aigc-sherpa-helper.dll", "libaigc-sherpa-helper.dll"},
 	}[runtime.GOOS]
-	if name == "" {
+	if len(names) == 0 {
 		return ""
 	}
-	// Search order: exe dir, cwd, models dir, audio models dir
-	dirs := []string{exeDir(), ".", filepath.Join(audioConfigDir(), "models"),
-		filepath.Join(audioConfigDir(), "models", "audio")}
-	for _, d := range dirs {
-		p := filepath.Join(d, name)
-		if _, err := os.Stat(p); err == nil {
-			return p
+	for _, d := range libSearchPaths() {
+		for _, name := range names {
+			p := filepath.Join(d, name)
+			if _, err := os.Stat(p); err == nil {
+				return p
+			}
 		}
 	}
-	return name
+	return names[0]
 }
 
 func audioConfigDir() string {
