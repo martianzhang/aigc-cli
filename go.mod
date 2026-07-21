@@ -53,6 +53,7 @@ require (
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
+	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/k2-fsa/sherpa-onnx-go-linux v1.13.4 // indirect
 	github.com/k2-fsa/sherpa-onnx-go-macos v1.13.4 // indirect
