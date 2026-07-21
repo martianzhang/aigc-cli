@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+
+	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 )
 
 const (
@@ -64,15 +66,12 @@ func runBackgroundInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot create directory %s: %w", modelsDir, err)
 	}
 
-	// ── Download ONNX Runtime CPU (shared with detect) ──
-	if err := downloadORT(modelsDir, getORTDownloadInfo(), bgInitForce); err != nil {
+	// ── ONNX Runtime (shared across all ONNX models) ──
+	if _, err := onnxrt.EnsureInstalled(modelsDir, bgInitForce); err != nil {
 		return err
 	}
-	// ── Download ONNX Runtime GPU (where available) ──
-	if gpu := getGPUORTDownloadInfo(); gpu != nil {
-		if err := downloadORT(modelsDir, *gpu, bgInitForce); err != nil {
-			return err
-		}
+	if err := onnxrt.EnsureGPUInstalled(modelsDir, bgInitForce); err != nil {
+		return err
 	}
 
 	// ── Download RMBG 2.0 model ──

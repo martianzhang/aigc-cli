@@ -1,22 +1,15 @@
 package cmd
 
 import (
-	"archive/tar"
-	"archive/zip"
-	"compress/gzip"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
-
-const ortVersion = "1.27.0"
 
 // modelInfo maps model identifier to download URL and filename.
 // Add new models here. The key is used in `--model` flag and `detect.model` config.
@@ -84,28 +77,12 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot create directory %s: %w", modelsDir, err)
 	}
 
-	// ── Download ONNX Runtime CPU (shared across all models) ──
-	if err := downloadORT(modelsDir, getORTDownloadInfo(), detectForce); err != nil {
+	// ── ONNX Runtime (shared across all ONNX models) ──
+	if _, err := onnxrt.EnsureInstalled(modelsDir, detectForce); err != nil {
 		return err
 	}
-	// ── Download ONNX Runtime GPU (where available) ──
-	if gpu := getGPUORTDownloadInfo(); gpu != nil {
-		gpuPath := filepath.Join(modelsDir, gpu.libName)
-		if _, err := os.Stat(gpuPath); err != nil || detectForce {
-			fmt.Printf("Downloading ONNX Runtime GPU %s (%s)...\n", ortVersion, runtime.GOOS)
-			archivePath := filepath.Join(modelsDir, gpu.archiveName)
-			if err := service.SaveResource(gpu.url, archivePath); err != nil {
-				return fmt.Errorf("ONNX Runtime GPU download failed: %w", err)
-			}
-			fmt.Println("  Extracting...")
-			if err := extractRuntime(archivePath, modelsDir, gpu.libName, *gpu); err != nil {
-				return fmt.Errorf("GPU extraction failed: %w", err)
-			}
-			os.Remove(archivePath)
-			fmt.Printf("  Installed: %s\n", gpuPath)
-		} else {
-			fmt.Printf("ONNX Runtime GPU already installed: %s\n", gpuPath)
-		}
+	if err := onnxrt.EnsureGPUInstalled(modelsDir, detectForce); err != nil {
+		return err
 	}
 
 	// ── Download model ──
@@ -123,194 +100,6 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("\nDone! Run 'aigc-cli detect' to use AIGC detection.")
 	return nil
-}
-
-// ortDownloadInfo holds platform-specific download information.
-type ortDownloadInfo struct {
-	url          string
-	archiveName  string
-	libName      string
-	internalPath string
-}
-
-// downloadORT downloads and extracts an ONNX Runtime package, unless it already exists.
-func downloadORT(modelsDir string, info ortDownloadInfo, force bool) error {
-	libPath := filepath.Join(modelsDir, info.libName)
-	if _, err := os.Stat(libPath); err == nil && !force {
-		fmt.Printf("ONNX Runtime already installed: %s\n", libPath)
-		return nil
-	}
-	fmt.Printf("Downloading ONNX Runtime %s (%s)...\n", ortVersion, runtime.GOOS)
-	archivePath := filepath.Join(modelsDir, info.archiveName)
-	if err := service.SaveResource(info.url, archivePath); err != nil {
-		return fmt.Errorf("ONNX Runtime download failed: %w", err)
-	}
-	fmt.Println("  Extracting...")
-	if err := extractRuntime(archivePath, modelsDir, info.libName, info); err != nil {
-		return fmt.Errorf("extraction failed: %w", err)
-	}
-	os.Remove(archivePath)
-	fmt.Printf("  Installed: %s\n", libPath)
-	return nil
-}
-
-// gpuLibName returns the GPU ONNX Runtime library filename for the current platform.
-// Returns empty string if there is no separate GPU package (macOS uses CoreML in the same binary).
-func gpuLibName() string {
-	switch runtime.GOOS {
-	case "linux":
-		return "libonnxruntime_gpu.so"
-	case "windows":
-		return "onnxruntime_gpu.dll"
-	default:
-		return ""
-	}
-}
-
-// getGPUORTDownloadInfo returns download info for the GPU ONNX Runtime package.
-// Returns nil on platforms without a separate GPU package (macOS, linux arm64).
-func getGPUORTDownloadInfo() *ortDownloadInfo {
-	base := fmt.Sprintf("https://github.com/microsoft/onnxruntime/releases/download/v%s", ortVersion)
-	libName := gpuLibName()
-	if libName == "" {
-		return nil
-	}
-	switch runtime.GOOS {
-	case "linux":
-		if runtime.GOARCH != "amd64" {
-			return nil
-		}
-		return &ortDownloadInfo{
-			url:          fmt.Sprintf("%s/onnxruntime-linux-x64-gpu_cuda13-%s.tgz", base, ortVersion),
-			archiveName:  fmt.Sprintf("onnxruntime-gpu_cuda13-%s.tgz", ortVersion),
-			libName:      libName,
-			internalPath: fmt.Sprintf("onnxruntime-linux-x64-gpu_cuda13-%s/lib/libonnxruntime.so", ortVersion),
-		}
-	default: // windows
-		return &ortDownloadInfo{
-			url:          fmt.Sprintf("%s/onnxruntime-win-x64-gpu_cuda13-%s.zip", base, ortVersion),
-			archiveName:  fmt.Sprintf("onnxruntime-gpu_cuda13-%s.zip", ortVersion),
-			libName:      libName,
-			internalPath: fmt.Sprintf("onnxruntime-win-x64-gpu_cuda13-%s/lib/onnxruntime.dll", ortVersion),
-		}
-	}
-}
-
-func getORTDownloadInfo() ortDownloadInfo {
-	base := fmt.Sprintf("https://github.com/microsoft/onnxruntime/releases/download/v%s", ortVersion)
-	switch runtime.GOOS {
-	case "windows":
-		arch := "x64"
-		if runtime.GOARCH == "arm64" {
-			arch = "arm64"
-		}
-		return ortDownloadInfo{
-			url:          fmt.Sprintf("%s/onnxruntime-win-%s-%s.zip", base, arch, ortVersion),
-			archiveName:  fmt.Sprintf("onnxruntime-%s.zip", ortVersion),
-			libName:      "onnxruntime.dll",
-			internalPath: fmt.Sprintf("onnxruntime-win-%s-%s/lib/onnxruntime.dll", arch, ortVersion),
-		}
-	case "darwin":
-		arch := "arm64"
-		if runtime.GOARCH == "amd64" {
-			arch = "x64_64"
-		}
-		return ortDownloadInfo{
-			url:          fmt.Sprintf("%s/onnxruntime-osx-%s-%s.tgz", base, arch, ortVersion),
-			archiveName:  fmt.Sprintf("onnxruntime-%s.tgz", ortVersion),
-			libName:      "libonnxruntime.dylib",
-			internalPath: fmt.Sprintf("onnxruntime-osx-%s-%s/lib/libonnxruntime.dylib", arch, ortVersion),
-		}
-	default: // linux
-		arch := "x64"
-		if runtime.GOARCH == "arm64" {
-			arch = "aarch64"
-		}
-		return ortDownloadInfo{
-			url:          fmt.Sprintf("%s/onnxruntime-linux-%s-%s.tgz", base, arch, ortVersion),
-			archiveName:  fmt.Sprintf("onnxruntime-%s.tgz", ortVersion),
-			libName:      "libonnxruntime.so",
-			internalPath: fmt.Sprintf("onnxruntime-linux-%s-%s/lib/libonnxruntime.so", arch, ortVersion),
-		}
-	}
-}
-
-func extractRuntime(archivePath, modelsDir, libName string, info ortDownloadInfo) error {
-	if strings.HasSuffix(archivePath, ".zip") {
-		return extractZip(archivePath, modelsDir, info.internalPath, libName)
-	}
-	return extractTGZ(archivePath, modelsDir, info.internalPath, libName)
-}
-
-func extractZip(archivePath, modelsDir, internalPath, libName string) error {
-	r, err := zip.OpenReader(archivePath)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-
-	target := filepath.Join(modelsDir, libName)
-	for _, f := range r.File {
-		if f.Name != internalPath {
-			continue
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return err
-		}
-		defer rc.Close()
-
-		out, err := os.Create(target)
-		if err != nil {
-			return err
-		}
-		defer out.Close()
-
-		_, err = io.Copy(out, rc)
-		return err
-	}
-	return fmt.Errorf("library not found in archive: %s", internalPath)
-}
-
-func extractTGZ(archivePath, modelsDir, internalPath, libName string) error {
-	f, err := os.Open(archivePath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	gzr, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	defer gzr.Close()
-
-	tarr := tar.NewReader(gzr)
-	target := filepath.Join(modelsDir, libName)
-
-	for {
-		header, err := tarr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		// Normalize path: tar entries may be prefixed with "./"
-		name := strings.TrimPrefix(header.Name, "./")
-		if name != internalPath {
-			continue
-		}
-		out, err := os.Create(target)
-		if err != nil {
-			return err
-		}
-		defer out.Close()
-
-		_, err = io.Copy(out, tarr)
-		return err
-	}
-	return fmt.Errorf("library not found in archive: %s", internalPath)
 }
 
 func init() {

@@ -191,7 +191,8 @@ type AudioDefaults struct {
 	SpeakModel      string `mapstructure:"speak_model" yaml:"speak_model,omitempty"`
 	TranscribeModel string `mapstructure:"transcribe_model" yaml:"transcribe_model,omitempty"`
 	Voice           string `mapstructure:"voice" yaml:"voice,omitempty"`
-	ResponseFormat  string `mapstructure:"response_format" yaml:"response_format,omitempty"`
+	Format          string `mapstructure:"format" yaml:"format,omitempty"`
+	Local           bool   `mapstructure:"local" yaml:"local,omitempty"`
 	Timeout         *int   `mapstructure:"timeout" yaml:"timeout,omitempty"`
 }
 

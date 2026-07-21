@@ -95,8 +95,8 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 		if req.Voice == "" && cfg.Defaults.Audio.Voice != "" {
 			req.Voice = cfg.Defaults.Audio.Voice
 		}
-		if req.ResponseFormat == "" && cfg.Defaults.Audio.ResponseFormat != "" {
-			req.ResponseFormat = cfg.Defaults.Audio.ResponseFormat
+		if req.ResponseFormat == "" && cfg.Defaults.Audio.Format != "" {
+			req.ResponseFormat = cfg.Defaults.Audio.Format
 		}
 	}
 
