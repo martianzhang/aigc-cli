@@ -81,22 +81,25 @@ jobs:
         with:
           go-version: '1.25'
       - name: Build (Windows - dynamic)
-        shell: bash
+        shell: pwsh
         if: matrix.goos == 'windows'
         env:
           GOOS: windows
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "1"
         run: |
-          name="aigc-cli-${{ matrix.label }}.exe"
-          go build -ldflags="-s -w" -o "$name" .
-          dll_dir=$(go env GOMODCACHE)/github.com/k2-fsa/sherpa-onnx-go-windows@v1.13.4/lib
-          for arch in x86_64-pc-windows-gnu i686-pc-windows-gnu; do
-            [ -d "$dll_dir/$arch" ] && { cp "$dll_dir/$arch/"*.dll .; break; }
-          done
-          zip "aigc-cli-${{ matrix.label }}.zip" "$name" *.dll
-          rm -f "$name" *.dll
-          echo "binary=aigc-cli-${{ matrix.label }}.zip" >> "$GITHUB_ENV"
+          $name = "aigc-cli-${{ matrix.label }}.exe"
+          go build -ldflags="-s -w" -o $name .
+          $dllDir = "$(go env GOMODCACHE)\github.com\k2-fsa\sherpa-onnx-go-windows@v1.13.4\lib"
+          $found = $false
+          foreach ($arch in @("x86_64-pc-windows-gnu", "i686-pc-windows-gnu")) {
+            $p = "$dllDir\$arch"
+            if (Test-Path $p) { Copy-Item "$p\*.dll" .; $found = $true; break }
+          }
+          $zipName = "aigc-cli-${{ matrix.label }}.zip"
+          Compress-Archive -Path "$name", "*.dll" -DestinationPath $zipName -Force
+          Remove-Item -Force $name, *.dll -ErrorAction SilentlyContinue
+          echo "binary=$zipName" | Out-File -Append $env:GITHUB_ENV
       - name: Build (Unix - helper + binary)
         shell: bash
         if: matrix.goos != 'windows'
