@@ -125,5 +125,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ github.ref_name }}"
+          # Upload main archive
           gh release upload "$tag" "${{ env.binary }}" --clobber 2>/dev/null || \
             gh release create "$tag" "${{ env.binary }}" --title "$tag" --generate-notes
+          # Upload helper library separately (for audio init download)
+          for f in libaigc-sherpa-helper.*; do
+            [ -f "$f" ] && gh release upload "$tag" "$f" --clobber
+          done
