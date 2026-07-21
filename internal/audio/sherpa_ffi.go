@@ -45,11 +45,11 @@ func loadSherpa() error {
 	}
 	lib := findHelperLib()
 	if lib == "" {
-		return fmt.Errorf("audio helper library not found (use a release build from GitHub Releases)")
+		return fmt.Errorf("audio helper library not found (use a release build)")
 	}
 	h, err := purego.Dlopen(lib, purego.RTLD_NOW|purego.RTLD_GLOBAL)
 	if err != nil {
-		return fmt.Errorf("load audio helper: %w (run 'aigc-cli audio init' to set up local audio)", err)
+		return fmt.Errorf("load audio helper: %w (run audio init first)", err)
 	}
 	ffi.lib = h
 	r := func(fn any, name string) { purego.RegisterLibFunc(fn, h, name) }
