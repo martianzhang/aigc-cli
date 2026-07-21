@@ -329,6 +329,28 @@ func voiceNamesForModel(modelID string, count int) map[int]string {
 	return nil
 }
 
+// releaseTag returns the base release tag for downloading runtime assets.
+// Dev builds (e.g. "v1.10.2-12-gbcfd94c-dirty") are stripped to the
+// underlying release tag ("v1.10.2") so the download URL is valid.
+func releaseTag() string {
+	tag := Version
+	if tag == "" || tag == "dev" {
+		return "latest"
+	}
+	// Strip "-dirty" suffix from git describe output.
+	tag = strings.TrimSuffix(tag, "-dirty")
+	// Strip git describe suffix: "v1.10.2-12-gbcfd94c" → "v1.10.2".
+	if idx := strings.LastIndex(tag, "-g"); idx > 0 {
+		prefix := tag[:idx] // "v1.10.2-12"
+		if idx2 := strings.LastIndex(prefix, "-"); idx2 > 0 {
+			tag = prefix[:idx2] // "v1.10.2"
+		} else {
+			tag = prefix
+		}
+	}
+	return tag
+}
+
 // ensureAudioRuntime ensures the helper library and sherpa-onnx libs are available.
 func ensureAudioRuntime() error {
 	modelsDir := filepath.Dir(audioModelsDir())
@@ -343,10 +365,7 @@ func ensureAudioRuntime() error {
 	}
 	helperPath := filepath.Join(modelsDir, helperName)
 
-	tag := Version
-	if tag == "" || tag == "dev" {
-		tag = "latest"
-	}
+	tag := releaseTag()
 	baseURL := fmt.Sprintf("https://github.com/martianzhang/aigc-cli/releases/download/%s", tag)
 
 	if _, err := os.Stat(helperPath); err == nil {
@@ -387,6 +406,27 @@ func ensureRuntimeLibs(baseURL, dir string) {
 func copySherpaLib(sherpaDir, name, dst string) bool {
 	libDir := filepath.Join(sherpaDir, "lib")
 	entries, _ := os.ReadDir(libDir)
+
+	// Map runtime.GOARCH to sherpa-onnx lib subdirectory names.
+	archSubstr := map[string]string{
+		"amd64": "x86_64",
+		"arm64": "aarch64",
+	}[runtime.GOARCH]
+
+	// First pass: prefer the subdirectory matching the current architecture.
+	if archSubstr != "" {
+		for _, e := range entries {
+			if e.IsDir() && strings.Contains(e.Name(), archSubstr) {
+				src := filepath.Join(libDir, e.Name(), name)
+				if data, err := os.ReadFile(src); err == nil {
+					os.WriteFile(dst, data, 0755)
+					return true
+				}
+			}
+		}
+	}
+
+	// Second pass (fallback): any subdirectory.
 	for _, e := range entries {
 		if e.IsDir() {
 			src := filepath.Join(libDir, e.Name(), name)

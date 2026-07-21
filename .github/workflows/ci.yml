@@ -98,8 +98,8 @@ jobs:
             [ -d "$dll_dir/$arch" ] && { cp "$dll_dir/$arch/"*.dll .; break; }
           done
           7z a "aigc-cli-${{ matrix.label }}.zip" "$name" *.dll || true
-          # keep helper for separate upload
-          rm -f "$name" onnxruntime*.dll sherpa-onnx*.dll
+          # keep runtime DLLs for standalone asset upload below
+          rm -f "$name"
           echo "binary=aigc-cli-${{ matrix.label }}.zip" >> "$GITHUB_ENV"
       - name: Build (Unix - helper + binary)
         shell: bash
@@ -118,6 +118,8 @@ jobs:
           esac
           shopt -s nullglob
           tar czf "aigc-cli-${{ matrix.label }}.tar.gz" "$name" libaigc-sherpa-helper.* "$lib_dir"/*.so "$lib_dir"/*.dylib 2>/dev/null
+          # keep runtime libs for standalone asset upload below
+          cp "$lib_dir"/libsherpa-onnx-c-api.* . 2>/dev/null || true
           echo "binary=aigc-cli-${{ matrix.label }}.tar.gz" >> "$GITHUB_ENV"
       - name: Upload Release Asset
         shell: bash

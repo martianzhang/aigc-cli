@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
@@ -64,20 +63,24 @@ func loadSherpa() error {
 	}
 	h, err := openLibrary(lib)
 	if err != nil {
-		depErr := ""
 		helperDir := filepath.Dir(lib)
-		for _, dep := range []string{"sherpa-onnx-c-api.dll", "onnxruntime.dll",
-			"libsherpa-onnx-c-api.dylib", "libsherpa-onnx-c-api.so", "libonnxruntime.so"} {
+
+		// Check only the current platform's dependencies.
+		expectedLibs := map[string][]string{
+			"windows": {"sherpa-onnx-c-api.dll", "onnxruntime.dll"},
+			"darwin":  {"libsherpa-onnx-c-api.dylib", "libonnxruntime.1.27.0.dylib"},
+			"linux":   {"libsherpa-onnx-c-api.so", "libonnxruntime.so"},
+		}
+		depErr := ""
+		for _, dep := range expectedLibs[runtime.GOOS] {
 			if _, statErr := os.Stat(filepath.Join(helperDir, dep)); statErr != nil {
-				if strings.HasSuffix(dep, ".dll") || strings.HasSuffix(dep, ".so") || strings.HasSuffix(dep, ".dylib") {
-					depErr += fmt.Sprintf("    missing: %s\n", dep)
-				}
+				depErr += fmt.Sprintf("    missing: %s\n", dep)
 			}
 		}
 		if depErr != "" {
 			return fmt.Errorf("audio helper found in %s\nbut dependencies missing:\n%sExtract ALL files from the release ZIP into that directory", helperDir, depErr)
 		}
-		return fmt.Errorf("load audio helper: %w", err)
+		return fmt.Errorf("load audio helper (%s): %w", lib, err)
 	}
 	ffi.lib = h
 	r := func(fn any, name string) { purego.RegisterLibFunc(fn, h, name) }
