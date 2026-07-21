@@ -110,13 +110,18 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 		if _, err := os.Stat(modelDir); err != nil {
 			return fmt.Errorf("model %q not installed, run 'audio init --model %s' first", modelID, modelID)
 		}
-		// Quick load to query voice count
+		silenceCAPI()
 		engine, err := audio.NewTTSEngine("", modelDir)
 		if err != nil {
 			return fmt.Errorf("load model: %w", err)
 		}
 		count := engine.NumSpeakers()
+		loudCAPI()
 		engine.Close()
+		if count <= 0 {
+			fmt.Printf("Model %q has 1 voice\n", modelID)
+			return nil
+		}
 		fmt.Printf("Model %q has %d voices (SID 0-%d)\n", modelID, count, count-1)
 
 		names := voiceNamesForModel(modelID, count)
@@ -292,6 +297,7 @@ func extractTarBz2(archivePath, extractDir string) error {
 }
 
 // voiceNamesForModel returns known voice names for a given model, or nil if unknown.
+// Currently only kokoro has a complete name mapping. Other models use raw SIDs.
 func voiceNamesForModel(modelID string, count int) map[int]string {
 	switch modelID {
 	case "kokoro", "kokoro-en":
@@ -302,9 +308,8 @@ func voiceNamesForModel(modelID string, count int) map[int]string {
 			}
 		}
 		return names
-	default:
-		return nil
 	}
+	return nil
 }
 
 // audioModelsDir returns the base directory for audio models.
