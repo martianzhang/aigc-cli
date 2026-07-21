@@ -80,26 +80,30 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.25'
-      - name: Build (Windows - dynamic)
-        shell: pwsh
+      - name: Build (Windows)
+        shell: bash
         if: matrix.goos == 'windows'
         env:
           GOOS: windows
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "1"
         run: |
-          $name = "aigc-cli-${{ matrix.label }}.exe"
-          go build -ldflags="-s -w" -o $name .
-          $dllDir = "$(go env GOMODCACHE)\github.com\k2-fsa\sherpa-onnx-go-windows@v1.13.4\lib"
-          $found = $false
-          foreach ($arch in @("x86_64-pc-windows-gnu", "i686-pc-windows-gnu")) {
-            $p = "$dllDir\$arch"
-            if (Test-Path $p) { Copy-Item "$p\*.dll" .; $found = $true; break }
-          }
-          $zipName = "aigc-cli-${{ matrix.label }}.zip"
-          Compress-Archive -Path "$name", "*.dll" -DestinationPath $zipName -Force
-          Remove-Item -Force $name, *.dll -ErrorAction SilentlyContinue
-          echo "binary=$zipName" | Out-File -Append $env:GITHUB_ENV
+          # Install MinGW for helper compilation
+          choco install mingw -y --no-progress 2>/dev/null || true
+          export PATH="/c/ProgramData/chocolatey/bin:/c/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin:$PATH"
+          name="aigc-cli-${{ matrix.label }}.exe"
+          # Compile helper library
+          go mod download
+          bash scripts/build-helper.sh
+          # Build Go binary
+          go build -ldflags="-s -w" -o "$name" .
+          # Collect DLLs and package
+          dll_dir=$(go env GOMODCACHE)/github.com/k2-fsa/sherpa-onnx-go-windows@v1.13.4/lib
+          for arch in x86_64-pc-windows-gnu i686-pc-windows-gnu; do
+            [ -d "$dll_dir/$arch" ] && { cp "$dll_dir/$arch/"*.dll .; break; }
+          done
+          zip "aigc-cli-${{ matrix.label }}.zip" "$name" *.dll libaigc-sherpa-helper.*
+          rm -f "$name" *.dll libaigc-sherpa-helper.*
+          echo "binary=aigc-cli-${{ matrix.label }}.zip" >> "$GITHUB_ENV"
       - name: Build (Unix - helper + binary)
         shell: bash
         if: matrix.goos != 'windows'
@@ -128,7 +132,7 @@ jobs:
           # Upload main archive
           gh release upload "$tag" "${{ env.binary }}" --clobber 2>/dev/null || \
             gh release create "$tag" "${{ env.binary }}" --title "$tag" --generate-notes
-          # Upload helper library separately (Unix only, compiled by build-helper.sh)
-          for f in libaigc-sherpa-helper.*; do
+          # Upload helper library separately (for audio init download)
+          for f in libaigc-sherpa-helper.* aigc-sherpa-helper.dll; do
             [ -f "$f" ] && gh release upload "$tag" "$f" --clobber || true
           done
