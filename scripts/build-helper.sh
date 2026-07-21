@@ -41,6 +41,7 @@ case "$OS-$ARCH" in
 esac
 
 OUTPUT="libaigc-sherpa-helper.$LIB_EXT"
+[ "$OS" = "windows" ] && OUTPUT="aigc-sherpa-helper.dll"
 SRC="scripts/helper.c"
 
 echo "Building $OUTPUT for $OS-$ARCH..."

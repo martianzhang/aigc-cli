@@ -97,7 +97,8 @@ jobs:
           for arch in x86_64-pc-windows-gnu i686-pc-windows-gnu; do
             [ -d "$dll_dir/$arch" ] && { cp "$dll_dir/$arch/"*.dll .; break; }
           done
-          7z a "aigc-cli-${{ matrix.label }}.zip" "$name" *.dll aigc-sherpa-helper.dll
+          7z a "aigc-cli-${{ matrix.label }}.zip" "$name" *.dll aigc-sherpa-helper.dll 2>/dev/null || \
+          7z a "aigc-cli-${{ matrix.label }}.zip" "$name" *.dll libaigc-sherpa-helper.dll
           rm -f "$name" *.dll
           echo "binary=aigc-cli-${{ matrix.label }}.zip" >> "$GITHUB_ENV"
       - name: Build (Unix - helper + binary)
