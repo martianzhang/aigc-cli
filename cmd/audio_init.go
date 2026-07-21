@@ -1,0 +1,319 @@
+package cmd
+
+import (
+	"archive/tar"
+	"compress/bzip2"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/martianzhang/aigc-cli/internal/audio"
+	"github.com/martianzhang/aigc-cli/internal/onnxrt"
+	"github.com/martianzhang/aigc-cli/internal/service"
+)
+
+var audioInitCmd = &cobra.Command{
+	Use:          "init",
+	Short:        "Download audio models for local inference",
+	SilenceUsage: true,
+	Long: `Download ONNX audio models for local TTS and speech recognition.
+
+Models are saved to ~/.config/aigc-cli/models/audio/<model-id>/.
+
+The ONNX Runtime is shared with the 'detect' and 'background' commands.
+If not already installed, it will be downloaded automatically.
+
+TTS models:
+  kokoro          Multilingual (EN/ZH/JA/KO/FR), 82M params, ~130MB (default)
+  kokoro-en       English-only Kokoro, 100MB
+  vits-zh-ll      Chinese VITS, 5 speakers, 115MB
+  vits-zh-hf-eula Chinese VITS, 804 speakers (natural Chinese), 116MB
+  vits-zh-aishell3 Chinese VITS, female, 115MB
+  vits-cantonese  Cantonese VITS, 115MB
+  vits-ljs        American English VITS (LJSpeech), 115MB
+  vits-vctk       British English VITS (VCTK, 109 speakers), 115MB
+
+ASR models:
+  whisper-tiny    OpenAI Whisper Tiny, 39M params, ~150MB
+  sense-voice     Alibaba SenseVoice, 80M params, ~80MB
+  whisper-tiny    OpenAI Whisper Tiny ASR, 39M params, ~150MB
+  sense-voice     Alibaba SenseVoice ASR, 80M params, ~80MB
+
+Use --list to see all available models. Use --list-installed to see what
+you already have. Proxy settings are automatically respected.`,
+	RunE: runAudioInit,
+}
+
+var (
+	audioInitModel      []string
+	audioInitList       bool
+	audioInitListInst   bool
+	audioInitType       string
+	audioInitLang       string
+	audioInitForce      bool
+	audioInitHFToken    string
+	audioInitURL        string
+	audioInitName       string
+	audioInitListVoices bool
+)
+
+func runAudioInit(cmd *cobra.Command, args []string) error {
+	modelsDir := audioModelsDir()
+
+	// ── List available models ──
+	if audioInitList {
+		typ := audio.ModelType(audioInitType)
+		if typ != "" && typ != audio.ModelASR && typ != audio.ModelTTS {
+			return fmt.Errorf("invalid type %q (choose: asr, tts)", audioInitType)
+		}
+		models := audio.ListByType(typ, audioInitLang)
+		if len(models) == 0 {
+			fmt.Println("No models found matching the criteria.")
+			return nil
+		}
+		fmt.Printf("Available models (type=%s lang=%s):\n", audioInitType, audioInitLang)
+		for _, m := range models {
+			fmt.Printf("  %-16s  %-10s  %-8s  %s\n", m.ID, m.Type, m.Size, m.Description)
+		}
+		return nil
+	}
+
+	// ── List installed models ──
+	if audioInitListInst {
+		installed, err := audio.ListInstalled(filepath.Dir(audioModelsDir()))
+		if err != nil {
+			return fmt.Errorf("list installed: %w", err)
+		}
+		if len(installed) == 0 {
+			fmt.Println("No audio models installed. Run 'aigc-cli audio init --model <id>' to download one.")
+			return nil
+		}
+		fmt.Println("Installed audio models:")
+		for _, m := range installed {
+			fmt.Printf("  %-16s  %-10s  %-8s  %s\n", m.ID, m.Type, m.Size, m.Description)
+		}
+		return nil
+	}
+
+	// ── List voices for a model ──
+	if audioInitListVoices {
+		if len(audioInitModel) == 0 {
+			return fmt.Errorf("specify a model with --model to list its voices")
+		}
+		modelID := audioInitModel[0]
+		modelDir := filepath.Join(audioModelsDir(), modelID)
+		if _, err := os.Stat(modelDir); err != nil {
+			return fmt.Errorf("model %q not installed, run 'audio init --model %s' first", modelID, modelID)
+		}
+		// Quick load to query voice count
+		engine, err := audio.NewTTSEngine("", modelDir)
+		if err != nil {
+			return fmt.Errorf("load model: %w", err)
+		}
+		count := engine.NumSpeakers()
+		engine.Close()
+		fmt.Printf("Model %q has %d voices (SID 0-%d)\n", modelID, count, count-1)
+		namedCount := len(audio.KokoroVoiceNames)
+		fmt.Println("\nNamed voices:")
+		type vs struct {
+			sid  int
+			name string
+		}
+		var sorted []vs
+		for name, sid := range audio.KokoroVoiceNames {
+			if sid < count {
+				sorted = append(sorted, vs{sid, name})
+			}
+		}
+		sort.Slice(sorted, func(i, j int) bool { return sorted[i].sid < sorted[j].sid })
+		for _, v := range sorted {
+			fmt.Printf("  %-4d  %s\n", v.sid, v.name)
+		}
+		if count > namedCount {
+			fmt.Printf("\n  ... and %d more unnamed voices (use SID number directly)\n", count-namedCount)
+		}
+		return nil
+	}
+
+	// ── Download from URL (custom model) ──
+	if audioInitURL != "" {
+		name := audioInitName
+		if name == "" {
+			name = "custom-model"
+		}
+		if err := downloadFromURL(audioInitURL, audioModelsDir(), name, audioInitForce); err != nil {
+			return fmt.Errorf("download: %w", err)
+		}
+		fmt.Printf("Custom model installed as %q.\n", name)
+		return nil
+	}
+
+	// ── Download models ──
+	if len(audioInitModel) == 0 {
+		audioInitModel = []string{"kokoro", "sense-voice"}
+		fmt.Println("No model specified, downloading defaults: kokoro (TTS) + sense-voice (ASR)")
+	}
+
+	// Ensure ONNX Runtime is installed
+	if _, err := onnxrt.EnsureInstalled(filepath.Dir(audioModelsDir()), audioInitForce); err != nil {
+		return err
+	}
+
+	for _, modelID := range audioInitModel {
+		info, err := audio.Lookup(modelID)
+		if err != nil {
+			return err
+		}
+		if err := downloadModelFiles(info, modelsDir, audioInitForce); err != nil {
+			return fmt.Errorf("model %q: %w", modelID, err)
+		}
+		fmt.Printf("Model %q installed. Use 'aigc-cli audio speak --local --input \"...\"' to try it.\n", modelID)
+	}
+	return nil
+}
+
+// downloadModelFiles downloads all files for a model from the registry.
+func downloadModelFiles(info audio.ModelInfo, modelsBaseDir string, force bool) error {
+	modelDir := filepath.Join(modelsBaseDir, info.ID)
+	if err := os.MkdirAll(modelDir, 0755); err != nil {
+		return fmt.Errorf("create directory: %w", err)
+	}
+	for _, f := range info.Files {
+		dest := filepath.Join(modelDir, f.Path)
+		if err := downloadSingleFile(f.URL, dest, f.Path, force); err != nil {
+			return fmt.Errorf("download %s: %w", f.Path, err)
+		}
+	}
+	return nil
+}
+
+// downloadFromURL downloads a model from an arbitrary URL (outside registry).
+func downloadFromURL(url, baseDir, name string, force bool) error {
+	modelDir := filepath.Join(baseDir, name)
+	os.MkdirAll(modelDir, 0755)
+	filename := filepath.Base(url)
+	dest := filepath.Join(modelDir, filename)
+	return downloadSingleFile(url, dest, filename, force)
+}
+
+// downloadSingleFile downloads a single file, handling tar.bz2 extraction.
+func downloadSingleFile(url, dest, label string, force bool) error {
+	if _, err := os.Stat(dest); err == nil && !force {
+		if strings.HasSuffix(label, ".tar.bz2") {
+			extractedDir := strings.TrimSuffix(dest, ".tar.bz2")
+			if fi, err := os.Stat(extractedDir); err == nil && fi.IsDir() {
+				fmt.Printf("  %s: already installed\n", label)
+				return nil
+			}
+		} else {
+			fmt.Printf("  %s: already exists\n", dest)
+			return nil
+		}
+	}
+	fmt.Printf("  Downloading %s...\n", label)
+	if err := service.SaveResource(url, dest); err != nil {
+		return fmt.Errorf("download %s: %w", label, err)
+	}
+	if strings.HasSuffix(label, ".tar.bz2") {
+		extractDir := strings.TrimSuffix(dest, ".tar.bz2")
+		fmt.Printf("  Extracting...\n")
+		if err := extractTarBz2(dest, extractDir); err != nil {
+			return fmt.Errorf("extract: %w", err)
+		}
+		os.Remove(dest)
+	}
+	return nil
+}
+
+// extractTarBz2 extracts a .tar.bz2 archive into the specified directory.
+// The top-level directory inside the archive is stripped so files go directly
+// into extractDir.
+func extractTarBz2(archivePath, extractDir string) error {
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	bz2r := bzip2.NewReader(f)
+	tarr := tar.NewReader(bz2r)
+
+	// Detect the top-level directory name to strip it
+	var topDir string
+	for {
+		header, err := tarr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if topDir == "" {
+			// First entry: extract the top directory name
+			parts := strings.SplitN(header.Name, "/", 2)
+			if len(parts) > 1 {
+				topDir = parts[0] + "/"
+			}
+		}
+
+		// Strip the top directory
+		relPath := strings.TrimPrefix(header.Name, topDir)
+		if relPath == "" {
+			continue // skip the top directory entry itself
+		}
+
+		target := filepath.Join(extractDir, relPath)
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return err
+			}
+			out, err := os.Create(target)
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(out, tarr)
+			out.Close()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// audioModelsDir returns the base directory for audio models.
+// Default: ~/.config/aigc-cli/models/audio/
+func audioModelsDir() string {
+	// Use shared models directory if available from detect config
+	if shared.Cfg != nil && shared.Cfg.Detect != nil && shared.Cfg.Detect.ModelsDir != "" {
+		return filepath.Join(shared.Cfg.Detect.ModelsDir, "audio")
+	}
+	if shared.Cfg != nil && shared.Cfg.Background != nil && shared.Cfg.Background.ModelsDir != "" {
+		return filepath.Join(shared.Cfg.Background.ModelsDir, "audio")
+	}
+	return filepath.Join(configDir(), "models", "audio")
+}
+
+func init() {
+	audioCmd.AddCommand(audioInitCmd)
+	audioInitCmd.Flags().StringSliceVar(&audioInitModel, "model", nil, "model ID(s) to download (repeatable: --model a --model b)")
+	audioInitCmd.Flags().BoolVar(&audioInitList, "list", false, "list available models")
+	audioInitCmd.Flags().BoolVar(&audioInitListInst, "list-installed", false, "list installed models")
+	audioInitCmd.Flags().StringVar(&audioInitType, "type", "", "filter by type: asr, tts")
+	audioInitCmd.Flags().StringVar(&audioInitLang, "lang", "", "filter by language code (e.g. zh, en)")
+	audioInitCmd.Flags().BoolVar(&audioInitForce, "force", false, "re-download even if already installed")
+	audioInitCmd.Flags().StringVar(&audioInitHFToken, "hf-token", "", "HuggingFace token for gated models")
+	audioInitCmd.Flags().StringVar(&audioInitURL, "url", "", "download from arbitrary URL (use with --name)")
+	audioInitCmd.Flags().StringVar(&audioInitName, "name", "", "model name for --url downloads")
+	audioInitCmd.Flags().BoolVar(&audioInitListVoices, "list-voices", false, "list available voices for a model")
+}

@@ -108,6 +108,14 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jessevdk/go-flags v1.5.0/go.mod h1:Fw0T6WPc1dYxT4mKEZRfG5kJhaTDP9pj1c2EWnYs/m4=
+github.com/k2-fsa/sherpa-onnx-go v1.13.4 h1:Wu+UTUZTgtOhbCSNxhTHs9vX512gRYJtpX0H0GBA9fA=
+github.com/k2-fsa/sherpa-onnx-go v1.13.4/go.mod h1:TgfGAQGgtrok0kkX5d67sjp0AiNF6EwcVTPvJdYJ8BI=
+github.com/k2-fsa/sherpa-onnx-go-linux v1.13.4 h1:FpEUVeTtdkUlb+YToY8rCWFmvB+zT70YKIKdvnDWIzU=
+github.com/k2-fsa/sherpa-onnx-go-linux v1.13.4/go.mod h1:NXEH2rsBgTdqY59YpPq6CtSBlBAXy/8a9FmpLERU97I=
+github.com/k2-fsa/sherpa-onnx-go-macos v1.13.4 h1:HBQA7U5vpgIA51CUCtnEdN+LmoMlZp84r8ILnmiqtVM=
+github.com/k2-fsa/sherpa-onnx-go-macos v1.13.4/go.mod h1:ZOhUAXC62Unj0ZNfu6zxSFKcW96aXf7P3BsqiUyOBbE=
+github.com/k2-fsa/sherpa-onnx-go-windows v1.13.4 h1:FFHlCnTwB2H7X4OUAQwRfeFqU0aV5yOeEvpJAS0G75s=
+github.com/k2-fsa/sherpa-onnx-go-windows v1.13.4/go.mod h1:5AX7TU8+P/gInjglY1ijtWUM2b8iyR0QX4yEngzMe64=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=

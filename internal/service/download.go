@@ -297,25 +297,53 @@ func SaveResource(source, dest string) error {
 	return fmt.Errorf("unsupported source: %.60s", cleaned)
 }
 
-// SaveResourceWithAuth saves an HTTP resource with an Authorization header.
-// For unsigned URLs (non-OpenRouter API), delegates to SaveResource.
-func SaveResourceWithAuth(source, apiKey, dest string) error {
+// SaveResourceWithBearer saves an HTTP resource with an optional Bearer token.
+// If token is empty, falls back to SaveResource.
+// Includes a friendlier 401 error message for HuggingFace gated models.
+func SaveResourceWithBearer(source, token, dest string) error {
 	cleaned := strings.TrimSpace(source)
-
-	if strings.HasPrefix(cleaned, "https://openrouter.ai/api/") {
-		req, err := http.NewRequest("GET", cleaned, nil)
-		if err != nil {
-			return fmt.Errorf("failed to create request: %w", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("HTTP request failed: %w", err)
-		}
-		defer resp.Body.Close()
-		return saveHTTPResponse(resp, dest)
+	if token == "" {
+		return SaveResource(source, dest)
 	}
 
+	if !strings.HasPrefix(cleaned, "http://") && !strings.HasPrefix(cleaned, "https://") {
+		return SaveResource(source, dest)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return fmt.Errorf("create directory: %w", err)
+	}
+
+	req, err := http.NewRequest("GET", cleaned, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		fmt.Fprintln(os.Stderr, "This model requires authentication. Use --hf-token:")
+		fmt.Fprintln(os.Stderr, "  1. Accept terms on the model's HuggingFace page")
+		fmt.Fprintln(os.Stderr, "  2. Create a token at https://huggingface.co/settings/tokens")
+		fmt.Fprintln(os.Stderr, "  3. aigc-cli X init --hf-token hf_...")
+		return fmt.Errorf("HTTP 401 unauthorized")
+	}
+
+	return saveHTTPResponse(resp, dest)
+}
+
+// SaveResourceWithAuth saves an HTTP resource with an Authorization header.
+// Legacy wrapper, prefers SaveResourceWithBearer for new code.
+func SaveResourceWithAuth(source, apiKey, dest string) error {
+	cleaned := strings.TrimSpace(source)
+	if strings.HasPrefix(cleaned, "https://openrouter.ai/api/") {
+		return SaveResourceWithBearer(source, apiKey, dest)
+	}
 	return SaveResource(source, dest)
 }
 

@@ -12,6 +12,7 @@ require (
 	github.com/dsoprea/go-exif/v3 v3.0.1
 	github.com/dsoprea/go-jpeg-image-structure/v2 v2.0.0-20221012074422-4f3f7e934102
 	github.com/dsoprea/go-png-image-structure/v2 v2.0.0-20210512210324-29b889a6093d
+	github.com/k2-fsa/sherpa-onnx-go v1.13.4
 	github.com/mark3labs/mcp-go v0.55.0
 	github.com/mattn/go-sixel v0.0.11
 	github.com/richardwooding/c2pa v0.2.0
@@ -53,6 +54,9 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/k2-fsa/sherpa-onnx-go-linux v1.13.4 // indirect
+	github.com/k2-fsa/sherpa-onnx-go-macos v1.13.4 // indirect
+	github.com/k2-fsa/sherpa-onnx-go-windows v1.13.4 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect

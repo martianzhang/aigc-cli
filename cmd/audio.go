@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -25,6 +28,7 @@ var (
 	audioSpeechInstructions string
 	audioSpeechDryRun       bool
 	audioSpeechPlay         bool
+	audioSpeechLocal        bool
 
 	// Transcribe flags
 	audioTranscribeModel       string
@@ -33,6 +37,7 @@ var (
 	audioTranscribeLanguage    string
 	audioTranscribeTemperature float64
 	audioTranscribeDryRun      bool
+	audioTranscribeLocal       bool
 )
 
 var audioCmd = &cobra.Command{
@@ -42,15 +47,18 @@ var audioCmd = &cobra.Command{
 	Long: `Generate speech from text (TTS) or transcribe audio to text (STT).
 
 Supports OpenAI, OpenRouter, and APIMart providers with automatic detection.
-All providers use the OpenAI-compatible endpoints.
+All providers use the OpenAI-compatible endpoints. Local inference via --local
+uses ONNX models downloaded with 'audio init'.
 
 Subcommands:
-  speak       Convert text to speech audio
-  transcribe  Convert audio to text`,
+  speak / tts       Convert text to speech audio
+  transcribe / asr  Convert audio to text
+  init              Download local audio models`,
 }
 
 var speechCmd = &cobra.Command{
 	Use:          "speak",
+	Aliases:      []string{"tts"},
 	Short:        "Convert text to speech audio",
 	SilenceUsage: true,
 	Long: `Convert text to spoken audio using AI TTS models.
@@ -68,6 +76,7 @@ Examples:
 
 var transcribeCmd = &cobra.Command{
 	Use:          "transcribe",
+	Aliases:      []string{"asr", "stt"},
 	Short:        "Convert audio to text",
 	SilenceUsage: true,
 	Long: `Transcribe audio files to text using AI STT models.
@@ -83,6 +92,15 @@ Examples:
 }
 
 func runAudioSpeak(cmd *cobra.Command, args []string) error {
+	// ── Check local mode ──
+	isLocal := audioSpeechLocal
+	if !isLocal && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil {
+		isLocal = shared.Cfg.Defaults.Audio.Local
+	}
+	if isLocal {
+		return runLocalAudioSpeak(cmd)
+	}
+
 	req, err := buildAudioSpeechRequest()
 	if err != nil {
 		return err
@@ -163,6 +181,11 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 }
 
 func runAudioTranscribe(cmd *cobra.Command, args []string) error {
+	// ── Check local mode ──
+	if audioTranscribeLocal || (shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil && shared.Cfg.Defaults.Audio.Local) {
+		return runLocalAudioTranscribe(cmd)
+	}
+
 	if audioTranscribeModel == "" {
 		if cfg, err := config.LoadDefaults(shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Audio != nil && cfg.Defaults.Audio.TranscribeModel != "" {
 			audioTranscribeModel = cfg.Defaults.Audio.TranscribeModel
@@ -302,26 +325,178 @@ func detectAudioFormat(path string) string {
 	}
 }
 
+// runLocalAudioSpeak handles local TTS inference via sherpa-onnx.
+func runLocalAudioSpeak(cmd *cobra.Command) error {
+	req, err := buildAudioSpeechRequest()
+	if err != nil {
+		return err
+	}
+
+	modelID := audioSpeechModel
+	if modelID == "" {
+		modelID = "kokoro" // best balance for mixed EN/ZH
+	}
+
+	modelDir := filepath.Join(audioModelsDir(), modelID)
+	if _, err := os.Stat(modelDir); err != nil {
+		return fmt.Errorf("model %q not found at %s\nRun 'aigc-cli audio init --model %s' to download it", modelID, modelDir, modelID)
+	}
+
+	if shared.Verbose {
+		fmt.Printf("Local mode: model=%s input=%d chars\n", modelID, len(req.Input))
+	}
+
+	sid := resolveSID(audioSpeechVoice)
+
+	start := time.Now()
+	engine, err := audio.NewTTSEngine("", modelDir)
+	if err != nil {
+		return fmt.Errorf("load TTS model: %w", err)
+	}
+	defer engine.Close()
+
+	silenceCAPI()
+	pcm, sampleRate, err := engine.Speak(req.Input, sid)
+	loudCAPI()
+	if err != nil {
+		return fmt.Errorf("TTS inference: %w", err)
+	}
+	elapsed := time.Since(start)
+
+	fmt.Printf("Model: %s (local)\n", modelID)
+	fmt.Printf("Format: wav\n")
+	fmt.Printf("Duration: %.1fs (%.1f sec audio)\n", elapsed.Seconds(), float64(len(pcm))/float64(sampleRate))
+
+	wavData := &audio.AudioData{Samples: pcm, SampleRate: sampleRate}
+	filename, err := saveAudioWAV(wavData)
+	if err != nil {
+		return fmt.Errorf("failed to save audio: %w", err)
+	}
+	fmt.Printf("Saved: %s\n", filename)
+
+	if audioSpeechPlay {
+		if err := service.PreviewFile(filename); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: playback failed: %v\n", err)
+		}
+	}
+	return nil
+}
+
+// resolveSID parses a voice string as either a named Kokoro voice or numeric SID.
+// Falls back to config.defaults.audio.voice, then DefaultKokoroVoice.
+func resolveSID(voiceFlag string) int {
+	v := voiceFlag
+	if v == "" && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil {
+		v = shared.Cfg.Defaults.Audio.Voice
+	}
+	if v == "" {
+		return audio.DefaultKokoroVoice
+	}
+	// Try name lookup first
+	if sid, ok := audio.KokoroVoiceNames[v]; ok {
+		return sid
+	}
+	// Try numeric
+	if n, err := strconv.Atoi(v); err == nil {
+		return n
+	}
+	// Unknown name (e.g. cloud voice like "alloy") → use default
+	return audio.DefaultKokoroVoice
+}
+
+// saveAudioWAV saves PCM audio as a WAV file to the output directory.
+func saveAudioWAV(data *audio.AudioData) (string, error) {
+	dir := shared.OutputDir
+	if dir == "" {
+		dir = "."
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("create output directory: %w", err)
+	}
+	filename := filepath.Join(dir, fmt.Sprintf("audio_%d.wav", time.Now().Unix()))
+	if err := audio.WriteWAV(filename, data); err != nil {
+		return "", fmt.Errorf("write WAV: %w", err)
+	}
+	return filename, nil
+}
+
 func registerAudioSpeakFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
 	f.StringVarP(&audioSpeechInput, "input", "i", "", "Text input (file path, raw text, or omit to auto-detect piped stdin)")
-	f.StringVarP(&audioSpeechModel, "model", "m", "", "TTS model (e.g. openai/gpt-4o-mini-tts)")
+	f.StringVarP(&audioSpeechModel, "model", "m", "", "TTS model (cloud: model name / local: model ID)")
 	f.StringVarP(&audioSpeechVoice, "voice", "V", "", "Voice name (e.g. alloy, nova, echo, fable)")
 	f.StringVarP(&audioSpeechFormat, "format", "f", "", "Audio format: mp3, wav, opus, aac, flac, pcm (default: mp3)")
 	f.Float64VarP(&audioSpeechSpeed, "speed", "s", 0, "Playback speed: 0.25-4.0 (default: 1.0)")
 	f.StringVar(&audioSpeechInstructions, "instructions", "", "Tone/voice instructions (OpenAI gpt-4o-mini-tts only)")
 	f.BoolVar(&audioSpeechDryRun, "dry-run", false, "Print curl command without calling API")
 	f.BoolVar(&audioSpeechPlay, "play", false, "Play audio with system default player after generation")
+	f.BoolVar(&audioSpeechLocal, "local", false, "Use local TTS model instead of cloud API")
+}
+
+// runLocalAudioTranscribe handles local ASR inference via sherpa-onnx.
+func runLocalAudioTranscribe(cmd *cobra.Command) error {
+	input := audioTranscribeInput
+	if input == "" {
+		return fmt.Errorf("audio file is required: specify with --input")
+	}
+	if _, err := os.Stat(input); err != nil {
+		return fmt.Errorf("file not found: %s", input)
+	}
+
+	modelID := audioTranscribeModel
+	if modelID == "" && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil {
+		modelID = shared.Cfg.Defaults.Audio.TranscribeModel
+	}
+	if modelID == "" {
+		modelID = "sense-voice"
+	}
+
+	modelDir := filepath.Join(audioModelsDir(), modelID)
+	if _, err := os.Stat(modelDir); err != nil {
+		return fmt.Errorf("model %q not found at %s\nRun 'aigc-cli audio init --model %s' to download it", modelID, modelDir, modelID)
+	}
+
+	if shared.Verbose {
+		fmt.Printf("Local ASR: model=%s file=%s\n", modelID, input)
+	}
+
+	start := time.Now()
+	engine, err := audio.NewASREngine("", modelDir)
+	if err != nil {
+		return fmt.Errorf("load ASR model: %w", err)
+	}
+	defer engine.Close()
+
+	silenceCAPI() // suppress C library stderr output
+	text, err := engine.Transcribe(input)
+	loudCAPI()
+	if err != nil {
+		return fmt.Errorf("ASR inference: %w", err)
+	}
+	elapsed := time.Since(start)
+
+	if shared.Verbose {
+		fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+	}
+
+	// Save transcription to file
+	filename, err := saveTranscriptionFile(text)
+	if err != nil {
+		return fmt.Errorf("failed to save transcription: %w", err)
+	}
+	fmt.Printf("Saved: %s\n", filename)
+	return nil
 }
 
 func registerAudioTranscribeFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
 	f.StringVarP(&audioTranscribeInput, "input", "i", "", "Audio file path or omit to auto-detect piped base64 stdin")
-	f.StringVarP(&audioTranscribeModel, "model", "m", "", "STT model (e.g. openai/whisper-1)")
+	f.StringVarP(&audioTranscribeModel, "model", "m", "", "STT model (cloud: model name / local: model ID)")
 	f.StringVar(&audioTranscribeFormat, "format", "", "Audio format: wav, mp3, flac, m4a, ogg (auto-detected from file extension)")
 	f.StringVarP(&audioTranscribeLanguage, "language", "l", "", "Language hint (ISO-639-1, e.g. en, ja, zh)")
 	f.Float64Var(&audioTranscribeTemperature, "temperature", 0, "Sampling temperature 0-1 (default: 0)")
 	f.BoolVar(&audioTranscribeDryRun, "dry-run", false, "Print curl command without calling API")
+	f.BoolVar(&audioTranscribeLocal, "local", false, "Use local ASR model instead of cloud API")
 }
 
 func init() {

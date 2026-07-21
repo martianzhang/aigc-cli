@@ -102,19 +102,28 @@ func EnsureGPUInstalled(modelsDir string, force bool) error {
 }
 
 // LibPath returns the path to the ONNX Runtime shared library in modelsDir.
-// It prefers GPU variants over CPU and returns an error if none is found.
+// It prefers GPU variants over CPU and picks the correct library per platform.
 func LibPath(modelsDir string) (string, error) {
-	candidates := []string{
-		filepath.Join(modelsDir, "libonnxruntime_gpu.dylib"),
-		filepath.Join(modelsDir, "libonnxruntime_gpu.so"),
-		filepath.Join(modelsDir, "onnxruntime_gpu.dll"),
-		filepath.Join(modelsDir, "onnxruntime.dll"),
-		filepath.Join(modelsDir, "libonnxruntime.dylib"),
-		filepath.Join(modelsDir, "libonnxruntime.so"),
+	// Platform-ordered candidates: GPU first, then CPU, matching OS extension
+	gpu := []string{"libonnxruntime_gpu.dylib", "libonnxruntime_gpu.so", "onnxruntime_gpu.dll"}
+	cpu := []string{"libonnxruntime.dylib", "libonnxruntime.so", "onnxruntime.dll"}
+
+	// Order by OS preference (put native extension first)
+	switch runtime.GOOS {
+	case "darwin":
+		cpu = []string{"libonnxruntime.dylib", "libonnxruntime.so", "onnxruntime.dll"}
+	case "linux":
+		cpu = []string{"libonnxruntime.so", "libonnxruntime.dylib", "onnxruntime.dll"}
+	default: // windows
+		cpu = []string{"onnxruntime.dll", "libonnxruntime.dylib", "libonnxruntime.so"}
 	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
+
+	for _, candidates := range [][]string{gpu, cpu} {
+		for _, name := range candidates {
+			c := filepath.Join(modelsDir, name)
+			if _, err := os.Stat(c); err == nil {
+				return c, nil
+			}
 		}
 	}
 	return "", fmt.Errorf("ONNX Runtime library not found in %s", modelsDir)
