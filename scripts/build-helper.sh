@@ -24,7 +24,7 @@ case "$OS-$ARCH" in
 esac
 
 OUTPUT="libaigc-sherpa-helper.$LIB_EXT"
-SRC="internal/audio/helper.c"
+SRC="scripts/helper.c"
 
 echo "Building $OUTPUT for $OS-$ARCH..."
 echo "  sherpa headers: $SHERPA_DIR"
