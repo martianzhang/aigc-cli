@@ -2,7 +2,7 @@
 
 支持文字转语音（Text-to-Speech，TTS）和语音转文字（Speech-to-Text，STT），通过统一的 `audio` 命令提供。
 
-> 📝 **本文档为调研 + 实现参考**，描述各 Provider 的音频 API 差异、实现思路及最终方案。当前实现位于 `feature/audio` 分支，未合并到 main。
+> 📝 支持云端 API（OpenAI / OpenRouter / APIMart）和本地离线 TTS（sherpa-onnx）。
 
 ---
 
@@ -300,6 +300,149 @@ mcp.WithTool("generate_speech",
     mcp.WithString("format", mcp.Description("Audio format: mp3, wav, opus")),
 )
 ```
+
+---
+
+## 本地 TTS（离线语音合成）
+
+`aigc-cli` 支持通过 sherpa-onnx 在本地运行 TTS，无需联网、无需 API Key，数据不出设备。
+
+### 快速开始
+
+```bash
+# 1. 下载默认模型（kokoro，支持中英日韩法）
+aigc-cli audio init --model kokoro
+
+# 2. 语音合成（默认中文女声晓晓）
+aigc-cli audio speak --local --input "你好，欢迎使用本地语音合成系统。"
+
+# 3. 或使用 tts 别名
+aigc-cli audio tts --local --input "Hello, this is local TTS."
+```
+
+### 可用 TTS 模型
+
+| 模型 ID | 语言 | 架构 | 说明 |
+|---|---|---|---|
+| `kokoro` | 🌐 中/英/日/韩/法 | Kokoro | **默认**，82M 参数，53 种音色，中英混合最佳 |
+| `kokoro-en` | 🇺🇸 英语 | Kokoro | 纯英文版，体积更小 |
+| `vits-zh-ll` | 🇨🇳 中文 | VITS | 5 说话人 |
+| `vits-zh-hf-eula` | 🇨🇳 中文 | VITS | 804 说话人，语料丰富 |
+| `vits-zh-aishell3` | 🇨🇳 中文 | VITS | 标准女声 |
+| `vits-cantonese` | 🇭🇰 粤语 | VITS | 粤语 TTS |
+| `matcha-zh-en` | 🇨🇳🇺🇸 中英双语 | Matcha-TTS | 需额外下载 vocoder |
+| `matcha-en` | 🇺🇸 英语 | Matcha-TTS | 高质量英文 |
+| `vits-ljs` | 🇺🇸 美式英语 | VITS | LJSpeech 女声 |
+| `vits-vctk` | 🇬🇧 英式英语 | VITS | 109 说话人 |
+
+### 下载模型
+
+```bash
+# 列出所有可用模型
+aigc-cli audio init --list
+
+# 按类型筛选
+aigc-cli audio init --list --type tts
+
+# 下载指定模型
+aigc-cli audio init --model kokoro
+aigc-cli audio init --model vits-zh-ll --model vits-ljs
+
+# 从任意 URL 下载（不受注册表限制）
+aigc-cli audio init --url https://example.com/model.tar.bz2 --name my-model
+
+# 查看已安装的模型
+aigc-cli audio init --list-installed
+```
+
+### 语音合成
+
+```bash
+# 使用默认模型（kokoro，中文女声晓晓）
+aigc-cli audio tts --local --input "你好，世界"
+
+# 指定模型
+aigc-cli audio tts --local --model vits-ljs --input "Hello world"
+
+# 指定音色
+aigc-cli audio tts --local --voice zf_xiaoxiao --input "你好"
+aigc-cli audio tts --local --voice zm_yunjian --input "你好，我是男声"
+
+# 或直接使用编号
+aigc-cli audio tts --local --voice 45 --input "你好"
+
+# 生成后自动播放
+aigc-cli audio tts --local --input "你好" --play
+```
+
+### Kokoro 音色列表
+
+`kokoro` 模型有 53 种音色（SID 0-52）：
+
+```bash
+# 查看所有音色
+aigc-cli audio init --list-voices --model kokoro
+```
+
+| 音色名 | ID | 语言/性别 |
+|---|---|---|
+| `af_alloy` .. `af_sky` | 0-10 | 🇺🇸 美式英语女声（11 种） |
+| `am_adam` .. `am_santa` | 11-19 | 🇺🇸 美式英语男声（9 种） |
+| `bf_alice` .. `bf_lily` | 20-23 | 🇬🇧 英式英语女声（4 种） |
+| `bm_daniel` .. `bm_lewis` | 24-27 | 🇬🇧 英式英语男声（4 种） |
+| `ef_dora` | 28 | 🇪🇸 西班牙语女声 |
+| `em_alex` | 29 | 🇪🇸 西班牙语男声 |
+| `ff_siwis` | 30 | 🇫🇷 法语女声 |
+| `hf_alpha` / `hf_beta` | 31-32 | 🇮🇳 印地语女声 |
+| `hm_omega` / `hm_psi` | 33-34 | 🇮🇳 印地语男声 |
+| `if_sara` | 35 | 🇮🇹 意大利语女声 |
+| `im_nicola` | 36 | 🇮🇹 意大利语男声 |
+| `jf_alpha` .. `jf_tebukuro` | 37-40 | 🇯🇵 日语女声（4 种） |
+| `jm_kumo` | 41 | 🇯🇵 日语男声 |
+| `pf_dora` | 42 | 🇧🇷 葡萄牙语女声 |
+| `pm_alex` / `pm_santa` | 43-44 | 🇧🇷 葡萄牙语男声 |
+| **`zf_xiaobei`** | **45** | **🇨🇳 中文女声** |
+| **`zf_xiaoni`** | **46** | **🇨🇳 中文女声** |
+| **`zf_xiaoxiao`** | **47** | **🇨🇳 中文女声（默认）** |
+| **`zf_xiaoyi`** | **48** | **🇨🇳 中文女声** |
+| **`zm_yunjian`** | **49** | **🇨🇳 中文男声** |
+| **`zm_yunxi`** | **50** | **🇨🇳 中文男声** |
+| **`zm_yunxia`** | **51** | **🇨🇳 中文男声** |
+| **`zm_yunyang`** | **52** | **🇨🇳 中文男声** |
+
+### 配置
+
+```yaml
+# ~/.config/aigc-cli/config.yaml
+defaults:
+  audio:
+    local: true                    # 优先使用本地模型
+    speak_model: kokoro            # 本地 TTS 模型 ID
+    voice: "zf_xiaoxiao"           # 默认音色（支持名字或数字）
+    format: wav                    # 输出格式
+```
+
+启用后可直接运行：
+
+```bash
+aigc-cli audio speak --input "你好"  # 自动使用本地模型，无需 --local
+```
+
+### 子命令别名
+
+```bash
+aigc-cli audio speak --input "你好"   # 完整命令
+aigc-cli audio tts --input "你好"     # 等价的别名
+```
+
+### 技术说明
+
+- **引擎**：sherpa-onnx（C++，通过 Go binding 调用）
+- **编译**：需要 CGO（macOS/Linux 默认开启，无需额外配置）
+- **预编译库**：自动下载，用户无需安装 C 工具链
+- **模型文件**：通过 `audio init` 从 HuggingFace / GitHub Releases 下载
+- **输出格式**：仅支持 WAV（本地模式）
+- **默认音色**：zf_xiaoxiao（晓晓，中文女声，SID 47）
 
 ---
 

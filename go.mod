@@ -12,6 +12,7 @@ require (
 	github.com/dsoprea/go-exif/v3 v3.0.1
 	github.com/dsoprea/go-jpeg-image-structure/v2 v2.0.0-20221012074422-4f3f7e934102
 	github.com/dsoprea/go-png-image-structure/v2 v2.0.0-20210512210324-29b889a6093d
+	github.com/k2-fsa/sherpa-onnx-go v1.13.4
 	github.com/mark3labs/mcp-go v0.55.0
 	github.com/mattn/go-sixel v0.0.11
 	github.com/richardwooding/c2pa v0.2.0
@@ -41,6 +42,8 @@ require (
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
 	github.com/dsoprea/go-photoshop-info-format v0.0.0-20200609050348-3db9b63b202c // indirect
 	github.com/dsoprea/go-utility/v2 v2.0.0-20221003172846-a3e1774ef349 // indirect
+	github.com/eaburns/bit v0.0.0-20131029213740-7bd5cd37375d // indirect
+	github.com/eaburns/flac v0.0.0-20171003200620-9a6fb92396d1 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
@@ -52,7 +55,13 @@ require (
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
+	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/jfreymuth/oggvorbis v1.0.5 // indirect
+	github.com/jfreymuth/vorbis v1.0.2 // indirect
+	github.com/k2-fsa/sherpa-onnx-go-linux v1.13.4 // indirect
+	github.com/k2-fsa/sherpa-onnx-go-macos v1.13.4 // indirect
+	github.com/k2-fsa/sherpa-onnx-go-windows v1.13.4 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect

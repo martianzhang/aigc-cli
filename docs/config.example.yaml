@@ -91,7 +91,7 @@ defaults:
   audio:
     local: false                       # true=本地模型（需先 audio init），false=云端 API
     speak_model: "gpt-4o-mini-tts"     # 云端: TTS 模型 / 本地: 本地 TTS 模型 ID
-    transcribe_model: "whisper-1"      # 云端: STT 模型 / 本地: 本地 ASR 模型 ID
+    transcribe_model: "whisper-tiny"    # 云端: STT 模型 / 本地: 本地 ASR 模型 ID
     # voice: "alloy"                   # 默认声音
     # format: "mp3"                    # mp3, wav, opus, aac, flac, pcm
     # timeout: 120                     # HTTP timeout in seconds
