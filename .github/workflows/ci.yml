@@ -15,6 +15,8 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.25'
+      - name: Install system deps (CGO)
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
@@ -29,6 +31,8 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.25'
+      - name: Install system deps (CGO)
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - name: Test
         env:
           CGO_ENABLED: "1"
@@ -41,6 +45,8 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.25'
+      - name: Install system deps (CGO)
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - name: Build
         env:
           CGO_ENABLED: "1"
@@ -101,6 +107,9 @@ jobs:
           # keep runtime DLLs for standalone asset upload below
           rm -f "$name"
           echo "binary=aigc-cli-${{ matrix.label }}.zip" >> "$GITHUB_ENV"
+      - name: Install system deps (CGO, Linux)
+        if: matrix.goos == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - name: Build (Unix - helper + binary)
         shell: bash
         if: matrix.goos != 'windows'
