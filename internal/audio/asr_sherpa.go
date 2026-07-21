@@ -63,8 +63,8 @@ func (e *ASREngine) Close() {}
 
 func asrConfig(dir string) sherpa.OfflineRecognizerConfig {
 	cfg := sherpa.OfflineRecognizerConfig{
-		FeatConfig:    sherpa.FeatureConfig{SampleRate: 16000, FeatureDim: 80},
-		ModelConfig:   sherpa.OfflineModelConfig{Debug: 0},
+		FeatConfig:     sherpa.FeatureConfig{SampleRate: 16000, FeatureDim: 80},
+		ModelConfig:    sherpa.OfflineModelConfig{Debug: 0},
 		DecodingMethod: "greedy_search",
 	}
 	if encoder := findFile(dir, "encoder.onnx"); encoder != "" {
