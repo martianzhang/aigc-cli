@@ -21,6 +21,40 @@
 
 > **永远不要直接调用 `go build`、`go test`、`go fmt`**。统一走 Makefile。
 
+### 1.1 CGO 可选依赖模式
+
+部分功能（本地 TTS/ASR）依赖 CGO，但必须保证**无 CGO 时也能编译通过**。模式如下：
+
+```
+internal/xxx/
+├── feature.go          # 基础类型定义（始终编译）
+├── feature_stub.go     # //go:build !cgo — 空桩，返回 "requires CGO" 错误
+└── feature_cgo.go      # //go:build cgo  — 真实实现，import CGO 库
+```
+
+规则：
+
+| 场景 | 行为 |
+|---|---|
+| 有 CGO 编译 | real 实现被编译，功能完整可用 |
+| 无 CGO 编译 | stub 被编译，调用时返回友好错误信息 |
+| CI 构建 | 默认有 CGO，Release 产物包含功能 + 动态库 |
+
+**CI Release 额外处理**：Windows 构建时，将 CGO 依赖的 DLL 复制到 exe 同目录，确保解压即用：
+
+```yaml
+# .github/workflows/ci.yml — release job
+- name: Build
+  run: |
+    go build -o aigc-cli.exe .
+    # 复制 CGO DLL 到输出目录
+    cp "$(go env GOMODCACHE)/.../lib/x86_64/*.dll" .
+```
+
+**参考实现**：`internal/audio/tts.go` / `tts_stub.go` / `tts_sherpa.go`（基于 sherpa-onnx-go）。
+
+**适用场景**：引入新的 CGO 依赖时，必须按此模式提供 stub 实现，否则不得合入 main。
+
 ---
 
 ## 二、开发工作流（强制遵守）
