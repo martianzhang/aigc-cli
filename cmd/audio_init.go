@@ -477,8 +477,6 @@ func findSherpaDir() string {
 	return ""
 }
 
-
-
 func findSherpaLibDir(sherpaDir string) string {
 	libDir := filepath.Join(sherpaDir, "lib")
 	entries, _ := os.ReadDir(libDir)
