@@ -109,6 +109,7 @@ var toolRegistry = []toolInfo{
 	{"detect_image", "Detect AIGC/watermark in images (offline)", func(desc string) mcp.Tool { return newDetectTool() }, func(cfg *Config) server.ToolHandlerFunc { return detectHandler() }},
 	{"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler() }},
 	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler() }},
+	{"ocr_text", "Recognize text in images/PDF using offline OCR", func(desc string) mcp.Tool { return newOCRTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return ocrTextHandler() }},
 }
 
 // NewServer creates and configures an MCP server, registering tools based on config.

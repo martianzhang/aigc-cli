@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -8,9 +9,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -53,6 +52,8 @@ var ocrScanCmd = &cobra.Command{
 
 var ocrScanPreview bool
 var ocrScanLang string
+var ocrScanJSON bool
+var ocrScanPages string
 
 func init() {
 	ocrInitCmd.Flags().Bool("list", false, "List available model packs")
@@ -60,6 +61,8 @@ func init() {
 
 	ocrScanCmd.Flags().BoolVar(&ocrScanPreview, "preview", false, "Preview recognized text in terminal")
 	ocrScanCmd.Flags().StringVar(&ocrScanLang, "lang", "auto", "Language: auto, zh (Chinese), en (English)")
+	ocrScanCmd.Flags().BoolVar(&ocrScanJSON, "json", false, "Output as JSON with bounding boxes and confidence scores")
+	ocrScanCmd.Flags().StringVar(&ocrScanPages, "pages", "", "Page range for PDF input (e.g. \"1-3,5\")")
 
 	ocrCmd.AddCommand(ocrInitCmd)
 	ocrCmd.AddCommand(ocrScanCmd)
@@ -237,14 +240,35 @@ func scanPDF(cmd *cobra.Command, pdfPath string) error {
 		return saveOCRResult(cmd, result, pdfPath)
 	}
 
-	pngs, err := renderPDFPages(pdfPath, 300)
+	// Scanned PDF: render to images, then OCR.
+	tmpDir, err := os.MkdirTemp("", "aigc-cli-pdf-*")
 	if err != nil {
-		return err
+		return fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(filepath.Dir(pngs[0]))
+	defer os.RemoveAll(tmpDir)
+
+	var pngs []string
+	if ocrScanPages != "" {
+		pageNums := parsePageRange(ocrScanPages)
+		pngs, err = pdf.SelectedPages(pdfPath, tmpDir, pageNums, 300)
+	} else {
+		pngs, err = pdf.RenderToImages(pdfPath, tmpDir, 300)
+	}
+	if err != nil {
+		return fmt.Errorf("render PDF: %w", err)
+	}
 
 	allPages := make([]ocr.OCRPage, 0, len(pngs))
 	allText := make([]string, 0, len(pngs))
+
+	// Create the engine once, reuse for all pages.
+	modelsDir := defaultModelsDir()
+	engine, err := newOCREngine(modelsDir)
+	if err != nil {
+		return err
+	}
+	defer engine.Close()
+
 	for pageIdx, pngPath := range pngs {
 		f, err := os.Open(pngPath)
 		if err != nil {
@@ -256,15 +280,14 @@ func scanPDF(cmd *cobra.Command, pdfPath string) error {
 			return fmt.Errorf("decode rendered page %d: %w", pageIdx+1, err)
 		}
 
-		modelsDir := defaultModelsDir()
-		engine, err := newOCREngine(modelsDir)
-		if err != nil {
-			return err
-		}
 		result, err := engine.Scan(img)
-		engine.Close()
 		if err != nil {
 			return fmt.Errorf("OCR page %d: %w", pageIdx+1, err)
+		}
+
+		// Offset page numbers to be absolute
+		for i := range result.Pages {
+			result.Pages[i].Page = pageIdx
 		}
 		allPages = append(allPages, result.Pages...)
 		allText = append(allText, result.Text)
@@ -277,61 +300,34 @@ func scanPDF(cmd *cobra.Command, pdfPath string) error {
 	return saveOCRResult(cmd, result, pdfPath)
 }
 
-func renderPDFPages(pdfPath string, dpi int) ([]string, error) {
-	if _, err := exec.LookPath("mutool"); err != nil {
-		return nil, errors.New(mutoolInstallHint())
+// parsePageRange parses a page range string like "1-3,5,7-9" into a slice of
+// page number strings for pdfcpu. Returns all pages as ["1"]..["N"] if the
+// input is empty.
+func parsePageRange(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
 	}
-
-	tmpDir, err := os.MkdirTemp("", "aigc-cli-pdf-*")
-	if err != nil {
-		return nil, fmt.Errorf("create temp dir: %w", err)
-	}
-
-	outPattern := filepath.Join(tmpDir, "page-%d.png")
-	cmd := exec.Command("mutool", "draw",
-		"-o", outPattern,
-		"-r", strconv.Itoa(dpi),
-		pdfPath,
-	)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		os.RemoveAll(tmpDir)
-		return nil, fmt.Errorf("mutool draw failed: %w", err)
-	}
-
-	entries, err := os.ReadDir(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return nil, fmt.Errorf("read output: %w", err)
-	}
-
-	var images []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".png") {
-			images = append(images, filepath.Join(tmpDir, e.Name()))
+	// pdfcpu's RenderPagesForPDFFile accepts comma-separated page specs.
+	// Split by comma and return each token as-is (handles "1-3", "5", etc.)
+	var result []string
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
 		}
 	}
-	if len(images) == 0 {
-		os.RemoveAll(tmpDir)
-		return nil, fmt.Errorf("mutool produced no output images")
-	}
-	return images, nil
+	return result
 }
 
-func mutoolInstallHint() string {
-	return `this PDF appears to be a scanned document (no extractable text layer).
-To OCR it, install mupdf-tools (mutool) to convert PDF pages to images:
-
-  macOS:  brew install mupdf-tools
-  Linux:  apt install mupdf-tools    # or pacman -S mupdf-tools
-  Windows: https://mupdf.com/downloads
-
-Then run 'aigc-cli ocr scan <file>' again.`
-}
-
-// newOCREngine creates an OCR engine with the standard model setup.
+// newOCREngine creates an OCR engine with the standard model setup and the
+// global ocrScanLang setting.
 func newOCREngine(modelsDir string) (*ocr.Engine, error) {
+	return newOCREngineWithLang(modelsDir, ocrScanLang)
+}
+
+// newOCREngineWithLang creates an OCR engine with the given language setting.
+func newOCREngineWithLang(modelsDir, lang string) (*ocr.Engine, error) {
 	ocrModelsDir := filepath.Join(modelsDir, "ocr")
 
 	libPath, err := onnxrt.LibPath(modelsDir)
@@ -358,14 +354,14 @@ func newOCREngine(modelsDir string) (*ocr.Engine, error) {
 	enModelPath := filepath.Join(ocrModelsDir, "rec_en_PP-OCRv3_infer.onnx")
 	enDictPath := filepath.Join(ocrModelsDir, "dict_en.txt")
 
-	switch ocrScanLang {
+	switch lang {
 	case "zh":
 		enModelPath = ""
 		enDictPath = ""
 	case "en":
 	case "auto":
 	default:
-		return nil, fmt.Errorf("unsupported language %q, use: auto, zh, en", ocrScanLang)
+		return nil, fmt.Errorf("unsupported language %q, use: auto, zh, en", lang)
 	}
 
 	if enModelPath != "" {
@@ -379,15 +375,20 @@ func newOCREngine(modelsDir string) (*ocr.Engine, error) {
 		}
 	}
 
-	return ocr.NewEngine(libPath, detPath, recPath, clsPath, dictPath, 6625, "softmax_11.tmp_0", enModelPath, enDictPath, ocrScanLang)
+	return ocr.NewEngine(libPath, detPath, recPath, clsPath, dictPath, 6625, "softmax_11.tmp_0", enModelPath, enDictPath, lang)
 }
 
-// saveOCRResult saves an OCR result to a markdown file and optionally previews it.
+// saveOCRResult saves an OCR result to a file and optionally previews it.
+// Output format is Markdown by default, or JSON when --json is set.
 func saveOCRResult(cmd *cobra.Command, result *ocr.OCRResult, inputPath string) error {
 	outPath := ""
+	outExt := ".md"
+	if ocrScanJSON {
+		outExt = ".json"
+	}
 	if inputPath != "" && inputPath != "stdin" {
 		ext := filepath.Ext(inputPath)
-		outPath = strings.TrimSuffix(inputPath, ext) + ".md"
+		outPath = strings.TrimSuffix(inputPath, ext) + outExt
 	} else {
 		dir := shared.OutputDir
 		if dir == "" {
@@ -396,7 +397,26 @@ func saveOCRResult(cmd *cobra.Command, result *ocr.OCRResult, inputPath string) 
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create output dir: %w", err)
 		}
-		outPath = filepath.Join(dir, fmt.Sprintf("ocr_%d.md", time.Now().Unix()))
+		outPath = filepath.Join(dir, fmt.Sprintf("ocr_%d%s", time.Now().Unix(), outExt))
+	}
+
+	if ocrScanJSON {
+		data, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return fmt.Errorf("JSON encode: %w", err)
+		}
+		if err := os.WriteFile(outPath, data, 0644); err != nil {
+			return fmt.Errorf("save output: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "Saved: %s\n", outPath)
+
+		if ocrScanPreview {
+			fmt.Print(string(data))
+			if !strings.HasSuffix(string(data), "\n") {
+				fmt.Println()
+			}
+		}
+		return nil
 	}
 
 	rawText := ""

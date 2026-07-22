@@ -170,6 +170,23 @@ var agentToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
+	// --- OCR tool ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "ocr_text",
+			Description: "Recognize text in a local image or PDF file using offline OCR (no API key needed). Supports JPEG, PNG, PDF. Run 'aigc-cli ocr init' to download models first. For PDFs: text-based PDFs extract directly; scanned PDFs render + OCR each page.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"file_path": {"type": "string", "description": "Path to the image or PDF file to recognize"},
+					"lang": {"type": "string", "description": "Language: auto (default), zh, en", "enum": ["auto", "zh", "en"]},
+					"format": {"type": "string", "description": "Output format: text (default) or json", "enum": ["text", "json"]}
+				},
+				"required": ["file_path"]
+			}`),
+		},
+	},
 	// --- Image tools ---
 	{
 		Type: "function",

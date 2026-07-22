@@ -1,12 +1,17 @@
-// Package pdf provides pure-Go PDF processing: text extraction for born-digital
-// PDFs and embedded-image extraction for scanned documents. No CGO, no external
-// CLI tools.
+// Package pdf provides PDF processing in Go: text extraction for born-digital
+// PDFs via ledongthuc/pdf (pure Go), and page-to-image rendering via mutool
+// (external CLI, muPDF tools — required only for scanned/image-based PDFs).
+// No CGO. The mutool dependency is optional — text-based PDFs work without it.
 package pdf
 
 import (
 	"fmt"
 	"math"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -161,4 +166,127 @@ func IsScanned(pages []PageText) bool {
 		}
 	}
 	return true
+}
+
+// RenderToImages renders every page of a PDF to PNG images using mutool
+// (muPDF command-line tool). The output directory is created if it does not
+// exist. Returns the paths to the rendered PNG files sorted by page number.
+//
+// mutool must be installed separately:
+//
+//	macOS:  brew install mupdf-tools
+//	Linux:  apt install mupdf-tools    # or pacman -S mupdf-tools
+//	Windows: https://mupdf.com/downloads
+func RenderToImages(pdfPath, outputDir string, dpi int) ([]string, error) {
+	return renderPages(pdfPath, outputDir, nil, dpi)
+}
+
+// SelectedPages renders only the specified page numbers (1-based) from a PDF
+// to PNG images using mutool. pageNums is a list of page specifiers that
+// mutool accepts (e.g. "1", "1-3", "1,3,5").
+// Returns paths to the rendered PNG files sorted by page number.
+func SelectedPages(pdfPath, outputDir string, pageNums []string, dpi int) ([]string, error) {
+	return renderPages(pdfPath, outputDir, pageNums, dpi)
+}
+
+// renderPages is the shared implementation for RenderToImages and SelectedPages.
+// pageNums = nil means all pages.
+func renderPages(pdfPath, outputDir string, pageNums []string, dpi int) ([]string, error) {
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return nil, fmt.Errorf("create output dir: %w", err)
+	}
+
+	mutoolPath, err := findMutool()
+	if err != nil {
+		return nil, err
+	}
+
+	outPattern := filepath.Join(outputDir, "page-%d.png")
+	args := []string{"draw", "-o", outPattern, "-r", strconv.Itoa(dpi), pdfPath}
+	if len(pageNums) > 0 {
+		args = append(args, pageNums...)
+	}
+
+	cmd := exec.Command(mutoolPath, args...)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("mutool draw failed: %w", err)
+	}
+
+	// Enumerate rendered PNG files.
+	entries, err := os.ReadDir(outputDir)
+	if err != nil {
+		return nil, fmt.Errorf("read output dir: %w", err)
+	}
+
+	var images []string
+	for _, e := range entries {
+		if !e.IsDir() && (strings.HasSuffix(e.Name(), ".png") || strings.HasSuffix(e.Name(), ".PNG")) {
+			images = append(images, filepath.Join(outputDir, e.Name()))
+		}
+	}
+	if len(images) == 0 {
+		return nil, fmt.Errorf("mutool produced no output images")
+	}
+
+	sort.Slice(images, func(i, j int) bool {
+		return extractPageNum(images[i]) < extractPageNum(images[j])
+	})
+
+	return images, nil
+}
+
+// extractPageNum extracts the page number from a filename like "page-3.png".
+func extractPageNum(path string) int {
+	base := filepath.Base(path)
+	ext := filepath.Ext(base)
+	name := strings.TrimSuffix(base, ext)
+	parts := strings.Split(name, "-")
+	n, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// configBinDir returns ~/.config/aigc-cli/bin — the directory for bundled
+// CLI tools (mutool, etc.). This lets us ship tools alongside the config
+// without requiring system-wide install.
+func configBinDir() string {
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".config", "aigc-cli", "bin")
+}
+
+// findMutool locates the mutool binary, checking ~/.config/aigc-cli/bin/ first
+// then falling back to PATH. Returns the full path or an error with install hint.
+func findMutool() (string, error) {
+	// Check config bin dir first.
+	if dir := configBinDir(); dir != "" {
+		candidate := filepath.Join(dir, "mutool")
+		if s, err := os.Stat(candidate); err == nil && !s.IsDir() {
+			return candidate, nil
+		}
+		// macOS homebrew installs as mutool (not mupdf-gl/mupdf-mr)
+	}
+	// Fall back to PATH.
+	if p, err := exec.LookPath("mutool"); err == nil {
+		return p, nil
+	}
+	return "", fmt.Errorf("mutool not found — install mupdf-tools: https://mupdf.com/downloads")
+}
+
+// MutoolInstallHint returns a help message for installing mutool.
+func MutoolInstallHint() string {
+	return `this PDF appears to be a scanned document (no extractable text layer).
+To OCR it, install mupdf-tools (mutool) to convert PDF pages to images:
+
+  macOS:  brew install mupdf-tools
+  Linux:  apt install mupdf-tools    # or pacman -S mupdf-tools
+  Windows: https://mupdf.com/downloads
+
+Then run 'aigc-cli ocr scan <file>' again.`
 }

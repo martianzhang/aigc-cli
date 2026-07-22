@@ -16,6 +16,8 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/background"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/ocr"
+	"github.com/martianzhang/aigc-cli/internal/pdf"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
@@ -108,6 +110,8 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeTranscribeAudio(args)
 	case "describe_image":
 		return executeDescribeImage(args)
+	case "ocr_text":
+		return executeOCRText(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}
@@ -580,6 +584,141 @@ func executeTranscribeAudio(argsJSON string) string {
 type describeImageArgs struct {
 	FilePath string `json:"file_path"`
 	Caption  string `json:"caption,omitempty"`
+}
+
+// executeOCRText runs OCR on a local image or PDF and returns recognized text.
+func executeOCRText(argsJSON string) string {
+	var args struct {
+		FilePath string `json:"file_path"`
+		Lang     string `json:"lang"`
+		Format   string `json:"format"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.FilePath == "" {
+		return "Error: file_path is required"
+	}
+
+	path := args.FilePath
+	if !filepath.IsAbs(path) {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Sprintf("Error: invalid path: %v", err)
+		}
+		path = abs
+	}
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Sprintf("Error: file not found: %s", path)
+	}
+
+	if args.Lang == "" {
+		args.Lang = "auto"
+	}
+	if args.Format == "" {
+		args.Format = "text"
+	}
+
+	modelsDir := defaultModelsDir()
+	engine, err := newOCREngineWithLang(modelsDir, args.Lang)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	defer engine.Close()
+
+	var result *ocr.OCRResult
+
+	if strings.EqualFold(filepath.Ext(path), ".pdf") {
+		// Handle PDF via text extraction → fallback to OCR
+		pages, extractErr := pdf.ExtractText(path)
+		if extractErr != nil {
+			return fmt.Sprintf("Error: cannot read PDF: %v", extractErr)
+		}
+
+		if !pdf.IsScanned(pages) {
+			var textLines []string
+			ocrPages := make([]ocr.OCRPage, 0, len(pages))
+			for _, p := range pages {
+				line := strings.TrimSpace(p.Text)
+				if line != "" {
+					textLines = append(textLines, line)
+					ocrPages = append(ocrPages, ocr.OCRPage{
+						Page: p.Page - 1,
+						Lines: []ocr.OCRLine{{
+							Text:       line,
+							Confidence: 1.0,
+						}},
+					})
+				}
+			}
+			result = &ocr.OCRResult{
+				Pages: ocrPages,
+				Text:  strings.Join(textLines, "\n"),
+			}
+		} else {
+			tmpDir, tmpErr := os.MkdirTemp("", "aigc-cli-pdf-*")
+			if tmpErr != nil {
+				return fmt.Sprintf("Error: create temp dir: %v", tmpErr)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			pngs, renderErr := pdf.RenderToImages(path, tmpDir, 300)
+			if renderErr != nil {
+				return fmt.Sprintf("Error: render PDF: %v", renderErr)
+			}
+
+			allPages := make([]ocr.OCRPage, 0, len(pngs))
+			allText := make([]string, 0, len(pngs))
+			for pageIdx, pngPath := range pngs {
+				f, openErr := os.Open(pngPath)
+				if openErr != nil {
+					return fmt.Sprintf("Error: open rendered page %d: %v", pageIdx+1, openErr)
+				}
+				img, _, decodeErr := image.Decode(f)
+				f.Close()
+				if decodeErr != nil {
+					return fmt.Sprintf("Error: decode rendered page %d: %v", pageIdx+1, decodeErr)
+				}
+				pageResult, scanErr := engine.Scan(img)
+				if scanErr != nil {
+					return fmt.Sprintf("Error: OCR page %d: %v", pageIdx+1, scanErr)
+				}
+				for i := range pageResult.Pages {
+					pageResult.Pages[i].Page = pageIdx
+				}
+				allPages = append(allPages, pageResult.Pages...)
+				allText = append(allText, pageResult.Text)
+			}
+			result = &ocr.OCRResult{
+				Pages: allPages,
+				Text:  strings.Join(allText, "\n"),
+			}
+		}
+	} else {
+		f, openErr := os.Open(path)
+		if openErr != nil {
+			return fmt.Sprintf("Error: cannot open file: %v", openErr)
+		}
+		img, _, decodeErr := image.Decode(f)
+		f.Close()
+		if decodeErr != nil {
+			return fmt.Sprintf("Error: cannot decode image: %v", decodeErr)
+		}
+		result, err = engine.Scan(img)
+		if err != nil {
+			return fmt.Sprintf("Error: OCR failed: %v", err)
+		}
+	}
+
+	if args.Format == "json" {
+		data, _ := json.MarshalIndent(result, "", "  ")
+		return string(data)
+	}
+
+	if result.Text == "" {
+		return "(no text detected)"
+	}
+	return result.Text
 }
 
 // executeDescribeImage reads or writes the caption of an image file.
