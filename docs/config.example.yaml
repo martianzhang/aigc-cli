@@ -121,6 +121,16 @@ defaults:
 # ideas:
 #   data_path: "~/.config/aigc-cli/ideas/ideas.json"   # custom ideas.json path
 
+# Global tool enable/disable (applies to both chat and MCP tools).
+# Supports glob patterns (e.g. "generate_*", "remove_*").
+# Empty list = no restriction (all tools available by default).
+# tools_enable:                       # whitelist: only these tools are allowed
+#   - "generate_*"
+#   - "list_models"
+# tools_disable:                      # blacklist: exclude specific tools (applied on top of whitelist)
+#   - "remove_background"
+#   - "detect_image"
+
 # AIGC detection (detect command).
 # ONNX Runtime + model files are stored at ~/.config/aigc-cli/models/ by default.
 # detect:

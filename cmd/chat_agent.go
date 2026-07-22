@@ -103,8 +103,9 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 }
 
 // buildAgentTools returns the list of tool definitions based on config.
-// Applies tools (whitelist) and disable_tools (blacklist) glob patterns.
+// Applies global tools_enable/tools_disable first, then chat-specific tools/disable_tools.
 func buildAgentTools(cfg *types.ChatDefaults) []types.ToolDefinition {
+	// Chat-specific disable all (e.g. disable_tools: ["*"])
 	if cfg != nil && len(cfg.DisableTools) > 0 {
 		for _, pattern := range cfg.DisableTools {
 			if matched, _ := path.Match(pattern, "*"); matched {
@@ -115,7 +116,22 @@ func buildAgentTools(cfg *types.ChatDefaults) []types.ToolDefinition {
 
 	allTools := agentToolDefs
 
-	// Apply whitelist (tools)
+	// Apply global tools_enable/tools_disable (from top-level config)
+	if shared.Cfg != nil {
+		globalEnable := shared.Cfg.ToolsEnable
+		globalDisable := shared.Cfg.ToolsDisable
+		if len(globalEnable) > 0 || len(globalDisable) > 0 {
+			filtered := make([]types.ToolDefinition, 0)
+			for _, t := range allTools {
+				if isToolAllowed(t.Function.Name, globalEnable, globalDisable) {
+					filtered = append(filtered, t)
+				}
+			}
+			allTools = filtered
+		}
+	}
+
+	// Apply chat-specific whitelist (tools) — can only further restrict
 	if cfg != nil && len(cfg.Tools) > 0 {
 		hasWildcard := false
 		for _, pattern := range cfg.Tools {
@@ -138,7 +154,7 @@ func buildAgentTools(cfg *types.ChatDefaults) []types.ToolDefinition {
 		}
 	}
 
-	// Apply blacklist (disable_tools)
+	// Apply chat-specific blacklist (disable_tools) — can only further restrict
 	if cfg != nil && len(cfg.DisableTools) > 0 {
 		filtered := make([]types.ToolDefinition, 0)
 		for _, t := range allTools {

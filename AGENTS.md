@@ -128,7 +128,7 @@ make cover
 | `docs/guide-audio.md` | 修改 `audio` 命令参数或行为 |
 | `docs/guide-commands.md` | 修改 `models`/`task`/`balance`/`dry-run` 等辅助命令 |
 | `docs/faq.md` | 新增常见问题 |
-| `docs/mcp.md` | 修改 MCP 工具定义或配置方式 |
+| `docs/guide-mcp.md` | 修改 MCP 工具定义或配置方式 |
 | `docs/config.example.yaml` | 新增/修改配置字段 |
 | `docs/release_notes/vX.Y.Z.md` | 每次发版前创建 |
 

@@ -19,6 +19,8 @@ tools directly: generate images, generate videos, query models, etc.
 
 Configuration is read from config.yaml, environment variables, and --config flag.
 
+Use --list-tools to see available tools.
+
 Example MCP host config:
 {
   "mcpServers": {
@@ -30,17 +32,19 @@ Example MCP host config:
 }
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		listTools, _ := cmd.Flags().GetBool("list-tools")
+
 		// Load config (optional) to get defaults
 		cfg, _ := config.Load(shared.CfgFile)
 
 		mcpCfg := &mcp.Config{
-			APIKey:  shared.APIKey,
-			BaseURL: shared.APIBase,
-			Proxy:   shared.HTTPProxy,
-			Output:  shared.OutputDir,
+			APIKey:    shared.APIKey,
+			BaseURL:   shared.APIBase,
+			Proxy:     shared.HTTPProxy,
+			Output:    shared.OutputDir,
+			ListTools: listTools,
 		}
 
-		// Copy defaults from config if present
 		if cfg != nil {
 			if mcpCfg.APIKey == "" {
 				mcpCfg.APIKey = cfg.APIKey
@@ -51,6 +55,8 @@ Example MCP host config:
 			if mcpCfg.Proxy == "" {
 				mcpCfg.Proxy = cfg.HTTPProxy
 			}
+			mcpCfg.ToolsEnable = cfg.ToolsEnable
+			mcpCfg.ToolsDisable = cfg.ToolsDisable
 			mcpCfg.Defaults = cfg.Defaults
 		}
 
@@ -83,5 +89,6 @@ func init() {
 		return nil
 	}
 
+	mcpCmd.Flags().Bool("list-tools", false, "list available MCP tools and exit")
 	rootCmd.AddCommand(mcpCmd)
 }

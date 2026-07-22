@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -21,11 +22,14 @@ import (
 // Config holds the configuration for the MCP server.
 // It's a subset of the full CLI config, focused on what MCP tools need.
 type Config struct {
-	APIKey   string
-	BaseURL  string
-	Proxy    string
-	Output   string
-	Defaults *types.ConfigDefaults
+	APIKey       string
+	BaseURL      string
+	Proxy        string
+	Output       string
+	Defaults     *types.ConfigDefaults
+	ToolsEnable  []string
+	ToolsDisable []string
+	ListTools    bool
 }
 
 // buildImageDesc builds the generate_image tool description with config defaults injected.
@@ -83,8 +87,31 @@ func buildAudioDesc(d *types.AudioDefaults, baseURL string) string {
 	return b.String()
 }
 
-// NewServer creates and configures an MCP server with all APIMart tools.
-// Handlers are implemented as closures capturing the config.
+type toolInfo struct {
+	name    string
+	desc    string
+	newTool func(desc string) mcp.Tool
+	handler func(cfg *Config) server.ToolHandlerFunc
+}
+
+var toolRegistry = []toolInfo{
+	{"generate_image", "Generate images via AI", newGenerateImageTool, func(cfg *Config) server.ToolHandlerFunc { return generateImageHandler(cfg) }},
+	{"generate_video", "Generate videos via AI (async submit → poll)", newGenerateVideoTool, func(cfg *Config) server.ToolHandlerFunc { return generateVideoHandler(cfg) }},
+	{"generate_speech", "Convert text to speech (TTS)", newGenerateSpeechTool, func(cfg *Config) server.ToolHandlerFunc { return generateSpeechHandler(cfg) }},
+	{"transcribe_audio", "Transcribe audio to text (STT)", newTranscribeAudioTool, func(cfg *Config) server.ToolHandlerFunc { return transcribeAudioHandler(cfg) }},
+	{"list_models", "List available models", func(desc string) mcp.Tool { return newListModelsTool() }, func(cfg *Config) server.ToolHandlerFunc { return listModelsHandler() }},
+	{"get_model_pricing", "Query model pricing details", func(desc string) mcp.Tool { return newGetModelPricingTool() }, func(cfg *Config) server.ToolHandlerFunc { return getModelPricingHandler() }},
+	{"get_balance", "Query API key or account balance", func(desc string) mcp.Tool { return newGetBalanceTool() }, func(cfg *Config) server.ToolHandlerFunc { return getBalanceHandler(cfg) }},
+	{"get_task", "Query async task/job status", func(desc string) mcp.Tool { return newGetTaskTool() }, func(cfg *Config) server.ToolHandlerFunc { return getTaskHandler(cfg) }},
+	{"describe_image", "Read or write image caption", func(desc string) mcp.Tool { return newDescribeImageTool() }, func(cfg *Config) server.ToolHandlerFunc { return describeImageHandler() }},
+	{"search_ideas", "Search AI prompt ideas", func(desc string) mcp.Tool { return newSearchIdeasTool() }, func(cfg *Config) server.ToolHandlerFunc { return searchIdeasHandler() }},
+	{"remove_background", "Remove image background (offline)", func(desc string) mcp.Tool { return newRemoveBackgroundTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeBackgroundHandler() }},
+	{"detect_image", "Detect AIGC/watermark in images (offline)", func(desc string) mcp.Tool { return newDetectTool() }, func(cfg *Config) server.ToolHandlerFunc { return detectHandler() }},
+	{"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler() }},
+	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler() }},
+}
+
+// NewServer creates and configures an MCP server, registering tools based on config.
 func NewServer(cfg *Config) *server.MCPServer {
 	s := server.NewMCPServer(
 		"aigc-cli",
@@ -93,34 +120,77 @@ func NewServer(cfg *Config) *server.MCPServer {
 		server.WithLogging(),
 	)
 
-	// Build descriptions with config defaults
 	imgDesc := buildImageDesc(cfg.Defaults.Image, cfg.BaseURL)
 	videoDesc := buildVideoDesc(cfg.Defaults.Video, cfg.BaseURL)
 	audioDesc := buildAudioDesc(cfg.Defaults.Audio, cfg.BaseURL)
+	toolDescriptions := map[string]string{
+		"generate_image":   imgDesc,
+		"generate_video":   videoDesc,
+		"generate_speech":  audioDesc,
+		"transcribe_audio": audioDesc,
+	}
 
-	// Register tools with config captured via closures
-	s.AddTool(newGenerateImageTool(imgDesc), generateImageHandler(cfg))
-	s.AddTool(newGenerateVideoTool(videoDesc), generateVideoHandler(cfg))
-	s.AddTool(newGenerateSpeechTool(audioDesc), generateSpeechHandler(cfg))
-	s.AddTool(newTranscribeAudioTool(audioDesc), transcribeAudioHandler(cfg))
-	s.AddTool(newListModelsTool(), listModelsHandler())
-	s.AddTool(newGetModelPricingTool(), getModelPricingHandler())
-	s.AddTool(newGetBalanceTool(), getBalanceHandler(cfg))
-	s.AddTool(newGetTaskTool(), getTaskHandler(cfg))
-	s.AddTool(newDetectTool(), detectHandler())
-	s.AddTool(newRemoveWatermarkTool(), removeWatermarkHandler())
-	s.AddTool(newAddWatermarkTool(), addWatermarkHandler())
-	s.AddTool(newSearchIdeasTool(), searchIdeasHandler())
-	s.AddTool(newDescribeImageTool(), describeImageHandler())
-	s.AddTool(newRemoveBackgroundTool(), removeBackgroundHandler())
+	enableList := cfg.ToolsEnable
+	disableList := cfg.ToolsDisable
+	for _, info := range toolRegistry {
+		if !isToolAllowed(info.name, enableList, disableList) {
+			continue
+		}
+		desc := toolDescriptions[info.name]
+		if desc == "" {
+			desc = info.desc
+		}
+		s.AddTool(info.newTool(desc), info.handler(cfg))
+	}
 
 	return s
 }
 
+func isToolAllowed(name string, enable, disable []string) bool {
+	if len(enable) > 0 && !matchAny(name, enable) {
+		return false
+	}
+	if matchAny(name, disable) {
+		return false
+	}
+	return true
+}
+
+func matchAny(name string, patterns []string) bool {
+	for _, p := range patterns {
+		if matched, _ := path.Match(p, name); matched {
+			return true
+		}
+	}
+	return false
+}
+
 // Run starts the MCP server with stdio transport.
 func Run(cfg *Config) error {
+	if cfg.ListTools {
+		ListTools(cfg)
+		return nil
+	}
 	s := NewServer(cfg)
 	return server.ServeStdio(s)
+}
+
+// ListTools prints all registered MCP tools and exits.
+func ListTools(cfg *Config) {
+	fmt.Println("Available MCP tools:")
+	for _, info := range toolRegistry {
+		if !isToolAllowed(info.name, cfg.ToolsEnable, cfg.ToolsDisable) {
+			continue
+		}
+		fmt.Printf("  %-24s  %s\n", info.name, info.desc)
+	}
+
+	if len(cfg.ToolsEnable) > 0 {
+		fmt.Printf("\n  tools_enable:  %v\n", cfg.ToolsEnable)
+	}
+	if len(cfg.ToolsDisable) > 0 {
+		fmt.Printf("  tools_disable: %v\n", cfg.ToolsDisable)
+	}
 }
 
 // ----- Tool definitions -----
