@@ -573,40 +573,6 @@ func isCJK(r rune) bool {
 		(r >= 0xFF00 && r <= 0xFFEF) // Fullwidth forms
 }
 
-// lineSeparator determines what separator to place between two adjacent
-// text blocks. Based on Umi-OCR's word_separator logic:
-// - CJK + CJK → no space (Chinese text runs together)
-// - Before punctuation → no space
-// - Otherwise → space
-func lineSeparator(prevText, nextText string) string {
-	if prevText == "" || nextText == "" {
-		return ""
-	}
-	lastRune := []rune(prevText)[len([]rune(prevText))-1]
-	firstRune := []rune(nextText)[0]
-
-	// CJK adjacent: no space
-	if isCJK(lastRune) && isCJK(firstRune) {
-		return ""
-	}
-	// Hyphen: no space
-	if lastRune == '-' {
-		return ""
-	}
-	// Before punctuation: no space
-	if isPunctuation(firstRune) {
-		return ""
-	}
-	return " "
-}
-
-func isPunctuation(r rune) bool {
-	return (r >= 0x21 && r <= 0x2F) || // !"#$%&'()*+,-./
-		(r >= 0x3A && r <= 0x3F) || // :;<=>?
-		r == 0x3001 || r == 0x3002 || // 、。
-		r == 0xFF0C || r == 0xFF0E // ，。
-}
-
 // groupLinesIntoParagraphs groups recognized lines into paragraphs based on
 // their vertical position and indentation. Uses a simplified version of
 // Umi-OCR's paragraph parsing approach.

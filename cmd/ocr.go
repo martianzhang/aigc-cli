@@ -8,12 +8,15 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/ocr"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
+	"github.com/martianzhang/aigc-cli/internal/pdf"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/spf13/cobra"
 	_ "golang.org/x/image/bmp"
@@ -155,6 +158,11 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("file not found: %s", inputPath)
 	}
 
+	// Handle PDF input
+	if strings.EqualFold(filepath.Ext(inputPath), ".pdf") {
+		return scanPDF(cmd, inputPath)
+	}
+
 	// Try to decode as image
 	f, err := os.Open(inputPath)
 	if err != nil {
@@ -174,14 +182,163 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 
 func scanImage(cmd *cobra.Command, img image.Image, inputPath string) error {
 	modelsDir := defaultModelsDir()
+	engine, err := newOCREngine(modelsDir)
+	if err != nil {
+		return err
+	}
+	defer engine.Close()
+
+	result, err := engine.Scan(img)
+	if err != nil {
+		return fmt.Errorf("OCR scan failed: %w", err)
+	}
+
+	return saveOCRResult(cmd, result, inputPath)
+}
+
+// scanPDF handles PDF input: tries text extraction first; falls back to OCR
+// for scanned/image-based PDFs.
+func scanPDF(cmd *cobra.Command, pdfPath string) error {
+	// Try text extraction first
+	pages, err := pdf.ExtractText(pdfPath)
+	if err != nil {
+		return fmt.Errorf("read PDF: %w", err)
+	}
+
+	if !pdf.IsScanned(pages) {
+		// Text-based PDF: use extracted text directly.
+		var textLines []string
+		for _, p := range pages {
+			line := strings.TrimSpace(p.Text)
+			if line != "" {
+				textLines = append(textLines, line)
+			}
+		}
+		rawText := strings.Join(textLines, "\n")
+
+		ocrPages := make([]ocr.OCRPage, 0, len(pages))
+		for _, p := range pages {
+			line := strings.TrimSpace(p.Text)
+			if line != "" {
+				ocrPages = append(ocrPages, ocr.OCRPage{
+					Page: p.Page - 1,
+					Lines: []ocr.OCRLine{{
+						Text:       line,
+						Confidence: 1.0,
+					}},
+				})
+			}
+		}
+
+		result := &ocr.OCRResult{
+			Pages: ocrPages,
+			Text:  rawText,
+		}
+		return saveOCRResult(cmd, result, pdfPath)
+	}
+
+	pngs, err := renderPDFPages(pdfPath, 300)
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(filepath.Dir(pngs[0]))
+
+	allPages := make([]ocr.OCRPage, 0, len(pngs))
+	allText := make([]string, 0, len(pngs))
+	for pageIdx, pngPath := range pngs {
+		f, err := os.Open(pngPath)
+		if err != nil {
+			return fmt.Errorf("open rendered page %d: %w", pageIdx+1, err)
+		}
+		img, _, err := image.Decode(f)
+		f.Close()
+		if err != nil {
+			return fmt.Errorf("decode rendered page %d: %w", pageIdx+1, err)
+		}
+
+		modelsDir := defaultModelsDir()
+		engine, err := newOCREngine(modelsDir)
+		if err != nil {
+			return err
+		}
+		result, err := engine.Scan(img)
+		engine.Close()
+		if err != nil {
+			return fmt.Errorf("OCR page %d: %w", pageIdx+1, err)
+		}
+		allPages = append(allPages, result.Pages...)
+		allText = append(allText, result.Text)
+	}
+
+	result := &ocr.OCRResult{
+		Pages: allPages,
+		Text:  strings.Join(allText, "\n"),
+	}
+	return saveOCRResult(cmd, result, pdfPath)
+}
+
+func renderPDFPages(pdfPath string, dpi int) ([]string, error) {
+	if _, err := exec.LookPath("mutool"); err != nil {
+		return nil, errors.New(mutoolInstallHint())
+	}
+
+	tmpDir, err := os.MkdirTemp("", "aigc-cli-pdf-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp dir: %w", err)
+	}
+
+	outPattern := filepath.Join(tmpDir, "page-%d.png")
+	cmd := exec.Command("mutool", "draw",
+		"-o", outPattern,
+		"-r", strconv.Itoa(dpi),
+		pdfPath,
+	)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		os.RemoveAll(tmpDir)
+		return nil, fmt.Errorf("mutool draw failed: %w", err)
+	}
+
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		return nil, fmt.Errorf("read output: %w", err)
+	}
+
+	var images []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".png") {
+			images = append(images, filepath.Join(tmpDir, e.Name()))
+		}
+	}
+	if len(images) == 0 {
+		os.RemoveAll(tmpDir)
+		return nil, fmt.Errorf("mutool produced no output images")
+	}
+	return images, nil
+}
+
+func mutoolInstallHint() string {
+	return `this PDF appears to be a scanned document (no extractable text layer).
+To OCR it, install mupdf-tools (mutool) to convert PDF pages to images:
+
+  macOS:  brew install mupdf-tools
+  Linux:  apt install mupdf-tools    # or pacman -S mupdf-tools
+  Windows: https://mupdf.com/downloads
+
+Then run 'aigc-cli ocr scan <file>' again.`
+}
+
+// newOCREngine creates an OCR engine with the standard model setup.
+func newOCREngine(modelsDir string) (*ocr.Engine, error) {
 	ocrModelsDir := filepath.Join(modelsDir, "ocr")
 
-	// Find ONNX Runtime library path (silent, no "already installed" output)
 	libPath, err := onnxrt.LibPath(modelsDir)
 	if err != nil {
 		libPath, err = onnxrt.EnsureInstalled(modelsDir, false)
 		if err != nil {
-			return fmt.Errorf("ONNX Runtime not available: %w\n\nRun 'aigc-cli ocr init' first", err)
+			return nil, fmt.Errorf("ONNX Runtime not available: %w\n\nRun 'aigc-cli ocr init' first", err)
 		}
 	}
 
@@ -190,10 +347,10 @@ func scanImage(cmd *cobra.Command, img image.Image, inputPath string) error {
 	dictPath := filepath.Join(ocrModelsDir, "dict_zh.txt")
 
 	if _, err := os.Stat(detPath); err != nil {
-		return fmt.Errorf("detection model not found: %w\n\nRun 'aigc-cli ocr init' first", err)
+		return nil, fmt.Errorf("detection model not found: %w\n\nRun 'aigc-cli ocr init' first", err)
 	}
 	if _, err := os.Stat(recPath); err != nil {
-		return fmt.Errorf("recognition model not found: %w\n\nRun 'aigc-cli ocr init' first", err)
+		return nil, fmt.Errorf("recognition model not found: %w\n\nRun 'aigc-cli ocr init' first", err)
 	}
 
 	clsPath := filepath.Join(ocrModelsDir, "ch_ppocr_mobile_v2.0_cls_infer.onnx")
@@ -206,14 +363,11 @@ func scanImage(cmd *cobra.Command, img image.Image, inputPath string) error {
 		enModelPath = ""
 		enDictPath = ""
 	case "en":
-		// enModelPath/enDictPath stay as-is
 	case "auto":
-		// keep defaults
 	default:
-		return fmt.Errorf("unsupported language %q, use: auto, zh, en", ocrScanLang)
+		return nil, fmt.Errorf("unsupported language %q, use: auto, zh, en", ocrScanLang)
 	}
 
-	// Check if English model files exist
 	if enModelPath != "" {
 		if _, err := os.Stat(enModelPath); err != nil {
 			enModelPath = ""
@@ -225,20 +379,11 @@ func scanImage(cmd *cobra.Command, img image.Image, inputPath string) error {
 		}
 	}
 
-	// Create engine
-	engine, err := ocr.NewEngine(libPath, detPath, recPath, clsPath, dictPath, 6625, "softmax_11.tmp_0", enModelPath, enDictPath, ocrScanLang)
-	if err != nil {
-		return fmt.Errorf("create OCR engine: %w", err)
-	}
-	defer engine.Close()
+	return ocr.NewEngine(libPath, detPath, recPath, clsPath, dictPath, 6625, "softmax_11.tmp_0", enModelPath, enDictPath, ocrScanLang)
+}
 
-	// Run OCR
-	result, err := engine.Scan(img)
-	if err != nil {
-		return fmt.Errorf("OCR scan failed: %w", err)
-	}
-
-	// Determine output filename
+// saveOCRResult saves an OCR result to a markdown file and optionally previews it.
+func saveOCRResult(cmd *cobra.Command, result *ocr.OCRResult, inputPath string) error {
 	outPath := ""
 	if inputPath != "" && inputPath != "stdin" {
 		ext := filepath.Ext(inputPath)

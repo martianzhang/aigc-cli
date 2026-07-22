@@ -328,28 +328,6 @@ func voiceNamesForModel(modelID string, count int) map[int]string {
 	return nil
 }
 
-// releaseTag returns the base release tag for downloading runtime assets.
-// Dev builds (e.g. "v1.10.2-12-gbcfd94c-dirty") are stripped to the
-// underlying release tag ("v1.10.2") so the download URL is valid.
-func releaseTag() string {
-	tag := Version
-	if tag == "" || tag == "dev" {
-		return "latest"
-	}
-	// Strip "-dirty" suffix from git describe output.
-	tag = strings.TrimSuffix(tag, "-dirty")
-	// Strip git describe suffix: "v1.10.2-12-gbcfd94c" → "v1.10.2".
-	if idx := strings.LastIndex(tag, "-g"); idx > 0 {
-		prefix := tag[:idx] // "v1.10.2-12"
-		if idx2 := strings.LastIndex(prefix, "-"); idx2 > 0 {
-			tag = prefix[:idx2] // "v1.10.2"
-		} else {
-			tag = prefix
-		}
-	}
-	return tag
-}
-
 // ensureAudioRuntime ensures the helper library and sherpa-onnx libs are available.
 func ensureAudioRuntime() error {
 	modelsDir := filepath.Dir(audioModelsDir())
@@ -364,8 +342,7 @@ func ensureAudioRuntime() error {
 	}
 	helperPath := filepath.Join(modelsDir, helperName)
 
-	tag := releaseTag()
-	baseURL := fmt.Sprintf("https://github.com/martianzhang/aigc-cli/releases/download/%s", tag)
+	baseURL := "https://github.com/martianzhang/aigc-cli-models/releases/download/v1"
 
 	if _, err := os.Stat(helperPath); err == nil {
 		fmt.Printf("Audio helper: %s\n", helperPath)

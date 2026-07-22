@@ -12,9 +12,9 @@
 | **管线架构** | det → rec 两阶段流水线 | RapidOCR 成熟方案，可独立调试各阶段 |
 | **语言支持** | 中英同步 | RapidOCR 中英文模型均有 ONNX 格式，一起做 |
 | **表格/版面** | ✅ 需要。RapidOCR 不内置，用 PP-StructureV3 独立 ONNX 模型补充 | PaddlePaddle 有 PP-DocLayout、SLANet 等 ONNX 格式 |
-| **PDF 输入** | ✅ 内嵌，用 `go-fitz`（MuPDF 封装）PDF→图片 | 项目已有 CGO 模式（audio/sherpa-onnx），`go-fitz` 最成熟 |
+| **PDF 输入** | ✅ 内嵌，纯 Go 双路径：`ledongthuc/pdf` 文本提取 + `pdfcpu` 渲染扫描件为图片 | 纯 Go，零 CGO，零外部命令 |
 | **ONNX Runtime** | `pure-onnx`（纯 Go，无 CGO） | 复用现有 `internal/rmbg` 的模式 |
-| **CGO 范围** | 仅 PDF 渲染需要 CGO，OCR 推理本身零 CGO | OCR 核心保持纯 Go |
+| **CGO 范围** | 整个 OCR 流程零 CGO | OCR 核心 + PDF 全部纯 Go |
 
 ---
 
@@ -176,45 +176,55 @@ aigc-cli ocr scan --json receipt.jpg
 │         命令定义、flag 注册、RunOCR/Init               │
 └──────────┬──────────────────────────┬──────────────┘
            │                          │
-    ┌──────▼──────┐          ┌───────▼────────┐
-    │ internal/   │          │ internal/pdf/   │
-    │ ocr/        │          │ (go-fitz)       │
-    │             │          │ PDF→image       │
-    │ OCR 推理    │          │ CGO (MuPDF)     │
-    │ pure-onnx   │          └────────────────┘
-    │ 无 CGO      │
-    └──────┬──────┘
+     ┌──────▼──────────┐      ┌───────▼──────────────────┐
+     │ internal/       │      │ internal/pdf/            │
+     │ ocr/            │      │ (pure Go)                │
+     │                 │      │                          │
+     │ OCR 推理        │      │ ┌─ ledongthuc/pdf ───┐   │
+     │ pure-onnx       │      │ │ 文本提取（文字 PDF）│   │
+     │ 无 CGO          │      │ └────────────────────┘   │
+     └──────┬──────────┘      │ ┌─ pdfcpu ───────────┐   │
+           │                 │ │ 渲染页面为图片      │   │
+           │                 │ │（扫描件→OCR管线）   │   │
+           │                 │ └────────────────────┘   │
+           │                 └──────────────────────────┘
            │
-    ┌──────▼──────────────────────────────┐
-    │      ONNX Runtime (pure-onnx)        │
-    │  det.onnx → rec.onnx → cls.onnx     │
-    └─────────────────────────────────────┘
+     ┌──────▼──────────────────────────────┐
+     │      ONNX Runtime (pure-onnx)        │
+     │  det.onnx → rec.onnx → cls.onnx     │
+     └─────────────────────────────────────┘
 ```
 
 ### 推理流程
 
 ```
-输入图片 / PDF（go-fitz 渲染）
-    ↓
-┌─ 版面分析（P2, PP-DocLayout）
-│  → 输出区块：text / table / figure / title
-│     ↓ text 区块进入 OCR 管线
-│     ↓ table / figure 区块 → 截图嵌入 Markdown
-│
-├─ 方向分类（cls.onnx, 可选）
-│  → 纠正 90°/180° 旋转
-│
-├─ 文本检测（det.onnx -> DBNet）
-│  → 输出概率图 + 文字框（四点坐标）
-│
-├─ 后处理（DB 二值化 → 连通域 → NMS → 文字框）
-│
-├─ Perspective Crop（仿射变换裁切文字区域）
-│
-├─ 文字识别（rec.onnx -> CRNN/SVTR）
-│  → 输出 CTC 解码后文本
-│
-└─ 结构化输出（行号 + 文本 + confidence + bbox）
+输入图片 / PDF
+    │
+    ├── 图片 ───────────────→ 直接进入 OCR 管线
+    │
+    └── PDF ──┬── 文本 PDF ─────────→  ledongthuc/pdf 提取文本 ──→ 直接输出
+              │
+              └── 扫描件（无文本）──→  pdfcpu 逐页渲染为图片 ──→ OCR 管线
+                                        ↓
+                              ┌─ 版面分析（P2, PP-DocLayout）
+                              │  → 输出区块：text / table / figure / title
+                              │     ↓ text 区块进入 OCR 管线
+                              │     ↓ table / figure 区块 → 截图嵌入 Markdown
+                              │
+                              ├─ 方向分类（cls.onnx, 可选）
+                              │  → 纠正 90°/180° 旋转
+                              │
+                              ├─ 文本检测（det.onnx -> DBNet）
+                              │  → 输出概率图 + 文字框（四点坐标）
+                              │
+                              ├─ 后处理（DB 二值化 → 连通域 → NMS → 文字框）
+                              │
+                              ├─ Perspective Crop（仿射变换裁切文字区域）
+                              │
+                              ├─ 文字识别（rec.onnx -> CRNN/SVTR）
+                              │  → 输出 CTC 解码后文本
+                              │
+                              └─ 结构化输出（文本 + confidence + bbox）
 ```
 
 ### 文件结构
@@ -238,8 +248,9 @@ internal/
 │   ├── detector.go             # PP-DocLayout ONNX 推理
 │   └── types.go                # LayoutBlock 类型定义
 │
-└── pdf/                        # PDF→图片（CGO, go-fitz）
-    └── render.go               # PDF 逐页渲染为 image.Image
+└── pdf/                        # PDF 处理（pure Go，零 CGO）
+    ├── pdf.go                  # 双路径：文本提取 + 扫描件渲染 + 自动检测
+    ├── pdf_test.go             # 测试
 ```
 
 ### Go 参考项目
@@ -317,32 +328,71 @@ type ModelFile struct {
 
 ---
 
-## PDF 支持（go-fitz）
+## PDF 支持（纯 Go，零 CGO）
 
 ### 选型理由
 
-| 方案 | 方式 | CGO | 成熟度 |
-|---|---|---|---|
-| **go-fitz**（MuPDF 封装） | ✅ 直接 API 调用 | 是 | ⭐⭐⭐⭐⭐ 最成熟，1.5k ⭐ |
-| `pdftoppm`（poppler） | subprocess | 否 | 依赖系统安装 |
-| `pdfcpu` | 纯 Go | 否 | 无渲染能力 |
-| `unipdf` | 商业 | 否 | 贵 |
+| 方案 | 方式 | CGO | 文本提取 | 页面渲染 | 纯 Go |
+|---|---|---|---|---|---|
+| **ledongthuc/pdf + pdfcpu** | 双路径 | 否 | ✅ 直接提取 | ✅ pdfcpu 渲染 | ✅ |
+| `go-fitz`（MuPDF） | 直接 API | 是 | ❌ | ✅ | ❌ |
+| `pdftoppm`（poppler） | subprocess | 否 | ❌ | ✅ | ❌ 需预装 |
+| `pdfcpu` 单独 | 纯 Go | 否 | ❌ 无文本提取 | ✅ | ✅ |
+| `unipdf` | 商业 | 否 | ✅ | ✅ | ✅ 但收费 |
 
-go-fitz 是 Go 生态最成熟的 PDF→image 方案，API 简洁：
+### 双路径策略
+
+```
+PDF 输入
+  │
+  ├─① ExtractText() ─── ledongthuc/pdf ── 有文本？→ 直接输出 ✅ (快，准)
+  │
+  └─② 无文本（扫描件）─→ pdfcpu 渲染为 PNG ─→ OCR 管线
+                     (300 DPI, 逐页渲染)
+```
+
+**判断标准**：提取到的文本平均每页 > 50 个有效字符 → 文字 PDF，直接输出；
+否则视为扫描件，走渲染+OCR 路径。
+
+### ledongthuc/pdf 文本提取
 
 ```go
-import "github.com/gen2brain/go-fitz"
+import "github.com/ledongthuc/pdf"
 
-doc, _ := fitz.New("document.pdf")
-defer doc.Close()
+f, r, _ := pdf.Open("document.pdf")
+defer f.Close()
 
-for n := 0; n < doc.NumPage(); n++ {
-    img, err := doc.Image(n)  // *image.RGBA
-    // → 传给 OCR Engine.Scan()
+for i := 1; i <= r.NumPage(); i++ {
+    page := r.Page(i)
+    text, _ := page.GetPlainText()
+    // → 直接加入 OCRResult
 }
 ```
 
-项目已有 CGO 模式（audio/sherpa-onnx），go-fitz 的 CGO 依赖在同一个可接受范围内。
+ollama / mattermost / ragflow / langchaingo 等 Go 项目均使用此库，成熟度高。
+
+### pdfcpu 页面渲染
+
+```go
+import "github.com/pdfcpu/pdfcpu/pkg/api"
+
+// 指定页号渲染为 PNG（300 DPI）
+api.RenderPagesFile("doc.pdf", outDir, []string{"1", "2"}, 300, "png", nil)
+```
+
+pdfcpu 是纯 Go PDF 处理库（Apache 2.0），渲染功能通过内置的 PDF 解释器 + `gg` 图形库实现，无需任何外部依赖。
+
+### 临时文件策略
+
+渲染产生的临时 PNG 在 OCR 完成后统一清理，对用户透明。
+
+### 参考项目
+
+| 项目 | 用途 |
+|---|---|
+| ledongthuc/pdf | ollama/mattermost/ragflow 均使用，文本提取成熟方案 |
+| pdfcpu/pdfcpu | 纯 Go PDF 处理套件，含页面渲染 |
+| sunshineplan/imgconv | 依赖 pdfcpu 提供 PDF→image 能力（也可直接调用 pdfcpu） |
 
 ---
 
@@ -405,7 +455,8 @@ for n := 0; n < doc.NumPage(); n++ {
 | PP-DocLayout | https://huggingface.co/PaddlePaddle/PP-DocLayout-L | 版面分析 ONNX 模型 |
 | paddleocr-onnx-models | https://huggingface.co/xberg-io/paddleocr-onnx-models | 多语言 ONNX 模型 |
 | ppu-paddle-ocr-models | https://github.com/PT-Perkasa-Pilar-Utama/ppu-paddle-ocr-models | 版面+表格 ONNX 模型 |
-| go-fitz (MuPDF) | https://github.com/gen2brain/go-fitz | PDF→图片 |
+| ledongthuc/pdf | https://github.com/ledongthuc/pdf | PDF 文本提取（纯 Go） |
+| pdfcpu/pdfcpu | https://github.com/pdfcpu/pdfcpu | PDF 页面渲染 + 处理（纯 Go） |
 | pure-onnx | https://github.com/amikos-tech/pure-onnx | 无 CGO ONNX Runtime |
 
 ---
@@ -423,7 +474,7 @@ for n := 0; n < doc.NumPage(); n++ {
 | `internal/ocr/rec.go` | ✅ 已完成 | CRNN ONNX 推理 + CTC greedy 解码 + 字典映射 |
 | `internal/ocr/rec_preproc.go` | ✅ 已完成 | 识别预处理（crop + resize 48px + pad） |
 | `cmd/ocr.go` | ✅ 已完成 | `ocr init` + `ocr scan` 命令 |
-| PDF 输入 | ⏳ 待讨论 | CGO 依赖待确认 |
+| PDF 输入 | ⏳ 实现中 | 纯 Go 双路径：ledongthuc/pdf 文本提取 + pdfcpu 渲染 |
 | MCP 工具 `ocr_text` | ⏳ P1 | 依赖管线稳定后 |
 | 英文模型（`rapidocr-en`） | ⏳ P1 | 模型 URL 已注册，需完善英文字典 |
 | 版面分析（PP-DocLayout） | ⏳ P2 | 独立 ONNX 模型 |
