@@ -977,6 +977,14 @@ func (e *Engine) Scan(img image.Image) (*OCRResult, error) {
 	// Build result with paragraph grouping
 	text := groupLinesIntoParagraphs(lines, lineY)
 
+	// Apply word splitting to concatenated English text (no extra model needed).
+	// This is a dictionary+DP approach inspired by Umi-OCR's text block post-processing.
+	// It handles cases where the detection model merged words into a single text block.
+	text = splitEnglishWords(text)
+	for i := range lines {
+		lines[i].Text = splitEnglishWords(lines[i].Text)
+	}
+
 	return &OCRResult{
 		Pages: []OCRPage{{
 			Page:  0,

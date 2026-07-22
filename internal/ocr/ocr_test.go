@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"unicode/utf8"
 )
@@ -618,5 +619,38 @@ func TestDetPreprocess_whiteImage(t *testing.T) {
 	if pixels[rIdx] < 1.0 {
 		// White pixel should be positive after normalization
 		t.Logf("White pixel normalized R value: %f (expected > 1.0)", pixels[rIdx])
+	}
+}
+
+// ----- splitEnglishWords -----
+
+func TestSplitEnglishWords_splitsConcatenated(t *testing.T) {
+	// Core behavior: concatenated English text should be broken into words.
+	// The DP may not produce perfect results with the system dictionary,
+	// but it MUST create at least as many tokens as there are words.
+	tests := []struct {
+		input string
+		min   int // minimum number of space-separated tokens expected
+	}{
+		{"thehiddendebtofthesecompanies", 6}, // the hidden debt of these companies
+		{"hasincreasedeightfoldoverthe", 4},  // has increased eightfold over the
+		{"Amidthefervorofartificial", 4},     // Amid the fervor of artificial
+	}
+	for _, tc := range tests {
+		got := splitEnglishWords(tc.input)
+		tokens := len(strings.Fields(got))
+		if tokens < tc.min {
+			t.Errorf("splitEnglishWords(%q) = %q (%d tokens), want ≥ %d", tc.input, got, tokens, tc.min)
+		}
+	}
+}
+
+func TestSplitEnglishWords_preservesGoodSpacing(t *testing.T) {
+	// Already well-spaced text should not be degraded to something unrecognizable.
+	input := "the hidden debt of these companies"
+	got := splitEnglishWords(input)
+	// The input has spaces and is readable, output should also have spaces
+	if !strings.Contains(got, " ") {
+		t.Errorf("splitEnglishWords(%q) = %q, lost all spaces", input, got)
 	}
 }

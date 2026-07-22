@@ -54,6 +54,7 @@ var ocrScanPreview bool
 var ocrScanLang string
 var ocrScanJSON bool
 var ocrScanPages string
+var ocrScanSpellcheck bool
 
 func init() {
 	ocrInitCmd.Flags().Bool("list", false, "List available model packs")
@@ -63,6 +64,7 @@ func init() {
 	ocrScanCmd.Flags().StringVar(&ocrScanLang, "lang", "auto", "Language: auto, zh (Chinese), en (English)")
 	ocrScanCmd.Flags().BoolVar(&ocrScanJSON, "json", false, "Output as JSON with bounding boxes and confidence scores")
 	ocrScanCmd.Flags().StringVar(&ocrScanPages, "pages", "", "Page range for PDF input (e.g. \"1-3,5\")")
+	ocrScanCmd.Flags().BoolVar(&ocrScanSpellcheck, "spellcheck", true, "Auto-correct spelling errors using dictionary")
 
 	ocrCmd.AddCommand(ocrInitCmd)
 	ocrCmd.AddCommand(ocrScanCmd)
@@ -131,7 +133,32 @@ func runOCRInit(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  ✓ %s\n", f.OutName)
 	}
 
+	// Download English dictionary for word splitting & spellcheck.
+	if err := downloadDict(modelsDir); err != nil {
+		fmt.Printf("  ⚠ %v\n", err)
+	}
+
 	fmt.Println("\nOCR models installed. Run 'aigc-cli ocr scan <image>' to test.")
+	return nil
+}
+
+// downloadDict downloads the English word list for OCR text post-processing.
+// The file should be uploaded to aigc-cli-models release assets as dict_en_words.txt.
+// Until it's available, OCR works without word splitting (uses system dict if present).
+func downloadDict(modelsDir string) error {
+	dictPath := filepath.Join(modelsDir, "dict_en_words.txt")
+	if _, err := os.Stat(dictPath); err == nil {
+		fmt.Println("  ✓ dict_en_words.txt (already exists)")
+		return nil
+	}
+	fmt.Println("  Downloading dict_en_words.txt...")
+	if err := service.SaveResource(
+		"https://github.com/martianzhang/aigc-cli-models/releases/download/v1/dict_en_words.txt",
+		dictPath,
+	); err != nil {
+		return fmt.Errorf("dict_en_words.txt not available yet (OCR works without it): %w", err)
+	}
+	fmt.Println("  ✓ dict_en_words.txt")
 	return nil
 }
 
@@ -194,6 +221,16 @@ func scanImage(cmd *cobra.Command, img image.Image, inputPath string) error {
 	result, err := engine.Scan(img)
 	if err != nil {
 		return fmt.Errorf("OCR scan failed: %w", err)
+	}
+
+	// Apply spellcheck to final text and individual lines
+	if ocrScanSpellcheck {
+		result.Text = ocr.SpellcheckText(result.Text)
+		for pi := range result.Pages {
+			for li := range result.Pages[pi].Lines {
+				result.Pages[pi].Lines[li].Text = ocr.SpellcheckText(result.Pages[pi].Lines[li].Text)
+			}
+		}
 	}
 
 	return saveOCRResult(cmd, result, inputPath)
@@ -374,6 +411,8 @@ func newOCREngineWithLang(modelsDir, lang string) (*ocr.Engine, error) {
 			enDictPath = ""
 		}
 	}
+
+	ocr.TryLoadDictionary()
 
 	return ocr.NewEngine(libPath, detPath, recPath, clsPath, dictPath, 6625, "softmax_11.tmp_0", enModelPath, enDictPath, lang)
 }

@@ -31,6 +31,7 @@ func Models() []ModelInfo {
 				{Type: "rec_en", URL: modelsBaseURL + "/rec_en_PP-OCRv3_infer.onnx", SizeMB: 9, OutName: "rec_en_PP-OCRv3_infer.onnx"},
 				{Type: "dict", URL: modelsBaseURL + "/dict_zh.txt", SizeMB: 0, OutName: "dict_zh.txt"},
 				{Type: "dict_en", URL: modelsBaseURL + "/dict_en.txt", SizeMB: 0, OutName: "dict_en.txt"},
+
 				{Type: "cls", URL: modelsBaseURL + "/ch_ppocr_mobile_v2.0_cls_infer.onnx", SizeMB: 1, OutName: "ch_ppocr_mobile_v2.0_cls_infer.onnx"},
 			},
 		},
