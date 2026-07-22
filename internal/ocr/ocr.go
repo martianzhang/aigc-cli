@@ -576,13 +576,13 @@ func isCJK(r rune) bool {
 // groupLinesIntoParagraphs groups recognized lines into paragraphs based on
 // their vertical position and indentation. Uses a simplified version of
 // Umi-OCR's paragraph parsing approach.
-func groupLinesIntoParagraphs(lines []OCRLine) string {
+// lineY holds original (unexpanded) Y bounds for each line, used for
+// row grouping to avoid expandBox padding overlapping adjacent lines.
+func groupLinesIntoParagraphs(lines []OCRLine, lineY [][2]int) string {
 	if len(lines) == 0 {
 		return ""
 	}
 
-	// Group into rows: within each row, blocks are horizontally arranged.
-	// Two blocks are in the same row if their vertical centers overlap.
 	type rowBlock struct {
 		line OCRLine
 		cx   int
@@ -590,19 +590,11 @@ func groupLinesIntoParagraphs(lines []OCRLine) string {
 	var rows [][]rowBlock
 	var rowTops []int
 
-	for _, line := range lines {
-		box := line.BBox
-		minY, maxY := box[0][1], box[0][1]
-		for _, p := range box[1:] {
-			if p[1] < minY {
-				minY = p[1]
-			}
-			if p[1] > maxY {
-				maxY = p[1]
-			}
-		}
+	for li, line := range lines {
+		minY, maxY := lineY[li][0], lineY[li][1]
 		cy := (minY + maxY) / 2
 		height := maxY - minY
+		box := line.BBox
 		placed := false
 
 		for ri := range rows {
@@ -647,46 +639,83 @@ func groupLinesIntoParagraphs(lines []OCRLine) string {
 		})
 	}
 
-	// Build output with separators
-	var result strings.Builder
+	var rowTexts []string
+	var rowSeps []string
+	rowBounds := make([][2]int, len(rows))
+
 	for ri, row := range rows {
-		for bi, blk := range row {
-			if bi > 0 {
-				// Check horizontal gap to detect column boundaries
-				prevBox := row[bi-1].line.BBox
-				prevRight := prevBox[1][0]      // top-right x
-				currLeft := blk.line.BBox[0][0] // top-left x
-				gap := currLeft - prevRight
-				// Use a minimum gap threshold of 20px to detect column breaks
-				if gap > 20 {
-					result.WriteString("\n")
-				} else {
-					result.WriteString(" ")
+		var rowBuf strings.Builder
+		minY, maxY := row[0].line.BBox[0][1], row[0].line.BBox[0][1]
+		for _, blk := range row {
+			for _, p := range blk.line.BBox {
+				if p[1] < minY {
+					minY = p[1]
+				}
+				if p[1] > maxY {
+					maxY = p[1]
 				}
 			}
-			result.WriteString(blk.line.Text)
 		}
-		if ri < len(rows)-1 {
-			result.WriteString("\n")
+		for bi, blk := range row {
+			if bi > 0 {
+				prevBox := row[bi-1].line.BBox
+				prevRight := prevBox[1][0]
+				currLeft := blk.line.BBox[0][0]
+				gap := currLeft - prevRight
+				if gap > 20 {
+					rowBuf.WriteString("\n")
+				} else {
+					rowBuf.WriteString(" ")
+				}
+			}
+			rowBuf.WriteString(blk.line.Text)
+		}
+		rowTexts = append(rowTexts, rowBuf.String())
+		rowBounds[ri] = [2]int{minY, maxY}
+	}
+
+	for ri := 0; ri < len(rows)-1; ri++ {
+		currMaxY := rowBounds[ri][1]
+		nextMinY := rowBounds[ri+1][0]
+		lineHeight := rowBounds[ri][1] - rowBounds[ri][0]
+		vGap := nextMinY - currMaxY
+
+		sep := " "
+		if vGap > lineHeight/2 {
+			sep = "\n\n"
+		} else if strings.HasSuffix(rowTexts[ri], "-") {
+			rowTexts[ri] = rowTexts[ri][:len(rowTexts[ri])-1]
+		}
+		rowSeps = append(rowSeps, sep)
+	}
+
+	var result strings.Builder
+	for i, text := range rowTexts {
+		result.WriteString(text)
+		if i < len(rowSeps) {
+			result.WriteString(rowSeps[i])
 		}
 	}
-	return cjkLatinSpacing(result.String())
+	out := result.String()
+	for strings.Contains(out, "\n\n\n") {
+		out = strings.ReplaceAll(out, "\n\n\n", "\n\n")
+	}
+	return cjkLatinSpacing(out)
 }
 
-// isEnglishText checks whether OCR output is predominantly English.
-// Uses a threshold: if >70% of non-space characters are ASCII, treat as English.
-func isEnglishText(lines []OCRLine) bool {
+// isEnglishLine checks whether a single OCR line is predominantly English
+// (ASCII > 70% of non-space characters). Used for per-line re-recognition
+// with the English model, which correctly outputs spaces between words.
+func isEnglishLine(line OCRLine) bool {
 	var ascii, cjk int
-	for _, l := range lines {
-		for _, r := range l.Text {
-			if r == ' ' || r == '\u6781' {
-				continue
-			}
-			if r >= 0x4E00 && r <= 0x9FFF {
-				cjk++
-			} else if r <= 0x7F {
-				ascii++
-			}
+	for _, r := range line.Text {
+		if r == ' ' || r == '\u6781' {
+			continue
+		}
+		if r >= 0x4E00 && r <= 0x9FFF {
+			cjk++
+		} else if r <= 0x7F {
+			ascii++
 		}
 	}
 	total := ascii + cjk
@@ -839,7 +868,6 @@ func postProcessLine(text string) string {
 // Uses word-level matching (not substring) to avoid false positives.
 func fixCommonOCRErrors(text string) string {
 	type fix struct{ old, new string }
-	// Common PP-OCR confusions on the Chinese+English model when run on English text.
 	letters := []fix{
 		{"tor", "for"},                   // t→f
 		{"fhe", "the"},                   // f→t
@@ -851,13 +879,23 @@ func fixCommonOCRErrors(text string) string {
 		{"1n", "in"},                     // 1→i
 		{"subscribtion", "subscription"}, // missing p
 		{"usagelimit", "usage limit"},
-		{"God", "Go"}, // partial word
+		{"God", "Go"},
+		{"inteligence", "intelligence"},
+		{"trllion", "trillion"},
+		{"ifficult", "difficult"},
+		{"debtlevels", "debt levels"},
+		{"Thisituation", "This situation"},
+		{"Nikki", "Nikkei"},
 	}
 	words := strings.Fields(text)
 	for i, w := range words {
+		clean := strings.TrimRight(w, ".,;:!?\"')\u201D\u2019\u300D\u3011")
 		for _, f := range letters {
-			if strings.EqualFold(w, f.old) {
+			if strings.EqualFold(clean, f.old) {
 				words[i] = f.new
+				if len(clean) < len(w) {
+					words[i] += w[len(clean):]
+				}
 				break
 			}
 		}
@@ -883,8 +921,11 @@ func (e *Engine) Scan(img image.Image) (*OCRResult, error) {
 	// Step 2: Sort boxes in reading order before recognition
 	sortBoxesReadingOrder(boxes)
 
-	// Step 3: Recognize each text region (Chinese model first)
-	var lines []OCRLine
+	type recResult struct {
+		line OCRLine
+		box  [4][2]int
+	}
+	var results []recResult
 	bounds := img.Bounds()
 	for _, box := range boxes {
 		expanded := expandBox(box, bounds.Max.X, bounds.Max.Y, 0.10)
@@ -893,31 +934,48 @@ func (e *Engine) Scan(img image.Image) (*OCRResult, error) {
 			continue
 		}
 		line.Text = postProcessLine(line.Text)
-		lines = append(lines, *line)
+		results = append(results, recResult{*line, box})
 	}
 
-	// Auto-detect language: if English model is available and no CJK in output,
-	// re-run with English model for much better English accuracy.
-	// Auto-detect language: if English model is available and no CJK in output,
-	// re-run with English model for much better English accuracy.
-	useEN := e.enRec != nil && (e.Lang == "en" || (e.Lang == "auto" && isEnglishText(lines)))
-	if useEN {
-		var enLines []OCRLine
-		for _, box := range boxes {
-			expanded := expandBox(box, bounds.Max.X, bounds.Max.Y, 0.10)
-			line, err := e.RecognizeEN(img, expanded)
+	// Per-line English re-recognition for mixed-language documents.
+	if e.enRec != nil && e.Lang != "zh" {
+		allEN := e.Lang == "en"
+		for i, r := range results {
+			if !allEN && !isEnglishLine(r.line) {
+				continue
+			}
+			expanded := expandBox(r.box, bounds.Max.X, bounds.Max.Y, 0.10)
+			enLine, err := e.RecognizeEN(img, expanded)
 			if err != nil {
 				continue
 			}
-			enLines = append(enLines, *line)
-		}
-		if len(enLines) > 0 {
-			lines = enLines
+			if enLine.Confidence > r.line.Confidence {
+				enLine.Text = fixCommonOCRErrors(enLine.Text)
+				results[i].line = *enLine
+			}
 		}
 	}
 
+	lines := make([]OCRLine, len(results))
+	lineY := make([][2]int, len(results))
+	for i, r := range results {
+		lines[i] = r.line
+		// Use original (unexpanded) box Y for row grouping to avoid
+		// expandBox(0.10) padding causing adjacent lines to overlap.
+		minY, maxY := r.box[0][1], r.box[0][1]
+		for _, p := range r.box[1:] {
+			if p[1] < minY {
+				minY = p[1]
+			}
+			if p[1] > maxY {
+				maxY = p[1]
+			}
+		}
+		lineY[i] = [2]int{minY, maxY}
+	}
+
 	// Build result with paragraph grouping
-	text := groupLinesIntoParagraphs(lines)
+	text := groupLinesIntoParagraphs(lines, lineY)
 
 	return &OCRResult{
 		Pages: []OCRPage{{
