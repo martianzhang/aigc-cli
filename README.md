@@ -71,7 +71,7 @@ aigc-cli chat --message "Hello"
 }
 ```
 
-AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库、查询模型定价、检测 AIGC。详见 [docs/mcp.md](docs/mcp.md)。
+AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库、查询模型定价、检测 AIGC。详见 [docs/guide-mcp.md](docs/guide-mcp.md)。
 
 ---
 
@@ -122,6 +122,9 @@ aigc-cli
 │   ├── tts / speak  文字→语音（云端 API 或本地 sherpa-onnx 离线合成）
 │   ├── asr / stt    语音→文字（云端 API 或本地 sherpa-onnx 离线识别）
 │   └── init         下载本地模型（kokoro / sense-voice 等 12 种）
+├── ocr            离线文字识别（DBNet + CRNN，ONNX 本地推理）            →  docs/guide-ocr.md
+│   ├── init        下载 OCR 模型
+│   └── scan        识别图片中的文字
 ├── background / bg  AI 背景去除（基于 RMBG 2.0 语义分割，纯离线 ONNX 推理）  →  docs/guide-background.md
 ├── midjourney / mj                                                       →  docs/guide-midjourney.md
 │   └── mj     别名，同上
@@ -134,7 +137,7 @@ aigc-cli
 ├── preview / pr 看图 / --detail 元数据 / --describe 写说明                    →  docs/guide-preview.md
 ├── detect     检测水印、元数据和 AIGC（多信号融合 + emoji）             →  docs/guide-detect.md
 ├── completion 生成 shell 补全脚本（bash/zsh/fish/powershell）
-├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/mcp.md
+├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/guide-mcp.md
 │
 │   # 全局标志
 │   --dry-run      打印请求参数和等价 curl，不调用 API
@@ -204,7 +207,7 @@ aigc-cli midjourney (或 mj)
 | [其他命令](docs/guide-commands.md) | models、task、balance、dry-run、API 参考 |
 | [API 参考来源](docs/api-reference.md) | 各 Provider 接口规范来源、检测机制、策略路由 |
 | [常见问题](docs/faq.md) | 安装、使用、MCP、费用等常见问题解答 |
-| [MCP 集成](docs/mcp.md) | AI 代理（Claude/Cursor）集成指南 |
+| [MCP 集成](docs/guide-mcp.md) | AI 代理（Claude/Cursor）集成指南 |
 
 ---
 

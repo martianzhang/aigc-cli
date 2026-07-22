@@ -89,12 +89,12 @@ func removeBackgroundHandler() server.ToolHandlerFunc {
 		}
 
 		// 初始化 RMBG Detector
-		modelsDir := filepath.Join(configDir(), "models")
-		libPath, err := rmbg.DefaultLibPath(modelsDir)
+		sharedDir := filepath.Join(configDir(), "models")
+		libPath, err := rmbg.DefaultLibPath(sharedDir)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("ONNX Runtime not found. Run 'aigc-cli background init' first: %v", err)), nil
 		}
-		modelPath := rmbg.DefaultModelPath(modelsDir)
+		modelPath := rmbg.DefaultModelPath(filepath.Join(configDir(), "models", "background"))
 		if _, err := os.Stat(modelPath); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("RMBG model not found. Run 'aigc-cli background init' first: %v", err)), nil
 		}

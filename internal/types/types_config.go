@@ -1,18 +1,20 @@
 package types
 
 type Config struct {
-	APIKey     string            `mapstructure:"api_key" yaml:"api_key,omitempty"`
-	BaseURL    string            `mapstructure:"base_url" yaml:"base_url,omitempty"`
-	HTTPProxy  string            `mapstructure:"http_proxy" yaml:"http_proxy,omitempty"`
-	Verbose    bool              `mapstructure:"verbose" yaml:"verbose"`
-	SavePrompt bool              `mapstructure:"save_prompt" yaml:"save_prompt"`
-	Mode       string            `mapstructure:"mode" yaml:"mode,omitempty"`
-	OutputDir  string            `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
-	Timeout    *int              `mapstructure:"timeout" yaml:"timeout,omitempty"`
-	Defaults   *ConfigDefaults   `mapstructure:"defaults" yaml:"defaults,omitempty"`
-	Ideas      *IdeasConfig      `mapstructure:"ideas" yaml:"ideas,omitempty"`
-	Detect     *DetectConfig     `mapstructure:"detect" yaml:"detect,omitempty"`
-	Background *BackgroundConfig `mapstructure:"background" yaml:"background,omitempty"`
+	APIKey       string            `mapstructure:"api_key" yaml:"api_key,omitempty"`
+	BaseURL      string            `mapstructure:"base_url" yaml:"base_url,omitempty"`
+	HTTPProxy    string            `mapstructure:"http_proxy" yaml:"http_proxy,omitempty"`
+	Verbose      bool              `mapstructure:"verbose" yaml:"verbose"`
+	SavePrompt   bool              `mapstructure:"save_prompt" yaml:"save_prompt"`
+	Mode         string            `mapstructure:"mode" yaml:"mode,omitempty"`
+	OutputDir    string            `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
+	Timeout      *int              `mapstructure:"timeout" yaml:"timeout,omitempty"`
+	Defaults     *ConfigDefaults   `mapstructure:"defaults" yaml:"defaults,omitempty"`
+	Ideas        *IdeasConfig      `mapstructure:"ideas" yaml:"ideas,omitempty"`
+	Detect       *DetectConfig     `mapstructure:"detect" yaml:"detect,omitempty"`
+	Background   *BackgroundConfig `mapstructure:"background" yaml:"background,omitempty"`
+	ToolsEnable  []string          `mapstructure:"tools_enable" yaml:"tools_enable,omitempty"`
+	ToolsDisable []string          `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
 }
 
 // IdeasConfig controls the ideas prompt data path.

@@ -97,8 +97,14 @@ func runPreview(cmd *cobra.Command, args []string) error {
 				showDetail(arg)
 			}
 			if previewDescribe == "" {
-				if err := service.PreviewFile(arg); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+				if strings.HasSuffix(strings.ToLower(arg), ".md") {
+					if err := previewMarkdown(arg); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+					}
+				} else {
+					if err := service.PreviewFile(arg); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+					}
 				}
 			}
 		}
@@ -138,6 +144,18 @@ func runPreview(cmd *cobra.Command, args []string) error {
 		showDetail(tmpFile.Name())
 	}
 	return service.PreviewFile(tmpFile.Name())
+}
+
+func previewMarkdown(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read file: %w", err)
+	}
+	os.Stdout.Write(data)
+	if len(data) > 0 && data[len(data)-1] != '\n' {
+		fmt.Println()
+	}
+	return nil
 }
 
 // showDetail prints the detect result and caption for an image file.

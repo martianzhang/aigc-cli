@@ -81,10 +81,28 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `get_model_pricing` | Query pricing for a specific model | ❌ |
 | `get_balance` | Query token and user balance | ✅ |
 | `get_task` | Query async task status and results | ✅ |
+| `describe_image` | Describe or write captions for images | ❌ |
+| `search_ideas` | Search AI prompt ideas by keyword | ❌ |
 | `detect_image` | Detect C2PA / SynthID / TC260 watermarks, AIGC, and EXIF metadata | ❌ |
 | `remove_watermark` | Detect and remove a visible AI watermark (Doubao/Jimeng/Baidu/Zhipu), restore original image | ❌ |
 | `add_watermark` | Add a visible AI watermark to an image (for testing), known producers use their alpha map | ❌ |
 | `remove_background` | Remove image background using RMBG 2.0 AI semantic segmentation, optionally replace with color or another image | ❌ |
+
+### Filter Tools
+
+Use `tools_enable` / `tools_disable` in `config.yaml` to restrict which tools are available in MCP mode:
+
+```yaml
+tools_enable:                        # only allow image generation and model queries
+  - "generate_*"
+  - "list_models"
+  - "get_model_pricing"
+
+tools_disable:                       # additionally exclude specific tools
+  - "remove_background"
+```
+
+Glob patterns are supported (`*` matches any tool name). Empty or absent lists = all tools allowed. These settings affect both MCP and chat tools.
 
 ## Configuration
 
@@ -101,9 +119,27 @@ OPENAI_API_KEY=sk-xxx aigc-cli mcp
 aigc-cli mcp --api-key sk-xxx --output ./downloads
 ```
 
+### CLI Flags
+
+| Flag | Description |
+|---|---|
+| `--api-key` | API key (overrides config/env) |
+| `--base-url` | API base URL |
+| `--http-proxy` | HTTP proxy URL |
+| `--output` | Download directory for generated files |
+| `--list-tools` | List registered MCP tools and exit |
+
 ## Test Available Tools
 
-You can list all MCP tools and their schemas by sending a `tools/list` request via stdio:
+You can list all registered MCP tools with a simple flag:
+
+```bash
+aigc-cli mcp --list-tools
+```
+
+This respects `tools_enable`/`tools_disable` config — only the tools that would actually be registered are shown.
+
+For the full tool schema (JSON-RPC `tools/list`), send via stdio:
 
 ```bash
 printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"notifications/initialized"}\n{"jsonrpc":"2.0","id":3,"method":"tools/list"}\n' | aigc-cli mcp | jq -r '.result.tools[]?.name // empty'
