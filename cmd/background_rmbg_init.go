@@ -14,12 +14,9 @@ import (
 const (
 	rmbgModelID       = "rmbg-2.0"
 	rmbgModelFilename = "model-rmbg-2.0.onnx"
-
-	rmbgDefaultURL  = "https://huggingface.co/camenduru/RMBG-2.0/resolve/main/onnx/model_quantized.onnx"
-	rmbgOfficialURL = "https://huggingface.co/briaai/RMBG-2.0/resolve/main/onnx/model_quantized.onnx"
-
-	rmbgModelDesc = "RMBG 2.0 (BiRefNet), 176M params, INT8 quantized"
-	rmbgModelSize = "366MB"
+	rmbgModelURL      = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1/model-rmbg-2.0.onnx"
+	rmbgModelDesc     = "RMBG 2.0 (BiRefNet), 176M params, INT8 quantized"
+	rmbgModelSize     = "366MB"
 )
 
 var backgroundInitCmd = &cobra.Command{
@@ -32,31 +29,28 @@ var backgroundInitCmd = &cobra.Command{
 
 var (
 	bgInitForce bool
-	bgHFToken   string
 )
 
 func runBackgroundInit(cmd *cobra.Command, args []string) error {
-	modelsDir := rmbgModelsDir()
-	os.MkdirAll(modelsDir, 0755)
-
-	if _, err := onnxrt.EnsureInstalled(modelsDir, bgInitForce); err != nil {
+	// ONNX Runtime (shared across all features)
+	sharedDir := filepath.Join(configDir(), "models")
+	os.MkdirAll(sharedDir, 0755)
+	if _, err := onnxrt.EnsureInstalled(sharedDir, bgInitForce); err != nil {
 		return err
 	}
-	onnxrt.EnsureGPUInstalled(modelsDir, bgInitForce)
+	onnxrt.EnsureGPUInstalled(sharedDir, bgInitForce)
 
+	// RMBG model
+	modelsDir := rmbgModelsDir()
+	os.MkdirAll(modelsDir, 0755)
 	modelPath := filepath.Join(modelsDir, rmbgModelFilename)
 	if _, err := os.Stat(modelPath); err == nil && !bgInitForce {
 		fmt.Printf("RMBG model already exists: %s\n  Use --force to re-download.\n", modelPath)
 		return nil
 	}
 
-	modelURL := rmbgDefaultURL
-	if bgHFToken != "" {
-		modelURL = rmbgOfficialURL
-	}
-
 	fmt.Printf("Downloading %s (%s)...\n", rmbgModelDesc, rmbgModelSize)
-	if err := service.SaveResourceWithBearer(modelURL, bgHFToken, modelPath); err != nil {
+	if err := service.SaveResource(rmbgModelURL, modelPath); err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 	fmt.Println("  Done.")
@@ -67,5 +61,4 @@ func runBackgroundInit(cmd *cobra.Command, args []string) error {
 func init() {
 	backgroundCmd.AddCommand(backgroundInitCmd)
 	backgroundInitCmd.Flags().BoolVar(&bgInitForce, "force", false, "re-download even if files already exist")
-	backgroundInitCmd.Flags().StringVar(&bgHFToken, "hf-token", "", "HuggingFace token for gated model")
 }

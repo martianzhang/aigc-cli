@@ -122,6 +122,9 @@ aigc-cli
 │   ├── tts / speak  文字→语音（云端 API 或本地 sherpa-onnx 离线合成）
 │   ├── asr / stt    语音→文字（云端 API 或本地 sherpa-onnx 离线识别）
 │   └── init         下载本地模型（kokoro / sense-voice 等 12 种）
+├── ocr            离线文字识别（DBNet + CRNN，ONNX 本地推理）            →  docs/guide-ocr.md
+│   ├── init        下载 OCR 模型
+│   └── scan        识别图片中的文字
 ├── background / bg  AI 背景去除（基于 RMBG 2.0 语义分割，纯离线 ONNX 推理）  →  docs/guide-background.md
 ├── midjourney / mj                                                       →  docs/guide-midjourney.md
 │   └── mj     别名，同上

@@ -95,12 +95,13 @@ func safeCameraModel(r *service.CameraInfo) string {
 // --- ONNX init ---
 
 func tryInitONNX() *onnx.Detector {
-	modelsDir := detectModelsDir()
-	libPath, err := onnx.DefaultLibPath(modelsDir)
+	// ONNX Runtime lives in the shared models root
+	libPath, err := onnx.DefaultLibPath(filepath.Join(configDir(), "models"))
 	if err != nil {
 		return nil
 	}
 
+	modelsDir := detectModelsDir()
 	preferredID := "vit-base"
 	if shared.Cfg != nil && shared.Cfg.Detect != nil && shared.Cfg.Detect.Model != "" {
 		preferredID = shared.Cfg.Detect.Model
@@ -142,7 +143,7 @@ func detectModelsDir() string {
 	if shared.Cfg != nil && shared.Cfg.Detect != nil && shared.Cfg.Detect.ModelsDir != "" {
 		return shared.Cfg.Detect.ModelsDir
 	}
-	return filepath.Join(configDir(), "models")
+	return filepath.Join(configDir(), "models", "detect")
 }
 
 func modelSizeLabel(modelPath string) string {

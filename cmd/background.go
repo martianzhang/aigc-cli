@@ -233,13 +233,13 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 }
 
 func tryInitRMBG() (*rmbg.Detector, error) {
-	modelsDir := rmbgModelsDir()
-	libPath, err := rmbg.DefaultLibPath(modelsDir)
+	// ONNX Runtime lives in the shared models root
+	libPath, err := rmbg.DefaultLibPath(filepath.Join(configDir(), "models"))
 	if err != nil {
 		return nil, err
 	}
 
-	modelPath := rmbg.DefaultModelPath(modelsDir)
+	modelPath := rmbg.DefaultModelPath(rmbgModelsDir())
 	if _, err := os.Stat(modelPath); err != nil {
 		return nil, fmt.Errorf("RMBG model not found at %s", modelPath)
 	}
@@ -252,7 +252,7 @@ func rmbgModelsDir() string {
 	if shared.Cfg != nil && shared.Cfg.Background != nil && shared.Cfg.Background.ModelsDir != "" {
 		return shared.Cfg.Background.ModelsDir
 	}
-	return filepath.Join(configDir(), "models")
+	return filepath.Join(configDir(), "models", "background")
 }
 
 // --- 工具函数 ---

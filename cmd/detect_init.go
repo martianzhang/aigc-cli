@@ -11,6 +11,8 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
+const modelsBaseURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1"
+
 // modelInfo maps model identifier to download URL and filename.
 // Add new models here. The key is used in `--model` flag and `detect.model` config.
 var modelInfo = map[string]struct {
@@ -20,13 +22,13 @@ var modelInfo = map[string]struct {
 	size     string // human-readable download size
 }{
 	"vit-base": {
-		url:      "https://huggingface.co/onnx-community/ai-image-detection-ONNX/resolve/main/onnx/model.onnx",
+		url:      modelsBaseURL + "/model-vit-base.onnx",
 		filename: "model-vit-base.onnx",
 		desc:     "ViT-Base, 86M params",
 		size:     "327MB",
 	},
 	"distilled-vit": {
-		url:      "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX/resolve/main/onnx/model.onnx",
+		url:      modelsBaseURL + "/model-distilled-vit.onnx",
 		filename: "model-distilled-vit.onnx",
 		desc:     "distilled ViT, 11.8M params",
 		size:     "56MB",
@@ -49,10 +51,7 @@ Use --model to choose which ONNX model to download:
 
 The model can also be set in config.yaml:
   detect:
-    model: "distilled-vit"
-
-Proxy settings from config.yaml, env vars (HTTP_PROXY), or --http-proxy flag
-are automatically respected.`,
+    model: "distilled-vit"`,
 	RunE: runDetectInit,
 }
 
@@ -72,20 +71,23 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unknown model %q (choose: vit-base, distilled-vit)", modelID)
 	}
 
-	modelsDir := detectModelsDir()
-	if err := os.MkdirAll(modelsDir, 0755); err != nil {
-		return fmt.Errorf("cannot create directory %s: %w", modelsDir, err)
+	// ── ONNX Runtime (shared across all features) ──
+	sharedDir := filepath.Join(configDir(), "models")
+	if err := os.MkdirAll(sharedDir, 0755); err != nil {
+		return fmt.Errorf("cannot create directory %s: %w", sharedDir, err)
 	}
-
-	// ── ONNX Runtime (shared across all ONNX models) ──
-	if _, err := onnxrt.EnsureInstalled(modelsDir, detectForce); err != nil {
+	if _, err := onnxrt.EnsureInstalled(sharedDir, detectForce); err != nil {
 		return err
 	}
-	if err := onnxrt.EnsureGPUInstalled(modelsDir, detectForce); err != nil {
+	if err := onnxrt.EnsureGPUInstalled(sharedDir, detectForce); err != nil {
 		return err
 	}
 
 	// ── Download model ──
+	modelsDir := detectModelsDir()
+	if err := os.MkdirAll(modelsDir, 0755); err != nil {
+		return fmt.Errorf("cannot create directory %s: %w", modelsDir, err)
+	}
 	modelPath := filepath.Join(modelsDir, info.filename)
 	if _, err := os.Stat(modelPath); err == nil && !detectForce {
 		fmt.Printf("Model already exists: %s\n  Use --force to re-download.\n", modelPath)

@@ -328,12 +328,12 @@ func detectOneFileJSON(path, pathOverride string, aiDetector *onnx.Detector, res
 }
 
 func tryInitWMRemove() (*wmremove.Detector, error) {
-	md := rmbgModelsDir()
-	lp, err := wmremove.DefaultLibPath(md)
+	// ONNX Runtime lives in the shared models root
+	lp, err := wmremove.DefaultLibPath(filepath.Join(configDir(), "models"))
 	if err != nil {
 		return nil, err
 	}
-	mp := wmremove.DefaultModelPath(md)
+	mp := wmremove.DefaultModelPath(detectModelsDir())
 	if _, err := os.Stat(mp); err != nil {
 		return nil, fmt.Errorf("MI-GAN model not found at %s", mp)
 	}

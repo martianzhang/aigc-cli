@@ -14,7 +14,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 )
 
-const ideasDataURL = "https://raw.githubusercontent.com/martianzhang/aigc-cli/refs/heads/main/docs/ideas.json"
+const ideasDataURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1/ideas.json"
 
 // ideasInitCmd represents the `aigc-cli ideas init` subcommand.
 var ideasInitCmd = &cobra.Command{

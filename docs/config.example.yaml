@@ -142,3 +142,9 @@ defaults:
 # background:
 #   models_dir: "~/.config/aigc-cli/models"    # custom models directory
 #   model: "rmbg-2.0"                          # model identifier (default: rmbg-2.0)
+
+# OCR (ocr command).
+# OCR models are stored at ~/.config/aigc-cli/models/ocr/ by default.
+# After installing ONNX Runtime (via 'aigc-cli ocr init'), run 'aigc-cli ocr scan'.
+# ocr:
+#   models_dir: "~/.config/aigc-cli/models/ocr"    # custom OCR models directory

@@ -29,6 +29,9 @@ import (
 // Version is the ONNX Runtime version used by this project.
 const Version = "1.27.0"
 
+// modelsBaseURL is the unified model download source for aigc-cli.
+const modelsBaseURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1"
+
 // ortDownloadInfo holds platform-specific download information for one
 // ONNX Runtime package (CPU or GPU).
 type ortDownloadInfo struct {
@@ -146,7 +149,7 @@ func gpuLibName() string {
 // getGPUORTDownloadInfo returns download info for the GPU ONNX Runtime
 // package. Returns nil on platforms without a separate GPU build.
 func getGPUORTDownloadInfo() *ortDownloadInfo {
-	base := fmt.Sprintf("https://github.com/microsoft/onnxruntime/releases/download/v%s", Version)
+	base := modelsBaseURL
 	libName := gpuLibName()
 	if libName == "" {
 		return nil
@@ -175,7 +178,7 @@ func getGPUORTDownloadInfo() *ortDownloadInfo {
 // getORTDownloadInfo returns download info for the CPU ONNX Runtime package
 // for the current OS and architecture.
 func getORTDownloadInfo() ortDownloadInfo {
-	base := fmt.Sprintf("https://github.com/microsoft/onnxruntime/releases/download/v%s", Version)
+	base := modelsBaseURL
 	switch runtime.GOOS {
 	case "windows":
 		arch := "x64"
@@ -191,7 +194,7 @@ func getORTDownloadInfo() ortDownloadInfo {
 	case "darwin":
 		arch := "arm64"
 		if runtime.GOARCH == "amd64" {
-			arch = "x64_64"
+			arch = "x64"
 		}
 		return ortDownloadInfo{
 			url:          fmt.Sprintf("%s/onnxruntime-osx-%s-%s.tgz", base, arch, Version),
