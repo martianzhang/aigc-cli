@@ -637,7 +637,7 @@ func TestSplitEnglishWords_splitsConcatenated(t *testing.T) {
 	}{
 		{"thehiddendebtofthesecompanies", 6}, // the hidden debt of these companies
 		{"hasincreasedeightfoldoverthe", 4},  // has increased eightfold over the
-		{"Amidthefervorofartificial", 4},    // Amid the fervor of artificial
+		{"Amidthefervorofartificial", 4},     // Amid the fervor of artificial
 	}
 	for _, tc := range tests {
 		got := splitEnglishWords(tc.input)
