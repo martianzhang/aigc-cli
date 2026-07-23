@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/chai2010/webp"
+	"github.com/soniakeys/quant/median"
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp" // decoder registration
 )
@@ -27,8 +28,10 @@ type CompressResult struct {
 	DstPath string // Output file path
 	Before  int64  // Original file size in bytes
 	After   int64  // Compressed file size in bytes
-	Skipped bool   // True if compression was skipped (already small, or lossless)
+	Skipped bool   // True if compression was skipped
 	Reason  string // Why it was skipped (if Skipped=true)
+	Format  string // Output format: jpg, webp, png
+	Quality int    // Quality used (0 for palette-based PNG)
 }
 
 // CompressImage reads an image from srcPath, re-encodes it according to opts,
@@ -83,11 +86,6 @@ func CompressImage(srcPath string, opts *CompressOptions) (*CompressResult, erro
 		dstPath = origBase + "_compress" + ext
 	}
 
-	// --- Handle PNG lossless special case ---
-	if outFmt == "png" {
-		return handlePNGOutput(srcPath, dstPath, beforeSize)
-	}
-
 	// --- Quality / target-size / auto logic ---
 	if opts.Quality > 0 {
 		return encodeWithQuality(img, dstPath, outFmt, opts.Quality, beforeSize)
@@ -103,27 +101,14 @@ func CompressImage(srcPath string, opts *CompressOptions) (*CompressResult, erro
 				Reason:  fmt.Sprintf("already ≤ target (%d ≤ %d bytes)", beforeSize, opts.TargetSize),
 			}, nil
 		}
+		if outFmt == "png" {
+			return handlePNGOutput(img, srcPath, dstPath, opts, beforeSize)
+		}
 		return binarySearchQuality(img, dstPath, outFmt, opts.TargetSize, beforeSize)
 	}
 
-	// Auto mode: try descending qualities, pick the highest that reduces file size.
-	autoQualities := []int{92, 88, 85, 80, 75, 70, 60, 50, 40, 30}
-	for _, q := range autoQualities {
-		result, err := encodeWithQuality(img, dstPath, outFmt, q, beforeSize)
-		if err != nil {
-			return nil, err
-		}
-		if !result.Skipped {
-			return result, nil
-		}
-	}
-	return &CompressResult{
-		DstPath: srcPath,
-		Before:  beforeSize,
-		After:   beforeSize,
-		Skipped: true,
-		Reason:  "cannot compress further without visible quality loss",
-	}, nil
+	// Auto mode: user-specified format (opts.Format) or Squoosh-style JPEG q75
+	return autoCompress(img, srcPath, opts.Format, opts, beforeSize)
 }
 
 // encodeWithQuality encodes the image at the given quality and returns the result.
@@ -135,17 +120,14 @@ func encodeWithQuality(img image.Image, dstPath, outFmt string, quality int, bef
 	if afterSize >= beforeSize {
 		os.Remove(dstPath)
 		return &CompressResult{
-			DstPath: dstPath,
-			Before:  beforeSize,
-			After:   afterSize,
-			Skipped: true,
-			Reason:  fmt.Sprintf("compressed not smaller (%d ≥ %d bytes)", afterSize, beforeSize),
+			DstPath: dstPath, Before: beforeSize, After: afterSize,
+			Skipped: true, Format: outFmt, Quality: quality,
+			Reason: fmt.Sprintf("compressed not smaller (%d ≥ %d bytes)", afterSize, beforeSize),
 		}, nil
 	}
 	return &CompressResult{
-		DstPath: dstPath,
-		Before:  beforeSize,
-		After:   afterSize,
+		DstPath: dstPath, Before: beforeSize, After: afterSize,
+		Format: outFmt, Quality: quality,
 	}, nil
 }
 
@@ -277,41 +259,150 @@ func encodeImageTo(img image.Image, w *os.File, outFmt string, quality int) erro
 	}
 }
 
-// handlePNGOutput special-cases PNG output (lossless, skip compression).
-func handlePNGOutput(srcPath, dstPath string, beforeSize int64) (*CompressResult, error) {
-	// PNG re-encode: just copy since PNG is lossless
-	if err := copyFile(srcPath, dstPath); err != nil {
-		return nil, fmt.Errorf("copy png: %w", err)
+// handlePNGOutput compresses PNG via color quantization (palette reduction).
+// Uses Floyd-Steinberg dithering for visual quality.
+// Palette sizes tried: 256 → 128 → 64 → 32 → 16 → 8 → 4 → 2.
+func handlePNGOutput(img image.Image, srcPath, dstPath string, opts *CompressOptions, beforeSize int64) (*CompressResult, error) {
+	// Fixed quality: map 1-100 to palette size (1→2, 100→256)
+	if opts.Quality > 0 {
+		nColors := 2 + (opts.Quality * 254 / 100)
+		return encodePalettedPNG(img, dstPath, nColors, beforeSize)
 	}
-	afterInfo, err := os.Stat(dstPath)
+
+	// Target size: try decreasing palette sizes
+	if opts.TargetSize > 0 {
+		if beforeSize <= opts.TargetSize {
+			return &CompressResult{
+				DstPath: srcPath, Before: beforeSize, After: beforeSize,
+				Skipped: true, Reason: fmt.Sprintf("already ≤ target (%d ≤ %d bytes)", beforeSize, opts.TargetSize),
+			}, nil
+		}
+		paletteSizes := []int{256, 192, 160, 128, 96, 64, 48, 32, 24, 16, 12, 8, 6, 4, 2}
+		for _, n := range paletteSizes {
+			result, err := encodePalettedPNG(img, dstPath, n, beforeSize)
+			if err != nil {
+				return nil, err
+			}
+			if !result.Skipped && result.After <= opts.TargetSize {
+				return result, nil
+			}
+			if result.Skipped {
+				// Smaller than original but bigger than target — keep going
+				continue
+			}
+			// File exists, check next palette
+		}
+		// All palette sizes exceeded target — try resize + paletted
+		bounds := img.Bounds()
+		w, h := bounds.Dx(), bounds.Dy()
+		scales := []float64{0.75, 0.5, 0.35, 0.2, 0.1}
+		for _, scale := range scales {
+			nw, nh := int(float64(w)*scale), int(float64(h)*scale)
+			if nw < 1 {
+				nw = 1
+			}
+			if nh < 1 {
+				nh = 1
+			}
+			smallImg := image.NewRGBA(image.Rect(0, 0, nw, nh))
+			draw.BiLinear.Scale(smallImg, smallImg.Bounds(), img, img.Bounds(), draw.Over, nil)
+			for _, n := range paletteSizes {
+				result, err := encodePalettedPNG(smallImg, dstPath, n, beforeSize)
+				if err != nil {
+					return nil, err
+				}
+				if !result.Skipped && result.After <= opts.TargetSize {
+					return result, nil
+				}
+			}
+		}
+		return nil, fmt.Errorf("cannot meet target %d bytes for PNG", opts.TargetSize)
+	}
+
+	paletteSizes := []int{256, 192, 160, 128, 96, 64, 48, 32, 24, 16, 12, 8, 6, 4, 2}
+	best := &CompressResult{
+		DstPath: srcPath, Before: beforeSize, After: beforeSize,
+		Skipped: true, Reason: "cannot compress further",
+	}
+	for _, n := range paletteSizes {
+		result, err := encodePalettedPNG(img, dstPath, n, beforeSize)
+		if err != nil {
+			return nil, err
+		}
+		if !result.Skipped {
+			return result, nil
+		}
+	}
+	return best, nil
+}
+
+// encodePalettedPNG quantizes the image to nColors using median cut + FloydSteinberg dithering.
+func encodePalettedPNG(img image.Image, dstPath string, nColors int, beforeSize int64) (*CompressResult, error) {
+	bounds := img.Bounds()
+	mq := median.Quantizer(nColors)
+	quantPal := mq.Palette(img)
+	pal := quantPal.ColorPalette()
+	dst := image.NewPaletted(bounds, pal)
+	draw.FloydSteinberg.Draw(dst, bounds, img, image.Point{})
+	enc := &png.Encoder{CompressionLevel: png.BestCompression}
+	f, err := os.Create(dstPath)
 	if err != nil {
-		return nil, fmt.Errorf("stat copy: %w", err)
+		return nil, fmt.Errorf("create: %w", err)
 	}
-	afterSize := afterInfo.Size()
+	defer f.Close()
+	if err := enc.Encode(f, dst); err != nil {
+		f.Close()
+		os.Remove(dstPath)
+		return nil, fmt.Errorf("encode paletted png: %w", err)
+	}
+	f.Close()
+	info, err := os.Stat(dstPath)
+	if err != nil {
+		return nil, fmt.Errorf("stat: %w", err)
+	}
+	afterSize := info.Size()
 	if afterSize >= beforeSize {
 		os.Remove(dstPath)
 		return &CompressResult{
-			DstPath: srcPath,
-			Before:  beforeSize,
-			After:   afterSize,
-			Skipped: true,
-			Reason:  "PNG is lossless — cannot meaningfully compress",
+			DstPath: dstPath, Before: beforeSize, After: afterSize,
+			Skipped: true, Format: "png",
+			Reason: fmt.Sprintf("paletted %d-color PNG not smaller (%d ≥ %d bytes)", nColors, afterSize, beforeSize),
 		}, nil
 	}
-	return &CompressResult{
-		DstPath: dstPath,
-		Before:  beforeSize,
-		After:   afterSize,
-	}, nil
+	return &CompressResult{DstPath: dstPath, Before: beforeSize, After: afterSize, Format: "png"}, nil
 }
 
-// copyFile copies src to dst.
-func copyFile(src, dst string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
+// autoCompress auto-selects compression based on output format.
+// No format specified → Squoosh-style JPEG q75.
+// Format specified → auto quality for that format.
+func autoCompress(img image.Image, srcPath, outFmt string, opts *CompressOptions, beforeSize int64) (*CompressResult, error) {
+	origBase := strings.TrimSuffix(srcPath, filepath.Ext(srcPath))
+	switch outFmt {
+	case "jpg", "jpeg":
+		dst := origBase + "_compress.jpg"
+		return encodeWithQuality(img, dst, outFmt, 75, beforeSize)
+	case "webp":
+		dst := origBase + "_compress.webp"
+		return encodeWithQuality(img, dst, outFmt, 75, beforeSize)
+	case "png":
+		dst := origBase + "_compress.png"
+		for _, n := range []int{256, 192, 160, 128, 96, 64, 48, 32, 24, 16} {
+			r, err := encodePalettedPNG(img, dst, n, beforeSize)
+			if err != nil {
+				return nil, err
+			}
+			if !r.Skipped {
+				return r, nil
+			}
+		}
+		return &CompressResult{
+			DstPath: srcPath, Before: beforeSize, After: beforeSize,
+			Skipped: true, Reason: "cannot compress further",
+		}, nil
+	default:
+		dst := origBase + "_compress.jpg"
+		return encodeWithQuality(img, dst, "jpg", 75, beforeSize)
 	}
-	return os.WriteFile(dst, data, 0644)
 }
 
 // ParseCompressOption parses a --compress flag value.

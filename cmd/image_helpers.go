@@ -189,7 +189,8 @@ func postProcessImages(saved []string) {
 			savedStr := formatBytes(result.After)
 			originalStr := formatBytes(result.Before)
 			pct := 100 - int(float64(result.After)/float64(result.Before)*100)
-			fmt.Printf("  Compress %s: %s → %s (%d%% saved)\n", path, originalStr, savedStr, pct)
+			params := formatParams(result.Format, result.Quality)
+			fmt.Printf("  Compress %s: %s → %s (%d%% saved)%s\n", path, originalStr, savedStr, pct, params)
 		}
 	}
 }
@@ -236,16 +237,30 @@ func runLocalCompress(compressVal string, imageURLs []string, outputFormat strin
 			fmt.Printf("  %s: skipped (%s)\n", r.DstPath, r.Reason)
 		} else {
 			pct := 100 - int(float64(r.After)/float64(r.Before)*100)
-			fmt.Printf("  %s: %s → %s (%d%% saved)\n", r.DstPath, formatBytes(r.Before), formatBytes(r.After), pct)
+			params := formatParams(r.Format, r.Quality)
+			fmt.Printf("  %s: %s → %s (%d%% saved)%s\n", r.DstPath, formatBytes(r.Before), formatBytes(r.After), pct, params)
 		}
 		totalBefore += r.Before
 		totalAfter += r.After
 	}
 	if totalBefore > 0 {
 		pct := 100 - int(float64(totalAfter)/float64(totalBefore)*100)
-		fmt.Printf("Total: %s → %s (%d%% saved)\n", formatBytes(totalBefore), formatBytes(totalAfter), pct)
+		first := results[0]
+		params := formatParams(first.Format, first.Quality)
+		fmt.Printf("Total: %s → %s (%d%% saved)%s\n", formatBytes(totalBefore), formatBytes(totalAfter), pct, params)
 	}
 	return nil
+}
+
+// formatParams appends format and quality info for display.
+func formatParams(fmtStr string, quality int) string {
+	if fmtStr == "" {
+		return ""
+	}
+	if quality > 0 {
+		return fmt.Sprintf(" [%s q%d]", fmtStr, quality)
+	}
+	return fmt.Sprintf(" [%s]", fmtStr)
 }
 
 // formatBytes returns a human-readable byte size string.
