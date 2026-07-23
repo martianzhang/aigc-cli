@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/chai2010/webp"
 	"github.com/soniakeys/quant/median"
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp" // decoder registration
@@ -251,7 +250,7 @@ func encodeImageTo(img image.Image, w *os.File, outFmt string, quality int) erro
 	case "jpg", "jpeg":
 		return jpeg.Encode(w, img, &jpeg.Options{Quality: quality})
 	case "webp":
-		return webp.Encode(w, img, &webp.Options{Quality: float32(quality), Lossless: false})
+		return webpEncode(w, img, quality)
 	case "png":
 		return png.Encode(w, img)
 	default:
