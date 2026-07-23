@@ -29,19 +29,19 @@ func TestLibPath_found(t *testing.T) {
 	}
 }
 
-func TestLibPath_prefersGPU(t *testing.T) {
+func TestLibPath_prefersCPUOnly(t *testing.T) {
 	dir := t.TempDir()
-	cpuLib := filepath.Join(dir, "libonnxruntime.dylib")
-	gpuLib := filepath.Join(dir, "libonnxruntime_gpu.dylib")
-	os.WriteFile(cpuLib, []byte("cpu"), 0644)
-	os.WriteFile(gpuLib, []byte("gpu"), 0644)
+	// LibPath only looks for the single main library per platform.
+	// GPU providers are loaded dynamically alongside it.
+	lib := filepath.Join(dir, "libonnxruntime.dylib")
+	os.WriteFile(lib, []byte("data"), 0644)
 
 	path, err := LibPath(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if path != gpuLib {
-		t.Fatalf("expected GPU lib, got %q", path)
+	if path != lib {
+		t.Fatalf("got %q, want %q", path, lib)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -244,48 +245,28 @@ func TestDefaultLibPath_NotFound(t *testing.T) {
 	}
 }
 
-func TestDefaultLibPath_Windows(t *testing.T) {
+func TestDefaultLibPath_found(t *testing.T) {
 	dir := t.TempDir()
-	dllPath := filepath.Join(dir, "onnxruntime.dll")
-	if err := os.WriteFile(dllPath, []byte("dummy"), 0644); err != nil {
+	// Create the expected library filename for the current platform.
+	var libName string
+	switch runtime.GOOS {
+	case "windows":
+		libName = "onnxruntime.dll"
+	case "darwin":
+		libName = "libonnxruntime.dylib"
+	default:
+		libName = "libonnxruntime.so"
+	}
+	libPath := filepath.Join(dir, libName)
+	if err := os.WriteFile(libPath, []byte("dummy"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	path, err := DefaultLibPath(dir)
 	if err != nil {
-		t.Errorf("DefaultLibPath for .dll: unexpected error %v", err)
+		t.Errorf("DefaultLibPath for %s: unexpected error %v", libName, err)
 	}
-	if path != dllPath {
-		t.Errorf("DefaultLibPath = %q, want %q", path, dllPath)
-	}
-}
-
-func TestDefaultLibPath_Linux(t *testing.T) {
-	dir := t.TempDir()
-	soPath := filepath.Join(dir, "libonnxruntime.so")
-	if err := os.WriteFile(soPath, []byte("dummy"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	path, err := DefaultLibPath(dir)
-	if err != nil {
-		t.Errorf("DefaultLibPath for .so: unexpected error %v", err)
-	}
-	if path != soPath {
-		t.Errorf("DefaultLibPath = %q, want %q", path, soPath)
-	}
-}
-
-func TestDefaultLibPath_Mac(t *testing.T) {
-	dir := t.TempDir()
-	dylibPath := filepath.Join(dir, "libonnxruntime.dylib")
-	if err := os.WriteFile(dylibPath, []byte("dummy"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	path, err := DefaultLibPath(dir)
-	if err != nil {
-		t.Errorf("DefaultLibPath for .dylib: unexpected error %v", err)
-	}
-	if path != dylibPath {
-		t.Errorf("DefaultLibPath = %q, want %q", path, dylibPath)
+	if path != libPath {
+		t.Errorf("DefaultLibPath = %q, want %q", path, libPath)
 	}
 }
 
@@ -295,23 +276,5 @@ func TestDefaultModelPath(t *testing.T) {
 	expected := filepath.Join(dir, "model.onnx")
 	if path != expected {
 		t.Errorf("DefaultModelPath = %q, want %q", path, expected)
-	}
-}
-
-func TestDefaultLibPath_Priority(t *testing.T) {
-	// When multiple candidates exist, should pick the first matching one
-	dir := t.TempDir()
-	// Create .so first (should be found before .dylib check)
-	soPath := filepath.Join(dir, "libonnxruntime.so")
-	dylibPath := filepath.Join(dir, "libonnxruntime.dylib")
-	os.WriteFile(soPath, []byte("dummy"), 0644)
-	os.WriteFile(dylibPath, []byte("dummy"), 0644)
-
-	path, err := DefaultLibPath(dir)
-	if err != nil {
-		t.Errorf("priority: unexpected error %v", err)
-	}
-	if path != soPath {
-		t.Errorf("priority: expected %q, got %q", soPath, path)
 	}
 }

@@ -96,7 +96,7 @@ func EnsureGPUInstalled(modelsDir string, force bool) error {
 		return fmt.Errorf("ONNX Runtime GPU download failed: %w", err)
 	}
 	fmt.Println("  Extracting...")
-	if err := extractRuntime(archivePath, modelsDir, gpu.libName, *gpu); err != nil {
+	if err := extractGPUArchive(archivePath, modelsDir); err != nil {
 		return fmt.Errorf("GPU extraction failed: %w", err)
 	}
 	os.Remove(archivePath)
@@ -105,42 +105,37 @@ func EnsureGPUInstalled(modelsDir string, force bool) error {
 }
 
 // LibPath returns the path to the ONNX Runtime shared library in modelsDir.
-// It prefers GPU variants over CPU and picks the correct library per platform.
+// The main library is the same for CPU and GPU (GPU support comes via provider
+// DLLs loaded dynamically by ORT at runtime, placed alongside it).
 func LibPath(modelsDir string) (string, error) {
-	// Platform-ordered candidates: GPU first, then CPU, matching OS extension
-	gpu := []string{"libonnxruntime_gpu.dylib", "libonnxruntime_gpu.so", "onnxruntime_gpu.dll"}
-	var cpu []string
-
+	var name string
 	switch runtime.GOOS {
 	case "darwin":
-		cpu = []string{"libonnxruntime.dylib", "libonnxruntime.so", "onnxruntime.dll"}
+		name = "libonnxruntime.dylib"
 	case "linux":
-		cpu = []string{"libonnxruntime.so", "libonnxruntime.dylib", "onnxruntime.dll"}
+		name = "libonnxruntime.so"
 	default: // windows
-		cpu = []string{"onnxruntime.dll", "libonnxruntime.dylib", "libonnxruntime.so"}
+		name = "onnxruntime.dll"
 	}
 
-	for _, candidates := range [][]string{gpu, cpu} {
-		for _, name := range candidates {
-			c := filepath.Join(modelsDir, name)
-			if _, err := os.Stat(c); err == nil {
-				return c, nil
-			}
-		}
+	c := filepath.Join(modelsDir, name)
+	if _, err := os.Stat(c); err == nil {
+		return c, nil
 	}
 	return "", fmt.Errorf("ONNX Runtime library not found in %s", modelsDir)
 }
 
 // --- platform helpers ---
 
-// gpuLibName returns the GPU ONNX Runtime library filename for the current
+// gpuLibName returns the CUDA provider library filename for the current
 // platform, or empty string if there is no separate GPU package.
+// Modern ONNX Runtime (1.17+) uses provider DLLs instead of a separate _gpu library.
 func gpuLibName() string {
 	switch runtime.GOOS {
 	case "linux":
-		return "libonnxruntime_gpu.so"
+		return "libonnxruntime_providers_cuda.so"
 	case "windows":
-		return "onnxruntime_gpu.dll"
+		return "onnxruntime_providers_cuda.dll"
 	default:
 		return ""
 	}
@@ -160,17 +155,17 @@ func getGPUORTDownloadInfo() *ortDownloadInfo {
 			return nil
 		}
 		return &ortDownloadInfo{
-			url:          fmt.Sprintf("%s/onnxruntime-linux-x64-gpu_cuda13-%s.tgz", base, Version),
-			archiveName:  fmt.Sprintf("onnxruntime-gpu_cuda13-%s.tgz", Version),
-			libName:      libName,
-			internalPath: fmt.Sprintf("onnxruntime-linux-x64-gpu_cuda13-%s/lib/libonnxruntime_gpu.so", Version),
+			url:         fmt.Sprintf("%s/onnxruntime-linux-x64-gpu_cuda13-%s.tgz", base, Version),
+			archiveName: fmt.Sprintf("onnxruntime-gpu_cuda13-%s.tgz", Version),
+			libName:     libName,
+			// internalPath unused — extractGPUArchive extracts all .so files
 		}
 	default: // windows
 		return &ortDownloadInfo{
-			url:          fmt.Sprintf("%s/onnxruntime-win-x64-gpu_cuda13-%s.zip", base, Version),
-			archiveName:  fmt.Sprintf("onnxruntime-gpu_cuda13-%s.zip", Version),
-			libName:      libName,
-			internalPath: fmt.Sprintf("onnxruntime-win-x64-gpu_cuda13-%s/lib/onnxruntime_gpu.dll", Version),
+			url:         fmt.Sprintf("%s/onnxruntime-win-x64-gpu_cuda13-%s.zip", base, Version),
+			archiveName: fmt.Sprintf("onnxruntime-gpu_cuda13-%s.zip", Version),
+			libName:     libName,
+			// internalPath unused — extractGPUArchive extracts all .dll files
 		}
 	}
 }
@@ -293,4 +288,121 @@ func extractTGZ(archivePath, modelsDir, internalPath, libName string) error {
 		return err
 	}
 	return fmt.Errorf("library not found in archive: %s", internalPath)
+}
+
+// extractGPUArchive extracts all shared library files from a GPU ONNX Runtime
+// archive. GPU packages ship multiple provider DLLs (CUDA, TensorRT, shared)
+// alongside the CUDA-enabled main runtime — all must be placed together in
+// modelsDir for ORT to find them at runtime.
+func extractGPUArchive(archivePath, modelsDir string) error {
+	if strings.HasSuffix(archivePath, ".zip") {
+		return extractAllFromZip(archivePath, modelsDir)
+	}
+	return extractAllFromTGZ(archivePath, modelsDir)
+}
+
+func extractAllFromZip(archivePath, modelsDir string) error {
+	r, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	extracted := 0
+	for _, f := range r.File {
+		// Only extract .dll files from the lib/ subdirectory
+		if !strings.HasSuffix(f.Name, ".dll") {
+			continue
+		}
+		baseName := filepath.Base(f.Name)
+		if baseName == "" {
+			continue
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+
+		out, err := os.Create(filepath.Join(modelsDir, baseName))
+		if err != nil {
+			rc.Close()
+			return err
+		}
+
+		_, err = io.Copy(out, rc)
+		rc.Close()
+		out.Close()
+		if err != nil {
+			return err
+		}
+		extracted++
+	}
+
+	if extracted == 0 {
+		return fmt.Errorf("no .dll files found in GPU archive")
+	}
+	return nil
+}
+
+func extractAllFromTGZ(archivePath, modelsDir string) error {
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	gzr, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer gzr.Close()
+
+	tarr := tar.NewReader(gzr)
+	extracted := 0
+	for {
+		header, err := tarr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		name := strings.TrimPrefix(header.Name, "./")
+
+		// Only extract .so files from the lib/ subdirectory
+		if !strings.Contains(name, "/lib/") {
+			continue
+		}
+		if !strings.HasSuffix(name, ".so") {
+			continue
+		}
+		// Skip symlinks — the real file (e.g. libonnxruntime.so.1.27.0)
+		// is already listed as a regular entry; the symlink is redundant.
+		if header.Typeflag == tar.TypeSymlink || header.Typeflag == tar.TypeLink {
+			continue
+		}
+
+		baseName := filepath.Base(name)
+		if baseName == "" {
+			continue
+		}
+
+		out, err := os.Create(filepath.Join(modelsDir, baseName))
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(out, tarr)
+		out.Close()
+		if err != nil {
+			return err
+		}
+		extracted++
+	}
+
+	if extracted == 0 {
+		return fmt.Errorf("no .so files found in GPU archive")
+	}
+	return nil
 }

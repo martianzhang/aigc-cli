@@ -8,6 +8,7 @@ import (
 	"os"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
+	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 )
 
 // Default input/output tensor names for RMBG 2.0 ONNX model.
@@ -189,32 +190,10 @@ func SavePNG(path string, img image.Image) error {
 	return png.Encode(f, img)
 }
 
-// DefaultLibPath 返回 ONNX Runtime 共享库的路径。
-// 优先查找 GPU 版本（libonnxruntime_gpu.*），找不到则回退到 CPU 版本。
+// DefaultLibPath returns the path to the ONNX Runtime shared library.
+// Delegates to onnxrt.LibPath for centralized logic.
 func DefaultLibPath(modelsDir string) (string, error) {
-	// GPU variants first (if available)
-	gpuCandidates := []string{
-		modelsDir + "/libonnxruntime_gpu.dylib",
-		modelsDir + "/libonnxruntime_gpu.so",
-		modelsDir + "/onnxruntime_gpu.dll",
-	}
-	for _, c := range gpuCandidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	// CPU fallback
-	candidates := []string{
-		modelsDir + "/libonnxruntime.dylib",
-		modelsDir + "/libonnxruntime.so",
-		modelsDir + "/onnxruntime.dll",
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	return "", fmt.Errorf("ONNX Runtime library not found in %s", modelsDir)
+	return onnxrt.LibPath(modelsDir)
 }
 
 // DefaultModelPath 返回默认的 RMBG 2.0 模型路径。

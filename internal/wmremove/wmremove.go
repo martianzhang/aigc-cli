@@ -7,6 +7,7 @@ import (
 	"os"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
+	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 )
 
 const (
@@ -156,19 +157,7 @@ func SavePNG(path string, img image.Image) error {
 }
 
 func DefaultLibPath(modelsDir string) (string, error) {
-	for _, c := range []string{
-		modelsDir + "/libonnxruntime_gpu.dylib",
-		modelsDir + "/libonnxruntime_gpu.so",
-		modelsDir + "/onnxruntime_gpu.dll",
-		modelsDir + "/libonnxruntime.dylib",
-		modelsDir + "/libonnxruntime.so",
-		modelsDir + "/onnxruntime.dll",
-	} {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	return "", fmt.Errorf("ONNX Runtime not found in %s", modelsDir)
+	return onnxrt.LibPath(modelsDir)
 }
 
 func DefaultModelPath(modelsDir string) string {

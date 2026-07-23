@@ -3,7 +3,6 @@
 package onnx
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -13,6 +12,7 @@ import (
 	"path/filepath"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
+	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
 )
@@ -176,22 +176,10 @@ func (d *Detector) Close() {
 	ort.DestroyEnvironment()
 }
 
-// DefaultLibPath returns the expected path for the ONNX Runtime shared library.
-// Prefers GPU variant, falls back to CPU.
+// DefaultLibPath returns the path to the ONNX Runtime shared library.
+// Delegates to onnxrt.LibPath for centralized logic.
 func DefaultLibPath(modelsDir string) (string, error) {
-	for _, c := range []string{
-		filepath.Join(modelsDir, "libonnxruntime_gpu.dylib"),
-		filepath.Join(modelsDir, "libonnxruntime_gpu.so"),
-		filepath.Join(modelsDir, "onnxruntime_gpu.dll"),
-		filepath.Join(modelsDir, "onnxruntime.dll"),
-		filepath.Join(modelsDir, "libonnxruntime.so"),
-		filepath.Join(modelsDir, "libonnxruntime.dylib"),
-	} {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	return "", errors.New("ONNX Runtime library not found")
+	return onnxrt.LibPath(modelsDir)
 }
 
 // DefaultModelPath returns the expected path for the ONNX model file.

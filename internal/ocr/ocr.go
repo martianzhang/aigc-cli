@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
+	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 )
 
 // OCRLine holds a single recognized text line.
@@ -397,22 +398,10 @@ func (e *Engine) Close() {
 	ort.DestroyEnvironment()
 }
 
-// DefaultLibPath returns the OS-appropriate ONNX Runtime shared library path.
+// DefaultLibPath returns the path to the ONNX Runtime shared library.
+// Delegates to onnxrt.LibPath for centralized logic.
 func DefaultLibPath(modelsDir string) (string, error) {
-	candidates := []string{
-		filepath.Join(modelsDir, "libonnxruntime_gpu.dylib"),
-		filepath.Join(modelsDir, "libonnxruntime_gpu.so"),
-		filepath.Join(modelsDir, "onnxruntime_gpu.dll"),
-		filepath.Join(modelsDir, "libonnxruntime.dylib"),
-		filepath.Join(modelsDir, "libonnxruntime.so"),
-		filepath.Join(modelsDir, "onnxruntime.dll"),
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	return "", fmt.Errorf("ONNX Runtime library not found in %s", modelsDir)
+	return onnxrt.LibPath(modelsDir)
 }
 
 // DefaultDetModelPath returns the default detection model path.
