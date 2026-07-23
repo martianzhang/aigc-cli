@@ -40,12 +40,13 @@ func init() {
 }
 
 var (
-	visionModelFlag   string
-	visionListFlag    bool
-	visionForceFlag   bool
-	visionMaxTokens   int
-	visionTemperature float64
-	visionTopK        int
+	visionModelFlag         string
+	visionListFlag          bool
+	visionForceFlag         bool
+	visionMaxTokens         int
+	visionTemperature       float64
+	visionTopK              int
+	visionRepetitionPenalty float64
 )
 
 // ─── vision init ────────────────────────────────────────────────────────
@@ -160,13 +161,14 @@ func runVisionDescribe(cmd *cobra.Command, args []string) error {
 	}
 
 	engine, err := vision.NewEngine(&vision.EngineConfig{
-		ModelsDir:   modelsDir,
-		Variant:     variant,
-		LibPath:     libPath,
-		Tokenizer:   tk,
-		MaxTokens:   visionMaxTokens,
-		Temperature: visionTemperature,
-		TopK:        visionTopK,
+		ModelsDir:         modelsDir,
+		Variant:           variant,
+		LibPath:           libPath,
+		Tokenizer:         tk,
+		MaxTokens:         visionMaxTokens,
+		Temperature:       visionTemperature,
+		TopK:              visionTopK,
+		RepetitionPenalty: visionRepetitionPenalty,
 	})
 	if err != nil {
 		return fmt.Errorf("create vision engine: %w", err)
@@ -203,4 +205,6 @@ func init() {
 	visionDescribeCmd.Flags().IntVar(&visionMaxTokens, "max-tokens", 512, "maximum number of tokens to generate")
 	visionDescribeCmd.Flags().Float64Var(&visionTemperature, "temperature", 0.0, "sampling temperature (0 = greedy)")
 	visionDescribeCmd.Flags().IntVar(&visionTopK, "top-k", 0, "top-k sampling (0 = off)")
+	visionDescribeCmd.Flags().Float64Var(&visionRepetitionPenalty, "repetition-penalty", 1.2,
+		"repetition penalty to discourage loops (1.0=disabled, 1.0-1.5 typical)")
 }

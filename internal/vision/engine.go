@@ -43,13 +43,14 @@ type Engine struct {
 }
 
 type EngineConfig struct {
-	ModelsDir   string
-	Variant     string
-	LibPath     string
-	Tokenizer   *Tokenizer
-	MaxTokens   int
-	Temperature float64
-	TopK        int
+	ModelsDir         string
+	Variant           string
+	LibPath           string
+	Tokenizer         *Tokenizer
+	MaxTokens         int
+	Temperature       float64
+	TopK              int
+	RepetitionPenalty float64 // 0=disabled, 1.0-1.5 typical
 }
 
 func DefaultModelsDir() string {
@@ -73,7 +74,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		modelsDir: cfg.ModelsDir,
 		variant:   cfg.Variant,
 		tokenizer: cfg.Tokenizer,
-		sampler:   NewSampler(cfg.Temperature, cfg.TopK),
+		sampler:   NewSampler(cfg.Temperature, cfg.TopK, cfg.RepetitionPenalty),
 	}
 	if e.variant == "" {
 		e.variant = DefaultModelVariant
@@ -256,7 +257,7 @@ func (e *Engine) initDecoderModel() error {
 
 	var err error
 
-	maxDecLen := 256
+	maxDecLen := MaxTokens + 1 // autoregressive loop accumulates start + up to MaxTokens tokens
 	decEmbShape := ort.NewShape(1, int64(maxDecLen), HiddenDim)
 	decEmbData := make([]float32, maxDecLen*HiddenDim)
 	e.decInputEmbeds, err = ort.NewTensor(decEmbShape, decEmbData)
@@ -397,7 +398,7 @@ func (e *Engine) generate(path, prompt string) (string, error) {
 			return "", fmt.Errorf("decoder step %d: %w", i, err)
 		}
 
-		nextID := e.sampler.Sample(logits)
+		nextID := e.sampler.Sample(logits, generatedIDs)
 		if nextID == EOSTokenID {
 			break
 		}

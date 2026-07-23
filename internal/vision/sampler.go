@@ -4,34 +4,64 @@ import "math"
 
 // Sampler handles token sampling strategies for autoregressive generation.
 type Sampler struct {
-	Temperature float64
-	TopK        int
+	Temperature       float64
+	TopK              int
+	RepetitionPenalty float64 // >1.0 penalizes tokens that already appeared (>0 disables)
 }
 
-// DefaultSampler returns a sampler with greedy decoding.
+// DefaultSampler returns a sampler with greedy decoding and repetition penalty.
 func DefaultSampler() *Sampler {
 	return &Sampler{
-		Temperature: 0.0, // greedy
-		TopK:        0,
+		Temperature:       0.0, // greedy
+		TopK:              0,
+		RepetitionPenalty: 1.2,
 	}
 }
 
 // NewSampler creates a sampler with the given parameters.
 // temperature=0 means greedy (always pick highest probability).
-func NewSampler(temperature float64, topK int) *Sampler {
+// repetitionPenalty=0 disables repetition penalty; 1.0-1.5 is typical.
+func NewSampler(temperature float64, topK int, repetitionPenalty float64) *Sampler {
 	return &Sampler{
-		Temperature: temperature,
-		TopK:        topK,
+		Temperature:       temperature,
+		TopK:              topK,
+		RepetitionPenalty: repetitionPenalty,
 	}
 }
 
-// Sample selects the next token ID from logits.
+// Sample selects the next token ID from logits given already-generated IDs.
 // When temperature is 0 (or very small), uses greedy selection.
-func (s *Sampler) Sample(logits []float32) int64 {
-	if s.Temperature <= 0.001 || len(logits) == 0 {
+func (s *Sampler) Sample(logits []float32, generatedIDs []int64) int64 {
+	if len(logits) == 0 {
+		return 0
+	}
+
+	// Apply repetition penalty to discourage loops
+	if s.RepetitionPenalty > 0 && len(generatedIDs) > 0 {
+		s.applyRepetitionPenalty(logits, generatedIDs)
+	}
+
+	if s.Temperature <= 0.001 {
 		return s.greedy(logits)
 	}
 	return s.topKLogits(logits)
+}
+
+// applyRepetitionPenalty scales down logits of already-generated tokens:
+//
+//	positive logit → logit / penalty
+//	negative logit → logit * penalty
+func (s *Sampler) applyRepetitionPenalty(logits []float32, ids []int64) {
+	p := float32(s.RepetitionPenalty)
+	for _, id := range ids {
+		if id >= 0 && int(id) < len(logits) {
+			if logits[id] > 0 {
+				logits[id] /= p
+			} else {
+				logits[id] *= p
+			}
+		}
+	}
 }
 
 // greedy selects the token with the highest logit value.
