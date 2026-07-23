@@ -625,16 +625,19 @@ func TestDetPreprocess_whiteImage(t *testing.T) {
 // ----- splitEnglishWords -----
 
 func TestSplitEnglishWords_splitsConcatenated(t *testing.T) {
-	// Core behavior: concatenated English text should be broken into words.
-	// The DP may not produce perfect results with the system dictionary,
-	// but it MUST create at least as many tokens as there are words.
+	// Skip if no dictionary loaded (CI environment without system dict).
+	TryLoadDictionary()
+	if len(wordSet) < 100 {
+		t.Skip("no English dictionary available")
+	}
+
 	tests := []struct {
 		input string
 		min   int // minimum number of space-separated tokens expected
 	}{
 		{"thehiddendebtofthesecompanies", 6}, // the hidden debt of these companies
 		{"hasincreasedeightfoldoverthe", 4},  // has increased eightfold over the
-		{"Amidthefervorofartificial", 4},     // Amid the fervor of artificial
+		{"Amidthefervorofartificial", 4},    // Amid the fervor of artificial
 	}
 	for _, tc := range tests {
 		got := splitEnglishWords(tc.input)
