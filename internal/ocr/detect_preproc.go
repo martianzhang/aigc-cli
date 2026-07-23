@@ -9,13 +9,14 @@ import (
 
 // detPreprocess resizes an image for DBNet input while maintaining aspect ratio,
 // then normalizes to CHW float32 format with PP-OCR normalization  [-1, 1].
-func detPreprocess(img image.Image) (pixels []float32, scaleX, scaleY float64, padLeft, padTop int) {
+// inputSize is the padded size fed into the model (e.g., 960, 1920).
+func detPreprocess(img image.Image, inputSize int) (pixels []float32, scaleX, scaleY float64, padLeft, padTop int) {
 	b := img.Bounds()
 	srcW := b.Dx()
 	srcH := b.Dy()
 
-	// Resize so longest side ≤ DetInputSize
-	ratio := float64(DetInputSize) / float64(maxInt(srcW, srcH))
+	// Resize so longest side ≤ inputSize (but don't upscale if it already fits).
+	ratio := float64(inputSize) / float64(maxInt(srcW, srcH))
 	if ratio > 1.0 {
 		ratio = 1.0
 	}
@@ -25,21 +26,21 @@ func detPreprocess(img image.Image) (pixels []float32, scaleX, scaleY float64, p
 	resized := image.NewRGBA(image.Rect(0, 0, resizedW, resizedH))
 	draw.BiLinear.Scale(resized, resized.Bounds(), img, b, draw.Src, nil)
 
-	// Center-pad to DetInputSize x DetInputSize
-	padLeft = (DetInputSize - resizedW) / 2
-	padTop = (DetInputSize - resizedH) / 2
+	// Center-pad to inputSize x inputSize
+	padLeft = (inputSize - resizedW) / 2
+	padTop = (inputSize - resizedH) / 2
 
 	// PP-OCR normalization: (pixel/255 - 0.5) / 0.5  →  [-1, 1]
 	mean := [3]float32{0.5, 0.5, 0.5}
 	std := [3]float32{0.5, 0.5, 0.5}
 
-	pixels = make([]float32, DetChannels*DetInputSize*DetInputSize)
+	pixels = make([]float32, DetChannels*inputSize*inputSize)
 	for c := 0; c < DetChannels; c++ {
-		for y := 0; y < DetInputSize; y++ {
-			for x := 0; x < DetInputSize; x++ {
+		for y := 0; y < inputSize; y++ {
+			for x := 0; x < inputSize; x++ {
 				ix := x - padLeft
 				iy := y - padTop
-				idx := c*DetInputSize*DetInputSize + y*DetInputSize + x
+				idx := c*inputSize*inputSize + y*inputSize + x
 				if ix < 0 || ix >= resizedW || iy < 0 || iy >= resizedH {
 					pixels[idx] = (0.0 - mean[c]) / std[c]
 					continue
@@ -59,7 +60,7 @@ func detPreprocess(img image.Image) (pixels []float32, scaleX, scaleY float64, p
 		}
 	}
 
-	scaleX = float64(resizedW) / float64(DetInputSize)
-	scaleY = float64(resizedH) / float64(DetInputSize)
+	scaleX = float64(resizedW) / float64(inputSize)
+	scaleY = float64(resizedH) / float64(inputSize)
 	return pixels, scaleX, scaleY, padLeft, padTop
 }

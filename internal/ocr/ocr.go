@@ -9,7 +9,6 @@ import (
 	"image"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
@@ -36,10 +35,10 @@ type OCRResult struct {
 }
 
 const (
-	// DetMaxSide is the max image dimension for detection (maintains aspect ratio).
-	DetMaxSide = 960
-	// DetInputSize is the padded size fed into the det model (must be ≥ DetMaxSide).
-	DetInputSize = 960
+	// DefaultDetMaxSide is the default max image dimension for detection.
+	// PP-OCRv4 det was trained at 960; larger sizes improve small-text detection
+	// in high-res screenshots at the cost of speed and memory.
+	DefaultDetMaxSide = 960
 	// DetChannels is the number of input channels for detection.
 	DetChannels = 3
 	// DetDownsample is the total stride of the DBNet backbone.
@@ -88,6 +87,14 @@ type Engine struct {
 	recVocabSize int    // vocabulary size for the loaded rec model
 	recOutName   string // output tensor name for the loaded rec model
 
+	// maxSide controls the maximum image dimension for detection.
+	// Default 960. Set higher (e.g., 1920) for better small-text detection
+	// on high-resolution screenshots at the cost of ~4x more memory/time.
+	maxSide int
+	// detInputSize is the current (padded) input size for the det session.
+	// Lazily computed from the first image; re-created when a larger size is needed.
+	detInputSize int
+
 	det   *ort.AdvancedSession
 	rec   *ort.AdvancedSession
 	enRec *ort.AdvancedSession // English recognition session
@@ -116,12 +123,30 @@ func NewEngine(libPath, detModel, recModel, clsModel, dictPath string, recVocabS
 		enModel:      enModel,
 		enDict:       enDict,
 		Lang:         lang,
+		maxSide:      DefaultDetMaxSide,
 	}
 	if err := e.init(); err != nil {
 		return nil, err
 	}
 	return e, nil
 }
+
+// SetMaxSide sets the maximum image dimension for detection.
+// Larger values improve small-text detection in high-resolution screenshots
+// but increase memory and inference time (~4x at 1920 vs 960).
+// Call before the first Detect() or between images to resize the session.
+// Default: 960.
+func (e *Engine) SetMaxSide(n int) {
+	if n < 64 {
+		n = 64
+	}
+	e.maxSide = n
+	// Reset detInputSize so the session is re-created on next Detect().
+	e.detInputSize = 0
+}
+
+// MaxSide returns the current maximum detection dimension.
+func (e *Engine) MaxSide() int { return e.maxSide }
 
 func (e *Engine) init() error {
 	// Load dictionary if provided
@@ -185,12 +210,22 @@ func (e *Engine) init() error {
 }
 
 func (e *Engine) initDet() error {
+	return e.reinitDet(DefaultDetMaxSide)
+}
+
+// reinitDet destroys and re-creates the detection session for a new input size.
+// This is safe to call multiple times (replaces an existing session if any).
+func (e *Engine) reinitDet(size int) error {
 	if _, err := os.Stat(e.detModel); err != nil {
 		return fmt.Errorf("detection model not found: %w", err)
 	}
-	// Input: [1, 3, 960, 960], Output: [1, 1, 960, 960]
-	inputShape := ort.NewShape(1, DetChannels, DetInputSize, DetInputSize)
-	totalIn := 1 * DetChannels * DetInputSize * DetInputSize
+
+	// Destroy old session and tensors first.
+	e.cleanupDet()
+
+	// Input: [1, 3, size, size], Output: [1, 1, size, size]
+	inputShape := ort.NewShape(1, DetChannels, int64(size), int64(size))
+	totalIn := 1 * DetChannels * size * size
 	inputData := make([]float32, totalIn)
 	var err error
 	e.detIn, err = ort.NewTensor(inputShape, inputData)
@@ -198,12 +233,13 @@ func (e *Engine) initDet() error {
 		return fmt.Errorf("create det input tensor: %w", err)
 	}
 
-	outputShape := ort.NewShape(1, 1, DetInputSize, DetInputSize)
-	totalOut := 1 * 1 * DetInputSize * DetInputSize
+	outputShape := ort.NewShape(1, 1, int64(size), int64(size))
+	totalOut := 1 * 1 * size * size
 	outputData := make([]float32, totalOut)
 	e.detOut, err = ort.NewTensor(outputShape, outputData)
 	if err != nil {
 		e.detIn.Destroy()
+		e.detIn = nil
 		return fmt.Errorf("create det output tensor: %w", err)
 	}
 
@@ -217,10 +253,34 @@ func (e *Engine) initDet() error {
 	)
 	if err != nil {
 		e.detOut.Destroy()
+		e.detOut = nil
 		e.detIn.Destroy()
+		e.detIn = nil
 		return fmt.Errorf("create det session: %w", err)
 	}
+	e.detInputSize = size
 	return nil
+}
+
+// detInputSizeFor returns the optimal padded input size for the given image dimensions.
+// It picks the smallest power-of-two ≥ 64 that fits the image's longest side
+// within maxSide, ensuring DBNet gets enough resolution for small text.
+func (e *Engine) detInputSizeFor(origW, origH int) int {
+	longest := origW
+	if origH > longest {
+		longest = origH
+	}
+	if longest <= e.maxSide {
+		// Use original resolution (don't downscale small images).
+		// Round up to next multiple of 32 for efficient ONNX inference.
+		s := ((longest + 31) / 32) * 32
+		if s < 64 {
+			s = 64
+		}
+		return s
+	}
+	// Image is larger than maxSide: use maxSide (downscale).
+	return e.maxSide
 }
 
 func (e *Engine) initRec() error {
@@ -458,63 +518,6 @@ func loadDict(path string) ([]string, error) {
 	return chars, nil
 }
 
-// sortBoxesReadingOrder sorts text boxes in natural reading order:
-// top-to-bottom, left-to-right. Two boxes are considered same row when
-// their vertical center lines fall within each other's height range.
-func sortBoxesReadingOrder(boxes [][4][2]int) {
-	// Compute row-grouped centers
-	type idxBox struct {
-		idx    int
-		cy     int
-		cx     int
-		height int
-	}
-	items := make([]idxBox, len(boxes))
-	for i, b := range boxes {
-		minY, maxY := b[0][1], b[0][1]
-		minX, maxX := b[0][0], b[0][0]
-		for _, p := range b[1:] {
-			if p[0] < minX {
-				minX = p[0]
-			}
-			if p[0] > maxX {
-				maxX = p[0]
-			}
-			if p[1] < minY {
-				minY = p[1]
-			}
-			if p[1] > maxY {
-				maxY = p[1]
-			}
-		}
-		items[i] = idxBox{
-			idx:    i,
-			cy:     (minY + maxY) / 2,
-			cx:     (minX + maxX) / 2,
-			height: maxY - minY,
-		}
-	}
-	// Sort by row (y) then column (x)
-	sort.Slice(items, func(i, j int) bool {
-		// Same row if vertical distance < half the shorter box height
-		overlap := items[i].height + items[j].height
-		dist := items[i].cy - items[j].cy
-		if dist < 0 {
-			dist = -dist
-		}
-		if dist*2 < overlap {
-			return items[i].cx < items[j].cx
-		}
-		return items[i].cy < items[j].cy
-	})
-	// Reorder boxes in-place
-	sorted := make([][4][2]int, len(boxes))
-	for i, item := range items {
-		sorted[i] = boxes[item.idx]
-	}
-	copy(boxes, sorted)
-}
-
 // expandBox expands a text region box outward by a ratio, giving the
 // recognition model some surrounding context (important for edge pixels).
 func expandBox(box [4][2]int, imgW, imgH int, ratio float64) [4][2]int {
@@ -560,136 +563,6 @@ func isCJK(r rune) bool {
 		(r >= 0xAC00 && r <= 0xD7AF) || // Hangul
 		(r >= 0x3000 && r <= 0x303F) || // CJK Symbols and Punctuation
 		(r >= 0xFF00 && r <= 0xFFEF) // Fullwidth forms
-}
-
-// groupLinesIntoParagraphs groups recognized lines into paragraphs based on
-// their vertical position and indentation. Uses a simplified version of
-// Umi-OCR's paragraph parsing approach.
-// lineY holds original (unexpanded) Y bounds for each line, used for
-// row grouping to avoid expandBox padding overlapping adjacent lines.
-func groupLinesIntoParagraphs(lines []OCRLine, lineY [][2]int) string {
-	if len(lines) == 0 {
-		return ""
-	}
-
-	type rowBlock struct {
-		line OCRLine
-		cx   int
-	}
-	var rows [][]rowBlock
-	var rowTops []int
-
-	for li, line := range lines {
-		minY, maxY := lineY[li][0], lineY[li][1]
-		cy := (minY + maxY) / 2
-		height := maxY - minY
-		box := line.BBox
-		placed := false
-
-		for ri := range rows {
-			if len(rows[ri]) > 0 {
-				// Check vertical overlap
-				firstBox := rows[ri][0].line.BBox
-				rowMinY, rowMaxY := firstBox[0][1], firstBox[0][1]
-				for _, p := range firstBox[1:] {
-					if p[1] < rowMinY {
-						rowMinY = p[1]
-					}
-					if p[1] > rowMaxY {
-						rowMaxY = p[1]
-					}
-				}
-				rowHeight := rowMaxY - rowMinY
-				overlap := height + rowHeight
-				dist := cy - (rowMinY+rowMaxY)/2
-				if dist < 0 {
-					dist = -dist
-				}
-				if dist*2 < overlap {
-					rows[ri] = append(rows[ri], rowBlock{line, (box[0][0] + box[2][0]) / 2})
-					placed = true
-					break
-				}
-			}
-		}
-		if !placed {
-			rows = append(rows, []rowBlock{{line, (box[0][0] + box[2][0]) / 2}})
-			rowTops = append(rowTops, cy)
-		}
-	}
-
-	// Sort rows top-to-bottom, then each row left-to-right
-	sort.SliceStable(rows, func(i, j int) bool {
-		return rowTops[i] < rowTops[j]
-	})
-	for ri := range rows {
-		sort.Slice(rows[ri], func(i, j int) bool {
-			return rows[ri][i].cx < rows[ri][j].cx
-		})
-	}
-
-	var rowTexts []string
-	var rowSeps []string
-	rowBounds := make([][2]int, len(rows))
-
-	for ri, row := range rows {
-		var rowBuf strings.Builder
-		minY, maxY := row[0].line.BBox[0][1], row[0].line.BBox[0][1]
-		for _, blk := range row {
-			for _, p := range blk.line.BBox {
-				if p[1] < minY {
-					minY = p[1]
-				}
-				if p[1] > maxY {
-					maxY = p[1]
-				}
-			}
-		}
-		for bi, blk := range row {
-			if bi > 0 {
-				prevBox := row[bi-1].line.BBox
-				prevRight := prevBox[1][0]
-				currLeft := blk.line.BBox[0][0]
-				gap := currLeft - prevRight
-				if gap > 20 {
-					rowBuf.WriteString("\n")
-				} else {
-					rowBuf.WriteString(" ")
-				}
-			}
-			rowBuf.WriteString(blk.line.Text)
-		}
-		rowTexts = append(rowTexts, rowBuf.String())
-		rowBounds[ri] = [2]int{minY, maxY}
-	}
-
-	for ri := 0; ri < len(rows)-1; ri++ {
-		currMaxY := rowBounds[ri][1]
-		nextMinY := rowBounds[ri+1][0]
-		lineHeight := rowBounds[ri][1] - rowBounds[ri][0]
-		vGap := nextMinY - currMaxY
-
-		sep := " "
-		if vGap > lineHeight/2 {
-			sep = "\n\n"
-		} else if strings.HasSuffix(rowTexts[ri], "-") {
-			rowTexts[ri] = rowTexts[ri][:len(rowTexts[ri])-1]
-		}
-		rowSeps = append(rowSeps, sep)
-	}
-
-	var result strings.Builder
-	for i, text := range rowTexts {
-		result.WriteString(text)
-		if i < len(rowSeps) {
-			result.WriteString(rowSeps[i])
-		}
-	}
-	out := result.String()
-	for strings.Contains(out, "\n\n\n") {
-		out = strings.ReplaceAll(out, "\n\n\n", "\n\n")
-	}
-	return cjkLatinSpacing(out)
 }
 
 // isEnglishLine checks whether a single OCR line is predominantly English
@@ -823,73 +696,11 @@ func postProcessLine(text string) string {
 	}
 	text = punctFixed.String()
 
-	// Insert space before uppercase following lowercase (merged CamelCase)
-	var spaced strings.Builder
-	runes2 := []rune(text)
-	for i, r := range runes2 {
-		if i > 0 && r >= 'A' && r <= 'Z' && runes2[i-1] >= 'a' && runes2[i-1] <= 'z' {
-			spaced.WriteRune(' ')
-		}
-		// Insert space between digit and letter (e.g., "2hours" → "2 hours")
-		if i > 0 && isDigit(r) && isLetter(runes2[i-1]) {
-			spaced.WriteRune(' ')
-		}
-		if i > 0 && isLetter(r) && isDigit(runes2[i-1]) {
-			spaced.WriteRune(' ')
-		}
-		spaced.WriteRune(r)
-	}
-	text = spaced.String()
-
-	// Collapse multiple spaces from the additions above
-	for strings.Contains(text, "  ") {
-		text = strings.ReplaceAll(text, "  ", " ")
-	}
-
-	// Correct common model-level typos
-	text = fixCommonOCRErrors(text)
+	// Digit-letter and CamelCase spacing omitted — they break model names
+	// (FP32, M890, Qwen3.8) more often than they help. The DP word splitter
+	// handles genuine concatenated words.
 
 	return text
-}
-
-// fixCommonOCRErrors corrects known PP-OCR recognition errors on English text.
-// fixCommonOCRErrors corrects known PP-OCR character-level confusions.
-// Uses word-level matching (not substring) to avoid false positives.
-func fixCommonOCRErrors(text string) string {
-	type fix struct{ old, new string }
-	letters := []fix{
-		{"tor", "for"},                   // t→f
-		{"fhe", "the"},                   // f→t
-		{"evervone", "everyone"},         // v→y
-		{"Onen", "Open"},                 // n→p
-		{"davs", "days"},                 // v→y
-		{"hour1", "hour"},                // 1→ (no char)
-		{"ho1r", "hour"},                 // 1→u
-		{"1n", "in"},                     // 1→i
-		{"subscribtion", "subscription"}, // missing p
-		{"usagelimit", "usage limit"},
-		{"God", "Go"},
-		{"inteligence", "intelligence"},
-		{"trllion", "trillion"},
-		{"ifficult", "difficult"},
-		{"debtlevels", "debt levels"},
-		{"Thisituation", "This situation"},
-		{"Nikki", "Nikkei"},
-	}
-	words := strings.Fields(text)
-	for i, w := range words {
-		clean := strings.TrimRight(w, ".,;:!?\"')\u201D\u2019\u300D\u3011")
-		for _, f := range letters {
-			if strings.EqualFold(clean, f.old) {
-				words[i] = f.new
-				if len(clean) < len(w) {
-					words[i] += w[len(clean):]
-				}
-				break
-			}
-		}
-	}
-	return strings.Join(words, " ")
 }
 
 // Scan runs OCR on a single image and returns the recognized text.
@@ -908,7 +719,7 @@ func (e *Engine) Scan(img image.Image) (*OCRResult, error) {
 	}
 
 	// Step 2: Sort boxes in reading order before recognition
-	sortBoxesReadingOrder(boxes)
+	sortBoxesGapTreeRects(boxes)
 
 	type recResult struct {
 		line OCRLine
@@ -916,21 +727,62 @@ func (e *Engine) Scan(img image.Image) (*OCRResult, error) {
 	}
 	var results []recResult
 	bounds := img.Bounds()
+	enFirst := e.Lang == "en" && e.enRec != nil
 	for _, box := range boxes {
 		expanded := expandBox(box, bounds.Max.X, bounds.Max.Y, 0.10)
-		line, err := e.Recognize(img, expanded)
+
+		var line *OCRLine
+		var err error
+		fromEN := false
+
+		if enFirst {
+			// EN-first: English model runs first, Chinese model is fallback.
+			line, err = e.RecognizeEN(img, expanded)
+			if err != nil || line.Confidence < 0.65 {
+				line, err = e.Recognize(img, expanded)
+			} else {
+				fromEN = true
+			}
+		} else {
+			line, err = e.Recognize(img, expanded)
+		}
+
 		if err != nil {
 			continue
 		}
-		line.Text = postProcessLine(line.Text)
+		if line.Confidence < 0.65 {
+			continue
+		}
+
+		if fromEN {
+			// English model outputs native spaces; skip Chinese-specific processing.
+			// Still guard against full-width non-text boxes (common hallucination source).
+			boxW := box[1][0] - box[0][0]
+			if boxW > bounds.Dx()*8/10 && len([]rune(line.Text)) < 15 {
+				continue
+			}
+		} else {
+			line.Text = postProcessLine(line.Text)
+			// Skip filler-fragmented texts (Chinese model hallucinates with 极).
+			if len([]rune(line.Text)) < 30 && strings.Count(line.Text, " ") > len([]rune(line.Text))/6 {
+				continue
+			}
+		}
+
 		results = append(results, recResult{*line, box})
 	}
 
-	// Per-line English re-recognition for mixed-language documents.
-	if e.enRec != nil && e.Lang != "zh" {
-		allEN := e.Lang == "en"
+	// English re-recognition for mixed-language content (auto mode only).
+	// In auto mode, the Chinese model runs first on all lines, then English-
+	// dominant lines are re-recognized. In en mode, the English model already
+	// ran first so this pass is unnecessary.
+	if e.enRec != nil && e.Lang == "auto" {
 		for i, r := range results {
-			if !allEN && !isEnglishLine(r.line) {
+			if !isEnglishLine(r.line) {
+				continue
+			}
+			boxW := r.box[1][0] - r.box[0][0]
+			if boxW > bounds.Dx()*8/10 && len(r.line.Text) < 15 {
 				continue
 			}
 			expanded := expandBox(r.box, bounds.Max.X, bounds.Max.Y, 0.10)
@@ -938,33 +790,19 @@ func (e *Engine) Scan(img image.Image) (*OCRResult, error) {
 			if err != nil {
 				continue
 			}
-			if enLine.Confidence > r.line.Confidence {
-				enLine.Text = fixCommonOCRErrors(enLine.Text)
+			if enLine.Confidence > 0.7 && enLine.Confidence > r.line.Confidence+0.05 {
 				results[i].line = *enLine
 			}
 		}
 	}
 
 	lines := make([]OCRLine, len(results))
-	lineY := make([][2]int, len(results))
 	for i, r := range results {
 		lines[i] = r.line
-		// Use original (unexpanded) box Y for row grouping to avoid
-		// expandBox(0.10) padding causing adjacent lines to overlap.
-		minY, maxY := r.box[0][1], r.box[0][1]
-		for _, p := range r.box[1:] {
-			if p[1] < minY {
-				minY = p[1]
-			}
-			if p[1] > maxY {
-				maxY = p[1]
-			}
-		}
-		lineY[i] = [2]int{minY, maxY}
 	}
 
-	// Build result with paragraph grouping
-	text := groupLinesIntoParagraphs(lines, lineY)
+	// Build result with paragraph grouping (Umi-OCR ParagraphParse)
+	text := paragraphParse(lines)
 
 	// Apply word splitting to concatenated English text (no extra model needed).
 	// This is a dictionary+DP approach inspired by Umi-OCR's text block post-processing.

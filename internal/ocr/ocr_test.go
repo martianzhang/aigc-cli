@@ -37,8 +37,8 @@ func TestDefaultPaths(t *testing.T) {
 }
 
 func TestConstants(t *testing.T) {
-	if DetInputSize != 960 {
-		t.Errorf("DetInputSize = %d, want 960", DetInputSize)
+	if DefaultDetMaxSide != 960 {
+		t.Errorf("DefaultDetMaxSide = %d, want 960", DefaultDetMaxSide)
 	}
 	if DetDownsample != 1 {
 		t.Errorf("DetDownsample = %d, want 1", DetDownsample)
@@ -247,9 +247,10 @@ func TestMinAreaRect_lessThan3Points(t *testing.T) {
 
 func TestDetPreprocess_OutputSize(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 100, 200))
-	pixels, scaleX, scaleY, padLeft, padTop := detPreprocess(img)
+	inputSize := 960
+	pixels, scaleX, scaleY, padLeft, padTop := detPreprocess(img, inputSize)
 
-	expectedLen := DetChannels * DetInputSize * DetInputSize
+	expectedLen := DetChannels * inputSize * inputSize
 	if len(pixels) != expectedLen {
 		t.Errorf("pixels length = %d, want %d", len(pixels), expectedLen)
 	}
@@ -276,7 +277,7 @@ func TestDetPreprocess_OutputSize(t *testing.T) {
 func TestDetPreprocess_smallerThanMax(t *testing.T) {
 	// Image smaller than 960 — should not upscale (ratio capped at 1.0)
 	img := image.NewRGBA(image.Rect(0, 0, 50, 80))
-	_, scaleX, _, padLeft, padTop := detPreprocess(img)
+	_, scaleX, _, padLeft, padTop := detPreprocess(img, 960)
 
 	if padLeft != 455 { // (960-50)/2
 		t.Errorf("padLeft = %d, want 455", padLeft)
@@ -294,10 +295,11 @@ func TestDetPreprocess_smallerThanMax(t *testing.T) {
 func TestDetPreprocess_paddedZeros(t *testing.T) {
 	// Verify that padded pixels are not left at zero (they should be mean-centered)
 	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
-	pixels, _, _, _, _ := detPreprocess(img)
+	inputSize := 960
+	pixels, _, _, _, _ := detPreprocess(img, inputSize)
 
 	// Check a padded pixel (outside the 10x10 image) — should be -mean/std = -0.485/0.229 ≈ -2.117
-	paddedIdx := 0*DetInputSize*DetInputSize + 500*DetInputSize + 500 // far outside image
+	paddedIdx := 0*inputSize*inputSize + 500*inputSize + 500 // far outside image
 	if pixels[paddedIdx] > -0.1 {
 		// The padded pixel should have been set to mean-centered value
 		t.Logf("Note: padded pixel at %d = %f (expected negative from mean subtraction)", paddedIdx, pixels[paddedIdx])
@@ -310,7 +312,7 @@ func TestDetPostProcess_noBoxes(t *testing.T) {
 	// All-zero probability map — no boxes expected
 	h, w := 240, 240
 	probMap := make([]float32, h*w)
-	boxes := detPostProcess(probMap, h, w, 1.0, 1.0, 0, 0, 100, 200)
+	boxes := detPostProcess(probMap, h, w, w, 1.0, 1.0, 0, 0, 100, 200)
 	if len(boxes) != 0 {
 		t.Errorf("expected no boxes for zero prob map, got %d", len(boxes))
 	}
@@ -326,7 +328,7 @@ func TestDetPostProcess_singleBox(t *testing.T) {
 			probMap[y*w+x] = 0.95
 		}
 	}
-	boxes := detPostProcess(probMap, h, w, 0.5, 0.5, 0, 0, 960, 960)
+	boxes := detPostProcess(probMap, h, w, w, 0.5, 0.5, 0, 0, 960, 960)
 	if len(boxes) == 0 {
 		t.Fatal("expected at least one box")
 	}
@@ -350,7 +352,7 @@ func TestDetPostProcess_multipleBoxesNMS(t *testing.T) {
 			probMap[y*w+x] = 0.85
 		}
 	}
-	boxes := detPostProcess(probMap, h, w, 1.0, 1.0, 0, 0, 960, 960)
+	boxes := detPostProcess(probMap, h, w, w, 1.0, 1.0, 0, 0, 960, 960)
 	if len(boxes) != 2 {
 		t.Logf("boxes count = %d (may be more if components split)", len(boxes))
 	}
@@ -362,7 +364,7 @@ func TestRecPreprocess_zeroRegion(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 100, 100))
 	// Zero-width region
 	box := [4][2]int{{50, 50}, {50, 50}, {50, 50}, {50, 50}}
-	pixels, w := recPreprocess(img, box)
+	pixels, w := recPreprocess(nil, img, box)
 	if pixels != nil || w != 0 {
 		t.Error("recPreprocess with zero-size region should return nil, 0")
 	}
@@ -377,7 +379,7 @@ func TestRecPreprocess_validRegion(t *testing.T) {
 		}
 	}
 	box := [4][2]int{{20, 30}, {80, 30}, {80, 60}, {20, 60}}
-	pixels, w := recPreprocess(img, box)
+	pixels, w := recPreprocess(nil, img, box)
 	if pixels == nil {
 		t.Fatal("recPreprocess returned nil")
 	}
@@ -607,7 +609,8 @@ func TestDetPreprocess_whiteImage(t *testing.T) {
 			img.Set(x, y, color.RGBA{255, 255, 255, 255})
 		}
 	}
-	pixels, _, _, padLeft, padTop := detPreprocess(img)
+	inputSize := 960
+	pixels, _, _, padLeft, padTop := detPreprocess(img, inputSize)
 
 	// No padding needed for 960x960 input
 	if padLeft != 0 || padTop != 0 {
@@ -615,7 +618,7 @@ func TestDetPreprocess_whiteImage(t *testing.T) {
 	}
 
 	// All-white: R=1.0 → (1.0-0.485)/0.229 ≈ 2.249
-	rIdx := 0*DetInputSize*DetInputSize + 100*DetInputSize + 100
+	rIdx := 0*inputSize*inputSize + 100*inputSize + 100
 	if pixels[rIdx] < 1.0 {
 		// White pixel should be positive after normalization
 		t.Logf("White pixel normalized R value: %f (expected > 1.0)", pixels[rIdx])

@@ -9,7 +9,8 @@ type ocrPoint struct{ x, y int }
 
 // detPostProcess converts the DBNet probability map into text bounding boxes.
 // Pipeline: threshold → dilation → connected components → box extraction → box_thresh → unclip → NMS.
-func detPostProcess(probMap []float32, h, w int, scaleX, scaleY float64, padLeft, padTop int, origW, origH int) [][4][2]int {
+// inputSize is the padded size fed into the model (used for coordinate mapping).
+func detPostProcess(probMap []float32, h, w, inputSize int, scaleX, scaleY float64, padLeft, padTop int, origW, origH int) [][4][2]int {
 	const threshold = 0.3
 	const boxThresh = 0.5
 	const unclipRatio = 1.6
@@ -123,8 +124,8 @@ func detPostProcess(probMap []float32, h, w int, scaleX, scaleY float64, padLeft
 	for _, idx := range keep {
 		box := boxes[idx]
 		for i := 0; i < 4; i++ {
-			x := int(math.Round(float64(box[i][0]-padLeft) * float64(origW) / (scaleX * DetInputSize)))
-			y := int(math.Round(float64(box[i][1]-padTop) * float64(origH) / (scaleY * DetInputSize)))
+			x := int(math.Round(float64(box[i][0]-padLeft) * float64(origW) / (scaleX * float64(inputSize))))
+			y := int(math.Round(float64(box[i][1]-padTop) * float64(origH) / (scaleY * float64(inputSize))))
 			if x < 0 {
 				x = 0
 			}

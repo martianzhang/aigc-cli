@@ -3,12 +3,86 @@ package ocr
 import (
 	"fmt"
 	"image"
+	"math"
+
+	"golang.org/x/image/draw"
 )
 
+// clsInputW and clsInputH are the fixed input dimensions for the direction classifier.
+const (
+	clsInputH = 48
+	clsInputW = 192
+)
+
+// classifyDirection checks if a text region is upside-down using the direction classifier.
+// Returns true if the image should be rotated 180° before recognition.
+// When the classifier isn't loaded or confidence is low, returns false (pass-through).
+func (e *Engine) classifyDirection(cropped *image.RGBA) bool {
+	if e.cls == nil || cropped == nil {
+		return false
+	}
+	b := cropped.Bounds()
+	if b.Dx() < 4 || b.Dy() < 4 {
+		return false
+	}
+
+	// Resize to 48x192 (maintain aspect ratio, center-pad).
+	resized := image.NewRGBA(image.Rect(0, 0, clsInputW, clsInputH))
+	draw.BiLinear.Scale(resized, resized.Bounds(), cropped, b, draw.Src, nil)
+
+	// Build normalized tensor: (pixel/255 - 0.5) / 0.5 → [-1, 1]
+	data := e.clsIn.GetData()
+	idx := 0
+	for c := 0; c < DetChannels; c++ {
+		for y := 0; y < clsInputH; y++ {
+			for x := 0; x < clsInputW; x++ {
+				r, g, b_, _ := resized.At(x, y).RGBA()
+				var val float32
+				switch c {
+				case 0:
+					val = float32(r) / 65535.0
+				case 1:
+					val = float32(g) / 65535.0
+				case 2:
+					val = float32(b_) / 65535.0
+				}
+				data[idx] = (val - 0.5) / 0.5
+				idx++
+			}
+		}
+	}
+
+	if err := e.cls.Run(); err != nil {
+		return false
+	}
+
+	out := e.clsOut.GetData()
+	if len(out) < 2 {
+		return false
+	}
+	// Softmax over 2 classes: class 0 = 0°, class 1 = 180°.
+	// If 180° confidence is above threshold, rotate.
+	maxIdx := 0
+	if out[1] > out[0] {
+		maxIdx = 1
+	}
+	// Softmax normalization for confidence scoring.
+	exp0 := math.Exp(float64(out[0]))
+	exp1 := math.Exp(float64(out[1]))
+	sum := exp0 + exp1
+	if sum <= 0 {
+		return false
+	}
+	conf180 := exp1 / sum
+	return maxIdx == 1 && conf180 > 0.7
+}
+
 // Recognize recognizes text in a single image region using Chinese model.
+// Direction classification is applied automatically before recognition when the
+// classifier model is loaded.
 func (e *Engine) Recognize(img image.Image, box [4][2]int) (*OCRLine, error) {
-	// Preprocess
-	pixels, regionWidth := recPreprocess(img, box)
+	// Preprocess (includes affine correction + direction classification)
+	pixels, regionWidth := recPreprocess(e, img, box)
 	if pixels == nil || regionWidth <= 0 {
 		return nil, fmt.Errorf("invalid text region")
 	}
@@ -65,7 +139,7 @@ func (e *Engine) RecognizeEN(img image.Image, box [4][2]int) (*OCRLine, error) {
 		return e.Recognize(img, box)
 	}
 
-	pixels, regionWidth := recPreprocess(img, box)
+	pixels, regionWidth := recPreprocess(e, img, box)
 	if pixels == nil || regionWidth <= 0 {
 		return nil, fmt.Errorf("invalid text region")
 	}

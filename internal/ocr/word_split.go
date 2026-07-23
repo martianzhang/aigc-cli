@@ -361,6 +361,27 @@ func dpWordSplit(text string) string {
 	for left, right := 0, len(words)-1; left < right; left, right = left+1, right-1 {
 		words[left], words[right] = words[right], words[left]
 	}
+	// For short tokens (≤ 14 chars after cleaning), reject the split unless
+	// ALL resulting parts are known dictionary words. This prevents splitting
+	// product names (e.g., "CodeBuddyNPC") while allowing genuine merges
+	// in longer text.
+	if len(words) > 1 && len(text) <= 14 {
+		allKnown := true
+		for _, w := range words {
+			lower := strings.ToLower(w)
+			if isKnownWord(w) || isAllDigitsOrPunct(w) {
+				continue
+			}
+			if len(lower) >= 2 && wordSet[lower] {
+				continue
+			}
+			allKnown = false
+			break
+		}
+		if !allKnown {
+			return text
+		}
+	}
 	return strings.Join(words, " ")
 }
 
