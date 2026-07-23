@@ -1,6 +1,6 @@
 # Vision — 本地图像理解
 
-> **Status**: Planning / 设计阶段
+> **Status**: In Progress / 实现中
 > **Branch**: `feat/vision`
 
 基于 ONNX Runtime 在本地运行视觉模型，为纯文本 LLM 提供视觉能力。
@@ -9,17 +9,19 @@
 
 1. **模型 ≤ 1 GB** — 下载和运行成本可控
 2. **走 ONNX Runtime** — 复用现有基础设施（`internal/onnxrt/`）
-3. **视频 = 多帧图片** — ffmpeg 抽帧 + 逐帧描述 + 去重合并，不引入视频专用模型
+3. **视频 = 多帧图片** — ffmpeg 抽帧 + 逐帧推理 + 去重合并，不引入视频专用模型
 4. **模型上传到 aigc-cli-models** — 和 OCR / AIGC / 去背一致
+5. **Describe 和 Ask 共享同一推理引擎** — `ask` 只是换一个任务提示词
 
 ## 做什么 & 不做什么
 
 ### ✅ 做
 
 - `aigc-cli vision init` — 下载视觉模型
-- `aigc-cli vision describe` — 图片/视频描述
-- Chat Agent / MCP 中自动调用 describe，结果注入纯文本 LLM
-- 视频抽帧 + 逐帧描述 + 去重合并
+- `aigc-cli vision describe` — 图片/视频描述（默认 `DETAILED_CAPTION`）
+- `aigc-cli vision describe --ask "question"` — 基于图片提问（VQA）
+- Chat Agent / MCP 中自动调用 `describe` / `describe --ask`
+- 视频抽帧 + 逐帧推理 + 去重合并
 
 ### ❌ 不做
 
@@ -45,6 +47,8 @@
 
 ≤ 1GB 且经过实测验证的选择只有 **Florence-2 INT8/FP16**。Holo-3.1 的 ONNX 版本 HF 仓库总显示 3.04GB，需要确认 CPU 推理目录实际是否 ≤745MB。
 
+**关键优势：Florence-2 原生支持 VQA**，通过 `<VQA>` 任务 token + 用户问题即可实现 `--ask`，无需额外模型。
+
 ### 目标检测（需要额外评估必要性）
 
 | 模型 | 大小 | 许可证 | 输入 | 特点 |
@@ -56,93 +60,157 @@
 
 ### 是否需要检测？
 
-目前 vision 的核心场景是"描述图片给 LLM 理解"，检测/分割不是必需。但如果后续需要"图里有什么物体/在哪里"，检测是基础能力。
+目前 vision 的核心场景是"描述图片给 LLM 理解"和"对图片提问"，检测/分割不是必需。但如果后续需要"图里有什么物体/在哪里"，检测是基础能力。
 
-## 需要评估的关键问题
+## 底层架构
 
-在确定模型前，需要本机跑通验证：
-
-### ONNX Runtime 兼容性
-
-- [ ] `pure-onnx` 是否支持模型的全部算子（尤其是 Attention / MultiHeadAttention）
-- [ ] 是否需要自定义 op 或 fallback
-- [ ] 如果 `pure-onnx` 不支持，是否有替代方案
-
-### 自回归推理
-
-VLM 模型需要逐 token 生成，这是核心新增代码：
-
-Florence-2 是 encoder-decoder 架构，KV Cache 管理比纯 decoder 复杂：
+### Describe 与 Ask 共享同一引擎
 
 ```
-1. Encoder 一次性前向:
-   图像 + 文本 prompt → 生成 cross-attention 所需的 KV
-
-2. Decoder 自回归循环:
-   输入: input_ids + kv_cache + encoder_kv
-   输出: logits + 新的 kv_cache
-   → sample → next_token
-   → 拼入 output_ids
-   → 更新 kv_cache (自注意力 + cross-attention)
-   重复直到 EOS 或 max_len
+                    ┌───────────────────────────────────┐
+                    │          Vision Engine             │
+                    │  (internal/vision/engine.go)       │
+                    │                                   │
+                    │  input: image + task_prompt        │
+                    │  output: generated text            │
+                    └───────────────────────────────────┘
+                               ▲
+              ┌────────────────┴────────────────┐
+              │                                 │
+    ┌─────────┴──────────┐          ┌──────────┴──────────┐
+    │  describe           │          │  describe --ask     │
+    │  prompt:            │          │  prompt:            │
+    │  "<DETAILED_CAPTION>"│         │  "<VQA> question"   │
+    └────────────────────┘          └─────────────────────┘
 ```
 
-建议抽象为接口：
+**代码层面**只是一行分支：
 
 ```go
-type VLModel interface {
-    Encode(image []byte, prompt string) (embeddings, error)
-    Step(inputIDs []int, kvCache *KVCache) (logits, *KVCache, error)
-    Sample(logits) int
+if askQuestion != "" {
+    prompt = fmt.Sprintf("<VQA> %s", askQuestion)
+} else {
+    prompt = "<DETAILED_CAPTION>"
 }
 ```
 
-需要实现：
-- `internal/vision/sampler.go` — greedy（默认）/ top-k / top-p
-- `internal/vision/kvcache.go` — KV Cache 管理
-- Tokenizer — ID 序列还原为文本
+Florence‑2 官方任务清单本来就有 `<VQA>`（视觉问答），`ask` 只是换一个任务提示词，推理引擎完全复用。
 
-### Tokenizer
+### 推理流程
 
-各模型的 tokenizer 不同：
+```
+┌───────────────────────────────────────────┐
+│  1. 预处理                                 │
+│     image(224×224) → normalize → tensor    │
+│     prompt → tokenize → input_ids          │
+└───────────────────────────────────────────┘
+                      │
+                      ▼
+┌───────────────────────────────────────────┐
+│  2. Encoder 一次性前向                     │
+│     pixel_values + input_ids               │
+│     → encoder_hidden_states (cross-attn KV)│
+└───────────────────────────────────────────┘
+                      │
+                      ▼
+┌───────────────────────────────────────────┐
+│  3. Decoder 自回归循环                      │
+│     input: decoder_input_ids                │
+│          + encoder_hidden_states            │
+│          + past_key_values (KV cache)       │
+│     output: logits + new past_key_values    │
+│     → sample → next_token                  │
+│     → 拼入 output_ids                      │
+│     → 更新 KV cache                        │
+│     重复直到 EOS 或 max_len                │
+└───────────────────────────────────────────┘
+                      │
+                      ▼
+┌───────────────────────────────────────────┐
+│  4. 后处理                                 │
+│     output_ids → detokenize → text         │
+└───────────────────────────────────────────┘
+```
 
-| 模型 | Tokenizer | Go 实现可行性 |
-|---|---|---|
-| Florence-2 | BPE (GPT-2) | 中等 — 需要 BPE 实现 |
-| Holo-3.1 | Qwen2 tokenizer | 较高 — 基于 SentencePiece |
-| YOLO | 不需要 | 不适用 |
-| Phi-3.5 | tiktoken | 较高 — 已有 Go 移植 |
+### 视频场景的处理
 
-### CPU 推理速度
+视频走 `--ask` 时（或 `describe`），逻辑是：
+1. ffmpeg 抽帧（按时长自适应帧数）
+2. **每一帧走同一推理流程**（同一问题或同一描述任务）
+3. 汇总所有帧的答案 → 去重合并
 
-目标：单帧描述 < 5s（CPU），否则 Chat 场景体验不可用。
+示例输出：
+```
+视频共 32 秒，抽取 16 帧分析"是否有人拿手机"：
+- 第 1-8 帧：无人拿手机
+- 第 9-16 帧：一个穿蓝衣服的人拿着手机
+结论：视频后半段有人拿手机
+```
 
-| 模型 | ~350M | ~750M | ~800M |
-|---|---|---|---|
-| 估计速度 | 2-4s | 4-8s | 5-10s |
+### 接口抽象
 
-实际速度取决于模型架构、量化方式和自回归步数。
+```go
+// VLModel 是视觉语言模型的推理接口。
+// Describe 和 Ask 共用同一接口，只是 prompt 不同。
+type VLModel interface {
+    // Encode 对图像和文本 prompt 执行 encoder 前向，返回 encoder hidden states。
+    Encode(pixels []float32, inputIDs []int64) ([]float32, error)
+
+    // Step 执行 decoder 单步推理，返回 logits 和更新后的 KV cache。
+    Step(inputID int64, encoderStates []float32, kvCache *KVCache) ([]float32, *KVCache, error)
+
+    // Sample 从 logits 中采样下一个 token ID。
+    Sample(logits []float32) int64
+}
+```
 
 ## 产品设计
 
+### 命令
+
 ```bash
 # 下载模型（一次性）
-aigc-cli vision init                    # 下载默认模型（Florence-2 INT8）
-aigc-cli vision init --model fp16      # 可选其他版本
+aigc-cli vision init                       # 下载默认模型（Florence-2 INT8）
+aigc-cli vision init --model base-fp16    # 可选其他版本
+aigc-cli vision init --list                # 列出可用模型
 
 # 描述图片
 aigc-cli vision describe photo.jpg
 → "一个穿着红色连衣裙的女孩在沙滩上奔跑"
 
-# 描述视频
-aigc-cli vision describe demo.mp4
-→ "视频共 32 秒，关键画面：1) 一个人走进房间 2) 打开电脑..."
+# 基于图片提问（VQA）
+aigc-cli vision describe photo.jpg --ask "What color is the car?"
+→ "The car in the image is red."
+
+# 视频 + 提问（每帧都问同一个问题）
+aigc-cli vision describe demo.mp4 --ask "Is the person holding a phone?"
+→ "视频共 32 秒，抽取 16 帧分析：..."
 
 # Chat 自动看图
 aigc-cli chat
 > 这张图里有什么？
 [attach image]
-→ Agent 自动描述 → LLM 回复
+→ Agent 自动 ask → LLM 回复
+```
+
+### 参数设计
+
+| 参数 | 适用命令 | 说明 |
+|---|---|---|
+| `--ask` / `-a` | `describe` | 启用 VQA 模式，后接问题文本 |
+| `--model` | `describe` | 指定模型变体（base-int8 / base-fp16 / large） |
+| `--max-tokens` | `describe` | 最大生成 token 数（默认 512） |
+| `--temperature` | `describe` | 采样温度（默认 0.7） |
+| `--top-k` | `describe` | Top-K 采样（默认 40） |
+| `--frames` | 视频输入 | 手动指定抽帧数（默认自动） |
+| `--verbose` | 全局 | 显示推理耗时、token 数等 |
+
+### 命令树
+
+```
+aigc-cli vision
+├── init         下载模型（--list 列出可用模型）
+└── describe     描述图片/视频（--ask 进入 VQA 模式）
 ```
 
 ## 视频理解
@@ -150,7 +218,7 @@ aigc-cli chat
 视频 = 多帧图片，与模型无关。
 
 ```
-ffmpeg 抽帧 → for each: describe_image(frame) → 去重合并 → 输出
+ffmpeg 抽帧 → for each: infer(frame, prompt) → 去重合并 → 输出
 ```
 
 ### ffmpeg 依赖
@@ -175,23 +243,32 @@ Windows: winget install ffmpeg
 ### P0 — 模型评估与选择
 
 - [ ] 选定 1-2 个候选模型，本地跑通 ONNX 推理
-- [ ] 验证 `pure-onnx` 算子兼容性
+- [ ] 验证 `pure-onnx` 算子兼容性（尤其是 Attention / MultiHeadAttention）
 - [ ] 实现 tokenizer + 采样循环原型
 - [ ] 测量 CPU 推理速度
 - [ ] 确定最终模型
-- [ ] 上传到 aigc-cli-models
+- [ ] 上传到 aigc-cli-models（含 encoder + decoder ONNX + vocab/merges）
 
-### P1 — 基础命令
+### P1 — 基础命令（含 --ask）
 
-- [ ] `internal/vision/` 推理引擎
-- [ ] `cmd/vision.go`：`vision init` + `vision describe`
-- [ ] 图片描述走通
-- [ ] 视频抽帧 + 逐帧描述
+- [ ] `internal/vision/` 推理引擎（共享 Describe + Ask）
+  - [ ] Tokenizer（GPT-2 BPE）
+  - [ ] 图像预处理（224×224 resize + normalize）
+  - [ ] KV Cache 管理
+  - [ ] Sampler（greedy）
+  - [ ] ONNX 推理循环（encoder → decoder autoregressive）
+  - [ ] Engine 接口：Describe() / Ask() 共享底层
+- [ ] `cmd/vision.go`：
+  - [ ] `vision init` — 下载模型
+  - [ ] `vision describe` — 默认 DETAILED_CAPTION
+  - [ ] `vision describe --ask "..."` — VQA
+- [ ] 图片推理走通（describe + ask）
+- [ ] 视频抽帧 + 逐帧推理
 - [ ] Chat Agent / MCP 工具注册
 
 ### P2 — Chat 自动触发 + 优化
 
-- [ ] 图片/视频 attachment 自动 describe
+- [ ] 图片/视频 attachment 自动 describe 或 ask
 - [ ] 多图、自定义 prompt
 - [ ] 缓存、帧控制、流式
 
@@ -200,8 +277,19 @@ Windows: winget install ffmpeg
 确定模型后上传到 `martianzhang/aigc-cli-models` release v1：
 
 ```
-vision_{model_name}.onnx
-vision_{model_name}_tokenizer.json  # 如有
+vision_encoder_{variant}.onnx
+vision_decoder_{variant}.onnx
+vision_{variant}_vocab.json       # GPT-2 BPE vocabulary
+vision_{variant}_merges.txt       # BPE merge rules
+```
+
+Florence-2 base INT8 示例：
+
+```
+vision_encoder_base-int8.onnx    # ~150 MB
+vision_decoder_base-int8.onnx    # ~120 MB
+vision_base-int8_vocab.json      # ~1 MB
+vision_base-int8_merges.txt      # ~0.5 MB
 ```
 
 同时更新 aigc-cli-models README 的 License Attribution 表。
@@ -209,6 +297,7 @@ vision_{model_name}_tokenizer.json  # 如有
 ## 参考资料
 
 - Florence-2: https://huggingface.co/microsoft/Florence-2-base
+- Florence-2 ONNX export: https://huggingface.co/microsoft/Florence-2-base/tree/main/onnx
 - Holo-3.1: https://huggingface.co/holomotion/Holo-3.1-0.8B-ONNX
 - YOLOv8 ONNX: https://docs.ultralytics.com/modes/export
 - pure-onnx: https://github.com/amikos-tech/pure-onnx
