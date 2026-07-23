@@ -179,7 +179,7 @@ func (e *Engine) RecognizeEN(img image.Image, box [4][2]int) (*OCRLine, error) {
 	confidence := totalConf / float32(maxTimestep)
 
 	return &OCRLine{
-		Text:       fixEnglishOCRErrors(text),
+		Text:       e.fixEnglishOCRErrors(text),
 		BBox:       box,
 		Confidence: confidence,
 	}, nil

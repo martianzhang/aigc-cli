@@ -30,41 +30,31 @@ func defaultDictPath() string {
 	return ""
 }
 
-// dictPath is the path to the English dictionary file.
-// Set via LoadDictionary() or defaults to system dict.
-var dictPath string
-
-// wordSet is the English dictionary for word splitting and spellchecking.
-var wordSet map[string]bool
-
-// spellcheckModel is a global spellcheck model trained on our dictionary.
-var spellcheckModel *fuzzy.Model
-
 // LoadDictionary loads English words from the given file (one word per line)
 // and trains the spellcheck model. If path is empty, tries the system dict.
 // Returns the number of words loaded, or an error if the file cannot be read.
-func LoadDictionary(path string) (int, error) {
+func (e *Engine) LoadDictionary(path string) (int, error) {
 	if path == "" {
 		path = defaultDictPath()
 	}
 	if path == "" {
-		dictPath = ""
-		wordSet = make(map[string]bool)
+		e.wsDictPath = ""
+		e.wsWordSet = make(map[string]bool)
 		return 0, fmt.Errorf("no dictionary file found; run 'aigc-cli ocr init' or set dict.path")
 	}
 
 	f, err := os.Open(path)
 	if err != nil {
-		dictPath = ""
-		wordSet = make(map[string]bool)
+		e.wsDictPath = ""
+		e.wsWordSet = make(map[string]bool)
 		return 0, fmt.Errorf("open dictionary %s: %w", path, err)
 	}
 	defer f.Close()
 
-	wordSet = make(map[string]bool)
+	e.wsWordSet = make(map[string]bool)
 	// Short common words (manually curated to avoid over-splitting by DP).
 	for _, w := range strings.Fields(shortWords) {
-		wordSet[w] = true
+		e.wsWordSet[w] = true
 	}
 
 	scanner := bufio.NewScanner(f)
@@ -81,7 +71,7 @@ func LoadDictionary(path string) (int, error) {
 				}
 			}
 			if valid {
-				wordSet[w] = true
+				e.wsWordSet[w] = true
 				count++
 			}
 		}
@@ -90,18 +80,18 @@ func LoadDictionary(path string) (int, error) {
 		return count, fmt.Errorf("read dictionary: %w", err)
 	}
 
-	dictPath = path
+	e.wsDictPath = path
 
 	return count, nil
 }
 
 // DictPath returns the loaded dictionary path, or empty string if none loaded.
-func DictPath() string { return dictPath }
+func (e *Engine) DictPath() string { return e.wsDictPath }
 
 // TryLoadDictionary loads the best available dictionary.
 // Priority: downloaded dict_en_words.txt → system dictionary.
-func TryLoadDictionary() {
-	if wordSet != nil {
+func (e *Engine) tryLoadDictionary() {
+	if e.wsWordSet != nil {
 		return
 	}
 	home, _ := os.UserHomeDir()
@@ -110,22 +100,22 @@ func TryLoadDictionary() {
 		filepath.Join(home, ".config", "aigc-cli", "models", "dict_en_words.txt"),
 	} {
 		if _, err := os.Stat(p); err == nil {
-			LoadDictionary(p)
+			e.LoadDictionary(p)
 			return
 		}
 	}
 	if p := defaultDictPath(); p != "" {
-		LoadDictionary(p)
+		e.LoadDictionary(p)
 	}
 }
 
 // splitEnglishWords splits concatenated English words in text using DP.
 // Preserves paragraph structure (\n separators).
-func splitEnglishWords(text string) string {
-	if wordSet == nil {
-		TryLoadDictionary()
+func (e *Engine) splitEnglishWords(text string) string {
+	if e.wsWordSet == nil {
+		e.tryLoadDictionary()
 	}
-	if len(wordSet) < 100 {
+	if len(e.wsWordSet) < 100 {
 		return text
 	}
 
@@ -157,7 +147,7 @@ func splitEnglishWords(text string) string {
 			if len(clean) < 10 {
 				continue
 			}
-			split := dpWordSplit(string(clean))
+			split := e.dpWordSplit(string(clean))
 			if split != string(clean) {
 				tokens[i] = split
 				changed = true
@@ -173,11 +163,11 @@ func splitEnglishWords(text string) string {
 
 // SpellcheckText applies automatic spelling correction to OCR output.
 // Preserves paragraph structure (\n separators).
-func SpellcheckText(text string) string {
-	if wordSet == nil {
-		TryLoadDictionary()
+func (e *Engine) SpellcheckText(text string) string {
+	if e.wsWordSet == nil {
+		e.tryLoadDictionary()
 	}
-	if len(wordSet) < 100 {
+	if len(e.wsWordSet) < 100 {
 		return text
 	}
 	lines := strings.Split(text, "\n")
@@ -185,7 +175,7 @@ func SpellcheckText(text string) string {
 	for li, line := range lines {
 		words := strings.Fields(line)
 		for i, w := range words {
-			corrected := spellcheckWord(w)
+			corrected := e.spellcheckWord(w)
 			if corrected != w {
 				words[i] = corrected
 				changed = true
@@ -200,22 +190,22 @@ func SpellcheckText(text string) string {
 }
 
 // ensureSpellcheckModel lazily initializes the fuzzy model on first use.
-func ensureSpellcheckModel() {
-	if spellcheckModel != nil || len(wordSet) < 100 {
+func (e *Engine) ensureSpellcheckModel() {
+	if e.wsSpellcheckModel != nil || len(e.wsWordSet) < 100 {
 		return
 	}
 	m := fuzzy.NewModel()
 	m.SetThreshold(1)
 	m.SetDepth(1)
-	words := make([]string, 0, len(wordSet))
-	for w := range wordSet {
+	words := make([]string, 0, len(e.wsWordSet))
+	for w := range e.wsWordSet {
 		words = append(words, w)
 	}
 	m.Train(words)
-	spellcheckModel = m
+	e.wsSpellcheckModel = m
 }
 
-func spellcheckWord(word string) string {
+func (e *Engine) spellcheckWord(word string) string {
 	if word == "" {
 		return word
 	}
@@ -223,11 +213,11 @@ func spellcheckWord(word string) string {
 	if clean == "" {
 		return word
 	}
-	if isKnownWord(clean) || isAllDigitsOrPunct(clean) {
+	if e.isKnownWord(clean) || isAllDigitsOrPunct(clean) {
 		return word
 	}
 	lower := strings.ToLower(clean)
-	if isKnownWord(lower) {
+	if e.isKnownWord(lower) {
 		return word
 	}
 	// Skip proper nouns: mixed-case words that are already known words
@@ -239,7 +229,7 @@ func spellcheckWord(word string) string {
 
 	ocrFixed := fixOCRTypo(lower)
 	if ocrFixed != lower {
-		if wordSet[ocrFixed] || isKnownWord(ocrFixed) {
+		if e.wsWordSet[ocrFixed] || e.isKnownWord(ocrFixed) {
 			return restoreCase(ocrFixed, clean, suffix)
 		}
 	}
@@ -248,15 +238,15 @@ func spellcheckWord(word string) string {
 	// Skip very short words and words likely to be abbreviations.
 	// Try character-level OCR disambiguation on the original-case word.
 	// Pass `lower` as fallback dict key so dictionary lookups work.
-	if swapped := fixCharConfusion(clean, lower); swapped != clean {
+	if swapped := e.fixCharConfusion(clean, lower); swapped != clean {
 		return restoreCase(swapped, clean, suffix)
 	}
 
 	if len(lower) >= 4 {
-		ensureSpellcheckModel()
+		e.ensureSpellcheckModel()
 	}
-	if spellcheckModel != nil && len(lower) >= 4 {
-		suggestions := spellcheckModel.SpellCheckSuggestions(lower, 3)
+	if e.wsSpellcheckModel != nil && len(lower) >= 4 {
+		suggestions := e.wsSpellcheckModel.SpellCheckSuggestions(lower, 3)
 		best := ""
 		for _, s := range suggestions {
 			if s == "" || s == lower {
@@ -305,7 +295,7 @@ func restoreCase(corrected, original, suffix string) string {
 }
 
 // dpWordSplit uses dynamic programming to find the optimal word segmentation.
-func dpWordSplit(text string) string {
+func (e *Engine) dpWordSplit(text string) string {
 	n := len(text)
 	if n == 0 {
 		return text
@@ -333,7 +323,7 @@ func dpWordSplit(text string) string {
 			score := dp[j] + wordPenalty
 			lower := strings.ToLower(word)
 
-			if isKnownWord(word) || (len(word) >= 3 && wordSet[lower]) {
+			if e.isKnownWord(word) || (len(word) >= 3 && e.wsWordSet[lower]) {
 				score += float64(len(word)) * float64(len(word))
 			} else if isAllDigitsOrPunct(word) {
 				score += float64(len(word)) * float64(len(word)) * 0.5
@@ -369,10 +359,10 @@ func dpWordSplit(text string) string {
 		allKnown := true
 		for _, w := range words {
 			lower := strings.ToLower(w)
-			if isKnownWord(w) || isAllDigitsOrPunct(w) {
+			if e.isKnownWord(w) || isAllDigitsOrPunct(w) {
 				continue
 			}
-			if len(lower) >= 2 && wordSet[lower] {
+			if len(lower) >= 2 && e.wsWordSet[lower] {
 				continue
 			}
 			allKnown = false
@@ -386,7 +376,7 @@ func dpWordSplit(text string) string {
 }
 
 // isKnownWord checks if a word is in the English dictionary.
-func isKnownWord(word string) bool {
+func (e *Engine) isKnownWord(word string) bool {
 	if word == "" {
 		return false
 	}
@@ -394,51 +384,51 @@ func isKnownWord(word string) bool {
 	if len(lower) == 1 && lower != "a" && lower != "i" {
 		return false
 	}
-	if wordSet[lower] {
+	if e.wsWordSet[lower] {
 		return true
 	}
 	if strings.HasSuffix(lower, "'s") {
-		if wordSet[lower[:len(lower)-2]] {
+		if e.wsWordSet[lower[:len(lower)-2]] {
 			return true
 		}
 	}
 	if strings.HasSuffix(lower, "s") && len(lower) > 3 {
 		// Plural: word + s
-		if wordSet[lower[:len(lower)-1]] {
+		if e.wsWordSet[lower[:len(lower)-1]] {
 			return true
 		}
 		// -ies → -y: companies → company
 		if strings.HasSuffix(lower, "ies") && len(lower) > 4 {
-			if wordSet[lower[:len(lower)-3]+"y"] {
+			if e.wsWordSet[lower[:len(lower)-3]+"y"] {
 				return true
 			}
 		}
 	}
 	if strings.HasSuffix(lower, "ed") && len(lower) > 4 {
 		root := lower[:len(lower)-2]
-		if wordSet[root] {
+		if e.wsWordSet[root] {
 			return true
 		}
-		if wordSet[lower[:len(lower)-1]] {
+		if e.wsWordSet[lower[:len(lower)-1]] {
 			return true
 		}
 	}
 	if strings.HasSuffix(lower, "ing") && len(lower) > 5 {
 		root := lower[:len(lower)-3]
-		if wordSet[root] {
+		if e.wsWordSet[root] {
 			return true
 		}
-		if wordSet[root+"e"] {
+		if e.wsWordSet[root+"e"] {
 			return true
 		}
 	}
 	if strings.HasSuffix(lower, "er") && len(lower) > 4 {
-		if wordSet[lower[:len(lower)-2]] {
+		if e.wsWordSet[lower[:len(lower)-2]] {
 			return true
 		}
 	}
 	if strings.HasSuffix(lower, "est") && len(lower) > 5 {
-		if wordSet[lower[:len(lower)-3]] {
+		if e.wsWordSet[lower[:len(lower)-3]] {
 			return true
 		}
 	}
@@ -540,7 +530,7 @@ var charConfusionSets = []string{
 // fixCharConfusion tries replacing each character with alternatives from
 // the same confusion set. `word` is the original-case word; `lowerKey` is
 // the lowercase version used for dictionary lookups.
-func fixCharConfusion(word, lowerKey string) string {
+func (e *Engine) fixCharConfusion(word, lowerKey string) string {
 	if len(word) < 2 {
 		return word
 	}
@@ -561,7 +551,7 @@ func fixCharConfusion(word, lowerKey string) string {
 			for _, alt := range orderByCase(r, set, idx) {
 				runes[pos] = alt
 				candidate := string(runes)
-				if wordSet[strings.ToLower(candidate)] || isKnownWord(candidate) {
+				if e.wsWordSet[strings.ToLower(candidate)] || e.isKnownWord(candidate) {
 					return candidate
 				}
 				runes[pos] = r // restore

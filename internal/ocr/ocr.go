@@ -13,6 +13,7 @@ import (
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
+	"github.com/sajari/fuzzy"
 )
 
 // OCRLine holds a single recognized text line.
@@ -108,6 +109,15 @@ type Engine struct {
 	recOut *ort.Tensor[float32]
 	enOut  *ort.Tensor[float32]
 	clsOut *ort.Tensor[float32]
+
+	// word splitting & spellcheck state (per-instance for thread safety).
+	wsWordSet         map[string]bool
+	wsSpellcheckModel *fuzzy.Model
+	wsDictPath        string
+
+	// Corrections is a user-defined OCR correction table applied after
+	// recognition. Map of misrecognized → correct, e.g. "mecp" → "mcp".
+	Corrections map[string]string
 }
 
 // NewEngine creates an OCR engine, loading ONNX Runtime and all model files.
@@ -147,6 +157,10 @@ func (e *Engine) SetMaxSide(n int) {
 
 // MaxSide returns the current maximum detection dimension.
 func (e *Engine) MaxSide() int { return e.maxSide }
+
+// SetCorrections sets the user-defined OCR correction table.
+// Each entry maps a misrecognized substring to its correct form.
+func (e *Engine) SetCorrections(c map[string]string) { e.Corrections = c }
 
 func (e *Engine) init() error {
 	// Load dictionary if provided
@@ -206,6 +220,10 @@ func (e *Engine) init() error {
 			return fmt.Errorf("classifier init: %w", err)
 		}
 	}
+
+	// Load word-splitting dictionary (best-effort, OCR works without it).
+	e.tryLoadDictionary()
+
 	return nil
 }
 
@@ -589,8 +607,8 @@ func isEnglishLine(line OCRLine) bool {
 
 // fixEnglishOCRErrors corrects common digit-letter confusions in English OCR output.
 // The English model (PP-OCRv3) sometimes confuses visually similar characters
-// like 1/l, 0/O in certain fonts.
-func fixEnglishOCRErrors(text string) string {
+// like 1/l, 0/O in certain fonts. Also applies user-defined corrections.
+func (e *Engine) fixEnglishOCRErrors(text string) string {
 	runes := []rune(text)
 	for i, r := range runes {
 		switch r {
@@ -612,7 +630,8 @@ func fixEnglishOCRErrors(text string) string {
 			}
 		}
 	}
-	return string(runes)
+	text = string(runes)
+	return e.applyCorrections(text)
 }
 
 // cjkLatinSpacing inserts spaces between CJK and Latin/digit characters
@@ -657,7 +676,7 @@ func isLetter(r rune) bool {
 // postProcessLine cleans up OCR output.
 // The Chinese PP-OCR model has no space (index 0 is blank), uses CJK filler,
 // and sometimes outputs wrong characters for English screenshots.
-func postProcessLine(text string) string {
+func (e *Engine) postProcessLine(text string) string {
 	// Replace "极" with space (Chinese model uses it as word-boundary filler)
 	text = strings.ReplaceAll(text, "\u6781", " ")
 
@@ -700,6 +719,19 @@ func postProcessLine(text string) string {
 	// (FP32, M890, Qwen3.8) more often than they help. The DP word splitter
 	// handles genuine concatenated words.
 
+	// Apply user-defined corrections (misrecognition table).
+	text = e.applyCorrections(text)
+
+	return text
+}
+
+// applyCorrections applies user-defined OCR corrections to text.
+// Corrects known misrecognitions like "mecp" → "mcp", "jana" → "jina".
+// Each correction replaces the misrecognized substring with the correct one.
+func (e *Engine) applyCorrections(text string) string {
+	for wrong, right := range e.Corrections {
+		text = strings.ReplaceAll(text, wrong, right)
+	}
 	return text
 }
 
@@ -762,7 +794,7 @@ func (e *Engine) Scan(img image.Image) (*OCRResult, error) {
 				continue
 			}
 		} else {
-			line.Text = postProcessLine(line.Text)
+			line.Text = e.postProcessLine(line.Text)
 			// Skip filler-fragmented texts (Chinese model hallucinates with 极).
 			if len([]rune(line.Text)) < 30 && strings.Count(line.Text, " ") > len([]rune(line.Text))/6 {
 				continue
@@ -807,9 +839,9 @@ func (e *Engine) Scan(img image.Image) (*OCRResult, error) {
 	// Apply word splitting to concatenated English text (no extra model needed).
 	// This is a dictionary+DP approach inspired by Umi-OCR's text block post-processing.
 	// It handles cases where the detection model merged words into a single text block.
-	text = splitEnglishWords(text)
+	text = e.splitEnglishWords(text)
 	for i := range lines {
-		lines[i].Text = splitEnglishWords(lines[i].Text)
+		lines[i].Text = e.splitEnglishWords(lines[i].Text)
 	}
 
 	return &OCRResult{

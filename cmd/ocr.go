@@ -225,10 +225,10 @@ func scanImage(cmd *cobra.Command, img image.Image, inputPath string) error {
 
 	// Apply spellcheck to final text and individual lines
 	if ocrScanSpellcheck {
-		result.Text = ocr.SpellcheckText(result.Text)
+		result.Text = engine.SpellcheckText(result.Text)
 		for pi := range result.Pages {
 			for li := range result.Pages[pi].Lines {
-				result.Pages[pi].Lines[li].Text = ocr.SpellcheckText(result.Pages[pi].Lines[li].Text)
+				result.Pages[pi].Lines[li].Text = engine.SpellcheckText(result.Pages[pi].Lines[li].Text)
 			}
 		}
 	}
@@ -411,8 +411,6 @@ func newOCREngineWithLang(modelsDir, lang string) (*ocr.Engine, error) {
 			enDictPath = ""
 		}
 	}
-
-	ocr.TryLoadDictionary()
 
 	return ocr.NewEngine(libPath, detPath, recPath, clsPath, dictPath, 6625, "softmax_11.tmp_0", enModelPath, enDictPath, lang)
 }

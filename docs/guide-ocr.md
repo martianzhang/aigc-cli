@@ -439,8 +439,10 @@ for n := 0; n < doc.NumPage(); n++ {
 | **P1** | **方向分类器接入管线** | ✅ 已完成 | `classifyDirection()` 集成到 `Recognize`，倒置文本自动旋转 180° |
 | **P1** | **英文模型升级到 PP-OCRv4** | ❌ 无需操作 | PP-OCRv4 无英文识别模型，v3 即最新可用版本 |
 | **P1** | **多栏版面排序 (GapTree)** | ✅ 已完成 | 移植自 Umi-OCR，已替换 `sortBoxesReadingOrder` |
-| **P1** | **段落分析 (ParagraphParse)** | ❌ 待开发 | CJK 智能空格 + 自然段归并 |
-| **P1** | **全局旋转估计** | ❌ 待开发 | `line_preprocessing.py` 中位数旋转角度统一矫正 |
+| **P1** | **段落分析 (ParagraphParse)** | ✅ 已完成 | 移植自 Umi-OCR，替换 `groupLinesIntoParagraphs` |
+| **P1** | **全局旋转估计** | ✅ 已完成 | GapTree 内集成 `estimateBoxesRotation` |
+| **P1** | **EN-first 识别管线** | ✅ 已完成 | `--lang en` 时英文模型先跑，中文兜底；跳过极→空格转换 |
 | **P2** | **检测性能优化** | ❌ 待开发 | `draw.Draw` 或直接 RGBA 操作替代逐像素裁剪 |
 | **P2** | **DP 切词触发门槛** | ❌ 待开发 | 降低触发阈值或动态判断 |
 | **P2** | **词表修正与线程安全** | ❌ 待开发 | 实例字段 + 可扩展纠错 |
+| **P2** | **DBNet 短文本/特殊字符漏检** | ❌ 待开发 | "MCP"、"grep_app" 等被检测器过滤；需调整 NMS/阈值 |

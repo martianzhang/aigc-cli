@@ -628,9 +628,9 @@ func TestDetPreprocess_whiteImage(t *testing.T) {
 // ----- splitEnglishWords -----
 
 func TestSplitEnglishWords_splitsConcatenated(t *testing.T) {
-	// Skip if no dictionary loaded (CI environment without system dict).
-	TryLoadDictionary()
-	if len(wordSet) < 100 {
+	e := &Engine{}
+	e.tryLoadDictionary()
+	if len(e.wsWordSet) < 100 {
 		t.Skip("no English dictionary available")
 	}
 
@@ -643,7 +643,7 @@ func TestSplitEnglishWords_splitsConcatenated(t *testing.T) {
 		{"Amidthefervorofartificial", 4},     // Amid the fervor of artificial
 	}
 	for _, tc := range tests {
-		got := splitEnglishWords(tc.input)
+		got := e.splitEnglishWords(tc.input)
 		tokens := len(strings.Fields(got))
 		if tokens < tc.min {
 			t.Errorf("splitEnglishWords(%q) = %q (%d tokens), want ≥ %d", tc.input, got, tokens, tc.min)
@@ -652,9 +652,10 @@ func TestSplitEnglishWords_splitsConcatenated(t *testing.T) {
 }
 
 func TestSplitEnglishWords_preservesGoodSpacing(t *testing.T) {
-	// Already well-spaced text should not be degraded to something unrecognizable.
+	e := &Engine{}
+	e.tryLoadDictionary()
 	input := "the hidden debt of these companies"
-	got := splitEnglishWords(input)
+	got := e.splitEnglishWords(input)
 	// The input has spaces and is readable, output should also have spaces
 	if !strings.Contains(got, " ") {
 		t.Errorf("splitEnglishWords(%q) = %q, lost all spaces", input, got)
