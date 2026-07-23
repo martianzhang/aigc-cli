@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
@@ -116,6 +117,7 @@ func generateImageAndSave(c client.APIClient, req *types.GenerateRequest) ([]str
 		savePromptFile(taskData.ID, req.Prompt)
 		if taskData.Result != nil && len(taskData.Result.Images) > 0 {
 			saved, err := downloadImages(taskData.Result.Images, taskData.ID)
+			postProcessImages(saved)
 			if err != nil {
 				return saved, err
 			}
@@ -152,8 +154,108 @@ func generateImageAndSave(c client.APIClient, req *types.GenerateRequest) ([]str
 			saved = append(saved, filename)
 		}
 	}
+	postProcessImages(saved)
 	if len(saved) == 0 {
 		return nil, fmt.Errorf("no images saved")
 	}
 	return saved, nil
+}
+
+// postProcessImages applies --compress post-processing to already-saved images.
+// Called after image generation/download from all 4 save points.
+func postProcessImages(saved []string) {
+	if genCompress == "" || len(saved) == 0 {
+		return
+	}
+	targetSize, quality, err := service.ParseCompressOption(genCompress)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: invalid --compress value %q: %v\n", genCompress, err)
+		return
+	}
+	opts := &service.CompressOptions{
+		TargetSize: targetSize,
+		Quality:    quality,
+		Format:     genOutputFormat,
+	}
+	for _, path := range saved {
+		result, err := service.CompressImage(path, opts)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: compress %s: %v\n", path, err)
+			continue
+		}
+		if result.Skipped {
+			fmt.Printf("  Compress %s: skipped (%s)\n", path, result.Reason)
+		} else {
+			savedStr := formatBytes(result.After)
+			originalStr := formatBytes(result.Before)
+			pct := 100 - int(float64(result.After)/float64(result.Before)*100)
+			fmt.Printf("  Compress %s: %s → %s (%d%% saved)\n", path, originalStr, savedStr, pct)
+		}
+	}
+}
+
+// runLocalCompress implements the pure local compression mode (no API call).
+// Compress --image-url files directly using --compress settings.
+func runLocalCompress(compressVal string, imageURLs []string, outputFormat string) error {
+	if len(imageURLs) == 0 {
+		return fmt.Errorf("--image-url is required for local compression mode")
+	}
+	targetSize, quality, err := service.ParseCompressOption(compressVal)
+	if err != nil {
+		return fmt.Errorf("invalid --compress value %q: %w", compressVal, err)
+	}
+	opts := &service.CompressOptions{
+		TargetSize: targetSize,
+		Quality:    quality,
+		Format:     outputFormat,
+	}
+	var results []*service.CompressResult
+	for _, src := range imageURLs {
+		if strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://") {
+			fmt.Fprintf(os.Stderr, "Warning: skipping remote URL (local files only): %s\n", src)
+			continue
+		}
+		if !isFile(src) {
+			fmt.Fprintf(os.Stderr, "Warning: file not found: %s\n", src)
+			continue
+		}
+		result, err := service.CompressImage(src, opts)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: compress %s: %v\n", src, err)
+			continue
+		}
+		results = append(results, result)
+	}
+	if len(results) == 0 {
+		return fmt.Errorf("no files were compressed")
+	}
+	fmt.Println("Compression results:")
+	var totalBefore, totalAfter int64
+	for _, r := range results {
+		if r.Skipped {
+			fmt.Printf("  %s: skipped (%s)\n", r.DstPath, r.Reason)
+		} else {
+			pct := 100 - int(float64(r.After)/float64(r.Before)*100)
+			fmt.Printf("  %s: %s → %s (%d%% saved)\n", r.DstPath, formatBytes(r.Before), formatBytes(r.After), pct)
+		}
+		totalBefore += r.Before
+		totalAfter += r.After
+	}
+	if totalBefore > 0 {
+		pct := 100 - int(float64(totalAfter)/float64(totalBefore)*100)
+		fmt.Printf("Total: %s → %s (%d%% saved)\n", formatBytes(totalBefore), formatBytes(totalAfter), pct)
+	}
+	return nil
+}
+
+// formatBytes returns a human-readable byte size string.
+func formatBytes(b int64) string {
+	switch {
+	case b >= 1024*1024:
+		return fmt.Sprintf("%.1fMB", float64(b)/(1024*1024))
+	case b >= 1024:
+		return fmt.Sprintf("%.1fKB", float64(b)/1024)
+	default:
+		return fmt.Sprintf("%dB", b)
+	}
 }

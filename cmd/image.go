@@ -22,6 +22,7 @@ var (
 	genModeration   string
 	genOutputFormat string
 	genCompression  int
+	genCompress     string // compress target: "800KB", "2MB", "85%"
 	genN            int
 	genImageURLs    []string
 	genMaskURL      string
@@ -63,6 +64,12 @@ Examples:
 }
 
 func runImageGenerate(cmd *cobra.Command, args []string) error {
+	// ----- Pure local compression mode (must be before buildImageRequest) -----
+	// When --compress is set and no --prompt, skip API and compress local files directly.
+	if genCompress != "" && genPrompt == "" {
+		return runLocalCompress(genCompress, genImageURLs, genOutputFormat)
+	}
+
 	// ----- Step 1: Build the request -----
 	req, err := buildImageRequest(cmd)
 	if err != nil {
@@ -168,9 +175,10 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVar(&genBackground, "background", "", "Background mode: auto, opaque, transparent (APIMart only)")
 	f.StringVar(&genModeration, "moderation", "", "Moderation strength: auto, low (APIMart only)")
 	f.StringVarP(&genOutputFormat, "output-format", "f", "", "Output format: png, jpeg, webp")
+	f.StringVarP(&genCompress, "compress", "z", "", `Compress output: target size ("800KB", "2MB") or fixed quality ("85%")`)
 	f.IntVar(&genCompression, "output-compression", 0, "Output compression level 0-100 (jpeg/webp only) (APIMart only)")
 	f.IntVar(&genN, "n", 0, "Number of images to generate (1-4)")
-	f.StringArrayVar(&genImageURLs, "image-url", nil, "Reference image URL (repeatable) (APIMart only)")
+	f.StringArrayVarP(&genImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable)")
 	f.StringVar(&genMaskURL, "mask-url", "", "Mask image URL for inpainting (APIMart only)")
 	f.StringVar(&genStyle, "style", "", "Image style: vivid, natural (OpenAI only)")
 	f.StringVar(&genResponseFmt, "response-format", "", "Response format: url, b64_json (OpenAI/OpenRouter)")

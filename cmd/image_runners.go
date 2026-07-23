@@ -32,6 +32,7 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest)
 	}
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
+	var saved []string
 	for i, img := range orResp.Data {
 		if img.B64JSON != "" {
 			prefix := fmt.Sprintf("image_%d", time.Now().Unix())
@@ -41,6 +42,7 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest)
 				continue
 			}
 			fmt.Printf("Image %d saved: %s\n", i+1, filename)
+			saved = append(saved, filename)
 		} else if img.URL != "" {
 			taskID := fmt.Sprintf("%d", time.Now().Unix())
 			filename, err := service.DownloadFile(img.URL, shared.OutputDir, fmt.Sprintf("image_%s_%d", taskID, i))
@@ -49,12 +51,14 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest)
 				continue
 			}
 			fmt.Printf("Image %d: %s\n", i+1, filename)
+			saved = append(saved, filename)
 		}
 		if img.RevisedPrompt != "" {
 			fmt.Printf("  Revised prompt: %s\n", img.RevisedPrompt)
 		}
 	}
 
+	postProcessImages(saved)
 	printUsage(orResp.Usage)
 
 	return nil
@@ -76,6 +80,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 		fmt.Printf("Created: %s\n", time.Unix(syncResp.Created, 0).Format("2006-01-02 15:04:05"))
 	}
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+	var saved []string
 	for i, img := range syncResp.Data {
 		if img.B64JSON != "" {
 			taskID := fmt.Sprintf("image_sync_%d", syncResp.Created)
@@ -85,6 +90,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 				continue
 			}
 			fmt.Printf("Image %d: %s\n", i+1, filename)
+			saved = append(saved, filename)
 		} else if img.URL != "" {
 			taskID := fmt.Sprintf("sync_%d", syncResp.Created)
 			filename, err := service.DownloadFile(img.URL, shared.OutputDir, fmt.Sprintf("image_%s_%d", taskID, i))
@@ -93,6 +99,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 				continue
 			}
 			fmt.Printf("Image %d: %s\n", i+1, filename)
+			saved = append(saved, filename)
 		} else {
 			fmt.Printf("Image %d: <no data>\n", i+1)
 			continue
@@ -102,6 +109,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 		}
 	}
 
+	postProcessImages(saved)
 	printUsage(syncResp.Usage)
 
 	return nil
@@ -139,8 +147,10 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest) error {
 	savePromptFile(taskData.ID, req.Prompt)
 
 	if taskData.Result != nil && len(taskData.Result.Images) > 0 {
-		if _, err := downloadImages(taskData.Result.Images, taskData.ID); err != nil {
+		if saved, err := downloadImages(taskData.Result.Images, taskData.ID); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
+		} else {
+			postProcessImages(saved)
 		}
 	}
 

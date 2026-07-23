@@ -25,12 +25,13 @@ aigc-cli image < prompt.txt
 ## 参数
 
 | 参数 | 短参 | 说明 | 适用 |
-|---|---|---|---|
+|---|---|---|---|---|
 | `--prompt` | `-p` | 文本描述（自动识别文件/stdin） | 通用 |
 | `--model` | `-m` | 模型名（必填，可通过 `defaults.image.model` 在配置文件中设置默认值） | 通用 |
 | `--size` | `-s` | 宽高比，如 `16:9`、`1:1`，或像素如 `1024x1024` | 通用 |
 | `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` | 通用 |
 | `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp` | 通用 |
+| `--compress` | `-z` | 压缩目标：`800KB`/`2MB`（目标大小）或 `85%`（固定 quality） | 通用 |
 | `--n` | | 生成数量 1-4 | 通用 |
 | `--style` | | 风格：`vivid`、`natural`（OpenAI 专用） | OpenAI |
 | `--response-format` | | 响应格式：`url`、`b64_json` | OpenAI/OpenRouter |
@@ -38,7 +39,7 @@ aigc-cli image < prompt.txt
 | `--background` | | 背景：`auto`、`opaque`、`transparent` | APIMart |
 | `--moderation` | | 审核强度：`auto`、`low` | APIMart |
 | `--output-compression` | | 压缩率 0-100（jpeg/webp） | APIMart |
-| `--image-url` | | 参考图片 URL（可重复） | APIMart |
+| `--image-url` | `-i` | 图片输入：URL 或本地文件路径（可重复） | 通用 |
 | `--mask-url` | | 蒙版图片 URL（inpainting） | APIMart |
 | `--json` | | JSON 输入（文件、字符串或 `-` 表示 stdin） | 通用 |
 | `--output` | | 下载目录（默认当前目录，支持相对/绝对路径） | 通用 |
@@ -271,6 +272,72 @@ aigc-cli image --prompt "..." \
 - 任务完成时会自动下载结果
 
 **建议**：如果频繁超时，优先考虑增加 `--timeout`；需要可恢复能力则使用 APIMart 异步模式。
+
+## 本地压缩（--compress）
+
+`--compress` 支持两种模式：**生成后自动压缩** 和 **纯本地压缩**（不走 API）。
+
+### 路径 1：生成后自动压缩
+
+图片生成完成后自动对结果进行压缩：
+
+```bash
+# 生成 JPEG，目标文件大小 500KB
+aigc-cli image --prompt "猫" --compress 500KB -f jpg
+
+# 生成 WebP，固定 quality 85
+aigc-cli image --prompt "猫" --compress 85% -f webp
+
+# 使用 YAML 配置默认值
+# defaults:
+#   image:
+#     compress: 500KB
+#     output_format: jpg
+```
+
+压缩结果示例输出：
+```
+  Compress image_1712345678_0.png: 2.3MB → 489.2KB (79% saved)
+```
+
+### 路径 2：纯本地压缩
+
+无 `--prompt`、无 API 调用，直接压缩本地已有图片：
+
+```bash
+# 单张压缩，目标 256KB
+aigc-cli image --compress 256KB -i photo.png
+
+# 批量压缩多张 + 转 JPEG
+aigc-cli image --compress 500KB -f jpg -i a.png -i b.png -i c.webp
+```
+
+纯本地模式下 `--image-url` 只接受本地文件路径，URL 会被跳过并给出警告。
+
+### 参数值格式
+
+| 格式 | 示例 | 行为 |
+|---|---|---|
+| `800KB` / `800kb` | `--compress 800KB` | 目标文件大小 800KB，自动选最高 quality |
+| `2MB` / `2mb` | `--compress 2MB` | 目标文件大小 2MB |
+| `85%` | `--compress 85%` | 固定 quality=85 编码 |
+
+**自动 quality 推导**（指定目标大小时）：
+1. 搜索范围 quality [50, 95]
+2. 二分搜索（约 6 轮），每轮用 mid quality 试编码
+3. 返回满足 ≤ target 的最高 quality
+4. 若 quality=50 仍超 target，降 quality=30 尽力
+
+### 边界情况
+
+| 场景 | 行为 |
+|---|---|
+| 压缩后反比原图大 | 跳过，提示不处理 |
+| 原图已 ≤ target | 跳过，提示已达标 |
+| PNG + `-f jpg` | 正常执行（透明度丢失） |
+| `--compress 800KB -f png` | PNG 无损，跳过（提示不支持有损压缩） |
+| URL 作为 `-i` 输入（纯本地模式） | 跳过 URL，提示只接受本地文件 |
+| 用 quality=5 仍超 target | 用 quality=5 输出，警告未达标 |
 
 ## 已知问题
 

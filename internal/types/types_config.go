@@ -86,6 +86,7 @@ type ImageDefaults struct {
 	Moderation        string   `mapstructure:"moderation" yaml:"moderation,omitempty"`
 	OutputFormat      string   `mapstructure:"output_format" yaml:"output_format,omitempty"`
 	OutputCompression *int     `mapstructure:"output_compression" yaml:"output_compression,omitempty"`
+	Compress          string   `mapstructure:"compress" yaml:"compress,omitempty"`
 	N                 *int     `mapstructure:"n" yaml:"n,omitempty"`
 	ImageURLs         []string `mapstructure:"image_urls" yaml:"image_urls,omitempty"`
 	MaskURL           string   `mapstructure:"mask_url" yaml:"mask_url,omitempty"`
