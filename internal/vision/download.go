@@ -8,28 +8,20 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
-const hfBase = "https://huggingface.co/Heliosoph"
+const modelsBaseURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1"
 
-// variantInfo maps model variant ID to HuggingFace repo and file suffix.
+// variantInfo maps model variant ID to file prefix.
 type variantInfo struct {
-	repo   string // HF repo name
-	suffix string // ONNX file suffix (e.g. "quantized", "fp16")
+	prefix string // filename prefix on the release
 	desc   string
 	size   string
 }
 
 var variantInfos = map[string]variantInfo{
 	"base-int8": {
-		repo:   "florence-2-base-ft-quantized-onnx",
-		suffix: "quantized",
+		prefix: "vision_base-int8",
 		desc:   "Florence-2 Base INT8 (quantized)",
 		size:   "~270 MB",
-	},
-	"base-fp16": {
-		repo:   "florence-2-base-ft-fp16-onnx",
-		suffix: "fp16",
-		desc:   "Florence-2 Base FP16",
-		size:   "~548 MB",
 	},
 }
 
@@ -47,56 +39,35 @@ func ModelFiles(variant string) ([]ModelFile, error) {
 		return nil, fmt.Errorf("unknown variant %q", variant)
 	}
 
-	baseURL := fmt.Sprintf("%s/%s/resolve/main", hfBase, info.repo)
-
+	base := fmt.Sprintf("%s/%s", modelsBaseURL, info.prefix)
 	return []ModelFile{
 		{
-			URL:      fmt.Sprintf("%s/vision_encoder_%s.onnx", baseURL, info.suffix),
+			URL:      fmt.Sprintf("%s_vision_encoder.onnx", base),
 			Filename: "vision_encoder.onnx",
-			Size: func() string {
-				if variant == "base-fp16" {
-					return "~184 MB"
-				}
-				return "~94 MB"
-			}(),
+			Size:     "~94 MB",
 		},
 		{
-			URL:      fmt.Sprintf("%s/encoder_model_%s.onnx", baseURL, info.suffix),
+			URL:      fmt.Sprintf("%s_encoder_model.onnx", base),
 			Filename: "encoder_model.onnx",
-			Size: func() string {
-				if variant == "base-fp16" {
-					return "~87 MB"
-				}
-				return "~44 MB"
-			}(),
+			Size:     "~44 MB",
 		},
 		{
-			URL:      fmt.Sprintf("%s/decoder_model_%s.onnx", baseURL, info.suffix),
+			URL:      fmt.Sprintf("%s_decoder_model.onnx", base),
 			Filename: "decoder_model.onnx",
-			Size: func() string {
-				if variant == "base-fp16" {
-					return "~194 MB"
-				}
-				return "~98 MB"
-			}(),
+			Size:     "~98 MB",
 		},
 		{
-			URL:      fmt.Sprintf("%s/embed_tokens_%s.onnx", baseURL, info.suffix),
+			URL:      fmt.Sprintf("%s_embed_tokens.onnx", base),
 			Filename: "embed_tokens.onnx",
-			Size: func() string {
-				if variant == "base-fp16" {
-					return "~79 MB"
-				}
-				return "~39 MB"
-			}(),
+			Size:     "~39 MB",
 		},
 		{
-			URL:      fmt.Sprintf("%s/vocab.json", baseURL),
+			URL:      fmt.Sprintf("%s_vocab.json", base),
 			Filename: "vocab.json",
 			Size:     "~1 MB",
 		},
 		{
-			URL:      fmt.Sprintf("%s/merges.txt", baseURL),
+			URL:      fmt.Sprintf("%s_merges.txt", base),
 			Filename: "merges.txt",
 			Size:     "~0.5 MB",
 		},

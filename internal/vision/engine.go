@@ -84,14 +84,9 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	return e, nil
 }
 
-// newSession creates an ONNX session. FP16 models use CPU-only (nil options)
-// since their graph may conflict with CUDA provider optimizations.
+// newSession creates an ONNX session.
 func (e *Engine) newSession(modelPath string, inputNames, outputNames []string, inputs, outputs []ort.Value) (*ort.AdvancedSession, error) {
 	opts := ort.NewCUDASessionOptions()
-	if e.variant == "base-fp16" && opts != nil {
-		opts.Destroy()
-		opts = nil
-	}
 	sess, err := ort.NewAdvancedSession(modelPath, inputNames, outputNames, inputs, outputs, opts)
 	if opts != nil {
 		opts.Destroy()
@@ -321,13 +316,6 @@ func (e *Engine) initDecoderModel() error {
 
 func (e *Engine) Describe(path string) (string, error) {
 	return e.generate(path, ExpandPrompt(string(TaskDetailedCaption)))
-}
-
-func (e *Engine) Ask(path, question string) (string, error) {
-	if question == "" {
-		return "", fmt.Errorf("question cannot be empty")
-	}
-	return e.generate(path, fmt.Sprintf("%s %s", TaskVQA, question))
 }
 
 // generate runs the full inference pipeline.

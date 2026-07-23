@@ -12,7 +12,6 @@ const (
 	TaskCaption             TaskPrompt = "<CAPTION>"
 	TaskDetailedCaption     TaskPrompt = "<DETAILED_CAPTION>"
 	TaskMoreDetailedCaption TaskPrompt = "<MORE_DETAILED_CAPTION>"
-	TaskVQA                 TaskPrompt = "<VQA>"
 	TaskOD                  TaskPrompt = "<OD>"
 )
 
@@ -59,7 +58,6 @@ type ModelVariant struct {
 
 var AvailableModelVariants = []ModelVariant{
 	{ID: "base-int8", Description: "Florence-2 Base INT8 (quantized)", Size: "~270 MB"},
-	{ID: "base-fp16", Description: "Florence-2 Base FP16", Size: "~548 MB"},
 }
 
 func ResolveModelVariant(id string) (ModelVariant, error) {
@@ -68,7 +66,7 @@ func ResolveModelVariant(id string) (ModelVariant, error) {
 			return v, nil
 		}
 	}
-	return ModelVariant{}, fmt.Errorf("unknown model variant %q (available: base-int8, base-fp16)", id)
+	return ModelVariant{}, fmt.Errorf("unknown model variant %q (available: base-int8)", id)
 }
 
 const DefaultModelVariant = "base-int8"
