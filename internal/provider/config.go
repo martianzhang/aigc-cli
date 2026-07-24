@@ -139,7 +139,22 @@ func ValidateProviderRef(ref string, providers map[string]*types.NamedProvider) 
 	return nil
 }
 
-// firstNonZero returns the first non-empty string.
+// IsOnlineProvider returns true if the provider should use an online API
+// (as opposed to local ONNX inference). False for nil, local-only providers,
+// or providers without a configured base URL.
+//
+// The decision is:
+//   - Has a named provider reference (configured by user)
+//   - OR explicitly typed as ollama
+//   - OR points to a local/loopback endpoint (localhost, 127.0.0.1, etc.)
+//
+// Local-only providers (type=local) always return false regardless of base URL.
+func IsOnlineProvider(p *EffectiveProvider) bool {
+	return p != nil && p.BaseURL != "" && p.Type != types.ProviderLocal &&
+		(p.Name != "" || p.Type == types.ProviderOllama || IsLocalEndpoint(p.BaseURL))
+}
+
+// firstNonEmpty returns the first non-empty string.
 func firstNonEmpty(vals ...string) string {
 	for _, v := range vals {
 		if v != "" {

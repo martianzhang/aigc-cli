@@ -65,6 +65,9 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 	return c
 }
 
+// BaseURL returns the resolved base URL (with /v1 suffix appended if applicable).
+func (c *Client) BaseURL() string { return c.baseURL }
+
 // Submit sends a generation request and returns the task submission response.
 func (c *Client) Submit(req *types.GenerateRequest) (*types.GenerateResponse, error) {
 	var result types.GenerateResponse

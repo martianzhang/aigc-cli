@@ -51,13 +51,13 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 
 // sendChatRequest sends a single chat request and prints the response.
 func sendChatRequest(cmd *cobra.Command, req *types.ChatRequest) error {
-	// Apply defaults
-	if !cmd.Flags().Changed("stream") {
+	// Streaming default: on, unless --no-stream was passed
+	if !chatNoStream {
 		req.Stream = true
 	}
 
-	// Merge config defaults
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
+	// Merge config defaults (only if not already set via --model flag or JSON)
+	if req.Model == "" && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
 		if shared.Cfg.Defaults.Chat.Model != "" {
 			req.Model = shared.Cfg.Defaults.Chat.Model
 		}

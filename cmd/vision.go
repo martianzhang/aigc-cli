@@ -10,7 +10,6 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/provider"
-	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/vision"
 )
 
@@ -142,7 +141,7 @@ func runVisionDescribe(cmd *cobra.Command, args []string) error {
 	// or --provider flag (p.Name non-empty), OR when type is ollama.
 	// Global fallback (empty p.Name, type=openai) skips online mode.
 	p := shared.ResolveProvider(ProviderNameVision)
-	if p != nil && p.BaseURL != "" && (p.Name != "" || p.Type == types.ProviderOllama) {
+	if provider.IsOnlineProvider(p) {
 		// Model priority: --model flag (explicit) > p.Model (from provider config)
 		if hasFlagChanged(cmd, "model") {
 			p.Model = visionModelFlag

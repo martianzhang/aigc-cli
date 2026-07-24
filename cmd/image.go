@@ -104,6 +104,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	p := shared.ResolveProvider(ProviderNameImage)
 	isAPIMart := p.ProviderType == provider.APIMart
 	isOpenRouter := p.ProviderType == provider.OpenRouter
+	isOllama := provider.IsOnlineProvider(p)
 
 	if genDryRun {
 		curl := buildImageCurl(req)
@@ -153,10 +154,11 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		isAPIMart:    isAPIMart,
 		isOpenRouter: isOpenRouter,
 		genEdit:      genEdit,
+		isOllama:     isOllama,
 	}
 	for _, s := range imageStrategies {
 		if s.match(req, ictx) {
-			err := s.run(c, req)
+			err := s.run(c, req, ictx)
 			if err == nil && genPreview {
 				previewSavedFiles = previewLatestFiles("image_")
 				for _, f := range previewSavedFiles {

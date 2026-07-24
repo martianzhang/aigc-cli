@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
@@ -16,7 +20,7 @@ import (
 // dedicated Image API (POST /v1/images). Used for GPT Image, DALL-E, and
 // most dedicated image models on OpenRouter. Returns standard OpenAI-compatible
 // response with b64_json images.
-func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest) error {
+func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
 	start := time.Now()
 
 	orResp, err := c.OpenRouterDedicatedImage(req)
@@ -65,7 +69,7 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest)
 }
 
 // runSyncImage handles OpenAI/OpenRouter-compatible synchronous image generation.
-func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
+func runSyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
 	start := time.Now()
 
 	syncResp, err := c.ImageGenerateSync(req)
@@ -116,7 +120,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest) error {
 }
 
 // runAsyncImage handles APIMart-compatible asynchronous (task-based) image generation.
-func runAsyncImage(c client.APIClient, req *types.GenerateRequest) error {
+func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
 	resp, err := c.Submit(req)
 	if err != nil {
 		return fmt.Errorf("submission failed: %w", err)
@@ -156,6 +160,86 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest) error {
 
 	fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 		taskData.ActualTime, taskData.Cost, taskData.CreditsCost)
+	return nil
+}
+
+// ollamaGenerateResponse is the response from Ollama's /api/generate for image models.
+// Note: some models return "images" (array), others return "image" (single string).
+type ollamaGenerateResponse struct {
+	Model         string   `json:"model"`
+	CreatedAt     string   `json:"created_at"`
+	Response      string   `json:"response"`
+	Done          bool     `json:"done"`
+	DoneReason    string   `json:"done_reason"`
+	Images        []string `json:"images,omitempty"`
+	Image         string   `json:"image,omitempty"`
+	TotalDuration int64    `json:"total_duration,omitempty"`
+}
+
+// runOllamaImage handles image generation via Ollama's native /api/generate endpoint.
+// Ollama image models (x/flux2-klein, x/z-image-turbo, etc.) don't support the
+// OpenAI-compatible /v1/images/generations endpoint — they use the native API instead.
+func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
+	start := time.Now()
+
+	// Strip version suffix (e.g., /v1) from client baseURL to get raw Ollama endpoint.
+	baseURL := c.BaseURL()
+	if idx := strings.LastIndex(baseURL, "/v"); idx > strings.LastIndex(baseURL, "://") {
+		baseURL = baseURL[:idx]
+	}
+	url := baseURL + "/api/generate"
+	body := map[string]interface{}{
+		"model":  req.Model,
+		"prompt": req.Prompt,
+		"stream": false,
+	}
+
+	bodyBytes, _ := json.Marshal(body)
+	httpResp, err := http.Post(url, "application/json", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("ollama request failed: %w", err)
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(httpResp.Body)
+		return fmt.Errorf("ollama returned HTTP %d: %s", httpResp.StatusCode, string(respBody))
+	}
+
+	var ollamaResp ollamaGenerateResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&ollamaResp); err != nil {
+		return fmt.Errorf("failed to decode ollama response: %w", err)
+	}
+
+	elapsed := time.Since(start)
+
+	fmt.Printf("Model: %s\n", req.Model)
+	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+
+	// Collect images: some models return "images" (array), others return "image" (single).
+	var images []string
+	if len(ollamaResp.Images) > 0 {
+		images = ollamaResp.Images
+	} else if ollamaResp.Image != "" {
+		images = append(images, ollamaResp.Image)
+	}
+	if len(images) == 0 {
+		return fmt.Errorf("ollama returned no images (response: %s)", ollamaResp.Response)
+	}
+
+	var saved []string
+	for i, b64 := range images {
+		prefix := fmt.Sprintf("image_ollama_%d", time.Now().Unix())
+		filename, err := service.SaveBase64Image(shared.OutputDir, prefix, b64, i)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, err)
+			continue
+		}
+		fmt.Printf("Image %d: %s\n", i+1, filename)
+		saved = append(saved, filename)
+	}
+
+	postProcessImages(saved)
 	return nil
 }
 

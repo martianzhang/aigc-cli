@@ -16,6 +16,7 @@ type mockAPIClient struct {
 	openRouterVideoSubmitFn func(req *types.OpenRouterVideoRequest) (*types.OpenRouterVideoSubmitResponse, error)
 }
 
+func (m *mockAPIClient) BaseURL() string            { return "https://api.example.com/v1" }
 func (m *mockAPIClient) SetTimeout(d time.Duration) {}
 func (m *mockAPIClient) Submit(req *types.GenerateRequest) (*types.GenerateResponse, error) {
 	return nil, nil

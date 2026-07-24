@@ -18,7 +18,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/pdf"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
-	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/spf13/cobra"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
@@ -210,7 +209,7 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 	// or --provider flag (p.Name non-empty), OR when type is ollama.
 	// Global fallback (empty p.Name, type=openai) skips online mode.
 	p := shared.ResolveProvider(ProviderNameOCR)
-	if p != nil && p.Type != types.ProviderLocal && p.BaseURL != "" && (p.Name != "" || p.Type == types.ProviderOllama) {
+	if provider.IsOnlineProvider(p) {
 		// Model priority: --model flag > p.Model (from provider config)
 		if ocrScanModel != "" {
 			p.Model = ocrScanModel
@@ -347,7 +346,7 @@ func scanPDF(cmd *cobra.Command, pdfPath string) error {
 	useOnlineOCR := false
 	var onlineP *provider.EffectiveProvider
 	op := shared.ResolveProvider(ProviderNameOCR)
-	if op != nil && op.BaseURL != "" && (op.Name != "" || op.Type == types.ProviderOllama) {
+	if provider.IsOnlineProvider(op) {
 		if ocrScanModel != "" {
 			op.Model = ocrScanModel
 		} else if shared.Model != "" {

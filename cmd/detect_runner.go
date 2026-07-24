@@ -13,7 +13,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/onnx"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
-	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 	"github.com/martianzhang/aigc-cli/internal/wmremove"
 )
@@ -44,17 +43,6 @@ func detectFiles(paths []string, pathOverride string) error {
 }
 
 func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
-	// ── Online provider takes full control ──
-	dp := shared.ResolveProvider(ProviderNameDetect)
-	if dp != nil && dp.BaseURL != "" && (dp.Name != "" || dp.Type == types.ProviderOllama) {
-		assessment, err := provider.DescribeImage(dp, path, "Analyze this image and determine if it was AI-generated. Look for visual artifacts, unnatural patterns, and any signs of AI generation. Provide a brief assessment.")
-		if err != nil {
-			return fmt.Errorf("online detect failed: %w", err)
-		}
-		fmt.Fprintf(os.Stderr, "Online: %s\n", assessment)
-		return nil
-	}
-
 	result, err := service.DetectImage(path)
 	if err != nil {
 		return fmt.Errorf("metadata: %w", err)
@@ -94,6 +82,7 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		FFTScore:       fftScore,
 		NoiseScore:     noiseScore,
 		JPEGScore:      jpegScore,
+		LLMScore:       -1, // -1 = unavailable; set below if online LLM provider is configured
 	}
 
 	// Detect visible AI watermarks for AI detection signal.
@@ -108,6 +97,18 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 					opts.WatermarkName = dets[0].Name
 				}
 			}
+		}
+	}
+
+	// ── Online LLM assessment as additional signal ──
+	dp := shared.ResolveProvider(ProviderNameDetect)
+	if provider.IsOnlineProvider(dp) {
+		assessment, err := provider.DescribeImage(dp, path, "Analyze this image and determine if it was AI-generated. "+
+			"Look for visual artifacts, unnatural patterns, and any signs of AI generation. "+
+			"Reply with only a number 0-100 where 0=certainly human, 100=certainly AI, then a brief reason.")
+		if err == nil {
+			opts.LLMScore = parseLLMScore(assessment)
+			opts.LLMDetail = assessment
 		}
 	}
 
@@ -313,6 +314,7 @@ func detectOneFileJSON(path, pathOverride string, aiDetector *onnx.Detector, res
 		FFTScore:       fftScore,
 		NoiseScore:     noiseScore,
 		JPEGScore:      jpegScore,
+		LLMScore:       -1,
 	}
 	if (!opts.C2PAPresent || opts.C2PASource != "AI Generated") && !opts.TC260Present {
 		f, fErr := os.Open(path)
@@ -356,6 +358,42 @@ func tryInitWMRemove() (*wmremove.Detector, error) {
 // removeWatermarkDetected runs MI-GAN on a detected watermark region.
 
 // removeWatermarkMigan forces MI-GAN with a generous bottom-right mask.
+
+// parseLLMScore extracts a 0-1 score from the LLM's response text.
+// The LLM is asked to output a number 0-100, so we look for it.
+func parseLLMScore(text string) float64 {
+	// Scan for "N/100" or "N out of 100" pattern
+	parts := strings.Fields(text)
+	for i, p := range parts {
+		cleaned := strings.TrimRight(p, ".,!?%")
+		if n, err := strconv.Atoi(cleaned); err == nil && n >= 0 && n <= 100 {
+			// Check it's not followed by a year or other non-score number
+			if i+1 < len(parts) && parts[i+1] == "/100" {
+				return float64(n) / 100.0
+			}
+			if strings.Contains(p, "/100") || strings.Contains(p, "%") {
+				return float64(n) / 100.0
+			}
+		}
+	}
+	// Fallback: keyword-based heuristic
+	lower := strings.ToLower(text)
+	aiIndicators := []string{"ai-generated", "likely ai", "artificial", "synthetic", "deepfake", "generated"}
+	humanIndicators := []string{"human-made", "real photo", "natural", "authentic", "realistic"}
+	aiScore := 0.0
+	for _, kw := range aiIndicators {
+		if strings.Contains(lower, kw) {
+			aiScore += 0.3
+		}
+	}
+	for _, kw := range humanIndicators {
+		if strings.Contains(lower, kw) {
+			aiScore -= 0.3
+		}
+	}
+	aiScore = max(0, min(1, aiScore+0.5))
+	return aiScore
+}
 
 // buildDetails creates a compact breakdown of all signals.
 func buildDetails(r *forensic.Result) string {

@@ -13,7 +13,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/rmbg"
 	"github.com/martianzhang/aigc-cli/internal/service"
-	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -131,7 +130,7 @@ func runBackground(cmd *cobra.Command, args []string) error {
 
 	// ── Online provider check (supplementary) ──
 	bgProvider := shared.ResolveProvider(ProviderNameBackground)
-	useOnlineBG := bgProvider != nil && bgProvider.BaseURL != "" && (bgProvider.Name != "" || bgProvider.Type == types.ProviderOllama)
+	useOnlineBG := provider.IsOnlineProvider(bgProvider)
 
 	// 初始化 RMBG Detector（所有文件共享一个实例）
 	if rmbgDetector == nil {

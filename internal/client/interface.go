@@ -11,6 +11,7 @@ import (
 // Adding a new method here? Make sure *Client implements it and
 // update callers in cmd/ and internal/mcp/ if they depend on the interface.
 type APIClient interface {
+	BaseURL() string
 	SetTimeout(d time.Duration)
 	Submit(req *types.GenerateRequest) (*types.GenerateResponse, error)
 	ImageGenerateSync(req *types.GenerateRequest) (*types.OpenAIImageResponse, error)

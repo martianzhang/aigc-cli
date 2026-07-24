@@ -11,12 +11,13 @@ type imageDispatchCtx struct {
 	isAPIMart    bool
 	isOpenRouter bool
 	genEdit      bool
+	isOllama     bool
 }
 
 // imageStrategy defines a dispatch rule for image generation.
 type imageStrategy struct {
 	match func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool
-	run   func(client.APIClient, *types.GenerateRequest) error
+	run   func(client.APIClient, *types.GenerateRequest, *imageDispatchCtx) error
 }
 
 // imageStrategies is the ordered dispatch table for image generation.
@@ -35,6 +36,13 @@ var imageStrategies = []imageStrategy{
 			return ctx.isAPIMart
 		},
 		run: runAsyncImage,
+	},
+	{
+		// Ollama/local: native /api/generate endpoint (not OpenAI-compatible)
+		match: func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool {
+			return ctx.isOllama
+		},
+		run: runOllamaImage,
 	},
 	// Default: OpenAI-compatible synchronous generation
 	{

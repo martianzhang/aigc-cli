@@ -139,7 +139,20 @@ func Analyze(opts Options) *Result {
 		totalWeight += weightMedium
 	}
 
-	// 6. FFT spectral analysis
+	// 6. Online LLM assessment
+	if opts.LLMScore >= 0 {
+		sig := SignalResult{
+			Name: "LLM Assessment", Score: opts.LLMScore, Weight: weightMedium,
+		}
+		if opts.LLMDetail != "" {
+			sig.Detail = opts.LLMDetail
+		}
+		signals = append(signals, sig)
+		weightedScore += opts.LLMScore * weightMedium
+		totalWeight += weightMedium
+	}
+
+	// 7. FFT spectral analysis
 	if opts.FFTScore >= 0 {
 		signals = append(signals, SignalResult{
 			Name: "FFT Spectral", Score: opts.FFTScore, Weight: weightLow,
@@ -204,6 +217,8 @@ type Options struct {
 	JPEGScore        float64 // JPEG double quantization, 0-1, -1 = unavailable
 	WatermarkPresent bool    // visible AI watermark detected (Gemini/Doubao/Jimeng/Baidu/Zhipu)
 	WatermarkName    string  // detected watermark name, e.g. "gemini", "doubao"
+	LLMScore         float64 // online LLM assessment, 0-1, -1 = unavailable
+	LLMDetail        string  // raw LLM assessment text
 }
 
 func scoreToLevel(s float64) Level {
