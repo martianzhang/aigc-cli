@@ -3,6 +3,7 @@ package onnxrt
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -14,9 +15,21 @@ func TestLibPath_notFound(t *testing.T) {
 	}
 }
 
+func platformLibName() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "libonnxruntime.dylib"
+	case "linux":
+		return "libonnxruntime.so"
+	default:
+		return "onnxruntime.dll"
+	}
+}
+
 func TestLibPath_found(t *testing.T) {
 	dir := t.TempDir()
-	fakeLib := filepath.Join(dir, "libonnxruntime.dylib")
+	libName := platformLibName()
+	fakeLib := filepath.Join(dir, libName)
 	if err := os.WriteFile(fakeLib, []byte("fake"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +46,8 @@ func TestLibPath_prefersCPUOnly(t *testing.T) {
 	dir := t.TempDir()
 	// LibPath only looks for the single main library per platform.
 	// GPU providers are loaded dynamically alongside it.
-	lib := filepath.Join(dir, "libonnxruntime.dylib")
+	libName := platformLibName()
+	lib := filepath.Join(dir, libName)
 	os.WriteFile(lib, []byte("data"), 0644)
 
 	path, err := LibPath(dir)
