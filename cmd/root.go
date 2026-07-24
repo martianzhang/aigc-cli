@@ -291,15 +291,8 @@ func printCmdProviders() {
 		if providerLabel == "" {
 			providerLabel = "(global)"
 		}
-		providerType := string(p.Type)
-		if providerType == "" {
-			providerType = "openai"
-		}
 		// Show explicit type if set, otherwise fall back to URL-based detection.
-		typeLabel := providerType
-		if p.Type == "" || p.Type == types.ProviderOpenAI {
-			typeLabel = p.ProviderType.String()
-		}
+		typeLabel := p.Type.DisplayType(p.ProviderType.String())
 		modelInfo := ""
 		if p.Model != "" {
 			modelInfo = fmt.Sprintf(", model=%s", p.Model)

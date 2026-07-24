@@ -14,6 +14,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -118,10 +119,17 @@ Examples:
 	RunE: runAudioTranscribe,
 }
 
+// isLocalAudioMode returns true if audio should run as local inference.
+// Local mode is triggered by the --local flag, or when there is no
+// online provider configured (nil, type=local, or empty name+model).
+func isLocalAudioMode(p *provider.EffectiveProvider, localFlag bool) bool {
+	return localFlag || p == nil || p.Type == types.ProviderLocal || (p.Name == "" && p.Model == "")
+}
+
 func runAudioSpeak(cmd *cobra.Command, args []string) error {
 	// ── Check local mode: --local flag, type=local, or no provider+model ──
 	p := shared.ResolveProvider(ProviderNameAudio)
-	if audioSpeechLocal || (p != nil && (p.Type == types.ProviderLocal || (p.Name == "" && p.Model == ""))) {
+	if isLocalAudioMode(p, audioSpeechLocal) {
 		return runLocalAudioSpeak(cmd)
 	}
 
@@ -207,7 +215,7 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 	// ── Check local mode: --local flag, type=local, or no provider+model ──
 	p := shared.ResolveProvider(ProviderNameAudio)
-	if audioTranscribeLocal || (p != nil && (p.Type == types.ProviderLocal || (p.Name == "" && p.Model == ""))) {
+	if isLocalAudioMode(p, audioTranscribeLocal) {
 		return runLocalAudioTranscribe(cmd)
 	}
 

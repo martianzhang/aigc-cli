@@ -43,6 +43,9 @@ func visionChat(p *EffectiveProvider, imagePath, textPrompt string) (string, err
 	if p.Type == types.ProviderOllama {
 		return ollamaNativeChat(p, encoded, textPrompt)
 	}
+	if p.Type == types.ProviderAnthropic {
+		return anthropicVisionChat(p, encoded, mimeType, textPrompt)
+	}
 
 	dataURL := fmt.Sprintf("data:%s;base64,%s", mimeType, encoded)
 	return openaiCompatVisionChat(p, dataURL, textPrompt)
@@ -203,6 +206,84 @@ func openaiCompatVisionChat(p *EffectiveProvider, dataURL, textPrompt string) (s
 		return "", fmt.Errorf("no response from model")
 	}
 	return strings.TrimSpace(result.Choices[0].Message.Content), nil
+}
+
+// anthropicVisionChat uses the Anthropic Messages API for image understanding.
+// Image is sent as a content block in the messages array.
+func anthropicVisionChat(p *EffectiveProvider, b64Image, mimeType, textPrompt string) (string, error) {
+	model := p.Model
+	if model == "" {
+		model = "claude-3-5-sonnet-20241022"
+	}
+
+	payload := map[string]any{
+		"model":      model,
+		"max_tokens": 4096,
+		"messages": []any{
+			map[string]any{
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": textPrompt},
+					map[string]any{
+						"type": "image",
+						"source": map[string]any{
+							"type":       "base64",
+							"media_type": mimeType,
+							"data":       b64Image,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("marshal request: %w", err)
+	}
+
+	baseURL := strings.TrimRight(p.BaseURL, "/")
+	chatURL := baseURL + "/messages"
+
+	req, err := http.NewRequest("POST", chatURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", p.APIKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+
+	httpClient := &http.Client{Timeout: 120 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("API call failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response: %w", err)
+	}
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("parse response: %w", err)
+	}
+	var text string
+	for _, block := range result.Content {
+		if block.Type == "text" {
+			text += block.Text
+		}
+	}
+	return strings.TrimSpace(text), nil
 }
 
 // hasVersionSuffix checks if a URL ends with a version path segment like /v1, /v2.

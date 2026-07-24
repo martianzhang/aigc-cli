@@ -16,6 +16,11 @@ import (
 
 // the user-supplied value is respected as-is.
 func New(apiKey, baseURL, proxyURL string) *Client {
+	return NewWithProvider(apiKey, baseURL, proxyURL, types.ProviderOpenAI)
+}
+
+// NewWithProvider creates a new API client with the given provider type.
+func NewWithProvider(apiKey, baseURL, proxyURL string, providerType types.ProviderType) *Client {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
@@ -38,8 +43,9 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 	}
 
 	c := &Client{
-		baseURL: baseURL,
-		apiKey:  apiKey,
+		baseURL:      baseURL,
+		apiKey:       apiKey,
+		providerType: providerType,
 		httpClient: &http.Client{
 			Transport: transport,
 			Timeout:   DefaultTimeout,
@@ -81,6 +87,11 @@ func (c *Client) Submit(req *types.GenerateRequest) (*types.GenerateResponse, er
 // When req.Stream is true, it prints tokens as they arrive and returns the full response.
 // When req.Stream is false, it returns the full response as-is.
 func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, error) {
+	// Anthropic Messages API uses a different endpoint and format.
+	if c.providerType == types.ProviderAnthropic {
+		return c.anthropicChatCompletion(req)
+	}
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)

@@ -63,7 +63,8 @@ func sendChatRequest(cmd *cobra.Command, req *types.ChatRequest) error {
 		}
 	}
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	p := shared.ResolveProvider(ProviderNameChat)
+	c := client.NewFromProvider(p)
 	req.OutputWriter = chatStdout
 
 	start := time.Now()

@@ -18,11 +18,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// needsAPIKey returns false for providers that don't require an API key.
-func needsAPIKey(p *provider.EffectiveProvider) bool {
-	return p.APIKey == "" && p.Type != types.ProviderOllama && p.Type != types.ProviderLocal
-}
-
 // parseImageURLs splits a comma-separated string into a string slice.
 func parseImageURLs(raw string) []string {
 	if raw == "" {
@@ -43,7 +38,7 @@ func parseImageURLs(raw string) []string {
 func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		p := cfg.cmdProvider("image")
-		if needsAPIKey(p) {
+		if p.RequiresAPIKey() {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
 
@@ -199,7 +194,7 @@ func handleMCPAPIMartImage(c client.APIClient, req *types.GenerateRequest, outpu
 func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		p := cfg.cmdProvider("video")
-		if needsAPIKey(p) {
+		if p.RequiresAPIKey() {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
 
@@ -310,7 +305,7 @@ func handleMCPAPIMartVideo(c client.APIClient, req *types.VideoGenerateRequest) 
 func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		p := cfg.cmdProvider("audio")
-		if needsAPIKey(p) {
+		if p.RequiresAPIKey() {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
 
@@ -364,7 +359,7 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		p := cfg.cmdProvider("audio")
-		if needsAPIKey(p) {
+		if p.RequiresAPIKey() {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
 

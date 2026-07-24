@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 const (
@@ -53,6 +55,7 @@ type Client struct {
 	httpClient     *http.Client
 	ctx            context.Context // optional, for cancellation (set by SetContext)
 	defaultHeaders map[string]string
+	providerType   types.ProviderType // API protocol variant (openai, anthropic, ollama)
 }
 
 // SetContext sets an optional context for cancellation support.

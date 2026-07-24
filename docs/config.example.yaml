@@ -44,7 +44,7 @@ base_url: "https://api.apimart.ai"
 #   openai    — OpenAI 兼容协议（OpenAI、OpenRouter、APIMart、任意中转）
 #   ollama    — Ollama 本地（OpenAI 子集，无需 API Key）
 #   google    — Google Gemini API（预留）
-#   anthropic — Anthropic Messages API（预留）
+#   anthropic — Anthropic Messages API（通过 OpenRouter 等支持 Anthropic 协议的中转）
 #   local     — 本地 ONNX 模型（OCR / Vision / Detect / Background）
 #
 # 未配置的字段继承全局顶层值（api_key / base_url / http_proxy）。
@@ -59,6 +59,12 @@ providers:
   # ollama:
   #   type: ollama
   #   base_url: "http://localhost:11434/v1"
+
+  # 示例：通过 OpenRouter 使用 Anthropic 协议
+  # openrouter-anthropic:
+  #   type: anthropic
+  #   api_key: "sk-or-xxx"
+  #   base_url: "https://openrouter.ai/api/v1"
 
   # 示例：本地 ONNX 模型目录
   # local:

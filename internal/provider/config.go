@@ -104,9 +104,9 @@ func ResolveCmdProvider(
 			} else {
 				ep.APIKey = global.APIKey
 			}
-			// Provider type detection: use Detect only for openai-compatible,
-			// otherwise the explicit type takes priority.
-			if ep.Type != types.ProviderOpenAI && ep.Type != types.ProviderOllama {
+			// Provider type detection: only analyze base URL for types that
+			// may route through an intermediary (OpenRouter, APIMart, etc.).
+			if !ep.Type.DetectProvider() {
 				ep.ProviderType = Unknown
 			}
 			return ep
@@ -152,6 +152,21 @@ func ValidateProviderRef(ref string, providers map[string]*types.NamedProvider) 
 func IsOnlineProvider(p *EffectiveProvider) bool {
 	return p != nil && p.BaseURL != "" && p.Type != types.ProviderLocal &&
 		(p.Name != "" || p.Type == types.ProviderOllama || IsLocalEndpoint(p.BaseURL))
+}
+
+// RequiresAPIKey returns true if this provider needs a non-empty API key
+// to function. Providers with their own auth mechanism (ollama native,
+// local ONNX) return false.
+func (p *EffectiveProvider) RequiresAPIKey() bool {
+	if p == nil {
+		return false
+	}
+	switch p.Type {
+	case types.ProviderOllama, types.ProviderLocal:
+		return false
+	default:
+		return p.APIKey == ""
+	}
 }
 
 // firstNonEmpty returns the first non-empty string.
