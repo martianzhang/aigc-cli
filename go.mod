@@ -81,6 +81,7 @@ require (
 	github.com/pdfcpu/pdfcpu v0.13.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/razvandimescu/gopdf v0.9.5
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sajari/fuzzy v1.0.0 // indirect

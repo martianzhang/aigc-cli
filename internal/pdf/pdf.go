@@ -1,12 +1,11 @@
 // Package pdf provides PDF processing in Go: text extraction for born-digital
-// PDFs via ledongthuc/pdf (pure Go), and page-to-image rendering via mutool
-// (external CLI, muPDF tools — required only for scanned/image-based PDFs).
-// No CGO. The mutool dependency is optional — text-based PDFs work without it.
+// PDFs via razvandimescu/gopdf (pure Go, no CGO), and page-to-image rendering
+// via mutool (external CLI, muPDF tools — required only for scanned/image-based
+// PDFs). The mutool dependency is optional — text-based PDFs work without it.
 package pdf
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,8 +14,10 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/ledongthuc/pdf"
+	gopdf "github.com/razvandimescu/gopdf/pdf"
 )
+
+var gopdfOpen = gopdf.OpenFile
 
 // PageText holds extracted text from one PDF page.
 type PageText struct {
@@ -37,234 +38,260 @@ func meaningfulChars(s string) int {
 }
 
 // ExtractText opens a PDF and extracts plain text from every page.
-// Returns one PageText per page. An empty Text means the page had no
-// extractable content (typically a scanned/image page).
 func ExtractText(path string) ([]PageText, error) {
-	f, r, err := pdf.Open(path)
+	doc, err := gopdfOpen(path)
 	if err != nil {
-		return nil, fmt.Errorf("open pdf: %w", err)
+		return nil, err
 	}
-	defer f.Close()
 
-	numPages := r.NumPage()
+	numPages := doc.NumPages()
 	pages := make([]PageText, 0, numPages)
 
-	for i := 1; i <= numPages; i++ {
-		text := extractPageText(r.Page(i))
-		pages = append(pages, PageText{Page: i, Text: text})
+	for i := 0; i < numPages; i++ {
+		text := extractPageText(doc.Page(i))
+		pages = append(pages, PageText{Page: i + 1, Text: text})
 	}
 
 	return pages, nil
 }
 
-// extractPageText extracts text from a single PDF page with paragraph
-// structure preserved. Uses GetTextByRow() with Y-position thresholds
-// to reconstruct paragraph breaks instead of GetPlainText() which
-// concatenates all text in content-stream order without layout awareness.
-func extractPageText(page pdf.Page) string {
-	fonts := page.Fonts()
-	fontMap := make(map[string]*pdf.Font, len(fonts))
-	for _, name := range fonts {
-		f := page.Font(name)
-		fontMap[name] = &f
-	}
-
-	rows, err := page.GetTextByRow()
-	suspicious := len(rows) <= 1 || (len(rows) > 0 && rows[0].Position == 0)
-
-	var raw string
-	if err != nil || len(rows) == 0 || suspicious {
-		// Fallback to GetPlainText on error, empty rows, or suspicious
-		// layouts (e.g. all Y=0, which happens with Chinese e-invoices).
-		// GetPlainText preserves interior \n line breaks.
-		raw, err = page.GetPlainText(fontMap)
-		if err != nil {
-			return ""
-		}
-	} else {
-		return extractByRows(rows)
-	}
-
-	return cleanupPDFText(raw)
+// vertLabelInfo captures a detected vertical label with its spatial bounds.
+type vertLabelInfo struct {
+	text    string
+	topY    float64
+	bottom  float64
+	centerX float64
+	spanIdx []int
 }
 
-// cleanupPDFText post-processes raw PDF text to fix common layout artifacts:
-//  1. Merge vertical text: single CJK chars on consecutive lines → horizontal
-//  2. Collapse excessive blank lines (3+ → 2)
-//  3. Trim trailing whitespace per line
-func cleanupPDFText(raw string) string {
-	lines := strings.Split(raw, "\n")
-	if len(lines) <= 2 {
-		return strings.TrimSpace(raw)
+// extractPageText extracts text from a single PDF page using TextSpans().
+func extractPageText(p *gopdf.Page) string {
+	spans, err := p.TextSpans()
+	if err != nil || len(spans) == 0 {
+		return ""
 	}
 
-	// Pass 1: detect and merge vertical text runs.
-	// A vertical run is 2+ consecutive lines each containing exactly one
-	// CJK character, at similar indent level.
-	type run struct{ start, end int }
-	var verticalRuns []run
-	i := 0
-	for i < len(lines) {
-		if isSingleCJK(lines[i]) {
-			start := i
-			for i < len(lines) && isSingleCJK(lines[i]) {
-				i++
+	vertLabels := detectVerticalLabels(spans)
+
+	isVerticalLabel := make(map[int]bool)
+	for _, vl := range vertLabels {
+		for _, idx := range vl.spanIdx {
+			if idx >= 0 && idx < len(spans) {
+				isVerticalLabel[idx] = true
 			}
-			// Minimum 3 characters — 2-character vertical runs are often
-			// adjacent table cells (e.g. "无" and "张" in different columns).
-			if i-start >= 3 {
-				verticalRuns = append(verticalRuns, run{start, i})
-			}
-		} else {
-			i++
 		}
 	}
 
-	// Apply merges from right to left to preserve indices.
-	for ri := len(verticalRuns) - 1; ri >= 0; ri-- {
-		r := verticalRuns[ri]
-		merged := ""
-		for j := r.start; j < r.end; j++ {
-			merged += strings.TrimSpace(lines[j])
+	type contentSpan struct {
+		idx int
+		gopdf.TextSpan
+	}
+	var contentSpans []contentSpan
+	for i, s := range spans {
+		if !isVerticalLabel[i] && s.Text != "" {
+			contentSpans = append(contentSpans, contentSpan{idx: i, TextSpan: s})
 		}
-		// Replace the run with a single merged line.
-		newLines := make([]string, 0, len(lines)-(r.end-r.start-1))
-		newLines = append(newLines, lines[:r.start]...)
-		newLines = append(newLines, merged)
-		newLines = append(newLines, lines[r.end:]...)
-		lines = newLines
 	}
 
-	// Pass 2: collapse excessive blank lines, trim per line.
+	type lineGroup struct {
+		y     float64
+		spans []contentSpan
+	}
+	var groups []lineGroup
+	for _, cs := range contentSpans {
+		found := false
+		for j := range groups {
+			if abs(cs.Y-groups[j].y) < 8 {
+				groups[j].spans = append(groups[j].spans, cs)
+				found = true
+				break
+			}
+		}
+		if !found {
+			groups = append(groups, lineGroup{y: cs.Y, spans: []contentSpan{cs}})
+		}
+	}
+
+	sort.Slice(groups, func(i, j int) bool { return groups[i].y > groups[j].y })
+
+	usedLabel := make(map[int]bool)
 	var result []string
-	blankCount := 0
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			blankCount++
-			if blankCount <= 2 {
-				result = append(result, "")
+	for i := range groups {
+		g := &groups[i]
+		sort.Slice(g.spans, func(a, b int) bool {
+			return g.spans[a].X < g.spans[b].X
+		})
+
+		bestLabel := ""
+		bestDist := 1e9
+		for li, vl := range vertLabels {
+			if usedLabel[li] {
+				continue
 			}
-		} else {
-			blankCount = 0
-			// Collapse multiple spaces to single space (PDF layout spacing).
-			result = append(result, collapseSpaces(trimmed))
+			center := (vl.topY + vl.bottom) / 2
+			d := abs(g.y - center)
+			if d < 25 && d < bestDist {
+				bestDist = d
+				bestLabel = vl.text
+				usedLabel[li] = true
+			}
+		}
+
+		spans := make([]gopdf.TextSpan, len(g.spans))
+		for si, cs := range g.spans {
+			spans[si] = cs.TextSpan
+		}
+		lineText := joinSpansWithSpacing(spans)
+
+		if bestLabel != "" {
+			lineText = bestLabel + " " + lineText
+		}
+
+		if lineText != "" {
+			result = append(result, lineText)
 		}
 	}
 
-	return strings.TrimSpace(strings.Join(result, "\n"))
+	return strings.Join(result, "\n")
 }
 
-// isSingleCJK reports whether s is exactly one CJK character (with possible whitespace).
+// joinSpansWithSpacing joins spans (already sorted by X) into a single string,
+// inserting spaces between them based on the horizontal gap.
+func joinSpansWithSpacing(spans []gopdf.TextSpan) string {
+	if len(spans) == 0 {
+		return ""
+	}
+
+	// Collect non-empty, trimmed text with X/EndX for spacing decisions.
+	var texts []string
+	var xCoords []float64
+	var endXs []float64
+	var fontSizes []float64
+
+	for _, s := range spans {
+		t := strings.TrimSpace(s.Text)
+		if t == "" {
+			continue
+		}
+		texts = append(texts, t)
+		xCoords = append(xCoords, s.X)
+		eX := s.EndX
+		if eX <= s.X {
+			eX = s.X + float64(len([]rune(s.Text)))*s.FontSize*0.5
+		}
+		endXs = append(endXs, eX)
+		fontSizes = append(fontSizes, s.FontSize)
+	}
+
+	if len(texts) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	prevEndX := endXs[0]
+	for i, text := range texts {
+		if i > 0 {
+			gap := xCoords[i] - prevEndX
+			threshold := fontSizes[i] * 2
+			if threshold < 2 {
+				threshold = 2
+			}
+			if gap > threshold {
+				sb.WriteByte(' ')
+			}
+		}
+		sb.WriteString(text)
+		prevEndX = endXs[i]
+	}
+
+	// Add a trailing space so the next line doesn't stick to this one.
+	return sb.String() + " "
+}
+
+// detectVerticalLabels finds runs of single-CJK spans at similar X
+// with consecutive Y steps (5–22px), and returns structured label info.
+func detectVerticalLabels(spans []gopdf.TextSpan) []vertLabelInfo {
+	type bucketEntry struct {
+		y       float64
+		text    string
+		spanIdx int
+	}
+
+	buckets := make(map[int][]bucketEntry)
+	for i, s := range spans {
+		if !isSingleCJK(s.Text) {
+			continue
+		}
+		bk := int(s.X/20) * 20
+		buckets[bk] = append(buckets[bk], bucketEntry{
+			y:       s.Y,
+			text:    s.Text,
+			spanIdx: i,
+		})
+	}
+
+	var labels []vertLabelInfo
+	for _, entries := range buckets {
+		if len(entries) < 2 {
+			continue
+		}
+
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].y > entries[j].y
+		})
+
+		runStart := 0
+		for i := 1; i <= len(entries); i++ {
+			var step float64
+			if i < len(entries) {
+				step = abs(entries[i].y - entries[i-1].y)
+			}
+			endRun := i >= len(entries) || step > 22 || step < 4
+			if endRun && i-runStart >= 2 {
+				text := ""
+				topY := entries[runStart].y
+				bottom := entries[i-1].y
+				var spanIdx []int
+				for k := runStart; k < i; k++ {
+					text += entries[k].text
+					spanIdx = append(spanIdx, entries[k].spanIdx)
+				}
+				labels = append(labels, vertLabelInfo{
+					text:    text,
+					topY:    topY,
+					bottom:  bottom,
+					centerX: entries[0].y,
+					spanIdx: spanIdx,
+				})
+			}
+			if endRun && i < len(entries) {
+				runStart = i
+			}
+		}
+	}
+
+	return labels
+}
+
+// isSingleCJK reports whether s is exactly one CJK character.
 func isSingleCJK(s string) bool {
 	s = strings.TrimSpace(s)
-	if len(s) == 0 {
+	if s == "" {
 		return false
 	}
-	runes := []rune(s)
-	if len(runes) != 1 {
+	r := []rune(s)
+	if len(r) != 1 {
 		return false
 	}
-	r := runes[0]
-	// CJK Unified Ideographs + fullwidth forms
-	return (r >= 0x4E00 && r <= 0x9FFF) ||
-		(r >= 0x3400 && r <= 0x4DBF) ||
-		(r >= 0xF900 && r <= 0xFAFF) ||
-		(r >= 0xFF01 && r <= 0xFF60)
-}
-
-// collapseSpaces reduces runs of 2+ spaces to a single space.
-func collapseSpaces(s string) string {
-	var buf strings.Builder
-	prevSpace := false
-	for _, r := range s {
-		if r == ' ' || r == '\t' {
-			if !prevSpace {
-				buf.WriteRune(' ')
-				prevSpace = true
-			}
-		} else {
-			buf.WriteRune(r)
-			prevSpace = false
-		}
-	}
-	return buf.String()
-}
-
-// extractByRows reconstructs text from row-based layout with gap-based
-// paragraph detection. Also applies cleanup (space collapsing).
-func extractByRows(rows pdf.Rows) string {
-	var gaps []float64
-	for i := 1; i < len(rows); i++ {
-		g := math.Abs(float64(rows[i].Position - rows[i-1].Position))
-		if g > 0.5 {
-			gaps = append(gaps, g)
-		}
-	}
-
-	threshold := 30.0
-	if len(gaps) > 0 {
-		sort.Float64s(gaps)
-		median := gaps[len(gaps)/2]
-		if median > 5 {
-			threshold = median * 1.8
-		}
-	}
-
-	var buf strings.Builder
-	var prevPos *int64
-
-	for _, row := range rows {
-		if len(row.Content) == 0 {
-			continue
-		}
-
-		rowText := extractRowText(row.Content)
-
-		if prevPos != nil {
-			gap := math.Abs(float64(row.Position - *prevPos))
-			if gap > threshold {
-				buf.WriteString("\n\n")
-			} else if gap > 1 {
-				buf.WriteString("\n")
-			}
-		}
-
-		buf.WriteString(rowText)
-		prevPos = &row.Position
-	}
-
-	return cleanupPDFText(buf.String())
-}
-
-// extractRowText concatenates text spans with line-break detection.
-// Sorts spans by Y then X, and breaks lines at Y-position jumps (>0.5pt).
-func extractRowText(spans pdf.TextHorizontal) string {
-	sort.Slice(spans, func(i, j int) bool {
-		if spans[i].Y != spans[j].Y {
-			return spans[i].Y < spans[j].Y
-		}
-		return spans[i].X < spans[j].X
-	})
-	var buf strings.Builder
-	prevY := spans[0].Y
-	for _, t := range spans {
-		s := strings.TrimSpace(t.S)
-		if s == "" {
-			continue
-		}
-		if t.Y-prevY > 0.5 {
-			buf.WriteString("\n")
-		}
-		buf.WriteString(s)
-		prevY = t.Y
-	}
-	return buf.String()
+	c := r[0]
+	return (c >= 0x4E00 && c <= 0x9FFF) ||
+		(c >= 0x3400 && c <= 0x4DBF) ||
+		(c >= 0xF900 && c <= 0xFAFF) ||
+		(c >= 0xFF01 && c <= 0xFF60)
 }
 
 // IsScanned reports whether a PDF is a scanned/image document based on its
-// extracted text. A PDF is considered scanned when every page has fewer than
-// minChars meaningful (non-whitespace, non-punct, non-digit) characters.
+// extracted text.
 const minCharsPerPage = 50
 
 func IsScanned(pages []PageText) bool {
@@ -279,32 +306,19 @@ func IsScanned(pages []PageText) bool {
 	return true
 }
 
-// RenderToImages renders every page of a PDF to PNG images using mutool
-// (muPDF command-line tool). The output directory is created if it does not
-// exist. Returns the paths to the rendered PNG files sorted by page number.
-//
-// mutool must be installed separately:
-//
-//	macOS:  brew install mupdf-tools
-//	Linux:  apt install mupdf-tools    # or pacman -S mupdf-tools
-//	Windows: https://mupdf.com/downloads
+// RenderToImages renders every page of a PDF to PNG images using mutool.
 func RenderToImages(pdfPath, outputDir string, dpi int) ([]string, error) {
 	return renderPages(pdfPath, outputDir, nil, dpi)
 }
 
-// SelectedPages renders only the specified page numbers (1-based) from a PDF
-// to PNG images using mutool. pageNums is a list of page specifiers that
-// mutool accepts (e.g. "1", "1-3", "1,3,5").
-// Returns paths to the rendered PNG files sorted by page number.
+// SelectedPages renders only the specified page numbers (1-based) from a PDF.
 func SelectedPages(pdfPath, outputDir string, pageNums []string, dpi int) ([]string, error) {
 	return renderPages(pdfPath, outputDir, pageNums, dpi)
 }
 
-// renderPages is the shared implementation for RenderToImages and SelectedPages.
-// pageNums = nil means all pages.
 func renderPages(pdfPath, outputDir string, pageNums []string, dpi int) ([]string, error) {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return nil, fmt.Errorf("create output dir: %w", err)
+		return nil, err
 	}
 
 	mutoolPath, err := findMutool()
@@ -322,13 +336,12 @@ func renderPages(pdfPath, outputDir string, pageNums []string, dpi int) ([]strin
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("mutool draw failed: %w", err)
+		return nil, err
 	}
 
-	// Enumerate rendered PNG files.
 	entries, err := os.ReadDir(outputDir)
 	if err != nil {
-		return nil, fmt.Errorf("read output dir: %w", err)
+		return nil, err
 	}
 
 	var images []string
@@ -338,7 +351,7 @@ func renderPages(pdfPath, outputDir string, pageNums []string, dpi int) ([]strin
 		}
 	}
 	if len(images) == 0 {
-		return nil, fmt.Errorf("mutool produced no output images")
+		return nil, nil
 	}
 
 	sort.Slice(images, func(i, j int) bool {
@@ -348,7 +361,6 @@ func renderPages(pdfPath, outputDir string, pageNums []string, dpi int) ([]strin
 	return images, nil
 }
 
-// extractPageNum extracts the page number from a filename like "page-3.png".
 func extractPageNum(path string) int {
 	base := filepath.Base(path)
 	ext := filepath.Ext(base)
@@ -361,9 +373,6 @@ func extractPageNum(path string) int {
 	return n
 }
 
-// configBinDir returns ~/.config/aigc-cli/bin — the directory for bundled
-// CLI tools (mutool, etc.). This lets us ship tools alongside the config
-// without requiring system-wide install.
 func configBinDir() string {
 	home, _ := os.UserHomeDir()
 	if home == "" {
@@ -372,18 +381,13 @@ func configBinDir() string {
 	return filepath.Join(home, ".config", "aigc-cli", "bin")
 }
 
-// findMutool locates the mutool binary, checking ~/.config/aigc-cli/bin/ first
-// then falling back to PATH. Returns the full path or an error with install hint.
 func findMutool() (string, error) {
-	// Check config bin dir first.
 	if dir := configBinDir(); dir != "" {
 		candidate := filepath.Join(dir, "mutool")
 		if s, err := os.Stat(candidate); err == nil && !s.IsDir() {
 			return candidate, nil
 		}
-		// macOS homebrew installs as mutool (not mupdf-gl/mupdf-mr)
 	}
-	// Fall back to PATH.
 	if p, err := exec.LookPath("mutool"); err == nil {
 		return p, nil
 	}
@@ -400,4 +404,11 @@ To OCR it, install mupdf-tools (mutool) to convert PDF pages to images:
   Windows: https://mupdf.com/downloads
 
 Then run 'aigc-cli ocr scan <file>' again.`
+}
+
+func abs(a float64) float64 {
+	if a < 0 {
+		return -a
+	}
+	return a
 }
