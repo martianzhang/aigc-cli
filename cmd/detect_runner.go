@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/martianzhang/aigc-cli/internal/forensic"
 	"github.com/martianzhang/aigc-cli/internal/onnx"
@@ -19,8 +20,20 @@ import (
 
 var wmDetector *wmremove.Detector
 
+// detectOnce lazily initializes the ONNX detector and caches the instance
+// for reuse across detect files, avoiding repeated model loading.
+var detectOnce struct {
+	sync.Once
+	detector *onnx.Detector
+}
+
 func detectFiles(paths []string, pathOverride string) error {
-	aiDetector := tryInitONNX()
+	if detectOnce.detector == nil {
+		detectOnce.Do(func() {
+			detectOnce.detector = tryInitONNX()
+		})
+	}
+	aiDetector := detectOnce.detector
 	if aiDetector != nil {
 		defer aiDetector.Close()
 	}

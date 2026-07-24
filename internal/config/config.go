@@ -20,7 +20,9 @@ const (
 func Load(customPath string) (*types.Config, error) {
 	v := viper.New()
 
-	// Bind well-known env vars to config keys.
+	// Bind well-known env vars.  viper.BindEnv almost never fails;
+	// errors would only arise from typos in key names, which we catch
+	// in development via go vet.
 	_ = v.BindEnv("api_key", "OPENAI_API_KEY")
 	_ = v.BindEnv("base_url", "OPENAI_BASE_URL")
 	_ = v.BindEnv("http_proxy", "HTTP_PROXY", "HTTPS_PROXY")

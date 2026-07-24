@@ -32,11 +32,8 @@ var rootCmd = &cobra.Command{
 	},
 	Long: `Unified CLI for OpenAI-compatible APIs. Supports OpenAI, OpenRouter, APIMart and any
 OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		// Default to interactive chat when no subcommand is given
-		if err := chatCmd.RunE(chatCmd, args); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		}
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return chatCmd.RunE(chatCmd, args)
 	},
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// --print-config: dump effective config with diagnostics
@@ -532,65 +529,18 @@ func init() {
 
 // validateCmdProviders checks that all defaults.{cmd}.provider references
 // point to existing entries in the providers map. Returns on first error.
+// Uses cmdProviderMap to keep the command list in one place.
 func validateCmdProviders(cfg *types.Config) {
-	cmds := []struct {
-		name string
-		ref  string
-	}{
-		{"image", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
-			if d.Image != nil {
-				return d.Image.Provider
-			}
-			return ""
-		})},
-		{"video", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
-			if d.Video != nil {
-				return d.Video.Provider
-			}
-			return ""
-		})},
-		{"chat", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
-			if d.Chat != nil {
-				return d.Chat.Provider
-			}
-			return ""
-		})},
-		{"audio", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
-			if d.Audio != nil {
-				return d.Audio.Provider
-			}
-			return ""
-		})},
-		{"midjourney", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
-			if d.Midjourney != nil {
-				return d.Midjourney.Provider
-			}
-			return ""
-		})},
-		{"ocr", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
-			if d.OCR != nil {
-				return d.OCR.Provider
-			}
-			return ""
-		})},
-		{"vision", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
-			if d.Vision != nil {
-				return d.Vision.Provider
-			}
-			return ""
-		})},
+	if cfg == nil || cfg.Defaults == nil {
+		return
 	}
-	for _, c := range cmds {
-		if err := provider.ValidateProviderRef(c.ref, cfg.Providers); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: defaults.%s.provider: %v\n", c.name, err)
+	for cmdName, info := range cmdProviderMap {
+		providerRef, _ := info.getter(cfg.Defaults)
+		if providerRef == "" {
+			continue
+		}
+		if err := provider.ValidateProviderRef(providerRef, cfg.Providers); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: defaults.%s.provider: %v\n", cmdName, err)
 		}
 	}
-}
-
-// cfgStringField extracts a string from a ConfigDefaults using a getter.
-func cfgStringField(d *types.ConfigDefaults, getter func(*types.ConfigDefaults) string) string {
-	if d == nil {
-		return ""
-	}
-	return getter(d)
 }

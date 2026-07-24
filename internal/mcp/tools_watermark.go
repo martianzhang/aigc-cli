@@ -13,6 +13,13 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
+// isLocalImageFile returns true for recognized image file extensions.
+func isLocalImageFile(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" ||
+		ext == ".gif" || ext == ".bmp" || ext == ".svg"
+}
+
 // resolveAbsPath resolves a possibly-relative path to an absolute one.
 func resolveAbsPath(path string) string {
 	if filepath.IsAbs(path) {
@@ -31,19 +38,20 @@ func defaultCleanPath(path string) string {
 }
 
 // removeWatermarkHandler handles the remove_watermark tool call.
-// Detects and removes a visible AI watermark (built-in gemini, or custom via learn-watermark).
 func removeWatermarkHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
 			return mcp.NewToolResultError("file_path is required"), nil
 		}
+		if !isLocalImageFile(path) {
+			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
+		}
 		path = resolveAbsPath(path)
 
 		producer := req.GetString("producer", "")
 		outputPath := req.GetString("output_path", "")
 
-		// Auto-load custom watermarks from config directory
 		loadCustomWatermarks()
 
 		res, err := watermark.RemoveFileHinted(path, outputPath, producer)
@@ -58,7 +66,7 @@ func removeWatermarkHandler() server.ToolHandlerFunc {
 		if out == "" {
 			out = defaultCleanPath(path)
 		}
-		return mcp.NewToolResultText(fmt.Sprintf("Watermark removed (engine: %s). Output: %s\n\n⚠️ 合规提醒: 请确保您有权处理该图片。本功能仅限合法用途，禁止去除他人版权水印。", res.Name, out)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("Watermark removed (engine: %s). Output: %s\n\n⚠️ 合规提醒: 请确保您有权处理该图片。", res.Name, out)), nil
 	}
 }
 
@@ -73,12 +81,14 @@ func loadCustomWatermarks() {
 }
 
 // addWatermarkHandler handles the add_watermark tool call.
-// Adds a visible AI watermark for testing purposes.
 func addWatermarkHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
 			return mcp.NewToolResultError("file_path is required"), nil
+		}
+		if !isLocalImageFile(path) {
+			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
 		}
 		path = resolveAbsPath(path)
 

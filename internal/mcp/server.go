@@ -55,7 +55,7 @@ func (cfg *Config) cmdProvider(name string) *provider.EffectiveProvider {
 func buildImageDesc(d *types.ImageDefaults, baseURL string) string {
 	b := new(strings.Builder)
 	p := provider.Detect(baseURL)
-	fmt.Fprintf(b, "Generate images via %s.\n\n当前配置（在 ~/.config/aigc-cli/config.yaml 中修改）:\n", p)
+	fmt.Fprintf(b, "Generate images via %s.\n\n", p)
 	if d != nil {
 		fmt.Fprintf(b, "  model = %s | size = %s | resolution = %s\n", d.Model, d.Size, d.Resolution)
 		fmt.Fprintf(b, "  quality = %s | output_format = %s", d.Quality, d.OutputFormat)
@@ -64,7 +64,7 @@ func buildImageDesc(d *types.ImageDefaults, baseURL string) string {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString("\n策略: 参数已设好默认值，不要主动填写。只有在用户提示词中明确指定了某个参数时（如 \"用 4k 分辨率\"），才传入对应参数覆盖。")
+	b.WriteString("\nStrategy: Parameters already have defaults. Only set when the user explicitly specifies a value.\n")
 	return b.String()
 }
 
@@ -72,7 +72,7 @@ func buildImageDesc(d *types.ImageDefaults, baseURL string) string {
 func buildVideoDesc(d *types.VideoDefaults, baseURL string) string {
 	b := new(strings.Builder)
 	p := provider.Detect(baseURL)
-	fmt.Fprintf(b, "Generate videos via %s (async submit → poll).\n\n当前配置（在 ~/.config/aigc-cli/config.yaml 中修改）:\n", p)
+	fmt.Fprintf(b, "Generate videos via %s (async submit → poll).\n\n", p)
 	if d != nil {
 		fmt.Fprintf(b, "  model = %s", d.Model)
 		if d.Size != "" {
@@ -86,10 +86,10 @@ func buildVideoDesc(d *types.VideoDefaults, baseURL string) string {
 		}
 		b.WriteString("\n")
 	}
-	if provider.Detect(baseURL) == provider.OpenRouter {
-		b.WriteString("\n注意: OpenRouter 视频生成是异步的，提交后返回 Job ID + polling_url。稍后使用 get_task 工具传入 Job ID 查询。")
+	if p == provider.OpenRouter {
+		b.WriteString("\nNote: OpenRouter video generation is async. The response includes polling_url and job_id; use get_task to query results.\n")
 	} else {
-		b.WriteString("\n策略: 参数已设好默认值，不要主动填写。只有在用户提示词中明确指定了某个参数时，才传入对应参数覆盖。\n注意: 视频生成是异步的，提交后立即返回 task_id，请使用 get_task 工具查询结果。")
+		b.WriteString("\nStrategy: Parameters already have defaults. Only set when the user explicitly specifies a value.\nNote: Video generation is async. Use get_task to query results.\n")
 	}
 	return b.String()
 }
@@ -98,11 +98,11 @@ func buildVideoDesc(d *types.VideoDefaults, baseURL string) string {
 func buildAudioDesc(d *types.AudioDefaults, baseURL string) string {
 	b := new(strings.Builder)
 	p := provider.Detect(baseURL)
-	fmt.Fprintf(b, "Generate speech audio from text via %s.\n\n当前配置（在 ~/.config/aigc-cli/config.yaml 中修改）:\n", p)
+	fmt.Fprintf(b, "Generate speech audio from text via %s.\n\nCurrent config (edit in ~/.config/aigc-cli/config.yaml):\n", p)
 	if d != nil {
 		fmt.Fprintf(b, "  speak_model = %s | transcribe_model = %s | voice = %s | format = %s\n", d.SpeakModel, d.TranscribeModel, d.Voice, d.Format)
 	}
-	b.WriteString("\n策略: 参数已设好默认值，不要主动填写。只有在用户提示词中明确指定了某个参数时，才传入对应参数覆盖。")
+	b.WriteString("\nStrategy: Parameters already have defaults. Only set when the user explicitly specifies a value. Note: Videos are async — use get_task to query results.\n")
 	return b.String()
 }
 
@@ -377,6 +377,12 @@ func detectHandler() server.ToolHandlerFunc {
 		if err != nil {
 			return mcp.NewToolResultError("file_path is required"), nil
 		}
+		if !isLocalImageFile(path) {
+			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
+		}
+		if !isLocalImageFile(path) {
+			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
+		}
 
 		// Resolve relative paths
 		if !filepath.IsAbs(path) {
@@ -497,6 +503,12 @@ func describeImageHandler() server.ToolHandlerFunc {
 		path, err := req.RequireString("file_path")
 		if err != nil {
 			return mcp.NewToolResultError("file_path is required"), nil
+		}
+		if !isLocalImageFile(path) {
+			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
+		}
+		if !isLocalImageFile(path) {
+			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
 		}
 		if !filepath.IsAbs(path) {
 			abs, err := filepath.Abs(path)

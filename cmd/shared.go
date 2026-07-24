@@ -114,40 +114,68 @@ func (s *SharedConfig) ResolveProvider(cmdName string) *provider.EffectiveProvid
 	return ep
 }
 
+// cmdProviderInfo describes how to extract provider/model for a single command
+// from the ConfigDefaults struct. Adding a new command requires one line in
+// cmdProviderMap — both lookupCmdProviderAndModel and validateCmdProviders
+// pick it up automatically.
+type cmdProviderInfo struct {
+	getter func(d *types.ConfigDefaults) (provider string, model string)
+}
+
+// cmdProviderMap is the single source of truth for which fields to query for
+// each command's defaults.{cmd}.provider and defaults.{cmd}.model.
+var cmdProviderMap = map[string]cmdProviderInfo{
+	ProviderNameImage: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Image != nil {
+			return d.Image.Provider, d.Image.Model
+		}
+		return "", ""
+	}},
+	ProviderNameVideo: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Video != nil {
+			return d.Video.Provider, d.Video.Model
+		}
+		return "", ""
+	}},
+	ProviderNameChat: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Chat != nil {
+			return d.Chat.Provider, d.Chat.Model
+		}
+		return "", ""
+	}},
+	ProviderNameAudio: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Audio != nil {
+			return d.Audio.Provider, ""
+		}
+		return "", ""
+	}},
+	ProviderNameMidjourney: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Midjourney != nil {
+			return d.Midjourney.Provider, ""
+		}
+		return "", ""
+	}},
+	ProviderNameOCR: {func(d *types.ConfigDefaults) (string, string) {
+		if d.OCR != nil {
+			return d.OCR.Provider, d.OCR.Model
+		}
+		return "", ""
+	}},
+	ProviderNameVision: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Vision != nil {
+			return d.Vision.Provider, d.Vision.Model
+		}
+		return "", ""
+	}},
+}
+
 // lookupCmdProviderAndModel returns the provider reference and model for a command.
 func lookupCmdProviderAndModel(cmdName string, d *types.ConfigDefaults) (provider string, model string) {
 	if d == nil {
 		return "", ""
 	}
-	switch cmdName {
-	case "image":
-		if d.Image != nil {
-			return d.Image.Provider, d.Image.Model
-		}
-	case "video":
-		if d.Video != nil {
-			return d.Video.Provider, d.Video.Model
-		}
-	case "chat":
-		if d.Chat != nil {
-			return d.Chat.Provider, d.Chat.Model
-		}
-	case "audio":
-		if d.Audio != nil {
-			return d.Audio.Provider, ""
-		}
-	case "midjourney":
-		if d.Midjourney != nil {
-			return d.Midjourney.Provider, ""
-		}
-	case "ocr":
-		if d.OCR != nil {
-			return d.OCR.Provider, d.OCR.Model
-		}
-	case "vision":
-		if d.Vision != nil {
-			return d.Vision.Provider, d.Vision.Model
-		}
+	if info, ok := cmdProviderMap[cmdName]; ok {
+		return info.getter(d)
 	}
 	return "", ""
 }

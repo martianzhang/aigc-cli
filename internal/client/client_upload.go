@@ -4,13 +4,23 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/martianzhang/aigc-cli/internal/types"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+// uploadClient creates an independent http.Client with a long timeout
+// tailored for file uploads. Uploads also honour HTTP_PROXY / HTTPS_PROXY env
+// vars (consistent with how http.DefaultClient works for downloads).
+func (c *Client) uploadClient() *http.Client {
+	return &http.Client{
+		Timeout: uploadTimeout,
+	}
+}
 
 // UploadImage uploads a local image file and returns the public URL.
 func (c *Client) UploadImage(filePath string) (*types.UploadResponse, error) {
@@ -38,12 +48,8 @@ func (c *Client) UploadImage(filePath string) (*types.UploadResponse, error) {
 	httpReq.Header.Set("Content-Type", w.FormDataContentType())
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
-	// Uploads may take longer
-	oldTimeout := c.httpClient.Timeout
-	c.httpClient.Timeout = uploadTimeout
-	defer func() { c.httpClient.Timeout = oldTimeout }()
-
-	resp, err := c.httpClient.Do(httpReq)
+	uc := c.uploadClient()
+	resp, err := uc.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("upload failed: %w", err)
 	}

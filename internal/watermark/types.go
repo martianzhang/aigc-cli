@@ -3,6 +3,8 @@
 // Platform-specific configs (alpha maps, position) are registered separately.
 package watermark
 
+import "sync"
+
 // Type identifies a known visible watermark pattern.
 type Type int
 
@@ -119,15 +121,22 @@ type Detection struct {
 }
 
 // registry holds all registered watermark configs.
-var registry []Config
+var (
+	registry   []Config
+	registryMu sync.RWMutex
+)
 
-// Register adds a watermark config to the registry.
+// Register adds a watermark config to the registry. Thread-safe.
 func Register(cfg Config) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	registry = append(registry, cfg)
 }
 
-// RegisteredTypes returns all registered type names.
+// RegisteredTypes returns all registered type names. Thread-safe.
 func RegisteredTypes() []string {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	names := make([]string, len(registry))
 	for i, c := range registry {
 		names[i] = c.Name
@@ -135,8 +144,10 @@ func RegisteredTypes() []string {
 	return names
 }
 
-// findConfigByName returns the config with the given name.
+// findConfigByName returns the config with the given name. Thread-safe.
 func findConfigByName(name string) (Config, bool) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
 	for _, c := range registry {
 		if c.Name == name {
 			return c, true

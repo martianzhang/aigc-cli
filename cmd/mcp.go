@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/mcp"
@@ -35,8 +38,8 @@ Example MCP host config:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		listTools, _ := cmd.Flags().GetBool("list-tools")
 
-		// Load config (optional) to get defaults
-		cfg, _ := config.Load(shared.CfgFile)
+		// Load config (optional); non-fatal but logged via verbose if set.
+		cfg, loadErr := config.Load(shared.CfgFile)
 
 		// Resolve providers for all commands that MCP tools may use.
 		cmdProviders := map[string]*provider.EffectiveProvider{
@@ -56,6 +59,10 @@ Example MCP host config:
 			CmdProviders: cmdProviders,
 		}
 
+		if cfg != nil {
+		} else if loadErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: config load error (will use defaults only): %v\n", loadErr)
+		}
 		if cfg != nil {
 			if mcpCfg.APIKey == "" {
 				mcpCfg.APIKey = cfg.APIKey

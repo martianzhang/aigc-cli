@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -171,22 +172,39 @@ func hostname(hostport string) string {
 	return hostport
 }
 
+// transportCache caches http.Transport instances by proxy URL so that
+// multiple clients sharing the same proxy don't each get a separate
+// dialer + connection pool.
+var transportCache struct {
+	sync.Mutex
+	m map[string]*http.Transport
+}
+
+func init() {
+	transportCache.m = make(map[string]*http.Transport)
+}
+
 // NewTransport creates an http.Transport with the given proxy URL configured.
 // Local/loopback addresses bypass the proxy automatically.
+// The transport is cached and shared among callers using the same proxyURL.
 func NewTransport(proxyURL string) *http.Transport {
-	return &http.Transport{Proxy: ProxyFunc(proxyURL)}
+	transportCache.Lock()
+	defer transportCache.Unlock()
+	if t, ok := transportCache.m[proxyURL]; ok {
+		return t
+	}
+	tr := &http.Transport{Proxy: ProxyFunc(proxyURL)}
+	transportCache.m[proxyURL] = tr
+	return tr
 }
 
 // IsOnlineProvider returns true if the provider should use an online API
 // (as opposed to local ONNX inference). False for nil, local-only providers,
 // or providers without a configured base URL.
 //
-// The decision is:
-//   - Has a named provider reference (configured by user)
-//   - OR explicitly typed as ollama
-//   - OR points to a local/loopback endpoint (localhost, 127.0.0.1, etc.)
-//
-// Local-only providers (type=local) always return false regardless of base URL.
+// A provider is considered "online" when it has a name, is explicitly typed
+// as Ollama, or points to a local/loopback endpoint.  Providers with
+// type=local are always "offline".
 func IsOnlineProvider(p *EffectiveProvider) bool {
 	return p != nil && p.BaseURL != "" && p.Type != types.ProviderLocal &&
 		(p.Name != "" || p.Type == types.ProviderOllama || IsLocalEndpoint(p.BaseURL))

@@ -58,6 +58,18 @@ var yunwuDomains = []string{
 	"yunwu.ai",
 }
 
+// matchDomain checks that host is the domain d or a subdomain of d.
+// Uses url.Parse + u.Host to compare domains accurately and avoid
+// false positives like "x.evil.com" matching "evil.com".
+func matchDomain(baseURL, d string) bool {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Host)
+	return host == d || strings.HasSuffix(host, "."+d)
+}
+
 // Detect identifies the provider from an API base URL.
 // Returns Unknown if the URL doesn't match any known provider.
 func Detect(baseURL string) Type {
@@ -65,17 +77,17 @@ func Detect(baseURL string) Type {
 		return Unknown
 	}
 	for _, d := range apimartDomains {
-		if strings.Contains(baseURL, d) {
+		if matchDomain(baseURL, d) {
 			return APIMart
 		}
 	}
 	for _, d := range openrouterDomains {
-		if strings.Contains(baseURL, d) {
+		if matchDomain(baseURL, d) {
 			return OpenRouter
 		}
 	}
 	for _, d := range yunwuDomains {
-		if strings.Contains(baseURL, d) {
+		if matchDomain(baseURL, d) {
 			return Yunwu
 		}
 	}
