@@ -87,7 +87,71 @@ aigc-cli ocr scan --json receipt.jpg
 
 ```
 
-### 输出命名
+### 在线 OCR（LLM 后端）
+
+通过配置命名 Provider，OCR 可以对接大模型替代本地 ONNX 引擎。支持 Ollama 本地模型和任意 OpenAI 兼容 API。
+
+### 配置方式
+
+在 `~/.config/aigc-cli/config.yaml` 中定义 Provider：
+
+```yaml
+providers:
+  ollama:
+    type: ollama
+    base_url: "http://localhost:11434/v1"
+
+defaults:
+  ocr:
+    provider: "ollama"          # 引用命名 Provider
+    model: "glm-ocr"            # 使用的模型
+```
+
+### 命令参数
+
+```bash
+# --provider：临时切换厂商（覆盖 defaults.ocr.provider）
+aigc-cli ocr scan test.png --provider ollama
+
+# --model：临时切换模型（覆盖 defaults.ocr.model）
+aigc-cli ocr scan test.png --model deepseek-ocr
+aigc-cli ocr scan test.png --model glm-ocr
+
+# --prompt / -p / --ask：自定义识别提示词（覆盖模型默认）
+# 各模型有各自的推荐 prompt 格式：
+aigc-cli ocr scan test.png --model deepseek-ocr -p "Free OCR."
+aigc-cli ocr scan test.png --model deepseek-ocr --ask "Extract the text in the image."
+aigc-cli ocr scan test.png --model deepseek-ocr -p "<|grounding|>Convert the document to markdown."
+aigc-cli ocr scan test.png --model glm-ocr -p "Text Recognition:"
+aigc-cli ocr scan test.png --model glm-ocr --ask "Table Recognition:"
+aigc-cli ocr scan test.png --model glm-ocr -p "Figure Recognition:"
+
+# --provider + --model + --prompt 可组合使用
+aigc-cli ocr scan test.png --provider ollama --model deepseek-ocr -p "Free OCR."
+```
+
+### 模型 prompt 参考
+
+| 模型 | 任务 | 推荐 prompt |
+|---|---|---|
+| **deepseek-ocr** | 通用文字识别 | `Free OCR.` |
+| **deepseek-ocr** | 布局感知提取（Markdown） | `<\|grounding\|>Convert the document to markdown.` |
+| **deepseek-ocr** | 布局感知提取 | `<\|grounding\|>Given the layout of the image.` |
+| **deepseek-ocr** | 图表解析 | `Parse the figure.` |
+| **glm-ocr** | 文字识别 | `Text Recognition:` |
+| **glm-ocr** | 表格识别 | `Table Recognition:` |
+| **glm-ocr** | 图表识别 | `Figure Recognition:` |
+| **通用模型** (gpt-4o, llava 等) | 自定义描述 | `请识别图中的文字`（中文）或自由输入 |
+
+### 输出行为
+
+- 默认保存为 `.md` 文件，路径与原图相同（`image.png` → `image.md`）
+- 不传 `--preview` 时仅输出 `Saved: path/to/file.md` 到 stderr
+- 传 `--preview` 时额外打印识别内容到终端
+
+---
+
+## 输出命名
 
 ```
 默认命名: input_name.md          （如果 input_name 是 image.png）

@@ -11,7 +11,9 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/forensic"
 	"github.com/martianzhang/aigc-cli/internal/onnx"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 	"github.com/martianzhang/aigc-cli/internal/wmremove"
 )
@@ -42,6 +44,17 @@ func detectFiles(paths []string, pathOverride string) error {
 }
 
 func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
+	// ── Online provider takes full control ──
+	dp := shared.ResolveProvider(ProviderNameDetect)
+	if dp != nil && dp.BaseURL != "" && (dp.Name != "" || dp.Type == types.ProviderOllama) {
+		assessment, err := provider.DescribeImage(dp, path, "Analyze this image and determine if it was AI-generated. Look for visual artifacts, unnatural patterns, and any signs of AI generation. Provide a brief assessment.")
+		if err != nil {
+			return fmt.Errorf("online detect failed: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "Online: %s\n", assessment)
+		return nil
+	}
+
 	result, err := service.DetectImage(path)
 	if err != nil {
 		return fmt.Errorf("metadata: %w", err)

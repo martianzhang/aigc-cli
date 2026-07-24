@@ -9,6 +9,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
@@ -99,6 +100,11 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		req.OutputFormat = "png"
 	}
 
+	// ----- Resolve provider (named provider > global > builtin) -----
+	p := shared.ResolveProvider(ProviderNameImage)
+	isAPIMart := p.ProviderType == provider.APIMart
+	isOpenRouter := p.ProviderType == provider.OpenRouter
+
 	if genDryRun {
 		curl := buildImageCurl(req)
 		fmt.Println(curl)
@@ -110,7 +116,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		if len(req.ImageURLs) == 0 {
 			return fmt.Errorf("--image-url is required in edit mode")
 		}
-		if !isAPIMartProvider() {
+		if !isAPIMart {
 			return fmt.Errorf("edit mode requires an APIMart provider (apimart.ai / apib.ai / aiuxu.com / aishuch.com)")
 		}
 	}
@@ -122,10 +128,10 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	// ----- Step 5: Resolve local image files (upload if needed) -----
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := client.NewFromProvider(p)
 	applyTimeout(c, "image", client.ImageTimeout)
 
-	if isAPIMartProvider() {
+	if isAPIMart {
 		if len(req.ImageURLs) > 0 {
 			resolved, err := c.ResolveLocalImages(req.ImageURLs)
 			if err != nil {
@@ -144,8 +150,8 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 
 	// Strategy table: first match wins, last entry is the default.
 	ictx := &imageDispatchCtx{
-		isAPIMart:    isAPIMartProvider(),
-		isOpenRouter: isOpenRouterProvider(),
+		isAPIMart:    isAPIMart,
+		isOpenRouter: isOpenRouter,
 		genEdit:      genEdit,
 	}
 	for _, s := range imageStrategies {

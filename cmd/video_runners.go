@@ -18,7 +18,7 @@ import (
 func runAPIMartVideo(req *types.VideoGenerateRequest) error {
 	// Resolve local image files in image_urls
 	if len(req.ImageURLs) > 0 {
-		c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+		c := newCmdClient("video")
 		resolved, err := c.ResolveLocalImages(req.ImageURLs)
 		if err != nil {
 			return fmt.Errorf("failed to resolve image-urls: %w", err)
@@ -27,7 +27,7 @@ func runAPIMartVideo(req *types.VideoGenerateRequest) error {
 	}
 	// Resolve local image files in image_with_roles
 	for i := range req.ImageWithRoles {
-		c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+		c := newCmdClient("video")
 		resolved, err := c.ResolveLocalImages([]string{req.ImageWithRoles[i].URL})
 		if err != nil {
 			return fmt.Errorf("failed to resolve image-with-role: %w", err)
@@ -35,7 +35,7 @@ func runAPIMartVideo(req *types.VideoGenerateRequest) error {
 		req.ImageWithRoles[i].URL = resolved[0]
 	}
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := newCmdClient("video")
 	applyTimeout(c, "video", client.VideoTimeout)
 	resp, err := c.VideoSubmit(req)
 	if err != nil {
@@ -80,7 +80,7 @@ func runAPIMartVideo(req *types.VideoGenerateRequest) error {
 func runYunwuVideo(req *types.VideoGenerateRequest) error {
 	// Resolve local images before submission
 	if len(req.ImageURLs) > 0 {
-		c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+		c := newCmdClient("video")
 		resolved, err := c.ResolveLocalImages(req.ImageURLs)
 		if err != nil {
 			return fmt.Errorf("failed to resolve image-urls: %w", err)
@@ -88,7 +88,7 @@ func runYunwuVideo(req *types.VideoGenerateRequest) error {
 		req.ImageURLs = resolved
 	}
 	for i := range req.ImageWithRoles {
-		c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+		c := newCmdClient("video")
 		resolved, err := c.ResolveLocalImages([]string{req.ImageWithRoles[i].URL})
 		if err != nil {
 			return fmt.Errorf("failed to resolve image-with-role: %w", err)
@@ -96,7 +96,7 @@ func runYunwuVideo(req *types.VideoGenerateRequest) error {
 		req.ImageWithRoles[i].URL = resolved[0]
 	}
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := newCmdClient("video")
 	applyTimeout(c, "video", client.VideoTimeout)
 
 	// Step 1: Submit
@@ -206,7 +206,7 @@ func runVideoRemix(cmd *cobra.Command) error {
 		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
 	}
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := newCmdClient("video")
 	applyTimeout(c, "video", client.VideoTimeout)
 	resp, err := c.VideoRemixSubmit(vidTaskID, req)
 	if err != nil {
@@ -285,7 +285,7 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) error {
 		fmt.Printf("OpenRouter Video Request:\n%s\n\n", string(prettyReq))
 	}
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := newCmdClient("video")
 	applyTimeout(c, "video", client.VideoTimeout)
 
 	// Step 1: Submit
@@ -368,7 +368,7 @@ func runOpenRouterVideoResume(jobID string) error {
 	fmt.Printf("Model: %s | Created: %s\n", info.Model, time.Unix(info.CreatedAt, 0).Format("2006-01-02 15:04:05"))
 	fmt.Printf("Prompt: %s\n\n", info.Prompt)
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := newCmdClient("video")
 	applyTimeout(c, "video", client.VideoTimeout)
 
 	// Check current status

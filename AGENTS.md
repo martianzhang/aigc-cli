@@ -241,8 +241,8 @@ scope: `image` / `video` / `chat` / `ideas` / `midjourney` / `mcp` / `config` / 
 | `isFile` | image / video / midjourney | 判断路径是否为已有文件 |
 | `httpGet` | image / video | HTTP GET 或 data URI 转二进制 |
 | `applyTimeout` | image / video / midjourney | 按优先级设置 HTTP 客户端超时 |
-| `isOpenRouterProvider` | image / models / video / chat | 判断当前 base URL 是否为 OpenRouter |
-| `isAPIMartProvider` | image / chat | 判断是否使用 APIMart 异步模式 |
+| `isOpenRouterProvider` | image / models / video / chat | 判断当前 base URL 是否为 OpenRouter（deprecated，改用 `p.ProviderType`） |
+| `isAPIMartProvider` | image / chat | 判断是否使用 APIMart 异步模式（deprecated，改用 `p.ProviderType`） |
 | `setIntFlag` | video / chat | 按 cobra flag 是否变更设置 `*int` 字段 |
 | `setBoolFlag` | video / chat | 按 cobra flag 是否变更设置 `*bool` 字段 |
 | `extractExt` | video / models | 从 URL 提取文件扩展名，默认 `.mp4` |
@@ -275,7 +275,7 @@ aigc-cli/
 │   ├── client/       # HTTP API 客户端（APIMart / OpenAI / OpenRouter / 云雾）
 │   ├── config/       # Viper 配置加载（YAML + 环境变量）
 │   ├── mcp/          # MCP Server 实现
-│   ├── provider/     # Provider 检测（APIMart / OpenAI / OpenRouter）
+│   ├── provider/     # Provider 检测 + 命名 Provider 解析 + 在线 LLM 调用
 │   └── types/        # 请求/响应数据结构和配置类型
 ├── docs/             # 用户文档
 │   ├── release_notes/ # 各版本 release notes
@@ -300,6 +300,13 @@ aigc-cli/
 
 - **Provider 检测**集中到 `internal/provider`，新增 provider 只需改此包和策略表
 - **策略路由**（`imageStrategies` / `videoStrategies`）用 match-run 模式派发到不同后端
+- **命名 Provider 架构**：用户在配置中定义可复用的命名 Provider，各命令通过 `defaults.{cmd}.provider` 引用，实现不同命令使用不同厂商
+- **Provider 优先级链**：`--api-key/--api-base` CLI 参数 > `--provider` 参数 > `defaults.{cmd}.provider` > 全局 `api_key/base_url` > 代码内置默认值
+- **`shared.ResolveProvider(cmdName)`**：各命令通过此方法获取 `*provider.EffectiveProvider`，代替直接访问 `shared.APIKey`/`shared.APIBase`
+- **`client.NewFromProvider(p)`**：通过 `*provider.EffectiveProvider` 创建 API 客户端
+- **内置 `local` Provider**：`--provider local` 自动路由到本地 ONNX 推理，无需在配置中定义
+- **在线/离线分支**：有本地能力的命令（ocr/vision/detect/background/audio）在未指定 provider 时默认走本地 ONNX，指定了 provider 或 model 时走在线
+- **`internal/provider/online.go`**：提供 `OCRImage()`/`DescribeImage()` 等在线 LLM 调用函数
 - **文件上传**在 client 层自动处理本地路径→URL 转换
 - **配置文件**位于 `~/.config/aigc-cli/config.yaml`
 

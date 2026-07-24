@@ -45,6 +45,13 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 			os.Exit(0)
 		}
 
+		// Track which persistent flags were explicitly set by the user
+		// (vs inherited from config file). Used by ResolveProvider to decide
+		// whether to treat these as CLI overrides.
+		shared.APIKeySet = hasFlagChanged(cmd, "api-key")
+		shared.APIBaseSet = hasFlagChanged(cmd, "api-base")
+		shared.ProviderSet = hasFlagChanged(cmd, "provider")
+
 		// Load config (optional) to resolve defaults not set via flags
 		if cfg, err := config.Load(shared.CfgFile); err == nil {
 			shared.Cfg = cfg
@@ -67,7 +74,12 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 			if !hasFlagChanged(cmd, "timeout") && cfg.Timeout != nil && *cfg.Timeout > 0 {
 				shared.TimeoutFlag = *cfg.Timeout
 			}
+			// Validate provider references in defaults
+			if cfg.Defaults != nil {
+				validateCmdProviders(cfg)
+			}
 		}
+
 		// Configure global HTTP client with proxy for all requests
 		client.ConfigureDefaultClient(shared.HTTPProxy)
 		// Only require API key for commands that need it
@@ -84,6 +96,25 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 func runPrintConfig(cmd *cobra.Command) {
 	cfg, cfgErr := config.Load(shared.CfgFile)
 	configFound := cfgErr == nil
+
+	// Track which persistent flags were explicitly set.
+	shared.APIKeySet = hasFlagChanged(cmd, "api-key")
+	shared.APIBaseSet = hasFlagChanged(cmd, "api-base")
+	shared.ProviderSet = hasFlagChanged(cmd, "provider")
+
+	// Populate shared state so ResolveProvider works correctly.
+	if cfg != nil {
+		shared.Cfg = cfg
+		if shared.APIKey == "" {
+			shared.APIKey = cfg.APIKey
+		}
+		if shared.APIBase == "" {
+			shared.APIBase = cfg.BaseURL
+		}
+		if shared.HTTPProxy == "" {
+			shared.HTTPProxy = cfg.HTTPProxy
+		}
+	}
 
 	displayCfg := &configDisplay{}
 	if configFound && cfg != nil {
@@ -226,7 +257,71 @@ func runPrintConfig(cmd *cobra.Command) {
 			fmt.Println(n)
 		}
 	}
+
+	// ── 各命令有效 Provider 概览 ──
 	fmt.Println()
+	printCmdProviders()
+	fmt.Println()
+}
+
+// printCmdProviders prints the effective provider for each command.
+func printCmdProviders() {
+	cmds := []struct {
+		Name string
+		Ref  string
+	}{
+		{"image", ProviderNameImage},
+		{"video", ProviderNameVideo},
+		{"chat", ProviderNameChat},
+		{"audio", ProviderNameAudio},
+		{"midjourney", ProviderNameMidjourney},
+		{"ocr", ProviderNameOCR},
+		{"vision", ProviderNameVision},
+		{"detect", ProviderNameDetect},
+		{"background", ProviderNameBackground},
+	}
+
+	fmt.Println("# ── 各命令有效 Provider ──")
+	for _, c := range cmds {
+		p := shared.ResolveProvider(c.Ref)
+		if p == nil {
+			continue
+		}
+		providerLabel := p.Name
+		if providerLabel == "" {
+			providerLabel = "(global)"
+		}
+		providerType := string(p.Type)
+		if providerType == "" {
+			providerType = "openai"
+		}
+		// Show explicit type if set, otherwise fall back to URL-based detection.
+		typeLabel := providerType
+		if p.Type == "" || p.Type == types.ProviderOpenAI {
+			typeLabel = p.ProviderType.String()
+		}
+		modelInfo := ""
+		if p.Model != "" {
+			modelInfo = fmt.Sprintf(", model=%s", p.Model)
+		}
+		fmt.Printf("  %-12s → %s (%s%s) %s\n",
+			c.Name+":", providerLabel, typeLabel, modelInfo, maskBaseURL(p.BaseURL))
+	}
+}
+
+// maskBaseURL shows just the host part of a URL for display.
+func maskBaseURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	if u.Port() != "" {
+		return u.Host
+	}
+	return u.Host
 }
 
 // applyCLIOverrides reflects config defaults yaml tags to auto-discover CLI flag
@@ -435,8 +530,74 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&shared.APIBase, "api-base", "", "API base URL (env: OPENAI_BASE_URL)")
 	rootCmd.PersistentFlags().StringVar(&shared.HTTPProxy, "http-proxy", "", "HTTP proxy URL (env: HTTP_PROXY / HTTPS_PROXY / NO_PROXY)")
 	rootCmd.PersistentFlags().StringVarP(&shared.Model, "model", "m", "", "Model name (optional; subcommand applies its own default when omitted)")
+	rootCmd.PersistentFlags().StringVar(&shared.Provider, "provider", "", "Named provider from config.providers (overrides defaults.{cmd}.provider)")
 	rootCmd.PersistentFlags().StringVar(&shared.OutputDir, "output", ".", "output directory for downloaded images")
 	rootCmd.PersistentFlags().BoolVarP(&shared.Verbose, "verbose", "v", false, "verbose output: show full result JSON")
 	rootCmd.PersistentFlags().IntVar(&shared.TimeoutFlag, "timeout", 0, "HTTP request timeout in seconds (overrides config)")
 	rootCmd.PersistentFlags().BoolVar(&shared.PrintConfig, "print-config", false, "show effective configuration and exit")
+}
+
+// validateCmdProviders checks that all defaults.{cmd}.provider references
+// point to existing entries in the providers map. Returns on first error.
+func validateCmdProviders(cfg *types.Config) {
+	cmds := []struct {
+		name string
+		ref  string
+	}{
+		{"image", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
+			if d.Image != nil {
+				return d.Image.Provider
+			}
+			return ""
+		})},
+		{"video", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
+			if d.Video != nil {
+				return d.Video.Provider
+			}
+			return ""
+		})},
+		{"chat", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
+			if d.Chat != nil {
+				return d.Chat.Provider
+			}
+			return ""
+		})},
+		{"audio", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
+			if d.Audio != nil {
+				return d.Audio.Provider
+			}
+			return ""
+		})},
+		{"midjourney", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
+			if d.Midjourney != nil {
+				return d.Midjourney.Provider
+			}
+			return ""
+		})},
+		{"ocr", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
+			if d.OCR != nil {
+				return d.OCR.Provider
+			}
+			return ""
+		})},
+		{"vision", cfgStringField(cfg.Defaults, func(d *types.ConfigDefaults) string {
+			if d.Vision != nil {
+				return d.Vision.Provider
+			}
+			return ""
+		})},
+	}
+	for _, c := range cmds {
+		if err := provider.ValidateProviderRef(c.ref, cfg.Providers); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: defaults.%s.provider: %v\n", c.name, err)
+		}
+	}
+}
+
+// cfgStringField extracts a string from a ConfigDefaults using a getter.
+func cfgStringField(d *types.ConfigDefaults, getter func(*types.ConfigDefaults) string) string {
+	if d == nil {
+		return ""
+	}
+	return getter(d)
 }

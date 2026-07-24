@@ -14,11 +14,12 @@ var (
 )
 
 // newMJClient returns a singleton Midjourney API client, created once with
-// the current shared config and MJ-specific timeout. Reuses the same client
+// the current resolved provider and MJ-specific timeout. Reuses the same client
 // across all 27+ MJ subcommands instead of creating a new one each time.
 func newMJClient() client.APIClient {
 	mjClientOnce.Do(func() {
-		mjClientInst = client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+		p := shared.ResolveProvider(ProviderNameMidjourney)
+		mjClientInst = client.NewFromProvider(p)
 		applyTimeout(mjClientInst, "midjourney", client.MJTimeout)
 	})
 	return mjClientInst

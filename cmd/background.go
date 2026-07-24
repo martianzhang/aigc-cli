@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/background"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/rmbg"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -127,6 +129,10 @@ func runBackground(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// ── Online provider check (supplementary) ──
+	bgProvider := shared.ResolveProvider(ProviderNameBackground)
+	useOnlineBG := bgProvider != nil && bgProvider.BaseURL != "" && (bgProvider.Name != "" || bgProvider.Type == types.ProviderOllama)
+
 	// 初始化 RMBG Detector（所有文件共享一个实例）
 	if rmbgDetector == nil {
 		d, err := tryInitRMBG()
@@ -141,7 +147,7 @@ func runBackground(cmd *cobra.Command, args []string) error {
 
 	for _, arg := range args {
 		start := time.Now()
-		if err := processOneFile(arg, outDir, opts, doReplace, repColor, repImg); err != nil {
+		if err := processOneFile(arg, outDir, opts, doReplace, repColor, repImg, useOnlineBG, bgProvider); err != nil {
 			fmt.Fprintf(os.Stderr, "Error processing %s: %v\n", arg, err)
 		} else {
 			fmt.Printf("Time Cost: %s\n", time.Since(start).Round(time.Millisecond))
@@ -151,7 +157,7 @@ func runBackground(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func processOneFile(path, outDir string, opts background.Options, doReplace bool, repColor color.Color, repImg image.Image) error {
+func processOneFile(path, outDir string, opts background.Options, doReplace bool, repColor color.Color, repImg image.Image, runOnlineBG bool, bgProvider *provider.EffectiveProvider) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -192,6 +198,9 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 			return err
 		}
 		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
+		if runOnlineBG {
+			printOnlineBGAnalysis(path, bgProvider)
+		}
 		if bgJSON {
 			fmt.Printf("  %dx%d\n", result.Width, result.Height)
 		}
@@ -312,4 +321,12 @@ func init() {
 	backgroundCmd.Flags().IntVar(&bgShadowBlur, "shadow-blur", 6, "shadow blur radius in pixels")
 	backgroundCmd.Flags().StringVar(&bgShadowColor, "shadow-color", "#000000", "shadow color (hex)")
 	backgroundCmd.Flags().Float64Var(&bgShadowOpacity, "shadow-opacity", 40, "shadow opacity 0-100")
+}
+
+// printOnlineBGAnalysis runs online LLM assessment of the background removal result.
+func printOnlineBGAnalysis(path string, p *provider.EffectiveProvider) {
+	assessment, err := provider.DescribeImage(p, path, "Describe the main subject and background of this image in one sentence.")
+	if err == nil && assessment != "" {
+		fmt.Printf("  Online: %s\n", assessment)
+	}
 }
