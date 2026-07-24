@@ -137,10 +137,13 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
 	}
 
+	// Resolve provider (named provider > global > builtin)
+	p := shared.ResolveProvider(ProviderNameVideo)
+
 	// Strategy table: first match wins, last entry is the default.
 	vctx := &videoDispatchCtx{
-		isOpenRouter: isOpenRouterProvider(),
-		isYunwu:      shared.APIBase != "" && provider.IsYunwu(shared.APIBase),
+		isOpenRouter: p.ProviderType == provider.OpenRouter,
+		isYunwu:      p.ProviderType == provider.Yunwu,
 	}
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {

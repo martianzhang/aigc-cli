@@ -16,7 +16,9 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/ocr"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/pdf"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/spf13/cobra"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
@@ -55,6 +57,8 @@ var ocrScanLang string
 var ocrScanJSON bool
 var ocrScanPages string
 var ocrScanSpellcheck bool
+var ocrScanModel string  // --model for online OCR override
+var ocrScanPrompt string // --prompt for custom OCR prompt
 
 func init() {
 	ocrInitCmd.Flags().Bool("list", false, "List available model packs")
@@ -65,7 +69,15 @@ func init() {
 	ocrScanCmd.Flags().BoolVar(&ocrScanJSON, "json", false, "Output as JSON with bounding boxes and confidence scores")
 	ocrScanCmd.Flags().StringVar(&ocrScanPages, "pages", "", "Page range for PDF input (e.g. \"1-3,5\")")
 	ocrScanCmd.Flags().BoolVar(&ocrScanSpellcheck, "spellcheck", true, "Auto-correct spelling errors using dictionary")
-
+	ocrScanCmd.Flags().StringVar(&ocrScanModel, "model", "", "Model name for online OCR (overrides defaults.ocr.model)")
+	ocrScanCmd.Flags().StringVarP(&ocrScanPrompt, "prompt", "p", "", `Custom prompt for online OCR. Overrides model default.
+Examples:
+  --prompt "Free OCR."                                  (deepseek-ocr)
+  --prompt "<|grounding|>Convert the document to markdown." (deepseek-ocr, layout-aware markdown)
+  --prompt "Table Recognition:"                         (glm-ocr, table mode)
+  --prompt "Figure Recognition:"                        (glm-ocr, figure mode)
+  --prompt "请识别图中的文字"                               (general)`)
+	ocrScanCmd.Flags().StringVar(&ocrScanPrompt, "ask", "", "Alias for --prompt")
 	ocrCmd.AddCommand(ocrInitCmd)
 	ocrCmd.AddCommand(ocrScanCmd)
 	rootCmd.AddCommand(ocrCmd)
@@ -175,7 +187,7 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 		if (stat.Mode() & os.ModeCharDevice) != 0 {
 			return errors.New("no input file specified and stdin is a terminal\n\nUsage:\n  aigc-cli ocr scan <image>\n  cat image.png | aigc-cli ocr scan")
 		}
-		// Read image from stdin
+		// Read image from stdin — for online OCR we need a temp file, for now fall back to local
 		img, _, err := image.Decode(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("decode stdin image: %w", err)
@@ -188,9 +200,42 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("file not found: %s", inputPath)
 	}
 
-	// Handle PDF input
+	// Handle PDF input — skip online OCR, use text extraction or scan
 	if strings.EqualFold(filepath.Ext(inputPath), ".pdf") {
 		return scanPDF(cmd, inputPath)
+	}
+
+	// ── Online OCR via LLM provider ──
+	// Only activate when explicitly configured via defaults.ocr.provider
+	// or --provider flag (p.Name non-empty), OR when type is ollama.
+	// Global fallback (empty p.Name, type=openai) skips online mode.
+	p := shared.ResolveProvider(ProviderNameOCR)
+	if p != nil && p.Type != types.ProviderLocal && p.BaseURL != "" && (p.Name != "" || p.Type == types.ProviderOllama) {
+		// Model priority: --model flag > p.Model (from provider config)
+		if ocrScanModel != "" {
+			p.Model = ocrScanModel
+		} else if shared.Model != "" {
+			p.Model = shared.Model
+		}
+		if p.Model == "" {
+			return fmt.Errorf("model is required for online OCR: set via --model flag or providers.%s.model in config.yaml", p.Name)
+		}
+		text, err := provider.OCRImage(p, inputPath, ocrScanPrompt)
+		if err != nil {
+			return fmt.Errorf("online OCR failed: %w", err)
+		}
+		outPath := strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ".md"
+		if err := os.WriteFile(outPath, []byte(text+"\n"), 0644); err != nil {
+			return fmt.Errorf("save output: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "Saved: %s\n", outPath)
+		if ocrScanPreview {
+			fmt.Print(text)
+			if !strings.HasSuffix(text, "\n") {
+				fmt.Println()
+			}
+		}
+		return nil
 	}
 
 	// Try to decode as image
@@ -211,7 +256,7 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 }
 
 func scanImage(cmd *cobra.Command, img image.Image, inputPath string) error {
-	modelsDir := defaultModelsDir()
+	modelsDir := resolveModelsDir(ProviderNameOCR)
 	engine, err := newOCREngine(modelsDir)
 	if err != nil {
 		return err
@@ -277,7 +322,7 @@ func scanPDF(cmd *cobra.Command, pdfPath string) error {
 		return saveOCRResult(cmd, result, pdfPath)
 	}
 
-	// Scanned PDF: render to images, then OCR.
+	// Scanned PDF: render to images, then OCR (online or local).
 	tmpDir, err := os.MkdirTemp("", "aigc-cli-pdf-*")
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
@@ -298,36 +343,69 @@ func scanPDF(cmd *cobra.Command, pdfPath string) error {
 	allPages := make([]ocr.OCRPage, 0, len(pngs))
 	allText := make([]string, 0, len(pngs))
 
-	// Create the engine once, reuse for all pages.
-	modelsDir := defaultModelsDir()
-	engine, err := newOCREngine(modelsDir)
-	if err != nil {
-		return err
+	// Check if online OCR provider is configured for scanned PDF
+	useOnlineOCR := false
+	var onlineP *provider.EffectiveProvider
+	op := shared.ResolveProvider(ProviderNameOCR)
+	if op != nil && op.BaseURL != "" && (op.Name != "" || op.Type == types.ProviderOllama) {
+		if ocrScanModel != "" {
+			op.Model = ocrScanModel
+		} else if shared.Model != "" {
+			op.Model = shared.Model
+		}
+		if op.Model != "" {
+			useOnlineOCR = true
+			onlineP = op
+		}
 	}
-	defer engine.Close()
 
-	for pageIdx, pngPath := range pngs {
-		f, err := os.Open(pngPath)
-		if err != nil {
-			return fmt.Errorf("open rendered page %d: %w", pageIdx+1, err)
+	if useOnlineOCR {
+		// Online OCR for each page
+		for pageIdx, pngPath := range pngs {
+			text, err := provider.OCRImage(onlineP, pngPath, ocrScanPrompt)
+			if err != nil {
+				return fmt.Errorf("online OCR page %d: %w", pageIdx+1, err)
+			}
+			allPages = append(allPages, ocr.OCRPage{
+				Page: pageIdx,
+				Lines: []ocr.OCRLine{{
+					Text:       text,
+					Confidence: 1.0,
+				}},
+			})
+			allText = append(allText, text)
 		}
-		img, _, err := image.Decode(f)
-		f.Close()
+	} else {
+		// Local ONNX OCR for each page
+		modelsDir := resolveModelsDir(ProviderNameOCR)
+		engine, err := newOCREngine(modelsDir)
 		if err != nil {
-			return fmt.Errorf("decode rendered page %d: %w", pageIdx+1, err)
+			return err
 		}
+		defer engine.Close()
 
-		result, err := engine.Scan(img)
-		if err != nil {
-			return fmt.Errorf("OCR page %d: %w", pageIdx+1, err)
-		}
+		for pageIdx, pngPath := range pngs {
+			f, err := os.Open(pngPath)
+			if err != nil {
+				return fmt.Errorf("open rendered page %d: %w", pageIdx+1, err)
+			}
+			img, _, err := image.Decode(f)
+			f.Close()
+			if err != nil {
+				return fmt.Errorf("decode rendered page %d: %w", pageIdx+1, err)
+			}
 
-		// Offset page numbers to be absolute
-		for i := range result.Pages {
-			result.Pages[i].Page = pageIdx
+			result, err := engine.Scan(img)
+			if err != nil {
+				return fmt.Errorf("OCR page %d: %w", pageIdx+1, err)
+			}
+
+			for i := range result.Pages {
+				result.Pages[i].Page = pageIdx
+			}
+			allPages = append(allPages, result.Pages...)
+			allText = append(allText, result.Text)
 		}
-		allPages = append(allPages, result.Pages...)
-		allText = append(allText, result.Text)
 	}
 
 	result := &ocr.OCRResult{
@@ -492,4 +570,15 @@ func defaultModelsDir() string {
 func defaultOCRModelsDir() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "aigc-cli", "models", "ocr")
+}
+
+// resolveModelsDir returns the models directory from the provider (if configured),
+// falling back to the default hardcoded path.
+func resolveModelsDir(cmdName string) string {
+	// Try the resolved provider's ModelsDir (from type=local provider config).
+	p := shared.ResolveProvider(cmdName)
+	if p != nil && p.ModelsDir != "" {
+		return p.ModelsDir
+	}
+	return defaultModelsDir()
 }

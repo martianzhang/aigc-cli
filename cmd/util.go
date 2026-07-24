@@ -84,22 +84,21 @@ func applyTimeout(c client.APIClient, modKey string, modDefault time.Duration) {
 	c.SetTimeout(d)
 }
 
+// Deprecated: Use shared.ResolveProvider(cmd).ProviderType instead.
 // isOpenRouterProvider determines whether the current base URL points to OpenRouter.
 func isOpenRouterProvider() bool {
 	return provider.IsOpenRouter(shared.APIBase)
 }
 
+// Deprecated: Use shared.ResolveProvider(cmd).ProviderType instead.
 // isAPIMartProvider determines whether to use APIMart async mode.
-// Known APIMart domains: apimart.ai, apib.ai, aiuxu.com, aishuch.com
-// Known sync domains: openai.com, openrouter.ai
-// All other domains default to sync (OpenAI-compatible relay).
 func isAPIMartProvider() bool {
 	switch shared.Mode {
 	case "async":
 		return true
 	case "sync":
 		return false
-	default: // auto -- detect from base URL
+	default:
 		base := shared.APIBase
 		if base == "" {
 			base = "https://api.apimart.ai"
@@ -152,6 +151,12 @@ func downloadVideos(videos []types.VideoResult, taskID string) ([]string, error)
 		}
 	}
 	return saved, nil
+}
+
+// newCmdClient creates an API client from the resolved provider for cmdName.
+func newCmdClient(cmdName string) *client.Client {
+	p := shared.ResolveProvider(cmdName)
+	return client.NewFromProvider(p)
 }
 
 // printUsage prints token usage and cost information.

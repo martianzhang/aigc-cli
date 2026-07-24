@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -48,6 +49,9 @@ Examples:
 var knownMediaTypes = map[string]bool{"image": true, "video": true, "chat": true}
 
 func runModels(cmd *cobra.Command, args []string) error {
+	p := shared.ResolveProvider(ProviderNameModels)
+	isOpenRouter := p.ProviderType == provider.OpenRouter
+
 	// --type flag overrides positional arg
 	mediaType := ""
 	if modelType != "" {
@@ -65,8 +69,7 @@ func runModels(cmd *cobra.Command, args []string) error {
 	// --type or --price (bare) → marketplace or OpenRouter discovery
 	if priceChanged || modelType != "" {
 		cmdPriceChanged = priceChanged
-		// OpenRouter has its own model discovery endpoints for image/video
-		if isOpenRouterProvider() && knownMediaTypes[mediaType] {
+		if isOpenRouter && knownMediaTypes[mediaType] {
 			return runModelsOpenRouterDiscovery(mediaType)
 		}
 		return runModelsMarketplace(mediaType)
@@ -75,7 +78,7 @@ func runModels(cmd *cobra.Command, args []string) error {
 	// Positional arg alone: known media type → marketplace or OpenRouter, else → /v1/models/{model}
 	if len(args) > 0 {
 		if knownMediaTypes[args[0]] {
-			if isOpenRouterProvider() {
+			if isOpenRouter {
 				return runModelsOpenRouterDiscovery(args[0])
 			}
 			return runModelsMarketplace(args[0])

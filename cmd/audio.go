@@ -119,12 +119,9 @@ Examples:
 }
 
 func runAudioSpeak(cmd *cobra.Command, args []string) error {
-	// ── Check local mode ──
-	isLocal := audioSpeechLocal
-	if !isLocal && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil {
-		isLocal = shared.Cfg.Defaults.Audio.Local
-	}
-	if isLocal {
+	// ── Check local mode: --local flag, type=local, or no provider+model ──
+	p := shared.ResolveProvider(ProviderNameAudio)
+	if audioSpeechLocal || (p != nil && (p.Type == types.ProviderLocal || (p.Name == "" && p.Model == ""))) {
 		return runLocalAudioSpeak(cmd)
 	}
 
@@ -172,7 +169,7 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Input length: %d chars\n", len(req.Input))
 	}
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := client.NewFromProvider(p)
 	applyTimeout(c, "audio", client.AudioTimeout)
 
 	start := time.Now()
@@ -208,8 +205,9 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 }
 
 func runAudioTranscribe(cmd *cobra.Command, args []string) error {
-	// ── Check local mode ──
-	if audioTranscribeLocal || (shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil && shared.Cfg.Defaults.Audio.Local) {
+	// ── Check local mode: --local flag, type=local, or no provider+model ──
+	p := shared.ResolveProvider(ProviderNameAudio)
+	if audioTranscribeLocal || (p != nil && (p.Type == types.ProviderLocal || (p.Name == "" && p.Model == ""))) {
 		return runLocalAudioTranscribe(cmd)
 	}
 
@@ -237,7 +235,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("audio input is required: set via --input flag, file path, or stdin")
 	}
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := client.NewFromProvider(p)
 	applyTimeout(c, "audio", client.AudioTimeout)
 
 	start := time.Now()

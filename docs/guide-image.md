@@ -27,7 +27,8 @@ aigc-cli image < prompt.txt
 | 参数 | 短参 | 说明 | 适用 |
 |---|---|---|---|---|
 | `--prompt` | `-p` | 文本描述（自动识别文件/stdin） | 通用 |
-| `--model` | `-m` | 模型名（必填，可通过 `defaults.image.model` 在配置文件中设置默认值） | 通用 |
+| `--model` | `-m` | 模型名（可通过 `defaults.image.model` 或 `providers.{name}.model` 设默认值） | 通用 |
+| `--provider` | | 命名 Provider 名称（覆盖 `defaults.image.provider`，见 `docs/config.example.yaml`） | 通用 |
 | `--size` | `-s` | 宽高比，如 `16:9`、`1:1`，或像素如 `1024x1024` | 通用 |
 | `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` | 通用 |
 | `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp` | 通用 |

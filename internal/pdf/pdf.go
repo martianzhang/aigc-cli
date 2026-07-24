@@ -70,17 +70,130 @@ func extractPageText(page pdf.Page) string {
 	}
 
 	rows, err := page.GetTextByRow()
-	if err != nil || len(rows) == 0 {
-		// Fallback to GetPlainText on error or empty rows
-		text, err := page.GetPlainText(fontMap)
+	suspicious := len(rows) <= 1 || (len(rows) > 0 && rows[0].Position == 0)
+
+	var raw string
+	if err != nil || len(rows) == 0 || suspicious {
+		// Fallback to GetPlainText on error, empty rows, or suspicious
+		// layouts (e.g. all Y=0, which happens with Chinese e-invoices).
+		// GetPlainText preserves interior \n line breaks.
+		raw, err = page.GetPlainText(fontMap)
 		if err != nil {
 			return ""
 		}
-		return strings.Join(strings.Fields(text), " ")
+	} else {
+		return extractByRows(rows)
 	}
 
-	// Compute median absolute gap between rows for adaptive threshold.
-	// PDF uses a downward Y-axis, so all gaps are negative; use Abs.
+	return cleanupPDFText(raw)
+}
+
+// cleanupPDFText post-processes raw PDF text to fix common layout artifacts:
+//  1. Merge vertical text: single CJK chars on consecutive lines → horizontal
+//  2. Collapse excessive blank lines (3+ → 2)
+//  3. Trim trailing whitespace per line
+func cleanupPDFText(raw string) string {
+	lines := strings.Split(raw, "\n")
+	if len(lines) <= 2 {
+		return strings.TrimSpace(raw)
+	}
+
+	// Pass 1: detect and merge vertical text runs.
+	// A vertical run is 2+ consecutive lines each containing exactly one
+	// CJK character, at similar indent level.
+	type run struct{ start, end int }
+	var verticalRuns []run
+	i := 0
+	for i < len(lines) {
+		if isSingleCJK(lines[i]) {
+			start := i
+			for i < len(lines) && isSingleCJK(lines[i]) {
+				i++
+			}
+			// Minimum 3 characters — 2-character vertical runs are often
+			// adjacent table cells (e.g. "无" and "张" in different columns).
+			if i-start >= 3 {
+				verticalRuns = append(verticalRuns, run{start, i})
+			}
+		} else {
+			i++
+		}
+	}
+
+	// Apply merges from right to left to preserve indices.
+	for ri := len(verticalRuns) - 1; ri >= 0; ri-- {
+		r := verticalRuns[ri]
+		merged := ""
+		for j := r.start; j < r.end; j++ {
+			merged += strings.TrimSpace(lines[j])
+		}
+		// Replace the run with a single merged line.
+		newLines := make([]string, 0, len(lines)-(r.end-r.start-1))
+		newLines = append(newLines, lines[:r.start]...)
+		newLines = append(newLines, merged)
+		newLines = append(newLines, lines[r.end:]...)
+		lines = newLines
+	}
+
+	// Pass 2: collapse excessive blank lines, trim per line.
+	var result []string
+	blankCount := 0
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			blankCount++
+			if blankCount <= 2 {
+				result = append(result, "")
+			}
+		} else {
+			blankCount = 0
+			// Collapse multiple spaces to single space (PDF layout spacing).
+			result = append(result, collapseSpaces(trimmed))
+		}
+	}
+
+	return strings.TrimSpace(strings.Join(result, "\n"))
+}
+
+// isSingleCJK reports whether s is exactly one CJK character (with possible whitespace).
+func isSingleCJK(s string) bool {
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return false
+	}
+	runes := []rune(s)
+	if len(runes) != 1 {
+		return false
+	}
+	r := runes[0]
+	// CJK Unified Ideographs + fullwidth forms
+	return (r >= 0x4E00 && r <= 0x9FFF) ||
+		(r >= 0x3400 && r <= 0x4DBF) ||
+		(r >= 0xF900 && r <= 0xFAFF) ||
+		(r >= 0xFF01 && r <= 0xFF60)
+}
+
+// collapseSpaces reduces runs of 2+ spaces to a single space.
+func collapseSpaces(s string) string {
+	var buf strings.Builder
+	prevSpace := false
+	for _, r := range s {
+		if r == ' ' || r == '\t' {
+			if !prevSpace {
+				buf.WriteRune(' ')
+				prevSpace = true
+			}
+		} else {
+			buf.WriteRune(r)
+			prevSpace = false
+		}
+	}
+	return buf.String()
+}
+
+// extractByRows reconstructs text from row-based layout with gap-based
+// paragraph detection. Also applies cleanup (space collapsing).
+func extractByRows(rows pdf.Rows) string {
 	var gaps []float64
 	for i := 1; i < len(rows); i++ {
 		g := math.Abs(float64(rows[i].Position - rows[i-1].Position))
@@ -111,10 +224,8 @@ func extractPageText(page pdf.Page) string {
 		if prevPos != nil {
 			gap := math.Abs(float64(row.Position - *prevPos))
 			if gap > threshold {
-				// Large gap: paragraph/section break.
 				buf.WriteString("\n\n")
 			} else if gap > 1 {
-				// Line-spacing gap: new line.
 				buf.WriteString("\n")
 			}
 		}
@@ -123,7 +234,7 @@ func extractPageText(page pdf.Page) string {
 		prevPos = &row.Position
 	}
 
-	return buf.String()
+	return cleanupPDFText(buf.String())
 }
 
 // extractRowText concatenates text spans with line-break detection.

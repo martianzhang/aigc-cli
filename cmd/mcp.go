@@ -4,6 +4,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/mcp"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/spf13/cobra"
 )
 
@@ -37,12 +38,22 @@ Example MCP host config:
 		// Load config (optional) to get defaults
 		cfg, _ := config.Load(shared.CfgFile)
 
+		// Resolve providers for all commands that MCP tools may use.
+		cmdProviders := map[string]*provider.EffectiveProvider{
+			ProviderNameImage:      shared.ResolveProvider(ProviderNameImage),
+			ProviderNameVideo:      shared.ResolveProvider(ProviderNameVideo),
+			ProviderNameChat:       shared.ResolveProvider(ProviderNameChat),
+			ProviderNameAudio:      shared.ResolveProvider(ProviderNameAudio),
+			ProviderNameMidjourney: shared.ResolveProvider(ProviderNameMidjourney),
+		}
+
 		mcpCfg := &mcp.Config{
-			APIKey:    shared.APIKey,
-			BaseURL:   shared.APIBase,
-			Proxy:     shared.HTTPProxy,
-			Output:    shared.OutputDir,
-			ListTools: listTools,
+			APIKey:       shared.APIKey,
+			BaseURL:      shared.APIBase,
+			Proxy:        shared.HTTPProxy,
+			Output:       shared.OutputDir,
+			ListTools:    listTools,
+			CmdProviders: cmdProviders,
 		}
 
 		if cfg != nil {
@@ -68,6 +79,10 @@ func init() {
 	// Override PersistentPreRunE to skip the api key check for mcp command.
 	// Some MCP tools (list_models, get_model_pricing) work without API key.
 	mcpCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		shared.APIKeySet = hasFlagChanged(cmd, "api-key")
+		shared.APIBaseSet = hasFlagChanged(cmd, "api-base")
+		shared.ProviderSet = hasFlagChanged(cmd, "provider")
+
 		// Load config to populate shared fields if not set via flags
 		if c, err := config.Load(shared.CfgFile); err == nil {
 			if shared.APIKey == "" {

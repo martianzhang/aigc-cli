@@ -18,6 +18,11 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
+// needsAPIKey returns false for providers that don't require an API key.
+func needsAPIKey(p *provider.EffectiveProvider) bool {
+	return p.APIKey == "" && p.Type != types.ProviderOllama && p.Type != types.ProviderLocal
+}
+
 // parseImageURLs splits a comma-separated string into a string slice.
 func parseImageURLs(raw string) []string {
 	if raw == "" {
@@ -37,7 +42,8 @@ func parseImageURLs(raw string) []string {
 // Supports APIMart (async task) and OpenRouter (dedicated image API).
 func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		if cfg.APIKey == "" {
+		p := cfg.cmdProvider("image")
+		if needsAPIKey(p) {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
 
@@ -77,10 +83,9 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 			req.OutputFormat = "png"
 		}
 
-		c := client.New(cfg.APIKey, cfg.BaseURL, cfg.Proxy)
-		p := provider.Detect(cfg.BaseURL)
+		c := client.NewFromProvider(p)
 
-		switch p {
+		switch p.ProviderType {
 		case provider.OpenRouter:
 			return handleMCPOpenRouterImage(c, req, cfg.Output)
 		default:
@@ -193,7 +198,8 @@ func handleMCPAPIMartImage(c client.APIClient, req *types.GenerateRequest, outpu
 // Video generation is async—returns a task/job ID for polling.
 func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		if cfg.APIKey == "" {
+		p := cfg.cmdProvider("video")
+		if needsAPIKey(p) {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
 
@@ -235,10 +241,9 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 			req.Resolution = "480p"
 		}
 
-		c := client.New(cfg.APIKey, cfg.BaseURL, cfg.Proxy)
-		p := provider.Detect(cfg.BaseURL)
+		c := client.NewFromProvider(p)
 
-		switch p {
+		switch p.ProviderType {
 		case provider.OpenRouter:
 			return handleMCPOpenRouterVideo(c, req)
 		default:
@@ -304,7 +309,8 @@ func handleMCPAPIMartVideo(c client.APIClient, req *types.VideoGenerateRequest) 
 // generateSpeechHandler creates the handler for generate_speech, capturing the config.
 func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		if cfg.APIKey == "" {
+		p := cfg.cmdProvider("audio")
+		if needsAPIKey(p) {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
 
@@ -336,7 +342,7 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError("voice is required"), nil
 		}
 
-		c := client.New(cfg.APIKey, cfg.BaseURL, cfg.Proxy)
+		c := client.NewFromProvider(p)
 		audioData, _, err := c.AudioSpeech(req)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("TTS failed: %v", err)), nil
@@ -357,7 +363,8 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 // transcribeAudioHandler creates the handler for transcribe_audio, capturing the config.
 func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		if cfg.APIKey == "" {
+		p := cfg.cmdProvider("audio")
+		if needsAPIKey(p) {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
 
@@ -377,7 +384,7 @@ func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 
 		language := request.GetString("language", "")
 
-		c := client.New(cfg.APIKey, cfg.BaseURL, cfg.Proxy)
+		c := client.NewFromProvider(p)
 		resp, err := c.AudioTranscribeMultipart(model, filePath, language)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("STT failed: %v", err)), nil

@@ -2,6 +2,10 @@
 # Place this file at ~/.config/aigc-cli/config.yaml
 # or pass --config /path/to/config.yaml at runtime
 
+# ── 全局顶层配置 ──
+# 作为所有命令的兜底。当命令没有通过 defaults.{cmd}.provider 引用命名 Provider 时使用。
+# 如果配置了 providers 段且命令引用了命名 Provider，则对应字段优先生效。
+
 # API key (can also be set via OPENAI_API_KEY env var)
 # 使用本地模型（Ollama / LM Studio / localhost）时可不填
 api_key: "your-api-key-here"
@@ -32,119 +36,141 @@ base_url: "https://api.apimart.ai"
 # Modality-specific timeout overrides this if set.
 # timeout: 300
 
-# Per-modality default values. Commented-out values use built-in defaults.
+# ── 命名 Provider ──
+# 定义可复用的 API 账号/端点，名字由用户自定义。
+# 在 defaults.{cmd}.provider 中引用。
+#
+# type 字段标明协议类型（默认 openai）:
+#   openai    — OpenAI 兼容协议（OpenAI、OpenRouter、APIMart、任意中转）
+#   ollama    — Ollama 本地（OpenAI 子集，无需 API Key）
+#   google    — Google Gemini API（预留）
+#   anthropic — Anthropic Messages API（预留）
+#   local     — 本地 ONNX 模型（OCR / Vision / Detect / Background）
+#
+# 未配置的字段继承全局顶层值（api_key / base_url / http_proxy）。
+providers:
+  # 示例：OpenRouter 专用账号
+  # openrouter:
+  #   type: openai
+  #   api_key: "sk-or-xxx"
+  #   base_url: "https://openrouter.ai/api/v1"
+
+  # 示例：Ollama 本地模型
+  # ollama:
+  #   type: ollama
+  #   base_url: "http://localhost:11434/v1"
+
+  # 示例：本地 ONNX 模型目录
+  # local:
+  #   type: local
+  #   models_dir: "~/.config/aigc-cli/models"
+
+# ── 各命令默认值 ──
+# Commented-out values use built-in defaults.
 # Uncomment only what you want to override.
 # Global --model flag overrides per-modality defaults.
 defaults:
-  # ── OpenAI 推荐配置 ──
+  # ── 各命令可通过 provider 字段引用命名 Provider，不填则用全局 api_key/base_url ──
+
+  # ── 各命令可通过 provider 字段引用命名 Provider ──
+  # 不填则用全局 api_key/base_url
+  # 填 "local" 则走本地 ONNX 模型（内置伪 Provider，无需定义）
+  #
+  # 示例：所有命令共用同一个账号
   # image:
-  #   model: "dall-e-3"             # 或 dall-e-2、gpt-image-1
-  #   size: "1024x1024"             # dall-e-3: 1024x1024, 1024x1792, 1792x1024
-  #   quality: "standard"            # standard 或 hd
-  #   n: 1
+  #   provider: "main-account"
+  #   model: "dall-e-3"
   # video:
-  #   # OpenAI 视频尚未公开 API，可用 OpenRouter 中转
+  #   provider: "main-account"
   # audio:
-  #   local: true                     # 优先使用本地模型（需先 audio init）
-  #   speak_model: "kokoro"           # 云端: TTS 模型名 / 本地: TTS 模型 ID
-  #   transcribe_model: "whisper-tiny" # 云端: STT 模型名 / 本地: ASR 模型 ID
-  #   # voice: "alloy"
-  #   # format: "mp3"                 # mp3, wav, opus, aac, flac, pcm
+  #   provider: "main-account"
   # chat:
+  #   provider: "main-account"
   #   model: "gpt-4o"
 
-  # ── OpenRouter 推荐配置 ──
-  # image:
-  #   model: "openai/gpt-image-2" # OpenRouter 模型名格式: provider/model
-  #   size: "1:1"
-  # video:
-  #   model: "google/veo-3.1"
-  # audio:
-  #   local: true
-  #   speak_model: "openai/gpt-4o-mini-tts-2025-12-15"   # 或 google/gemini-3.1-flash-tts-preview
-  #   transcribe_model: "openai/whisper-1"
-  #   voice: "alloy"
-  #   format: "mp3"
-  # chat:
-  #   model: "openai/gpt-4o"
-
-  # ── APIMart 推荐配置 ──
+  # ── APIMart 推荐配置（默认不使用命名 Provider）──
   image:
     model: "gpt-image-2-official"
-    # Most economical: 1536x512·Low → $0.00144/image
-    size: "3:1" # 3:1 + 1k → 1881x836 / 1536x512 (built-in default: "1:1")
-    resolution: "1k" # Lowest resolution tier, APIMart only (no built-in default)
-    quality: "low" # Fastest/cheapest quality tier (built-in default: "auto")
-    # output_format: "png"            # png, jpg, webp, default: png
-    # style: "vivid"                # OpenAI: vivid or natural
-    # n: 1
-    # output_compression: 85
-    # timeout: 300                  # HTTP timeout in seconds (overrides global timeout)
+    size: "3:1"
+    resolution: "1k"
+    quality: "low"
+    output_format: "png"
 
   video:
-    model: "doubao-seedance-2.0" # APIMart only
-    # size: "16:9"
-    # resolution: "480p"
-    # duration: 5
-    # timeout: 600                  # HTTP timeout in seconds (video takes longer)
+    model: "doubao-seedance-2.0"
 
   audio:
-    local: false                       # true=本地模型（需先 audio init），false=云端 API
-    speak_model: "gpt-4o-mini-tts"     # 云端: TTS 模型 / 本地: 本地 TTS 模型 ID
-    transcribe_model: "whisper-tiny"    # 云端: STT 模型 / 本地: 本地 ASR 模型 ID
-    # voice: "alloy"                   # 默认声音
-    # format: "mp3"                    # mp3, wav, opus, aac, flac, pcm
-    # timeout: 120                     # HTTP timeout in seconds
+    speak_model: "gpt-4o-mini-tts"
+    transcribe_model: "whisper-tiny"
 
   midjourney:
-    # speed: "relax"              # relax (default) / fast / turbo
-    # version: "6.1"              # MJ 主版本：8.1, 7, 6.1, 5.2, 5.1
-    # style: "raw"                # 风格覆盖
-    # size: "16:9"                # 宽高比
-    # quality: "1"                # 质量：0.25, 0.5, 1, 2
-    # niji: false                 # Niji 模式
-    # timeout: 600                 # HTTP timeout in seconds
+    speed: "fast"
+    version: "6.1"
 
   chat:
     model: "deepseek-v4-flash"
-    # Agent Loop 设置（聊天中生成图片/视频）
-    # max_iterations: 10              # 每次用户消息，LLM 最多连续调工具次数（默认 10）
-    # tools:                          # 允许的工具白名单（glob 模式），空或 ["*"] = 全部允许
-    #   - "*"
-    # disable_tools:                  # 禁用的工具黑名单（glob 模式），覆盖 tools
-    #   - "generate_video"
-    # allow_tool_override: false      # true=LLM参数优先, false=配置强制覆盖LLM（默认false,省钱）
 
-# Ideas prompt search data.
-# ideas.json is stored at ~/.config/aigc-cli/ideas/ by default.
-# Uncomment to customize the data path:
-# ideas:
-#   data_path: "~/.config/aigc-cli/ideas/ideas.json"   # custom ideas.json path
+  # ── 可选：离线命令对接在线 LLM ──
+  # 配置了 provider 则走在线，不配则走本地 ONNX
+  # ocr:
+  #   provider: "my-openrouter"
+  #   model: "gpt-4o"
+  # vision:
+  #   provider: "my-openrouter"
+  #   model: "gpt-4o-vision"
+  # detect:
+  #   provider: "my-apimart"
+  # background:
+  #   provider: "my-apimart"
 
-# Global tool enable/disable (applies to both chat and MCP tools).
-# Supports glob patterns (e.g. "generate_*", "remove_*").
-# Empty list = no restriction (all tools available by default).
-# tools_enable:                       # whitelist: only these tools are allowed
-#   - "generate_*"
-#   - "list_models"
-# tools_disable:                      # blacklist: exclude specific tools (applied on top of whitelist)
-#   - "remove_background"
-#   - "detect_image"
+  # ── 可选：强制走本地 ONNX（无需配 provider）──
+  # 命令行 aigc-cli ocr scan x.png --provider local 即可
 
-# AIGC detection (detect command).
-# ONNX Runtime + model files are stored at ~/.config/aigc-cli/models/ by default.
-# detect:
-#   models_dir: "~/.config/aigc-cli/models"    # custom models directory
-#   model: "vit-base"                          # "vit-base" (default, 86M) or "distilled-vit" (11.8M)
+# ── 典型配置场景 ──
 
-# Background removal (background command).
-# Uses RMBG 2.0 ONNX model at ~/.config/aigc-cli/models/ by default.
-# background:
-#   models_dir: "~/.config/aigc-cli/models"    # custom models directory
-#   model: "rmbg-2.0"                          # model identifier (default: rmbg-2.0)
+# 场景 A：多命令共用同一个账号
+# providers:
+#   main:
+#     api_key: "sk-xxx"
+#     base_url: "https://api.apimart.ai"
+# defaults:
+#   image:
+#     provider: "main"
+#   video:
+#     provider: "main"
+#   audio:
+#     provider: "main"
 
-# OCR (ocr command).
-# OCR models are stored at ~/.config/aigc-cli/models/ocr/ by default.
-# After installing ONNX Runtime (via 'aigc-cli ocr init'), run 'aigc-cli ocr scan'.
-# ocr:
-#   models_dir: "~/.config/aigc-cli/models/ocr"    # custom OCR models directory
+# 场景 B：不同厂商
+# providers:
+#   or:
+#     type: openai
+#     api_key: "sk-or-xxx"
+#     base_url: "https://openrouter.ai/api/v1"
+#   local:
+#     type: ollama
+#     base_url: "http://localhost:11434/v1"
+# defaults:
+#   image:
+#     provider: "or"
+#     model: "openai/gpt-image-2"
+#   chat:
+#     provider: "local"
+#   audio:
+#     provider: "or"
+
+# 场景 C：离线命令用本地 + 在线用云端
+# providers:
+#   online:
+#     api_key: "sk-xxx"
+#     base_url: "https://api.apimart.ai"
+# defaults:
+#   chat:
+#     provider: "online"
+#   ocr:                          # 不配 provider → 走本地 ONNX
+#   vision:                       # 同上
+
+# 场景 D：向后兼容（完全无 providers 段）
+# api_key: "sk-xxx"
+# base_url: "https://api.apimart.ai"
+# 行为与 v1.x 完全一致

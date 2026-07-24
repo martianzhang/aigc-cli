@@ -96,7 +96,8 @@ func runChat(cmd *cobra.Command, args []string) error {
 	}
 	agentTools := buildAgentTools(chatCfg)
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	p := shared.ResolveProvider(ProviderNameChat)
+	c := client.NewFromProvider(p)
 	history := req.Messages
 	_, err = runAgentLoop(context.Background(), c, &history, agentTools, maxIterations, cmd)
 	if err != nil {

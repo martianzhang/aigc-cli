@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
+	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/vision"
 )
 
@@ -47,6 +49,7 @@ var (
 	visionTemperature       float64
 	visionTopK              int
 	visionRepetitionPenalty float64
+	visionPrompt            string // --prompt for online vision describe
 )
 
 // ─── vision init ────────────────────────────────────────────────────────
@@ -134,6 +137,31 @@ func runVisionDescribe(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unsupported file format: %s\nSupported formats: JPEG, PNG, WebP", ext)
 	}
 
+	// ── Online vision via LLM provider ──
+	// Only activate when explicitly configured via defaults.vision.provider
+	// or --provider flag (p.Name non-empty), OR when type is ollama.
+	// Global fallback (empty p.Name, type=openai) skips online mode.
+	p := shared.ResolveProvider(ProviderNameVision)
+	if p != nil && p.BaseURL != "" && (p.Name != "" || p.Type == types.ProviderOllama) {
+		// Model priority: --model flag (explicit) > p.Model (from provider config)
+		if hasFlagChanged(cmd, "model") {
+			p.Model = visionModelFlag
+		}
+		if p.Model == "" {
+			return fmt.Errorf("model is required for online vision: set via --model flag or providers.%s.model in config.yaml", p.Name)
+		}
+		userPrompt := visionPrompt
+		if userPrompt == "" {
+			userPrompt = "Describe this image in detail in Chinese."
+		}
+		desc, err := provider.DescribeImage(p, inputPath, userPrompt)
+		if err != nil {
+			return fmt.Errorf("online vision failed: %w", err)
+		}
+		fmt.Println(desc)
+		return nil
+	}
+
 	modelsDir := vision.DefaultModelsDir()
 	libPath, err := onnxrt.LibPath(modelsDir)
 	if err != nil {
@@ -207,4 +235,11 @@ func init() {
 	visionDescribeCmd.Flags().IntVar(&visionTopK, "top-k", 0, "top-k sampling (0 = off)")
 	visionDescribeCmd.Flags().Float64Var(&visionRepetitionPenalty, "repetition-penalty", 1.2,
 		"repetition penalty to discourage loops (1.0=disabled, 1.0-1.5 typical)")
+	visionDescribeCmd.Flags().StringVarP(&visionPrompt, "prompt", "p", "", `Custom prompt for vision describe. Overrides default.
+
+Examples:
+  --prompt "Describe this image in detail."
+  --prompt "What objects are in this image?"
+  --prompt "请用中文详细描述这张图片"`)
+	visionDescribeCmd.Flags().StringVar(&visionPrompt, "ask", "", "Alias for --prompt")
 }

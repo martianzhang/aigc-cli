@@ -1,9 +1,39 @@
 package types
 
+// ProviderType represents the API protocol type for a named provider.
+type ProviderType string
+
+const (
+	ProviderOpenAI    ProviderType = "openai"    // OpenAI-compatible API (default)
+	ProviderOllama    ProviderType = "ollama"    // Ollama local (OpenAI subset, no API key)
+	ProviderGoogle    ProviderType = "google"    // Google Gemini API (reserved)
+	ProviderAnthropic ProviderType = "anthropic" // Anthropic Messages API (reserved)
+	ProviderLocal     ProviderType = "local"     // Local ONNX models (ocr/vision/detect/background)
+)
+
+// NamedProvider defines a reusable provider configuration.
+// Users define these in the `providers` section of config.yaml and reference
+// them by name from defaults.{cmd}.provider.
+type NamedProvider struct {
+	// Type is the API protocol. Defaults to "openai" when empty.
+	Type ProviderType `mapstructure:"type" yaml:"type,omitempty"`
+	// API credentials (not needed for local/Ollama providers).
+	APIKey    string `mapstructure:"api_key" yaml:"api_key,omitempty"`
+	BaseURL   string `mapstructure:"base_url" yaml:"base_url,omitempty"`
+	HTTPProxy string `mapstructure:"http_proxy" yaml:"http_proxy,omitempty"`
+	// Local model settings (used when type=local).
+	ModelsDir string `mapstructure:"models_dir" yaml:"models_dir,omitempty"`
+	Model     string `mapstructure:"model" yaml:"model,omitempty"`
+}
+
 type Config struct {
-	APIKey       string            `mapstructure:"api_key" yaml:"api_key,omitempty"`
-	BaseURL      string            `mapstructure:"base_url" yaml:"base_url,omitempty"`
-	HTTPProxy    string            `mapstructure:"http_proxy" yaml:"http_proxy,omitempty"`
+	// — Global fallback values (used when no named provider is referenced) —
+	APIKey    string `mapstructure:"api_key" yaml:"api_key,omitempty"`
+	BaseURL   string `mapstructure:"base_url" yaml:"base_url,omitempty"`
+	HTTPProxy string `mapstructure:"http_proxy" yaml:"http_proxy,omitempty"`
+	// — Named provider registry (user-defined, referenced by defaults.{cmd}.provider) —
+	Providers map[string]*NamedProvider `mapstructure:"providers" yaml:"providers,omitempty"`
+
 	Verbose      bool              `mapstructure:"verbose" yaml:"verbose"`
 	SavePrompt   bool              `mapstructure:"save_prompt" yaml:"save_prompt"`
 	Mode         string            `mapstructure:"mode" yaml:"mode,omitempty"`
@@ -63,10 +93,26 @@ type ConfigDefaults struct {
 	Midjourney *MidjourneyDefaults `mapstructure:"midjourney" yaml:"midjourney"`
 	Chat       *ChatDefaults       `mapstructure:"chat" yaml:"chat"`
 	Audio      *AudioDefaults      `mapstructure:"audio" yaml:"audio"`
+	OCR        *OCRDefaults        `mapstructure:"ocr" yaml:"ocr,omitempty"`
+	Vision     *VisionDefaults     `mapstructure:"vision" yaml:"vision,omitempty"`
+}
+
+// OCRDefaults holds default values for OCR scanning.
+type OCRDefaults struct {
+	Provider string `mapstructure:"provider" yaml:"provider,omitempty"`
+	Model    string `mapstructure:"model" yaml:"model,omitempty"`
+}
+
+// VisionDefaults holds default values for vision/describe.
+type VisionDefaults struct {
+	Provider  string `mapstructure:"provider" yaml:"provider,omitempty"`
+	Model     string `mapstructure:"model" yaml:"model,omitempty"`
+	MaxTokens int    `mapstructure:"max_tokens" yaml:"max_tokens,omitempty"`
 }
 
 // ChatDefaults holds default values for chat completion.
 type ChatDefaults struct {
+	Provider          string   `mapstructure:"provider" yaml:"provider,omitempty"`
 	Model             string   `mapstructure:"model" yaml:"model,omitempty"`
 	Temperature       float64  `mapstructure:"temperature" yaml:"temperature,omitempty"`
 	MaxTokens         int      `mapstructure:"max_tokens" yaml:"max_tokens,omitempty"`
@@ -78,6 +124,7 @@ type ChatDefaults struct {
 
 // ImageDefaults holds default values for image generation.
 type ImageDefaults struct {
+	Provider          string   `mapstructure:"provider" yaml:"provider,omitempty"`
 	Model             string   `mapstructure:"model" yaml:"model,omitempty"`
 	Size              string   `mapstructure:"size" yaml:"size,omitempty"`
 	Resolution        string   `mapstructure:"resolution" yaml:"resolution,omitempty"`
@@ -143,6 +190,7 @@ func (d *ImageDefaults) MergeIntoImage(req *GenerateRequest) {
 
 // VideoDefaults holds default values for video generation.
 type VideoDefaults struct {
+	Provider   string   `mapstructure:"provider" yaml:"provider,omitempty"`
 	Model      string   `mapstructure:"model" yaml:"model,omitempty"`
 	Size       string   `mapstructure:"size" yaml:"size,omitempty"`
 	Resolution string   `mapstructure:"resolution" yaml:"resolution,omitempty"`
@@ -155,13 +203,14 @@ type VideoDefaults struct {
 
 // MidjourneyDefaults holds default values for Midjourney generation.
 type MidjourneyDefaults struct {
-	Speed   string `mapstructure:"speed" yaml:"speed,omitempty"`
-	Version string `mapstructure:"version" yaml:"version,omitempty"`
-	Style   string `mapstructure:"style" yaml:"style,omitempty"`
-	Size    string `mapstructure:"size" yaml:"size,omitempty"`
-	Quality string `mapstructure:"quality" yaml:"quality,omitempty"`
-	Niji    *bool  `mapstructure:"niji" yaml:"niji,omitempty"`
-	Timeout *int   `mapstructure:"timeout" yaml:"timeout,omitempty"`
+	Provider string `mapstructure:"provider" yaml:"provider,omitempty"`
+	Speed    string `mapstructure:"speed" yaml:"speed,omitempty"`
+	Version  string `mapstructure:"version" yaml:"version,omitempty"`
+	Style    string `mapstructure:"style" yaml:"style,omitempty"`
+	Size     string `mapstructure:"size" yaml:"size,omitempty"`
+	Quality  string `mapstructure:"quality" yaml:"quality,omitempty"`
+	Niji     *bool  `mapstructure:"niji" yaml:"niji,omitempty"`
+	Timeout  *int   `mapstructure:"timeout" yaml:"timeout,omitempty"`
 }
 
 // MergeIntoImagine applies non-zero default values to an MJ imagine request.
@@ -190,12 +239,13 @@ func (d *MidjourneyDefaults) MergeIntoImagine(req *MJImagineRequest) {
 }
 
 // AudioDefaults holds default values for audio generation and transcription.
+// Local inference is controlled by the provider type (type=local), not this struct.
 type AudioDefaults struct {
+	Provider        string `mapstructure:"provider" yaml:"provider,omitempty"`
 	SpeakModel      string `mapstructure:"speak_model" yaml:"speak_model,omitempty"`
 	TranscribeModel string `mapstructure:"transcribe_model" yaml:"transcribe_model,omitempty"`
 	Voice           string `mapstructure:"voice" yaml:"voice,omitempty"`
 	Format          string `mapstructure:"format" yaml:"format,omitempty"`
-	Local           bool   `mapstructure:"local" yaml:"local,omitempty"`
 	Timeout         *int   `mapstructure:"timeout" yaml:"timeout,omitempty"`
 }
 

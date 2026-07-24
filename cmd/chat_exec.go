@@ -526,7 +526,7 @@ func executeGenerateSpeech(argsJSON string) string {
 		ResponseFormat: format,
 	}
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := newCmdClient("chat")
 	applyTimeout(c, "audio", client.AudioTimeout)
 
 	audioData, _, err := c.AudioSpeech(req)
@@ -565,7 +565,7 @@ func executeTranscribeAudio(argsJSON string) string {
 		}
 	}
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := newCmdClient("chat")
 	applyTimeout(c, "audio", client.AudioTimeout)
 
 	resp, err := c.AudioTranscribeMultipart(model, params.FilePath, params.Language)

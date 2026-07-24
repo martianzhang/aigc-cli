@@ -11,7 +11,6 @@ import (
 
 	"github.com/charmbracelet/bubbletea"
 
-	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/spf13/cobra"
 )
@@ -203,7 +202,7 @@ func runChatTUI(cmd *cobra.Command) error {
 	}
 
 	agentTools := buildAgentTools(chatCfg)
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := newCmdClient("chat")
 
 	// Initialize history with system prompt + current date context
 	history := []types.ChatMessage{}

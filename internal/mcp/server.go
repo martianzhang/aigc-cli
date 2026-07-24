@@ -30,6 +30,25 @@ type Config struct {
 	ToolsEnable  []string
 	ToolsDisable []string
 	ListTools    bool
+	// CmdProviders holds pre-resolved providers for each command,
+	// set by cmd/mcp.go at startup.
+	CmdProviders map[string]*provider.EffectiveProvider
+}
+
+// cmdProvider returns the effective provider for a command.
+// Falls back to global cfg fields if not pre-resolved.
+func (cfg *Config) cmdProvider(name string) *provider.EffectiveProvider {
+	if cfg.CmdProviders != nil {
+		if p, ok := cfg.CmdProviders[name]; ok {
+			return p
+		}
+	}
+	return &provider.EffectiveProvider{
+		APIKey:       cfg.APIKey,
+		BaseURL:      cfg.BaseURL,
+		HTTPProxy:    cfg.Proxy,
+		ProviderType: provider.Detect(cfg.BaseURL),
+	}
 }
 
 // buildImageDesc builds the generate_image tool description with config defaults injected.
