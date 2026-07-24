@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/jpeg"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -206,7 +207,7 @@ func TestCompressImage_AlreadySmall(t *testing.T) {
 func TestCompressImage_FormatConversion(t *testing.T) {
 	// WebP encoding requires CGO; skip gracefully when no C compiler is available.
 	// Try a quick encode to detect the stub error before doing a real conversion.
-	if err := webpEncode(nil, image.NewRGBA(image.Rect(0, 0, 1, 1)), 80); err != nil {
+	if err := webpEncode(io.Discard, image.NewRGBA(image.Rect(0, 0, 1, 1)), 80); err != nil {
 		t.Skipf("WebP encoding requires CGO: %v (CI server will run with CGO)", err)
 	}
 
