@@ -137,9 +137,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ github.ref_name }}"
-          # Upload main archive
-          gh release upload "$tag" "${{ env.binary }}" --clobber 2>/dev/null || \
-            gh release create "$tag" "${{ env.binary }}" --title "$tag" --generate-notes
+          notes_file="docs/release_notes/${tag}.md"
+          notes_flag="--generate-notes"
+          [ -f "$notes_file" ] && notes_flag="--notes-file $notes_file"
+
+          # Create release with notes, or upload to existing
+          gh release create "$tag" "${{ env.binary }}" --title "$tag" $notes_flag 2>/dev/null || \
+            gh release upload "$tag" "${{ env.binary }}" --clobber
+
+          # If release already existed, update notes
+          [ -f "$notes_file" ] && gh release edit "$tag" --notes-file "$notes_file" 2>/dev/null || true
+
           # Upload shared libraries separately (for audio init download)
           for f in libaigc-sherpa-helper.* aigc-sherpa-helper.dll \
                    libsherpa-onnx-c-api.* sherpa-onnx-c-api.dll \
