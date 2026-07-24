@@ -2,6 +2,9 @@ package provider
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -137,6 +140,41 @@ func ValidateProviderRef(ref string, providers map[string]*types.NamedProvider) 
 		return fmt.Errorf("provider %q not found in config.providers", ref)
 	}
 	return nil
+}
+
+// ProxyFunc returns an http.ProxyFunc that:
+//   - Routes through proxyURL when set (parsed from config or flag)
+//   - Falls back to HTTP_PROXY/HTTPS_PROXY/NO_PROXY env vars when proxyURL is empty
+//   - Bypasses the proxy for local/loopback addresses (localhost, 127.0.0.1, ::1)
+//     to avoid proxying Ollama and other local services.
+func ProxyFunc(proxyURL string) func(*http.Request) (*url.URL, error) {
+	if proxyURL != "" {
+		parsed, err := url.Parse(proxyURL)
+		if err == nil {
+			return func(r *http.Request) (*url.URL, error) {
+				host := hostname(r.URL.Host)
+				if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+					return nil, nil
+				}
+				return parsed, nil
+			}
+		}
+	}
+	return http.ProxyFromEnvironment
+}
+
+// hostname extracts the hostname from a host:port string.
+func hostname(hostport string) string {
+	if idx := strings.LastIndex(hostport, ":"); idx >= 0 {
+		return hostport[:idx]
+	}
+	return hostport
+}
+
+// NewTransport creates an http.Transport with the given proxy URL configured.
+// Local/loopback addresses bypass the proxy automatically.
+func NewTransport(proxyURL string) *http.Transport {
+	return &http.Transport{Proxy: ProxyFunc(proxyURL)}
 }
 
 // IsOnlineProvider returns true if the provider should use an online API

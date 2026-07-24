@@ -87,6 +87,32 @@ aigc-cli background photo.jpg --remove
 aigc-cli background photo1.png photo2.png photo3.png --remove
 ```
 
+### 在线生成（--provider / --api-base  + --prompt）
+
+配置了 image generation provider 后，`background` 可以调用图生图 API 来修改背景，替代本地 RMBG：
+
+```bash
+# 通过 APIMart 用 gpt-image-2 去背景
+aigc-cli background photo.jpg --remove \
+  --api-base "https://api.aishuch.com" --model "gpt-image-2-official"
+
+# 通过 OpenRouter 用 Anthropic 协议
+aigc-cli background photo.jpg --remove \
+  --provider openrouter --model "google/gemma-4-26b-a4b-it:free"
+
+# 自定义提示词（覆盖默认）
+aigc-cli background photo.jpg --remove --provider openrouter \
+  --model "gpt-image-2" --prompt "Remove background, put subject on a beach"
+```
+
+**默认提示词**：
+
+| 操作 | 默认提示词 |
+|---|---|
+| `--remove` | `Remove the background from this image. Keep the main subject exactly as is. Replace the background with a solid white color.` |
+| `--replace` (颜色) | `Replace the background of this image with color <颜色>.` |
+| `--replace` (图片) | `Replace the background of this image with a new background from the reference image.` |
+
 ### 替换背景（--replace, -r）
 
 支持两种替换方式：
@@ -189,6 +215,7 @@ aigc-cli background photo.png --remove --preview
 | `--output` | `-o` | `.` | 输出目录 |
 | `--preview` | `-p` | false | 在系统预览中打开 |
 | `--json` | `-j` | false | JSON 格式输出 |
+| `--prompt` | | `""` | 自定义在线生成提示词（需配合 `--provider` 或 `--api-base`） |
 
 子命令：
 

@@ -83,11 +83,11 @@ func runModels(cmd *cobra.Command, args []string) error {
 			}
 			return runModelsMarketplace(args[0])
 		}
-		return runModelsDetail(args[0])
+		return runModelsDetail(args[0], p)
 	}
 
 	// No args, no flags → universal /v1/models
-	return runModelsOpenAI()
+	return runModelsOpenAI(p)
 }
 
 // runModelsMarketplace fetches models from the APIMart marketplace API.
@@ -311,8 +311,8 @@ func isHTML(body []byte) bool {
 var cmdPriceChanged bool
 
 // runModelsOpenAI fetches and displays models from OpenAI-compatible /v1/models.
-func runModelsOpenAI() error {
-	base := shared.APIBase
+func runModelsOpenAI(p *provider.EffectiveProvider) error {
+	base := p.BaseURL
 	if base == "" {
 		base = "https://api.openai.com"
 	}
@@ -322,7 +322,7 @@ func runModelsOpenAI() error {
 	}
 	printAPIURL(base + "/models")
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := client.NewFromProvider(p)
 	models, err := c.ListModelsOpenAI()
 	if err != nil {
 		return fmt.Errorf("failed to list models: %w", err)
@@ -347,8 +347,8 @@ func runModelsOpenAI() error {
 }
 
 // runModelsDetail fetches and displays a single model via /v1/models/{model}.
-func runModelsDetail(modelID string) error {
-	base := shared.APIBase
+func runModelsDetail(modelID string, p *provider.EffectiveProvider) error {
+	base := p.BaseURL
 	if base == "" {
 		base = "https://api.openai.com"
 	}
@@ -358,7 +358,7 @@ func runModelsDetail(modelID string) error {
 	}
 	printAPIURL(base + "/models/" + modelID)
 
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
+	c := client.NewFromProvider(p)
 	model, err := c.GetModelOpenAI(modelID)
 	if err != nil {
 		return fmt.Errorf("failed to get model: %w", err)

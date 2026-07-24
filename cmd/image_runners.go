@@ -176,14 +176,9 @@ type ollamaGenerateResponse struct {
 	TotalDuration int64    `json:"total_duration,omitempty"`
 }
 
-// runOllamaImage handles image generation via Ollama's native /api/generate endpoint.
-// Ollama image models (x/flux2-klein, x/z-image-turbo, etc.) don't support the
-// OpenAI-compatible /v1/images/generations endpoint — they use the native API instead.
-func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
-	start := time.Now()
-
-	// Strip version suffix (e.g., /v1) from client baseURL to get raw Ollama endpoint.
-	baseURL := c.BaseURL()
+// ollamaGenerateImages sends a request to Ollama's /api/generate and returns saved filenames.
+func ollamaGenerateImages(baseURL string, req *types.GenerateRequest) ([]string, error) {
+	// Strip version suffix (e.g., /v1) to get raw Ollama endpoint.
 	if idx := strings.LastIndex(baseURL, "/v"); idx > strings.LastIndex(baseURL, "://") {
 		baseURL = baseURL[:idx]
 	}
@@ -197,24 +192,19 @@ func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 	bodyBytes, _ := json.Marshal(body)
 	httpResp, err := http.Post(url, "application/json", bytes.NewReader(bodyBytes))
 	if err != nil {
-		return fmt.Errorf("ollama request failed: %w", err)
+		return nil, fmt.Errorf("ollama request failed: %w", err)
 	}
 	defer httpResp.Body.Close()
 
 	if httpResp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(httpResp.Body)
-		return fmt.Errorf("ollama returned HTTP %d: %s", httpResp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("ollama returned HTTP %d: %s", httpResp.StatusCode, string(respBody))
 	}
 
 	var ollamaResp ollamaGenerateResponse
 	if err := json.NewDecoder(httpResp.Body).Decode(&ollamaResp); err != nil {
-		return fmt.Errorf("failed to decode ollama response: %w", err)
+		return nil, fmt.Errorf("failed to decode ollama response: %w", err)
 	}
-
-	elapsed := time.Since(start)
-
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	// Collect images: some models return "images" (array), others return "image" (single).
 	var images []string
@@ -224,7 +214,7 @@ func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 		images = append(images, ollamaResp.Image)
 	}
 	if len(images) == 0 {
-		return fmt.Errorf("ollama returned no images (response: %s)", ollamaResp.Response)
+		return nil, fmt.Errorf("ollama returned no images")
 	}
 
 	var saved []string
@@ -235,10 +225,23 @@ func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 			fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, err)
 			continue
 		}
-		fmt.Printf("Image %d: %s\n", i+1, filename)
 		saved = append(saved, filename)
 	}
+	return saved, nil
+}
 
+// runOllamaImage handles image generation via Ollama's native /api/generate endpoint.
+func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
+	start := time.Now()
+	saved, err := ollamaGenerateImages(c.BaseURL(), req)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Model: %s\n", req.Model)
+	fmt.Printf("Duration: %.1fs\n", time.Since(start).Seconds())
+	for i, f := range saved {
+		fmt.Printf("Image %d: %s\n", i+1, f)
+	}
 	postProcessImages(saved)
 	return nil
 }

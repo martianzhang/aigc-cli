@@ -32,15 +32,7 @@ func NewWithProvider(apiKey, baseURL, proxyURL string, providerType types.Provid
 		baseURL += "/v1"
 	}
 
-	transport := &http.Transport{}
-	if proxyURL != "" {
-		if parsed, err := url.Parse(proxyURL); err == nil {
-			transport.Proxy = http.ProxyURL(parsed)
-		}
-	} else {
-		// Fall back to HTTP_PROXY, HTTPS_PROXY, NO_PROXY, ALL_PROXY env vars
-		transport.Proxy = http.ProxyFromEnvironment
-	}
+	transport := provider.NewTransport(proxyURL)
 
 	c := &Client{
 		baseURL:      baseURL,

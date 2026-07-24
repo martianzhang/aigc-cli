@@ -106,8 +106,8 @@ func ollamaNativeChat(p *EffectiveProvider, b64Image, textPrompt string) (string
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	httpClient := &http.Client{Timeout: 120 * time.Second}
-	resp, err := httpClient.Do(req)
+	hc := httpClient(p, 120*time.Second)
+	resp, err := hc.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("API call failed: %w", err)
 	}
@@ -177,8 +177,8 @@ func openaiCompatVisionChat(p *EffectiveProvider, dataURL, textPrompt string) (s
 		req.Header.Set("Authorization", "Bearer "+p.APIKey)
 	}
 
-	httpClient := &http.Client{Timeout: 120 * time.Second}
-	resp, err := httpClient.Do(req)
+	hc := httpClient(p, 120*time.Second)
+	resp, err := hc.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("API call failed: %w", err)
 	}
@@ -253,8 +253,8 @@ func anthropicVisionChat(p *EffectiveProvider, b64Image, mimeType, textPrompt st
 	req.Header.Set("x-api-key", p.APIKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
-	httpClient := &http.Client{Timeout: 120 * time.Second}
-	resp, err := httpClient.Do(req)
+	hc := httpClient(p, 120*time.Second)
+	resp, err := hc.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("API call failed: %w", err)
 	}
@@ -303,6 +303,18 @@ func hasVersionSuffix(urlStr string) bool {
 		return len(last) > 1
 	}
 	return false
+}
+
+// httpClient returns an http.Client with the provider's proxy configured.
+func httpClient(p *EffectiveProvider, timeout time.Duration) *http.Client {
+	proxyURL := ""
+	if p != nil {
+		proxyURL = p.HTTPProxy
+	}
+	return &http.Client{
+		Transport: NewTransport(proxyURL),
+		Timeout:   timeout,
+	}
 }
 
 // encodeImage reads an image file and returns base64-encoded data with MIME type.
