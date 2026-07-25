@@ -84,7 +84,7 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeGenerateVideo(c, args)
 	case "midjourney_imagine", "midjourney_describe", "midjourney_reroll", "midjourney_video":
 		return executeMidjourney(c, tc.Function.Name, args)
-	case "ideas":
+	case "search_ideas":
 		return executeIdeasSearch(args)
 	case "balance":
 		return executeBalanceQuery(args)
@@ -108,10 +108,10 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeGenerateSpeech(args)
 	case "transcribe_audio":
 		return executeTranscribeAudio(args)
-	case "describe_image":
-		return executeDescribeImage(args)
-	case "ocr_text":
-		return executeOCRText(args)
+	case "caption_image":
+		return executeCaptionImage(args)
+	case "recognize_text":
+		return executeRecognizeText(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}
@@ -580,14 +580,14 @@ func executeTranscribeAudio(argsJSON string) string {
 	return result
 }
 
-// describeImageArgs is the JSON structure for describe_image tool arguments.
-type describeImageArgs struct {
+// captionImageArgs is the JSON structure for caption_image tool arguments.
+type captionImageArgs struct {
 	FilePath string `json:"file_path"`
 	Caption  string `json:"caption,omitempty"`
 }
 
-// executeOCRText runs OCR on a local image or PDF and returns recognized text.
-func executeOCRText(argsJSON string) string {
+// executeRecognizeText runs OCR on a local image or PDF and returns recognized text.
+func executeRecognizeText(argsJSON string) string {
 	var args struct {
 		FilePath string `json:"file_path"`
 		Lang     string `json:"lang"`
@@ -721,9 +721,9 @@ func executeOCRText(argsJSON string) string {
 	return result.Text
 }
 
-// executeDescribeImage reads or writes the caption of an image file.
-func executeDescribeImage(argsJSON string) string {
-	var args describeImageArgs
+// executeCaptionImage reads or writes the caption of an image file.
+func executeCaptionImage(argsJSON string) string {
+	var args captionImageArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return fmt.Sprintf("Error: invalid arguments: %v", err)
 	}

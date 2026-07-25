@@ -36,6 +36,30 @@ base_url: "https://api.apimart.ai"
 # Modality-specific timeout overrides this if set.
 # timeout: 300
 
+# ── 工具过滤（MCP / Chat 模式通用）──
+# Glob 通配符（* 匹配任意名称）：
+#   tools_enable  — 白名单模式，启用列表内的工具（空列表 = 全部允许）
+#   tools_disable — 黑名单模式，禁用列表内的工具（在黑名单上附加限制）
+# 两者同时设置时，先通过 enable 过滤，再执行 disable 排除。
+
+# 场景 A：白名单 — 只允许免费/离线工具（本地 ONNX / BM25）
+# tools_enable:
+#   - "search_ideas"       # 本地 BM25 灵感搜索（MCP + Chat）
+#   - "detect_image"       # 离线 AIGC 检测
+#   - "remove_watermark"   # 离线去水印
+#   - "add_watermark"      # 离线加水印
+#   - "remove_background"  # 离线背景去除
+#   - "recognize_text"     # 离线文字识别
+#   - "caption_image"      # 本地 EXIF 描述读写
+
+# 场景 B：黑名单 — 只禁用花钱的生成类工具
+# tools_disable:
+#   - "generate_image"     # 图片生成
+#   - "generate_video"     # 视频生成
+#   - "generate_speech"    # TTS 语音合成
+#   - "transcribe_audio"   # STT 语音识别
+#   - "midjourney_*"       # Midjourney 全套（含 imagine/describe/reroll/video 等）
+
 # ── 命名 Provider ──
 # 定义可复用的 API 账号/端点，名字由用户自定义。
 # 在 defaults.{cmd}.provider 中引用。

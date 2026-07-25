@@ -22,9 +22,9 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/pdf"
 )
 
-// newOCRTextTool defines the ocr_text MCP tool.
-func newOCRTextTool() mcp.Tool {
-	return mcp.NewTool("ocr_text",
+// newRecognizeTextTool defines the recognize_text MCP tool.
+func newRecognizeTextTool() mcp.Tool {
+	return mcp.NewTool("recognize_text",
 		mcp.WithDescription(`Recognize text in an image file using offline OCR.
 
 Completely offline — no API key needed. Uses ONNX Runtime + PP-OCRv4 model
@@ -51,8 +51,8 @@ output with bounding boxes and confidence scores.`),
 	)
 }
 
-// ocrTextHandler handles the ocr_text tool call.
-func ocrTextHandler() server.ToolHandlerFunc {
+// recognizeTextHandler handles the recognize_text tool call.
+func recognizeTextHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		filePath, err := req.RequireString("file_path")
 		if err != nil {

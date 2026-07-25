@@ -435,7 +435,7 @@ for n := 0; n < doc.NumPage(); n++ {
 | PDF 渲染 | `internal/pdf/render.go` + `go-fitz` |
 | Markdown 输出格式 | 文本段落 → Markdown 正文 |
 | 自动文件类型检测（PDF vs 图片） | 根据扩展名/魔数判断 |
-| MCP 工具 `ocr_text` | 注册到 MCP Server |
+| MCP 工具 `recognize_text` | 注册到 MCP Server |
 
 ### P2 - 版面分析 + Markdown 截图嵌入（~3 天）
 
@@ -486,7 +486,7 @@ for n := 0; n < doc.NumPage(); n++ {
 | `internal/ocr/rec_preproc.go` | ✅ 已完成 | 识别预处理（crop + resize 48px + pad） |
 | `cmd/ocr.go` | ✅ 已完成 | `ocr init` + `ocr scan` 命令 |
 | PDF 输入 | ⏳ 待讨论 | CGO 依赖待确认 |
-| MCP 工具 `ocr_text` | ⏳ P1 | 依赖管线稳定后 |
+| MCP 工具 `recognize_text` | ⏳ P1 | 依赖管线稳定后 |
 | 英文模型（`rapidocr-en`） | ⏳ P1 | 模型 URL 已注册，需完善英文字典 |
 | 版面分析（PP-DocLayout） | ⏳ 搁置 | 暂无需求 |
 

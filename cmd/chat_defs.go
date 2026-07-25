@@ -107,7 +107,7 @@ var agentToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "ideas",
+			Name:        "search_ideas",
 			Description: "Search AI image prompt ideas from the local ideas database. Supports cross-language keyword search — if the user's query is in Chinese, Japanese, etc., also translate to English and search both languages for broader results. Use random=true for a random surprise idea.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
@@ -174,7 +174,7 @@ var agentToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "ocr_text",
+			Name:        "recognize_text",
 			Description: "Recognize text in a local image or PDF file using offline OCR (no API key needed). Supports JPEG, PNG, PDF. Run 'aigc-cli ocr init' to download models first. For PDFs: text-based PDFs extract directly; scanned PDFs render + OCR each page.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
@@ -191,7 +191,7 @@ var agentToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "describe_image",
+			Name:        "caption_image",
 			Description: "Read or write the caption/description of a local image file (JPEG/PNG). Provide file_path and caption to write. Omit caption to read current caption. Use caption=\"\" to clear.",
 			Parameters: json.RawMessage(`{
 				"type": "object",

@@ -122,13 +122,13 @@ var toolRegistry = []toolInfo{
 	{"get_model_pricing", "Query model pricing details", func(desc string) mcp.Tool { return newGetModelPricingTool() }, func(cfg *Config) server.ToolHandlerFunc { return getModelPricingHandler() }},
 	{"get_balance", "Query API key or account balance", func(desc string) mcp.Tool { return newGetBalanceTool() }, func(cfg *Config) server.ToolHandlerFunc { return getBalanceHandler(cfg) }},
 	{"get_task", "Query async task/job status", func(desc string) mcp.Tool { return newGetTaskTool() }, func(cfg *Config) server.ToolHandlerFunc { return getTaskHandler(cfg) }},
-	{"describe_image", "Read or write image caption", func(desc string) mcp.Tool { return newDescribeImageTool() }, func(cfg *Config) server.ToolHandlerFunc { return describeImageHandler() }},
+	{"caption_image", "Read or write image caption", func(desc string) mcp.Tool { return newCaptionImageTool() }, func(cfg *Config) server.ToolHandlerFunc { return captionImageHandler() }},
 	{"search_ideas", "Search AI prompt ideas", func(desc string) mcp.Tool { return newSearchIdeasTool() }, func(cfg *Config) server.ToolHandlerFunc { return searchIdeasHandler() }},
 	{"remove_background", "Remove image background (offline)", func(desc string) mcp.Tool { return newRemoveBackgroundTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeBackgroundHandler() }},
 	{"detect_image", "Detect AIGC/watermark in images (offline)", func(desc string) mcp.Tool { return newDetectTool() }, func(cfg *Config) server.ToolHandlerFunc { return detectHandler() }},
 	{"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler() }},
 	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler() }},
-	{"ocr_text", "Recognize text in images/PDF using offline OCR", func(desc string) mcp.Tool { return newOCRTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return ocrTextHandler() }},
+	{"recognize_text", "Recognize text in images/PDF using offline OCR", func(desc string) mcp.Tool { return newRecognizeTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return recognizeTextHandler() }},
 }
 
 // NewServer creates and configures an MCP server, registering tools based on config.
@@ -485,8 +485,8 @@ func searchIdeasHandler() server.ToolHandlerFunc {
 	}
 }
 
-func newDescribeImageTool() mcp.Tool {
-	return mcp.NewTool("describe_image",
+func newCaptionImageTool() mcp.Tool {
+	return mcp.NewTool("caption_image",
 		mcp.WithDescription("Read or write the caption/description of an image file. Provide file_path and optional caption to write. If caption is omitted, reads the current caption. Supports JPEG and PNG."),
 		mcp.WithString("file_path",
 			mcp.Required(),
@@ -498,7 +498,7 @@ func newDescribeImageTool() mcp.Tool {
 	)
 }
 
-func describeImageHandler() server.ToolHandlerFunc {
+func captionImageHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {

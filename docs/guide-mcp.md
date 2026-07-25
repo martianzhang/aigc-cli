@@ -81,7 +81,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `get_model_pricing` | Query pricing for a specific model | ❌ |
 | `get_balance` | Query token and user balance | ✅ |
 | `get_task` | Query async task status and results | ✅ |
-| `describe_image` | Describe or write captions for images | ❌ |
+| `caption_image` | Read or write image caption metadata | ❌ |
 | `search_ideas` | Search AI prompt ideas by keyword | ❌ |
 | `detect_image` | Detect C2PA / SynthID / TC260 watermarks, AIGC, and EXIF metadata | ❌ |
 | `remove_watermark` | Detect and remove a visible AI watermark (Doubao/Jimeng/Baidu/Zhipu), restore original image | ❌ |
