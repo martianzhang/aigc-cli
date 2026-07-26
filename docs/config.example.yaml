@@ -153,6 +153,28 @@ defaults:
   # background:
   #   provider: "my-apimart"
 
+  # ── 可选：知识库（knowledgebase）──
+  # knowledgebase:
+  #   base_dir: "~/.config/aigc-cli/knowledge"   # 知识库存放路径
+  #   search_provider: duckduckgo                 # kb search 引擎：duckduckgo 或 firecrawl
+  #   min_score: 0.8                              # 向量搜索结果最低相似度（默认0.8，设0关闭）
+
+  # ── 可选：Web 搜索引擎 ──
+  # 声明多个 provider 供 kb search 自动 fallback。
+  # 也可通过 --provider 参数临时切换。
+  # web_search:
+  #   duckduckgo:
+  #     type: duckduckgo
+  #     tags: [free]
+  #     quota: 50
+  #     period: hourly
+  #   firecrawl:
+  #     type: firecrawl
+  #     api_key: "fc-xxx"
+  #     tags: [free, quality]
+  #     quota: 1000
+  #     period: monthly
+
   # ── 可选：强制走本地 ONNX（无需配 provider）──
   # 命令行 aigc-cli ocr scan x.png --provider local 即可
 

@@ -129,6 +129,13 @@ var toolRegistry = []toolInfo{
 	{"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler() }},
 	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler() }},
 	{"recognize_text", "Recognize text in images/PDF using offline OCR", func(desc string) mcp.Tool { return newRecognizeTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return recognizeTextHandler() }},
+	// Knowledge base tools
+	{"kb_find", "Search the local knowledge base", func(desc string) mcp.Tool { return newKbFindTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbFindHandler() }},
+	{"kb_search", "Search the web and save to the knowledge base", func(desc string) mcp.Tool { return newKbSearchTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbSearchHandler() }},
+	{"kb_add", "Add a local file to the knowledge base", func(desc string) mcp.Tool { return newKbAddTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbAddHandler() }},
+	{"kb_fetch", "Fetch a URL and save to the knowledge base", func(desc string) mcp.Tool { return newKbFetchTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbFetchHandler() }},
+	{"kb_list", "List all documents in the knowledge base", func(desc string) mcp.Tool { return newKbListTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbListHandler() }},
+	{"kb_show", "Show the full content of a document by ID", func(desc string) mcp.Tool { return newKbShowTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbShowHandler() }},
 }
 
 // NewServer creates and configures an MCP server, registering tools based on config.

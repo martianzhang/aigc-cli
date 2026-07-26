@@ -56,17 +56,18 @@ type Config struct {
 	// — Named provider registry (user-defined, referenced by defaults.{cmd}.provider) —
 	Providers map[string]*NamedProvider `mapstructure:"providers" yaml:"providers,omitempty"`
 
-	Verbose      bool              `mapstructure:"verbose" yaml:"verbose"`
-	SavePrompt   bool              `mapstructure:"save_prompt" yaml:"save_prompt"`
-	Mode         string            `mapstructure:"mode" yaml:"mode,omitempty"`
-	OutputDir    string            `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
-	Timeout      *int              `mapstructure:"timeout" yaml:"timeout,omitempty"`
-	Defaults     *ConfigDefaults   `mapstructure:"defaults" yaml:"defaults,omitempty"`
-	Ideas        *IdeasConfig      `mapstructure:"ideas" yaml:"ideas,omitempty"`
-	Detect       *DetectConfig     `mapstructure:"detect" yaml:"detect,omitempty"`
-	Background   *BackgroundConfig `mapstructure:"background" yaml:"background,omitempty"`
-	ToolsEnable  []string          `mapstructure:"tools_enable" yaml:"tools_enable,omitempty"`
-	ToolsDisable []string          `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
+	Verbose      bool                          `mapstructure:"verbose" yaml:"verbose"`
+	SavePrompt   bool                          `mapstructure:"save_prompt" yaml:"save_prompt"`
+	Mode         string                        `mapstructure:"mode" yaml:"mode,omitempty"`
+	OutputDir    string                        `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
+	Timeout      *int                          `mapstructure:"timeout" yaml:"timeout,omitempty"`
+	Defaults     *ConfigDefaults               `mapstructure:"defaults" yaml:"defaults,omitempty"`
+	Ideas        *IdeasConfig                  `mapstructure:"ideas" yaml:"ideas,omitempty"`
+	Detect       *DetectConfig                 `mapstructure:"detect" yaml:"detect,omitempty"`
+	Background   *BackgroundConfig             `mapstructure:"background" yaml:"background,omitempty"`
+	WebSearch    map[string]*WebSearchProvider `mapstructure:"web_search" yaml:"web_search,omitempty"`
+	ToolsEnable  []string                      `mapstructure:"tools_enable" yaml:"tools_enable,omitempty"`
+	ToolsDisable []string                      `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
 }
 
 // IdeasConfig controls the ideas prompt data path.
@@ -110,13 +111,31 @@ type SightengineConfig struct {
 
 // ConfigDefaults holds modality-specific default values.
 type ConfigDefaults struct {
-	Image      *ImageDefaults      `mapstructure:"image" yaml:"image"`
-	Video      *VideoDefaults      `mapstructure:"video" yaml:"video"`
-	Midjourney *MidjourneyDefaults `mapstructure:"midjourney" yaml:"midjourney"`
-	Chat       *ChatDefaults       `mapstructure:"chat" yaml:"chat"`
-	Audio      *AudioDefaults      `mapstructure:"audio" yaml:"audio"`
-	OCR        *OCRDefaults        `mapstructure:"ocr" yaml:"ocr,omitempty"`
-	Vision     *VisionDefaults     `mapstructure:"vision" yaml:"vision,omitempty"`
+	Image         *ImageDefaults      `mapstructure:"image" yaml:"image"`
+	Video         *VideoDefaults      `mapstructure:"video" yaml:"video"`
+	Midjourney    *MidjourneyDefaults `mapstructure:"midjourney" yaml:"midjourney"`
+	Chat          *ChatDefaults       `mapstructure:"chat" yaml:"chat"`
+	Audio         *AudioDefaults      `mapstructure:"audio" yaml:"audio"`
+	OCR           *OCRDefaults        `mapstructure:"ocr" yaml:"ocr,omitempty"`
+	Vision        *VisionDefaults     `mapstructure:"vision" yaml:"vision,omitempty"`
+	Knowledgebase *KBDefaults         `mapstructure:"knowledgebase" yaml:"knowledgebase,omitempty"`
+}
+
+// KBDefaults holds default values for the knowledge base.
+type KBDefaults struct {
+	BaseDir        string            `mapstructure:"base_dir" yaml:"base_dir,omitempty"`
+	SearchProvider string            `mapstructure:"search_provider" yaml:"search_provider,omitempty"`
+	MinScore       float64           `mapstructure:"min_score" yaml:"min_score,omitempty"`
+	Loaders        map[string]string `mapstructure:"loaders" yaml:"loaders,omitempty"`
+}
+
+// WebSearchProvider defines a web search engine configuration.
+type WebSearchProvider struct {
+	Type   string   `mapstructure:"type" yaml:"type,omitempty"`
+	APIKey string   `mapstructure:"api_key" yaml:"api_key,omitempty"`
+	Tags   []string `mapstructure:"tags" yaml:"tags,omitempty"`
+	Quota  int      `mapstructure:"quota" yaml:"quota,omitempty"`
+	Period string   `mapstructure:"period" yaml:"period,omitempty"` // hourly / daily / monthly
 }
 
 // OCRDefaults holds default values for OCR scanning.

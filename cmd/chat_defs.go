@@ -334,4 +334,88 @@ var agentToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
+	// --- Knowledge Base tools ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "kb_find",
+			Description: "Search the local knowledge base by keyword or semantic query. Use this to recall saved information and documents.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"query": {"type": "string", "description": "Search query"},
+					"limit": {"type": "integer", "description": "Max results (default 10)"}
+				},
+				"required": ["query"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "kb_search",
+			Description: "Search the web using DuckDuckGo, fetch the results, and save them to the local knowledge base for later recall.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"query": {"type": "string", "description": "Search query"},
+					"provider": {"type": "string", "description": "Search provider: duckduckgo (default) or firecrawl (requires FIRECRAWL_API_KEY)", "enum": ["duckduckgo", "firecrawl"]}
+				},
+				"required": ["query"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "kb_add",
+			Description: "Add a local file to the knowledge base. Supports .md, .txt, .go, .py, .json, .yaml, .html.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"file_path": {"type": "string", "description": "Path to the local file to add"}
+				},
+				"required": ["file_path"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "kb_fetch",
+			Description: "Fetch a URL, extract its main content, convert to markdown, and save to the knowledge base.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"url": {"type": "string", "description": "URL to fetch and save"}
+				},
+				"required": ["url"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "kb_show",
+			Description: "Show the full content of a knowledge base document by its ID. Use the ID returned by kb_find.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"doc_id": {"type": "string", "description": "Document ID (first 12 chars, as shown in kb_find)"}
+				},
+				"required": ["doc_id"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "kb_list",
+			Description: "List all documents in the knowledge base with their IDs, titles, and sizes.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {}
+			}`),
+		},
+	},
 }

@@ -9,6 +9,7 @@ import (
 	_ "image/png"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	_ "golang.org/x/image/bmp"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/background"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/ocr"
 	"github.com/martianzhang/aigc-cli/internal/pdf"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -112,6 +114,18 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeCaptionImage(args)
 	case "recognize_text":
 		return executeRecognizeText(args)
+	case "kb_find":
+		return executeKbFind(args)
+	case "kb_search":
+		return executeKbSearch(args)
+	case "kb_add":
+		return executeKbAdd(args)
+	case "kb_fetch":
+		return executeKbFetch(args)
+	case "kb_list":
+		return executeKbList(args)
+	case "kb_show":
+		return executeKbShow(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}
@@ -767,4 +781,406 @@ func executeCaptionImage(argsJSON string) string {
 		return fmt.Sprintf("No caption set for %s", filepath.Base(path))
 	}
 	return fmt.Sprintf("Caption: %s", current)
+}
+
+func executeKbFind(argsJSON string) string {
+	var args struct {
+		Query string  `json:"query"`
+		Limit float64 `json:"limit"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.Query == "" {
+		return "Error: query is required"
+	}
+	limit := 10
+	if args.Limit > 0 {
+		limit = int(args.Limit)
+	}
+
+	kbDir := filepath.Join(configDir(), "knowledge")
+	if err := os.MkdirAll(kbDir, 0755); err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	defer store.Close()
+
+	results, err := store.Search(args.Query, limit*3, "")
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	if len(results) == 0 {
+		return "No results found in the knowledge base."
+	}
+
+	// Aggregate by document
+	type docRes struct {
+		docID  string
+		title  string
+		source string
+		score  float64
+		nchunk int
+	}
+	docMap := make(map[string]*docRes)
+	for _, r := range results {
+		d, ok := docMap[r.Document.ID]
+		if !ok {
+			source := r.Document.URL
+			if source == "" {
+				source = r.Document.FilePath
+			}
+			docMap[r.Document.ID] = &docRes{
+				docID: r.Document.ID[:12], title: r.Document.Title,
+				source: source, score: r.Score,
+			}
+			d = docMap[r.Document.ID]
+		}
+		if r.Score > d.score {
+			d.score = r.Score
+		}
+		d.nchunk++
+	}
+
+	docs := make([]*docRes, 0, len(docMap))
+	for _, d := range docMap {
+		docs = append(docs, d)
+	}
+	sort.Slice(docs, func(i, j int) bool { return docs[i].score > docs[j].score })
+	if limit > 0 && len(docs) > limit {
+		docs = docs[:limit]
+	}
+
+	var out strings.Builder
+	fmt.Fprintf(&out, "Found %d matching document(s):\n\n", len(docs))
+	for i, d := range docs {
+		fmt.Fprintf(&out, "[%d] %s\n", i+1, d.title)
+		fmt.Fprintf(&out, "    ID: %s | Source: %s | Score: %.4f (%d chunk(s))\n", d.docID, d.source, d.score, d.nchunk)
+		fmt.Fprintf(&out, "    Use: kb_show %s\n", d.docID)
+	}
+	return out.String()
+}
+
+func executeKbSearch(argsJSON string) string {
+	var args struct {
+		Query    string `json:"query"`
+		Provider string `json:"provider"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.Query == "" {
+		return "Error: query is required"
+	}
+
+	kbDir := filepath.Join(configDir(), "knowledge")
+	if err := os.MkdirAll(kbDir, 0755); err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	defer store.Close()
+
+	// Search via DuckDuckGo
+	urls, err := knowledge.DDGSearchURLs(args.Query)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	if len(urls) == 0 {
+		return fmt.Sprintf("No search results found for %q.", args.Query)
+	}
+
+	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
+	embedder := knowledge.NewHashEmbedder(384)
+	var out strings.Builder
+	fmt.Fprintf(&out, "Searched for %q, saved %d result(s):\n", args.Query, len(urls))
+
+	for _, rawURL := range urls {
+		result, err := knowledge.FetchURL(rawURL)
+		if err != nil {
+			fmt.Fprintf(&out, "\n  \u274c %s", rawURL)
+			continue
+		}
+
+		docID := knowledge.Checksum(result.Content)
+		existing, _ := store.GetDocument(docID)
+		if existing != nil {
+			fmt.Fprintf(&out, "\n  \u2713 %s (already saved)", result.Title)
+			continue
+		}
+
+		doc := &knowledge.Document{
+			ID:       docID,
+			URL:      result.URL,
+			Title:    result.Title,
+			Size:     result.Size,
+			Checksum: docID,
+		}
+		if err := store.SaveDocument(doc); err != nil {
+			fmt.Fprintf(&out, "\n  \u274c %s: %v", result.Title, err)
+			continue
+		}
+
+		rawChunks := chunker.Chunk(result.Content)
+		embeddings := make([]knowledge.Embedding, len(rawChunks))
+		for i, c := range rawChunks {
+			emb, err := embedder.Embed(c.Content)
+			if err != nil {
+				continue
+			}
+			embeddings[i] = emb
+		}
+		if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
+			fmt.Fprintf(&out, "\n  \u274c %s: %v", result.Title, err)
+			continue
+		}
+		fmt.Fprintf(&out, "\n  \u2713 %s (%s)", result.Title, result.URL)
+	}
+	return out.String()
+}
+
+func executeKbAdd(argsJSON string) string {
+	var args struct {
+		FilePath string `json:"file_path"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.FilePath == "" {
+		return "Error: file_path is required"
+	}
+
+	kbDir := filepath.Join(configDir(), "knowledge")
+	if err := os.MkdirAll(kbDir, 0755); err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	defer store.Close()
+
+	title, content, err := knowledge.LoadFile(args.FilePath)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	checksum := knowledge.Checksum(content)
+	docID := checksum
+
+	existing, _ := store.GetDocument(docID)
+	if existing != nil {
+		return fmt.Sprintf("Already in KB: %s", title)
+	}
+
+	doc := &knowledge.Document{
+		ID:       docID,
+		FilePath: args.FilePath,
+		Title:    title,
+		Size:     int64(len(content)),
+		Checksum: checksum,
+	}
+	if err := store.SaveDocument(doc); err != nil {
+		return fmt.Sprintf("Error saving: %v", err)
+	}
+
+	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
+	embedder := knowledge.NewHashEmbedder(384)
+	rawChunks := chunker.Chunk(content)
+	embeddings := make([]knowledge.Embedding, len(rawChunks))
+	for i, c := range rawChunks {
+		emb, err := embedder.Embed(c.Content)
+		if err != nil {
+			continue
+		}
+		embeddings[i] = emb
+	}
+	if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
+		return fmt.Sprintf("Error saving chunks: %v", err)
+	}
+
+	return fmt.Sprintf("Added %q to the knowledge base (%d chunks).", title, len(rawChunks))
+}
+
+func executeKbFetch(argsJSON string) string {
+	var args struct {
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.URL == "" {
+		return "Error: url is required"
+	}
+
+	kbDir := filepath.Join(configDir(), "knowledge")
+	if err := os.MkdirAll(kbDir, 0755); err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	defer store.Close()
+
+	result, err := knowledge.FetchURL(args.URL)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	docID := knowledge.Checksum(result.Content)
+	existing, _ := store.GetDocument(docID)
+	if existing != nil {
+		return fmt.Sprintf("Already in KB: %s", result.Title)
+	}
+
+	doc := &knowledge.Document{
+		ID:       docID,
+		URL:      result.URL,
+		Title:    result.Title,
+		Size:     result.Size,
+		Checksum: docID,
+	}
+	if err := store.SaveDocument(doc); err != nil {
+		return fmt.Sprintf("Error saving: %v", err)
+	}
+
+	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
+	embedder := knowledge.NewHashEmbedder(384)
+	rawChunks := chunker.Chunk(result.Content)
+	embeddings := make([]knowledge.Embedding, len(rawChunks))
+	for i, c := range rawChunks {
+		emb, err := embedder.Embed(c.Content)
+		if err != nil {
+			continue
+		}
+		embeddings[i] = emb
+	}
+	if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
+		return fmt.Sprintf("Error saving chunks: %v", err)
+	}
+
+	snippet := result.Content
+	if len(snippet) > 500 {
+		snippet = snippet[:500] + "..."
+	}
+	return fmt.Sprintf("Added %s to KB.\nTitle: %s\n\nPreview:\n%s", result.URL, result.Title, snippet)
+}
+
+func executeKbList(argsJSON string) string {
+	kbDir := filepath.Join(configDir(), "knowledge")
+	if err := os.MkdirAll(kbDir, 0755); err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	defer store.Close()
+
+	docs, err := store.ListDocuments(100, 0, "")
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	if len(docs) == 0 {
+		return "Knowledge base is empty."
+	}
+
+	var out strings.Builder
+	fmt.Fprintf(&out, "Knowledge base: %d document(s)\n\n", len(docs))
+	for _, d := range docs {
+		source := d.URL
+		if source == "" {
+			source = d.FilePath
+		}
+		id := d.ID[:12]
+		fmt.Fprintf(&out, "  %s  %-30s  %s\n", id, d.Title, source)
+	}
+	return out.String()
+}
+
+func executeKbShow(argsJSON string) string {
+	var args struct {
+		DocID string `json:"doc_id"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.DocID == "" {
+		return "Error: doc_id is required"
+	}
+
+	kbDir := filepath.Join(configDir(), "knowledge")
+	if err := os.MkdirAll(kbDir, 0755); err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	defer store.Close()
+
+	rows, err := store.DB().Query("SELECT id FROM documents WHERE id LIKE ? || '%'", args.DocID)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		rows.Scan(&id)
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if len(ids) == 0 {
+		return fmt.Sprintf("Document %q not found.", args.DocID)
+	}
+	if len(ids) > 1 {
+		return fmt.Sprintf("Ambiguous: %q matches %d documents. Use a longer prefix.", args.DocID, len(ids))
+	}
+
+	doc, err := store.GetDocument(ids[0])
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	if doc == nil {
+		return fmt.Sprintf("Document %q not found.", args.DocID)
+	}
+
+	var content string
+	docsDir := filepath.Join(kbDir, "docs")
+	filepath.Walk(docsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		if strings.HasPrefix(info.Name(), doc.ID[:12]) {
+			data, _ := os.ReadFile(path)
+			content = string(data)
+			return fmt.Errorf("stop")
+		}
+		return nil
+	})
+
+	var out strings.Builder
+	fmt.Fprintf(&out, "Title: %s\nID: %s\n", doc.Title, doc.ID[:12])
+	if doc.URL != "" {
+		fmt.Fprintf(&out, "URL: %s\n", doc.URL)
+	}
+	if doc.FilePath != "" {
+		fmt.Fprintf(&out, "File: %s\n", doc.FilePath)
+	}
+	fmt.Fprintf(&out, "\n%s\n", content)
+	return out.String()
 }

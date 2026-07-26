@@ -84,12 +84,13 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 | 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 切换 Provider，命令不变 |
 | 🧠 | **Provider 自动适配** | OpenRouter 自动走专用图片/视频 API，零配置 |
 | 🎨 | **Midjourney 完整管线** | 17 子命令覆盖 imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord |
-| 💬 | **Agentic Chat** | 交互式 REPL 内嵌 `generate_image` / `generate_video` / `midjourney_*` / `ideas` 等工具 |
+| 💬 | **Agentic Chat** | 交互式 REPL 内嵌 `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` 等工具 |
 | 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集 |
 | 🔊 | **本地 TTS / ASR** | sherpa-onnx 离线语音合成（kokoro 53 种音色，中英日韩法）和语音识别（SenseVoice 中文最佳），无需联网 |
 | 🔄 | **视频任务持久化** | OpenRouter 提交→轮询→下载全流程，超时后 `--job-id` 一键恢复 |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
 | ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台 |
+| 📚 | **本地知识库** | FTS5 + ONNX 语义搜索，age 加密保险箱，web search 自动入库，MCP/Chat 工具集成 |
 
 ---
 
@@ -131,6 +132,7 @@ aigc-cli
 │   └── mj     别名，同上
 ├── chat       AI 对话 / 交互式 REPL / Agent Loop（工具调用）              →  docs/guide-chat.md
 ├── ideas / idea 提示词灵感搜索（关键词 / 随机，默认不加参数随机一条）    →  docs/guide-ideas.md
+├── knowledgebase / kb  本地知识库（FTS5 + 语义搜索 + ONNX embedding）    →  docs/guide-knowledgebase.md
 ├── models / model                                                          →  docs/guide-model.md
 │   └── --price    查看模型定价
 ├── task       查询异步任务状态（兼容 APIMart 异步任务）
@@ -205,6 +207,7 @@ aigc-cli midjourney (或 mj)
 | [AI 对话](docs/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
 | [AIGC 检测](docs/guide-detect.md) | 多信号融合、ONNX 模型、FFT 频谱、emoji 输出 |
 | [提示词灵感](docs/guide-ideas.md) | 离线 BM25 搜索引擎，万级提示词数据集 |
+| [知识库](docs/guide-knowledgebase.md) | 本地知识库：FTS5 + 语义搜索、保险箱、web search |
 | [其他命令](docs/guide-commands.md) | models、task、balance、dry-run、API 参考 |
 | [API 参考来源](docs/api-reference.md) | 各 Provider 接口规范来源、检测机制、策略路由 |
 | [常见问题](docs/faq.md) | 安装、使用、MCP、费用等常见问题解答 |
