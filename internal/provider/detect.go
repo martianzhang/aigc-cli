@@ -17,6 +17,7 @@ const (
 	OpenAI
 	OpenRouter
 	Yunwu
+	ModelScope
 )
 
 var names = map[Type]string{
@@ -25,6 +26,7 @@ var names = map[Type]string{
 	OpenAI:     "OpenAI",
 	OpenRouter: "OpenRouter",
 	Yunwu:      "Yunwu（云雾AI）",
+	ModelScope: "ModelScope",
 }
 
 func (t Type) String() string {
@@ -37,7 +39,7 @@ func (t Type) String() string {
 // IsAsync returns true if this provider uses an async task-based model
 // (submit → poll → download) for generation.
 func (t Type) IsAsync() bool {
-	return t == APIMart
+	return t == APIMart || t == ModelScope
 }
 
 // apimartDomains lists known APIMart-provided API domains.
@@ -56,6 +58,12 @@ var openrouterDomains = []string{
 // yunwuDomains lists domains where Yunwu AI (云雾AI) APIs are served.
 var yunwuDomains = []string{
 	"yunwu.ai",
+}
+
+// modelscopeDomains lists domains where ModelScope API-Inference is served.
+var modelscopeDomains = []string{
+	"api-inference.modelscope.cn",
+	"api-inference.modelscope.ai",
 }
 
 // matchDomain checks that host is the domain d or a subdomain of d.
@@ -91,6 +99,11 @@ func Detect(baseURL string) Type {
 			return Yunwu
 		}
 	}
+	for _, d := range modelscopeDomains {
+		if matchDomain(baseURL, d) {
+			return ModelScope
+		}
+	}
 	// Default to OpenAI-compatible for everything else
 	return OpenAI
 }
@@ -103,6 +116,9 @@ func IsOpenRouter(baseURL string) bool { return Detect(baseURL) == OpenRouter }
 
 // IsYunwu is a convenience wrapper around Detect.
 func IsYunwu(baseURL string) bool { return Detect(baseURL) == Yunwu }
+
+// IsModelScope is a convenience wrapper around Detect.
+func IsModelScope(baseURL string) bool { return Detect(baseURL) == ModelScope }
 
 // localHostnames lists hostnames that are considered local/loopback addresses.
 var localHostnames = map[string]bool{

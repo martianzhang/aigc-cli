@@ -8,10 +8,12 @@ import (
 // imageDispatchCtx holds provider/mode context for image strategy matching.
 // Built from local variables in runImageGenerate, not global state.
 type imageDispatchCtx struct {
-	isAPIMart    bool
-	isOpenRouter bool
-	genEdit      bool
-	isOllama     bool
+	isAPIMart     bool
+	isOpenRouter  bool
+	isModelScope  bool
+	genEdit       bool
+	isOllama      bool
+	modelScopeKey string // API key for ModelScope async submission
 }
 
 // imageStrategy defines a dispatch rule for image generation.
@@ -29,6 +31,13 @@ var imageStrategies = []imageStrategy{
 			return ctx.isOpenRouter && !ctx.genEdit
 		},
 		run: runOpenRouterDedicatedImage,
+	},
+	{
+		// ModelScope: async task-based generation (X-ModelScope-Async-Mode + polling)
+		match: func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool {
+			return ctx.isModelScope
+		},
+		run: runModelScopeImage,
 	},
 	{
 		// APIMart: async task-based generation

@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // Image-specific flag variables
@@ -104,7 +105,8 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	p := shared.ResolveProvider(ProviderNameImage)
 	isAPIMart := p.ProviderType == provider.APIMart
 	isOpenRouter := p.ProviderType == provider.OpenRouter
-	isOllama := provider.IsOnlineProvider(p)
+	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
+	isModelScope := p.ProviderType == provider.ModelScope
 
 	if genDryRun {
 		curl := buildImageCurl(req)
@@ -151,10 +153,12 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 
 	// Strategy table: first match wins, last entry is the default.
 	ictx := &imageDispatchCtx{
-		isAPIMart:    isAPIMart,
-		isOpenRouter: isOpenRouter,
-		genEdit:      genEdit,
-		isOllama:     isOllama,
+		isAPIMart:     isAPIMart,
+		isOpenRouter:  isOpenRouter,
+		isModelScope:  isModelScope,
+		genEdit:       genEdit,
+		isOllama:      isOllama,
+		modelScopeKey: p.APIKey,
 	}
 	for _, s := range imageStrategies {
 		if s.match(req, ictx) {

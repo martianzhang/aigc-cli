@@ -118,9 +118,7 @@ func runPrintConfig(cmd *cobra.Command) {
 		displayCfg.Config = *cfg
 	}
 	// env var / CLI flag takes priority over config file
-	effectiveKey := displayCfg.APIKey
 	if shared.APIKey != "" {
-		effectiveKey = shared.APIKey
 		displayCfg.APIKey = shared.APIKey
 	}
 	if shared.APIBase != "" && displayCfg.BaseURL == "" {
@@ -150,7 +148,7 @@ func runPrintConfig(cmd *cobra.Command) {
 	overrides := applyCLIOverrides(cmd, displayCfg.Defaults)
 
 	// Build annotations
-	var configNote, baseURLNote, apiKeyNote, proxyNote string
+	var configNote, proxyNote string
 
 	// Config file path
 	if shared.CfgFile != "" {
@@ -173,30 +171,6 @@ func runPrintConfig(cmd *cobra.Command) {
 		}
 	} else {
 		configNote = "# config: not found (env vars / code defaults)"
-	}
-
-	// API key
-	if effectiveKey == "" {
-		apiKeyNote = "# api_key: MISSING"
-	} else {
-		switch {
-		case strings.HasPrefix(effectiveKey, "sk-or-"):
-		case strings.HasPrefix(effectiveKey, "sk-") && len(effectiveKey) > 20:
-		default:
-			apiKeyNote = "# api_key: unknown format"
-		}
-	}
-
-	// Base URL
-	if displayCfg.BaseURL == "" {
-		baseURLNote = "# base_url: not set (will use APIMart default)"
-	} else {
-		u, err := url.Parse(displayCfg.BaseURL)
-		if err != nil || u.Scheme == "" || u.Host == "" {
-			baseURLNote = fmt.Sprintf("# base_url: INVALID — %s", displayCfg.BaseURL)
-		} else {
-			baseURLNote = detectProvider(displayCfg.BaseURL)
-		}
 	}
 
 	// Proxy
@@ -223,16 +197,12 @@ func runPrintConfig(cmd *cobra.Command) {
 			defaultsSection = "root"
 		} else if defaultsSection != "" && indent == 4 && strings.HasSuffix(trimmed, ":") {
 			defaultsSection = strings.TrimSuffix(trimmed, ":")
-		} else if indent < 4 {
+		} else if indent < 2 {
 			defaultsSection = ""
 		}
 
 		var annotation string
 		switch key {
-		case "base_url":
-			annotation = baseURLNote
-		case "api_key":
-			annotation = apiKeyNote
 		default:
 			// Generic override annotation for any defaults field
 			if defaultsSection != "" {
@@ -466,25 +436,6 @@ func overrideStruct(fs, inherited *pflag.FlagSet, structPtr interface{}, section
 // configDisplay wraps types.Config to inline fields for clean YAML output.
 type configDisplay struct {
 	types.Config `yaml:",inline"`
-}
-
-// detectProvider returns a human-readable provider name from a base URL.
-func detectProvider(rawURL string) string {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return "unknown"
-	}
-	host := strings.ToLower(u.Host)
-
-	p := provider.Detect(rawURL)
-	if p != provider.OpenAI {
-		return p.String()
-	}
-	// OpenAI-compatible could be OpenAI itself or a third-party relay
-	if strings.Contains(host, "openai") {
-		return "OpenAI"
-	}
-	return "third-party (" + host + ")"
 }
 
 // Execute adds all child commands to the root command and sets flags.
