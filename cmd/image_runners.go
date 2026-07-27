@@ -294,6 +294,13 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	if err != nil {
 		return fmt.Errorf("modelscope: submit request failed: %w", err)
 	}
+
+	// Read quota headers before consuming body
+	totalLimit := httpResp.Header.Get("Modelscope-Ratelimit-Requests-Limit")
+	totalRemain := httpResp.Header.Get("Modelscope-Ratelimit-Requests-Remaining")
+	modelLimit := httpResp.Header.Get("Modelscope-Ratelimit-Model-Requests-Limit")
+	modelRemain := httpResp.Header.Get("Modelscope-Ratelimit-Model-Requests-Remaining")
+
 	defer httpResp.Body.Close()
 
 	if httpResp.StatusCode != http.StatusOK {
@@ -312,6 +319,9 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	taskID := submitResp.TaskID
 	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Printf("Task ID: %s\n", taskID)
+	if totalLimit != "" {
+		fmt.Printf("Quota: %s/%s remaining (model: %s/%s)\n", totalRemain, totalLimit, modelRemain, modelLimit)
+	}
 	fmt.Println("Polling for completion...")
 
 	// --- Step 2: Poll task status ---

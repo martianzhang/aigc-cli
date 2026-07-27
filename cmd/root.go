@@ -82,8 +82,14 @@ OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 		// Only require API key for commands that need it
 		// Exclude "ideas", "detect", "background" and their sub-commands.
 		// Also skip API key for local model endpoints (Ollama, LM Studio, etc.),
-		// or when the command has a named provider with its own API key.
+		// or when a named provider with its own API key is used.
 		if !isNoAPIKeyRequired(cmd) && shared.APIKey == "" && !provider.IsLocalEndpoint(shared.APIBase) {
+			// Check if --provider flag points to a named provider with its own key
+			if shared.ProviderSet && shared.Provider != "" && shared.Cfg != nil && shared.Cfg.Providers != nil {
+				if np, ok := shared.Cfg.Providers[shared.Provider]; ok && np.APIKey != "" {
+					return nil
+				}
+			}
 			// Check if the command's default provider has its own API key
 			if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Providers != nil {
 				if ref, _ := lookupCmdProviderAndModel(cmd.Name(), shared.Cfg.Defaults); ref != "" {
@@ -464,7 +470,7 @@ func hasFlagChanged(cmd *cobra.Command, name string) bool {
 // an API key (e.g. "ideas", "detect" and their sub-commands).
 func isNoAPIKeyRequired(cmd *cobra.Command) bool {
 	for c := cmd; c != nil; c = c.Parent() {
-		if c.Name() == "ideas" || c.Name() == "detect" || c.Name() == "background" {
+		if c.Name() == "ideas" || c.Name() == "detect" || c.Name() == "background" || c.Name() == "balance" {
 			return true
 		}
 	}
