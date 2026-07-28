@@ -43,6 +43,8 @@ type GenerateRequest struct {
 	N                 *int     `json:"n,omitempty" yaml:"n,omitempty"`
 	ImageURLs         []string `json:"image_urls,omitempty" yaml:"image_urls,omitempty"`
 	MaskURL           string   `json:"mask_url,omitempty" yaml:"mask_url,omitempty"`
+	// Ratio is the aspect ratio for tiered sizing (Agnes 2.1+), e.g. "16:9", "1:1".
+	Ratio string `json:"ratio,omitempty" yaml:"ratio,omitempty"`
 	// OpenAI-specific fields
 	Style          string `json:"style,omitempty" yaml:"style,omitempty"`
 	ResponseFormat string `json:"response_format,omitempty" yaml:"response_format,omitempty"`

@@ -41,6 +41,19 @@ func TestDetect_Yunwu(t *testing.T) {
 	}
 }
 
+func TestDetect_Agnes(t *testing.T) {
+	cases := []string{
+		"https://apihub.agnes-ai.com",
+		"https://apihub.agnes-ai.com/v1",
+		"https://agnes-ai.com",
+	}
+	for _, url := range cases {
+		if got := Detect(url); got != Agnes {
+			t.Errorf("Detect(%q) = %v, want Agnes", url, got)
+		}
+	}
+}
+
 func TestDetect_OpenAI(t *testing.T) {
 	cases := []string{
 		"https://api.openai.com/v1",
@@ -68,6 +81,15 @@ func TestDetect_IsYunwu(t *testing.T) {
 	}
 	if IsYunwu("https://api.apimart.ai") {
 		t.Error("IsYunwu should be false for apimart.ai")
+	}
+}
+
+func TestDetect_IsAgnes(t *testing.T) {
+	if !IsAgnes("https://apihub.agnes-ai.com/v1") {
+		t.Error("IsAgnes should be true for agnes-ai.com")
+	}
+	if IsAgnes("https://openrouter.ai/api/v1") {
+		t.Error("IsAgnes should be false for openrouter.ai")
 	}
 }
 
@@ -101,6 +123,12 @@ func TestType_String(t *testing.T) {
 	}
 	if Yunwu.String() != "Yunwu（云雾AI）" {
 		t.Errorf("Yunwu.String() = %q", Yunwu.String())
+	}
+	if ModelScope.String() != "ModelScope" {
+		t.Errorf("ModelScope.String() = %q", ModelScope.String())
+	}
+	if Agnes.String() != "Agnes" {
+		t.Errorf("Agnes.String() = %q", Agnes.String())
 	}
 	if Unknown.String() != "unknown" {
 		t.Errorf("Unknown.String() = %q", Unknown.String())
@@ -139,5 +167,8 @@ func TestType_IsAsync(t *testing.T) {
 	}
 	if OpenRouter.IsAsync() {
 		t.Error("OpenRouter should not be async")
+	}
+	if Agnes.IsAsync() {
+		t.Error("Agnes should not be async")
 	}
 }

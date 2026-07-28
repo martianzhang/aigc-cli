@@ -18,6 +18,7 @@ const (
 	OpenRouter
 	Yunwu
 	ModelScope
+	Agnes
 )
 
 var names = map[Type]string{
@@ -27,6 +28,7 @@ var names = map[Type]string{
 	OpenRouter: "OpenRouter",
 	Yunwu:      "Yunwu（云雾AI）",
 	ModelScope: "ModelScope",
+	Agnes:      "Agnes",
 }
 
 func (t Type) String() string {
@@ -64,6 +66,11 @@ var yunwuDomains = []string{
 var modelscopeDomains = []string{
 	"api-inference.modelscope.cn",
 	"api-inference.modelscope.ai",
+}
+
+// agnesDomains lists domains where Agnes AI APIs are served.
+var agnesDomains = []string{
+	"agnes-ai.com",
 }
 
 // matchDomain checks that host is the domain d or a subdomain of d.
@@ -104,6 +111,11 @@ func Detect(baseURL string) Type {
 			return ModelScope
 		}
 	}
+	for _, d := range agnesDomains {
+		if matchDomain(baseURL, d) {
+			return Agnes
+		}
+	}
 	// Default to OpenAI-compatible for everything else
 	return OpenAI
 }
@@ -119,6 +131,9 @@ func IsYunwu(baseURL string) bool { return Detect(baseURL) == Yunwu }
 
 // IsModelScope is a convenience wrapper around Detect.
 func IsModelScope(baseURL string) bool { return Detect(baseURL) == ModelScope }
+
+// IsAgnes is a convenience wrapper around Detect.
+func IsAgnes(baseURL string) bool { return Detect(baseURL) == Agnes }
 
 // localHostnames lists hostnames that are considered local/loopback addresses.
 var localHostnames = map[string]bool{

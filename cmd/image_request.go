@@ -25,6 +25,7 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 		Model:          shared.Model,
 		Prompt:         prompt,
 		Size:           genSize,
+		Ratio:          genRatio,
 		Resolution:     genResolution,
 		Quality:        genQuality,
 		Background:     genBackground,

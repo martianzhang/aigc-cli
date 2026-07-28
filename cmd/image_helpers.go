@@ -184,13 +184,13 @@ func postProcessImages(saved []string) {
 			continue
 		}
 		if result.Skipped {
-			fmt.Printf("  Compress %s: skipped (%s)\n", path, result.Reason)
+			fmt.Printf("Compress %s: skipped (%s)\n", path, result.Reason)
 		} else {
 			savedStr := formatBytes(result.After)
 			originalStr := formatBytes(result.Before)
 			pct := 100 - int(float64(result.After)/float64(result.Before)*100)
 			params := formatParams(result.Format, result.Quality)
-			fmt.Printf("  Compress %s: %s → %s (%d%% saved)%s\n", path, originalStr, savedStr, pct, params)
+			fmt.Printf("Compress %s: %s → %s (%d%% saved)%s → %s\n", path, originalStr, savedStr, pct, params, result.DstPath)
 		}
 	}
 }
@@ -261,13 +261,6 @@ func formatParams(fmtStr string, quality int) string {
 		return fmt.Sprintf(" [%s q%d]", fmtStr, quality)
 	}
 	return fmt.Sprintf(" [%s]", fmtStr)
-}
-
-// needsExtraBodyResponseFormat returns true if the provider requires
-// response_format to be nested inside extra_body rather than at the JSON root.
-// Currently matched: Agnes API.
-func needsExtraBodyResponseFormat(baseURL string) bool {
-	return strings.Contains(strings.ToLower(baseURL), "agnes")
 }
 
 // formatBytes returns a human-readable byte size string.

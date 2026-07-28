@@ -11,6 +11,7 @@ type imageDispatchCtx struct {
 	isAPIMart     bool
 	isOpenRouter  bool
 	isModelScope  bool
+	isAgnes       bool
 	genEdit       bool
 	isOllama      bool
 	modelScopeKey string // API key for ModelScope async submission
@@ -31,6 +32,13 @@ var imageStrategies = []imageStrategy{
 			return ctx.isOpenRouter && !ctx.genEdit
 		},
 		run: runOpenRouterDedicatedImage,
+	},
+	{
+		// Agnes: dedicated sync API with extra_body.image for img2img and ratio for 2.1
+		match: func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool {
+			return ctx.isAgnes
+		},
+		run: runAgnesImage,
 	},
 	{
 		// ModelScope: async task-based generation (X-ModelScope-Async-Mode + polling)

@@ -18,6 +18,7 @@ import (
 var (
 	genPrompt       string
 	genSize         string
+	genRatio        string
 	genResolution   string
 	genQuality      string
 	genBackground   string
@@ -105,18 +106,9 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	p := shared.ResolveProvider(ProviderNameImage)
 	isAPIMart := p.ProviderType == provider.APIMart
 	isOpenRouter := p.ProviderType == provider.OpenRouter
+	isAgnes := p.ProviderType == provider.Agnes
 	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
 	isModelScope := p.ProviderType == provider.ModelScope
-
-	// ----- Apply provider-specific request transforms -----
-	// Some providers deviate from the OpenAI standard. Apply known transforms here.
-	if needsExtraBodyResponseFormat(p.BaseURL) && req.ResponseFormat != "" {
-		if req.ExtraBody == nil {
-			req.ExtraBody = make(map[string]interface{})
-		}
-		req.ExtraBody["response_format"] = req.ResponseFormat
-		req.ResponseFormat = "" // clear top-level, Agnes rejects it there
-	}
 
 	if genDryRun {
 		curl := buildImageCurl(req, p.BaseURL, p.APIKey)
@@ -166,6 +158,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		isAPIMart:     isAPIMart,
 		isOpenRouter:  isOpenRouter,
 		isModelScope:  isModelScope,
+		isAgnes:       isAgnes,
 		genEdit:       genEdit,
 		isOllama:      isOllama,
 		modelScopeKey: p.APIKey,
@@ -191,7 +184,8 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 func registerImageGenerateFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
 	f.StringVarP(&genPrompt, "prompt", "p", "", "Text description (auto-reads from file if path exists, or \"-\" for stdin)")
-	f.StringVarP(&genSize, "size", "s", "", `Aspect ratio (e.g. "16:9", "1:1") or pixel dims (e.g. "1024x1024")`)
+	f.StringVarP(&genSize, "size", "s", "", `Aspect ratio (e.g. "16:9", "1:1") or pixel dims (e.g. "1024x1024") or tier (e.g. "1K", "2K" for Agnes 2.1)`)
+	f.StringVar(&genRatio, "ratio", "", `Aspect ratio for tiered sizing (Agnes 2.1+): "1:1", "16:9", "3:4", "4:3", "9:16", "2:3", "3:2", "21:9"`)
 	f.StringVarP(&genResolution, "resolution", "r", "", "Resolution tier: 1k, 2k, 4k (APIMart only)")
 	f.StringVarP(&genQuality, "quality", "q", "", "Quality: auto, low, medium, high")
 	f.StringVar(&genBackground, "background", "", "Background mode: auto, opaque, transparent (APIMart only)")
@@ -203,7 +197,7 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringArrayVarP(&genImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable)")
 	f.StringVar(&genMaskURL, "mask-url", "", "Mask image URL for inpainting (APIMart only)")
 	f.StringVar(&genStyle, "style", "", "Image style: vivid, natural (OpenAI only)")
-	f.StringVar(&genResponseFmt, "response-format", "", "Response format: url, b64_json (OpenAI/OpenRouter)")
+	f.StringVar(&genResponseFmt, "response-format", "", "Response format: url, b64_json (OpenAI/OpenRouter/Agnes)")
 	f.BoolVar(&genDryRun, "dry-run", false, "Print request parameters without calling API")
 	f.BoolVar(&genEdit, "edit", false, "Grok Imagine 1.5 Edit mode (requires --image-url)")
 	f.BoolVar(&genPreview, "preview", false, "Open generated image with system default viewer")
