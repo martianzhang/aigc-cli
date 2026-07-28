@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +17,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var kbSearchProviderFlag string
+var (
+	kbSearchProviderFlag string
+	kbSearchSaveFlag     = true
+)
 
 var kbSearchCmd = &cobra.Command{
 	Use:   "search <query>",
@@ -109,6 +113,10 @@ func searchViaRouter(store *knowledge.Store, cmd *cobra.Command, query, project 
 			if cfg.APIKey != "" {
 				router.Register(name, search.NewBraveProvider(cfg.APIKey), info)
 			}
+		case "doubao":
+			if cfg.APIKey != "" {
+				router.Register(name, search.NewDoubaoProvider(cfg.APIKey), info)
+			}
 		}
 	}
 
@@ -128,6 +136,8 @@ func searchWithProvider(store *knowledge.Store, cmd *cobra.Command, query, proje
 	switch strings.ToLower(provider) {
 	case "firecrawl":
 		return searchFirecrawl(store, query, project, verbose)
+	case "doubao":
+		return searchDoubao(store, query, project, verbose)
 	default:
 		return searchDuckDuckGo(store, cmd, query, project, verbose)
 	}
@@ -165,35 +175,36 @@ func fetchSearchResults(store *knowledge.Store, cmd *cobra.Command, results []se
 			continue
 		}
 
-		doc := &knowledge.Document{
-			ID: docID, URL: fetchResult.URL, Title: fetchResult.Title,
-			Project: project, Size: fetchResult.Size, Checksum: docID,
-		}
-		if err := store.SaveDocument(doc); err != nil {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "    Error saving: %v\n", err)
+		if shouldAutoSave() {
+			doc := &knowledge.Document{
+				ID: docID, URL: fetchResult.URL, Title: fetchResult.Title,
+				Project: project, Size: fetchResult.Size, Checksum: docID,
 			}
-			continue
-		}
-		knowledge.SaveDocFile(kbBaseDir, project, docID, fetchResult.Title, fetchResult.Content)
+			if err := store.SaveDocument(doc); err != nil {
+				if verbose {
+					fmt.Fprintf(os.Stderr, "    Error saving: %v\n", err)
+				}
+			} else {
+				knowledge.SaveDocFile(kbBaseDir, project, docID, fetchResult.Title, fetchResult.Content)
 
-		rawChunks := chunker.Chunk(fetchResult.Content)
-		embeddings := make([]knowledge.Embedding, len(rawChunks))
-		for i, c := range rawChunks {
-			emb, err := embedder.Embed(c.Content)
-			if err != nil {
-				continue
+				rawChunks := chunker.Chunk(fetchResult.Content)
+				embeddings := make([]knowledge.Embedding, len(rawChunks))
+				for i, c := range rawChunks {
+					emb, err := embedder.Embed(c.Content)
+					if err != nil {
+						continue
+					}
+					embeddings[i] = emb
+				}
+				if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
+					if verbose {
+						fmt.Fprintf(os.Stderr, "    Error saving chunks: %v\n", err)
+					}
+				}
+				if verbose {
+					fmt.Fprintf(os.Stderr, "    Saved: %s\n", fetchResult.Title)
+				}
 			}
-			embeddings[i] = emb
-		}
-		if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "    Error saving chunks: %v\n", err)
-			}
-			continue
-		}
-		if verbose {
-			fmt.Fprintf(os.Stderr, "    Saved: %s\n", fetchResult.Title)
 		}
 		outputDoc(docID, fetchResult.Title, fetchResult.URL, fetchResult.Content)
 	}
@@ -217,6 +228,7 @@ func resolveSearchProvider(cmd *cobra.Command) string {
 
 func init() {
 	kbSearchCmd.Flags().StringVar(&kbSearchProviderFlag, "provider", "", "Search provider: duckduckgo, firecrawl (overrides config defaults)")
+	kbSearchCmd.Flags().BoolVar(&kbSearchSaveFlag, "auto-save", true, "Save web results to knowledge base")
 	kbCmd.AddCommand(kbSearchCmd)
 }
 
@@ -225,7 +237,22 @@ func outputDoc(docID, title, url, content string) {
 	fmt.Printf("id: %s\n", docID[:12])
 	fmt.Printf("title: %s\n", title)
 	fmt.Printf("url: %s\n", url)
+	if host := extractHost(url); host != "" {
+		fmt.Printf("source: %s\n", host)
+	}
 	fmt.Println(content)
+}
+
+// extractHost returns the hostname from a URL, or empty string.
+func extractHost(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	return u.Host
 }
 
 func tryReadDoc(docID string) string {
@@ -356,40 +383,40 @@ func searchDuckDuckGo(store *knowledge.Store, cmd *cobra.Command, query string, 
 
 		webHeader()
 
-		doc := &knowledge.Document{
-			ID:       docID,
-			URL:      fetchResult.URL,
-			Title:    fetchResult.Title,
-			Project:  project,
-			Size:     fetchResult.Size,
-			Checksum: docID,
-		}
-		if err := store.SaveDocument(doc); err != nil {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "    Error saving: %v\n", err)
+		if shouldAutoSave() {
+			doc := &knowledge.Document{
+				ID:       docID,
+				URL:      fetchResult.URL,
+				Title:    fetchResult.Title,
+				Project:  project,
+				Size:     fetchResult.Size,
+				Checksum: docID,
 			}
-			continue
-		}
-		knowledge.SaveDocFile(kbBaseDir, project, docID, fetchResult.Title, fetchResult.Content)
+			if err := store.SaveDocument(doc); err != nil {
+				if verbose {
+					fmt.Fprintf(os.Stderr, "    Error saving: %v\n", err)
+				}
+			} else {
+				knowledge.SaveDocFile(kbBaseDir, project, docID, fetchResult.Title, fetchResult.Content)
 
-		rawChunks := chunker.Chunk(fetchResult.Content)
-		embeddings := make([]knowledge.Embedding, len(rawChunks))
-		for i, c := range rawChunks {
-			emb, err := embedder.Embed(c.Content)
-			if err != nil {
-				continue
+				rawChunks := chunker.Chunk(fetchResult.Content)
+				embeddings := make([]knowledge.Embedding, len(rawChunks))
+				for i, c := range rawChunks {
+					emb, err := embedder.Embed(c.Content)
+					if err != nil {
+						continue
+					}
+					embeddings[i] = emb
+				}
+				if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
+					if verbose {
+						fmt.Fprintf(os.Stderr, "    Error saving chunks: %v\n", err)
+					}
+				}
+				if verbose {
+					fmt.Fprintf(os.Stderr, "    Saved to KB\n")
+				}
 			}
-			embeddings[i] = emb
-		}
-		if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "    Error saving chunks: %v\n", err)
-			}
-			continue
-		}
-
-		if verbose {
-			fmt.Fprintf(os.Stderr, "    Saved to KB\n")
 		}
 		outputDoc(docID, fetchResult.Title, fetchResult.URL, fetchResult.Content)
 	}
@@ -485,39 +512,39 @@ func searchFirecrawl(store *knowledge.Store, query string, project string, verbo
 
 		webHeader()
 
-		doc := &knowledge.Document{
-			ID:       docID,
-			URL:      fetchResult.URL,
-			Title:    fetchResult.Title,
-			Size:     fetchResult.Size,
-			Checksum: docID,
-		}
-		if err := store.SaveDocument(doc); err != nil {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "    Error saving: %v\n", err)
+		if shouldAutoSave() {
+			doc := &knowledge.Document{
+				ID:       docID,
+				URL:      fetchResult.URL,
+				Title:    fetchResult.Title,
+				Size:     fetchResult.Size,
+				Checksum: docID,
 			}
-			continue
-		}
-		knowledge.SaveDocFile(kbBaseDir, "", docID, fetchResult.Title, fetchResult.Content)
+			if err := store.SaveDocument(doc); err != nil {
+				if verbose {
+					fmt.Fprintf(os.Stderr, "    Error saving: %v\n", err)
+				}
+			} else {
+				knowledge.SaveDocFile(kbBaseDir, "", docID, fetchResult.Title, fetchResult.Content)
 
-		rawChunks := chunker.Chunk(fetchResult.Content)
-		embeddings := make([]knowledge.Embedding, len(rawChunks))
-		for i, c := range rawChunks {
-			emb, err := embedder.Embed(c.Content)
-			if err != nil {
-				continue
+				rawChunks := chunker.Chunk(fetchResult.Content)
+				embeddings := make([]knowledge.Embedding, len(rawChunks))
+				for i, c := range rawChunks {
+					emb, err := embedder.Embed(c.Content)
+					if err != nil {
+						continue
+					}
+					embeddings[i] = emb
+				}
+				if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
+					if verbose {
+						fmt.Fprintf(os.Stderr, "    Error saving chunks: %v\n", err)
+					}
+				}
+				if verbose {
+					fmt.Fprintf(os.Stderr, "    Saved to KB\n")
+				}
 			}
-			embeddings[i] = emb
-		}
-		if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "    Error saving chunks: %v\n", err)
-			}
-			continue
-		}
-
-		if verbose {
-			fmt.Fprintf(os.Stderr, "    Saved to KB\n")
 		}
 		outputDoc(docID, fetchResult.Title, fetchResult.URL, fetchResult.Content)
 	}

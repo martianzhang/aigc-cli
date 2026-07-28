@@ -125,15 +125,21 @@ func DocID(content string) string {
 	return Checksum(content)
 }
 
-// projectDir converts a project ID (e.g., "github.com/martianzhang/aigc-cli")
-// to a filesystem-safe directory name.
+// projectDir converts a project ID to a cross-platform-safe directory name.
 func projectDir(project string) string {
-	s := strings.ReplaceAll(project, "/", "_")
-	s = strings.ReplaceAll(s, ":", "_")
-	return s
+	s := make([]byte, 0, len(project))
+	for _, r := range project {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' {
+			s = append(s, byte(r))
+		} else {
+			s = append(s, '_')
+		}
+	}
+	return string(s)
 }
 
-// SaveDocFile saves raw content to baseDir/docs/<project-dir>/<id>-<title>.md.
+// SaveDocFile saves raw content to baseDir/docs/<project-dir>/<date>-<id>-<title>.md.
 // If project is empty, saves to baseDir/docs/global/.
 func SaveDocFile(baseDir, project, docID, title, content string) error {
 	dirName := "global"
@@ -144,6 +150,7 @@ func SaveDocFile(baseDir, project, docID, title, content string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create docs dir: %w", err)
 	}
+	date := time.Now().Format("2006-01-02")
 	shortID := docID
 	if len(shortID) > 12 {
 		shortID = shortID[:12]
@@ -155,7 +162,7 @@ func SaveDocFile(baseDir, project, docID, title, content string) error {
 	if len(slug) > 60 {
 		slug = slug[:60]
 	}
-	name := shortID + "-" + slug + ".md"
+	name := date + "_" + shortID + "-" + slug + ".md"
 	path := filepath.Join(dir, name)
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		return fmt.Errorf("write doc file: %w", err)

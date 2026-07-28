@@ -150,9 +150,16 @@ web_search:
   firecrawl:
     type: firecrawl
     api_key: "fc-xxx"
+  doubao:
+    type: doubao
+    api_key: "your-api-key"   # 火山引擎豆包搜索（Custom版）
 ```
 
 配置多个 provider 时会自动根据配额和策略进行 fallback。
+
+> **豆包搜索**：火山引擎联网搜索（Custom版），0.020元/次（按量后付费），每月 500 次免费额度。
+> API Key 获取：[联网搜索控制台](https://console.volcengine.com/search-infinity/api-key?tab=post_paid)。
+> 认证方式：`Authorization: Bearer <API_KEY>`。
 
 ## 存储位置
 

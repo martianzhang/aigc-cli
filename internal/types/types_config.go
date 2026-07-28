@@ -126,6 +126,7 @@ type KBDefaults struct {
 	BaseDir        string            `mapstructure:"base_dir" yaml:"base_dir,omitempty"`
 	SearchProvider string            `mapstructure:"search_provider" yaml:"search_provider,omitempty"`
 	MinScore       float64           `mapstructure:"min_score" yaml:"min_score,omitempty"`
+	AutoSave       *bool             `mapstructure:"auto_save" yaml:"auto_save,omitempty"` // nil=true (save to KB)
 	Loaders        map[string]string `mapstructure:"loaders" yaml:"loaders,omitempty"`
 }
 

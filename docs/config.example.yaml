@@ -156,7 +156,8 @@ defaults:
   # ── 可选：知识库（knowledgebase）──
   # knowledgebase:
   #   base_dir: "~/.config/aigc-cli/knowledge"   # 知识库存放路径
-  #   search_provider: duckduckgo                 # kb search 引擎：duckduckgo 或 firecrawl
+  #   search_provider: duckduckgo                 # kb search 引擎：duckduckgo / firecrawl / brave / doubao
+  #   auto_save: true                             # kb search 结果是否自动存入 KB（默认 true）
   #   min_score: 0.8                              # 向量搜索结果最低相似度（默认0.8，设0关闭）
 
   # ── 可选：Web 搜索引擎 ──
@@ -174,6 +175,9 @@ defaults:
   #     tags: [free, quality]
   #     quota: 1000
   #     period: monthly
+  #   doubao:
+  #     type: doubao
+  #     api_key: "your-doubao-api-key"
 
   # ── 可选：强制走本地 ONNX（无需配 provider）──
   # 命令行 aigc-cli ocr scan x.png --provider local 即可

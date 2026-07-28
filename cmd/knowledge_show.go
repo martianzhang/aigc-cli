@@ -49,11 +49,17 @@ as shown in 'kb list'.`,
 		fmt.Printf("ID:       %s\n", doc.ID)
 		if doc.URL != "" {
 			fmt.Printf("URL:      %s\n", doc.URL)
+			if host := extractHost(doc.URL); host != "" {
+				fmt.Printf("Source:   %s\n", host)
+			}
 		}
 		if doc.FilePath != "" {
 			fmt.Printf("File:     %s\n", doc.FilePath)
 		}
 		fmt.Printf("Title:    %s\n", doc.Title)
+		if doc.Project != "" {
+			fmt.Printf("Project:  %s\n", doc.Project)
+		}
 		fmt.Printf("Size:     %.1f KB\n", float64(doc.Size)/1024)
 		fmt.Printf("Created:  %s\n", doc.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Updated:  %s\n", doc.UpdatedAt.Format("2006-01-02 15:04:05"))

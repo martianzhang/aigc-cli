@@ -138,6 +138,22 @@ func resolveConfigBaseDir() string {
 	return ""
 }
 
+// shouldAutoSave returns whether kb search results should be saved to the KB.
+// Priority: CLI --auto-save flag > config defaults.auto_save > default (true).
+func shouldAutoSave() bool {
+	// CLI --save flag (default true, only applies when explicitly set)
+	if !kbSearchSaveFlag {
+		return false
+	}
+	// Config auto_save (only when explicitly configured)
+	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Knowledgebase != nil {
+		if shared.Cfg.Defaults.Knowledgebase.AutoSave != nil {
+			return *shared.Cfg.Defaults.Knowledgebase.AutoSave
+		}
+	}
+	return true
+}
+
 // resolveLoaders returns the external file loaders from config.
 func resolveLoaders() map[string]string {
 	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Knowledgebase != nil {
@@ -201,29 +217,8 @@ func gitProjectID() (string, error) {
 	return raw, nil
 }
 
-// projectDisplay returns a short human-readable label for a project ID.
-func projectDisplay(project string) string {
-	if project == "" {
-		return "global"
-	}
-	// "github.com/martianzhang/aigc-cli" → "aigc-cli"
-	parts := strings.Split(project, "/")
-	if len(parts) >= 3 {
-		return parts[len(parts)-1]
-	}
-	return project
-}
-
-// formatProject returns a short label for display.
-func formatProject(project string) string {
-	return projectDisplay(project)
-}
-
 // isGlobalScope returns true when listing/finding across all projects.
 func isGlobalScope(cmd *cobra.Command) bool {
 	all, _ := cmd.Flags().GetBool("all")
 	return all
 }
-
-// ensure strings is used
-var _ = strings.TrimSpace

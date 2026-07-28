@@ -2,14 +2,26 @@ package cmd
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/vault"
 	"github.com/spf13/cobra"
 )
 
+type tblRow struct {
+	cells []string
+}
+
 // kbListCmd lists all documents in the knowledge base.
+var (
+	kbListLimit  int
+	kbListOffset int
+)
+
 var kbListCmd = &cobra.Command{
 	Use:          "list",
 	Short:        "List all documents",
@@ -25,12 +37,22 @@ var kbListCmd = &cobra.Command{
 		}
 		defer store.Close()
 
+		limit := kbListLimit
+		if limit <= 0 {
+			limit = 9999 // unlimited
+		}
+
 		project := ""
 		if !isGlobalScope(cmd) {
 			project = detectProject(cmd)
 		}
 
-		docs, err := store.ListDocuments(100, 0, project)
+		total, err := store.CountDocuments()
+		if err != nil {
+			return fmt.Errorf("count: %w", err)
+		}
+
+		docs, err := store.ListDocuments(limit, kbListOffset, project)
 		if err != nil {
 			return fmt.Errorf("list: %w", err)
 		}
@@ -40,31 +62,103 @@ var kbListCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Printf("%-12s %-30s %-16s %-8s %s\n", "ID", "Title", "Scope", "Size", "Source")
-		fmt.Println("------------------------------------------------------------------------")
+		rows := []tblRow{{cells: []string{"ID", "Title", "Source", "Added", "Size"}}}
 		for _, d := range docs {
-			source := d.URL
-			if source == "" {
-				source = d.FilePath
+			added := d.CreatedAt.Format("2006-01-02")
+			if d.CreatedAt.IsZero() {
+				added = "-"
 			}
-			if source == "" {
-				source = "(no source)"
-			}
-			id := d.ID[:12]
-			title := d.Title
-			if len(title) > 28 {
-				title = title[:28] + "..."
-			}
-			scope := formatProject(d.Project)
-			src := source
-			if len(src) > 18 {
-				src = src[:18] + "..."
-			}
-			size := fmt.Sprintf("%.1f KB", float64(d.Size)/1024)
-			fmt.Printf("%-12s %-30s %-16s %-8s %s\n", id, title, scope, size, src)
+			rows = append(rows, tblRow{cells: []string{
+				d.ID[:12],
+				d.Title,
+				displaySource(d.URL, d.FilePath),
+				added,
+				fmt.Sprintf("%.1f KB", float64(d.Size)/1024),
+			}})
+		}
+		renderTable(os.Stdout, rows)
+		shown := len(docs)
+		if shown > 0 && kbListOffset+shown < total {
+			fmt.Fprintf(os.Stderr, "\nShowing %d-%d of %d documents. Use --limit and --offset to navigate.\n",
+				kbListOffset+1, kbListOffset+shown, total)
+		} else if total > 0 {
+			fmt.Fprintf(os.Stderr, "\nTotal: %d documents.\n", total)
 		}
 		return nil
 	},
+}
+
+// renderTable renders a table with aligned columns, correctly handling CJK width.
+func renderTable(w *os.File, rows []tblRow) {
+	if len(rows) == 0 {
+		return
+	}
+	colCount := len(rows[0].cells)
+
+	// Compute max visual width per column across all rows
+	maxWidths := make([]int, colCount)
+	for _, r := range rows {
+		for i, c := range r.cells {
+			w := runewidth(c)
+			if w > maxWidths[i] {
+				maxWidths[i] = w
+			}
+		}
+	}
+
+	// Separator row
+	sep := make([]string, colCount)
+	for i, mw := range maxWidths {
+		sep[i] = strings.Repeat("─", mw)
+	}
+
+	// Render header
+	renderRow(w, rows[0].cells, maxWidths)
+	// Render separator
+	fmt.Fprintf(w, " %s\n", strings.Join(sep, "  "))
+	// Render data rows
+	for _, r := range rows[1:] {
+		renderRow(w, r.cells, maxWidths)
+	}
+}
+
+func renderRow(w *os.File, cells []string, widths []int) {
+	parts := make([]string, len(cells))
+	for i, c := range cells {
+		parts[i] = padWidth(c, widths[i])
+	}
+	fmt.Fprintf(w, " %s\n", strings.Join(parts, "  "))
+}
+
+// runewidth returns the visual terminal width (CJK=2, others=1).
+func runewidth(s string) int {
+	w := 0
+	for _, r := range s {
+		w += text.RuneWidth(r)
+	}
+	return w
+}
+
+// padWidth pads s with spaces on the right to match the given visual width.
+func padWidth(s string, w int) string {
+	if n := w - runewidth(s); n > 0 {
+		return s + strings.Repeat(" ", n)
+	}
+	return s
+}
+
+// displaySource returns a short human-readable source label from a URL or file path.
+func displaySource(rawURL, filePath string) string {
+	if rawURL != "" {
+		if u, err := url.Parse(rawURL); err == nil && u.Host != "" {
+			return u.Host
+		}
+		return rawURL
+	}
+	if filePath != "" {
+		return "file"
+	}
+	return "-"
 }
 
 func listVault() error {
@@ -79,7 +173,6 @@ func listVault() error {
 		return fmt.Errorf("list: %w", err)
 	}
 
-	// Filter vault docs (where id is in vault directory)
 	v, err := vault.Open(vaultBaseDir)
 	if err != nil {
 		return fmt.Errorf("open vault: %w", err)
@@ -105,8 +198,7 @@ func listVault() error {
 		return nil
 	}
 
-	fmt.Printf("%-12s %-30s %s\n", "ID", "Title", "Source")
-	fmt.Println("----------------------------------------------------------")
+	rows := []tblRow{{cells: []string{"ID", "Title", "Source"}}}
 	for _, d := range vaultItems {
 		source := d.URL
 		if source == "" {
@@ -115,7 +207,13 @@ func listVault() error {
 		if source == "" {
 			source = "(no source)"
 		}
-		fmt.Printf("%-12s %-30s %s\n", d.ID[:12], d.Title, source)
+		rows = append(rows, tblRow{cells: []string{d.ID[:12], d.Title, source}})
 	}
+	renderTable(os.Stdout, rows)
 	return nil
+}
+
+func init() {
+	kbListCmd.Flags().IntVar(&kbListLimit, "limit", 100, "Max documents to show (0 for unlimited)")
+	kbListCmd.Flags().IntVar(&kbListOffset, "offset", 0, "Number of documents to skip")
 }
