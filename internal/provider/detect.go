@@ -71,6 +71,7 @@ var modelscopeDomains = []string{
 // agnesDomains lists domains where Agnes AI APIs are served.
 var agnesDomains = []string{
 	"agnes-ai.com",
+	"agnes-ai.cn",
 }
 
 // matchDomain checks that host is the domain d or a subdomain of d.

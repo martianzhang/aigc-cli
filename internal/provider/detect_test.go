@@ -45,6 +45,8 @@ func TestDetect_Agnes(t *testing.T) {
 	cases := []string{
 		"https://apihub.agnes-ai.com",
 		"https://apihub.agnes-ai.com/v1",
+		"https://apihub.agnes-ai.cn",
+		"https://apihub.agnes-ai.cn/v1",
 		"https://agnes-ai.com",
 	}
 	for _, url := range cases {
