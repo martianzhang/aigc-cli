@@ -108,8 +108,18 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
 	isModelScope := p.ProviderType == provider.ModelScope
 
+	// ----- Apply provider-specific request transforms -----
+	// Some providers deviate from the OpenAI standard. Apply known transforms here.
+	if needsExtraBodyResponseFormat(p.BaseURL) && req.ResponseFormat != "" {
+		if req.ExtraBody == nil {
+			req.ExtraBody = make(map[string]interface{})
+		}
+		req.ExtraBody["response_format"] = req.ResponseFormat
+		req.ResponseFormat = "" // clear top-level, Agnes rejects it there
+	}
+
 	if genDryRun {
-		curl := buildImageCurl(req)
+		curl := buildImageCurl(req, p.BaseURL, p.APIKey)
 		fmt.Println(curl)
 		return nil
 	}

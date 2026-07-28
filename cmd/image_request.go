@@ -53,17 +53,17 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 }
 
 // buildImageCurl generates an equivalent curl command for an image generation request.
-func buildImageCurl(req *types.GenerateRequest) string {
+// baseURL and apiKey should come from the resolved provider so the dry-run output
+// accurately reflects which provider will be called.
+func buildImageCurl(req *types.GenerateRequest, baseURL, apiKey string) string {
 	body, _ := json.Marshal(req)
-	base := shared.APIBase
-	if base == "" {
-		base = "https://api.apimart.ai/v1" // matches client.defaultBaseURL
-	}
-	base = strings.TrimRight(base, "/")
+	base := strings.TrimRight(baseURL, "/")
 	url := base + "/images/generations"
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", shared.APIKey)
+	if apiKey != "" {
+		cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", apiKey)
+	}
 	cmd += "  -H \"Content-Type: application/json\" \\\n"
 	cmd += fmt.Sprintf("  -d '%s'", string(body))
 	return cmd

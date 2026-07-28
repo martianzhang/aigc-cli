@@ -46,6 +46,9 @@ type GenerateRequest struct {
 	// OpenAI-specific fields
 	Style          string `json:"style,omitempty" yaml:"style,omitempty"`
 	ResponseFormat string `json:"response_format,omitempty" yaml:"response_format,omitempty"`
+	// ExtraBody holds provider-specific fields that must be nested inside
+	// "extra_body" (e.g., Agnes API requires response_format in extra_body).
+	ExtraBody map[string]interface{} `json:"extra_body,omitempty" yaml:"extra_body,omitempty"`
 }
 
 // OpenAIImageResponse is the synchronous response from OpenAI/OpenRouter-compatible

@@ -50,6 +50,8 @@ aigc-cli image < prompt.txt
 | `--dry-run` | | 打印 curl 不调用 API | 通用 |
 | `--preview` | | 生成后自动用系统默认程序打开图片 | 通用 |
 
+> ⚠️ **--size 格式因厂商而异**：OpenAI/OpenRouter/APIMart 等大多数厂商支持宽高比格式（如 `1:1`、`16:9`），但部分厂商（如 Agnes、ModelScope）要求像素尺寸（如 `1024x1024`、`1024x768`）。使用前请查阅对应厂商的 API 文档确认 `size` 参数格式。
+
 ### 模式自动检测规则
 
 | base_url 包含 | 模式 | 说明 |

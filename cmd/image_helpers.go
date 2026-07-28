@@ -263,6 +263,13 @@ func formatParams(fmtStr string, quality int) string {
 	return fmt.Sprintf(" [%s]", fmtStr)
 }
 
+// needsExtraBodyResponseFormat returns true if the provider requires
+// response_format to be nested inside extra_body rather than at the JSON root.
+// Currently matched: Agnes API.
+func needsExtraBodyResponseFormat(baseURL string) bool {
+	return strings.Contains(strings.ToLower(baseURL), "agnes")
+}
+
 // formatBytes returns a human-readable byte size string.
 func formatBytes(b int64) string {
 	switch {

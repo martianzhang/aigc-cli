@@ -159,13 +159,11 @@ func TestSetFloatFlag_notChanged(t *testing.T) {
 }
 
 func TestBuildImageCurl(t *testing.T) {
-	shared.APIKey = "test-key"
-	shared.APIBase = "https://api.apimart.ai"
 	req := &types.GenerateRequest{
 		Model:  "gpt-image-2-official",
 		Prompt: "test",
 	}
-	curl := buildImageCurl(req)
+	curl := buildImageCurl(req, "https://api.apimart.ai/v1", "test-key")
 	if curl == "" {
 		t.Fatal("buildImageCurl() returned empty string")
 	}
