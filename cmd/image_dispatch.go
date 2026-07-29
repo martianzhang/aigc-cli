@@ -18,9 +18,10 @@ type imageDispatchCtx struct {
 }
 
 // imageStrategy defines a dispatch rule for image generation.
+// run returns the paths to saved image files, or an error.
 type imageStrategy struct {
 	match func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool
-	run   func(client.APIClient, *types.GenerateRequest, *imageDispatchCtx) error
+	run   func(client.APIClient, *types.GenerateRequest, *imageDispatchCtx) ([]string, error)
 }
 
 // imageStrategies is the ordered dispatch table for image generation.

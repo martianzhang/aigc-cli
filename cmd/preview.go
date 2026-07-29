@@ -5,9 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -16,49 +14,6 @@ import (
 
 var previewDetail bool
 var previewDescribe string
-
-// previewSavedFiles accumulates file paths saved during image/video generation
-// for use by the --preview flag.
-var previewSavedFiles []string
-
-// previewLatestFiles finds the most recently modified files in the output
-// directory whose names match the given prefix. Used after image/video
-// generation to locate just-saved files for auto-preview.
-func previewLatestFiles(prefix string) []string {
-	entries, err := os.ReadDir(shared.OutputDir)
-	if err != nil {
-		return nil
-	}
-	type entry struct {
-		name string
-		time time.Time
-	}
-	var matched []entry
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasPrefix(e.Name(), prefix) {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-		matched = append(matched, entry{
-			name: filepath.Join(shared.OutputDir, e.Name()),
-			time: info.ModTime(),
-		})
-	}
-	sort.Slice(matched, func(i, j int) bool {
-		return matched[i].time.After(matched[j].time)
-	})
-	if len(matched) > 3 {
-		matched = matched[:3]
-	}
-	var paths []string
-	for _, m := range matched {
-		paths = append(paths, m.name)
-	}
-	return paths
-}
 
 // previewCmd represents the `aigc-cli preview` command.
 var previewCmd = &cobra.Command{

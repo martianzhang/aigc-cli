@@ -20,12 +20,12 @@ import (
 // dedicated Image API (POST /v1/images). Used for GPT Image, DALL-E, and
 // most dedicated image models on OpenRouter. Returns standard OpenAI-compatible
 // response with b64_json images.
-func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
+func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 
 	orResp, err := c.OpenRouterDedicatedImage(req)
 	if err != nil {
-		return fmt.Errorf("OpenRouter image generation failed: %w", err)
+		return nil, fmt.Errorf("OpenRouter image generation failed: %w", err)
 	}
 
 	elapsed := time.Since(start)
@@ -65,16 +65,16 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest,
 	postProcessImages(saved)
 	printUsage(orResp.Usage)
 
-	return nil
+	return saved, nil
 }
 
 // runSyncImage handles OpenAI/OpenRouter-compatible synchronous image generation.
-func runSyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
+func runSyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 
 	syncResp, err := c.ImageGenerateSync(req)
 	if err != nil {
-		return fmt.Errorf("image generation failed: %w", err)
+		return nil, fmt.Errorf("image generation failed: %w", err)
 	}
 
 	elapsed := time.Since(start)
@@ -116,18 +116,18 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispat
 	postProcessImages(saved)
 	printUsage(syncResp.Usage)
 
-	return nil
+	return saved, nil
 }
 
 // runAsyncImage handles APIMart-compatible asynchronous (task-based) image generation.
-func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
+func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
 	resp, err := c.Submit(req)
 	if err != nil {
-		return fmt.Errorf("submission failed: %w", err)
+		return nil, fmt.Errorf("submission failed: %w", err)
 	}
 
 	if len(resp.Data) == 0 {
-		return fmt.Errorf("submission returned no tasks")
+		return nil, fmt.Errorf("submission returned no tasks")
 	}
 
 	task := resp.Data[0]
@@ -139,7 +139,7 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	fmt.Println("Polling for completion...")
 	taskData, err := c.PollTask(task.TaskID)
 	if err != nil {
-		return fmt.Errorf("polling failed: %w", err)
+		return nil, fmt.Errorf("polling failed: %w", err)
 	}
 
 	if shared.Verbose {
@@ -150,8 +150,10 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	fmt.Println()
 	savePromptFile(taskData.ID, req.Prompt)
 
+	var saved []string
 	if taskData.Result != nil && len(taskData.Result.Images) > 0 {
-		if saved, err := downloadImages(taskData.Result.Images, taskData.ID); err != nil {
+		saved, err = downloadImages(taskData.Result.Images, taskData.ID)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
 		} else {
 			postProcessImages(saved)
@@ -160,7 +162,7 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 
 	fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 		taskData.ActualTime, taskData.Cost, taskData.CreditsCost)
-	return nil
+	return saved, nil
 }
 
 // ollamaGenerateResponse is the response from Ollama's /api/generate for image models.
@@ -231,11 +233,11 @@ func ollamaGenerateImages(baseURL string, req *types.GenerateRequest) ([]string,
 }
 
 // runOllamaImage handles image generation via Ollama's native /api/generate endpoint.
-func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
+func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 	saved, err := ollamaGenerateImages(c.BaseURL(), req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Printf("Duration: %.1fs\n", time.Since(start).Seconds())
@@ -243,7 +245,7 @@ func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 		fmt.Printf("Image %d: %s\n", i+1, f)
 	}
 	postProcessImages(saved)
-	return nil
+	return saved, nil
 }
 
 // runAgnesImage handles image generation via the Agnes API.
@@ -251,7 +253,7 @@ func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 //   - image URLs go in extra_body.image (not top-level image_urls)
 //   - response_format must be in extra_body (handled in image.go transform)
 //   - 2.1 Flash supports ratio for tiered sizing (e.g. "2K" + "16:9")
-func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) error {
+func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
 	// Transform ImageURLs into extra_body.image (Agnes requires it nested).
 	if len(req.ImageURLs) > 0 {
 		if req.ExtraBody == nil {
@@ -279,7 +281,7 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	start := time.Now()
 	syncResp, err := c.ImageGenerateSync(req)
 	if err != nil {
-		return fmt.Errorf("agnes image generation failed: %w", err)
+		return nil, fmt.Errorf("agnes image generation failed: %w", err)
 	}
 	elapsed := time.Since(start)
 
@@ -320,7 +322,7 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 
 	postProcessImages(saved)
 	printUsage(syncResp.Usage)
-	return nil
+	return saved, nil
 }
 
 // --- ModelScope async image generation ---
@@ -339,7 +341,7 @@ type modelScopeTaskResponse struct {
 
 // runModelScopeImage handles image generation via ModelScope's async task API.
 // Flow: submit → poll → download.
-func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) error {
+func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 
 	// Strip version suffix from base URL for task polling endpoint.
@@ -361,7 +363,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	bodyBytes, _ := json.Marshal(body)
 	httpReq, err := http.NewRequest("POST", submitURL, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return fmt.Errorf("modelscope: failed to create submit request: %w", err)
+		return nil, fmt.Errorf("modelscope: failed to create submit request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+ctx.modelScopeKey)
@@ -369,7 +371,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 
 	httpResp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
-		return fmt.Errorf("modelscope: submit request failed: %w", err)
+		return nil, fmt.Errorf("modelscope: submit request failed: %w", err)
 	}
 
 	// Read quota headers before consuming body
@@ -382,15 +384,15 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 
 	if httpResp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(httpResp.Body)
-		return fmt.Errorf("modelscope: submit returned HTTP %d: %s", httpResp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("modelscope: submit returned HTTP %d: %s", httpResp.StatusCode, string(respBody))
 	}
 
 	var submitResp modelScopeSubmitResponse
 	if err := json.NewDecoder(httpResp.Body).Decode(&submitResp); err != nil {
-		return fmt.Errorf("modelscope: failed to decode submit response: %w", err)
+		return nil, fmt.Errorf("modelscope: failed to decode submit response: %w", err)
 	}
 	if submitResp.TaskID == "" {
-		return fmt.Errorf("modelscope: submit returned empty task_id")
+		return nil, fmt.Errorf("modelscope: submit returned empty task_id")
 	}
 
 	taskID := submitResp.TaskID
@@ -413,20 +415,20 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 		pollURL := fmt.Sprintf("%s/v1/tasks/%s", baseURL, taskID)
 		pollReq, err := http.NewRequest("GET", pollURL, nil)
 		if err != nil {
-			return fmt.Errorf("modelscope: failed to create poll request: %w", err)
+			return nil, fmt.Errorf("modelscope: failed to create poll request: %w", err)
 		}
 		pollReq.Header.Set("Authorization", "Bearer "+ctx.modelScopeKey)
 		pollReq.Header.Set("X-ModelScope-Task-Type", "image_generation")
 
 		pollResp, err := http.DefaultClient.Do(pollReq)
 		if err != nil {
-			return fmt.Errorf("modelscope: poll request failed: %w", err)
+			return nil, fmt.Errorf("modelscope: poll request failed: %w", err)
 		}
 
 		var tmpResp modelScopeTaskResponse
 		if err := json.NewDecoder(pollResp.Body).Decode(&tmpResp); err != nil {
 			pollResp.Body.Close()
-			return fmt.Errorf("modelscope: failed to decode poll response: %w", err)
+			return nil, fmt.Errorf("modelscope: failed to decode poll response: %w", err)
 		}
 		pollResp.Body.Close()
 
@@ -439,15 +441,15 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 			if errMsg == "" {
 				errMsg = "unknown error"
 			}
-			return fmt.Errorf("modelscope: task %s failed: %s", taskID, errMsg)
+			return nil, fmt.Errorf("modelscope: task %s failed: %s", taskID, errMsg)
 		case "PENDING", "RUNNING":
 			continue
 		default:
-			return fmt.Errorf("modelscope: unexpected task status %q for task %s", tmpResp.TaskStatus, taskID)
+			return nil, fmt.Errorf("modelscope: unexpected task status %q for task %s", tmpResp.TaskStatus, taskID)
 		}
 	}
 
-	return fmt.Errorf("modelscope: task %s timed out after %.0fs", taskID, maxWait.Seconds())
+	return nil, fmt.Errorf("modelscope: task %s timed out after %.0fs", taskID, maxWait.Seconds())
 
 done:
 	// --- Step 3: Download images ---
@@ -475,7 +477,7 @@ done:
 	}
 
 	postProcessImages(saved)
-	return nil
+	return saved, nil
 }
 
 // downloadImages downloads all generated images to the output directory.

@@ -147,10 +147,9 @@ func runVideo(cmd *cobra.Command, args []string) error {
 	}
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {
-			err := s.run(req)
+			saved, err := s.run(req)
 			if err == nil && vidPreview {
-				previewSavedFiles = previewLatestFiles("video_")
-				for _, f := range previewSavedFiles {
+				for _, f := range saved {
 					if e := service.PreviewFile(f); e != nil {
 						fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
 					}
