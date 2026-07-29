@@ -5,11 +5,11 @@
 [![License](https://img.shields.io/github/license/martianzhang/aigc-cli)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/martianzhang/aigc-cli)](https://github.com/martianzhang/aigc-cli/releases)
 
-**One CLI for OpenAI, OpenRouter, and any OpenAI-compatible relay.**
+**Terminal-native AIGC toolkit: multi-provider image/video/audio generation, Midjourney, chat, AIGC forensics, knowledge base, MCP Server.**
 
 > [中文版文档](README_zh.md)
 
-More than just API forwarding — it intelligently adapts to each platform's proprietary APIs, covering image/video/Midjourney/AI chat/prompt ideas, with a built-in MCP Server and Agentic Chat.
+Generate, detect, and manage AI content from the terminal. Supports OpenAI, OpenRouter, Anthropic, Ollama and any compatible relay — with local offline models for AIGC detection, OCR, background removal, and knowledge base.
 
 ---
 
@@ -17,9 +17,21 @@ More than just API forwarding — it intelligently adapts to each platform's pro
 
 | | | |
 |---|---|---|
-| 🤖 | **MCP Server** | Integrate with Claude Desktop, Cursor, etc. Generate images/videos, search idea libraries, query model pricing directly in conversation — no tool switching. |
-| 🔬 | **AIGC Detection Engine** | Offline multi-signal fusion: C2PA Content Credentials, TC260 (GB 45438-2025), SynthID invisible watermark, ONNX model inference, FFT spectrum analysis, SRM noise residuals, JPEG quantization detection. All local, no API Key required. |
-| 🔌 | **Multi-Provider Unified Entry** | Change `base_url` to switch between OpenAI / OpenRouter / any relay — commands stay exactly the same, provider auto-adapts. |
+| 🤖 | **MCP Server** | Built-in MCP Server for Claude Desktop, Cursor, Windsurf. AI agents can generate images/videos, run Midjourney, search KB, detect AIGC, query pricing — all in conversation. |
+| 🔬 | **AIGC Forensics** | Offline multi-signal fusion: C2PA, TC260 (GB 45438-2025), SynthID, ONNX classifier, FFT spectrum, SRM noise, JPEG quantization. Zero API key needed. |
+| 🔌 | **Multi-Protocol** | Not just OpenAI — supports Anthropic Messages API, Ollama, local ONNX models alongside OpenAI-compatible endpoints. |
+| 🧠 | **Provider Auto-Adapt** | Each provider gets the correct API routing automatically (OpenRouter dedicated image/video API, APIMart async tasks, etc.) |
+| 🎨 | **Midjourney Pipeline** | 17 subcommands: imagine → blend → describe → upscale → zoom → inpaint → video → remix. No Discord required. |
+| 💬 | **Agentic Chat** | Interactive REPL with built-in tools: `generate_image`, `generate_video`, `midjourney_*`, `ideas`, `kb_*`, `detect_image`, `recognize_text`. |
+| 🔍 | **Prompt Ideas** | Offline BM25 search (CJK-aware + n-gram + RRF), 10K+ prompt dataset. |
+| 🔊 | **Local TTS / ASR** | sherpa-onnx offline speech (kokoro 53 voices, EN/ZH/JA/KR/FR) and recognition (SenseVoice). No internet. |
+| 🔄 | **Video Job Persistence** | OpenRouter submit → poll → download pipeline. `--job-id` resume after timeout. |
+| 🧪 | **Dry-Run & Curl** | `--dry-run` prints the equivalent curl command for any API call. Learn and debug without cost. |
+| ⚡ | **Go Binary** | `go install` one command. No runtime deps. Cross-platform. |
+| 📚 | **Knowledge Base** | FTS5 + ONNX semantic search, age-encrypted vault, web search auto-import, MCP/Chat tools. |
+| 👁️ | **OCR & Vision** | Offline DBNet+CRNN text recognition. Image captioning via local EXIF or online vision LLM. |
+| 🖼️ | **Background Removal** | RMBG 2.0 semantic segmentation. Pure local ONNX, no API key. |
+
 
 ---
 
@@ -82,7 +94,7 @@ AI agents can generate images, create videos, search idea libraries, query model
 | | Capability | Description |
 |---|---|---|
 | 🤖 | **MCP Server** | Built-in MCP protocol support, works out of the box with Claude Desktop / Cursor / Windsurf / VS Code |
-| 🔬 | **AIGC Detection Engine** | C2PA / TC260 / SynthID / ONNX / FFT / SRM noise / JPEG quantization + visible watermark detection, offline, emoji output |
+| 🔬 | **AIGC Detection Engine** | C2PA / TC260 / SynthID / ONNX / FFT / SRM noise / JPEG quantization, offline, emoji output |
 | 🔌 | **Multi-Provider Unified Entry** | Change one `base_url` to switch providers, commands unchanged |
 | 🧠 | **Provider Auto-Adapt** | OpenRouter automatically routes to dedicated image/video APIs, zero config |
 | 🎨 | **Complete Midjourney Pipeline** | 17 subcommands covering imagine → blend → describe → upscale → zoom → inpaint → video → remix, no Discord needed |
@@ -107,6 +119,7 @@ The same `image` / `video` / `audio` / `models` command automatically uses the c
 | **APIMart** | Async task submit → poll → download | Async task + VEO3 Remix (extend video) | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | Marketplace API + model pricing query |
 | **Yunwu AI** | — | `POST /v1/video/create` + `GET /v1/video/query` | ❌ Not yet available | — |
 | **Ollama / Local** | `POST /v1/images/generations` (experimental, no API Key) | ❌ | Via LocalAI/openedai-speech etc. | `GET /v1/models` |
+| **Anthropic** | — | — | `POST /v1/messages` (via Anthropic-compatible relay) | — |
 | **Generic Relay** | `POST /v1/images/generations` (sync) | — | `POST /v1/audio/speech` (passthrough) | `GET /v1/models` |
 
 > Local models/services don't need an API Key. aigc-cli auto-exempts API Key checks and skips the Authorization header. See [docs/en/installation.md#local-generation](docs/en/installation.md#local-generation).
@@ -140,7 +153,7 @@ aigc-cli
 ├── task       Query async task status (APIMart compatible)
 ├── balance    Query balance (APIMart compatible)
 ├── preview / pr View images / --detail metadata / --describe caption                 →  docs/en/guide-preview.md
-├── detect     Detect watermarks, metadata and AIGC (multi-signal fusion + emoji)     →  docs/en/guide-detect.md
+├── detect     Detect AIGC, metadata and tampering (multi-signal fusion + emoji)     →  docs/en/guide-detect.md
 ├── completion Generate shell completion scripts (bash/zsh/fish/powershell)
 ├── mcp        Start MCP Server (AI agent integration)                                →  docs/en/guide-mcp.md
 │
@@ -235,9 +248,7 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Legal Notice
 
-This software is first and foremost an **AIGC detection and research tool**. It does **not** include any vendor's watermark removal capability. `--remove-watermark` only works on watermarks learned by the user via `--learn-watermark`. Users must ensure their usage complies with applicable laws and regulations.
-
-Users assume all legal responsibility for their use of this software. The software authors assume no legal liability for any user actions.
+Users must ensure their usage complies with applicable laws and regulations. The software authors assume no legal liability for any user actions.
 
 ## License
 

@@ -5,11 +5,11 @@
 [![License](https://img.shields.io/github/license/martianzhang/aigc-cli)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/martianzhang/aigc-cli)](https://github.com/martianzhang/aigc-cli/releases)
 
-**一个 CLI，通吃 OpenAI、OpenRouter 及任意 OpenAI 兼容中转服务。**
+**终端原生 AIGC 工具包：多厂商图片/视频/音频生成、Midjourney、AI 对话、AIGC 取证、知识库、MCP 集成。**
 
 > [English Docs](README.md)
 
-不只是 API 转发——智能适配各平台专有 API，完整覆盖图片/视频/Midjourney/AI 对话/提示词灵感，自带 MCP Server 和 Agentic Chat。
+在终端中生成、检测和管理 AI 内容。支持 OpenAI、OpenRouter、Anthropic、Ollama 及任意兼容中转——同时内置离线本地模型：AIGC 检测、OCR、背景去除、知识库。
 
 ---
 
@@ -17,9 +17,21 @@
 
 | | | |
 |---|---|---|
-| 🤖 | **MCP Server** | 接入 Claude Desktop、Cursor 等 AI 客户端，对话中直接生成图片视频、搜索灵感库、查询模型定价，无需切工具。 |
-| 🔬 | **AIGC 检测引擎** | 离线多信号融合：C2PA Content Credentials、TC260（国标 GB 45438-2025）、SynthID 隐形水印、ONNX 模型推理、FFT 频谱分析、SRM 噪声残差、JPEG 量化检测。全部本地运行，无需 API Key。 |
-| 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 在 OpenAI / OpenRouter / 任意中转之间切换，命令完全不变，Provider 自动适配。 |
+| 🤖 | **MCP Server** | 内置 MCP Server，对接 Claude Desktop、Cursor、Windsurf。AI 代理可直接在对话中生成图片/视频、运行 Midjourney、搜索知识库、检测 AIGC、查询定价。 |
+| 🔬 | **AIGC 取证** | 离线多信号融合：C2PA、TC260（国标 GB 45438-2025）、SynthID、ONNX 分类器、FFT 频谱、SRM 噪声、JPEG 量化。全部本地，无需 API Key。 |
+| 🔌 | **多协议支持** | 不止 OpenAI——同时支持 Anthropic Messages API、Ollama、本地 ONNX 模型和任意 OpenAI 兼容端点。 |
+| 🧠 | **Provider 自动适配** | 每个厂商自动走正确的 API 路由（OpenRouter 专用图片/视频 API、APIMart 异步任务等） |
+| 🎨 | **Midjourney 完整管线** | 17 子命令：imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord。 |
+| 💬 | **Agentic Chat** | 交互式 REPL，内嵌 `generate_image`、`generate_video`、`midjourney_*`、`ideas`、`kb_*`、`detect_image`、`recognize_text` 等工具。 |
+| 🔍 | **提示词灵感** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集。 |
+| 🔊 | **本地 TTS / ASR** | sherpa-onnx 离线语音合成（kokoro 53 种音色，中英日韩法）和语音识别（SenseVoice 中文最佳），无需联网。 |
+| 🔄 | **视频任务持久化** | OpenRouter 提交→轮询→下载全流程，`--job-id` 超时后一键恢复。 |
+| 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，零成本学习和调试。 |
+| ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台。 |
+| 📚 | **本地知识库** | FTS5 + ONNX 语义搜索，age 加密保险箱，web search 自动入库，MCP/Chat 工具集成。 |
+| 👁️ | **OCR & 视觉** | 离线 DBNet+CRNN 文字识别。图片描述支持本地 EXIF 或在线视觉 LLM。 |
+| 🖼️ | **背景去除** | RMBG 2.0 语义分割，纯离线 ONNX，无需 API Key。 |
+
 
 ---
 
@@ -82,7 +94,7 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 | | 能力 | 说明 |
 |---|---|---|
 | 🤖 | **MCP Server** | 内置 MCP 协议支持，Claude Desktop / Cursor / Windsurf / VS Code 开箱即用 |
-| 🔬 | **AIGC 检测引擎** | C2PA / TC260 / SynthID / ONNX / FFT / SRM 噪声 / JPEG 量化 + 可见水印检测，离线运行，emoji 输出 |
+| 🔬 | **AIGC 检测引擎** | C2PA / TC260 / SynthID / ONNX / FFT / SRM 噪声 / JPEG 量化，离线运行，emoji 输出 |
 | 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 切换 Provider，命令不变 |
 | 🧠 | **Provider 自动适配** | OpenRouter 自动走专用图片/视频 API，零配置 |
 | 🎨 | **Midjourney 完整管线** | 17 子命令覆盖 imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord |
@@ -107,6 +119,7 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 | **APIMart** | 异步 Task 提交→轮询→下载 | 异步 Task + VEO3 Remix（延长视频） | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | 市场 API + 模型定价查询 |
 | **云雾 AI** | — | `POST /v1/video/create` + `GET /v1/video/query` | ❌ 暂未发现 | — |
 | **Ollama / 本地模型** | `POST /v1/images/generations`（experimental，无需 API Key） | ❌ | 可通过 LocalAI/openedai-speech 等第三方服务 | `GET /v1/models` |
+| **Anthropic** | — | — | `POST /v1/messages`（通过 Anthropic 兼容中转） | — |
 | **通用中转** | `POST /v1/images/generations`（同步） | — | `POST /v1/audio/speech`（透传） | `GET /v1/models` |
 
 > 本地模型 / 服务无需 API Key，aigc-cli 会自动豁免 API Key 检查并跳过 Authorization 头。详见 [docs/zh/installation.md](docs/zh/zh/installation.md)。
@@ -140,7 +153,7 @@ aigc-cli
 ├── task       查询异步任务状态（兼容 APIMart 异步任务）
 ├── balance    查询余额（兼容 APIMart 余额查询）
 ├── preview / pr 看图 / --detail 元数据 / --describe 写说明                    →  docs/guide-preview.md
-├── detect     检测水印、元数据和 AIGC（多信号融合 + emoji）             →  docs/guide-detect.md
+├── detect     检测 AIGC、元数据和篡改痕迹（多信号融合 + emoji）             →  docs/zh/guide-detect.md
 ├── completion 生成 shell 补全脚本（bash/zsh/fish/powershell）
 ├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/guide-mcp.md
 │
@@ -234,9 +247,7 @@ aigc-cli midjourney (或 mj)
 
 ## 法律声明
 
-本软件首先是一个 **AIGC 检测与研究工具**。**不内置任何厂商的去水印能力**。`--remove-watermark` 仅对用户通过 `--learn-watermark` 自行学习的水印生效。用户应自行确保使用行为符合适用法律法规。
-
-用户应自行承担使用本软件的一切法律责任。软件作者不对用户的任何使用行为承担法律责任。
+用户应自行确保使用行为符合适用法律法规。软件作者不对用户的任何使用行为承担法律责任。
 
 ## License
 
