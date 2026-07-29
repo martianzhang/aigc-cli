@@ -240,9 +240,6 @@ func TestAnalyze_NegativeScoresExcluded(t *testing.T) {
 func TestAnalyze_NilOptions(t *testing.T) {
 	opts := Options{}
 	r := Analyze(opts)
-	if r == nil {
-		t.Fatal("Analyze returned nil")
-	}
 	if r.Emoji == "" {
 		t.Errorf("empty options: expected non-empty emoji, got %q", r.Emoji)
 	}

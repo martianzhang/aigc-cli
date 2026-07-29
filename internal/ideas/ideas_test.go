@@ -252,9 +252,6 @@ func TestBuildBM25Index(t *testing.T) {
 	}
 
 	idx := BuildBM25Index(entries)
-	if idx == nil {
-		t.Fatal("BuildBM25Index returned nil")
-	}
 	if idx.docCount != 2 {
 		t.Fatalf("docCount = %d, want 2", idx.docCount)
 	}
@@ -288,9 +285,6 @@ func TestBuildBM25Index(t *testing.T) {
 
 func TestBuildBM25IndexEmpty(t *testing.T) {
 	idx := BuildBM25Index([]IdeaEntry{})
-	if idx == nil {
-		t.Fatal("BuildBM25Index([]) returned nil")
-	}
 	if idx.docCount != 0 {
 		t.Fatalf("docCount = %d, want 0", idx.docCount)
 	}
