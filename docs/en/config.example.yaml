@@ -1,0 +1,232 @@
+# aigc-cli Configuration
+# Place this file at ~/.config/aigc-cli/config.yaml
+# or pass --config /path/to/config.yaml at runtime
+
+# ── Global Top-Level Config ──
+# Fallback for all commands. When a command doesn't reference a named provider
+# via defaults.{cmd}.provider, these global values are used.
+# If a providers section is defined and a command references a named provider,
+# those values take priority.
+
+# API key (can also be set via OPENAI_API_KEY env var)
+# Optional when using local models (Ollama / LM Studio / localhost)
+api_key: "your-api-key-here"
+
+# API base URL (can also be set via OPENAI_BASE_URL env var)
+# ── Uncomment per provider ──
+# OpenAI:    https://api.openai.com/v1
+# OpenRouter: https://openrouter.ai/api/v1
+# APIMart:    https://api.apimart.ai
+# Ollama:    http://localhost:11434 (no API Key needed)
+# Any relay: https://your-relay.com/v1
+base_url: "https://api.apimart.ai"
+
+# HTTP proxy (can also be set via HTTP_PROXY / HTTPS_PROXY env vars, or --http-proxy CLI flag)
+# http_proxy: "http://127.0.0.1:7890"
+
+# Verbose output: show full result JSON (can also use --verbose / -v CLI flag)
+# verbose: true
+
+# Output directory for downloaded files (default: current directory ".")
+# Can also use --output CLI flag
+# output_dir: "./downloads"
+
+# OpenRouter app attribution (optional)
+# Set via env vars: OPENAI_REFERER="https://your-site.com" OPENAI_APP_TITLE="Your App"
+
+# Global timeout in seconds for HTTP requests (default: 180s).
+# Modality-specific timeout overrides this if set.
+# timeout: 300
+
+# ── Tool Filtering (MCP / Chat mode) ──
+# Glob patterns (* matches any name):
+#   tools_enable  — Allowlist mode, only listed tools are enabled (empty = all allowed)
+#   tools_disable — Blocklist mode, disable listed tools (applied on top of allowlist)
+# When both are set, enable filter runs first, then disable exclusion.
+
+# Scenario A: Allowlist — only free/offline tools (local ONNX / BM25)
+# tools_enable:
+#   - "search_ideas"       # Local BM25 idea search (MCP + Chat)
+#   - "detect_image"       # Offline AIGC detection
+#   - "remove_watermark"   # Offline watermark removal
+#   - "add_watermark"      # Offline watermark addition
+#   - "remove_background"  # Offline background removal
+#   - "recognize_text"     # Offline text recognition
+#   - "caption_image"      # Local EXIF description read/write
+
+# Scenario B: Blocklist — only disable paid generation tools
+# tools_disable:
+#   - "generate_image"     # Image generation
+#   - "generate_video"     # Video generation
+#   - "generate_speech"    # TTS speech synthesis
+#   - "transcribe_audio"   # STT speech recognition
+#   - "midjourney_*"       # Midjourney suite (imagine/describe/reroll/video etc.)
+
+# ── Named Providers ──
+# Define reusable API accounts/endpoints. Names are user-defined.
+# Referenced via defaults.{cmd}.provider.
+#
+# The type field specifies the protocol (default: openai):
+#   openai    — OpenAI-compatible protocol (OpenAI, OpenRouter, APIMart, any relay)
+#   ollama    — Ollama local (OpenAI subset, no API Key needed)
+#   google    — Google Gemini API (reserved)
+#   anthropic — Anthropic Messages API (via OpenRouter or other Anthropic-compatible relays)
+#   local     — Local ONNX models (OCR / Vision / Detect / Background)
+#
+# Unconfigured fields inherit global top-level values (api_key / base_url / http_proxy).
+providers:
+  # Example: OpenRouter dedicated account
+  # openrouter:
+  #   type: openai
+  #   api_key: "sk-or-xxx"
+  #   base_url: "https://openrouter.ai/api/v1"
+
+  # Example: Ollama local model
+  # ollama:
+  #   type: ollama
+  #   base_url: "http://localhost:11434/v1"
+
+  # Example: Anthropic protocol via OpenRouter
+  # openrouter-anthropic:
+  #   type: anthropic
+  #   api_key: "sk-or-xxx"
+  #   base_url: "https://openrouter.ai/api/v1"
+
+  # Example: Local ONNX model directory
+  # local:
+  #   type: local
+  #   models_dir: "~/.config/aigc-cli/models"
+
+# ── Command Defaults ──
+# Commented-out values use built-in defaults.
+# Uncomment only what you want to override.
+# Global --model flag overrides per-modality defaults.
+defaults:
+  # ── Each command can reference a named provider via the provider field ──
+  # Leave empty to use global api_key/base_url.
+  # Set to "local" for built-in ONNX models (no definition needed).
+  #
+  # Example: all commands share one account
+  # image:
+  #   provider: "main-account"
+  #   model: "dall-e-3"
+  # video:
+  #   provider: "main-account"
+  # audio:
+  #   provider: "main-account"
+  # chat:
+  #   provider: "main-account"
+  #   model: "gpt-4o"
+
+  # ── APIMart Recommended Config (default, no named provider used) ──
+  image:
+    model: "gpt-image-2-official"
+    size: "3:1"
+    resolution: "1k"
+    quality: "low"
+    output_format: "png"
+
+  video:
+    model: "doubao-seedance-2.0"
+
+  audio:
+    speak_model: "gpt-4o-mini-tts"
+    transcribe_model: "whisper-tiny"
+
+  midjourney:
+    speed: "fast"
+    version: "6.1"
+
+  chat:
+    model: "deepseek-v4-flash"
+
+  # ── Optional: offline commands with online LLM ──
+  # Setting a provider routes to online API; unset uses local ONNX.
+  # ocr:
+  #   provider: "my-openrouter"
+  #   model: "gpt-4o"
+  # vision:
+  #   provider: "my-openrouter"
+  #   model: "gpt-4o-vision"
+  # detect:
+  #   provider: "my-apimart"
+  # background:
+  #   provider: "my-apimart"
+
+  # ── Optional: Knowledge Base (knowledgebase) ──
+  # knowledgebase:
+  #   base_dir: "~/.config/aigc-cli/knowledge"   # KB storage path
+  #   search_provider: duckduckgo                 # kb search engine: duckduckgo / firecrawl / brave / doubao
+  #   auto_save: true                             # Auto-save kb search results to KB (default: true)
+  #   min_score: 0.8                              # Minimum similarity for vector search (default 0.8, 0 to disable)
+
+  # ── Optional: Web Search Providers ──
+  # Declare multiple providers for kb search auto-fallback.
+  # Also supports --provider flag for temporary switching.
+  # web_search:
+  #   duckduckgo:
+  #     type: duckduckgo
+  #     tags: [free]
+  #     quota: 50
+  #     period: hourly
+  #   firecrawl:
+  #     type: firecrawl
+  #     api_key: "fc-xxx"
+  #     tags: [free, quality]
+  #     quota: 1000
+  #     period: monthly
+  #   doubao:
+  #     type: doubao
+  #     api_key: "your-doubao-api-key"
+
+  # ── Optional: Force local ONNX (no provider config needed) ──
+  # Just run: aigc-cli ocr scan x.png --provider local
+
+# ── Typical Configuration Scenarios ──
+
+# Scenario A: Multiple commands share one account
+# providers:
+#   main:
+#     api_key: "sk-xxx"
+#     base_url: "https://api.apimart.ai"
+# defaults:
+#   image:
+#     provider: "main"
+#   video:
+#     provider: "main"
+#   audio:
+#     provider: "main"
+
+# Scenario B: Different vendors
+# providers:
+#   or:
+#     type: openai
+#     api_key: "sk-or-xxx"
+#     base_url: "https://openrouter.ai/api/v1"
+#   local:
+#     type: ollama
+#     base_url: "http://localhost:11434/v1"
+# defaults:
+#   image:
+#     provider: "or"
+#     model: "openai/gpt-image-2"
+#   chat:
+#     provider: "local"
+#   audio:
+#     provider: "or"
+
+# Scenario C: Offline commands use local, online commands use cloud
+# providers:
+#   online:
+#     api_key: "sk-xxx"
+#     base_url: "https://api.apimart.ai"
+# defaults:
+#   chat:
+#     provider: "online"
+#   ocr:                          # No provider → local ONNX
+#   vision:                       # Same as above
+
+# Scenario D: Backward compatible (no providers section at all)
+# api_key: "sk-xxx"
+# base_url: "https://api.apimart.ai"
+# Behavior is identical to v1.x

@@ -5,49 +5,51 @@
 [![License](https://img.shields.io/github/license/martianzhang/aigc-cli)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/martianzhang/aigc-cli)](https://github.com/martianzhang/aigc-cli/releases)
 
-**一个 CLI，通吃 OpenAI、OpenRouter 及任意 OpenAI 兼容中转服务。**
+**One CLI for OpenAI, OpenRouter, and any OpenAI-compatible relay.**
 
-不只是 API 转发——智能适配各平台专有 API，完整覆盖图片/视频/Midjourney/AI 对话/提示词灵感，自带 MCP Server 和 Agentic Chat。
+> [中文版文档](README_zh.md)
+
+More than just API forwarding — it intelligently adapts to each platform's proprietary APIs, covering image/video/Midjourney/AI chat/prompt ideas, with a built-in MCP Server and Agentic Chat.
 
 ---
 
-## 为什么选 aigc-cli？
+## Why aigc-cli?
 
 | | | |
 |---|---|---|
-| 🤖 | **MCP Server** | 接入 Claude Desktop、Cursor 等 AI 客户端，对话中直接生成图片视频、搜索灵感库、查询模型定价，无需切工具。 |
-| 🔬 | **AIGC 检测引擎** | 离线多信号融合：C2PA Content Credentials、TC260（国标 GB 45438-2025）、SynthID 隐形水印、ONNX 模型推理、FFT 频谱分析、SRM 噪声残差、JPEG 量化检测。全部本地运行，无需 API Key。 |
-| 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 在 OpenAI / OpenRouter / 任意中转之间切换，命令完全不变，Provider 自动适配。 |
+| 🤖 | **MCP Server** | Integrate with Claude Desktop, Cursor, etc. Generate images/videos, search idea libraries, query model pricing directly in conversation — no tool switching. |
+| 🔬 | **AIGC Detection Engine** | Offline multi-signal fusion: C2PA Content Credentials, TC260 (GB 45438-2025), SynthID invisible watermark, ONNX model inference, FFT spectrum analysis, SRM noise residuals, JPEG quantization detection. All local, no API Key required. |
+| 🔌 | **Multi-Provider Unified Entry** | Change `base_url` to switch between OpenAI / OpenRouter / any relay — commands stay exactly the same, provider auto-adapts. |
 
 ---
 
-## 快速开始
+## Quick Start
 
-### 安装
+### Installation
 
-从 [Releases 页面](https://github.com/martianzhang/aigc-cli/releases) 下载对应平台的二进制文件。
+Download the binary for your platform from the [Releases page](https://github.com/martianzhang/aigc-cli/releases).
 
-### 使用 OpenAI
+### Using OpenAI
 
 ```bash
 export OPENAI_API_KEY="sk-xxx"
 
-aigc-cli image --prompt "一只猫在星空下"
-aigc-cli chat --message "你是谁？"
+aigc-cli image --prompt "a cat under the stars"
+aigc-cli chat --message "Hello, who are you?"
 ```
 
-### 使用 OpenRouter（改环境变量，命令不用动）
+### Using OpenRouter (change env vars, commands stay the same)
 
 ```bash
 export OPENAI_API_KEY="sk-or-xxx"
 export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
 
 aigc-cli image --model "openai/gpt-image-2" --prompt "a cat"
-aigc-cli video --model "google/veo-3.1" --prompt "a dog running"     # 自动走专用视频 API
-aigc-cli models --type image                                           # 免认证模型发现
+aigc-cli video --model "google/veo-3.1" --prompt "a dog running"     # auto-routes to dedicated video API
+aigc-cli models --type image                                           # authentication-free model discovery
 ```
 
-### 使用任意 OpenAI 兼容中转
+### Using any OpenAI-Compatible Relay
 
 ```bash
 export OPENAI_API_KEY="sk-xxx"
@@ -56,9 +58,9 @@ export OPENAI_BASE_URL="https://your-relay.com/v1"
 aigc-cli chat --message "Hello"
 ```
 
-### MCP 集成（推荐）
+### MCP Integration (Recommended)
 
-在 Claude Desktop / Cursor / Windsurf 的 MCP 配置中添加：
+Add to your MCP config in Claude Desktop / Cursor / Windsurf:
 
 ```json
 {
@@ -71,90 +73,90 @@ aigc-cli chat --message "Hello"
 }
 ```
 
-AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库、查询模型定价、检测 AIGC。详见 [docs/guide-mcp.md](docs/guide-mcp.md)。
+AI agents can generate images, create videos, search idea libraries, query model pricing, and detect AIGC directly in conversation. See [docs/en/guide-mcp.md](docs/en/guide-mcp.md).
 
 ---
 
-## 功能一览
+## Feature Overview
 
-| | 能力 | 说明 |
+| | Capability | Description |
 |---|---|---|
-| 🤖 | **MCP Server** | 内置 MCP 协议支持，Claude Desktop / Cursor / Windsurf / VS Code 开箱即用 |
-| 🔬 | **AIGC 检测引擎** | C2PA / TC260 / SynthID / ONNX / FFT / SRM 噪声 / JPEG 量化 + 可见水印检测，离线运行，emoji 输出 |
-| 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 切换 Provider，命令不变 |
-| 🧠 | **Provider 自动适配** | OpenRouter 自动走专用图片/视频 API，零配置 |
-| 🎨 | **Midjourney 完整管线** | 17 子命令覆盖 imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord |
-| 💬 | **Agentic Chat** | 交互式 REPL 内嵌 `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` 等工具 |
-| 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集 |
-| 🔊 | **本地 TTS / ASR** | sherpa-onnx 离线语音合成（kokoro 53 种音色，中英日韩法）和语音识别（SenseVoice 中文最佳），无需联网 |
-| 🔄 | **视频任务持久化** | OpenRouter 提交→轮询→下载全流程，超时后 `--job-id` 一键恢复 |
-| 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
-| ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台 |
-| 📚 | **本地知识库** | FTS5 + ONNX 语义搜索，age 加密保险箱，web search 自动入库，MCP/Chat 工具集成 |
+| 🤖 | **MCP Server** | Built-in MCP protocol support, works out of the box with Claude Desktop / Cursor / Windsurf / VS Code |
+| 🔬 | **AIGC Detection Engine** | C2PA / TC260 / SynthID / ONNX / FFT / SRM noise / JPEG quantization + visible watermark detection, offline, emoji output |
+| 🔌 | **Multi-Provider Unified Entry** | Change one `base_url` to switch providers, commands unchanged |
+| 🧠 | **Provider Auto-Adapt** | OpenRouter automatically routes to dedicated image/video APIs, zero config |
+| 🎨 | **Complete Midjourney Pipeline** | 17 subcommands covering imagine → blend → describe → upscale → zoom → inpaint → video → remix, no Discord needed |
+| 💬 | **Agentic Chat** | Interactive REPL with built-in `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` tools |
+| 🔍 | **Prompt Idea Library** | Offline BM25 search engine (CJK-aware + n-gram + RRF), 10K+ prompt dataset |
+| 🔊 | **Local TTS / ASR** | sherpa-onnx offline speech synthesis (kokoro, 53 voices, EN/ZH/JA/KR/FR) and speech recognition (SenseVoice, best for Chinese), no internet needed |
+| 🔄 | **Video Job Persistence** | OpenRouter submit → poll → download full pipeline, `--job-id` one-key resume after timeout |
+| 🧪 | **Dry-Run & Curl** | `--dry-run` prints equivalent curl commands, zero-friction API learning and debugging |
+| ⚡ | **Go Single Binary** | `go install` one-command install, no runtime dependencies, cross-platform |
+| 📚 | **Local Knowledge Base** | FTS5 + ONNX semantic search, age-encrypted vault, web search auto-import, MCP/Chat tool integration |
 
 ---
 
-## Provider 自动适配
+## Provider Auto-Adaptation
 
-同样的 `image` / `video` / `audio` / `models` 命令，背后走的 API 路径根据 Provider 自动切换：
+The same `image` / `video` / `audio` / `models` command automatically uses the correct API path based on the provider:
 
 | Provider | Image | Video | Audio | Models |
 |---|---|---|---|---|
-| **OpenAI** | `POST /v1/images/generations`（同步） | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `GET /v1/models` |
-| **OpenRouter** | `POST /api/v1/images`（专用图片 API） | `POST /api/v1/videos` 异步→轮询→下载 + `--job-id` 恢复 | `POST /api/v1/audio/speech` + `POST /api/v1/audio/transcriptions`（10+ TTS 模型聚合） | `GET /api/v1/images/models` / `GET /api/v1/videos/models`（免认证） |
-| **APIMart** | 异步 Task 提交→轮询→下载 | 异步 Task + VEO3 Remix（延长视频） | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | 市场 API + 模型定价查询 |
-| **云雾 AI** | — | `POST /v1/video/create` + `GET /v1/video/query` | ❌ 暂未发现 | — |
-| **Ollama / 本地模型** | `POST /v1/images/generations`（experimental，无需 API Key） | ❌ | 可通过 LocalAI/openedai-speech 等第三方服务 | `GET /v1/models` |
-| **通用中转** | `POST /v1/images/generations`（同步） | — | `POST /v1/audio/speech`（透传） | `GET /v1/models` |
+| **OpenAI** | `POST /v1/images/generations` (sync) | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `GET /v1/models` |
+| **OpenRouter** | `POST /api/v1/images` (dedicated image API) | `POST /api/v1/videos` async → poll → download + `--job-id` resume | `POST /api/v1/audio/speech` + `POST /api/v1/audio/transcriptions` (10+ TTS model aggregation) | `GET /api/v1/images/models` / `GET /api/v1/videos/models` (auth-free) |
+| **APIMart** | Async task submit → poll → download | Async task + VEO3 Remix (extend video) | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | Marketplace API + model pricing query |
+| **Yunwu AI** | — | `POST /v1/video/create` + `GET /v1/video/query` | ❌ Not yet available | — |
+| **Ollama / Local** | `POST /v1/images/generations` (experimental, no API Key) | ❌ | Via LocalAI/openedai-speech etc. | `GET /v1/models` |
+| **Generic Relay** | `POST /v1/images/generations` (sync) | — | `POST /v1/audio/speech` (passthrough) | `GET /v1/models` |
 
-> 本地模型 / 服务无需 API Key，aigc-cli 会自动豁免 API Key 检查并跳过 Authorization 头。详见 [docs/installation.md#本地生成](docs/installation.md#本地生成)。
+> Local models/services don't need an API Key. aigc-cli auto-exempts API Key checks and skips the Authorization header. See [docs/en/installation.md#local-generation](docs/en/installation.md#local-generation).
 
-检测逻辑：根据 `base_url` 自动识别，也可用 `--mode sync` / `--mode async` 手动指定。
-各命令可通过 `providers` 配置独立厂商，见 [docs/config.example.yaml](docs/config.example.yaml)。
+Detection logic: auto-identifies by `base_url`, or manually specify with `--mode sync` / `--mode async`.
+Each command can use a different provider via the `providers` config, see [docs/en/config.example.yaml](docs/en/config.example.yaml).
 
 ---
 
-## 命令
+## Commands
 
 ```
 aigc-cli
-├── image / img   图片生成（同步/异步/OpenRouter 专用 API / Grok Edit）    →  docs/guide-image.md
-├── video / vid   视频生成（OpenRouter / 云雾 + VEO3 Remix）               →  docs/guide-video.md
-├── audio / voice 音频：文字转语音（TTS）和语音转文字（STT）              →  docs/guide-audio.md
-│   ├── tts / speak  文字→语音（云端 API 或本地 sherpa-onnx 离线合成）
-│   ├── asr / stt    语音→文字（云端 API 或本地 sherpa-onnx 离线识别）
-│   └── init         下载本地模型（kokoro / sense-voice 等 12 种）
-├── ocr            离线文字识别（DBNet + CRNN，ONNX 本地推理）            →  docs/guide-ocr.md
-│   ├── init        下载 OCR 模型
-│   └── scan        识别图片中的文字
-├── background / bg  AI 背景去除（基于 RMBG 2.0 语义分割，纯离线 ONNX 推理）  →  docs/guide-background.md
-├── midjourney / mj                                                       →  docs/guide-midjourney.md
-│   └── mj     别名，同上
-├── chat       AI 对话 / 交互式 REPL / Agent Loop（工具调用）              →  docs/guide-chat.md
-├── ideas / idea 提示词灵感搜索（关键词 / 随机，默认不加参数随机一条）    →  docs/guide-ideas.md
-├── knowledgebase / kb  本地知识库（FTS5 + 语义搜索 + ONNX embedding）    →  docs/guide-knowledgebase.md
-├── models / model                                                          →  docs/guide-model.md
-│   └── --price    查看模型定价
-├── task       查询异步任务状态（兼容 APIMart 异步任务）
-├── balance    查询余额（兼容 APIMart 余额查询）
-├── preview / pr 看图 / --detail 元数据 / --describe 写说明                    →  docs/guide-preview.md
-├── detect     检测水印、元数据和 AIGC（多信号融合 + emoji）             →  docs/guide-detect.md
-├── completion 生成 shell 补全脚本（bash/zsh/fish/powershell）
-├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/guide-mcp.md
+├── image / img   Image generation (sync/async/OpenRouter dedicated API/Grok Edit)  →  docs/en/guide-image.md
+├── video / vid   Video generation (OpenRouter / Yunwu + VEO3 Remix)                →  docs/en/guide-video.md
+├── audio / voice Audio: TTS and STT                                                →  docs/en/guide-audio.md
+│   ├── tts / speak  Text-to-speech (cloud API or local sherpa-onnx offline)
+│   ├── asr / stt    Speech-to-text (cloud API or local sherpa-onnx offline)
+│   └── init         Download local models (kokoro, sense-voice, etc.)
+├── ocr            Offline text recognition (DBNet + CRNN, ONNX local inference)     →  docs/en/guide-ocr.md
+│   ├── init        Download OCR models
+│   └── scan        Recognize text in images
+├── background / bg AI background removal (RMBG 2.0 semantic segmentation, offline ONNX)  →  docs/en/guide-background.md
+├── midjourney / mj                                                                  →  docs/en/guide-midjourney.md
+│   └── mj     Alias for midjourney
+├── chat      AI chat / Interactive REPL / Agent Loop (tool calling)                  →  docs/en/guide-chat.md
+├── ideas / idea  Prompt idea search (keyword / random, defaults to random)           →  docs/en/guide-ideas.md
+├── knowledgebase / kb  Local knowledge base (FTS5 + semantic search + ONNX embedding) →  docs/en/guide-knowledgebase.md
+├── models / model                                                                    →  docs/en/guide-commands.md
+│   └── --price    View model pricing
+├── task       Query async task status (APIMart compatible)
+├── balance    Query balance (APIMart compatible)
+├── preview / pr View images / --detail metadata / --describe caption                 →  docs/en/guide-preview.md
+├── detect     Detect watermarks, metadata and AIGC (multi-signal fusion + emoji)     →  docs/en/guide-detect.md
+├── completion Generate shell completion scripts (bash/zsh/fish/powershell)
+├── mcp        Start MCP Server (AI agent integration)                                →  docs/en/guide-mcp.md
 │
-│   # 全局标志
-│   --dry-run      打印请求参数和等价 curl，不调用 API
-│   --print-config 打印当前生效的配置（含来源标注）
-│   -v/--verbose   显示详细输出：完整 JSON、Token 用量、耗时、费用
-│   --json         以 JSON 格式传入请求（文件、字符串或 stdin）
-│   --preview      生成完成后自动打开系统预览
-│   --save-prompt  将提示词保存为 .md 文件
-│   --http-proxy   指定 HTTP 代理
+│   # Global flags
+│   --dry-run      Print request params and equivalent curl, no API call
+│   --print-config Print effective config with source annotations
+│   -v/--verbose   Show detailed output: full JSON, token usage, timing, cost
+│   --json         Pass request as JSON (file, string, or stdin)
+│   --preview      Open system preview after generation
+│   --save-prompt  Save prompt as .md file
+│   --http-proxy   Specify HTTP proxy
 ```
 
-### 启用 Tab 补全
+### Enable Tab Completion
 
-安装后，在 shell rc 文件中加入以下一行即可启用命令和参数补全：
+After installation, add one of the following lines to your shell rc file:
 
 ```bash
 # Bash
@@ -167,83 +169,76 @@ echo 'source <(aigc-cli completion zsh)' >> ~/.zshrc
 aigc-cli completion fish > ~/.config/fish/completions/aigc-cli.fish
 ```
 
-重新加载 shell 后，输入 `aigc-cli im+Tab` 会自动补全为 `aigc-cli image`。
+After reloading your shell, typing `aigc-cli im+Tab` will auto-complete to `aigc-cli image`.
 
 ---
 
-### Midjourney 子命令一览
+### Midjourney Subcommands
 
 ```
-aigc-cli midjourney (或 mj)
-├── imagine       文生图 / 图生图（默认入口）
-├── blend         多图融合（2-4 张）
-├── describe      图转文（反向提示词）
-├── edits         图片编辑（重写整图）
-├── upscale       放大单张（U1-U4）
-├── variation     微变体（V1-V4）
-├── high-variation 强变体
-├── low-variation  弱变体
-├── reroll        重新生成网格
-├── zoom          拉远 / 外绘
-├── pan           平移（左/右/上/下）
-├── inpaint       局部重绘入口（→ modal）
-├── modal         提交蒙版 + 提示词完成重绘
-├── video         图生视频
-├── remix-strong  强重塑（v8/v8.1）
-├── remix-subtle  弱重塑（v8/v8.1）
-└── query         查询任务状态
+aigc-cli midjourney (or mj)
+├── imagine       Text-to-image / Image-to-image (default entry)
+├── blend         Multi-image blend (2-4 images)
+├── describe      Image-to-text (reverse prompt)
+├── edits         Image editing (rewrite entire image)
+├── upscale       Upscale single image (U1-U4)
+├── variation     Mild variation (V1-V4)
+├── high-variation  Strong variation
+├── low-variation   Weak variation
+├── reroll        Regenerate grid
+├── zoom          Zoom out / out-paint
+├── pan           Pan (left/right/up/down)
+├── inpaint       Local repaint entry (→ modal)
+├── modal         Submit mask + prompt to complete repaint
+├── video         Image-to-video
+├── remix-strong  Strong remix (v8/v8.1)
+├── remix-subtle  Weak remix (v8/v8.1)
+└── query         Query task status
 ```
 
 ---
 
-## 文档
+## Documentation
 
-| 文档 | 内容 |
+| Document | Content |
 |---|---|
-| [安装与配置](docs/installation.md) | 安装、API Key、配置文件、代理 |
-| [图片生成](docs/guide-image.md) | 全部参数、同步/异步模式、图生图、Inpainting |
-| [视频生成](docs/guide-video.md) | 全部参数、首尾帧、参考视频（APIMart） |
-| [Midjourney 生成](docs/guide-midjourney.md) | 17 个子命令完整说明：imagine、blend、upscale 等 |
-| [AI 对话](docs/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
-| [AIGC 检测](docs/guide-detect.md) | 多信号融合、ONNX 模型、FFT 频谱、emoji 输出 |
-| [提示词灵感](docs/guide-ideas.md) | 离线 BM25 搜索引擎，万级提示词数据集 |
-| [知识库](docs/guide-knowledgebase.md) | 本地知识库：FTS5 + 语义搜索、保险箱、web search |
-| [其他命令](docs/guide-commands.md) | models、task、balance、dry-run、API 参考 |
-| [API 参考来源](docs/api-reference.md) | 各 Provider 接口规范来源、检测机制、策略路由 |
-| [常见问题](docs/faq.md) | 安装、使用、MCP、费用等常见问题解答 |
-| [MCP 集成](docs/guide-mcp.md) | AI 代理（Claude/Cursor）集成指南 |
+| [Installation & Configuration](docs/en/installation.md) | Install, API Key, config file, proxy |
+| [Image Generation](docs/en/guide-image.md) | All parameters, sync/async modes, image-to-image, Inpainting |
+| [Video Generation](docs/en/guide-video.md) | All parameters, first/last frame, reference video (APIMart) |
+| [Midjourney](docs/en/guide-midjourney.md) | 17 subcommands complete guide: imagine, blend, upscale etc. |
+| [AI Chat](docs/en/guide-chat.md) | Interactive multi-turn REPL, streaming, verbose stats |
+| [AIGC Detection](docs/en/guide-detect.md) | Multi-signal fusion, ONNX models, FFT spectrum, emoji output |
+| [Prompt Ideas](docs/en/guide-ideas.md) | Offline BM25 search engine, 10K+ prompt dataset |
+| [Knowledge Base](docs/en/guide-knowledgebase.md) | Local KB: FTS5 + semantic search, vault, web search |
+| [Other Commands](docs/en/guide-commands.md) | models, task, balance, dry-run, API reference |
+| [API Reference](docs/en/api-reference.md) | Provider API specification sources, detection, strategy routing |
+| [FAQ](docs/en/faq.md) | Install, usage, MCP, pricing FAQs |
+| [MCP Integration](docs/en/guide-mcp.md) | AI agent (Claude/Cursor) integration guide |
+| [Configuration Example](docs/en/config.example.yaml) | Full config file reference |
 
 ---
 
-## 优先级规则
+## Priority Rules
 
-**CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值**
+**CLI flags > JSON input > YAML config > Code defaults**
 
-代理优先级：
-**`--http-proxy` 参数 > `HTTP_PROXY` / `HTTPS_PROXY` 标准环境变量**
-
----
-
-## 贡献
-
-欢迎贡献！详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+Proxy priority:
+**`--http-proxy` flag > `HTTP_PROXY` / `HTTPS_PROXY` standard env vars**
 
 ---
 
-## 法律声明
+## Contributing
 
-本软件首先是一个 **AIGC 检测与研究工具**。**不内置任何厂商的去水印能力**。`--remove-watermark` 仅对用户通过 `--learn-watermark` 自行学习的水印生效。用户应自行确保使用行为符合适用法律法规。
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-用户应自行承担使用本软件的一切法律责任。软件作者不对用户的任何使用行为承担法律责任。
+---
+
+## Legal Notice
+
+This software is first and foremost an **AIGC detection and research tool**. It does **not** include any vendor's watermark removal capability. `--remove-watermark` only works on watermarks learned by the user via `--learn-watermark`. Users must ensure their usage complies with applicable laws and regulations.
+
+Users assume all legal responsibility for their use of this software. The software authors assume no legal liability for any user actions.
 
 ## License
 
 [MIT](LICENSE)
-
-<div align="center">
-
-<img src="wechat.jpg" width="400" alt="没有那多" />
-
-**欢迎关注微信公众号"没有那多"，分享更多好用、好玩的工具**
-
-</div>
