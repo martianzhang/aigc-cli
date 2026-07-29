@@ -177,9 +177,6 @@ func TestStore_SaveAndGetDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	if got == nil {
-		t.Fatal("expected document, got nil")
-	}
 	if got.Title != "Test Doc" {
 		t.Errorf("expected 'Test Doc', got %q", got.Title)
 	}

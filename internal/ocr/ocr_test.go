@@ -223,9 +223,6 @@ func TestMinAreaRect_fourCorners(t *testing.T) {
 		{0, 0}, {10, 0}, {10, 10}, {0, 10},
 	}
 	box := minAreaRect(pts)
-	if box == nil {
-		t.Fatal("minAreaRect returned nil")
-	}
 	// Should be axis-aligned: min (0,0) to max (10,10)
 	if box[0][0] != 0 || box[0][1] != 0 {
 		t.Errorf("top-left = %v, want [0,0]", box[0])

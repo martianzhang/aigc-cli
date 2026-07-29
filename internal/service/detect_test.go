@@ -275,9 +275,6 @@ func TestInferSynthID(t *testing.T) {
 				}
 				return
 			}
-			if result == nil {
-				t.Fatal("inferSynthID(...) = nil, want non-nil")
-			}
 			if result.Present != tt.wantPres {
 				t.Errorf("result.Present = %v, want %v", result.Present, tt.wantPres)
 			}
