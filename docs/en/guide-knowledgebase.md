@@ -35,32 +35,65 @@ Uses FTS5 full-text search and ONNX semantic search (E5 multilingual embedding).
 
 ## Web Search
 
-`kb search` supports multiple web search providers configured via `web_search` in config.yaml:
+`kb search` supports multiple web search providers with failover and weight-based routing.
+
+### Configuration
+
+`duckduckgo` is built-in and always available (no API key needed). Add other providers as needed:
 
 ```yaml
+defaults:
+  knowledgebase:
+    search_provider: auto  # auto (default), quality, cheap, or provider name
+
 web_search:
-  duckduckgo:
-    type: duckduckgo    # Zero config, free
-  brave:
-    type: brave
-    api_key: "BSA-xxx"
-  firecrawl:
-    type: firecrawl
-    api_key: "fc-xxx"
   doubao:
     type: doubao
-    api_key: "your-doubao-api-key"   # Volcengine Doubao search
+    api_key: "xxx"
+    tags: [quality]
+    weight: 3          # Higher weight = more likely to be selected
+    quota: 100         # Max requests per period
+    period: daily      # hourly / daily / monthly
+
+  firecrawl:
+    type: firecrawl
+    api_key: "xxx"
+    tags: [quality]
+    weight: 2
 ```
 
+### Provider Selection Strategies
+
+| Strategy | Behavior |
+|----------|----------|
+| `auto` (default) | Free providers first, then quality providers |
+| `quality` | Only quality-tagged providers |
+| `cheap` | Only free-tagged providers |
+| `doubao` (specific name) | Use this provider only, with failover to others |
+
+### Usage
+
 ```bash
-# Use default provider
+# Default: auto strategy
 aigc-cli kb search "query"
 
-# Use specific provider
+# Use only free providers
+aigc-cli kb search "query" --provider free
+
+# Use only quality providers
+aigc-cli kb search "query" --provider quality
+
+# Use specific provider (with failover to others)
 aigc-cli kb search "query" --provider doubao
+
+# Also search local KB
+aigc-cli kb search "query" --local
 
 # Don't save to KB
 aigc-cli kb search "query" --auto-save=false
+
+# Verbose: show which provider was used
+aigc-cli kb search "query" -v
 ```
 
 ## Document Organization

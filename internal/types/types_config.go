@@ -136,7 +136,8 @@ type WebSearchProvider struct {
 	APIKey string   `mapstructure:"api_key" yaml:"api_key,omitempty"`
 	Tags   []string `mapstructure:"tags" yaml:"tags,omitempty"`
 	Quota  int      `mapstructure:"quota" yaml:"quota,omitempty"`
-	Period string   `mapstructure:"period" yaml:"period,omitempty"` // hourly / daily / monthly
+	Period string   `mapstructure:"period" yaml:"period,omitempty"`
+	Weight int      `mapstructure:"weight" yaml:"weight,omitempty"`
 }
 
 // OCRDefaults holds default values for OCR scanning.

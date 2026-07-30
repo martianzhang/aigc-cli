@@ -64,7 +64,7 @@ var kbListCmd = &cobra.Command{
 
 		rows := []tblRow{{cells: []string{"ID", "Title", "Source", "Added", "Size"}}}
 		for _, d := range docs {
-			added := d.CreatedAt.Format("2006-01-02")
+			added := d.CreatedAt.Format("2006-01-02 15:04")
 			if d.CreatedAt.IsZero() {
 				added = "-"
 			}

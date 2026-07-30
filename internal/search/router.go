@@ -4,6 +4,7 @@ package search
 
 import (
 	"fmt"
+	"math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -25,11 +26,12 @@ type Result struct {
 
 // ProviderInfo holds configuration for a registered provider.
 type ProviderInfo struct {
-	Type   string   // "duckduckgo", "firecrawl", "brave", etc.
-	APIKey string   // optional API key
-	Tags   []string // "free", "quality", etc.
-	Quota  int      // max requests per period
-	Period string   // "hourly", "daily", "monthly"
+	Type   string
+	APIKey string
+	Tags   []string
+	Quota  int
+	Period string
+	Weight int
 }
 
 // Router manages multiple search providers and implements fallback.
@@ -67,10 +69,22 @@ func (r *Router) Register(name string, p Provider, info *ProviderInfo) {
 	}
 }
 
+// GetProvider returns the provider with the given name.
+func (r *Router) GetProvider(name string) (Provider, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	p, ok := r.providers[name]
+	return p, ok
+}
+
+// SearchResult holds search results and the provider used.
+type SearchResult struct {
+	Results  []Result
+	Provider string
+}
+
 // Search performs a search using the configured strategy.
-// Strategies: "auto" (free providers first), "quality" (quality tagged only),
-// "cheap" (free only, no paid fallback), "manual" (specific provider list).
-func (r *Router) Search(query string, limit int, strategy string, preferred []string) ([]Result, error) {
+func (r *Router) Search(query string, limit int, strategy string, preferred []string) (*SearchResult, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -78,17 +92,19 @@ func (r *Router) Search(query string, limit int, strategy string, preferred []st
 		return nil, fmt.Errorf("no search providers registered")
 	}
 
-	// Select providers based on strategy
 	candidates := r.selectProviders(strategy, preferred)
+	candidates = r.filterAvailable(candidates)
+
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no providers available (all exhausted quota or none configured)")
+	}
+
+	ordered := r.sortByWeight(candidates)
 
 	var lastErr error
-	for _, name := range candidates {
+	for _, name := range ordered {
 		p, ok := r.providers[name]
 		if !ok {
-			continue
-		}
-		// Check quota
-		if !r.store.CanUse(name) {
 			continue
 		}
 		results, err := p.Search(query, limit)
@@ -97,13 +113,62 @@ func (r *Router) Search(query string, limit int, strategy string, preferred []st
 			continue
 		}
 		r.store.RecordUse(name)
-		return results, nil
+		return &SearchResult{Results: results, Provider: name}, nil
 	}
 
 	if lastErr != nil {
 		return nil, fmt.Errorf("all providers failed, last error: %w", lastErr)
 	}
-	return nil, fmt.Errorf("no providers available (all exhausted quota or none configured)")
+	return nil, fmt.Errorf("no providers available")
+}
+
+func (r *Router) filterAvailable(candidates []string) []string {
+	var result []string
+	for _, name := range candidates {
+		if r.store.CanUse(name) {
+			result = append(result, name)
+		}
+	}
+	return result
+}
+
+func (r *Router) sortByWeight(candidates []string) []string {
+	type weighted struct {
+		name   string
+		weight int
+	}
+	var items []weighted
+	for _, name := range candidates {
+		w := 1
+		if cfg, ok := r.configs[name]; ok && cfg.Weight > 0 {
+			w = cfg.Weight
+		}
+		items = append(items, weighted{name: name, weight: w})
+	}
+
+	if len(items) <= 1 {
+		return candidates
+	}
+
+	var result []string
+	remaining := items
+	for len(remaining) > 0 {
+		totalWeight := 0
+		for _, item := range remaining {
+			totalWeight += item.weight
+		}
+		r := rand.Intn(totalWeight)
+		cumulative := 0
+		for i, item := range remaining {
+			cumulative += item.weight
+			if r < cumulative {
+				result = append(result, item.name)
+				remaining = append(remaining[:i], remaining[i+1:]...)
+				break
+			}
+		}
+	}
+	return result
 }
 
 // selectProviders returns provider names in priority order.
@@ -112,29 +177,48 @@ func (r *Router) selectProviders(strategy string, preferred []string) []string {
 	case "manual":
 		return preferred
 	case "quality":
-		return r.filterByTag("quality")
+		result := r.filterByTag("quality")
+		if len(result) == 0 {
+			return r.allProviders()
+		}
+		return result
 	case "cheap":
-		return r.filterByTag("free")
+		result := r.filterByTag("free")
+		if len(result) == 0 {
+			return r.allProviders()
+		}
+		return result
 	default: // "auto"
-		// Free providers first, sorted by remaining quota
 		free := r.filterByTag("free")
-		paid := r.filterByTag("quality")
-		// Remove free from paid
+		quality := r.filterByTag("quality")
+
+		if len(free) == 0 && len(quality) == 0 {
+			return r.allProviders()
+		}
+
 		freeSet := make(map[string]bool)
 		for _, f := range free {
 			freeSet[f] = true
 		}
-		var nonFreePaid []string
-		for _, p := range paid {
+		var nonFreeQuality []string
+		for _, p := range quality {
 			if !freeSet[p] {
-				nonFreePaid = append(nonFreePaid, p)
+				nonFreeQuality = append(nonFreeQuality, p)
 			}
 		}
 		sort.Slice(free, func(i, j int) bool {
 			return r.quotaRemaining(free[i]) < r.quotaRemaining(free[j])
 		})
-		return append(free, nonFreePaid...)
+		return append(free, nonFreeQuality...)
 	}
+}
+
+func (r *Router) allProviders() []string {
+	var all []string
+	for name := range r.providers {
+		all = append(all, name)
+	}
+	return all
 }
 
 func (r *Router) filterByTag(tag string) []string {
@@ -145,12 +229,6 @@ func (r *Router) filterByTag(tag string) []string {
 				result = append(result, name)
 				break
 			}
-		}
-	}
-	// If no configs, include all providers as fallback
-	if len(result) == 0 {
-		for name := range r.providers {
-			result = append(result, name)
 		}
 	}
 	return result

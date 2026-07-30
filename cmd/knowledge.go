@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/spf13/cobra"
 )
@@ -47,7 +48,11 @@ Use --all to search across all projects (for find/list).
 Data stored at ~/.config/aigc-cli/knowledge/ by default.`,
 	SilenceUsage: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Override kbBaseDir from config if flag wasn't explicitly set
+		if shared.Cfg == nil {
+			if cfg, err := config.Load(shared.CfgFile); err == nil {
+				shared.Cfg = cfg
+			}
+		}
 		if !cmd.Flags().Changed("dir") {
 			if d := resolveConfigBaseDir(); d != "" {
 				kbBaseDir = d
