@@ -122,6 +122,7 @@ var toolRegistry = []toolInfo{
 	{"get_model_pricing", "Query model pricing details", func(desc string) mcp.Tool { return newGetModelPricingTool() }, func(cfg *Config) server.ToolHandlerFunc { return getModelPricingHandler() }},
 	{"get_balance", "Query API key or account balance", func(desc string) mcp.Tool { return newGetBalanceTool() }, func(cfg *Config) server.ToolHandlerFunc { return getBalanceHandler(cfg) }},
 	{"get_task", "Query async task/job status", func(desc string) mcp.Tool { return newGetTaskTool() }, func(cfg *Config) server.ToolHandlerFunc { return getTaskHandler(cfg) }},
+	{"get_config", "Get current effective configuration (provider, model, size, etc.)", func(desc string) mcp.Tool { return newGetConfigTool() }, func(cfg *Config) server.ToolHandlerFunc { return getConfigHandler() }},
 	{"caption_image", "Read or write image caption", func(desc string) mcp.Tool { return newCaptionImageTool() }, func(cfg *Config) server.ToolHandlerFunc { return captionImageHandler() }},
 	{"search_ideas", "Search AI prompt ideas", func(desc string) mcp.Tool { return newSearchIdeasTool() }, func(cfg *Config) server.ToolHandlerFunc { return searchIdeasHandler() }},
 	{"remove_background", "Remove image background (offline)", func(desc string) mcp.Tool { return newRemoveBackgroundTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeBackgroundHandler() }},
