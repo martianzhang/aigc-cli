@@ -348,14 +348,28 @@ func getConfigHandler() server.ToolHandlerFunc {
 			cfg = &types.Config{}
 		}
 
-		// Mask API key (same logic as --print-config)
-		if cfg.APIKey != "" {
-			if len(cfg.APIKey) > 8 {
-				cfg.APIKey = cfg.APIKey[:8] + "..."
-			} else if len(cfg.APIKey) > 3 {
-				cfg.APIKey = cfg.APIKey[:3] + "..."
-			} else {
-				cfg.APIKey = cfg.APIKey[:1] + "..."
+		// Mask API keys (same logic as --print-config)
+		maskKey := func(key string) string {
+			if key == "" {
+				return ""
+			}
+			if len(key) > 8 {
+				return key[:8] + "..."
+			}
+			if len(key) > 3 {
+				return key[:3] + "..."
+			}
+			return key[:1] + "..."
+		}
+		cfg.APIKey = maskKey(cfg.APIKey)
+		for _, p := range cfg.Providers {
+			if p != nil {
+				p.APIKey = maskKey(p.APIKey)
+			}
+		}
+		for _, p := range cfg.WebSearch {
+			if p != nil {
+				p.APIKey = maskKey(p.APIKey)
 			}
 		}
 
