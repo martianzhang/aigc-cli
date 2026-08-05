@@ -10,8 +10,10 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"gopkg.in/yaml.v3"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -328,4 +330,54 @@ func fetchModels(baseURL, mediaType, _ string) ([]types.MarketplaceModel, error)
 	}
 
 	return allModels, nil
+}
+
+func newGetConfigTool() mcp.Tool {
+	return mcp.NewTool("get_config",
+		mcp.WithDescription("获取当前有效配置（provider、model、size 等），API key 已脱敏。用于确认生成 image/video 时应使用的参数。"),
+	)
+}
+
+func getConfigHandler() server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		cfg, err := config.Load("")
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("load config failed: %v", err)), nil
+		}
+		if cfg == nil {
+			cfg = &types.Config{}
+		}
+
+		// Mask API keys (same logic as --print-config)
+		maskKey := func(key string) string {
+			if key == "" {
+				return ""
+			}
+			if len(key) > 8 {
+				return key[:8] + "..."
+			}
+			if len(key) > 3 {
+				return key[:3] + "..."
+			}
+			return key[:1] + "..."
+		}
+		cfg.APIKey = maskKey(cfg.APIKey)
+		for _, p := range cfg.Providers {
+			if p != nil {
+				p.APIKey = maskKey(p.APIKey)
+			}
+		}
+		for _, p := range cfg.WebSearch {
+			if p != nil {
+				p.APIKey = maskKey(p.APIKey)
+			}
+		}
+
+		b, err := yaml.Marshal(cfg)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("marshal config failed: %v", err)), nil
+		}
+
+		return mcp.NewToolResultText(string(b)), nil
+	}
 }

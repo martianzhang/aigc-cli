@@ -131,6 +131,30 @@ func runPrintConfig(cmd *cobra.Command) {
 			displayCfg.APIKey = displayCfg.APIKey[:1] + "..."
 		}
 	}
+	// Mask provider API keys
+	for _, p := range displayCfg.Providers {
+		if p != nil && p.APIKey != "" {
+			if len(p.APIKey) > 8 {
+				p.APIKey = p.APIKey[:8] + "..."
+			} else if len(p.APIKey) > 3 {
+				p.APIKey = p.APIKey[:3] + "..."
+			} else {
+				p.APIKey = p.APIKey[:1] + "..."
+			}
+		}
+	}
+	// Mask web search provider API keys
+	for _, p := range displayCfg.WebSearch {
+		if p != nil && p.APIKey != "" {
+			if len(p.APIKey) > 8 {
+				p.APIKey = p.APIKey[:8] + "..."
+			} else if len(p.APIKey) > 3 {
+				p.APIKey = p.APIKey[:3] + "..."
+			} else {
+				p.APIKey = p.APIKey[:1] + "..."
+			}
+		}
+	}
 	if displayCfg.Defaults == nil {
 		displayCfg.Defaults = &types.ConfigDefaults{}
 	}

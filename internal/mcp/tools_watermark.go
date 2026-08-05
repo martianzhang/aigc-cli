@@ -3,8 +3,12 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"image"
+	imagejpeg "image/jpeg"
+	imagepng "image/png"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -110,5 +114,133 @@ func addWatermarkHandler() server.ToolHandlerFunc {
 			out = strings.TrimSuffix(path, ext) + "_watermarked.png"
 		}
 		return mcp.NewToolResultText(fmt.Sprintf("Watermark added (engine: %s). Output: %s", res.Name, out)), nil
+	}
+}
+
+func newCropWatermarkTool() mcp.Tool {
+	return mcp.NewTool("crop_watermark",
+		mcp.WithDescription("裁切图片以去除水印。通用方法，无需学习水印模板。自动检测水印位置并裁切，适合边角水印。"),
+		mcp.WithString("file_path",
+			mcp.Required(),
+			mcp.Description("图片文件的本地路径"),
+		),
+		mcp.WithString("target",
+			mcp.Description("裁切目标：\"auto\"（自动检测）、\"n%\"（保留比例，如 \"97%\"）、\"WxH\"（目标尺寸，如 \"1920x1080\"）。默认 auto"),
+		),
+		mcp.WithString("output_path",
+			mcp.Description("输出文件路径（可选，默认覆盖原文件或加 _clean 后缀）"),
+		),
+	)
+}
+
+func cropWatermarkHandler() server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		path, err := req.RequireString("file_path")
+		if err != nil {
+			return mcp.NewToolResultError("file_path is required"), nil
+		}
+		if !isLocalImageFile(path) {
+			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
+		}
+		path = resolveAbsPath(path)
+
+		target := req.GetString("target", "auto")
+		outputPath := req.GetString("output_path", "")
+
+		f, err := os.Open(path)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("open failed: %v", err)), nil
+		}
+		defer f.Close()
+
+		img, _, err := image.Decode(f)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("decode failed: %v", err)), nil
+		}
+
+		b := img.Bounds()
+		imgW, imgH := b.Dx(), b.Dy()
+
+		var bounds watermark.CropBounds
+
+		if target == "" || target == "auto" {
+			regions := watermark.DetectWatermarkRegions(img)
+			if len(regions) > 0 {
+				bounds = watermark.ComputeCropBounds(imgW, imgH, regions)
+				if !bounds.Valid {
+					return mcp.NewToolResultText("Watermark is in the center of the image, cannot use cropping."), nil
+				}
+			} else {
+				marginRatio := 0.05
+				marginX := int(float64(imgW) * marginRatio)
+				marginY := int(float64(imgH) * marginRatio)
+				bounds = watermark.CropBounds{
+					X: marginX, Y: marginY,
+					W: imgW - marginX*2, H: imgH - marginY*2,
+					Valid: true,
+				}
+			}
+		} else if strings.HasSuffix(target, "%") {
+			pctStr := strings.TrimSuffix(target, "%")
+			pct, parseErr := strconv.ParseFloat(pctStr, 64)
+			if parseErr != nil || pct <= 0 || pct > 100 {
+				return mcp.NewToolResultError(fmt.Sprintf("invalid percentage: %s", target)), nil
+			}
+			keepRatio := pct / 100.0
+			newW := int(float64(imgW) * keepRatio)
+			newH := int(float64(imgH) * keepRatio)
+			x := (imgW - newW) / 2
+			y := (imgH - newH) / 2
+			bounds = watermark.CropBounds{X: x, Y: y, W: newW, H: newH, Valid: true}
+		} else {
+			parts := strings.Split(strings.ToLower(target), "x")
+			if len(parts) != 2 {
+				return mcp.NewToolResultError(fmt.Sprintf("invalid target format: %s (expected \"auto\", \"n%%\", or \"WxH\")", target)), nil
+			}
+			cropW, wErr := strconv.Atoi(strings.TrimSpace(parts[0]))
+			cropH, hErr := strconv.Atoi(strings.TrimSpace(parts[1]))
+			if wErr != nil || hErr != nil || cropW <= 0 || cropH <= 0 {
+				return mcp.NewToolResultError(fmt.Sprintf("invalid target dimensions: %s", target)), nil
+			}
+			x := (imgW - cropW) / 2
+			y := (imgH - cropH) / 2
+			bounds = watermark.CropBounds{X: x, Y: y, W: cropW, H: cropH, Valid: true}
+		}
+
+		if bounds.W < 100 || bounds.H < 100 {
+			return mcp.NewToolResultText("Crop area too small (minimum 100x100)."), nil
+		}
+
+		cropped := image.NewRGBA(image.Rect(0, 0, bounds.W, bounds.H))
+		for y := 0; y < bounds.H; y++ {
+			for x := 0; x < bounds.W; x++ {
+				cropped.Set(x, y, img.At(bounds.X+x, bounds.Y+y))
+			}
+		}
+
+		if outputPath == "" {
+			outputPath = defaultCleanPath(path)
+		}
+
+		out, err := os.Create(outputPath)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("create output failed: %v", err)), nil
+		}
+		defer out.Close()
+
+		ext := strings.ToLower(filepath.Ext(outputPath))
+		switch ext {
+		case ".jpg", ".jpeg", ".jfif":
+			q := watermark.EstimateJPEGQuality(path)
+			if err := imagejpeg.Encode(out, cropped, &imagejpeg.Options{Quality: q}); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("encode failed: %v", err)), nil
+			}
+		default:
+			if err := imagepng.Encode(out, cropped); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("encode failed: %v", err)), nil
+			}
+		}
+
+		return mcp.NewToolResultText(fmt.Sprintf("Cropped: %dx%d -> %dx%d. Output: %s", imgW, imgH, bounds.W, bounds.H, outputPath)), nil
 	}
 }

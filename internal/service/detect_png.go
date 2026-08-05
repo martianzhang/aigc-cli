@@ -60,6 +60,11 @@ chunks:
 			if k, v, ok := parsePNGInternationalText(data); ok {
 				textChunks[k] = v
 			}
+		case "eXIf":
+			// Extract AIGC JSON from EXIF binary data
+			if tc260 := scanEXIFForTC260(data); tc260 != "" {
+				textChunks["TC260"] = tc260
+			}
 		case "C2PA", "caBX":
 			if c2paData == nil {
 				c2paData = data
