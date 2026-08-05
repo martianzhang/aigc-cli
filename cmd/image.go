@@ -110,6 +110,14 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
 	isModelScope := p.ProviderType == provider.ModelScope
 
+	// Strip APIMart-only fields for non-APIMart providers (e.g., Yunwu, OpenAI, Generic Relay).
+	// `resolution` is an APIMart proprietary field not part of the OpenAI image API;
+	// sending it to OpenAI-compatible providers can cause errors.
+	// `output_format`, `background`, `moderation` are standard OpenAI parameters — kept as-is.
+	if !isAPIMart {
+		req.Resolution = ""
+	}
+
 	if genDryRun {
 		curl := buildImageCurl(req, p.BaseURL, p.APIKey)
 		fmt.Println(curl)
