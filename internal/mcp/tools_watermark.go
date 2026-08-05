@@ -168,10 +168,15 @@ func cropWatermarkHandler() server.ToolHandlerFunc {
 			if len(regions) > 0 {
 				bounds = watermark.ComputeCropBounds(imgW, imgH, regions)
 				if !bounds.Valid {
-					if bounds.Reason != "" {
-						return mcp.NewToolResultText(bounds.Reason), nil
+					// Fall back to default 90% crop when auto detection is ambiguous
+					marginRatio := 0.05
+					marginX := int(float64(imgW) * marginRatio)
+					marginY := int(float64(imgH) * marginRatio)
+					bounds = watermark.CropBounds{
+						X: marginX, Y: marginY,
+						W: imgW - marginX*2, H: imgH - marginY*2,
+						Valid: true,
 					}
-					return mcp.NewToolResultText("Watermark is in the center of the image, cannot use cropping."), nil
 				}
 			} else {
 				marginRatio := 0.05

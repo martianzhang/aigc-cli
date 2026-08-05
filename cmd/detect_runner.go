@@ -606,10 +606,16 @@ func handleCropWatermark(path string) error {
 		if len(regions) > 0 {
 			bounds = watermark.ComputeCropBounds(imgW, imgH, regions)
 			if !bounds.Valid {
-				if bounds.Reason != "" {
-					return fmt.Errorf("%s", bounds.Reason)
+				fmt.Printf("  Auto detection failed: %s\n", bounds.Reason)
+				fmt.Printf("  Falling back to default 90%% crop (trimming 5%% from each side)\n")
+				marginRatio := 0.05
+				marginX := int(float64(imgW) * marginRatio)
+				marginY := int(float64(imgH) * marginRatio)
+				bounds = watermark.CropBounds{
+					X: marginX, Y: marginY,
+					W: imgW - marginX*2, H: imgH - marginY*2,
+					Valid: true,
 				}
-				return fmt.Errorf("watermark is in the center of the image, cannot use cropping")
 			}
 		} else {
 			marginRatio := 0.05
