@@ -24,7 +24,12 @@ aigc-cli detect photo.png
 # Detailed output
 aigc-cli detect photo.png --detail
 
-# With watermark removal
+# Crop to remove watermarks (no learning required)
+aigc-cli detect photo.png --crop-watermark auto      # auto-detect and crop
+aigc-cli detect photo.png --crop-watermark 97%       # keep 97% of edge length
+aigc-cli detect photo.png --crop-watermark 1920x1080 # crop to target size
+
+# Remove watermarks with AI inpainting
 aigc-cli detect photo.png --remove-watermark --producer doubao
 ```
 
@@ -42,9 +47,32 @@ Detection results are shown with emoji indicators:
 🔍 JPEG: non-standard tables
 ```
 
-## Watermark Learning
+## Watermark Removal
 
-Before removing watermarks, you must learn the watermark pattern:
+Three methods are available:
+
+| Method | Description |
+|---|---|
+| **Crop** | Generic method - detects watermark location and crops it out. No learning required |
+| **MI-GAN** | AI inpainting using ONNX Runtime. Requires `migan.onnx` model |
+| **Alpha Map** | Classical reverse alpha blending. Requires learned watermark config |
+
+### Crop-based Removal
+
+```bash
+# Auto mode: detect watermark and crop, or apply 5% margin if not detected
+aigc-cli detect photo.png --crop-watermark auto
+
+# Keep percentage of edge length (centered crop)
+aigc-cli detect photo.png --crop-watermark 97%
+
+# Crop to target dimensions (centered)
+aigc-cli detect photo.png --crop-watermark 1920x1080
+```
+
+### Watermark Learning
+
+Before removing watermarks with Alpha Map method, you must learn the watermark pattern:
 
 ```bash
 # 1. Generate pure black and gray images with watermark enabled

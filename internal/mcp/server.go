@@ -128,6 +128,7 @@ var toolRegistry = []toolInfo{
 	{"detect_image", "Detect AIGC/watermark in images (offline)", func(desc string) mcp.Tool { return newDetectTool() }, func(cfg *Config) server.ToolHandlerFunc { return detectHandler() }},
 	{"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler() }},
 	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler() }},
+	{"crop_watermark", "Crop image to remove watermarks (no learning required)", func(desc string) mcp.Tool { return newCropWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return cropWatermarkHandler() }},
 	{"recognize_text", "Recognize text in images/PDF using offline OCR", func(desc string) mcp.Tool { return newRecognizeTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return recognizeTextHandler() }},
 	// Knowledge base tools
 	{"kb_find", "Search the local knowledge base", func(desc string) mcp.Tool { return newKbFindTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbFindHandler() }},

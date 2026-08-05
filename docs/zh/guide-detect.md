@@ -257,14 +257,20 @@ aigc-cli detect --learn-watermark myai
 
 ### 去水印
 
-两种算法：
+三种方式：
 
-| 算法 | 方式 | 说明 |
-|---|---|---|
-| **MI-GAN**（默认） | AI 修补 | ONNX 推理，基于 LaMa 的 inpainting 模型。需要 `migan.onnx`（28MB）放在 `~/.config/aigc-cli/models/` |
-| **Alpha Map**（经典） | 逆 alpha 混合 | 需要 `--learn-watermark` 学习的水印配置 |
+| 方式 | 说明 |
+|---|---|
+| **裁切去水印**（通用） | 自动检测水印位置并裁切，无需学习。适合边角水印 |
+| **MI-GAN**（AI 修补） | ONNX 推理，基于 LaMa 的 inpainting 模型。需要 `migan.onnx`（28MB） |
+| **Alpha Map**（经典） | 逆 alpha 混合，需要 `--learn-watermark` 学习的水印配置 |
 
 ```bash
+# 裁切去水印（通用，无需学习）
+aigc-cli detect --crop-watermark auto image.png           # 自动检测水印并裁切
+aigc-cli detect --crop-watermark 97% image.png           # 保留 97% 的边长
+aigc-cli detect --crop-watermark 1920x1080 image.png     # 裁切到目标尺寸
+
 # MI-GAN 去水印（默认，自动从 TC260/C2PA 元数据识别人，无需 --producer）
 aigc-cli detect --remove-watermark image.png
 
@@ -276,6 +282,19 @@ aigc-cli detect --remove-watermark --alpha-map --producer gemini image.png
 aigc-cli detect --remove-watermark --watermark-box "200,60" image.png
 aigc-cli detect --remove-watermark --wmb "800,900,200,60" image.png
 ```
+
+### `--crop-watermark` 格式
+
+| 格式 | 示例 | 说明 |
+|---|---|---|
+| `auto` | `--crop-watermark auto` | 自动检测水印并裁切，未检测到则用 5% 默认边距 |
+| `n%` | `--crop-watermark 97%` | 保留 n% 的边长（居中裁切） |
+| `WxH` | `--crop-watermark 1920x1080` | 裁切到目标尺寸（居中裁切） |
+
+裁切逻辑：
+- 检测到水印：精确裁切水印区域
+- 未检测到水印：按比例裁切（默认 5%）
+- 裁切比例超过 20%：不裁切，提示用户
 
 ### `--watermark-box` / `--wmb` 格式
 

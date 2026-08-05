@@ -33,8 +33,9 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `midjourney_variation` | Midjourney variation | Paid (API) |
 | `search_ideas` | Prompt ideas search | Free (local) |
 | `detect_image` | AIGC detection | Free (local) |
-| `remove_watermark` | Watermark removal | Free (local) |
+| `remove_watermark` | Watermark removal (AI inpainting) | Free (local) |
 | `add_watermark` | Watermark addition | Free (local) |
+| `crop_watermark` | Crop to remove watermarks (no learning required) | Free (local) |
 | `remove_background` | Background removal | Free (local) |
 | `recognize_text` | OCR text recognition | Free (local) |
 | `caption_image` | EXIF description read/write | Free (local) |
@@ -57,6 +58,7 @@ tools_enable:
   - "search_ideas"
   - "detect_image"
   - "remove_watermark"
+  - "crop_watermark"
   - "remove_background"
   - "recognize_text"
 

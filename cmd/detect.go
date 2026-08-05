@@ -49,6 +49,7 @@ var detectNativeWidth int         // --native-width for imported alpha maps
 var detectMarginXFrac float64     // --margin-x-frac
 var detectMarginYFrac float64     // --margin-y-frac
 var detectDetectThreshold float64 // --detect-threshold
+var detectCropWM string           // --crop-watermark [WxH]
 
 func runDetect(cmd *cobra.Command, args []string) error {
 	// --learn-watermark: learn a custom watermark from seed images
@@ -116,4 +117,6 @@ func init() {
 		"bottom margin fraction of image width (for imported alpha maps)")
 	detectCmd.Flags().Float64Var(&detectDetectThreshold, "detect-threshold", 0.25,
 		"minimum NCC confidence for detection (for imported alpha maps)")
+	detectCmd.Flags().StringVar(&detectCropWM, "crop-watermark", "",
+		`crop to remove watermarks: "auto" (default), target "WxH" (e.g. "1920x1080"), or keep ratio "n%%" (e.g. "97%%")`)
 }

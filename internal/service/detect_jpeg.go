@@ -241,9 +241,11 @@ func scanEXIFForTC260(exifData []byte) string {
 				var parsed struct {
 					AIGC struct {
 						ContentProducer string `json:"ContentProducer"`
+						ServiceProvider string `json:"ServiceProvider"`
 					} `json:"AIGC"`
 				}
-				if json.Unmarshal([]byte(jsonStr), &parsed) == nil && parsed.AIGC.ContentProducer != "" {
+				if json.Unmarshal([]byte(jsonStr), &parsed) == nil &&
+					(parsed.AIGC.ContentProducer != "" || parsed.AIGC.ServiceProvider != "") {
 					return jsonStr
 				}
 				// Try flat parsing
@@ -252,12 +254,19 @@ func scanEXIFForTC260(exifData []byte) string {
 					if cp, ok := flat[ContentProducerKey]; ok && cp != "" {
 						return jsonStr
 					}
+					// Also check ServiceProvider
+					if sp, ok := flat["ServiceProvider"]; ok && sp != "" {
+						return jsonStr
+					}
 				}
 				// Try AIGC as nested map
 				var nested map[string]map[string]string
 				if json.Unmarshal([]byte(jsonStr), &nested) == nil {
 					if aigc, ok := nested["AIGC"]; ok {
 						if cp, ok := aigc[ContentProducerKey]; ok && cp != "" {
+							return jsonStr
+						}
+						if sp, ok := aigc["ServiceProvider"]; ok && sp != "" {
 							return jsonStr
 						}
 					}
