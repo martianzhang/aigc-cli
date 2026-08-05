@@ -79,6 +79,23 @@ func TestComputeCropBounds(t *testing.T) {
 			wantValid: false,
 		},
 		{
+			name: "false positives filtered by relative confidence",
+			imgW: 864,
+			imgH: 1152,
+			regions: []CropRegion{
+				// Real watermark: bottom-right, high confidence
+				{X: 735, Y: 1055, W: 129, H: 97, Confidence: 1.0},
+				{X: 799, Y: 1023, W: 65, H: 32, Confidence: 1.0},
+				{X: 799, Y: 1087, W: 32, H: 32, Confidence: 0.62},
+				// False positives: other corners, low confidence
+				{X: 735, Y: 0, W: 129, H: 160, Confidence: 0.55},
+				{X: 0, Y: 1023, W: 160, H: 129, Confidence: 0.51},
+			},
+			wantValid: true,
+			wantW:     725,  // minX - margin = 735 - 10
+			wantH:     1013, // minY - margin = 1023 - 10
+		},
+		{
 			name: "multiple regions merged",
 			imgW: 1920,
 			imgH: 1080,

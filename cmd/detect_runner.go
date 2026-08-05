@@ -606,6 +606,9 @@ func handleCropWatermark(path string) error {
 		if len(regions) > 0 {
 			bounds = watermark.ComputeCropBounds(imgW, imgH, regions)
 			if !bounds.Valid {
+				if bounds.Reason != "" {
+					return fmt.Errorf("%s", bounds.Reason)
+				}
 				return fmt.Errorf("watermark is in the center of the image, cannot use cropping")
 			}
 		} else {

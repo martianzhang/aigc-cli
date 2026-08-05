@@ -1,6 +1,7 @@
 package watermark
 
 import (
+	"fmt"
 	"image"
 	"math"
 )
@@ -244,24 +245,46 @@ func regionsOverlap(a, b CropRegion) bool {
 
 // CropBounds represents the computed crop area.
 type CropBounds struct {
-	X, Y, W, H int  // crop rectangle
-	Valid      bool // false if watermark is in center (can't crop)
+	X, Y, W, H int    // crop rectangle
+	Valid      bool   // false if cropping is not applicable
+	Reason     string // human-readable explanation when !Valid
 }
 
 const maxCropRatio = 0.20 // maximum 20% crop allowed
 
 // ComputeCropBounds calculates the minimum crop area to remove watermarks.
 // Returns invalid bounds if watermark is in the center or crop is too large.
+//
+// Uses relative confidence filtering: only regions with confidence >= 60%
+// of the highest-confidence region are considered. This prevents low-confidence
+// false positives in non-watermark corners from skewing the global bounding box.
 func ComputeCropBounds(imgW, imgH int, regions []CropRegion) CropBounds {
 	if len(regions) == 0 {
 		return CropBounds{X: 0, Y: 0, W: imgW, H: imgH, Valid: true}
 	}
 
-	// Find the bounding box of all watermark regions
+	// Find the maximum confidence to use as a baseline for filtering
+	// low-confidence false positives.
+	maxConf := 0.0
+	for _, r := range regions {
+		if r.Confidence > maxConf {
+			maxConf = r.Confidence
+		}
+	}
+
+	// Relative threshold: only keep regions with confidence >= 60% of max.
+	// A false positive at 0.51 won't pass when the real watermark is at 1.0,
+	// but a single real detection at 0.5 won't be filtered either.
+	minConfThreshold := maxConf * 0.6
+
+	// Find the bounding box of high-confidence watermark regions only.
 	minX, minY := imgW, imgH
 	maxX, maxY := 0, 0
 
 	for _, r := range regions {
+		if r.Confidence < minConfThreshold {
+			continue
+		}
 		if r.X < minX {
 			minX = r.X
 		}
@@ -334,20 +357,30 @@ func ComputeCropBounds(imgW, imgH int, regions []CropRegion) CropBounds {
 		cropW = imgW
 		cropH = imgH - cropY
 
-	default: // center - can't use cropping
-		return CropBounds{Valid: false}
+	default: // center or ambiguous — can't determine a single crop direction
+		return CropBounds{
+			Valid:  false,
+			Reason: "detected watermark regions span multiple corners, cannot determine a reliable crop direction",
+		}
 	}
 
 	// Check minimum size
 	if cropW < 100 || cropH < 100 {
-		return CropBounds{Valid: false}
+		return CropBounds{
+			Valid:  false,
+			Reason: fmt.Sprintf("crop area too small (%dx%d), minimum is 100x100", cropW, cropH),
+		}
 	}
 
 	// Check if crop is too large (>20% of image)
 	cropRatioW := float64(imgW-cropW) / float64(imgW)
 	cropRatioH := float64(imgH-cropH) / float64(imgH)
 	if cropRatioW > maxCropRatio || cropRatioH > maxCropRatio {
-		return CropBounds{Valid: false}
+		return CropBounds{
+			Valid: false,
+			Reason: fmt.Sprintf("crop ratio too large (%.0f%%x%.0f%%), maximum is %.0f%%",
+				cropRatioW*100, cropRatioH*100, maxCropRatio*100),
+		}
 	}
 
 	return CropBounds{X: cropX, Y: cropY, W: cropW, H: cropH, Valid: true}
