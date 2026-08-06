@@ -433,7 +433,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 		pollResp.Body.Close()
 
 		switch tmpResp.TaskStatus {
-		case "SUCCEED":
+		case "SUCCEED", "SUCCEEDED":
 			taskResp = tmpResp
 			goto done
 		case "FAILED":
@@ -442,8 +442,12 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 				errMsg = "unknown error"
 			}
 			return nil, fmt.Errorf("modelscope: task %s failed: %s", taskID, errMsg)
-		case "PENDING", "RUNNING":
+		case "PENDING", "RUNNING", "PROCESSING":
 			continue
+		case "CANCELED":
+			return nil, fmt.Errorf("modelscope: task %s was canceled", taskID)
+		case "UNKNOWN":
+			return nil, fmt.Errorf("modelscope: task %s status unknown (may be expired)", taskID)
 		default:
 			return nil, fmt.Errorf("modelscope: unexpected task status %q for task %s", tmpResp.TaskStatus, taskID)
 		}
