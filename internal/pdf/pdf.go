@@ -412,3 +412,28 @@ func abs(a float64) float64 {
 	}
 	return a
 }
+
+// ExtractTextWithLayout opens a PDF and extracts structured content blocks.
+// It returns document blocks with detected headings, lists, code blocks, etc.
+func ExtractTextWithLayout(path string) ([]DocumentBlock, error) {
+	doc, err := gopdfOpen(path)
+	if err != nil {
+		return nil, err
+	}
+
+	numPages := doc.NumPages()
+	var allBlocks []DocumentBlock
+
+	for i := 0; i < numPages; i++ {
+		page := doc.Page(i)
+		spans, err := page.TextSpans()
+		if err != nil || len(spans) == 0 {
+			continue
+		}
+
+		blocks := analyzeLayout(spans)
+		allBlocks = append(allBlocks, blocks...)
+	}
+
+	return allBlocks, nil
+}

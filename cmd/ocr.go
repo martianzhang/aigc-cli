@@ -58,6 +58,7 @@ var ocrScanPages string
 var ocrScanSpellcheck bool
 var ocrScanModel string  // --model for online OCR override
 var ocrScanPrompt string // --prompt for custom OCR prompt
+var ocrScanEngine string // --engine: auto, pdf, ocr
 
 func init() {
 	ocrInitCmd.Flags().Bool("list", false, "List available model packs")
@@ -77,6 +78,7 @@ Examples:
   --prompt "Figure Recognition:"                        (glm-ocr, figure mode)
   --prompt "请识别图中的文字"                               (general)`)
 	ocrScanCmd.Flags().StringVar(&ocrScanPrompt, "ask", "", "Alias for --prompt")
+	ocrScanCmd.Flags().StringVar(&ocrScanEngine, "engine", "auto", "Processing engine: auto, pdf (rule-based), ocr")
 	ocrCmd.AddCommand(ocrInitCmd)
 	ocrCmd.AddCommand(ocrScanCmd)
 	rootCmd.AddCommand(ocrCmd)
@@ -283,14 +285,27 @@ func scanImage(cmd *cobra.Command, img image.Image, inputPath string) error {
 // scanPDF handles PDF input: tries text extraction first; falls back to OCR
 // for scanned/image-based PDFs.
 func scanPDF(cmd *cobra.Command, pdfPath string) error {
-	// Try text extraction first
 	pages, err := pdf.ExtractText(pdfPath)
 	if err != nil {
 		return fmt.Errorf("read PDF: %w", err)
 	}
 
-	if !pdf.IsScanned(pages) {
-		// Text-based PDF: use extracted text directly.
+	isNativePDF := !pdf.IsScanned(pages)
+
+	engine := ocrScanEngine
+	if engine == "auto" {
+		if isNativePDF {
+			engine = "pdf"
+		} else {
+			engine = "ocr"
+		}
+	}
+
+	if engine == "pdf" && isNativePDF {
+		return scanPDFWithLayout(cmd, pdfPath)
+	}
+
+	if isNativePDF {
 		var textLines []string
 		for _, p := range pages {
 			line := strings.TrimSpace(p.Text)
@@ -342,7 +357,6 @@ func scanPDF(cmd *cobra.Command, pdfPath string) error {
 	allPages := make([]ocr.OCRPage, 0, len(pngs))
 	allText := make([]string, 0, len(pngs))
 
-	// Check if online OCR provider is configured for scanned PDF
 	useOnlineOCR := false
 	var onlineP *provider.EffectiveProvider
 	op := shared.ResolveProvider(ProviderNameOCR)
@@ -359,7 +373,6 @@ func scanPDF(cmd *cobra.Command, pdfPath string) error {
 	}
 
 	if useOnlineOCR {
-		// Online OCR for each page
 		for pageIdx, pngPath := range pngs {
 			text, err := provider.OCRImage(onlineP, pngPath, ocrScanPrompt)
 			if err != nil {
@@ -574,10 +587,30 @@ func defaultOCRModelsDir() string {
 // resolveModelsDir returns the models directory from the provider (if configured),
 // falling back to the default hardcoded path.
 func resolveModelsDir(cmdName string) string {
-	// Try the resolved provider's ModelsDir (from type=local provider config).
 	p := shared.ResolveProvider(cmdName)
 	if p != nil && p.ModelsDir != "" {
 		return p.ModelsDir
 	}
 	return defaultModelsDir()
+}
+
+func scanPDFWithLayout(cmd *cobra.Command, pdfPath string) error {
+	blocks, err := pdf.ExtractTextWithLayout(pdfPath)
+	if err != nil {
+		return fmt.Errorf("extract PDF layout: %w", err)
+	}
+
+	markdown := pdf.BlocksToMarkdown(blocks)
+
+	outPath := strings.TrimSuffix(pdfPath, filepath.Ext(pdfPath)) + ".md"
+	if err := os.WriteFile(outPath, []byte(markdown), 0644); err != nil {
+		return fmt.Errorf("save output: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "Saved: %s\n", outPath)
+
+	if ocrScanPreview {
+		fmt.Print(markdown)
+	}
+
+	return nil
 }
