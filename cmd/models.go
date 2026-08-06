@@ -335,8 +335,8 @@ func runModelsOpenAI(p *provider.EffectiveProvider) error {
 
 	fmt.Printf("Available models (%d):\n\n", len(models))
 	for _, m := range models {
-		line := fmt.Sprintf("  %s", m.ID)
-		// Only annotate when owned_by provides useful information
+		displayID := strings.TrimPrefix(m.ID, "models/")
+		line := fmt.Sprintf("  %s", displayID)
 		if m.OwnedBy != "" && m.OwnedBy != "openai" && m.OwnedBy != "custom" {
 			line += fmt.Sprintf("  (by %s)", m.OwnedBy)
 		}

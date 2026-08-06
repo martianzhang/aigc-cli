@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// HasVersionSuffix reports whether urlStr ends with a version path segment like /v1, /v2.
+// HasVersionSuffix reports whether urlStr ends with a version path segment like /v1, /v2, /v1beta.
 // Used to avoid duplicating the version when the user-supplied baseURL already includes it.
 func HasVersionSuffix(urlStr string) bool {
 	lastSlash := strings.LastIndex(urlStr, "/")
@@ -22,7 +22,8 @@ func HasVersionSuffix(urlStr string) bool {
 		return false
 	}
 	for i := 1; i < len(seg); i++ {
-		if seg[i] < '0' || seg[i] > '9' {
+		c := seg[i]
+		if (c < '0' || c > '9') && c != 'b' && c != 'e' && c != 't' && c != 'a' && c != 'l' && c != 'p' && c != 's' {
 			return false
 		}
 	}

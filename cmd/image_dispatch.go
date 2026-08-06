@@ -12,6 +12,7 @@ type imageDispatchCtx struct {
 	isOpenRouter  bool
 	isModelScope  bool
 	isAgnes       bool
+	isGemini      bool
 	genEdit       bool
 	isOllama      bool
 	modelScopeKey string // API key for ModelScope async submission
@@ -40,6 +41,13 @@ var imageStrategies = []imageStrategy{
 			return ctx.isAgnes
 		},
 		run: runAgnesImage,
+	},
+	{
+		// Gemini: native generateContent API with image output
+		match: func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool {
+			return ctx.isGemini
+		},
+		run: runGeminiImage,
 	},
 	{
 		// ModelScope: async task-based generation (X-ModelScope-Async-Mode + polling)

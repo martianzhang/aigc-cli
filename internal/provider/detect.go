@@ -19,6 +19,7 @@ const (
 	Yunwu
 	ModelScope
 	Agnes
+	Gemini
 )
 
 var names = map[Type]string{
@@ -29,6 +30,7 @@ var names = map[Type]string{
 	Yunwu:      "Yunwu（云雾AI）",
 	ModelScope: "ModelScope",
 	Agnes:      "Agnes",
+	Gemini:     "Gemini",
 }
 
 func (t Type) String() string {
@@ -74,6 +76,17 @@ var agnesDomains = []string{
 	"agnes-ai.cn",
 }
 
+// geminiDomains lists domains where Google Gemini APIs are served.
+var geminiDomains = []string{
+	"generativelanguage.googleapis.com",
+}
+
+// geminiBaseURLs lists known Gemini API base URLs (native API, not OpenAI-compatible).
+var geminiBaseURLs = []string{
+	"https://generativelanguage.googleapis.com/v1beta",
+	"https://generativelanguage.googleapis.com",
+}
+
 // matchDomain checks that host is the domain d or a subdomain of d.
 // Uses url.Parse + u.Host to compare domains accurately and avoid
 // false positives like "x.evil.com" matching "evil.com".
@@ -117,6 +130,14 @@ func Detect(baseURL string) Type {
 			return Agnes
 		}
 	}
+	for _, d := range geminiDomains {
+		if matchDomain(baseURL, d) {
+			if strings.HasSuffix(baseURL, "/openai") || strings.HasSuffix(baseURL, "/openai/") {
+				return OpenAI
+			}
+			return Gemini
+		}
+	}
 	// Default to OpenAI-compatible for everything else
 	return OpenAI
 }
@@ -135,6 +156,9 @@ func IsModelScope(baseURL string) bool { return Detect(baseURL) == ModelScope }
 
 // IsAgnes is a convenience wrapper around Detect.
 func IsAgnes(baseURL string) bool { return Detect(baseURL) == Agnes }
+
+// IsGemini is a convenience wrapper around Detect.
+func IsGemini(baseURL string) bool { return Detect(baseURL) == Gemini }
 
 // localHostnames lists hostnames that are considered local/loopback addresses.
 var localHostnames = map[string]bool{

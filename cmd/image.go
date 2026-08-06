@@ -109,6 +109,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	isAgnes := p.ProviderType == provider.Agnes
 	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
 	isModelScope := p.ProviderType == provider.ModelScope
+	isGemini := p.ProviderType == provider.Gemini
 
 	// Strip APIMart-only fields for non-APIMart providers (e.g., Yunwu, OpenAI, Generic Relay).
 	// `resolution` is an APIMart proprietary field not part of the OpenAI image API;
@@ -167,6 +168,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		isOpenRouter:  isOpenRouter,
 		isModelScope:  isModelScope,
 		isAgnes:       isAgnes,
+		isGemini:      isGemini,
 		genEdit:       genEdit,
 		isOllama:      isOllama,
 		modelScopeKey: p.APIKey,

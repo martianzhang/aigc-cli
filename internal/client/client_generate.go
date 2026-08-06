@@ -44,11 +44,34 @@ func (c *Client) IsOpenRouterProvider() bool {
 // ImageGenerateSync sends a synchronous image generation request compatible with
 // OpenAI and OpenRouter. Returns the response with image URLs directly.
 func (c *Client) ImageGenerateSync(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
+	cleanReq := c.sanitizeImageRequest(req)
 	var result types.OpenAIImageResponse
-	if err := c.doJSON(http.MethodPost, imageSubmitPath, req, &result); err != nil {
+	if err := c.doJSON(http.MethodPost, imageSubmitPath, cleanReq, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
+}
+
+// sanitizeImageRequest removes provider-unsupported fields from the request.
+func (c *Client) sanitizeImageRequest(req *types.GenerateRequest) *types.GenerateRequest {
+	p := provider.Detect(c.baseURL)
+	if p == provider.ModelScope || p == provider.OpenAI {
+		// Gemini via Google AI Studio doesn't support output_format, background, moderation
+		// These are OpenAI-specific parameters
+		return &types.GenerateRequest{
+			Model:          req.Model,
+			Prompt:         req.Prompt,
+			Size:           req.Size,
+			Resolution:     req.Resolution,
+			Quality:        req.Quality,
+			N:              req.N,
+			ImageURLs:      req.ImageURLs,
+			MaskURL:        req.MaskURL,
+			Style:          req.Style,
+			ResponseFormat: req.ResponseFormat,
+		}
+	}
+	return req
 }
 
 // --- Balance ---

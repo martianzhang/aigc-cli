@@ -41,4 +41,7 @@ type APIClient interface {
 	AudioSpeech(req *types.AudioSpeechRequest) ([]byte, string, error)
 	AudioTranscribe(req *types.AudioTranscribeRequest) (*types.AudioTranscribeResponse, error)
 	AudioTranscribeMultipart(model, filePath, language string) (*types.AudioTranscribeResponse, error)
+
+	// Gemini native API
+	GeminiImageGenerate(req *types.GenerateRequest) (*types.OpenAIImageResponse, error)
 }

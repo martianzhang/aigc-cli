@@ -7,6 +7,7 @@ const (
 	ProviderOpenAI    ProviderType = "openai"    // OpenAI-compatible API (default)
 	ProviderOllama    ProviderType = "ollama"    // Ollama local (OpenAI subset, no API key)
 	ProviderGoogle    ProviderType = "google"    // Google Gemini API (reserved)
+	ProviderGemini    ProviderType = "gemini"    // Google Gemini native API
 	ProviderAnthropic ProviderType = "anthropic" // Anthropic Messages API
 	ProviderLocal     ProviderType = "local"     // Local ONNX models (ocr/vision/detect/background)
 )
@@ -16,7 +17,7 @@ const (
 // wire protocol (google, local) return false — their base URL is not analyzed.
 func (pt ProviderType) DetectProvider() bool {
 	switch pt {
-	case ProviderOpenAI, ProviderOllama, ProviderAnthropic:
+	case ProviderOpenAI, ProviderOllama, ProviderAnthropic, ProviderGemini:
 		return true
 	default:
 		return false
