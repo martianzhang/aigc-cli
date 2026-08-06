@@ -117,7 +117,7 @@ The same `image` / `video` / `audio` / `models` command automatically uses the c
 | **OpenAI** | `POST /v1/images/generations` (sync) | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `GET /v1/models` |
 | **OpenRouter** | `POST /api/v1/images` (dedicated image API) | `POST /api/v1/videos` async → poll → download + `--job-id` resume | `POST /api/v1/audio/speech` + `POST /api/v1/audio/transcriptions` (10+ TTS model aggregation) | `GET /api/v1/images/models` / `GET /api/v1/videos/models` (auth-free) |
 | **APIMart** | Async task submit → poll → download | Async task + VEO3 Remix (extend video) | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | Marketplace API + model pricing query |
-| **Yunwu AI** | `POST /v1/images/generations` (sync) | `POST /v1/video/create` + `GET /v1/video/query` | ❌ Not yet available | — |
+| **Yunwu AI** | `POST /v1/images/generations` (sync) | `POST /v1/video/create` + `GET /v1/video/query` | ❌ Not yet available | `GET /v1/models` |
 | **Ollama / Local** | `POST /v1/images/generations` (experimental, no API Key) | ❌ | Via LocalAI/openedai-speech etc. | `GET /v1/models` |
 | **Anthropic** | — | — | `POST /v1/messages` (via Anthropic-compatible relay) | — |
 | **Generic Relay** | `POST /v1/images/generations` (sync) | — | `POST /v1/audio/speech` (passthrough) | `GET /v1/models` |
@@ -142,6 +142,8 @@ aigc-cli
 ├── ocr            Offline text recognition (DBNet + CRNN, ONNX local inference)     →  docs/en/guide-ocr.md
 │   ├── init        Download OCR models
 │   └── scan        Recognize text in images
+│                   --engine auto|pdf|ocr  PDF processing mode (default: auto)
+│                   --preview              Preview recognized text
 ├── background / bg AI background removal (RMBG 2.0 semantic segmentation, offline ONNX)  →  docs/en/guide-background.md
 ├── midjourney / mj                                                                  →  docs/en/guide-midjourney.md
 │   └── mj     Alias for midjourney
