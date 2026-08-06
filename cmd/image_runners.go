@@ -520,7 +520,7 @@ func runGeminiImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 
 	geminiResp, err := c.GeminiImageGenerate(req)
 	if err != nil {
-		return nil, fmt.Errorf("Gemini image generation failed: %w", err)
+		return nil, fmt.Errorf("gemini image generation failed: %w", err)
 	}
 
 	elapsed := time.Since(start)

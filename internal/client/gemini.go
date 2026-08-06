@@ -112,7 +112,7 @@ func (c *Client) doGeminiRequest(method, path string, reqBody interface{}) ([]by
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("Gemini API request failed: %w", err)
+		return nil, fmt.Errorf("gemini API request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -124,9 +124,9 @@ func (c *Client) doGeminiRequest(method, path string, reqBody interface{}) ([]by
 	if resp.StatusCode != http.StatusOK {
 		var errResp geminiErrorResponse
 		if json.Unmarshal(body, &errResp) == nil && errResp.Error.Message != "" {
-			return nil, fmt.Errorf("Gemini API error (%s): %s", errResp.Error.Status, errResp.Error.Message)
+			return nil, fmt.Errorf("gemini API error (%s): %s", errResp.Error.Status, errResp.Error.Message)
 		}
-		return nil, fmt.Errorf("Gemini API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("gemini API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	return body, nil
@@ -152,7 +152,7 @@ func (c *Client) parseGeminiResponse(body []byte) (*types.OpenAIImageResponse, e
 	}
 
 	if len(data) == 0 {
-		return nil, fmt.Errorf("Gemini returned no images")
+		return nil, fmt.Errorf("gemini returned no images")
 	}
 
 	return &types.OpenAIImageResponse{Data: data}, nil

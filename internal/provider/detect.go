@@ -81,12 +81,6 @@ var geminiDomains = []string{
 	"generativelanguage.googleapis.com",
 }
 
-// geminiBaseURLs lists known Gemini API base URLs (native API, not OpenAI-compatible).
-var geminiBaseURLs = []string{
-	"https://generativelanguage.googleapis.com/v1beta",
-	"https://generativelanguage.googleapis.com",
-}
-
 // matchDomain checks that host is the domain d or a subdomain of d.
 // Uses url.Parse + u.Host to compare domains accurately and avoid
 // false positives like "x.evil.com" matching "evil.com".

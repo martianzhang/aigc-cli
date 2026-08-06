@@ -95,6 +95,9 @@ func (m *mockAPIClient) AudioTranscribe(req *types.AudioTranscribeRequest) (*typ
 func (m *mockAPIClient) AudioTranscribeMultipart(model, filePath, language string) (*types.AudioTranscribeResponse, error) {
 	return nil, nil
 }
+func (m *mockAPIClient) GeminiImageGenerate(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
+	return nil, nil
+}
 
 // compile-time check
 var _ client.APIClient = (*mockAPIClient)(nil)
