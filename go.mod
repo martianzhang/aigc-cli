@@ -20,6 +20,7 @@ require (
 	github.com/gen2brain/jpegxl v0.6.0
 	github.com/gen2brain/webp v0.6.4
 	github.com/jedib0t/go-pretty/v6 v6.8.3
+	github.com/k2-fsa/sherpa-onnx-go v1.13.4
 	github.com/mark3labs/mcp-go v0.55.0
 	github.com/mattn/go-sixel v0.0.11
 	github.com/richardwooding/c2pa v0.2.0
@@ -88,6 +89,9 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jfreymuth/oggvorbis v1.0.5
 	github.com/jfreymuth/vorbis v1.0.2 // indirect
+	github.com/k2-fsa/sherpa-onnx-go-linux v1.13.4 // indirect
+	github.com/k2-fsa/sherpa-onnx-go-macos v1.13.4 // indirect
+	github.com/k2-fsa/sherpa-onnx-go-windows v1.13.4 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
