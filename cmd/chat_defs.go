@@ -141,6 +141,26 @@ var agentToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
+			Name:        "convert_video_depth",
+			Description: "Convert a video into a grayscale depth video (near = white) using a local Depth Anything V2 ONNX model. Completely offline, no API key needed. The output is the standard input for depth-guided image-to-video (upload depth video + a reference photo to keep the original motion with new appearance). Requires model downloaded via 'aigc-cli video init' and ffmpeg on PATH.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"input_path": {"type": "string", "description": "Path to the input video file"},
+					"output_path": {"type": "string", "description": "Optional output path (default: <input>_depth.mp4)"},
+					"start_time": {"type": "string", "description": "Start time (SS, MM:SS, or HH:MM:SS)"},
+					"end_time": {"type": "string", "description": "End time; alone = convert the first N seconds"},
+					"model": {"type": "string", "description": "Depth model (default: depth-anything-v2-small)"},
+					"invert": {"type": "boolean", "description": "Invert depth (near = black)"}
+				},
+				"required": ["input_path"]
+			}`),
+		},
+	},
+	// --- Watermark tools ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
 			Name:        "remove_watermark",
 			Description: "⚠️ 检测并移除图片中的可见 AI 水印（内置 gemini，其他需通过 learn-watermark 学习）。仅限合法用途（如修复个人旧照片），禁止去除他人版权水印。完全离线运行，无需 API Key。",
 			Parameters: json.RawMessage(`{

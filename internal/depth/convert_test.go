@@ -1,8 +1,6 @@
-package cmd
+package depth
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestParseTimeToSeconds(t *testing.T) {
 	tests := []struct {
@@ -54,7 +52,6 @@ func TestPercentileRange(t *testing.T) {
 }
 
 func TestPercentileRangeUniform(t *testing.T) {
-	// All values equal → lo == hi == value (no NaN).
 	data := make([]uint8, 50)
 	for i := range data {
 		data[i] = 128
@@ -73,10 +70,8 @@ func TestPercentileRangeEmpty(t *testing.T) {
 }
 
 func TestPercentileRangeExtremes(t *testing.T) {
-	// Sparse extremes: mostly 100, one 0 and one 255.
 	data := []uint8{100, 100, 100, 100, 0, 255, 100, 100, 100, 100}
 	lo, hi := percentileRange(data, 10.0, 90.0)
-	// 10th percentile of 10 elements = 1st sorted index → 100; 90th → 100.
 	if lo != 100 || hi != 100 {
 		t.Errorf("percentileRange = (%v, %v), want (100, 100)", lo, hi)
 	}

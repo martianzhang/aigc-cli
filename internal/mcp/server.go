@@ -126,6 +126,7 @@ var toolRegistry = []toolInfo{
 	{"caption_image", "Read or write image caption", func(desc string) mcp.Tool { return newCaptionImageTool() }, func(cfg *Config) server.ToolHandlerFunc { return captionImageHandler() }},
 	{"search_ideas", "Search AI prompt ideas", func(desc string) mcp.Tool { return newSearchIdeasTool() }, func(cfg *Config) server.ToolHandlerFunc { return searchIdeasHandler() }},
 	{"remove_background", "Remove image background (offline)", func(desc string) mcp.Tool { return newRemoveBackgroundTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeBackgroundHandler() }},
+	{"convert_video_depth", "Convert video to grayscale depth video (offline)", func(desc string) mcp.Tool { return newConvertVideoDepthTool() }, func(cfg *Config) server.ToolHandlerFunc { return convertVideoDepthHandler(cfg) }},
 	{"detect_image", "Detect AIGC/watermark in images (offline)", func(desc string) mcp.Tool { return newDetectTool() }, func(cfg *Config) server.ToolHandlerFunc { return detectHandler() }},
 	{"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler() }},
 	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler() }},

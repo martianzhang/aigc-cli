@@ -17,6 +17,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/background"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/depth"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/ocr"
 	"github.com/martianzhang/aigc-cli/internal/pdf"
@@ -102,6 +103,8 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeFindFiles(args)
 	case "remove_background":
 		return executeRemoveBackground(args)
+	case "convert_video_depth":
+		return executeConvertVideoDepth(args)
 	case "remove_watermark":
 		return executeRemoveWatermark(args)
 	case "add_watermark":
@@ -228,6 +231,51 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 	}
 
 	return fmt.Sprintf("Successfully generated %d video(s).\nFiles saved locally:\n  %s\nUser can use /preview to view them.", len(saved), strings.Join(saved, "\n  "))
+}
+
+// executeConvertVideoDepth converts a video to a grayscale depth video.
+func executeConvertVideoDepth(argsJSON string) string {
+	var a struct {
+		InputPath  string `json:"input_path"`
+		OutputPath string `json:"output_path"`
+		StartTime  string `json:"start_time"`
+		EndTime    string `json:"end_time"`
+		Model      string `json:"model"`
+		Invert     bool   `json:"invert"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if a.InputPath == "" {
+		return "Error: input_path is required"
+	}
+	if _, err := os.Stat(a.InputPath); err != nil {
+		return fmt.Sprintf("Error: input file not found: %v", err)
+	}
+
+	// Resolve output path into the shared output dir.
+	outPath := a.OutputPath
+	if outPath == "" {
+		ext := filepath.Ext(a.InputPath)
+		stem := strings.TrimSuffix(filepath.Base(a.InputPath), ext)
+		outPath = filepath.Join(shared.OutputDir, stem+"_depth.mp4")
+	}
+
+	out, err := depth.Convert(depth.ConvertOptions{
+		Input:      a.InputPath,
+		Output:     outPath,
+		ModelID:    a.Model,
+		StartTime:  a.StartTime,
+		EndTime:    a.EndTime,
+		Invert:     a.Invert,
+		Smooth:     true,
+		Verbose:    shared.Verbose,
+		OnProgress: func(done, total int, fps float64) {},
+	})
+	if err != nil {
+		return fmt.Sprintf("Error: conversion failed: %v\nRun 'aigc-cli video init' if the depth model is missing.", err)
+	}
+	return fmt.Sprintf("Depth video saved: %s\nUser can use /preview to view it.\nTip: upload this depth video plus a reference photo to a depth-guided image-to-video platform (e.g. Wan VACE, Kling Motion Control) to generate a new video keeping the original motion with the new appearance.", out)
 }
 
 // executeRemoveBackground runs RMBG AI background removal and returns a text summary.

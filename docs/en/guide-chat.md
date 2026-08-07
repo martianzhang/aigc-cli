@@ -42,6 +42,7 @@ In REPL mode, the AI can use built-in tools:
 | `kb_search` | Web search + save to KB |
 | `detect_image` | AIGC detection |
 | `remove_watermark` | Watermark removal |
+| `convert_video_depth` | Video → grayscale depth video (offline) |
 
 Tools can be enabled/disabled via config:
 
