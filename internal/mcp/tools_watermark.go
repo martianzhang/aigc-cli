@@ -21,7 +21,8 @@ import (
 func isLocalImageFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" ||
-		ext == ".gif" || ext == ".bmp" || ext == ".svg"
+		ext == ".gif" || ext == ".bmp" || ext == ".svg" ||
+		ext == ".avif" || ext == ".heic" || ext == ".jxl"
 }
 
 // resolveAbsPath resolves a possibly-relative path to an absolute one.
@@ -49,7 +50,7 @@ func removeWatermarkHandler() server.ToolHandlerFunc {
 			return mcp.NewToolResultError("file_path is required"), nil
 		}
 		if !isLocalImageFile(path) {
-			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
+			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp/.avif/.heic/.jxl) are supported."), nil
 		}
 		path = resolveAbsPath(path)
 
@@ -92,7 +93,7 @@ func addWatermarkHandler() server.ToolHandlerFunc {
 			return mcp.NewToolResultError("file_path is required"), nil
 		}
 		if !isLocalImageFile(path) {
-			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
+			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp/.avif/.heic/.jxl) are supported."), nil
 		}
 		path = resolveAbsPath(path)
 
@@ -140,7 +141,7 @@ func cropWatermarkHandler() server.ToolHandlerFunc {
 			return mcp.NewToolResultError("file_path is required"), nil
 		}
 		if !isLocalImageFile(path) {
-			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
+			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp/.avif/.heic/.jxl) are supported."), nil
 		}
 		path = resolveAbsPath(path)
 

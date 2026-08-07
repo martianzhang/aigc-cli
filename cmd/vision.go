@@ -133,7 +133,7 @@ func runVisionDescribe(cmd *cobra.Command, args []string) error {
 	}
 
 	if !isImageFile(inputPath) {
-		return fmt.Errorf("unsupported file format: %s\nSupported formats: JPEG, PNG, WebP", ext)
+		return fmt.Errorf("unsupported file format: %s\nSupported formats: JPEG, PNG, WebP, AVIF, HEIC, JXL", ext)
 	}
 
 	// ── Online vision via LLM provider ──
@@ -217,7 +217,7 @@ func runVisionDescribe(cmd *cobra.Command, args []string) error {
 func isImageFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".jpg", ".jpeg", ".png", ".webp":
+	case ".jpg", ".jpeg", ".png", ".webp", ".avif", ".heic", ".jxl":
 		return true
 	}
 	return false

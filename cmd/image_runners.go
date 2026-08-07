@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -461,17 +462,22 @@ done:
 
 	var saved []string
 	for i, imgURL := range taskResp.OutputImages {
-		ext := ".png"
-		if e := filepath.Ext(imgURL); e != "" {
-			ext = e
+		data, err := service.FetchBytes(imgURL)
+		if err != nil {
+			service.SaveBase64Fallback(shared.OutputDir, fmt.Sprintf("modelscope_%d", time.Now().Unix()), imgURL, 0)
+			continue
+		}
+		// Prefer sniffed real format over URL extension (URLs often lack
+		// an extension or carry query params, causing wrong file types).
+		ext := imgcodec.SniffImageExt(data)
+		if ext == "" {
+			ext = extractImageExt(imgURL)
+		}
+		if ext == "" {
+			ext = ".png"
 		}
 		taskID := fmt.Sprintf("modelscope_%d", time.Now().Unix())
 		filename := filepath.Join(shared.OutputDir, fmt.Sprintf("image_%s_%d%s", taskID, i, ext))
-		data, err := service.FetchBytes(imgURL)
-		if err != nil {
-			service.SaveBase64Fallback(shared.OutputDir, taskID, imgURL, 0)
-			continue
-		}
 		if err := os.WriteFile(filename, data, 0644); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
 			continue
@@ -498,7 +504,12 @@ func downloadImages(images []types.ImageResult, taskID string) ([]string, error)
 				continue
 			}
 
-			ext := filepath.Ext(url)
+			// Prefer sniffed real format over URL extension (URLs often lack
+			// an extension or carry query params, causing wrong file types).
+			ext := imgcodec.SniffImageExt(data)
+			if ext == "" {
+				ext = extractImageExt(url)
+			}
 			if ext == "" {
 				ext = ".png"
 			}
@@ -545,7 +556,12 @@ func runGeminiImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 				service.SaveBase64Fallback(shared.OutputDir, fmt.Sprintf("image_%d", time.Now().Unix()), img.URL, 0)
 				continue
 			}
-			ext := filepath.Ext(img.URL)
+			// Prefer sniffed real format over URL extension (URLs often lack
+			// an extension or carry query params, causing wrong file types).
+			ext := imgcodec.SniffImageExt(data)
+			if ext == "" {
+				ext = extractImageExt(img.URL)
+			}
 			if ext == "" {
 				ext = ".png"
 			}

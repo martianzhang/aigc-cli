@@ -246,7 +246,7 @@ func newGenerateImageTool(desc string) mcp.Tool {
 			mcp.Description("Override the config default quality"),
 		),
 		mcp.WithString("output_format",
-			mcp.Enum("png", "jpeg", "webp"),
+			mcp.Enum("png", "jpeg", "webp", "avif", "jxl"),
 			mcp.Description("Override the config default output format"),
 		),
 		mcp.WithString("image_urls",
