@@ -31,6 +31,7 @@ Generate, detect, and manage AI content from the terminal. Supports OpenAI, Open
 | 📚 | **Knowledge Base** | FTS5 + ONNX semantic search, age-encrypted vault, web search auto-import, MCP/Chat tools. |
 | 👁️ | **OCR & Vision** | Offline DBNet+CRNN text recognition. Image captioning via local EXIF or online vision LLM. |
 | 🖼️ | **Background Removal** | RMBG 2.0 semantic segmentation. Pure local ONNX, no API key. |
+| 📏 | **Depth Video** | `video --convert-to-depth`: local Depth Anything V2 ONNX → grayscale depth video for depth-guided image-to-video. |
 
 
 ---
@@ -101,6 +102,7 @@ AI agents can generate images, create videos, search idea libraries, query model
 | 💬 | **Agentic Chat** | Interactive REPL with built-in `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` tools |
 | 🔍 | **Prompt Idea Library** | Offline BM25 search engine (CJK-aware + n-gram + RRF), 10K+ prompt dataset |
 | 🔊 | **Local TTS / ASR** | sherpa-onnx offline speech synthesis (kokoro, 53 voices, EN/ZH/JA/KR/FR) and speech recognition (SenseVoice, best for Chinese), no internet needed |
+| 📏 | **Depth Video** | `video --convert-to-depth`: local Depth Anything V2 ONNX → grayscale depth video for depth-guided image-to-video |
 | 🔄 | **Video Job Persistence** | OpenRouter submit → poll → download full pipeline, `--job-id` one-key resume after timeout |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` prints equivalent curl commands, zero-friction API learning and debugging |
 | ⚡ | **Go Single Binary** | `go install` one-command install, no runtime dependencies, cross-platform |
@@ -134,7 +136,7 @@ Each command can use a different provider via the `providers` config, see [docs/
 ```
 aigc-cli
 ├── image / img   Image generation (sync/async/OpenRouter dedicated API/Grok Edit)  →  docs/en/guide-image.md
-├── video / vid   Video generation (OpenRouter / Yunwu + VEO3 Remix)                →  docs/en/guide-video.md
+├── video / vid   Video generation (OpenRouter / Yunwu + VEO3 Remix) + --convert-to-depth →  docs/en/guide-video.md
 ├── audio / voice Audio: TTS and STT                                                →  docs/en/guide-audio.md
 │   ├── tts / speak  Text-to-speech (cloud API or local sherpa-onnx offline)
 │   ├── asr / stt    Speech-to-text (cloud API or local sherpa-onnx offline)

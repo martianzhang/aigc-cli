@@ -96,6 +96,11 @@ Examples:
 }
 
 func runVideo(cmd *cobra.Command, args []string) error {
+	// Depth conversion mode: convert a video into a grayscale depth video.
+	if vidDepthConvert {
+		return runVideoDepth(cmd)
+	}
+
 	if vidRemix {
 		return runVideoRemix(cmd)
 	}
@@ -183,6 +188,17 @@ func init() {
 	f.BoolVar(&vidPreview, "preview", false, "Open generated video with system default player")
 	f.StringVar(&shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&vidJobID, "job-id", "", "Resume an OpenRouter video job by ID (loads saved job info and downloads the result)")
+
+	// Depth conversion mode (video → grayscale depth video)
+	f.BoolVar(&vidDepthConvert, "convert-to-depth", false, "Convert the input video into a grayscale depth video (local ONNX, requires ffmpeg)")
+	f.StringVarP(&vidDepthInput, "input", "i", "", "Input video file for depth conversion (with --convert-to-depth)")
+	f.StringVar(&vidDepthStart, "start-time", "", "Start time for depth conversion (SS, MM:SS, or HH:MM:SS)")
+	f.StringVar(&vidDepthEnd, "end-time", "", "End time for depth conversion; alone = convert the first N seconds")
+	f.StringVar(&vidDepthModel, "depth-model", "", "Depth model: depth-anything-v2-small (default, Apache-2.0) / -base / -large (aliases: small, base, large)")
+	f.IntVar(&vidDepthSize, "depth-size", 0, "Depth inference resolution, short side (14-aligned; default 280, ~1.8x faster than 378)")
+	f.BoolVar(&vidDepthInvert, "invert", false, "Invert depth (near = black instead of near = white)")
+	f.BoolVar(&vidDepthNoSmooth, "no-smooth", false, "Disable temporal smoothing (reduces flicker when enabled)")
+	f.BoolVar(&vidDepthKeepAudio, "keep-audio", false, "Keep the source audio track in the depth video")
 
 	rootCmd.AddCommand(videoCmd)
 }

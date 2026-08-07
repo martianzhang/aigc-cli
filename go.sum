@@ -179,8 +179,8 @@ github.com/lucasb-eyer/go-colorful v1.4.0 h1:UtrWVfLdarDgc44HcS7pYloGHJUjHV/4FwW
 github.com/lucasb-eyer/go-colorful v1.4.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/mark3labs/mcp-go v0.55.0 h1:lJfz2aoctiwK+sI991+uIYwmKNIBciI+O7zsyDsa4U8=
 github.com/mark3labs/mcp-go v0.55.0/go.mod h1:+8WclSK1ZUweCP3hvktSji8n8ABG/95QaEkeVE/Uwas=
-github.com/martianzhang/pure-onnx v0.0.0-20260719043926-d432c3973f89 h1:RYXjdX+a9MiNPvZHLpOsyI5wUKIlvJPGrrfnIrc2IoQ=
-github.com/martianzhang/pure-onnx v0.0.0-20260719043926-d432c3973f89/go.mod h1:EKZdFYCZNg9RoSVd4hj7tNXQqG0Y8icLz6xkJapvvDk=
+github.com/martianzhang/pure-onnx v0.0.2 h1:jV7v6VqeQe42ybJW55qGXHFFCyuNvpMSPisRrC2okEE=
+github.com/martianzhang/pure-onnx v0.0.2/go.mod h1:EKZdFYCZNg9RoSVd4hj7tNXQqG0Y8icLz6xkJapvvDk=
 github.com/mattn/go-isatty v0.0.22 h1:j8l17JJ9i6VGPUFUYoTUKPSgKe/83EYU2zBC7YNKMw4=
 github.com/mattn/go-isatty v0.0.22/go.mod h1:ZXfXG4SQHsB/w3ZeOYbR0PrPwLy+n6xiMrJlRFqopa4=
 github.com/mattn/go-localereader v0.0.1 h1:ygSAOl7ZXTx4RdPYinUpg6W99U8jWvWi9Ye2JC/oIi4=
