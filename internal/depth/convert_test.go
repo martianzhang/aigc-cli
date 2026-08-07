@@ -76,3 +76,30 @@ func TestPercentileRangeExtremes(t *testing.T) {
 		t.Errorf("percentileRange = (%v, %v), want (100, 100)", lo, hi)
 	}
 }
+
+func TestParseEncodeArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{"empty", "", nil},
+		{"simple", "-crf 28", []string{"-crf", "28"}},
+		{"quoted", `-vf "scale=100:100"`, []string{"-vf", "scale=100:100"}},
+		{"mixed", `-crf 28 -preset slow -vf "scale=100:100"`, []string{"-crf", "28", "-preset", "slow", "-vf", "scale=100:100"}},
+		{"spaces", "  -crf   28  ", []string{"-crf", "28"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseEncodeArgs(tt.in)
+			if len(got) != len(tt.want) {
+				t.Fatalf("parseEncodeArgs(%q) = %v, want %v", tt.in, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Fatalf("parseEncodeArgs(%q) = %v, want %v", tt.in, got, tt.want)
+				}
+			}
+		})
+	}
+}

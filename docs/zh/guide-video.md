@@ -211,6 +211,9 @@ aigc-cli video --convert-to-depth -i input.mp4 --start-time 00:01:00 --end-time 
 # 换模型 / 反转方向
 aigc-cli video --convert-to-depth -i input.mp4 --depth-model depth-anything-v2-large --invert
 
+# 自定义 ffmpeg 编码参数（追加在默认参数后，同名参数覆盖默认值）
+aigc-cli video --convert-to-depth -i input.mp4 --encode-args "-crf 28 -preset slow"
+
 # 只打印将要执行的 ffmpeg 命令，不实际转换
 aigc-cli video --convert-to-depth -i input.mp4 --dry-run
 ```
@@ -230,6 +233,7 @@ aigc-cli video --convert-to-depth -i input.mp4 --dry-run
 | `--invert` | 反转深度方向（近暗远亮） | off |
 | `--no-smooth` | 关闭时序平滑（开启时减轻闪烁） | off（平滑开） |
 | `--keep-audio` | 保留原视频音轨 | off |
+| `--encode-args` | 追加到 ffmpeg 编码命令的自定义参数，**追加在默认参数之后**——同名参数会覆盖默认值（后者生效）。例：`"-crf 28"`（更小文件）、`"-preset slow"`（更优压缩）、`"-crf 28 -preset slow"` | CRF 23，preset medium |
 
 > **模型与许可证**：`depth-anything-v2-small` 为 Apache-2.0（可商用，默认）。`depth-anything-v2-base` 和 `-large` 为 CC-BY-NC-4.0（非商用），需要显式下载：`aigc-cli video init --model depth-anything-v2-base`。
 

@@ -112,6 +112,9 @@ aigc-cli video --convert-to-depth -i input.mp4 --start-time 00:01:00 --end-time 
 # Different model / options
 aigc-cli video --convert-to-depth -i input.mp4 --depth-model depth-anything-v2-large --invert
 
+# Customize the ffmpeg encode (appended after defaults; same-named options override)
+aigc-cli video --convert-to-depth -i input.mp4 --encode-args "-crf 28 -preset slow"
+
 # See the exact ffmpeg commands without running anything
 aigc-cli video --convert-to-depth -i input.mp4 --dry-run
 ```
@@ -132,6 +135,7 @@ The output is saved next to the input as `<input_stem>_depth.mp4`
 | `--invert` | Invert depth (near = black) | off |
 | `--no-smooth` | Disable temporal smoothing (reduces flicker) | off (smoothing on) |
 | `--keep-audio` | Keep the source audio track | off |
+| `--encode-args` | Extra ffmpeg encode args, **appended after the defaults** — same-named options override them (last wins). Examples: `"-crf 28"` (smaller file), `"-preset slow"` (better compression), `"-crf 28 -preset slow"` | CRF 23, preset medium |
 
 > **Models & licenses**: `depth-anything-v2-small` is Apache-2.0 (commercial
 > friendly, the default). `depth-anything-v2-base` and `-large` are

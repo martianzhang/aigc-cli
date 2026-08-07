@@ -199,6 +199,7 @@ func init() {
 	f.BoolVar(&vidDepthInvert, "invert", false, "Invert depth (near = black instead of near = white)")
 	f.BoolVar(&vidDepthNoSmooth, "no-smooth", false, "Disable temporal smoothing (reduces flicker when enabled)")
 	f.BoolVar(&vidDepthKeepAudio, "keep-audio", false, "Keep the source audio track in the depth video")
+	f.StringVar(&vidDepthEncodeArgs, "encode-args", "", "Extra ffmpeg encode args appended after defaults (same-named options override, e.g. \"-crf 28 -preset slow\")")
 
 	rootCmd.AddCommand(videoCmd)
 }

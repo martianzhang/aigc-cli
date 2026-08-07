@@ -12,15 +12,16 @@ import (
 
 // depth conversion flag variables (registered on videoCmd).
 var (
-	vidDepthConvert   bool
-	vidDepthInput     string
-	vidDepthStart     string
-	vidDepthEnd       string
-	vidDepthModel     string
-	vidDepthSize      int
-	vidDepthInvert    bool
-	vidDepthNoSmooth  bool
-	vidDepthKeepAudio bool
+	vidDepthConvert    bool
+	vidDepthInput      string
+	vidDepthStart      string
+	vidDepthEnd        string
+	vidDepthModel      string
+	vidDepthSize       int
+	vidDepthInvert     bool
+	vidDepthNoSmooth   bool
+	vidDepthKeepAudio  bool
+	vidDepthEncodeArgs string
 )
 
 // runVideoDepth 处理 video --convert-to-depth：把普通视频转为灰度深度视频。
@@ -52,6 +53,7 @@ func runVideoDepth(cmd *cobra.Command) error {
 		Invert:        vidDepthInvert,
 		Smooth:        !vidDepthNoSmooth,
 		KeepAudio:     vidDepthKeepAudio,
+		EncodeArgs:    vidDepthEncodeArgs,
 		Verbose:       shared.Verbose,
 		OnProgress: func(done, total int, fps float64) {
 			fmt.Printf("  frame %d/%d (%.1f fps)\n", done, total, fps)

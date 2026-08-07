@@ -33,6 +33,9 @@ type ConvertOptions struct {
 	Smooth bool
 	// KeepAudio 保留原视频音轨。
 	KeepAudio bool
+	// EncodeArgs 追加到 ffmpeg 编码命令的自定义参数（空格分隔的字符串）。
+	// 追加在默认参数之后，可覆盖 CRF 等默认值，例如 "-crf 28 -preset slow"。
+	EncodeArgs string
 	// LibPath ONNX Runtime 库路径；空则自动解析。
 	LibPath string
 	// ModelsDir 模型根目录；空则自动解析。
@@ -211,7 +214,7 @@ func Convert(opts ConvertOptions) (string, error) {
 			durSec = 0
 		}
 	}
-	if err := encodeDepthVideo(tmpDir, outPath, input, info, startSec, durSec, opts.KeepAudio, opts.Verbose); err != nil {
+	if err := encodeDepthVideo(tmpDir, outPath, input, info, startSec, durSec, opts.KeepAudio, opts.Verbose, parseEncodeArgs(opts.EncodeArgs)); err != nil {
 		return "", err
 	}
 
