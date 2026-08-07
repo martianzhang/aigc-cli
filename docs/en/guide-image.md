@@ -21,7 +21,7 @@ aigc-cli image --model "dall-e-3" --size "1024x1024" --prompt "a cat"
 | `--size` | Image size (`1024x1024`, `1792x1024`, etc.) | varies by model |
 | `--quality` | Quality: `standard` or `hd` | `standard` |
 | `--style` | Style: `vivid` or `natural` | `vivid` |
-| `--output-format` | Output format: `png`, `jpg`, `webp` | `png` |
+| `--output-format` | Output format: `png`, `jpg`, `webp`, `avif`, `jxl` | `png` |
 | `--n` | Number of images to generate | `1` |
 | `--image-url` | Input image for image-to-image or editing | — |
 | `--mask-url` | Mask image for inpainting | — |

@@ -248,7 +248,7 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 
 	img, format, err := image.Decode(f)
 	if err != nil {
-		return fmt.Errorf("unsupported image format: %w\n\nSupported formats: JPEG, PNG, GIF, BMP, WebP", err)
+		return fmt.Errorf("unsupported image format: %w\n\nSupported formats: JPEG, PNG, GIF, BMP, WebP, AVIF, HEIC, JXL", err)
 	}
 	_ = format
 	f.Close()

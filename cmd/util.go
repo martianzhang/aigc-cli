@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -134,6 +135,20 @@ func setFloatFlag(cmd *cobra.Command, name string, target **float64, val float64
 // extractExt returns the file extension from a URL, defaulting to .mp4.
 func extractExt(rawURL string) string {
 	return service.ExtractExt(rawURL)
+}
+
+// extractImageExt returns the file extension from an image URL, stripping
+// query params. Returns "" when no extension is present (caller should fall
+// back to sniffing the actual bytes).
+func extractImageExt(rawURL string) string {
+	if idx := strings.Index(rawURL, "?"); idx >= 0 {
+		rawURL = rawURL[:idx]
+	}
+	ext := strings.ToLower(filepath.Ext(rawURL))
+	if ext == "" || len(ext) > 5 {
+		return ""
+	}
+	return ext
 }
 
 // downloadVideos downloads all generated videos. Returns paths to saved files.

@@ -31,7 +31,7 @@ aigc-cli image < prompt.txt
 | `--provider` | | 命名 Provider 名称（覆盖 `defaults.image.provider`，见 `docs/config.example.yaml`） | 通用 |
 | `--size` | `-s` | 宽高比，如 `16:9`、`1:1`，或像素如 `1024x1024` | 通用 |
 | `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` | 通用 |
-| `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp` | 通用 |
+| `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp`、`avif`、`jxl` | 通用 |
 | `--compress` | `-z` | 压缩目标：`800KB`/`2MB`（目标大小）或 `85%`（固定 quality） | 通用 |
 | `--n` | | 生成数量 1-4 | 通用 |
 | `--style` | | 风格：`vivid`、`natural`（OpenAI 专用） | OpenAI |
@@ -280,6 +280,10 @@ aigc-cli image --prompt "..." \
 
 `--compress` 支持两种模式：**生成后自动压缩** 和 **纯本地压缩**（不走 API）。
 
+> **编码器**：JPEG/WebP/AVIF/JXL 编码基于 wasm codec（jpegli / libwebp / libavif / libjxl），
+> 相比标准库同质量体积更小；其中 AVIF / JXL 为高压缩率格式，对 AI 生成的
+> 干净图像通常可比 JPEG 再小 40-60%。PNG 保持标准库无损编码。
+
 ### 路径 1：生成后自动压缩
 
 图片生成完成后自动对结果进行压缩：
@@ -290,6 +294,12 @@ aigc-cli image --prompt "猫" --compress 500KB -f jpg
 
 # 生成 WebP，固定 quality 85
 aigc-cli image --prompt "猫" --compress 85% -f webp
+
+# 生成 AVIF（高压缩率），目标文件大小 500KB
+aigc-cli image --prompt "猫" --compress 500KB -f avif
+
+# 生成 JPEG-XL，固定 quality 75
+aigc-cli image --prompt "猫" --compress 75% -f jxl
 
 # 使用 YAML 配置默认值
 # defaults:

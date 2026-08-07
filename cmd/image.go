@@ -199,7 +199,7 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVarP(&genQuality, "quality", "q", "", "Quality: auto, low, medium, high")
 	f.StringVar(&genBackground, "background", "", "Background mode: auto, opaque, transparent (APIMart only)")
 	f.StringVar(&genModeration, "moderation", "", "Moderation strength: auto, low (APIMart only)")
-	f.StringVarP(&genOutputFormat, "output-format", "f", "", "Output format: png, jpeg, webp")
+	f.StringVarP(&genOutputFormat, "output-format", "f", "", "Output format: png, jpeg, webp, avif, jxl")
 	f.StringVarP(&genCompress, "compress", "z", "", `Compress output: target size ("800KB", "2MB") or fixed quality ("85%")`)
 	f.IntVar(&genCompression, "output-compression", 0, "Output compression level 0-100 (jpeg/webp only) (APIMart only)")
 	f.IntVar(&genN, "n", 0, "Number of images to generate (1-4)")

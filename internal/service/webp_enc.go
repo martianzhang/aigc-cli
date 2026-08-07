@@ -1,20 +1,15 @@
 package service
 
 import (
-	"fmt"
 	"image"
 	"io"
+
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
-// webpEncode is set at init time by either the CGO or stub variant.
-// It encodes the image as WebP lossy to w with the given quality (1-100).
-var webpEncode func(w io.Writer, m image.Image, quality int) error
-
-// init checks that webpEncode was initialized.
-func init() {
-	if webpEncode == nil {
-		webpEncode = func(w io.Writer, m image.Image, quality int) error {
-			return fmt.Errorf("WebP encoding requires CGO: install a C compiler or use --output-format jpg/png instead")
-		}
-	}
+// webpEncode 编码 WebP 图像。实现基于 gen2brain/webp（libwebp wasm 转译，
+// 纯 Go、无 CGO），替代了早期依赖 chai2010/webp 的 CGO 实现。
+func webpEncode(w io.Writer, m image.Image, quality int) error {
+	_, err := imgcodec.Encode(w, m, "webp", quality)
+	return err
 }

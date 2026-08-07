@@ -3,7 +3,6 @@ package service
 import (
 	"fmt"
 	"image"
-	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -13,6 +12,8 @@ import (
 	"github.com/soniakeys/quant/median"
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp" // decoder registration
+
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
 // CompressOptions defines how to compress an image.
@@ -247,10 +248,9 @@ func encodeImage(img image.Image, dstPath, outFmt string, quality int) (int64, e
 // encodeImageTo writes the encoded image to w.
 func encodeImageTo(img image.Image, w *os.File, outFmt string, quality int) error {
 	switch outFmt {
-	case "jpg", "jpeg":
-		return jpeg.Encode(w, img, &jpeg.Options{Quality: quality})
-	case "webp":
-		return webpEncode(w, img, quality)
+	case "jpg", "jpeg", "webp", "avif", "jxl":
+		_, err := imgcodec.Encode(w, img, outFmt, quality)
+		return err
 	case "png":
 		return png.Encode(w, img)
 	default:
