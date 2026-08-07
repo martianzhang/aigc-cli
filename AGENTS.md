@@ -21,39 +21,61 @@
 
 > **永远不要直接调用 `go build`、`go test`、`go fmt`**。统一走 Makefile。
 
-### 1.1 CGO 可选依赖模式
+### 1.1 本地原生库依赖模式（无 CGO）
 
-部分功能（本地 TTS/ASR）依赖 CGO，但必须保证**无 CGO 时也能编译通过**。模式如下：
+本地能力（TTS/ASR、ONNX 推理、图片编解码）依赖原生 C/C++ 库，但**全部通过纯 Go 方式接入，Go 源码零 `import "C"`**，无 CGO 编译要求。两条路径：
+
+#### 1.1.1 动态库运行时加载（sherpa-onnx / onnxruntime）
+
+共享库通过 **purego**（纯 Go 的 dlopen）在运行时加载，配合编译期生成的 C helper：
 
 ```
-internal/xxx/
-├── feature.go          # 基础类型定义（始终编译）
-├── feature_stub.go     # //go:build !cgo — 空桩，返回 "requires CGO" 错误
-└── feature_cgo.go      # //go:build cgo  — 真实实现，import CGO 库
+internal/audio/
+├── tts.go              # 类型定义 + 统一接口
+├── tts_sherpa.go       # 真实实现（purego FFI 调 helper）
+├── sherpa_ffi.go       # FFI 绑定（purego.Dlopen）
+├── loadlib.go          # //go:build darwin || linux — purego.Dlopen
+└── loadlib_windows.go  # //go:build windows — windows.LoadLibrary
 ```
 
-规则：
+- **helper.c**（`scripts/helper.c`）：封装 sherpa C 结构体构造，由 `scripts/build-helper.sh` 编译成共享库（`libaigc-sherpa-helper.{so,dylib,dll}`）
+- **动态库下载**：onnxruntime / sherpa 运行库由 `init` 命令下载到 `~/.config/aigc-cli/models/`
+- **平台模块依赖**：`sherpa-onnx-go` 及其 `-linux/-macos/-windows` 平台模块**只被 helper 编译期使用**（提供 `c-api.h` 头文件和预编译 `.so/.dylib/.dll`），不参与 Go 运行时。通过 `internal/tools/tools.go` 空导入锁定，防止 `go mod tidy` 误删（见 1.1.3）
 
-| 场景 | 行为 |
-|---|---|
-| 有 CGO 编译 | real 实现被编译，功能完整可用 |
-| 无 CGO 编译 | stub 被编译，调用时返回友好错误信息 |
-| CI 构建 | 默认有 CGO，Release 产物包含功能 + 动态库 |
+#### 1.1.2 wasm 编解码（图片 codec）
 
-**CI Release 额外处理**：Windows 构建时，将 CGO 依赖的 DLL 复制到 exe 同目录，确保解压即用：
+图片编解码（jpegli / libwebp / libavif / libjxl）通过 **gen2brain 系列库**接入：底层 C/C++ codec 编译为 wasm 并 `go:embed` 在库内，由 **wazero**（纯 Go wasm 运行时）执行，零 CGO、零外部文件：
 
-```yaml
-# .github/workflows/ci.yml — release job
-- name: Build
-  run: |
-    go build -o aigc-cli.exe .
-    # 复制 CGO DLL 到输出目录
-    cp "$(go env GOMODCACHE)/.../lib/x86_64/*.dll" .
+```go
+import (
+    "github.com/gen2brain/avif"    // libavif：AVIF/HEIC 解码 + AVIF 编码
+    "github.com/gen2brain/jpegli"   // Google JPEG 编码器
+    "github.com/gen2brain/jpegxl"   // libjxl：JXL 解码/编码
+    "github.com/gen2brain/webp"     // libwebp：WebP 解码/编码（wasm2go 转译）
+)
 ```
 
-**参考实现**：`internal/audio/tts.go` / `tts_stub.go` / `tts_sherpa.go`（基于 sherpa-onnx-go）。
+- 解码器通过 `image.RegisterFormat` 自动注册，import 即生效，全链路（detect/ocr/vision/background/MCP）支持 AVIF/HEIC/JXL
+- 编码统一走 `internal/imgcodec.EncodeToFile`，为 `--compress` / `--output-format` 提供 jpeg/webp/avif/jxl/png
+- wasm 模块首次调用时由 wazero 惰性编译，`imgcodec.Init()` 可启动时预编译
 
-**适用场景**：引入新的 CGO 依赖时，必须按此模式提供 stub 实现，否则不得合入 main。
+#### 1.1.3 tools.go 依赖锁定
+
+`go mod tidy` 会删除"不被 Go 代码 import"的模块——而 sherpa 平台模块仅被 `scripts/build-helper.sh` 编译期使用，属于此类。**禁止**靠手动改回 go.mod 维护，正确做法是维护 `internal/tools/tools.go`：
+
+```go
+//go:build tools
+
+package tools
+
+import (
+    _ "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
+)
+```
+
+`//go:build tools` 使该文件默认不参与编译，但 `go mod tidy` 会扫描其 import 图，从而保留 sherpa 主模块及平台模块。新增"仅编译期/构建期使用"的模块时，一律在此空导入锁定。
+
+**适用场景**：引入新的原生库依赖时，按 1.1.1（purego 动态库）或 1.1.2（wasm codec）接入，不得引入 `import "C"`。若某库只能 CGO，需提供 stub 实现并合入前评审。
 
 ---
 
