@@ -56,6 +56,7 @@ Output is saved next to the input by default, or to `--output <path>`.
 | `--keep-audio` | Video: keep the source audio track | off |
 | `--encode-args` | Video: extra ffmpeg encode args, **appended after the defaults** — same-named options override them (last wins). Examples: `"-crf 28"` (smaller file), `"-preset slow"` (better compression) | CRF 23, preset medium |
 | `--no-smooth` | Video: disable temporal smoothing (reduces flicker) | off (smoothing on) |
+| `--parallel` / `-p` | Video: number of parallel inference workers. Auto-tuned by CPU cores (default min(perf cores, 4)); raise for large clips, lower to save memory | auto |
 | `--preview` | Open the depth result with the system default viewer | off |
 | `--dry-run` | Print what would run without doing it | off |
 

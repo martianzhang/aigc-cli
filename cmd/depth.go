@@ -26,6 +26,7 @@ var (
 	depthKeepAudio  bool
 	depthEncodeArgs string
 	depthNoSmooth   bool
+	depthParallel   int
 	depthPreview    bool
 )
 
@@ -154,6 +155,7 @@ func runDepthVideo(cmd *cobra.Command) error {
 			endTime:    depthEnd,
 			invert:     depthInvert,
 			color:      depthColor,
+			parallel:   depthParallel,
 			noSmooth:   depthNoSmooth,
 			keepAudio:  depthKeepAudio,
 			encodeArgs: depthEncodeArgs,
@@ -170,6 +172,7 @@ func runDepthVideo(cmd *cobra.Command) error {
 		EndTime:       depthEnd,
 		Invert:        depthInvert,
 		Color:         depthColor,
+		Parallel:      depthParallel,
 		Smooth:        !depthNoSmooth,
 		KeepAudio:     depthKeepAudio,
 		EncodeArgs:    depthEncodeArgs,
@@ -210,6 +213,7 @@ func registerDepthFlags(cmd *cobra.Command) {
 	f.BoolVar(&depthKeepAudio, "keep-audio", false, "Video: keep the source audio track")
 	f.StringVar(&depthEncodeArgs, "encode-args", "", "Video: extra ffmpeg encode args appended after defaults (same-named options override, e.g. \"-crf 28 -preset slow\")")
 	f.BoolVar(&depthNoSmooth, "no-smooth", false, "Video: disable temporal smoothing (reduces flicker)")
+	f.IntVarP(&depthParallel, "parallel", "p", 0, "Video: number of parallel inference workers (default: auto by CPU cores)")
 	f.BoolVar(&depthPreview, "preview", false, "Open the depth result with the system default viewer")
 }
 
@@ -222,6 +226,7 @@ type depthDryRunInfo struct {
 	endTime    string
 	invert     bool
 	color      bool
+	parallel   int
 	noSmooth   bool
 	keepAudio  bool
 	encodeArgs string
@@ -236,6 +241,9 @@ func printDepthDryRun(info depthDryRunInfo) {
 	fmt.Printf("# invert: %v, smooth: %v, keep_audio: %v\n", info.invert, !info.noSmooth, info.keepAudio)
 	if info.color {
 		fmt.Printf("# color: Spectral_r (near = warm, far = cool)\n")
+	}
+	if info.parallel > 0 {
+		fmt.Printf("# parallel: %d inference workers\n", info.parallel)
 	}
 
 	tmp := "/tmp/aigc-depth-frames"

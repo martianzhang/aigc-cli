@@ -5,11 +5,17 @@ import (
 	"image"
 	"os"
 	"path/filepath"
+	"sync"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
 
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 )
+
+// ortEnvOnce 保证 SetSharedLibraryPath 进程内只执行一次。
+// ONNX Runtime 环境是全局单例（refCount 管理），多个 Detector 共享同一
+// 库路径；重复 SetSharedLibraryPath 会在环境已初始化后报错。
+var ortEnvOnce sync.Once
 
 // Default input/output tensor names for the Depth Anything V2 ONNX model.
 const (
@@ -40,6 +46,20 @@ func NewDetector(libPath, modelPath string) (*Detector, error) {
 // NewDetectorWithSize 与 NewDetector 相同，但指定推理分辨率（短边，14 对齐）。
 // 更小的输入（如 378）显著加快推理，质量损失有限，适合 CPU 上处理长视频。
 func NewDetectorWithSize(libPath, modelPath string, inputSize int) (*Detector, error) {
+	return newDetector(libPath, modelPath, inputSize, optimalThreads())
+}
+
+// NewDetectorWithSizeThreads 与 NewDetectorWithSize 相同，但显式指定
+// ONNX Runtime intra-op 线程数。并行推理场景（视频帧级并行）用较少的
+// 线程数创建多个 Detector，避免线程过订阅。
+func NewDetectorWithSizeThreads(libPath, modelPath string, inputSize, threads int) (*Detector, error) {
+	if threads < 1 {
+		threads = 1
+	}
+	return newDetector(libPath, modelPath, inputSize, threads)
+}
+
+func newDetector(libPath, modelPath string, inputSize, threads int) (*Detector, error) {
 	if _, err := os.Stat(libPath); err != nil {
 		return nil, fmt.Errorf("onnx runtime library not found: %w", err)
 	}
@@ -56,19 +76,23 @@ func NewDetectorWithSize(libPath, modelPath string, inputSize int) (*Detector, e
 		inputSize: inputSize,
 	}
 
-	if err := d.init(); err != nil {
+	if err := d.init(threads); err != nil {
 		return nil, err
 	}
 	return d, nil
 }
 
-func (d *Detector) init() error {
-	if err := ort.SetSharedLibraryPath(d.libPath); err != nil {
-		return fmt.Errorf("set library path: %w", err)
-	}
-	_ = ort.SetLogLevel(ort.LoggingLevelError)
-	if err := ort.InitializeEnvironment(); err != nil {
-		return fmt.Errorf("initialize environment: %w", err)
+func (d *Detector) init(threads int) error {
+	var envErr error
+	ortEnvOnce.Do(func() {
+		envErr = ort.SetSharedLibraryPath(d.libPath)
+		if envErr == nil {
+			_ = ort.SetLogLevel(ort.LoggingLevelError)
+			envErr = ort.InitializeEnvironment()
+		}
+	})
+	if envErr != nil {
+		return fmt.Errorf("initialize ort environment: %w", envErr)
 	}
 
 	n := d.inputSize
@@ -104,8 +128,8 @@ func (d *Detector) init() error {
 		if err == nil {
 			_ = opts.AddConfigEntry("mlas.disable_kleidiai", "1")
 			// 按机器配置自适应 intra-op 线程数（实测最优 ≈ 性能核 × 2，
-			// 全核/超线程会因线程竞争变慢）。
-			_ = opts.SetIntraOpNumThreads(optimalThreads())
+			// 全核/超线程会因线程竞争变慢）；并行推理场景由调用方指定更小值。
+			_ = opts.SetIntraOpNumThreads(threads)
 		}
 	}
 	d.session, err = ort.NewAdvancedSession(
@@ -205,7 +229,9 @@ func (d *Detector) Close() {
 	if d.input != nil {
 		d.input.Destroy()
 	}
-	ort.DestroyEnvironment()
+	// ONNX Runtime 环境是进程级单例：首个 Detector 通过 ortEnvOnce 初始化，
+	// 共享给所有并行 Detector。这里不销毁环境，避免提前释放导致其他
+	// session 崩溃。
 }
 
 // DefaultLibPath returns the path to the ONNX Runtime shared library.

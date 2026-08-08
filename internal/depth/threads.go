@@ -37,6 +37,27 @@ func optimalThreads() int {
 	return n
 }
 
+// parallelismCount 返回视频帧级并行的 Detector 数量。
+//
+// 实测（280 分辨率, M4 10 核）：串行 8 线程 8.4fps；4 session × 2 线程
+// 12.3fps (+46%)；8×1 线程 15.5fps (+85%) 但内存 +~200MB/session。
+// 默认取 min(性能核, 4) 平衡速度与内存；单线程 Detector 的每 session
+// 线程数由调用方按 optimalThreads()/并行数 分配。
+func parallelismCount() int {
+	perf := perfCoreCount()
+	if perf <= 0 {
+		perf = runtime.NumCPU() / 2
+	}
+	n := perf
+	if n > 4 {
+		n = 4
+	}
+	if n < 1 {
+		n = 1
+	}
+	return n
+}
+
 // perfCoreCount 返回 macOS 性能核数量；其他平台返回 0。
 func perfCoreCount() int {
 	if runtime.GOOS != "darwin" {

@@ -49,6 +49,7 @@ aigc-cli depth -i photo.jpg --dry-run         # 只打印将执行的命令，�
 | `--keep-audio` | 视频：保留原视频音轨 | off |
 | `--encode-args` | 视频：追加到 ffmpeg 编码命令的自定义参数，**追加在默认参数之后**——同名参数会覆盖默认值（后者生效）。例：`"-crf 28"`（更小文件）、`"-preset slow"`（更优压缩） | CRF 23，preset medium |
 | `--no-smooth` | 视频：关闭时序平滑（开启时减轻闪烁） | off（平滑开） |
+| `--parallel` / `-p` | 视频：并行推理的 worker 数。按机器核数自动调节（默认 min(性能核, 4)）；长视频可调高，省内存可调低 | 自动 |
 | `--preview` | 生成后用系统默认查看器打开结果 | off |
 | `--dry-run` | 只打印将执行的命令，不实际运行 | off |
 

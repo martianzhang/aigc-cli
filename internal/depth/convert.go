@@ -2,12 +2,14 @@ package depth
 
 import (
 	"fmt"
+	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
@@ -31,6 +33,10 @@ type ConvertOptions struct {
 	Invert bool
 	// Color 输出 Spectral_r 彩色深度视频（近处暖色/远处冷色）。
 	Color bool
+	// Parallel 帧级并行推理的 Detector 数量（0 = 自动按机器核数，
+	// 默认 min(性能核, 4)）。每个 Detector 使用 optimalThreads()/Parallel
+	// 线程，避免过订阅。用户可用 --parallel/-p 覆盖。
+	Parallel int
 	// Smooth 时序平滑（默认 true，减轻闪烁）。
 	Smooth bool
 	// KeepAudio 保留原视频音轨。
@@ -114,11 +120,26 @@ func Convert(opts ConvertOptions) (string, error) {
 	if _, err := os.Stat(modelPath); err != nil {
 		return "", fmt.Errorf("depth model not found at %s\n  Run: aigc-cli video init", modelPath)
 	}
-	det, err := NewDetectorWithSize(libPath, modelPath, infSize)
-	if err != nil {
-		return "", fmt.Errorf("init depth detector: %w", err)
+	// Create N parallel detectors for frame-level parallelism.
+	// Each detector gets optimalThreads()/N threads to avoid oversubscription.
+	parallel := opts.Parallel
+	if parallel <= 0 {
+		parallel = parallelismCount()
 	}
-	defer det.Close()
+	threadsPer := optimalThreads() / parallel
+	if threadsPer < 1 {
+		threadsPer = 1
+	}
+	dets := make([]*Detector, parallel)
+	for i := range dets {
+		d, err := NewDetectorWithSizeThreads(libPath, modelPath, infSize, threadsPer)
+		if err != nil {
+			closeDetectors(dets)
+			return "", fmt.Errorf("init depth detector %d: %w", i, err)
+		}
+		dets[i] = d
+	}
+	defer closeDetectors(dets)
 
 	tmpDir, err := os.MkdirTemp("", "aigc-depth-")
 	if err != nil {
@@ -140,19 +161,81 @@ func Convert(opts ConvertOptions) (string, error) {
 	var emaLo, emaHi float32 = -1, -1
 	t0 := time.Now()
 
+	// ── Parallel inference + serial smoothing pipeline ──
+	// Frame inference is CPU-bound and already fills all cores via intra-op
+	// threads. Splitting inference across N detectors (each with fewer
+	// threads) increases throughput by avoiding thread oversubscription;
+	// smoothing/EMA must stay serial (depends on the previous frame).
+	n := len(frames)
+	if parallel > n {
+		parallel = n
+	}
+	if parallel < 1 {
+		parallel = 1
+	}
+
+	// jobChan delivers (frameIndex, framePath) to workers; resultChan
+	// collects (frameIndex, gray) back in completion order.
+	type frameJob struct {
+		idx  int
+		path string
+	}
+	type frameResult struct {
+		idx  int
+		gray *image.Gray
+		err  error
+	}
+	jobChan := make(chan frameJob, parallel)
+	resultChan := make(chan frameResult, n)
+
+	var wg sync.WaitGroup
+	for wi := 0; wi < parallel; wi++ {
+		wg.Add(1)
+		go func(d *Detector) {
+			defer wg.Done()
+			for job := range jobChan {
+				img, err := loadFrame(job.path)
+				if err != nil {
+					resultChan <- frameResult{job.idx, nil, err}
+					continue
+				}
+				gray, err := d.Predict(img)
+				resultChan <- frameResult{job.idx, gray, err}
+			}
+		}(dets[wi])
+	}
+
+	go func() {
+		for i, p := range frames {
+			jobChan <- frameJob{i, p}
+		}
+		close(jobChan)
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	results := make([]*image.Gray, n)
+	resultsErr := make([]error, n)
+	done := 0
+	for r := range resultChan {
+		results[r.idx] = r.gray
+		resultsErr[r.idx] = r.err
+		done++
+		if opts.OnProgress != nil && (done%10 == 0 || done == n) {
+			elapsed := time.Since(t0)
+			opts.OnProgress(done, n, float64(done)/elapsed.Seconds())
+		}
+	}
+
 	for i, framePath := range frames {
-		img, err := loadFrame(framePath)
-		if err != nil {
+		if resultsErr[i] != nil {
 			// Skip the frame entirely: remove the source PNG so it never
 			// leaks a color frame into the encoded grayscale video.
-			fmt.Fprintf(os.Stderr, "Warning: skip %s: %v\n", framePath, err)
+			fmt.Fprintf(os.Stderr, "Warning: skip %s: %v\n", framePath, resultsErr[i])
 			os.Remove(framePath)
 			continue
 		}
-		gray, err := det.Predict(img)
-		if err != nil {
-			return "", fmt.Errorf("depth inference on %s: %w", framePath, err)
-		}
+		gray := results[i]
 
 		// Temporal smoothing (blend with prev frame) + EMA normalization range
 		cur := gray.Pix
@@ -180,24 +263,19 @@ func Convert(opts ConvertOptions) (string, error) {
 			rng = 1e-6
 		}
 		for j, v := range cur {
-			n := (float32(v) - emaLo) / rng
-			if n < 0 {
-				n = 0
-			} else if n > 1 {
-				n = 1
+			nrm := (float32(v) - emaLo) / rng
+			if nrm < 0 {
+				nrm = 0
+			} else if nrm > 1 {
+				nrm = 1
 			}
 			if opts.Invert {
-				n = 1 - n
+				nrm = 1 - nrm
 			}
-			normed[j] = uint8(n * 255)
+			normed[j] = uint8(nrm * 255)
 		}
 		if err := writeDepthPNG(framePath, normed, gray.Bounds().Dx(), gray.Bounds().Dy(), opts.Color); err != nil {
 			return "", err
-		}
-
-		if opts.OnProgress != nil && (i%10 == 0 || i == len(frames)-1) {
-			elapsed := time.Since(t0)
-			opts.OnProgress(i+1, len(frames), float64(i+1)/elapsed.Seconds())
 		}
 	}
 
@@ -221,6 +299,15 @@ func Convert(opts ConvertOptions) (string, error) {
 	}
 
 	return outPath, nil
+}
+
+// closeDetectors 关闭一组 Detector 并释放 ONNX Runtime 资源。
+func closeDetectors(dets []*Detector) {
+	for _, d := range dets {
+		if d != nil {
+			d.Close()
+		}
+	}
 }
 
 // defaultModelsDir 返回默认模型根目录 (~/.config/aigc-cli/models)。
