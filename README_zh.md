@@ -31,7 +31,7 @@
 | 📚 | **本地知识库** | FTS5 + ONNX 语义搜索，age 加密保险箱，web search 自动入库，MCP/Chat 工具集成。 |
 | 👁️ | **OCR & 视觉** | 离线 DBNet+CRNN 文字识别。图片描述支持本地 EXIF 或在线视觉 LLM。 |
 | 🖼️ | **背景去除** | RMBG 2.0 语义分割，纯离线 ONNX，无需 API Key。 |
-| 📏 | **深度视频** | `video --convert-to-depth`：本地 Depth Anything V2 ONNX 转灰度深度视频，用于深度引导图生视频。 |
+| 📏 | **深度图** | `depth`：本地 Depth Anything V2 ONNX 转灰度深度图（图片/视频），用于深度引导图生视频。 |
 
 
 ---
@@ -102,7 +102,7 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 | 💬 | **Agentic Chat** | 交互式 REPL 内嵌 `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` 等工具 |
 | 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集 |
 | 🔊 | **本地 TTS / ASR** | sherpa-onnx 离线语音合成（kokoro 53 种音色，中英日韩法）和语音识别（SenseVoice 中文最佳），无需联网 |
-| 📏 | **深度视频** | `video --convert-to-depth`：本地 Depth Anything V2 ONNX 转灰度深度视频，用于深度引导图生视频 |
+| 📏 | **深度图** | `depth`：本地 Depth Anything V2 ONNX 转灰度深度图（图片/视频），用于深度引导图生视频 |
 | 🔄 | **视频任务持久化** | OpenRouter 提交→轮询→下载全流程，超时后 `--job-id` 一键恢复 |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
 | ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台 |
@@ -136,7 +136,8 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 ```
 aigc-cli
 ├── image / img   图片生成（同步/异步/OpenRouter 专用 API / Grok Edit）    →  docs/guide-image.md
-├── video / vid   视频生成（OpenRouter / 云雾 + VEO3 Remix）+ --convert-to-depth 深度转换 →  docs/guide-video.md
+├── video / vid   视频生成（OpenRouter / 云雾 + VEO3 Remix）                    →  docs/guide-video.md
+├── depth         图片/视频 → 灰度深度图（离线 ONNX，支持 V2 模型）                 →  docs/guide-depth.md
 ├── audio / voice 音频：文字转语音（TTS）和语音转文字（STT）              →  docs/guide-audio.md
 │   ├── tts / speak  文字→语音（云端 API 或本地 sherpa-onnx 离线合成）
 │   ├── asr / stt    语音→文字（云端 API 或本地 sherpa-onnx 离线识别）
@@ -222,6 +223,7 @@ aigc-cli midjourney (或 mj)
 | [安装与配置](docs/zh/installation.md) | 安装、API Key、配置文件、代理 |
 | [图片生成](docs/zh/guide-image.md) | 全部参数、同步/异步模式、图生图、Inpainting |
 | [视频生成](docs/zh/guide-video.md) | 全部参数、首尾帧、参考视频（APIMart） |
+| [深度转换](docs/zh/guide-depth.md) | 图片/视频 → 深度图，Depth Anything V2 模型，参数说明 |
 | [Midjourney 生成](docs/zh/guide-midjourney.md) | 17 个子命令完整说明：imagine、blend、upscale 等 |
 | [AI 对话](docs/zh/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
 | [AIGC 检测](docs/zh/guide-detect.md) | 多信号融合、ONNX 模型、FFT 频谱、emoji 输出 |

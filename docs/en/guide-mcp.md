@@ -37,7 +37,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `add_watermark` | Watermark addition | Free (local) |
 | `crop_watermark` | Crop to remove watermarks (no learning required) | Free (local) |
 | `remove_background` | Background removal | Free (local) |
-| `convert_video_depth` | Video → grayscale depth video (Depth Anything V2) | Free (local) |
+| `convert_depth` | Image/video → grayscale depth map (Depth Anything V2) | Free (local) |
 | `recognize_text` | OCR text recognition | Free (local) |
 | `caption_image` | EXIF description read/write | Free (local) |
 | `kb_find` | Knowledge base search | Free (local) |
@@ -61,7 +61,7 @@ tools_enable:
   - "remove_watermark"
   - "crop_watermark"
   - "remove_background"
-  - "convert_video_depth"
+  - "convert_depth"
   - "recognize_text"
 
 # Blocklist — disable paid tools

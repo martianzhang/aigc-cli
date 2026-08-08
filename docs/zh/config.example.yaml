@@ -49,7 +49,7 @@ base_url: "https://api.apimart.ai"
 #   - "remove_watermark"   # 离线去水印
 #   - "add_watermark"      # 离线加水印
 #   - "remove_background"  # 离线背景去除
-#   - "convert_video_depth" # 离线视频深度转换
+#   - "convert_depth"     # 离线图片/视频深度转换
 #   - "recognize_text"     # 离线文字识别
 #   - "caption_image"      # 本地 EXIF 描述读写
 
