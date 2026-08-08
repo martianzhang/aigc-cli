@@ -28,6 +28,8 @@ var (
 	depthNoSmooth   bool
 	depthParallel   int
 	depthPreview    bool
+	depthSkeleton   bool
+	depthFace       bool
 )
 
 // imageExts 是 depth 命令识别为图片输入的后缀集合。
@@ -65,7 +67,7 @@ Examples:
 	RunE: runDepth,
 }
 
-// runDepth 根据输入文件类型路由到图片或视频深度转换。
+// runDepth 根据输入文件类型路由到深度转换或标注模式。
 func runDepth(cmd *cobra.Command, args []string) error {
 	input := depthInput
 	if input == "" {
@@ -75,10 +77,53 @@ func runDepth(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid input path: %w", err)
 	}
 
+	if depthSkeleton || depthFace {
+		if isImageInput(input) {
+			return runDepthAnnotateImage(cmd)
+		}
+		return runDepthAnnotateVideo(cmd)
+	}
+
 	if isImageInput(input) {
 		return runDepthImage(cmd)
 	}
 	return runDepthVideo(cmd)
+}
+
+// runDepthAnnotateImage 先求深度图，再在深度图上叠加骨架/人脸标注。
+func runDepthAnnotateImage(cmd *cobra.Command) error {
+	// 先做深度转换（输出 _depth.png）
+	if err := runDepthImage(cmd); err != nil {
+		return err
+	}
+
+	// 在深度图上叠加标注
+	if depthSkeleton {
+		if err := annotateSkeleton(depthInput, depthAnnotatePath()); err != nil {
+			return err
+		}
+	}
+	if depthFace {
+		if err := annotateFace(depthInput, depthAnnotatePath()); err != nil {
+			return err
+		}
+	}
+
+	if depthPreview {
+		if err := service.PreviewFile(depthAnnotatePath()); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+		}
+	}
+	return nil
+}
+
+// depthAnnotatePath 计算标注输出的路径（覆盖深度图，_depth 后缀）。
+func depthAnnotatePath() string {
+	if depthOutput != "" {
+		return depthOutput
+	}
+	stem := strings.TrimSuffix(filepath.Base(depthInput), filepath.Ext(depthInput))
+	return filepath.Join(shared.OutputDir, stem+"_depth.png")
 }
 
 // isImageInput 按扩展名判断输入是否为图片。
@@ -126,6 +171,55 @@ func runDepthImage(cmd *cobra.Command) error {
 		return err
 	}
 	fmt.Printf("Depth image saved: %s\n", out)
+	// 标注模式下 preview 延后到叠加完成后统一执行（避免两次 preview）
+	if depthPreview && !depthSkeleton && !depthFace {
+		if err := service.PreviewFile(out); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+		}
+	}
+	return nil
+}
+
+// runDepthAnnotateVideo 先求深度视频，再逐帧叠加骨架/人脸标注（复用 Convert 的 Annotate 回调）。
+func runDepthAnnotateVideo(cmd *cobra.Command) error {
+	outPath := depthOutput
+	if outPath == "" {
+		stem := strings.TrimSuffix(filepath.Base(depthInput), filepath.Ext(depthInput))
+		outPath = filepath.Join(shared.OutputDir, stem+"_depth.mp4")
+	}
+
+	annotate, closeDetectors, err := newAnnotateVideoCallback(annotateVideoOptions{
+		skeleton: depthSkeleton,
+		face:     depthFace,
+	})
+	if err != nil {
+		return err
+	}
+	defer closeDetectors()
+
+	out, err := depth.Convert(depth.ConvertOptions{
+		Input:         depthInput,
+		Output:        outPath,
+		ModelID:       depthModel,
+		InferenceSize: depthSize,
+		StartTime:     depthStart,
+		EndTime:       depthEnd,
+		Invert:        depthInvert,
+		Color:         depthColor,
+		Parallel:      depthParallel,
+		Smooth:        !depthNoSmooth,
+		KeepAudio:     depthKeepAudio,
+		EncodeArgs:    depthEncodeArgs,
+		Verbose:       shared.Verbose,
+		Annotate:      annotate,
+		OnProgress: func(done, total int, fps float64) {
+			fmt.Printf("  frame %d/%d (%.1f fps)\n", done, total, fps)
+		},
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("\nDepth video saved: %s\n", out)
 	if depthPreview {
 		if err := service.PreviewFile(out); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
@@ -215,6 +309,8 @@ func registerDepthFlags(cmd *cobra.Command) {
 	f.BoolVar(&depthNoSmooth, "no-smooth", false, "Video: disable temporal smoothing (reduces flicker)")
 	f.IntVarP(&depthParallel, "parallel", "p", 0, "Video: number of parallel inference workers (default: auto by CPU cores)")
 	f.BoolVar(&depthPreview, "preview", false, "Open the depth result with the system default viewer")
+	f.BoolVar(&depthSkeleton, "skeleton", false, "Detect human pose and draw COCO17 skeleton on the depth output (image or video)")
+	f.BoolVar(&depthFace, "face", false, "Detect faces, draw landmarks and eyes on the depth output (image or video)")
 }
 
 // depthDryRunInfo 携带视频 dry-run 打印所需的全部参数。

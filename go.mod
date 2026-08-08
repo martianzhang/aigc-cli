@@ -15,6 +15,7 @@ require (
 	github.com/dsoprea/go-exif/v3 v3.0.1
 	github.com/dsoprea/go-jpeg-image-structure/v2 v2.0.0-20221012074422-4f3f7e934102
 	github.com/dsoprea/go-png-image-structure/v2 v2.0.0-20210512210324-29b889a6093d
+	github.com/esimov/pigo v1.4.6
 	github.com/gen2brain/avif v0.6.0
 	github.com/gen2brain/jpegli v0.4.2
 	github.com/gen2brain/jpegxl v0.6.0

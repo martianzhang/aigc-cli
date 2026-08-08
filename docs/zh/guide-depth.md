@@ -19,6 +19,9 @@ aigc-cli depth -i video.mp4
 # 常用选项
 aigc-cli depth -i photo.jpg --invert          # 近暗远亮（反转方向）
 aigc-cli depth -i photo.jpg --color           # Spectral_r 彩色深度图（近暖远冷）
+aigc-cli depth -i photo.jpg --skeleton        # 在深度图上绘制人体骨架（COCO17）
+aigc-cli depth -i photo.jpg --face            # 检测人脸，绘制检测框 + 眼睛 + 关键点
+aigc-cli depth -i video.mp4 --face            # 在深度视频每一帧上标注人脸
 aigc-cli depth -i photo.jpg --preview         # 生成后用系统查看器打开结果
 aigc-cli depth -i video.mp4 --start-time 00:01:00 --end-time 00:01:30
 aigc-cli depth -i video.mp4 --encode-args "-crf 28 -preset slow"
@@ -51,6 +54,8 @@ aigc-cli depth -i photo.jpg --dry-run         # 只打印将执行的命令，�
 | `--no-smooth` | 视频：关闭时序平滑（开启时减轻闪烁） | off（平滑开） |
 | `--parallel` / `-p` | 视频：并行推理的 worker 数。按机器核数自动调节（默认 min(性能核, 4)）；长视频可调高，省内存可调低 | 自动 |
 | `--preview` | 生成后用系统默认查看器打开结果 | off |
+| `--skeleton` | 检测人体姿态，在深度输出上绘制 COCO17 骨架（19 条骨骼、17 个关节点，图片或视频逐帧）。需先 `aigc-cli depth init --skeleton` | off |
+| `--face` | 检测人脸（纯 Go pigo 引擎），绘制检测框、眼睛和 15 个面部关键点（图片或视频逐帧）。需先 `aigc-cli depth init --face` | off |
 | `--dry-run` | 只打印将执行的命令，不实际运行 | off |
 
 ## 模型

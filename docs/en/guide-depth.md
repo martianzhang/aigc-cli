@@ -26,6 +26,9 @@ aigc-cli depth -i video.mp4
 # Common options
 aigc-cli depth -i photo.jpg --invert          # near = black instead of near = white
 aigc-cli depth -i photo.jpg --color           # Spectral_r colored depth (near = warm, far = cool)
+aigc-cli depth -i photo.jpg --skeleton        # draw human pose skeleton (COCO17) on the depth image
+aigc-cli depth -i photo.jpg --face            # detect faces, draw boxes, eyes and landmarks on the depth image
+aigc-cli depth -i video.mp4 --face            # annotate faces on every frame of the depth video
 aigc-cli depth -i photo.jpg --preview         # open the result with the system viewer
 aigc-cli depth -i video.mp4 --start-time 00:01:00 --end-time 00:01:30
 aigc-cli depth -i video.mp4 --encode-args "-crf 28 -preset slow"
@@ -58,6 +61,8 @@ Output is saved next to the input by default, or to `--output <path>`.
 | `--no-smooth` | Video: disable temporal smoothing (reduces flicker) | off (smoothing on) |
 | `--parallel` / `-p` | Video: number of parallel inference workers. Auto-tuned by CPU cores (default min(perf cores, 4)); raise for large clips, lower to save memory | auto |
 | `--preview` | Open the depth result with the system default viewer | off |
+| `--skeleton` | Detect human poses and draw COCO17 skeleton (19 bones, 17 joints) on the depth output (image or video, per-frame). Requires `aigc-cli depth init --skeleton` | off |
+| `--face` | Detect faces (pure-Go pigo engine) and draw boxes, eyes and 15 facial landmarks on the depth output (image or video, per-frame). Requires `aigc-cli depth init --face` | off |
 | `--dry-run` | Print what would run without doing it | off |
 
 ## Models

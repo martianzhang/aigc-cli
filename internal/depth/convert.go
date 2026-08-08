@@ -52,6 +52,10 @@ type ConvertOptions struct {
 	Verbose bool
 	// OnProgress 每处理若干帧回调（nil 则不回调）。
 	OnProgress func(done, total int, fps float64)
+	// Annotate 逐帧标注回调（nil 则不标注）。在深度归一化后、写盘前调用：
+	// framePath 此时仍是原始彩色帧（尚未被深度图覆盖），gray 是归一化的深度灰度。
+	// 返回 (替换后的帧 RGBA 像素, true) 表示用标注帧覆盖输出；返回 (nil, false) 保持深度帧。
+	Annotate func(framePath string, gray *image.Gray) ([]uint8, bool)
 }
 
 // Convert 把视频转成灰度深度视频（近亮远暗）。
@@ -273,6 +277,22 @@ func Convert(opts ConvertOptions) (string, error) {
 				nrm = 1 - nrm
 			}
 			normed[j] = uint8(nrm * 255)
+		}
+		// 逐帧标注：在写盘前调用回调。此时 framePath 仍是原图（尚未被深度帧覆盖），
+		// 回调可加载原图做检测，把标注绘制到深度帧上并返回替换像素。
+		if opts.Annotate != nil {
+			if pix, replaced := opts.Annotate(framePath, &image.Gray{Pix: normed, Stride: gray.Bounds().Dx(), Rect: gray.Bounds()}); replaced {
+				f, err := os.Create(framePath)
+				if err != nil {
+					return "", err
+				}
+				err = SaveColorPNG(f, pix, gray.Bounds().Dx(), gray.Bounds().Dy())
+				f.Close()
+				if err != nil {
+					return "", err
+				}
+				continue
+			}
 		}
 		if err := writeDepthPNG(framePath, normed, gray.Bounds().Dx(), gray.Bounds().Dy(), opts.Color); err != nil {
 			return "", err

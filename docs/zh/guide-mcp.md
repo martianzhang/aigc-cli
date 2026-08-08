@@ -88,7 +88,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `add_watermark` | Add a visible AI watermark to an image (for testing), known producers use their alpha map | ❌ |
 | `crop_watermark` | Crop image to remove watermarks (no learning required, auto-detect or specify target) | ❌ |
 | `remove_background` | Remove image background using RMBG 2.0 AI semantic segmentation, optionally replace with color or another image | ❌ |
-| `convert_depth` | Convert image/video into grayscale depth map (Depth Anything V2), the input for depth-guided image-to-video | ❌ |
+| `convert_depth` | Convert image/video into grayscale depth map (Depth Anything V2), the input for depth-guided image-to-video。`annotate` 参数可叠加骨架（人体姿态）或人脸（关键点+眼睛）标注 | ❌ |
 
 ### Filter Tools
 

@@ -5,17 +5,11 @@ import (
 	"image"
 	"os"
 	"path/filepath"
-	"sync"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
 
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 )
-
-// ortEnvOnce 保证 SetSharedLibraryPath 进程内只执行一次。
-// ONNX Runtime 环境是全局单例（refCount 管理），多个 Detector 共享同一
-// 库路径；重复 SetSharedLibraryPath 会在环境已初始化后报错。
-var ortEnvOnce sync.Once
 
 // Default input/output tensor names for the Depth Anything V2 ONNX model.
 const (
@@ -83,16 +77,8 @@ func newDetector(libPath, modelPath string, inputSize, threads int) (*Detector, 
 }
 
 func (d *Detector) init(threads int) error {
-	var envErr error
-	ortEnvOnce.Do(func() {
-		envErr = ort.SetSharedLibraryPath(d.libPath)
-		if envErr == nil {
-			_ = ort.SetLogLevel(ort.LoggingLevelError)
-			envErr = ort.InitializeEnvironment()
-		}
-	})
-	if envErr != nil {
-		return fmt.Errorf("initialize ort environment: %w", envErr)
+	if err := onnxrt.InitEnvironment(d.libPath); err != nil {
+		return err
 	}
 
 	n := d.inputSize
@@ -229,7 +215,7 @@ func (d *Detector) Close() {
 	if d.input != nil {
 		d.input.Destroy()
 	}
-	// ONNX Runtime 环境是进程级单例：首个 Detector 通过 ortEnvOnce 初始化，
+	// ONNX Runtime 环境是进程级单例（onnxrt.InitEnvironment 初始化），
 	// 共享给所有并行 Detector。这里不销毁环境，避免提前释放导致其他
 	// session 崩溃。
 }
