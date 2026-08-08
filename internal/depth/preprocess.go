@@ -225,6 +225,71 @@ func DepthToGrayCrop(data []float32, canvasSize int, crop Crop, dstW, dstH int) 
 	return dst
 }
 
+// DepthToColorCrop 与 DepthToGrayCrop 相同，但输出 RGB 彩色深度图：
+// 灰度值通过 Spectral_r colormap 着色（近处暖色红/橙，远处冷色蓝/紫），
+// 与官方 Depth-Anything-V2 run.py 的可视化一致。
+func DepthToColorCrop(data []float32, canvasSize int, crop Crop, dstW, dstH int) *image.RGBA {
+	lo, hi := float32(0), float32(0)
+	if len(data) > 0 {
+		lo, hi = data[0], data[0]
+		for _, v := range data {
+			if v < lo {
+				lo = v
+			}
+			if v > hi {
+				hi = v
+			}
+		}
+	}
+	rangeVal := hi - lo
+	if rangeVal < 1e-6 {
+		rangeVal = 1e-6
+	}
+
+	src := make([]uint8, len(data))
+	for i, v := range data {
+		src[i] = clampU8((v - lo) / rangeVal * 255)
+	}
+
+	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
+	cw, ch := crop.Width, crop.Height
+	if cw <= 0 {
+		cw = canvasSize
+	}
+	if ch <= 0 {
+		ch = canvasSize
+	}
+	cropBase := crop.Y*canvasSize + crop.X
+	for dy := 0; dy < dstH; dy++ {
+		sy := dy * ch / dstH
+		if sy >= ch {
+			sy = ch - 1
+		}
+		for dx := 0; dx < dstW; dx++ {
+			sx := dx * cw / dstW
+			if sx >= cw {
+				sx = cw - 1
+			}
+			idx := cropBase + sy*canvasSize + sx
+			r, g, b := colorize(src[idx])
+			dst.Set(dx, dy, color.RGBA{R: r, G: g, B: b, A: 255})
+		}
+	}
+	return dst
+}
+
+// SaveColorPNG 将 RGB 像素数据以 PNG 写入 w。
+func SaveColorPNG(w io.Writer, pix []uint8, width, height int) error {
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	for i, v := range pix {
+		if i >= len(img.Pix) {
+			break
+		}
+		img.Pix[i] = v
+	}
+	return png.Encode(w, img)
+}
+
 // SaveGrayPNG 将灰度像素数据以 PNG 写入 w。
 func SaveGrayPNG(w io.Writer, pix []uint8, width, height int) error {
 	g := image.NewGray(image.Rect(0, 0, width, height))

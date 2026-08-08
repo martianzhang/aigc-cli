@@ -13,7 +13,7 @@ import (
 	_ "golang.org/x/image/webp"
 )
 
-// ImageOptions 控制单张图片到灰度深度图的转换参数。
+// ImageOptions 控制单张图片到深度图的转换参数。
 type ImageOptions struct {
 	// Input 输入图片路径（必填）。
 	Input string
@@ -25,6 +25,8 @@ type ImageOptions struct {
 	InferenceSize int
 	// Invert 反转深度方向（近暗远亮）。
 	Invert bool
+	// Color 输出 Spectral_r 彩色深度图（近处暖色/远处冷色）。
+	Color bool
 	// Verbose 打印推理参数。
 	Verbose bool
 	// LibPath ONNX Runtime 库路径；空则自动解析。
@@ -91,22 +93,40 @@ func ConvertImage(opts ImageOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	gray, err := det.Predict(img)
-	if err != nil {
-		return "", fmt.Errorf("depth inference: %w", err)
-	}
-
-	if opts.Invert {
-		for i, v := range gray.Pix {
-			gray.Pix[i] = 255 - v
-		}
-	}
 
 	f, err := os.Create(outPath)
 	if err != nil {
 		return "", fmt.Errorf("create output: %w", err)
 	}
 	defer f.Close()
+
+	if opts.Color {
+		rgba, err := det.PredictColor(img)
+		if err != nil {
+			return "", fmt.Errorf("depth inference: %w", err)
+		}
+		if opts.Invert {
+			for i := 0; i < len(rgba.Pix); i += 4 {
+				rgba.Pix[i] = 255 - rgba.Pix[i]
+				rgba.Pix[i+1] = 255 - rgba.Pix[i+1]
+				rgba.Pix[i+2] = 255 - rgba.Pix[i+2]
+			}
+		}
+		if err := SaveColorPNG(f, rgba.Pix, rgba.Bounds().Dx(), rgba.Bounds().Dy()); err != nil {
+			return "", fmt.Errorf("write depth image: %w", err)
+		}
+		return outPath, nil
+	}
+
+	gray, err := det.Predict(img)
+	if err != nil {
+		return "", fmt.Errorf("depth inference: %w", err)
+	}
+	if opts.Invert {
+		for i, v := range gray.Pix {
+			gray.Pix[i] = 255 - v
+		}
+	}
 	if err := SaveGrayPNG(f, gray.Pix, gray.Bounds().Dx(), gray.Bounds().Dy()); err != nil {
 		return "", fmt.Errorf("write depth image: %w", err)
 	}

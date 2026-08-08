@@ -18,6 +18,7 @@ aigc-cli depth -i video.mp4
 
 # 常用选项
 aigc-cli depth -i photo.jpg --invert          # 近暗远亮（反转方向）
+aigc-cli depth -i photo.jpg --color           # Spectral_r 彩色深度图（近暖远冷）
 aigc-cli depth -i photo.jpg --preview         # 生成后用系统查看器打开结果
 aigc-cli depth -i video.mp4 --start-time 00:01:00 --end-time 00:01:30
 aigc-cli depth -i video.mp4 --encode-args "-crf 28 -preset slow"
@@ -42,6 +43,7 @@ aigc-cli depth -i photo.jpg --dry-run         # 只打印将执行的命令，�
 | `--model` | 深度模型（见下方表格；别名：`small`、`base`、`large`） | `depth-anything-v2-small` |
 | `--size` | 推理分辨率（短边，14 对齐）。图片默认 `518`；视频默认 `280`（快）——追求更高质量用 `378` / `518` | 图片 `518` / 视频 `280` |
 | `--invert` | 反转深度方向（近暗远亮） | off |
+| `--color` | 输出 Spectral_r 彩色深度图（近处暖色红/橙，远处冷色蓝/紫），与官方 Depth-Anything-V2 可视化一致 | off |
 | `--start-time` | 视频：开始时间（`SS`、`MM:SS`、`HH:MM:SS`） | 视频开头 |
 | `--end-time` | 视频：结束时间；单独用 = 转前 N 秒 | 视频结尾 |
 | `--keep-audio` | 视频：保留原视频音轨 | off |

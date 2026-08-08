@@ -29,6 +29,8 @@ type ConvertOptions struct {
 	EndTime string
 	// Invert 反转深度方向（近暗远亮）。
 	Invert bool
+	// Color 输出 Spectral_r 彩色深度视频（近处暖色/远处冷色）。
+	Color bool
 	// Smooth 时序平滑（默认 true，减轻闪烁）。
 	Smooth bool
 	// KeepAudio 保留原视频音轨。
@@ -189,7 +191,7 @@ func Convert(opts ConvertOptions) (string, error) {
 			}
 			normed[j] = uint8(n * 255)
 		}
-		if err := writeGrayPNG(framePath, normed, gray.Bounds().Dx(), gray.Bounds().Dy()); err != nil {
+		if err := writeDepthPNG(framePath, normed, gray.Bounds().Dx(), gray.Bounds().Dy(), opts.Color); err != nil {
 			return "", err
 		}
 

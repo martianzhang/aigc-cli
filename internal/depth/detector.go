@@ -103,9 +103,9 @@ func (d *Detector) init() error {
 		opts, err = ort.NewSessionOptions()
 		if err == nil {
 			_ = opts.AddConfigEntry("mlas.disable_kleidiai", "1")
-			// Bound intra-op parallelism: the default (all cores) causes thread
-			// contention on this model, slowing inference ~15% vs 4 threads.
-			_ = opts.SetIntraOpNumThreads(4)
+			// 按机器配置自适应 intra-op 线程数（实测最优 ≈ 性能核 × 2，
+			// 全核/超线程会因线程竞争变慢）。
+			_ = opts.SetIntraOpNumThreads(optimalThreads())
 		}
 	}
 	d.session, err = ort.NewAdvancedSession(
@@ -161,6 +161,34 @@ func (d *Detector) Predict(img image.Image) (*image.Gray, error) {
 
 	// ── 4. Postprocess: crop pad borders, then inverse depth → grayscale ──
 	return DepthToGrayCrop(outData, n, crop, origW, origH), nil
+}
+
+// PredictColor 与 Predict 相同，但返回 Spectral_r 彩色深度图
+// （近处暖色红/橙，远处冷色蓝/紫）。
+func (d *Detector) PredictColor(img image.Image) (*image.RGBA, error) {
+	b := img.Bounds()
+	origW := b.Dx()
+	origH := b.Dy()
+	n := d.inputSize
+
+	pixels, crop := PreprocessCrop(img, n)
+	data := d.input.GetData()
+	if len(data) != len(pixels) {
+		return nil, fmt.Errorf("tensor size mismatch: got %d want %d", len(data), len(pixels))
+	}
+	copy(data, pixels)
+
+	if err := d.session.Run(); err != nil {
+		return nil, fmt.Errorf("inference failed: %w", err)
+	}
+
+	outData := d.output.GetData()
+	expectedOut := 1 * n * n
+	if len(outData) < expectedOut {
+		return nil, fmt.Errorf("unexpected output size: got %d want >=%d", len(outData), expectedOut)
+	}
+
+	return DepthToColorCrop(outData, n, crop, origW, origH), nil
 }
 
 // ModelPath 返回当前使用的 ONNX 模型路径。

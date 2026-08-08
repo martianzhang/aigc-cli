@@ -25,6 +25,7 @@ aigc-cli depth -i video.mp4
 
 # Common options
 aigc-cli depth -i photo.jpg --invert          # near = black instead of near = white
+aigc-cli depth -i photo.jpg --color           # Spectral_r colored depth (near = warm, far = cool)
 aigc-cli depth -i photo.jpg --preview         # open the result with the system viewer
 aigc-cli depth -i video.mp4 --start-time 00:01:00 --end-time 00:01:30
 aigc-cli depth -i video.mp4 --encode-args "-crf 28 -preset slow"
@@ -49,6 +50,7 @@ Output is saved next to the input by default, or to `--output <path>`.
 | `--model` | Depth model (see table below; aliases: `small`, `base`, `large`) | `depth-anything-v2-small` |
 | `--size` | Inference resolution, short side (14-aligned). Images default to `518`; videos default to `280` (fast) — raise to `378`/`518` for higher quality | image `518` / video `280` |
 | `--invert` | Invert depth (near = black) | off |
+| `--color` | Output a Spectral_r colored depth map (near = warm red/orange, far = cool blue/purple), matching the official Depth-Anything-V2 visualization | off |
 | `--start-time` | Video: start time (`SS`, `MM:SS`, `HH:MM:SS`) | video start |
 | `--end-time` | Video: end time; alone = convert the first N seconds | video end |
 | `--keep-audio` | Video: keep the source audio track | off |

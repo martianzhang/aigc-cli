@@ -197,6 +197,30 @@ func writeGrayPNG(path string, pix []uint8, w, h int) error {
 	return SaveGrayPNG(f, pix, w, h)
 }
 
+// writeDepthPNG 以灰度或 Spectral_r 彩色 PNG 覆盖写入帧文件。
+func writeDepthPNG(path string, pix []uint8, w, h int, color bool) error {
+	if !color {
+		return writeGrayPNG(path, pix, w, h)
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	rgba := make([]uint8, w*h*4)
+	for i, v := range pix {
+		if i >= w*h {
+			break
+		}
+		r, g, b := colorize(v)
+		rgba[i*4] = r
+		rgba[i*4+1] = g
+		rgba[i*4+2] = b
+		rgba[i*4+3] = 255
+	}
+	return SaveColorPNG(f, rgba, w, h)
+}
+
 // percentileRange 返回灰度数据的 lo/hi 百分位（用于归一化范围）。
 // 语义：从低端跳过 loPct% 的元素得到 lo，从高端跳过 (100-hiPct)% 的元素得到 hi。
 func percentileRange(data []uint8, loPct, hiPct float64) (float32, float32) {

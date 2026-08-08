@@ -19,6 +19,7 @@ var (
 	depthModel      string
 	depthSize       int
 	depthInvert     bool
+	depthColor      bool
 	depthDryRun     bool
 	depthStart      string
 	depthEnd        string
@@ -106,7 +107,7 @@ func runDepthImage(cmd *cobra.Command) error {
 		fmt.Printf("# output: %s\n", outPath)
 		fmt.Printf("# model:  %s (%s)\n", modelInfo.ID, modelInfo.Desc)
 		fmt.Printf("# size:   %d (short side, 14-aligned)\n", size)
-		fmt.Printf("# invert: %v\n", depthInvert)
+		fmt.Printf("# invert: %v, color: %v\n", depthInvert, depthColor)
 		fmt.Printf("# (single-image inference, no ffmpeg needed)\n")
 		return nil
 	}
@@ -117,6 +118,7 @@ func runDepthImage(cmd *cobra.Command) error {
 		ModelID:       depthModel,
 		InferenceSize: depthSize,
 		Invert:        depthInvert,
+		Color:         depthColor,
 		Verbose:       shared.Verbose,
 	})
 	if err != nil {
@@ -151,6 +153,7 @@ func runDepthVideo(cmd *cobra.Command) error {
 			startTime:  depthStart,
 			endTime:    depthEnd,
 			invert:     depthInvert,
+			color:      depthColor,
 			noSmooth:   depthNoSmooth,
 			keepAudio:  depthKeepAudio,
 			encodeArgs: depthEncodeArgs,
@@ -166,6 +169,7 @@ func runDepthVideo(cmd *cobra.Command) error {
 		StartTime:     depthStart,
 		EndTime:       depthEnd,
 		Invert:        depthInvert,
+		Color:         depthColor,
 		Smooth:        !depthNoSmooth,
 		KeepAudio:     depthKeepAudio,
 		EncodeArgs:    depthEncodeArgs,
@@ -199,6 +203,7 @@ func registerDepthFlags(cmd *cobra.Command) {
 	f.StringVar(&depthModel, "model", "", fmt.Sprintf("Depth model (default: %s). Options: %s", depth.DefaultModelID, strings.Join(depth.ListModelIDs(), ", ")))
 	f.IntVar(&depthSize, "size", 0, "Inference resolution, short side (14-aligned; default 280 video / 518 image)")
 	f.BoolVar(&depthInvert, "invert", false, "Invert depth (near = black instead of near = white)")
+	f.BoolVar(&depthColor, "color", false, "Output a Spectral_r colored depth map (near = warm red/orange, far = cool blue/purple)")
 	f.BoolVar(&depthDryRun, "dry-run", false, "Print what would run without doing it")
 	f.StringVar(&depthStart, "start-time", "", "Video: start time (SS, MM:SS, HH:MM:SS)")
 	f.StringVar(&depthEnd, "end-time", "", "Video: end time; alone = convert the first N seconds")
@@ -216,6 +221,7 @@ type depthDryRunInfo struct {
 	startTime  string
 	endTime    string
 	invert     bool
+	color      bool
 	noSmooth   bool
 	keepAudio  bool
 	encodeArgs string
@@ -228,6 +234,9 @@ func printDepthDryRun(info depthDryRunInfo) {
 	fmt.Printf("# output: %s\n", info.outPath)
 	fmt.Printf("# model:  %s (%s)\n", info.model.ID, info.model.Desc)
 	fmt.Printf("# invert: %v, smooth: %v, keep_audio: %v\n", info.invert, !info.noSmooth, info.keepAudio)
+	if info.color {
+		fmt.Printf("# color: Spectral_r (near = warm, far = cool)\n")
+	}
 
 	tmp := "/tmp/aigc-depth-frames"
 	pattern := filepath.Join(tmp, "depth_frame_%06d.png")
