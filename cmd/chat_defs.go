@@ -137,19 +137,19 @@ var agentToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
-	// --- Watermark tools ---
+	// --- Depth tools ---
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "convert_video_depth",
-			Description: "Convert a video into a grayscale depth video (near = white) using a local Depth Anything V2 ONNX model. Completely offline, no API key needed. The output is the standard input for depth-guided image-to-video (upload depth video + a reference photo to keep the original motion with new appearance). Requires model downloaded via 'aigc-cli video init' and ffmpeg on PATH.",
+			Name:        "convert_depth",
+			Description: "Convert an image or video into a grayscale depth map (near = white) using a local Depth Anything V2 ONNX model. Completely offline, no API key needed. The output is the standard input for depth-guided image-to-video (upload depth map + a reference photo to keep the original structure with new appearance). Input type auto-detected by extension (image → PNG, video → MP4, requires ffmpeg). Requires model downloaded via 'aigc-cli depth init'.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"input_path": {"type": "string", "description": "Path to the input video file"},
-					"output_path": {"type": "string", "description": "Optional output path (default: <input>_depth.mp4)"},
-					"start_time": {"type": "string", "description": "Start time (SS, MM:SS, or HH:MM:SS)"},
-					"end_time": {"type": "string", "description": "End time; alone = convert the first N seconds"},
+					"input_path": {"type": "string", "description": "Path to the input image or video file"},
+					"output_path": {"type": "string", "description": "Optional output path (default: <input>_depth.png/.mp4)"},
+					"start_time": {"type": "string", "description": "Video: start time (SS, MM:SS, or HH:MM:SS)"},
+					"end_time": {"type": "string", "description": "Video: end time; alone = convert the first N seconds"},
 					"model": {"type": "string", "description": "Depth model (default: depth-anything-v2-small)"},
 					"invert": {"type": "boolean", "description": "Invert depth (near = black)"}
 				},

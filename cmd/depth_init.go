@@ -20,12 +20,13 @@ const (
 	depthLargeURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1/depth-anything-v2-large.onnx"
 )
 
-var videoInitCmd = &cobra.Command{
+// depthInitCmd 提供 depth init 子命令（下载 ONNX Runtime + 深度模型）。
+var depthInitCmd = &cobra.Command{
 	Use:          "init",
 	Short:        "Download ONNX Runtime and depth estimation models",
 	SilenceUsage: true,
-	Long:         `Download the ONNX Runtime shared library and Depth Anything V2 models used by video --convert-to-depth.`,
-	RunE:         runVideoInit,
+	Long:         `Download the ONNX Runtime shared library and Depth Anything V2 models used by the depth command.`,
+	RunE:         runDepthInit,
 }
 
 var (
@@ -34,7 +35,7 @@ var (
 	videoInitAll   bool
 )
 
-func runVideoInit(cmd *cobra.Command, args []string) error {
+func runDepthInit(cmd *cobra.Command, args []string) error {
 	sharedDir := filepath.Join(configDir(), "models")
 	os.MkdirAll(sharedDir, 0755)
 	if _, err := onnxrt.EnsureInstalled(sharedDir, videoInitForce); err != nil {
@@ -59,7 +60,7 @@ func runVideoInit(cmd *cobra.Command, args []string) error {
 	os.MkdirAll(modelsDir, 0755)
 	for _, id := range ids {
 		info, _ := depth.ResolveModel(id)
-		modelPath := filepath.Join(modelsDir, info.Filename)
+		modelPath := depth.ModelPath(sharedDir, id)
 		if _, err := os.Stat(modelPath); err == nil && !videoInitForce {
 			fmt.Printf("%s already exists: %s\n  Use --force to re-download.\n", info.ID, modelPath)
 			continue
@@ -88,8 +89,8 @@ func depthModelURL(id string) string {
 }
 
 func init() {
-	videoCmd.AddCommand(videoInitCmd)
-	videoInitCmd.Flags().BoolVar(&videoInitForce, "force", false, "re-download even if files already exist")
-	videoInitCmd.Flags().StringVar(&videoInitModel, "model", "", "download a specific depth model (default: depth-anything-v2-small)")
-	videoInitCmd.Flags().BoolVar(&videoInitAll, "all", false, "download all depth model variants (base/large are CC-BY-NC-4.0)")
+	depthCmd.AddCommand(depthInitCmd)
+	depthInitCmd.Flags().BoolVar(&videoInitForce, "force", false, "re-download even if files already exist")
+	depthInitCmd.Flags().StringVar(&videoInitModel, "model", "", fmt.Sprintf("download a specific depth model (default: %s; options: %s)", depth.DefaultModelID, strings.Join(depth.ListModelIDs(), ", ")))
+	depthInitCmd.Flags().BoolVar(&videoInitAll, "all", false, "download all depth model variants (base/large are CC-BY-NC-4.0)")
 }

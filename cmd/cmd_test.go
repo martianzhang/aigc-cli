@@ -433,3 +433,18 @@ func TestBuildAgentTools_disableVideo(t *testing.T) {
 		}
 	}
 }
+
+func TestIsImageInput(t *testing.T) {
+	imageCases := []string{"a.png", "b.jpg", "c.jpeg", "d.webp", "e.bmp", "f.gif", "g.avif", "h.heic", "i.jxl", "IMG_001.PNG"}
+	videoCases := []string{"a.mp4", "b.mov", "c.mkv", "d.avi", "e.webm", "noext", "a.tar.gz"}
+	for _, c := range imageCases {
+		if !isImageInput(c) {
+			t.Errorf("isImageInput(%q) = false, want true", c)
+		}
+	}
+	for _, c := range videoCases {
+		if isImageInput(c) {
+			t.Errorf("isImageInput(%q) = true, want false", c)
+		}
+	}
+}
