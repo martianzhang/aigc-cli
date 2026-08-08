@@ -2,15 +2,15 @@
 //
 // 整体流程：
 //
-//	视频帧 → resize 到 518×518 → ImageNet 归一化 (mean/std)
+//	图片/视频帧 → resize 到 n×n（14 对齐）→ ImageNet 归一化 (mean/std)
 //	       → ONNX 推理 (pure-onnx)
-//	       → 逆深度 (1/depth) → 逐帧 min-max 归一化 → 8-bit 灰度图
-//	       → resize 回原帧尺寸 → 写入深度视频
+//	       → 逆深度 min-max 归一化 → 8-bit 灰度图
+//	       → resize 回原尺寸 → 输出
 //
 // 模型信息：
 //
-//	模型: Depth Anything V2 Small (Apache-2.0)
-//	架构: DINOv2 ViT-S backbone + DPT head
+//	模型: Depth Anything V2 (小/中/大, Apache-2.0 或 CC-BY-NC-4.0)
+//	架构: DINOv2 ViT backbone + DPT head
 //	输入: "pixel_values" — [1, 3, 518, 518] float32 NCHW
 //	输出: "predicted_depth" — [1, 518, 518] float32 (逆深度, 无 channel 维)
 package depth

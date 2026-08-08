@@ -86,75 +86,17 @@ aigc-cli video --prompt "a dog running"
 aigc-cli video --json '{"prompt": "a dog running", "model": "google/veo-3.1"}'
 ```
 
-## Depth Conversion (`--convert-to-depth`)
+## Depth Conversion
 
-Convert any video into a **grayscale depth video** — a black-and-white video where
-pixel brightness encodes relative distance (near = white, far = black). Textures
-are removed, leaving only motion and spatial structure. This is the standard
-input format for depth-guided / control-video image-to-video workflows
-(e.g. Wan VACE, Kling Motion Control, Vidu Reference-to-Video): upload the depth
-video as a motion/space reference plus a reference photo, and the model generates
-a new video that keeps the original motion with the new appearance.
-
-Depth is estimated locally with a **Depth Anything V2** ONNX model (default:
-`depth-anything-v2-small`, Apache-2.0) — no API key, no network needed.
+Depth conversion moved to the dedicated **`aigc-cli depth`** command, which handles
+both videos and single images. See [guide-depth.md](guide-depth.md) for the full
+guide, parameters, and model table (Depth Anything V2).
 
 ```bash
-# First-time setup: install ONNX Runtime + the depth model (default = small)
-aigc-cli video init
+# Convert a video to a grayscale depth video
+aigc-cli depth -i input.mp4
 
-# Convert the whole video
-aigc-cli video --convert-to-depth -i input.mp4
-
-# Convert only a time range (--end-time alone = first N seconds)
-aigc-cli video --convert-to-depth -i input.mp4 --start-time 00:01:00 --end-time 00:01:30
-
-# Different model / options
-aigc-cli video --convert-to-depth -i input.mp4 --depth-model depth-anything-v2-large --invert
-
-# Customize the ffmpeg encode (appended after defaults; same-named options override)
-aigc-cli video --convert-to-depth -i input.mp4 --encode-args "-crf 28 -preset slow"
-
-# See the exact ffmpeg commands without running anything
-aigc-cli video --convert-to-depth -i input.mp4 --dry-run
+# First-time setup
+aigc-cli depth init
 ```
-
-The output is saved next to the input as `<input_stem>_depth.mp4`
-(H.264, `yuv420p`, faststart) in the output directory.
-
-### Depth Parameters
-
-| Parameter | Description | Default |
-|---|---|---|
-| `--convert-to-depth` | Enable depth conversion mode | off |
-| `--input` / `-i` | Input video file | required |
-| `--start-time` | Start time (`SS`, `MM:SS`, `HH:MM:SS`) | video start |
-| `--end-time` | End time; alone = convert the first N seconds | video end |
-| `--depth-model` | Model: `depth-anything-v2-small` / `-base` / `-large` (aliases: `small`, `base`, `large`) | `depth-anything-v2-small` |
-| `--depth-size` | Inference resolution, short side (14-aligned). Default 280 (fast, depth structure readable); raise to `378` or `518` for higher quality | `280` |
-| `--invert` | Invert depth (near = black) | off |
-| `--no-smooth` | Disable temporal smoothing (reduces flicker) | off (smoothing on) |
-| `--keep-audio` | Keep the source audio track | off |
-| `--encode-args` | Extra ffmpeg encode args, **appended after the defaults** — same-named options override them (last wins). Examples: `"-crf 28"` (smaller file), `"-preset slow"` (better compression), `"-crf 28 -preset slow"` | CRF 23, preset medium |
-
-> **Models & licenses**: `depth-anything-v2-small` is Apache-2.0 (commercial
-> friendly, the default). `depth-anything-v2-base` and `-large` are
-> CC-BY-NC-4.0 (non-commercial). Download them explicitly with
-> `aigc-cli video init --model depth-anything-v2-base`.
-
-### Requirements
-
-- **ffmpeg** on your PATH (aigc-cli does not bundle it). See
-  [guide-ffmpeg.md](guide-ffmpeg.md) for install hints per platform.
-- **ONNX Runtime** and the depth model: `aigc-cli video init`.
-
-### Tips
-
-- Depth inference runs at roughly 3 frames/second on CPU — a 10-second 30fps
-  clip takes about 2 minutes to convert. Use `--end-time` to preview a short
-  segment first, tune `--invert` / `--no-smooth`, then convert the full range.
-- The output has no audio by default (depth videos are motion references);
-  add `--keep-audio` if you want the original soundtrack.
-- `--dry-run` prints the two ffmpeg commands (frame extraction + encoding) so
-  you can inspect or tweak them manually.
 

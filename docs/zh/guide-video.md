@@ -192,59 +192,15 @@ Job 文件保存在 `video_job_{jobId}.json`，内含 `polling_url`、`model`、
 
 **建议**：视频生成耗时长，推荐使用 APIMart 或 OpenRouter 的异步模式以获得可恢复能力。
 
-## 深度转换（--convert-to-depth）
+## 深度转换
 
-把任意视频转成**灰度深度视频**：画面中像素亮度表示相对距离（近亮远暗），去掉纹理、只保留动作和空间结构。这是深度引导 / 控制视频式图生视频（如 Wan VACE、Kling 动作控制、Vidu 参考生视频）的标准输入：把深度视频当动作/空间参考 + 上传一张参考照片，AI 就能生成"保留原动作节奏、换成参考照片内容"的新视频。
-
-深度估计由本地 **Depth Anything V2** ONNX 模型完成（默认 `depth-anything-v2-small`，Apache-2.0），无需 API Key、无需联网。
+深度转换已迁移到独立的 **`aigc-cli depth`** 命令，同时支持视频和单张图片转换。完整指南、参数和模型表（Depth Anything V2）见 [guide-depth.md](guide-depth.md)。
 
 ```bash
-# 首次使用：安装 ONNX Runtime + 深度模型（默认 small）
-aigc-cli video init
+# 视频转灰度深度视频
+aigc-cli depth -i input.mp4
 
-# 转换整个视频
-aigc-cli video --convert-to-depth -i input.mp4
-
-# 只转换一段时间范围（--end-time 单独用 = 转前 N 秒）
-aigc-cli video --convert-to-depth -i input.mp4 --start-time 00:01:00 --end-time 00:01:30
-
-# 换模型 / 反转方向
-aigc-cli video --convert-to-depth -i input.mp4 --depth-model depth-anything-v2-large --invert
-
-# 自定义 ffmpeg 编码参数（追加在默认参数后，同名参数覆盖默认值）
-aigc-cli video --convert-to-depth -i input.mp4 --encode-args "-crf 28 -preset slow"
-
-# 只打印将要执行的 ffmpeg 命令，不实际转换
-aigc-cli video --convert-to-depth -i input.mp4 --dry-run
+# 首次使用
+aigc-cli depth init
 ```
-
-输出自动命名为 `<输入文件名>_depth.mp4`（H.264、`yuv420p`、faststart），保存在输出目录（`--output`，默认当前目录）。
-
-### 深度转换参数
-
-| 参数 | 说明 | 默认 |
-|---|---|---|
-| `--convert-to-depth` | 开启深度转换模式 | off |
-| `--input` / `-i` | 输入视频文件 | 必填 |
-| `--start-time` | 开始时间（`SS`、`MM:SS`、`HH:MM:SS`） | 视频开头 |
-| `--end-time` | 结束时间；单独用 = 转前 N 秒 | 视频结尾 |
-| `--depth-model` | 模型：`depth-anything-v2-small` / `-base` / `-large`（别名：`small`、`base`、`large`） | `depth-anything-v2-small` |
-| `--depth-size` | 推理分辨率（短边，14 对齐）。默认 280（快，深度结构清晰）；追求更高质量用 `378` 或 `518` | `280` |
-| `--invert` | 反转深度方向（近暗远亮） | off |
-| `--no-smooth` | 关闭时序平滑（开启时减轻闪烁） | off（平滑开） |
-| `--keep-audio` | 保留原视频音轨 | off |
-| `--encode-args` | 追加到 ffmpeg 编码命令的自定义参数，**追加在默认参数之后**——同名参数会覆盖默认值（后者生效）。例：`"-crf 28"`（更小文件）、`"-preset slow"`（更优压缩）、`"-crf 28 -preset slow"` | CRF 23，preset medium |
-
-> **模型与许可证**：`depth-anything-v2-small` 为 Apache-2.0（可商用，默认）。`depth-anything-v2-base` 和 `-large` 为 CC-BY-NC-4.0（非商用），需要显式下载：`aigc-cli video init --model depth-anything-v2-base`。
-
-### 依赖
-
-- **ffmpeg**（aigc-cli 不捆绑）：需在 PATH 中。各平台安装方式见 [guide-ffmpeg.md](guide-ffmpeg.md)。
-- **ONNX Runtime + 深度模型**：`aigc-cli video init` 一键安装。
-
-### 提示
-
-- 深度推理约 **3 帧/秒**（CPU）：10 秒 30fps 视频约需 2 分钟。建议先用 `--end-time` 转换一小段样片，调好 `--invert` / `--no-smooth` 后再转换全片。
-- 输出默认不带音频（深度视频是动作参考）；如需保留原声用 `--keep-audio`。
-- `--dry-run` 会打印抽帧和编码两条 ffmpeg 命令，方便你查看或手动调整参数。
 

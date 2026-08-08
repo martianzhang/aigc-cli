@@ -51,7 +51,7 @@ base_url: "https://api.apimart.ai"
 #   - "remove_watermark"   # Offline watermark removal
 #   - "add_watermark"      # Offline watermark addition
 #   - "remove_background"  # Offline background removal
-#   - "convert_video_depth" # Offline video → depth video conversion
+#   - "convert_depth"     # Offline image/video → depth map conversion
 #   - "recognize_text"     # Offline text recognition
 #   - "caption_image"      # Local EXIF description read/write
 

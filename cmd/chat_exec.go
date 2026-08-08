@@ -103,8 +103,8 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeFindFiles(args)
 	case "remove_background":
 		return executeRemoveBackground(args)
-	case "convert_video_depth":
-		return executeConvertVideoDepth(args)
+	case "convert_depth":
+		return executeConvertDepth(args)
 	case "remove_watermark":
 		return executeRemoveWatermark(args)
 	case "add_watermark":
@@ -233,8 +233,9 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 	return fmt.Sprintf("Successfully generated %d video(s).\nFiles saved locally:\n  %s\nUser can use /preview to view them.", len(saved), strings.Join(saved, "\n  "))
 }
 
-// executeConvertVideoDepth converts a video to a grayscale depth video.
-func executeConvertVideoDepth(argsJSON string) string {
+// executeConvertDepth converts an image or video to a grayscale depth map
+// (input type auto-detected by extension).
+func executeConvertDepth(argsJSON string) string {
 	var a struct {
 		InputPath  string `json:"input_path"`
 		OutputPath string `json:"output_path"`
@@ -258,7 +259,21 @@ func executeConvertVideoDepth(argsJSON string) string {
 	if outPath == "" {
 		ext := filepath.Ext(a.InputPath)
 		stem := strings.TrimSuffix(filepath.Base(a.InputPath), ext)
-		outPath = filepath.Join(shared.OutputDir, stem+"_depth.mp4")
+		outPath = filepath.Join(shared.OutputDir, stem+"_depth"+ext)
+	}
+
+	if isImageInput(a.InputPath) {
+		out, err := depth.ConvertImage(depth.ImageOptions{
+			Input:   a.InputPath,
+			Output:  outPath,
+			ModelID: a.Model,
+			Invert:  a.Invert,
+			Verbose: shared.Verbose,
+		})
+		if err != nil {
+			return fmt.Sprintf("Error: conversion failed: %v\nRun 'aigc-cli depth init' if the depth model is missing.", err)
+		}
+		return fmt.Sprintf("Depth image saved: %s\nUser can use /preview to view it.\nTip: upload this depth map plus a reference photo to a depth-guided image-to-video platform (e.g. Wan VACE, Kling Motion Control) to generate new content keeping the original structure with the new appearance.", out)
 	}
 
 	out, err := depth.Convert(depth.ConvertOptions{
@@ -273,7 +288,7 @@ func executeConvertVideoDepth(argsJSON string) string {
 		OnProgress: func(done, total int, fps float64) {},
 	})
 	if err != nil {
-		return fmt.Sprintf("Error: conversion failed: %v\nRun 'aigc-cli video init' if the depth model is missing.", err)
+		return fmt.Sprintf("Error: conversion failed: %v\nRun 'aigc-cli depth init' if the depth model is missing.", err)
 	}
 	return fmt.Sprintf("Depth video saved: %s\nUser can use /preview to view it.\nTip: upload this depth video plus a reference photo to a depth-guided image-to-video platform (e.g. Wan VACE, Kling Motion Control) to generate a new video keeping the original motion with the new appearance.", out)
 }

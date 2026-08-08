@@ -175,6 +175,27 @@ func TestResolveModel(t *testing.T) {
 	}
 }
 
+func TestListModelIDs(t *testing.T) {
+	ids := ListModelIDs()
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if seen[id] {
+			t.Errorf("ListModelIDs has duplicate %q (got %v)", id, ids)
+		}
+		seen[id] = true
+	}
+	for _, want := range []string{
+		"depth-anything-v2-small", "depth-anything-v2-base", "depth-anything-v2-large",
+	} {
+		if !seen[want] {
+			t.Errorf("ListModelIDs missing %s (got %v)", want, ids)
+		}
+	}
+	if ids[0] != DefaultModelID {
+		t.Errorf("ListModelIDs[0] = %q, want default %q", ids[0], DefaultModelID)
+	}
+}
+
 func TestPatchAlignment(t *testing.T) {
 	// 518 must be divisible by patch size 14 (518 = 37*14).
 	if ModelInputSize%ModelPatchSize != 0 {

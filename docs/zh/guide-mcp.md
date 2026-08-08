@@ -88,7 +88,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `add_watermark` | Add a visible AI watermark to an image (for testing), known producers use their alpha map | ❌ |
 | `crop_watermark` | Crop image to remove watermarks (no learning required, auto-detect or specify target) | ❌ |
 | `remove_background` | Remove image background using RMBG 2.0 AI semantic segmentation, optionally replace with color or another image | ❌ |
-| `convert_video_depth` | Convert video into grayscale depth video (Depth Anything V2), the input for depth-guided image-to-video | ❌ |
+| `convert_depth` | Convert image/video into grayscale depth map (Depth Anything V2), the input for depth-guided image-to-video | ❌ |
 
 ### Filter Tools
 
