@@ -262,7 +262,7 @@ aigc-cli detect --learn-watermark myai
 | 方式 | 说明 |
 |---|---|
 | **裁切去水印**（通用） | 自动检测水印位置并裁切，无需学习。适合边角水印 |
-| **MI-GAN**（AI 修补） | ONNX 推理，基于 LaMa 的 inpainting 模型。需要 `migan.onnx`（28MB） |
+| **MI-GAN**（AI 修补） | ONNX 推理，基于 Picsart MI-GAN（ICCV 2023）的 inpainting 模型。需要 `migan.onnx`（28MB） |
 | **Alpha Map**（经典） | 逆 alpha 混合，需要 `--learn-watermark` 学习的水印配置 |
 
 ```bash

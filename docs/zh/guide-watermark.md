@@ -96,7 +96,7 @@ aigc-cli detect --learn-watermark myai \
 
 ## 去水印（`--remove-watermark`）
 
-`--remove-watermark` 默认使用 **MI-GAN** AI 修补算法（ONNX 推理），需要 `migan.onnx` 模型文件。也可使用经典 Alpha Map 逆 alpha 混合算法。
+`--remove-watermark` 默认使用 **MI-GAN** AI 修补算法（ONNX 推理，基于 Picsart MI-GAN，ICCV 2023），需要 `migan.onnx` 模型文件。也可使用经典 Alpha Map 逆 alpha 混合算法。
 
 ### 算法选择
 

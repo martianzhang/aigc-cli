@@ -54,7 +54,7 @@ Three methods are available:
 | Method | Description |
 |---|---|
 | **Crop** | Generic method - detects watermark location and crops it out. No learning required |
-| **MI-GAN** | AI inpainting using ONNX Runtime. Requires `migan.onnx` model |
+| **MI-GAN** | AI inpainting using ONNX Runtime (Picsart MI-GAN, ICCV 2023). Requires `migan.onnx` model |
 | **Alpha Map** | Classical reverse alpha blending. Requires learned watermark config |
 
 ### Crop-based Removal
