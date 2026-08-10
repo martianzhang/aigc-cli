@@ -331,10 +331,22 @@ AI Detect:  🤖 99%  Confirmed AI-generated
     Visible AI Watermark (gemini)=100%
 ```
 
-### 参考项目
+### 参考与推荐项目
 
-- **[gemini-watermark-remover](https://github.com/GargantuaX/gemini-watermark-remover)** — Gemini Sparkle 水印的 alpha map 数据和尺寸目录
+**参考项目（算法来源）**
+
+- **[gemini-watermark-remover](https://github.com/GargantuaX/gemini-watermark-remover)** — Gemini Sparkle 水印的 alpha map 数据和尺寸目录（本项目的 MI-GAN / Alpha Map 去除算法参考来源）
 - **[remove-ai-watermarks](https://github.com/wiltodelta/remove-ai-watermarks)** — 豆包/即梦文字水印的 alpha map 资产和分数定位参数
+
+**推荐工具（第三方，去水印效果更好）**
+
+如果本 CLI 内置算法的效果不满足需求，可尝试以下第三方工具：
+
+- **[Pilio Image Watermark Remover](https://pilio.ai/image-watermark-remover)** — 在线 AI 去水印（服务端 inpainting），支持修复被覆盖的人脸/纹理/文字，对任意类型水印（logo、签名、平铺、日期戳）效果好，免费试用
+- **[Gemini Watermark Remover（Chrome 扩展）](https://chromewebstore.google.com/detail/cjlmnfcfnofnglkphbcdclbpimdjkmdf)** — 与参考项目同源（Pilio 出品），Gemini 页面自动去除水印
+- **[Gemini Watermark Remover（CLI/本地）](https://github.com/GargantuaX/gemini-watermark-remover)** — 同项目的 Node CLI（`gwr remove <input> --output <file>`），本地运行、无需上传
+
+> ⚠️ 使用任何去水印工具前，请确保你对图片拥有所有权或编辑授权。
 
 ### 局限性
 

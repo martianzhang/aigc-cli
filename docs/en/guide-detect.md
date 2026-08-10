@@ -83,6 +83,23 @@ aigc-cli detect --learn-watermark <producer-name>
 
 See [guide-watermark.md](guide-watermark.md) for details.
 
+## Reference & Recommended Projects
+
+**Reference projects (algorithm source)**
+
+- **[gemini-watermark-remover](https://github.com/GargantuaX/gemini-watermark-remover)** — Gemini sparkle alpha map data and size catalog (reference for this CLI's MI-GAN / Alpha Map removal)
+- **[remove-ai-watermarks](https://github.com/wiltodelta/remove-ai-watermarks)** — Doubao/Jimeng text watermark alpha map assets and scoring parameters
+
+**Recommended third-party tools (better removal quality)**
+
+If the built-in algorithms don't meet your needs, try these third-party tools:
+
+- **[Pilio Image Watermark Remover](https://pilio.ai/image-watermark-remover)** — Online AI watermark removal (server-side inpainting) that repairs covered faces/textures/text. Handles arbitrary watermark types (logos, signatures, tiled marks, date stamps). Free to try
+- **[Gemini Watermark Remover (Chrome extension)](https://chromewebstore.google.com/detail/cjlmnfcfnofnglkphbcdclbpimdjkmdf)** — Same source as the reference project (by Pilio); auto-removes watermarks on Gemini pages
+- **[Gemini Watermark Remover (CLI/local)](https://github.com/GargantuaX/gemini-watermark-remover)** — The same project's Node CLI (`gwr remove <input> --output <file>`), runs locally with no upload
+
+> ⚠️ Before using any watermark removal tool, make sure you own the image or have permission to edit it.
+
 ## Config
 
 ```yaml
