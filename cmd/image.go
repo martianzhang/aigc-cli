@@ -101,6 +101,9 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	if req.OutputFormat == "" && !genEdit {
 		req.OutputFormat = "png"
 	}
+	if err := req.ValidateBackground(); err != nil {
+		return err
+	}
 
 	// ----- Resolve provider (named provider > global > builtin) -----
 	p := shared.ResolveProvider(ProviderNameImage)
@@ -197,7 +200,7 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVar(&genRatio, "ratio", "", `Aspect ratio for tiered sizing (Agnes 2.1+): "1:1", "16:9", "3:4", "4:3", "9:16", "2:3", "3:2", "21:9"`)
 	f.StringVarP(&genResolution, "resolution", "r", "", "Resolution tier: 1k, 2k, 4k (APIMart only)")
 	f.StringVarP(&genQuality, "quality", "q", "", "Quality: auto, low, medium, high")
-	f.StringVar(&genBackground, "background", "", "Background mode: auto, opaque, transparent (APIMart only)")
+	f.StringVar(&genBackground, "background", "", "Background mode: auto, opaque, transparent")
 	f.StringVar(&genModeration, "moderation", "", "Moderation strength: auto, low (APIMart only)")
 	f.StringVarP(&genOutputFormat, "output-format", "f", "", "Output format: png, jpeg, webp, avif, jxl")
 	f.StringVarP(&genCompress, "compress", "z", "", `Compress output: target size ("800KB", "2MB") or fixed quality ("85%")`)

@@ -380,3 +380,104 @@ func TestProgressBar_edgeCases(t *testing.T) {
 		}
 	}
 }
+
+func TestSanitizeImageRequest(t *testing.T) {
+	fullReq := &types.GenerateRequest{
+		Model:             "gpt-image-1",
+		Prompt:            "a cat",
+		Size:              "1024x1024",
+		Resolution:        "1k",
+		Quality:           "low",
+		Background:        "transparent",
+		Moderation:        "low",
+		OutputFormat:      "png",
+		OutputCompression: intPtr(50),
+		N:                 intPtr(2),
+		Style:             "vivid",
+		ResponseFormat:    "b64_json",
+	}
+
+	tests := []struct {
+		name    string
+		baseURL string
+		expect  func(t *testing.T, r *types.GenerateRequest)
+	}{
+		{
+			name:    "OpenAI keeps all fields",
+			baseURL: "https://api.openai.com/v1",
+			expect: func(t *testing.T, r *types.GenerateRequest) {
+				if r.Background != "transparent" {
+					t.Errorf("Background = %q, want transparent", r.Background)
+				}
+				if r.OutputFormat != "png" {
+					t.Errorf("OutputFormat = %q, want png", r.OutputFormat)
+				}
+				if r.Moderation != "low" {
+					t.Errorf("Moderation = %q, want low", r.Moderation)
+				}
+			},
+		},
+		{
+			name:    "OpenRouter keeps all fields",
+			baseURL: "https://openrouter.ai/api/v1",
+			expect: func(t *testing.T, r *types.GenerateRequest) {
+				if r.Background != "transparent" {
+					t.Errorf("Background = %q, want transparent", r.Background)
+				}
+			},
+		},
+		{
+			name:    "ModelScope strips OpenAI-specific fields",
+			baseURL: "https://api-inference.modelscope.cn/v1",
+			expect: func(t *testing.T, r *types.GenerateRequest) {
+				if r.Background != "" {
+					t.Errorf("Background = %q, want empty", r.Background)
+				}
+				if r.OutputFormat != "" {
+					t.Errorf("OutputFormat = %q, want empty", r.OutputFormat)
+				}
+				if r.Moderation != "" {
+					t.Errorf("Moderation = %q, want empty", r.Moderation)
+				}
+			},
+		},
+		{
+			name:    "Gemini native strips OpenAI-specific fields",
+			baseURL: "https://generativelanguage.googleapis.com/v1beta",
+			expect: func(t *testing.T, r *types.GenerateRequest) {
+				if r.Background != "" {
+					t.Errorf("Background = %q, want empty", r.Background)
+				}
+			},
+		},
+		{
+			name:    "Gemini OpenAI-compat strips OpenAI-specific fields",
+			baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+			expect: func(t *testing.T, r *types.GenerateRequest) {
+				if r.Background != "" {
+					t.Errorf("Background = %q, want empty", r.Background)
+				}
+			},
+		},
+		{
+			name:    "Generic relay keeps all fields",
+			baseURL: "https://custom.relay.com/v1",
+			expect: func(t *testing.T, r *types.GenerateRequest) {
+				if r.Background != "transparent" {
+					t.Errorf("Background = %q, want transparent", r.Background)
+				}
+				if r.OutputFormat != "png" {
+					t.Errorf("OutputFormat = %q, want png", r.OutputFormat)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := New("test-key", tt.baseURL, "")
+			result := c.sanitizeImageRequest(fullReq)
+			tt.expect(t, result)
+		})
+	}
+}

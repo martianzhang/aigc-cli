@@ -37,7 +37,7 @@ aigc-cli image < prompt.txt
 | `--style` | | 风格：`vivid`、`natural`（OpenAI 专用） | OpenAI |
 | `--response-format` | | 响应格式：`url`、`b64_json` | OpenAI/OpenRouter |
 | `--resolution` | `-r` | 分辨率档：`1k`、`2k`、`4k` | APIMart |
-| `--background` | | 背景：`auto`、`opaque`、`transparent` | APIMart |
+| `--background` | | 背景模式：`auto`、`opaque`、`transparent`（透明背景需配合 `--output-format png/webp`） | OpenAI/OpenRouter/APIMart |
 | `--moderation` | | 审核强度：`auto`、`low` | APIMart |
 | `--output-compression` | | 压缩率 0-100（jpeg/webp） | APIMart |
 | `--image-url` | `-i` | 图片输入：URL 或本地文件路径（可重复） | 通用 |
@@ -69,6 +69,19 @@ aigc-cli image --mode async --prompt "..."
 # 强制同步（即使连的是 APIMart）
 aigc-cli image --mode sync --prompt "..."
 ```
+
+### 透明背景（OpenAI gpt-image-1）
+
+`--background transparent` 生成带 alpha 通道的透明背景图片，输出格式必须为 `png` 或 `webp`（`jpeg` 不支持透明）：
+
+```bash
+# OpenAI gpt-image-1 透明背景
+aigc-cli image --model "gpt-image-1" \
+  --prompt "a logo for a coffee brand, isolated subject" \
+  --background transparent --output-format png
+```
+
+> ⚠️ dall-e-2/3 不支持 `--background` 参数。
 
 ## 本地生成
 

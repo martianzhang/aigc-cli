@@ -163,3 +163,31 @@ func TestMergeIntoVideo_slices(t *testing.T) {
 		t.Error("All slices should be merged from defaults")
 	}
 }
+
+func TestValidateBackground(t *testing.T) {
+	tests := []struct {
+		name       string
+		background string
+		format     string
+		wantErr    bool
+	}{
+		{"transparent+png", "transparent", "png", false},
+		{"transparent+webp", "transparent", "webp", false},
+		{"transparent+empty (defaults to png)", "transparent", "", false},
+		{"transparent+jpeg", "transparent", "jpeg", true},
+		{"transparent+avif", "transparent", "avif", true},
+		{"transparent+uppercase", "Transparent", "PNG", false},
+		{"opaque+jpeg", "opaque", "jpeg", false},
+		{"auto+avif", "auto", "avif", false},
+		{"empty+png", "", "png", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &GenerateRequest{Background: tt.background, OutputFormat: tt.format}
+			err := r.ValidateBackground()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateBackground() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

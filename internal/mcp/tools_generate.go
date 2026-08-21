@@ -78,6 +78,9 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 		if req.OutputFormat == "" {
 			req.OutputFormat = "png"
 		}
+		if err := req.ValidateBackground(); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
 
 		c := client.NewFromProvider(p)
 

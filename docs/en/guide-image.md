@@ -22,6 +22,7 @@ aigc-cli image --model "dall-e-3" --size "1024x1024" --prompt "a cat"
 | `--quality` | Quality: `standard` or `hd` | `standard` |
 | `--style` | Style: `vivid` or `natural` | `vivid` |
 | `--output-format` | Output format: `png`, `jpg`, `webp`, `avif`, `jxl` | `png` |
+| `--background` | Background: `auto`, `opaque`, or `transparent` (transparent requires `png`/`webp` output) | `auto` |
 | `--n` | Number of images to generate | `1` |
 | `--image-url` | Input image for image-to-image or editing | — |
 | `--mask-url` | Mask image for inpainting | — |
@@ -42,6 +43,18 @@ Used by APIMart and similar providers. Submits a task and polls until completion
 ```bash
 aigc-cli image --prompt "a cat" --mode async --timeout 120
 ```
+
+## Transparent Background (OpenAI gpt-image-1)
+
+`--background transparent` generates images with an alpha channel. Requires `--output-format png` or `webp` (`jpeg` does not support transparency):
+
+```bash
+aigc-cli image --model "gpt-image-1" \
+  --prompt "a logo for a coffee brand, isolated subject" \
+  --background transparent --output-format png
+```
+
+Note: dall-e-2/3 do not support `--background`.
 
 ## Image-to-Image
 

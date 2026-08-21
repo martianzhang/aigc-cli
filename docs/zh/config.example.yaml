@@ -126,6 +126,7 @@ defaults:
     resolution: "1k"
     quality: "low"
     output_format: "png"
+    # background: "auto"   # auto | opaque | transparent（透明背景需 output_format=png/webp）
 
   video:
     model: "doubao-seedance-2.0"

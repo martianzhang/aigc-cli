@@ -55,9 +55,10 @@ func (c *Client) ImageGenerateSync(req *types.GenerateRequest) (*types.OpenAIIma
 // sanitizeImageRequest removes provider-unsupported fields from the request.
 func (c *Client) sanitizeImageRequest(req *types.GenerateRequest) *types.GenerateRequest {
 	p := provider.Detect(c.baseURL)
-	if p == provider.ModelScope || p == provider.OpenAI {
-		// Gemini via Google AI Studio doesn't support output_format, background, moderation
-		// These are OpenAI-specific parameters
+	if p == provider.ModelScope || provider.IsGeminiDomain(c.baseURL) {
+		// Gemini (native + OpenAI-compat) and ModelScope don't support
+		// output_format, background, or moderation — strip them.
+		// OpenAI and generic relays DO support these and get the full request.
 		return &types.GenerateRequest{
 			Model:          req.Model,
 			Prompt:         req.Prompt,

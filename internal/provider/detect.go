@@ -154,6 +154,19 @@ func IsAgnes(baseURL string) bool { return Detect(baseURL) == Agnes }
 // IsGemini is a convenience wrapper around Detect.
 func IsGemini(baseURL string) bool { return Detect(baseURL) == Gemini }
 
+// IsGeminiDomain returns true if baseURL points to Google Gemini API,
+// including the OpenAI-compatible /openai endpoint variant.
+// Unlike IsGemini, this catches URLs like
+// generativelanguage.googleapis.com/v1beta/openai which Detect reports as OpenAI.
+func IsGeminiDomain(baseURL string) bool {
+	for _, d := range geminiDomains {
+		if matchDomain(baseURL, d) {
+			return true
+		}
+	}
+	return false
+}
+
 // localHostnames lists hostnames that are considered local/loopback addresses.
 var localHostnames = map[string]bool{
 	"localhost": true,

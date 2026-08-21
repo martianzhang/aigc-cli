@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 )
 
 type ErrCode int
@@ -51,6 +52,19 @@ type GenerateRequest struct {
 	// ExtraBody holds provider-specific fields that must be nested inside
 	// "extra_body" (e.g., Agnes API requires response_format in extra_body).
 	ExtraBody map[string]interface{} `json:"extra_body,omitempty" yaml:"extra_body,omitempty"`
+}
+
+// ValidateBackground checks background/output_format compatibility.
+// OpenAI's Images API requires png or webp when background=transparent.
+func (r *GenerateRequest) ValidateBackground() error {
+	if !strings.EqualFold(r.Background, "transparent") {
+		return nil
+	}
+	f := strings.ToLower(r.OutputFormat)
+	if f != "" && f != "png" && f != "webp" {
+		return fmt.Errorf("background=transparent requires output_format=png or webp (got %q)", r.OutputFormat)
+	}
+	return nil
 }
 
 // OpenAIImageResponse is the synchronous response from OpenAI/OpenRouter-compatible

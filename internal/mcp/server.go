@@ -59,6 +59,9 @@ func buildImageDesc(d *types.ImageDefaults, baseURL string) string {
 	if d != nil {
 		fmt.Fprintf(b, "  model = %s | size = %s | resolution = %s\n", d.Model, d.Size, d.Resolution)
 		fmt.Fprintf(b, "  quality = %s | output_format = %s", d.Quality, d.OutputFormat)
+		if d.Background != "" {
+			fmt.Fprintf(b, " | background = %s", d.Background)
+		}
 		if d.N != nil {
 			fmt.Fprintf(b, " | n = %d", *d.N)
 		}
@@ -257,7 +260,8 @@ func newGenerateImageTool(desc string) mcp.Tool {
 			mcp.Description("Mask image URL for inpainting"),
 		),
 		mcp.WithString("background",
-			mcp.Description("Background mode: auto, opaque, transparent"),
+			mcp.Enum("auto", "opaque", "transparent"),
+			mcp.Description("Background mode: auto, opaque, transparent (transparent requires png/webp output)"),
 		),
 	)
 	return t
