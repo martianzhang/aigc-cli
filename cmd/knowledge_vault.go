@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -42,8 +41,7 @@ The identity key is included in plaintext — keep the archive secure.`,
 		}
 
 		// Open vault
-		v, err := vault.Open(vaultBaseDir)
-		if err != nil {
+		if _, err := vault.Open(vaultBaseDir); err != nil {
 			return fmt.Errorf("open vault: %w", err)
 		}
 
@@ -58,15 +56,12 @@ The identity key is included in plaintext — keep the archive secure.`,
 			return err
 		}
 
-		// Write metadata
-		metaData, err := json.MarshalIndent(v, "", "  ")
-		if err != nil {
-			return fmt.Errorf("marshal metadata: %w", err)
-		}
-		// Read actual metadata from file
+		// Write metadata — Vault has no exported fields, so the real metadata
+		// always lives in metadata.json; fall back to an empty object if missing.
 		metaPath := filepath.Join(vaultBaseDir, "metadata.json")
-		if metaContent, err := os.ReadFile(metaPath); err == nil {
-			metaData = metaContent
+		metaData, err := os.ReadFile(metaPath)
+		if err != nil {
+			metaData = []byte("{}")
 		}
 
 		if err := addFileToTar(tw, "metadata.json", metaData); err != nil {
