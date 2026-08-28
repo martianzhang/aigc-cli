@@ -41,6 +41,7 @@ aigc-cli image < prompt.txt
 | `--moderation` | | 审核强度：`auto`、`low` | APIMart |
 | `--output-compression` | | 压缩率 0-100（jpeg/webp） | APIMart |
 | `--image-url` | `-i` | 图片输入：URL 或本地文件路径（可重复） | 通用 |
+| `--decode` | `-d` | 把 `--image-url` 中的 base64 文本文件（data URI / 裸 base64）解码为真实图片；配合 `--output-format` 可转换格式 | 通用 |
 | `--mask-url` | | 蒙版图片 URL（inpainting） | APIMart |
 | `--json` | | JSON 输入（文件、字符串或 `-` 表示 stdin） | 通用 |
 | `--output` | | 下载目录（默认当前目录，支持相对/绝对路径） | 通用 |
@@ -188,6 +189,41 @@ aigc-cli image \
   --image-url "https://example.com/img1.png" \
   --image-url "https://example.com/img2.png"
 ```
+
+## 解码模式（--decode）
+
+`--decode` 把 base64 文本文件（data URI 或裸 base64）解码为内联 data URI 后再发送请求——**provider 无关**，适用于任意 OpenAI 兼容 API（真实图片文件与远程 URL 原样透传，走既有上传路径）。不带 `--prompt` 时**纯本地运行**——解码/转换文件并保存到输出目录，不调用 API：
+
+```bash
+# 把 base64 文本文件解码为真实图片（本地，不调 API）
+aigc-cli image --decode --image-url image.txt
+
+# 解码的同时转换格式
+aigc-cli image --decode --output-format png --image-url image.txt
+
+# 转换真实图片的格式（jpg → png）
+aigc-cli image --decode --output-format png --image-url photo.jpg
+
+# 参考图解码（edit 模式）
+aigc-cli image --edit --decode --image-url image.txt --prompt "改成电影感"
+
+# 任意 provider 下均可使用（自动转为内联 data URI）
+aigc-cli image --decode --image-url image.txt --prompt "保持这个风格"
+```
+
+支持的目标格式：`png`、`jpg`/`jpeg`、`webp`、`avif`、`jxl`（通过 `--output-format` 指定）。也支持文本格式：
+- `base64` — 纯 base64 文本（无前缀，`base64 -d` 可还原图片）
+- `datauri` — data URI（`data:<mime>;base64,...`），可直接贴进 markdown/HTML/API
+
+```bash
+# 图片转纯 base64 文本
+aigc-cli image --decode --output-format base64 --image-url photo.jpg
+
+# 图片转 data URI（与 image.txt 同形态）
+aigc-cli image --decode --output-format datauri --image-url photo.jpg
+```
+
+纯解码模式（不带 `--output-format`）保留 data URI MIME 或魔数检测出的原始格式。
 
 ## Grok Imagine 1.5 Edit（图片编辑，APIMart）
 

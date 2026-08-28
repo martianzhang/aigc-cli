@@ -34,6 +34,7 @@ var (
 	genDryRun       bool
 	genEdit         bool // Grok Imagine 1.5 edit mode
 	genPreview      bool
+	genDecode       bool // decode base64 text files / convert image format for --image-url
 )
 
 // imageCmd represents the `aigc-cli image` command.
@@ -55,6 +56,13 @@ Edit mode (--edit):
   Requires --edit + --image-url + --prompt, forces async mode.
   Model defaults to grok-imagine-1.5-edit-apimart.
 
+Decode mode (--decode):
+  --image-url also accepts base64 text files (data URI or raw base64) and
+  inline data: URIs; --decode converts them to real images before upload.
+  Without --prompt, --decode runs purely locally: decode/convert files and
+  save them to the output dir (no API call). Combine with --output-format
+  to convert image format (e.g. jpg → png).
+
 Examples:
   aigc-cli image --prompt "A cat under starry sky"
   aigc-cli image --prompt prompt.txt --size "16:9"
@@ -62,7 +70,10 @@ Examples:
   aigc-cli image --json request.json
   aigc-cli image --json '{"prompt":"a red fox","n":4}'
   aigc-cli image --edit --prompt "Change background to starry sky" --image-url photo.jpg
-  aigc-cli image --edit --model "grok-imagine-1.5-edit-apimart" --prompt "Cyberpunk style" --image-url img.png --n 2`,
+  aigc-cli image --edit --model "grok-imagine-1.5-edit-apimart" --prompt "Cyberpunk style" --image-url img.png --n 2
+  aigc-cli image --decode --image-url image.txt
+  aigc-cli image --decode --output-format png --image-url image.txt
+  aigc-cli image --edit --decode --image-url image.txt --prompt "Make it cinematic"`,
 	RunE: runImageGenerate,
 }
 
@@ -71,6 +82,12 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	// When --compress is set and no --prompt, skip API and compress local files directly.
 	if genCompress != "" && genPrompt == "" {
 		return runLocalCompress(genCompress, genImageURLs, genOutputFormat)
+	}
+
+	// ----- Pure local decode mode (must be before buildImageRequest) -----
+	// When --decode is set and no --prompt, skip API and decode/convert local files.
+	if genDecode && genPrompt == "" {
+		return runLocalDecode(genImageURLs, genOutputFormat)
 	}
 
 	// ----- Step 1: Build the request -----
@@ -120,6 +137,26 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	// `output_format`, `background`, `moderation` are standard OpenAI parameters — kept as-is.
 	if !isAPIMart {
 		req.Resolution = ""
+	}
+
+	// ----- Step 4.5: --decode input preprocessing (provider-agnostic) -----
+	// Convert base64 text files / data URIs in --image-url into inline data
+	// URIs accepted by OpenAI-compatible APIs. Real image files and remote
+	// URLs pass through to the existing upload path unchanged.
+	// Runs before dry-run so the printed curl reflects the real request.
+	if genDecode {
+		decoded, err := decodeImageURLsInline(req.ImageURLs, genOutputFormat)
+		if err != nil {
+			return fmt.Errorf("failed to decode image-urls: %w", err)
+		}
+		req.ImageURLs = decoded
+		if req.MaskURL != "" {
+			decodedMask, err := decodeImageURLsInline([]string{req.MaskURL}, genOutputFormat)
+			if err != nil {
+				return fmt.Errorf("failed to decode mask-url: %w", err)
+			}
+			req.MaskURL = decodedMask[0]
+		}
 	}
 
 	if genDryRun {
@@ -202,11 +239,12 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVarP(&genQuality, "quality", "q", "", "Quality: auto, low, medium, high")
 	f.StringVar(&genBackground, "background", "", "Background mode: auto, opaque, transparent")
 	f.StringVar(&genModeration, "moderation", "", "Moderation strength: auto, low (APIMart only)")
-	f.StringVarP(&genOutputFormat, "output-format", "f", "", "Output format: png, jpeg, webp, avif, jxl")
+	f.StringVarP(&genOutputFormat, "output-format", "f", "", `Output format: png, jpeg, webp, avif, jxl; with --decode also: base64 (pure base64 text), datauri (data:<mime>;base64,...)`)
 	f.StringVarP(&genCompress, "compress", "z", "", `Compress output: target size ("800KB", "2MB") or fixed quality ("85%")`)
 	f.IntVar(&genCompression, "output-compression", 0, "Output compression level 0-100 (jpeg/webp only) (APIMart only)")
 	f.IntVar(&genN, "n", 0, "Number of images to generate (1-4)")
 	f.StringArrayVarP(&genImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable)")
+	f.BoolVarP(&genDecode, "decode", "d", false, "Decode base64 text files (data URI / raw base64) in --image-url to real images; combine with --output-format to convert format")
 	f.StringVar(&genMaskURL, "mask-url", "", "Mask image URL for inpainting (APIMart only)")
 	f.StringVar(&genStyle, "style", "", "Image style: vivid, natural (OpenAI only)")
 	f.StringVar(&genResponseFmt, "response-format", "", "Response format: url, b64_json (OpenAI/OpenRouter/Agnes)")
