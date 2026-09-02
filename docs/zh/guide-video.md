@@ -140,6 +140,39 @@ Job 文件保存在 `video_job_{jobId}.json`，内含 `polling_url`、`model`、
 
 使用 `aigc-cli models --type video`（免认证）查看完整列表。
 
+## GIF 转换
+
+`--gif` 支持两种场景：**AI 生成后自动转**，或**转换本地已有视频**（纯本地，不调 API、不消耗额度）。
+
+### 生成后转 GIF
+
+```bash
+# 生成并转 GIF（宽度默认 160px）
+aigc-cli video --prompt "一个人做俯卧撑" --gif
+
+# 指定 GIF 宽度
+aigc-cli video --prompt "一个人做俯卧撑" --gif --gif-width 320
+```
+
+### 转换本地已有视频
+
+```bash
+# 本地视频直接转 GIF（无需 prompt、不调 API）
+aigc-cli video --gif -i 俯卧撑.mp4              # → 俯卧撑_160px.gif
+
+# 指定宽度 / 自定义输出
+aigc-cli video --gif -i clip.mp4 --gif-width 320
+aigc-cli video --gif -i clip.mov --gif-width 0  # 0 = 保持原尺寸
+```
+
+**说明：**
+- 依赖系统 **ffmpeg**（须在 PATH），缺失时会提示安装方式。
+- 转换参数已固化：`fps=6`、调色板 `max_colors=128`、`dither=none`（AI 视频平滑渐变下无抖动脉冲），日常只需调 `--gif-width`。
+- 转换时会把实际执行的 ffmpeg 命令打印到 stdout，可直接复制复现。
+- 高级用户可用 `--ffmpeg-flags` 追加额外参数（追加在 GIF filter 之后）。
+- 生成路径下 `--gif` 同时作用于主生成、VEO3 Remix（`--remix`）和 `--job-id` 恢复三条路径。
+- 本地转换的触发条件：`--gif` + `-i/--image-url` 指定本地视频文件 + **未指定 `--prompt`**。`-i` 是 `--image-url` 的简写（与 `image` 命令一致）。
+
 ## 参数
 
 | 参数 | 短参 | 说明 |
@@ -153,7 +186,7 @@ Job 文件保存在 `video_job_{jobId}.json`，内含 `polling_url`、`model`、
 | `--dry-run` | | 打印 curl 不调用 API |
 | `--seed` | | 随机种子，用于复现 |
 | `--return-last-frame` | | 返回最后一帧用于续拍 |
-| `--image-url` | | 参考图片 URL（可重复） |
+| `--image-url` | `-i` | 参考图片 URL 或本地文件（可重复）；配合 `--gif` 且无 `--prompt` 时转换本地视频 |
 | `--first-frame` | | 首帧图片 |
 | `--last-frame` | | 尾帧图片 |
 | `--video-url` | | 参考视频 URL（可重复） |
@@ -162,6 +195,9 @@ Job 文件保存在 `video_job_{jobId}.json`，内含 `polling_url`、`model`、
 | `--tool` | | 工具（如 `web_search`，可重复） |
 | `--output` | | 下载目录（默认当前目录） |
 | `--save-prompt` | | 保存 prompt 到 `video_{task_id}.md` |
+| `--gif` | | 生成后把视频转成 GIF，或配合 `-i/--image-url` 转换本地视频（需 ffmpeg 在 PATH） |
+| `--gif-width` | | GIF 输出宽度（px），高度自动等比取偶，默认 `160` |
+| `--ffmpeg-flags` | | 追加额外 ffmpeg 参数（高级逃生门，追加在 GIF filter 之后） |
 | `--verbose` | `-v` | 显示请求 JSON 和完整响应（全局 flag） |
 
 ## 超时处理

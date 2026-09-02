@@ -34,6 +34,9 @@ var (
 	vidTaskID          string
 	vidJobID           string // OpenRouter video job ID for resume
 	vidPreview         bool
+	vidGIF             bool
+	vidGIFWidth        int
+	vidFFmpegFlags     string
 )
 
 // openRouterJobInfo is saved to disk so the user can resume a timed-out video job.
@@ -91,7 +94,9 @@ Examples:
   aigc-cli video --prompt "Transition day to night" --first-frame day.jpg --last-frame night.jpg
   aigc-cli video --json request.json
   aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "continue running"
-  aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "keep going" --raw --resolution 1080p`,
+  aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "keep going" --raw --resolution 1080p
+  aigc-cli video --prompt "A man doing push-ups" --gif            # generate then convert to GIF
+  aigc-cli video --gif -i pushup.mp4                               # convert an existing local video`,
 	RunE: runVideo,
 }
 
@@ -103,6 +108,24 @@ func runVideo(cmd *cobra.Command, args []string) error {
 	// Resume an existing OpenRouter video job (--job-id)
 	if vidJobID != "" {
 		return runOpenRouterVideoResume(vidJobID)
+	}
+
+	// 本地视频转 GIF：--gif -i <本地文件>（无 prompt）时纯本地转换，不调生成 API。
+	// -i 是 --image-url 的简写（对齐 image 命令）；仅当值是本地文件且未给 prompt 时走此分支。
+	if vidGIF && vidPrompt == "" && len(vidImageURLs) > 0 {
+		for _, u := range vidImageURLs {
+			if isFile(u) {
+				return convertLocalToGIF(u)
+			}
+		}
+		return fmt.Errorf("--gif with --image-url/-i and no --prompt requires a local video file, got remote URL: %s", vidImageURLs[0])
+	}
+
+	// GIF 后处理需要 ffmpeg，提前校验避免浪费一次 API 调用。
+	if vidGIF {
+		if err := ensureGIFAvailable(); err != nil {
+			return err
+		}
 	}
 
 	req, err := buildVideoRequest(cmd)
@@ -148,6 +171,13 @@ func runVideo(cmd *cobra.Command, args []string) error {
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {
 			saved, err := s.run(req)
+			if err == nil && vidGIF {
+				if conv, cerr := convertSavedToGIF(saved); cerr != nil {
+					fmt.Fprintf(os.Stderr, "Warning: GIF conversion failed: %v\n", cerr)
+				} else {
+					saved = conv
+				}
+			}
 			if err == nil && vidPreview {
 				for _, f := range saved {
 					if e := service.PreviewFile(f); e != nil {
@@ -170,7 +200,7 @@ func init() {
 	f.IntVar(&vidSeed, "seed", 0, "Random seed for reproducibility")
 	f.BoolVarP(&vidGenerateAudio, "generate-audio", "a", false, "Generate AI audio for the video")
 	f.BoolVar(&vidReturnLastFrame, "return-last-frame", false, "Return the last frame image URL for continuation")
-	f.StringArrayVar(&vidImageURLs, "image-url", nil, "Reference image URL (repeatable)")
+	f.StringArrayVarP(&vidImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable); with --gif and no --prompt, converts a local video to GIF")
 	f.StringVar(&vidFirstFrame, "first-frame", "", "First frame image URL or local path")
 	f.StringVar(&vidLastFrame, "last-frame", "", "Last frame image URL or local path")
 	f.StringArrayVar(&vidVideoURLs, "video-url", nil, "Reference video URL (repeatable)")
@@ -181,6 +211,9 @@ func init() {
 	f.StringVar(&vidTaskID, "task-id", "", "Original video task ID for remix (required with --remix)")
 	f.BoolVar(&vidDryRun, "dry-run", false, "Print request parameters without calling API")
 	f.BoolVar(&vidPreview, "preview", false, "Open generated video with system default player")
+	f.BoolVar(&vidGIF, "gif", false, "Convert generated videos to GIF after download, or convert a local video via -i/--image-url")
+	f.IntVar(&vidGIFWidth, "gif-width", 160, "GIF output width in px (height auto, even)")
+	f.StringVar(&vidFFmpegFlags, "ffmpeg-flags", "", `Extra ffmpeg flags appended after the GIF filter (expert escape hatch)`)
 	f.StringVar(&shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&vidJobID, "job-id", "", "Resume an OpenRouter video job by ID (loads saved job info and downloads the result)")
 

@@ -32,6 +32,8 @@ ffmpeg -i video_xxx.mp4 -frames:v 1 -vf scale=320:-1 thumb.jpg
 
 ### 转 GIF（社媒分享）
 
+> 视频转 GIF 用内置的 **`aigc-cli video --gif`** 即可，无需手敲命令：生成后自动转（`video -p "..." --gif`）或转换本地存量视频（`video --gif -i file.mp4`），见 [guide-video.md](guide-video.md#gif-转换)。以下原始 ffmpeg 命令保留备查。
+
 ```bash
 # 基础转换（质量尚可）
 ffmpeg -i video_xxx.mp4 -vf fps=10,scale=480:-1 out.gif

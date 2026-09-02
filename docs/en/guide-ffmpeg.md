@@ -32,6 +32,8 @@ ffmpeg -i video_xxx.mp4 -frames:v 1 -vf scale=320:-1 thumb.jpg
 
 ### Convert to GIF (social sharing)
 
+> Use the built-in **`aigc-cli video --gif`** for video → GIF: auto-convert after generation (`video -p "..." --gif`) or convert an existing local video (`video --gif -i file.mp4`), see [guide-video.md](guide-video.md#gif-conversion). The raw ffmpeg commands below are kept for reference.
+
 ```bash
 # Basic conversion (acceptable quality)
 ffmpeg -i video_xxx.mp4 -vf fps=10,scale=480:-1 out.gif
