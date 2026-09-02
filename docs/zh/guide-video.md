@@ -163,6 +163,15 @@ aigc-cli video --gif -i 俯卧撑.mp4              # → 俯卧撑_160px.gif
 # 指定宽度 / 自定义输出
 aigc-cli video --gif -i clip.mp4 --gif-width 320
 aigc-cli video --gif -i clip.mov --gif-width 0  # 0 = 保持原尺寸
+
+# 裁掉四周边缘：每边裁掉 40px
+aigc-cli video --gif -i org.mp4 --crop-margin 40
+
+# 只裁上下边缘（CSS margin 简写：上下,左右）
+aigc-cli video --gif -i org.mp4 --crop-margin 40,0
+
+# 只裁底部一条（顺序：上,右,下,左）
+aigc-cli video --gif -i org.mp4 --crop-margin 0,0,40,0
 ```
 
 **说明：**
@@ -172,6 +181,25 @@ aigc-cli video --gif -i clip.mov --gif-width 0  # 0 = 保持原尺寸
 - 高级用户可用 `--ffmpeg-flags` 追加额外参数（追加在 GIF filter 之后）。
 - 生成路径下 `--gif` 同时作用于主生成、VEO3 Remix（`--remix`）和 `--job-id` 恢复三条路径。
 - 本地转换的触发条件：`--gif` + `-i/--image-url` 指定本地视频文件 + **未指定 `--prompt`**。`-i` 是 `--image-url` 的简写（与 `image` 命令一致）。
+
+## 边缘裁剪（Edge Crop）
+
+`--crop-margin` 可以**单独使用**（不需要 `--gif`），重新编码视频裁掉四周边缘。**原视频始终保留**，输出新文件 `<stem>_crop.mp4`（与输入同目录）。只裁指定的边——例如 `40,0` 只裁上下 40px，左右保持不动。
+
+```bash
+# 裁剪本地视频（无 prompt、不调 API）：org.mp4 → org_crop.mp4
+aigc-cli video --crop-margin 40 -i org.mp4
+aigc-cli video --crop-margin 40,0 -i org.mp4        # 只裁上下边缘
+
+# AI 生成后自动裁剪（保留原视频）
+aigc-cli video --prompt "一个人做俯卧撑" --crop-margin 40
+aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
+```
+
+**说明：**
+- `--crop-margin` 支持 CSS margin 简写（逗号分隔）：1 个值=四边、2 个值=上下,左右、4 个值=上,右,下,左。精确按指定边裁掉像素，其他边不做额外裁切。`ffprobe`（随 ffmpeg 一起安装）用于校验裁边是否超过源视频尺寸。
+- 单独裁剪是纯本地 ffmpeg 重编码（H.264），不调 API、不消耗额度。
+- `--crop-margin` 同样作用于 VEO3 Remix（`--remix`）和 `--job-id` 恢复路径。
 
 ## 参数
 
@@ -197,6 +225,7 @@ aigc-cli video --gif -i clip.mov --gif-width 0  # 0 = 保持原尺寸
 | `--save-prompt` | | 保存 prompt 到 `video_{task_id}.md` |
 | `--gif` | | 生成后把视频转成 GIF，或配合 `-i/--image-url` 转换本地视频（需 ffmpeg 在 PATH） |
 | `--gif-width` | | GIF 输出宽度（px），高度自动等比取偶，默认 `160` |
+| `--crop-margin` | | 裁掉四周边缘：无 prompt 时裁剪本地视频（`-i file`，保留原文件）；有 prompt 时裁剪 AI 生成的视频（保留原视频）。CSS margin 简写：`40`=四边、`40,0`=上下,左右、`40,30,20,10`=上,右,下,左 |
 | `--ffmpeg-flags` | | 追加额外 ffmpeg 参数（高级逃生门，追加在 GIF filter 之后） |
 | `--verbose` | `-v` | 显示请求 JSON 和完整响应（全局 flag） |
 

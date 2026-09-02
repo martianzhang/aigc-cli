@@ -243,6 +243,13 @@ func runVideoRemix(cmd *cobra.Command) error {
 			fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
 		}
 	}
+	if vidCropMargin != "" {
+		if cropped, cerr := cropSavedVideos(saved); cerr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: video crop failed: %v\n", cerr)
+		} else {
+			saved = cropped
+		}
+	}
 
 	fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 		taskData.ActualTime, taskData.Cost, taskData.CreditsCost)
@@ -427,6 +434,13 @@ func runOpenRouterVideoResume(jobID string) error {
 		}
 		fmt.Printf("Saved: %s\n", filename)
 		saved = append(saved, filename)
+	}
+	if vidCropMargin != "" {
+		if cropped, cerr := cropSavedVideos(saved); cerr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: video crop failed: %v\n", cerr)
+		} else {
+			saved = cropped
+		}
 	}
 
 	if statusResp.Usage != nil {

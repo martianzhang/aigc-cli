@@ -36,6 +36,7 @@ var (
 	vidPreview         bool
 	vidGIF             bool
 	vidGIFWidth        int
+	vidCropMargin      string
 	vidFFmpegFlags     string
 )
 
@@ -96,7 +97,12 @@ Examples:
   aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "continue running"
   aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "keep going" --raw --resolution 1080p
   aigc-cli video --prompt "A man doing push-ups" --gif            # generate then convert to GIF
-  aigc-cli video --gif -i pushup.mp4                               # convert an existing local video`,
+aigc-cli video --gif -i pushup.mp4                               # convert an existing local video
+  aigc-cli video --gif -i org.mp4 --crop-margin 40                 # crop 40px from each side
+  aigc-cli video --gif -i org.mp4 --crop-margin 40,0               # crop only top/bottom (CSS margin shorthand)
+  aigc-cli video --gif -i org.mp4 --crop-margin 0,0,40,0           # crop only the bottom edge
+  aigc-cli video --crop-margin 40 -i org.mp4                       # crop a local video, keep the original (no --gif)
+  aigc-cli video -p "a cat" --crop-margin 40                       # crop generated videos, keep the originals`,
 	RunE: runVideo,
 }
 
@@ -110,20 +116,26 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		return runOpenRouterVideoResume(vidJobID)
 	}
 
-	// 本地视频转 GIF：--gif -i <本地文件>（无 prompt）时纯本地转换，不调生成 API。
+	// 本地视频处理：--gif -i <本地> 转 GIF；--crop-margin -i <本地> 裁边（均无 prompt 时纯本地）。
 	// -i 是 --image-url 的简写（对齐 image 命令）；仅当值是本地文件且未给 prompt 时走此分支。
-	if vidGIF && vidPrompt == "" && len(vidImageURLs) > 0 {
+	if vidPrompt == "" && len(vidImageURLs) > 0 && (vidGIF || vidCropMargin != "") {
 		for _, u := range vidImageURLs {
 			if isFile(u) {
-				return convertLocalToGIF(u)
+				if vidGIF {
+					return convertLocalToGIF(u)
+				}
+				return cropLocalVideo(u)
 			}
 		}
-		return fmt.Errorf("--gif with --image-url/-i and no --prompt requires a local video file, got remote URL: %s", vidImageURLs[0])
+		return fmt.Errorf("--gif/--crop-margin with --image-url/-i and no --prompt requires a local video file, got remote URL: %s", vidImageURLs[0])
 	}
 
-	// GIF 后处理需要 ffmpeg，提前校验避免浪费一次 API 调用。
-	if vidGIF {
-		if err := ensureGIFAvailable(); err != nil {
+	// GIF/裁边后处理需要 ffmpeg，且 --crop-margin 参数需合法；提前校验避免浪费一次 API 调用。
+	if vidGIF || vidCropMargin != "" {
+		if err := ensureFFmpegAvailable(); err != nil {
+			return err
+		}
+		if _, err := parseGIFCropMargin(); err != nil {
 			return err
 		}
 	}
@@ -178,6 +190,13 @@ func runVideo(cmd *cobra.Command, args []string) error {
 					saved = conv
 				}
 			}
+			if err == nil && vidCropMargin != "" && !vidGIF {
+				if cropped, cerr := cropSavedVideos(saved); cerr != nil {
+					fmt.Fprintf(os.Stderr, "Warning: video crop failed: %v\n", cerr)
+				} else {
+					saved = cropped
+				}
+			}
 			if err == nil && vidPreview {
 				for _, f := range saved {
 					if e := service.PreviewFile(f); e != nil {
@@ -213,6 +232,9 @@ func init() {
 	f.BoolVar(&vidPreview, "preview", false, "Open generated video with system default player")
 	f.BoolVar(&vidGIF, "gif", false, "Convert generated videos to GIF after download, or convert a local video via -i/--image-url")
 	f.IntVar(&vidGIFWidth, "gif-width", 160, "GIF output width in px (height auto, even)")
+	f.StringVar(&vidCropMargin, "crop-margin", "", `Crop N px from each side (crops exactly what you specify, no extra crop).
+Without a prompt: crops the local video (-i file), the original is kept. With a prompt: crops the AI-generated videos, the originals are kept.
+CSS margin shorthand, comma-separated: 40 (all sides) | 40,0 (top/bottom, left/right) | 40,30,20,10 (top,right,bottom,left)`)
 	f.StringVar(&vidFFmpegFlags, "ffmpeg-flags", "", `Extra ffmpeg flags appended after the GIF filter (expert escape hatch)`)
 	f.StringVar(&shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&vidJobID, "job-id", "", "Resume an OpenRouter video job by ID (loads saved job info and downloads the result)")

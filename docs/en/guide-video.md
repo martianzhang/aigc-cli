@@ -27,6 +27,7 @@ aigc-cli video --model "google/veo-3.1" --prompt "a dog running"
 | `--job-id` | Resume a previous job | — |
 | `--gif` | Convert generated videos to GIF after download, or convert a local video via `-i/--image-url` | `false` |
 | `--gif-width` | GIF output width in px (height auto, even) | `160` |
+| `--crop-margin` | Crop N px from each side of the video (crops exactly what you specify). Without a prompt: crops the local video (`-i file`), original kept. With a prompt: crops AI-generated videos, originals kept. CSS margin shorthand: `40` (all) / `40,0` (top/bottom, left/right) / `40,30,20,10` (top,right,bottom,left) | `—` |
 | `--ffmpeg-flags` | Extra ffmpeg flags appended after the GIF filter (expert) | — |
 
 ## GIF Conversion
@@ -52,6 +53,15 @@ aigc-cli video --gif -i pushup.mp4              # → pushup_160px.gif
 # Specify width / custom output
 aigc-cli video --gif -i clip.mp4 --gif-width 320
 aigc-cli video --gif -i clip.mov --gif-width 0  # 0 = keep original size
+
+# Crop the surrounding frame: crop 40px from each side
+aigc-cli video --gif -i org.mp4 --crop-margin 40
+
+# Crop only top/bottom bars (CSS margin shorthand: top/bottom, left/right)
+aigc-cli video --gif -i org.mp4 --crop-margin 40,0
+
+# Crop only the bottom edge (top, right, bottom, left)
+aigc-cli video --gif -i org.mp4 --crop-margin 0,0,40,0
 ```
 
 Notes:
@@ -61,6 +71,25 @@ Notes:
 - Advanced users can append extra args with `--ffmpeg-flags`.
 - On the generation path, `--gif` applies to main generation, VEO3 Remix (`--remix`), and `--job-id` resume paths.
 - Local conversion triggers when: `--gif` + `-i/--image-url` points to a local video file + **no `--prompt`**. `-i` is the shorthand for `--image-url` (consistent with the `image` command).
+
+## Edge Crop
+
+`--crop-margin` works **standalone** (no `--gif` needed) to re-encode a video with the border edges cropped off. The original video is always kept; a new `<stem>_crop.mp4` file is written next to it. Only the specified sides are cropped — e.g. `40,0` removes 40px from top/bottom and leaves the left/right untouched.
+
+```bash
+# Crop a local video (no prompt, no API call): org.mp4 → org_crop.mp4
+aigc-cli video --crop-margin 40 -i org.mp4
+aigc-cli video --crop-margin 40,0 -i org.mp4        # crop only top/bottom bars
+
+# Crop AI-generated videos after download (originals kept)
+aigc-cli video --prompt "A man doing push-ups" --crop-margin 40
+aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # crop only the bottom edge
+```
+
+Notes:
+- `--crop-margin` accepts CSS margin shorthand (comma-separated): 1 value = all sides, 2 values = top/bottom, left/right, 4 values = top, right, bottom, left. It crops exactly the given px from the selected sides — no extra cropping on other sides. `ffprobe` (ships with ffmpeg) is used to validate the margin against the source size.
+- Standalone crop is pure local re-encoding (H.264) via ffmpeg — no API call, no cost.
+- `--crop-margin` also applies to VEO3 Remix (`--remix`) and `--job-id` resume paths.
 
 ## OpenRouter Video
 
