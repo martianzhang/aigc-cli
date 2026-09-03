@@ -32,6 +32,24 @@ aigc-cli video --model "google/veo-3.1" --prompt "a dog running"
 
 > **Note:** Agnes video models (`agnes-video-2.5-flash`, etc.) require `--resolution` in `720P`/`960P`/`2K` format (uppercase P), not `480p`/`720p`. The CLI maps the default `480p` to `720P` automatically. See the [Agnes Video docs](https://agnes-ai.com/zh-Hans/docs/agnes-video-v20).
 
+### Agnes Image-to-Video
+
+Agnes has no image upload endpoint; local images are automatically converted to base64 data URIs and embedded directly. Three modes are supported:
+
+| Mode | Description | CLI Usage |
+|---|---|---|
+| `text` | Pure text-to-video (default) | `--prompt "..."` |
+| `reference` | Image/audio reference | `-i image1.jpg -i image2.jpg` (up to 5 images) |
+| `keyframe` | First/last frame control | `--first-frame img1.jpg --last-frame img2.jpg` |
+
+```bash
+# Image-to-video: local images auto-converted to data URI
+aigc-cli video -i photo.jpg --prompt "animate the person in the photo" --gif
+
+# Keyframe
+aigc-cli video --first-frame start.jpg --last-frame end.jpg --prompt "transition from first to last frame"
+```
+
 ## GIF Conversion
 
 `--gif` supports two scenarios: **convert after AI generation**, or **convert an existing local video** (pure local, no API call, no cost).

@@ -25,7 +25,7 @@ func agnesSize(resolution string) string {
 }
 
 // AgnesVideoSubmit sends a video generation request to agnes.ai's POST /v1/videos (async task).
-// Body format: {model, mode, prompt, size, aspect_ratio, seconds, n, image?}.
+// See https://agnes-ai.com/zh-Hans/docs/agnes-video-25-flash for the official API spec.
 func (c *Client) AgnesVideoSubmit(req *types.VideoGenerateRequest) (*types.AgnesVideoCreateResponse, error) {
 	bodyMap := map[string]interface{}{
 		"model":  req.Model,
@@ -33,23 +33,33 @@ func (c *Client) AgnesVideoSubmit(req *types.VideoGenerateRequest) (*types.Agnes
 		"mode":   "text",
 		"n":      1,
 	}
+	// size: Flash 固定 "720P"。CLI resolution 默认 480p 经 agnesSize 映射为 720P。
 	if req.Resolution != "" {
-		// agnes 的 size 只接受 "720P"/"960P"/"2K"（不含 480p）。
-		// CLI resolution: 480p→720P(最低档), 720p→720P, 1080p→2K, 其他原样大写。
 		bodyMap["size"] = agnesSize(req.Resolution)
 	}
+	// aspect_ratio: CLI 的 Size 是宽高比（16:9 等），agnès 用 aspect_ratio。
 	if req.Size != "" {
 		bodyMap["aspect_ratio"] = req.Size
 	}
 	if req.Duration != nil && *req.Duration > 0 {
 		bodyMap["seconds"] = fmt.Sprintf("%d", *req.Duration)
 	}
-	if len(req.ImageURLs) > 0 {
-		bodyMap["mode"] = "image2video"
-		bodyMap["image"] = req.ImageURLs[0]
-	} else if len(req.ImageWithRoles) > 0 {
-		bodyMap["mode"] = "image2video"
-		bodyMap["image"] = req.ImageWithRoles[0].URL
+
+	// 媒体输入：agnès 三种模式互斥。keyframe（首尾帧）优先于 reference（图片参考）。
+	switch {
+	case len(req.ImageWithRoles) > 0:
+		bodyMap["mode"] = "keyframe"
+		for _, r := range req.ImageWithRoles {
+			switch r.Role {
+			case "first_frame":
+				bodyMap["first_frame"] = r.URL
+			case "last_frame":
+				bodyMap["last_frame"] = r.URL
+			}
+		}
+	case len(req.ImageURLs) > 0:
+		bodyMap["mode"] = "reference"
+		bodyMap["images"] = req.ImageURLs
 	}
 
 	var result types.AgnesVideoCreateResponse

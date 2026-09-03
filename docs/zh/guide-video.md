@@ -231,6 +231,24 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 
 > ⚠️ **agnès 视频 `--resolution` 格式不同**：agnès（`agnes-video-2.5-flash` 等）要求 `720P`/`960P`/`2K`（大写 P），不能用 `480p`/`720p`（小写 p）。CLI 默认 `480p` 会被映射为 `720P`。详见 [agnès 视频文档](https://agnes-ai.com/zh-Hans/docs/agnes-video-v20)。
 
+### agnès 图生视频
+
+agnès 没有图片上传端点，本地图片会自动转为 base64 data URI 内嵌。支持三种模式：
+
+| 模式 | 说明 | CLI 用法 |
+|---|---|---|
+| `text` | 纯文本生成（默认） | `--prompt "..."` |
+| `reference` | 图片/音频参考 | `-i image1.jpg -i image2.jpg`（最多 5 张） |
+| `keyframe` | 首尾帧控制 | `--first-frame img1.jpg --last-frame img2.jpg` |
+
+```bash
+# 图生视频：本地图片自动转 data URI
+aigc-cli video -i photo.jpg --prompt "让照片中的人动起来" --gif
+
+# 首尾帧
+aigc-cli video --first-frame start.jpg --last-frame end.jpg --prompt "从首帧过渡到尾帧"
+```
+
 ## 超时处理
 
 视频生成耗时较长（通常 30 秒到几分钟），超时处理方式取决于 provider：
