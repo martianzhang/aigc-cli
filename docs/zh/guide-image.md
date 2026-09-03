@@ -53,6 +53,12 @@ aigc-cli image < prompt.txt
 
 > ⚠️ **--size 格式因厂商而异**：OpenAI/OpenRouter/APIMart 等大多数厂商支持宽高比格式（如 `1:1`、`16:9`），但部分厂商（如 Agnes、ModelScope）要求像素尺寸（如 `1024x1024`、`1024x768`）。使用前请查阅对应厂商的 API 文档确认 `size` 参数格式。
 
+```bash
+# Agnes：--size 必须用像素尺寸（如 1024x768），不能用宽高比（16:9）
+aigc-cli image --provider agnes --model agnes-image-2.5-flash \
+  --size "1024x768" --prompt "一只猫"
+```
+
 ### 模式自动检测规则
 
 | base_url 包含 | 模式 | 说明 |

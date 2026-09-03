@@ -19,15 +19,20 @@ aigc-cli image --model "dall-e-3" --size "1024x1024" --prompt "a cat"
 | `--prompt` / `-p` | Image description prompt | required |
 | `--model` / `-m` | Model name | `gpt-image-2-official` (APIMart) |
 | `--size` | Image size (`1024x1024`, `1792x1024`, etc.) | varies by model |
-| `--quality` | Quality: `standard` or `hd` | `standard` |
-| `--style` | Style: `vivid` or `natural` | `vivid` |
-| `--output-format` | Output format: `png`, `jpg`, `webp`, `avif`, `jxl` | `png` |
-| `--background` | Background: `auto`, `opaque`, or `transparent` (transparent requires `png`/`webp` output) | `auto` |
-| `--n` | Number of images to generate | `1` |
-| `--image-url` | Input image for image-to-image or editing | — |
-| `--decode` / `-d` | Decode base64 text files (data URI / raw base64) in `--image-url` to real images; combine with `--output-format` to convert format | `false` |
-| `--mask-url` | Mask image for inpainting | — |
-| `--mode` | Mode: `sync` or `async` | auto-detected |
+
+> **Note:** The `--size` format varies by provider. Most providers (OpenAI, OpenRouter, APIMart) accept aspect ratios like `1:1`, `16:9`. However, **Agnes requires pixel dimensions** (e.g. `1024x1024`, `1024x768`, `768x1024`). See the [Agnes Image docs](https://agnes-ai.com/zh-Hans/docs/agnes-image-20-flash) for details.
+
+### Provider-specific parameters
+
+Some providers require non-standard parameter formats. aigc-cli handles these automatically where possible, but you should be aware of them when specifying `--size`:
+
+- **Agnes** (`agnes-image-2.0-flash`, `agnes-image-2.5-flash`): requires **pixel dimensions** for `--size`, e.g. `1024x1024`, `1024x768`, `768x1024`. Aspect ratios like `16:9` are not documented. See the [Agnes Image docs](https://agnes-ai.com/zh-Hans/docs/agnes-image-20-flash).
+
+```bash
+# Agnes: use pixel dimensions for --size
+aigc-cli image --provider agnes --model agnes-image-2.5-flash \
+  --size "1024x768" --prompt "a cat"
+```
 
 ## Sync Mode
 

@@ -30,6 +30,8 @@ aigc-cli video --model "google/veo-3.1" --prompt "a dog running"
 | `--crop-margin` | Crop N px from each side of the video (crops exactly what you specify). Without a prompt: crops the local video (`-i file`), original kept. With a prompt: crops AI-generated videos, originals kept. CSS margin shorthand: `40` (all) / `40,0` (top/bottom, left/right) / `40,30,20,10` (top,right,bottom,left) | `—` |
 | `--ffmpeg-flags` | Extra ffmpeg flags appended after the GIF filter (expert) | — |
 
+> **Note:** Agnes video models (`agnes-video-2.5-flash`, etc.) require `--resolution` in `720P`/`960P`/`2K` format (uppercase P), not `480p`/`720p`. The CLI maps the default `480p` to `720P` automatically. See the [Agnes Video docs](https://agnes-ai.com/zh-Hans/docs/agnes-video-v20).
+
 ## GIF Conversion
 
 `--gif` supports two scenarios: **convert after AI generation**, or **convert an existing local video** (pure local, no API call, no cost).

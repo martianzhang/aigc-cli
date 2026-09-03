@@ -229,6 +229,8 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 | `--ffmpeg-flags` | | 追加额外 ffmpeg 参数（高级逃生门，追加在 GIF filter 之后） |
 | `--verbose` | `-v` | 显示请求 JSON 和完整响应（全局 flag） |
 
+> ⚠️ **agnès 视频 `--resolution` 格式不同**：agnès（`agnes-video-2.5-flash` 等）要求 `720P`/`960P`/`2K`（大写 P），不能用 `480p`/`720p`（小写 p）。CLI 默认 `480p` 会被映射为 `720P`。详见 [agnès 视频文档](https://agnes-ai.com/zh-Hans/docs/agnes-video-v20)。
+
 ## 超时处理
 
 视频生成耗时较长（通常 30 秒到几分钟），超时处理方式取决于 provider：
