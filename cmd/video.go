@@ -179,6 +179,7 @@ func runVideo(cmd *cobra.Command, args []string) error {
 	vctx := &videoDispatchCtx{
 		isOpenRouter: p.ProviderType == provider.OpenRouter,
 		isYunwu:      p.ProviderType == provider.Yunwu,
+		isAgnes:      p.ProviderType == provider.Agnes,
 	}
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {

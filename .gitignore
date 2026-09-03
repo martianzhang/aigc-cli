@@ -44,6 +44,7 @@ image_*.jpeg
 image_*.webp
 video_*.mp4
 video_*.webm
+video_*.gif
 image_*.md
 
 # Generated audio files (audio_ prefix)

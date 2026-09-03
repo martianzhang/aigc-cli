@@ -92,6 +92,7 @@ func init() {
 
 		// Load config to populate shared fields if not set via flags
 		if c, err := config.Load(shared.CfgFile); err == nil {
+			shared.Cfg = c // ResolveProvider 依赖 Cfg 读取 defaults.{cmd}.provider
 			if shared.APIKey == "" {
 				shared.APIKey = c.APIKey
 			}

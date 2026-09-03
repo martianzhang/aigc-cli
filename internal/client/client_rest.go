@@ -127,6 +127,44 @@ func (c *Client) doGet(path string, result interface{}) error {
 	return c.doGetWithHeaders(path, result, nil)
 }
 
+// doGetAbsolute sends a GET request to a fully-qualified URL (not joined to baseURL),
+// for endpoints that live outside the API version prefix (e.g. agnes /agnesapi).
+func (c *Client) doGetAbsolute(rawURL string, result interface{}) error {
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, rawURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	if c.apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+	for k, v := range c.defaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		if isTimeoutError(err) {
+			return fmt.Errorf("API request timed out: %w\n%s", err, timeoutHint())
+		}
+		return fmt.Errorf("API request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+	if result != nil {
+		if err := json.Unmarshal(respBody, result); err != nil {
+			return fmt.Errorf("failed to parse response: %w", err)
+		}
+	}
+	return nil
+}
+
 // doGetWithHeaders is like doGet but with additional HTTP headers.
 func (c *Client) doGetWithHeaders(path string, result interface{}, extraHeaders map[string]string) error {
 	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, c.baseURL+path, nil)

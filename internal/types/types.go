@@ -251,6 +251,43 @@ type YunwuVideoQueryResponse struct {
 	StatusUpdateTime int64  `json:"status_update_time,omitempty"`
 }
 
+// AgnesVideoCreateResponse is returned by agnes.ai's POST /v1/videos (async task).
+type AgnesVideoCreateResponse struct {
+	ID        string `json:"id"`
+	VideoID   string `json:"video_id"`
+	TaskID    string `json:"task_id"`
+	Object    string `json:"object"`
+	Model     string `json:"model"`
+	Status    string `json:"status"`
+	Progress  int    `json:"progress"`
+	CreatedAt int64  `json:"created_at"`
+	Seconds   string `json:"seconds"`
+	Size      string `json:"size"`
+}
+
+// AgnesVideoQueryResponse is returned when polling agnes.ai's video task via GET /agnesapi.
+type AgnesVideoQueryResponse struct {
+	ID          string          `json:"id"`
+	VideoID     string          `json:"video_id"`
+	TaskID      string          `json:"task_id"`
+	Model       string          `json:"model"`
+	Status      string          `json:"status"`
+	Progress    int             `json:"progress"`
+	CreatedAt   int64           `json:"created_at"`
+	CompletedAt int64           `json:"completed_at,omitempty"`
+	Seconds     string          `json:"seconds"`
+	Size        string          `json:"size"`
+	URL         string          `json:"url"` // final video URL when completed
+	Metadata    *AgnesVideoMeta `json:"metadata,omitempty"`
+	Error       json.RawMessage `json:"error,omitempty"`
+}
+
+// AgnesVideoMeta holds the final result metadata (url lives here per API docs,
+// but is also mirrored at the top-level `url` field).
+type AgnesVideoMeta struct {
+	URL string `json:"url"`
+}
+
 // ToolDefinition defines a tool that the LLM can call.
 type ToolDefinition struct {
 	Type     string       `json:"type"` // "function"

@@ -9,6 +9,7 @@ import (
 type videoDispatchCtx struct {
 	isOpenRouter bool
 	isYunwu      bool
+	isAgnes      bool
 }
 
 // videoStrategy defines a dispatch rule for video generation.
@@ -27,6 +28,13 @@ var videoStrategies = []videoStrategy{
 			return ctx.isOpenRouter
 		},
 		run: runOpenRouterVideo,
+	},
+	{
+		// Agnes: async task API (submit -> poll -> download)
+		match: func(req *types.VideoGenerateRequest, ctx *videoDispatchCtx) bool {
+			return ctx.isAgnes
+		},
+		run: runAgnesVideo,
 	},
 	{
 		// Yunwu (云雾AI): unified video API (submit -> poll -> download)

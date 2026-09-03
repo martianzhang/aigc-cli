@@ -296,6 +296,15 @@ func newGenerateVideoTool(desc string) mcp.Tool {
 		mcp.WithBoolean("generate_audio",
 			mcp.Description("Generate AI audio for the video"),
 		),
+		mcp.WithBoolean("gif",
+			mcp.Description("Convert the generated video to an animated GIF"),
+		),
+		mcp.WithInteger("gif_width",
+			mcp.Description("GIF output width in px (default 160, height auto even)"),
+		),
+		mcp.WithString("crop_margin",
+			mcp.Description("Crop N px from each side before GIF conversion (CSS margin shorthand: 40 | 40,0 | 40,30,20,10 = top,right,bottom,left)"),
+		),
 	)
 	return t
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/gif"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -262,7 +263,7 @@ func handleMCPAPIMartImage(c client.APIClient, req *types.GenerateRequest, outpu
 }
 
 // generateVideoHandler creates the handler for generate_video, capturing the config.
-// Video generation is async—returns a task/job ID for polling.
+// Video generation is async—submits, polls, downloads, and optionally converts to GIF.
 func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		p := cfg.cmdProvider("video")
@@ -308,19 +309,89 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 			req.Resolution = "480p"
 		}
 
+		gifOpts := gifRequestOptions{
+			Enabled: request.GetBool("gif", false),
+			Width:   request.GetInt("gif_width", 160),
+		}
+		if raw := request.GetString("crop_margin", ""); raw != "" {
+			m, perr := gif.ParseCropMargin(raw)
+			if perr != nil {
+				return mcp.NewToolResultError(perr.Error()), nil
+			}
+			gifOpts.CropMargin = m
+		}
+
 		c := client.NewFromProvider(p)
 
+		var saved []string
 		switch p.ProviderType {
 		case provider.OpenRouter:
-			return handleMCPOpenRouterVideo(c, req)
+			saved, err = mcpOpenRouterVideo(c, req, cfg.Output)
+		case provider.Agnes:
+			saved, err = mcpAgnesVideo(c, req, cfg.Output)
 		default:
-			return handleMCPAPIMartVideo(c, req)
+			saved, err = mcpAPIMartVideo(c, req, cfg.Output)
 		}
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		lines := []string{"视频生成完成。"}
+		lines = append(lines, "")
+		lines = append(lines, "已保存的视频:")
+		for _, f := range saved {
+			lines = append(lines, fmt.Sprintf("  %s", f))
+		}
+
+		if gifOpts.Enabled {
+			gifs, gerr := convertVideosToGIF(saved, gifOpts)
+			if gerr != nil {
+				lines = append(lines, "", fmt.Sprintf("⚠️ GIF 转换失败: %v", gerr))
+			} else {
+				lines = append(lines, "", "已保存的 GIF:")
+				for _, f := range gifs {
+					lines = append(lines, fmt.Sprintf("  %s", f))
+				}
+			}
+		}
+
+		return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
 	}
 }
 
-// handleMCPOpenRouterVideo submits a video job via OpenRouter and saves the job info.
-func handleMCPOpenRouterVideo(c client.APIClient, req *types.VideoGenerateRequest) (*mcp.CallToolResult, error) {
+// gifRequestOptions holds --gif equivalent options for MCP generate_video.
+type gifRequestOptions struct {
+	Enabled    bool
+	Width      int
+	CropMargin gif.CropMargins
+}
+
+// convertVideosToGIF converts each saved .mp4 to a GIF using the internal gif package.
+// Returns the list of GIF paths; non-mp4 files are skipped.
+func convertVideosToGIF(saved []string, opts gifRequestOptions) ([]string, error) {
+	if !gif.Available() {
+		return nil, gif.MissingHint()
+	}
+	var gifs []string
+	for _, f := range saved {
+		if !strings.HasSuffix(strings.ToLower(f), ".mp4") {
+			continue
+		}
+		p, err := gif.Convert(gif.ConvertOptions{
+			Input:      f,
+			Width:      opts.Width,
+			CropMargin: opts.CropMargin,
+		})
+		if err != nil {
+			return gifs, fmt.Errorf("%s: %w", filepath.Base(f), err)
+		}
+		gifs = append(gifs, p)
+	}
+	return gifs, nil
+}
+
+// mcpOpenRouterVideo submits an OpenRouter video job, polls to completion, and downloads the result.
+func mcpOpenRouterVideo(c client.APIClient, req *types.VideoGenerateRequest, outputDir string) ([]string, error) {
 	orReq := &types.OpenRouterVideoRequest{
 		Model:         req.Model,
 		Prompt:        req.Prompt,
@@ -341,36 +412,128 @@ func handleMCPOpenRouterVideo(c client.APIClient, req *types.VideoGenerateReques
 
 	submitResp, err := c.OpenRouterVideoSubmit(orReq)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("OpenRouter video submission failed: %v", err)), nil
+		return nil, fmt.Errorf("OpenRouter video submission failed: %w", err)
+	}
+	pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, 30*time.Second, 5*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("video polling failed: %w", err)
+	}
+	if len(pollResp.UnsignedURLs) == 0 {
+		return nil, fmt.Errorf("video job completed but no download URLs returned")
 	}
 
-	text := fmt.Sprintf("视频任务已提交。\n\nJob ID: %s\nStatus: %s\n\n视频生成耗时较长（30秒-几分钟），稍后可使用 get_task 工具传入 Job ID 查询结果。\npolling_url: %s",
-		submitResp.ID, submitResp.Status, submitResp.PollingURL)
-	return mcp.NewToolResultText(text), nil
+	var saved []string
+	for i, u := range pollResp.UnsignedURLs {
+		filename, dlErr := service.DownloadFile(u, outputDir, fmt.Sprintf("video_%s_%d", submitResp.ID, i))
+		if dlErr != nil {
+			return saved, fmt.Errorf("failed to download video %d: %w", i, dlErr)
+		}
+		saved = append(saved, filename)
+	}
+	return saved, nil
 }
 
-// handleMCPAPIMartVideo submits a video job via APIMart async task API.
-func handleMCPAPIMartVideo(c client.APIClient, req *types.VideoGenerateRequest) (*mcp.CallToolResult, error) {
+// mcpAgnesVideo submits an agnes.ai video task, polls to completion, and downloads the result.
+func mcpAgnesVideo(c client.APIClient, req *types.VideoGenerateRequest, outputDir string) ([]string, error) {
+	cc, ok := c.(*client.Client)
+	if !ok {
+		return nil, fmt.Errorf("unsupported client type for agnes video")
+	}
+	createResp, err := cc.AgnesVideoSubmit(req)
+	if err != nil {
+		return nil, fmt.Errorf("agnes video submission failed: %w", err)
+	}
+	videoID := createResp.VideoID
+	if videoID == "" {
+		videoID = createResp.TaskID
+	}
+	if videoID == "" {
+		return nil, fmt.Errorf("agnes video submission returned no video id")
+	}
+
+	const (
+		pollInterval = 15 * time.Second
+		maxWait      = 10 * time.Minute
+	)
+	start := time.Now()
+	var videoURL string
+	for {
+		if time.Since(start) > maxWait {
+			return nil, fmt.Errorf("agnes video polling timed out after %v", maxWait)
+		}
+		queryResp, qerr := cc.AgnesVideoQuery(videoID, req.Model)
+		if qerr != nil {
+			return nil, fmt.Errorf("polling failed: %w", qerr)
+		}
+		switch queryResp.Status {
+		case "completed", "succeeded", "success":
+			videoURL = queryResp.URL
+			if videoURL == "" && queryResp.Metadata != nil {
+				videoURL = queryResp.Metadata.URL
+			}
+			if videoURL == "" {
+				return nil, fmt.Errorf("agnes video completed but no url returned")
+			}
+		case "failed", "failure":
+			return nil, fmt.Errorf("agnes video generation failed: status=%s", queryResp.Status)
+		case "cancelled", "expired":
+			return nil, fmt.Errorf("agnes video generation %s", queryResp.Status)
+		default:
+			time.Sleep(pollInterval)
+		}
+		if videoURL != "" {
+			break
+		}
+	}
+
+	filename, err := service.DownloadFile(videoURL, outputDir, fmt.Sprintf("video_agnes_%s", videoID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to download video: %w", err)
+	}
+	return []string{filename}, nil
+}
+
+// mcpAPIMartVideo submits an APIMart video task, polls to completion, and downloads the result.
+func mcpAPIMartVideo(c client.APIClient, req *types.VideoGenerateRequest, outputDir string) ([]string, error) {
 	// Resolve local images
 	if len(req.ImageURLs) > 0 {
 		resolved, err := c.ResolveLocalImages(req.ImageURLs)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve image URLs: %v", err)), nil
+			return nil, fmt.Errorf("failed to resolve image URLs: %w", err)
 		}
 		req.ImageURLs = resolved
 	}
 
 	resp, err := c.VideoSubmit(req)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Video submission failed: %v", err)), nil
+		return nil, fmt.Errorf("video submission failed: %w", err)
 	}
 	if len(resp.Data) == 0 {
-		return mcp.NewToolResultError("Submission returned no tasks"), nil
+		return nil, fmt.Errorf("submission returned no tasks")
 	}
 
 	taskInfo := resp.Data[0]
-	text := fmt.Sprintf("视频任务已提交。\n\nTask ID: %s\nStatus: %s\n\n视频生成耗时较长（通常 30-180 秒），请使用 get_task 工具传入此 task_id 查询生成结果。", taskInfo.TaskID, taskInfo.Status)
-	return mcp.NewToolResultText(text), nil
+	taskData, err := c.PollTask(taskInfo.TaskID)
+	if err != nil {
+		return nil, fmt.Errorf("task polling failed: %w", err)
+	}
+
+	var saved []string
+	if taskData.Result != nil && len(taskData.Result.Videos) > 0 {
+		for i, vid := range taskData.Result.Videos {
+			for j, url := range vid.URL {
+				filename, dlErr := service.DownloadFile(url, outputDir, fmt.Sprintf("video_%s_%d_%d", taskData.ID, i, j))
+				if dlErr != nil {
+					return saved, fmt.Errorf("failed to download video %d-%d: %w", i, j, dlErr)
+				}
+				saved = append(saved, filename)
+			}
+		}
+	}
+	if len(saved) == 0 {
+		return nil, fmt.Errorf("task completed but no videos found")
+	}
+	return saved, nil
 }
 
 // generateSpeechHandler creates the handler for generate_speech, capturing the config.
