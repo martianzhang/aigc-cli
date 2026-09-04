@@ -119,6 +119,7 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 | **OpenAI** | `POST /v1/images/generations`（同步） | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `GET /v1/models` |
 | **OpenRouter** | `POST /api/v1/images`（专用图片 API） | `POST /api/v1/videos` 异步→轮询→下载 + `--job-id` 恢复 | `POST /api/v1/audio/speech` + `POST /api/v1/audio/transcriptions`（10+ TTS 模型聚合） | `GET /api/v1/images/models` / `GET /api/v1/videos/models`（免认证） |
 | **APIMart** | 异步 Task 提交→轮询→下载 | 异步 Task + VEO3 Remix（延长视频） | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | 市场 API + 模型定价查询 |
+| **Agnes AI** | `POST /v1/images/generations`（同步，像素尺寸） | `POST /v1/videos` 异步→轮询→下载（text/keyframe/reference，720P） | ❌ 暂未发现 | `GET /v1/models` |
 | **云雾 AI** | `POST /v1/images/generations`（sync） | `POST /v1/video/create` + `GET /v1/video/query` | ❌ 暂未发现 | `GET /v1/models` |
 | **Ollama / 本地模型** | `POST /v1/images/generations`（experimental，无需 API Key） | ❌ | 可通过 LocalAI/openedai-speech 等第三方服务 | `GET /v1/models` |
 | **Anthropic** | — | — | `POST /v1/messages`（通过 Anthropic 兼容中转） | — |
@@ -136,7 +137,7 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 ```
 aigc-cli
 ├── image / img   图片生成（同步/异步/OpenRouter 专用 API / Grok Edit）    →  docs/guide-image.md
-├── video / vid   视频生成（OpenRouter / 云雾 + VEO3 Remix）                    →  docs/guide-video.md
+├── video / vid   视频生成（Agnes / OpenRouter / 云雾 + VEO3 Remix）                    →  docs/zh/guide-video.md
 ├── depth         图片/视频 → 灰度深度图（离线 ONNX，支持 V2 模型）                 →  docs/guide-depth.md
 ├── audio / voice 音频：文字转语音（TTS）和语音转文字（STT）              →  docs/guide-audio.md
 │   ├── tts / speak  文字→语音（云端 API 或本地 sherpa-onnx 离线合成）

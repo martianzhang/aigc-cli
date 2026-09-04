@@ -119,6 +119,7 @@ The same `image` / `video` / `audio` / `models` command automatically uses the c
 | **OpenAI** | `POST /v1/images/generations` (sync) | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `GET /v1/models` |
 | **OpenRouter** | `POST /api/v1/images` (dedicated image API) | `POST /api/v1/videos` async → poll → download + `--job-id` resume | `POST /api/v1/audio/speech` + `POST /api/v1/audio/transcriptions` (10+ TTS model aggregation) | `GET /api/v1/images/models` / `GET /api/v1/videos/models` (auth-free) |
 | **APIMart** | Async task submit → poll → download | Async task + VEO3 Remix (extend video) | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | Marketplace API + model pricing query |
+| **Agnes AI** | `POST /v1/images/generations` (sync, pixel size) | `POST /v1/videos` async → poll → download (text/keyframe/reference, 720P) | ❌ Not yet available | `GET /v1/models` |
 | **Yunwu AI** | `POST /v1/images/generations` (sync) | `POST /v1/video/create` + `GET /v1/video/query` | ❌ Not yet available | `GET /v1/models` |
 | **Ollama / Local** | `POST /v1/images/generations` (experimental, no API Key) | ❌ | Via LocalAI/openedai-speech etc. | `GET /v1/models` |
 | **Anthropic** | — | — | `POST /v1/messages` (via Anthropic-compatible relay) | — |
@@ -136,7 +137,7 @@ Each command can use a different provider via the `providers` config, see [docs/
 ```
 aigc-cli
 ├── image / img   Image generation (sync/async/OpenRouter dedicated API/Grok Edit)  →  docs/en/guide-image.md
-├── video / vid   Video generation (OpenRouter / Yunwu + VEO3 Remix)           →  docs/en/guide-video.md
+├── video / vid   Video generation (Agnes / OpenRouter / Yunwu + VEO3 Remix)           →  docs/en/guide-video.md
 ├── depth         Image/video → grayscale depth map (offline ONNX, V2 models)   →  docs/en/guide-depth.md
 ├── audio / voice Audio: TTS and STT                                                →  docs/en/guide-audio.md
 │   ├── tts / speak  Text-to-speech (cloud API or local sherpa-onnx offline)
