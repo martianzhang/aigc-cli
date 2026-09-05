@@ -78,6 +78,7 @@ func runAgnesVideo(req *types.VideoGenerateRequest) ([]string, error) {
 		return nil, fmt.Errorf("agnes video submission returned no video id")
 	}
 
+	fmt.Printf("Provider: %s\n", shared.ResolveProvider("video").ProviderType)
 	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Printf("Task ID: %s\n", createResp.TaskID)
 	fmt.Printf("Status: %s\n\n", createResp.Status)

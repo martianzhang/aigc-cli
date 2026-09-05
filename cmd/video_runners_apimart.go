@@ -41,6 +41,7 @@ func runAPIMartVideo(req *types.VideoGenerateRequest) ([]string, error) {
 	}
 
 	task := resp.Data[0]
+	fmt.Printf("Provider: %s\n", shared.ResolveProvider("video").ProviderType)
 	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Printf("Response code: %d\n", resp.Code)
 	fmt.Printf("Task ID: %s\n", task.TaskID)

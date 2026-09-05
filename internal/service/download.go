@@ -37,7 +37,10 @@ func SaveBase64Image(outputDir, prefix, b64 string, index int) (string, error) {
 	// Try decoding as image first
 	raw, err := decodeBase64Image(b64)
 	if err == nil {
-		ext := ".png"
+		ext := imageExtFromMagic(raw)
+		if ext == "" {
+			ext = ".png"
+		}
 		filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d%s", prefix, index, ext))
 		if err := os.WriteFile(filename, raw, 0644); err != nil {
 			return "", fmt.Errorf("failed to save image: %w", err)
@@ -55,23 +58,40 @@ func SaveBase64Image(outputDir, prefix, b64 string, index int) (string, error) {
 	return filename, nil
 }
 
-// decodeBase64Image tries to decode a base64 string as a PNG/JPEG image.
+// decodeBase64Image tries to decode a base64 string as a recognized image.
+// Accepts PNG, JPEG, GIF, and WebP (same set as isLikelyImage).
 func decodeBase64Image(b64 string) ([]byte, error) {
 	data, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
 		return nil, err
 	}
-	// Verify it looks like an image (PNG magic bytes: 89 50 4E 47 or JPEG: FF D8 FF)
 	if len(data) < 4 {
 		return nil, fmt.Errorf("data too short for image")
 	}
-	if data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47 {
-		return data, nil // PNG
-	}
-	if data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF {
-		return data, nil // JPEG
+	if isLikelyImage(data) {
+		return data, nil
 	}
 	return nil, fmt.Errorf("unknown image format: first bytes %x", data[:4])
+}
+
+// imageExtFromMagic returns the file extension for a recognized image format
+// based on magic bytes. Returns "" for unknown formats.
+func imageExtFromMagic(data []byte) string {
+	if len(data) < 4 {
+		return ""
+	}
+	switch {
+	case data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47:
+		return ".png"
+	case data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF:
+		return ".jpg"
+	case data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x38:
+		return ".gif"
+	case data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 &&
+		len(data) > 12 && data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50:
+		return ".webp"
+	}
+	return ""
 }
 
 // FetchBytes gets raw bytes from a URL, data URI, or base64 string.
@@ -348,9 +368,26 @@ func SaveResourceWithAuth(source, apiKey, dest string) error {
 }
 
 // DownloadFile saves a resource (HTTP URL, data URI, or base64) to outputDir
-// with auto-naming: <taskID><ext>. The extension comes from the source URL.
+// with auto-naming: <taskID><ext>. The extension comes from the source URL,
+// or is sniffed from the actual content when the URL has no extension.
 func DownloadFile(source, outputDir, taskID string) (string, error) {
 	ext := extFromSource(source)
+	if ext == "" {
+		ext = sniffExtFromSource(source)
+	}
+	if ext == "" {
+		ext = ".png"
+	}
 	filename := filepath.Join(outputDir, taskID+ext)
 	return filename, SaveResource(source, filename)
+}
+
+// sniffExtFromSource attempts to determine the file extension by fetching
+// the source and inspecting magic bytes. Returns "" on failure.
+func sniffExtFromSource(source string) string {
+	data, err := FetchBytes(source)
+	if err != nil || len(data) < 4 {
+		return ""
+	}
+	return imageExtFromMagic(data)
 }

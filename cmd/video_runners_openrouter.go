@@ -61,6 +61,7 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
 		return nil, fmt.Errorf("OpenRouter video submission failed: %w", err)
 	}
 
+	fmt.Printf("Provider: %s\n", shared.ResolveProvider("video").ProviderType)
 	fmt.Printf("Model: %s\n", orReq.Model)
 	fmt.Printf("Video job submitted.\n")
 	fmt.Printf("Job ID: %s\n", submitResp.ID)

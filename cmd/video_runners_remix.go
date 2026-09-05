@@ -65,6 +65,7 @@ func runVideoRemix(cmd *cobra.Command) error {
 	}
 
 	task := resp.Data[0]
+	fmt.Printf("Provider: %s\n", shared.ResolveProvider("video").ProviderType)
 	fmt.Printf("Response code: %d\n", resp.Code)
 	fmt.Printf("Task ID: %s\n", task.TaskID)
 	fmt.Printf("Status: %s\n\n", task.Status)

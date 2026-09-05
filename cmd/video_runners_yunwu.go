@@ -39,6 +39,7 @@ func runYunwuVideo(req *types.VideoGenerateRequest) ([]string, error) {
 		return nil, fmt.Errorf("yunwu video submission failed: %w", err)
 	}
 
+	fmt.Printf("Provider: %s\n", shared.ResolveProvider("video").ProviderType)
 	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Printf("Task ID: %s\n", createResp.ID)
 	fmt.Printf("Status: %s\n\n", createResp.Status)
