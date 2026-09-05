@@ -1,12 +1,23 @@
 # AGENTS.md — AI 助手工作指南
 
 > 本文档面向 AI 编码助手（Claude / OpenCode / Cursor 等），定义在本项目中工作时的约束和流程。
+> 详尽的使用文档见 `docs/zh/` 与 `docs/en/`（中文优先），本文档只保留**开发约束**，不重复维护用户文档内容。
+
+## 外部文件加载
+
+本文件中的 `@路径` 引用需要按需读取（opencode 不会自动解析）：
+
+- **代码规范** `SPEC.md`：已通过 `.opencode/opencode.json` 的 `instructions` 自动加载，**写代码时默认生效**，无需手动读取。
+- **项目结构** `@CONTRIBUTING.md`：涉及架构/目录理解时用 Read 工具读取。
+- **用户文档** `@docs/...`：涉及对应命令的功能细节时用 Read 工具读取（它们是你需要同步维护的用户文档，勿在 AGENTS 中重复声明）。
+
+**不要**预先加载所有引用，只在任务确实相关时按需读取。
 
 ---
 
-## 一、构建系统
+## 一、构建系统（唯一入口）
 
-本项目的所有构建、格式化、测试、覆盖率均通过 **Makefile** 管理，**禁止直接调用 `go build`、`go test` 等命令**。
+所有构建、格式化、测试、覆盖率均通过 **Makefile** 管理，**禁止直接调用 `go build` / `go test` / `go fmt`**。
 
 | 命令 | 作用 | 必须运行 |
 |---|---|---|
@@ -15,466 +26,110 @@
 | `make lint` | `go vet ./...` + `golangci-lint` 静态检查 | 每次提交前 |
 | `make test` | 运行全部测试 | 每次编辑后 |
 | `make cover` | 测试覆盖率报告 | 每次提交前 |
-| `make clean` | 清理构建产物 | 按需 |
 | `make run ARGS="..."` | 编译并运行 | 手动验证时 |
 | `make release` | 跨平台交叉编译 | CI 自动执行 |
 
-> **永远不要直接调用 `go build`、`go test`、`go fmt`**。统一走 Makefile。
-
 ### 1.1 本地原生库依赖模式（无 CGO）
 
-本地能力（TTS/ASR、ONNX 推理、图片编解码）依赖原生 C/C++ 库，但**全部通过纯 Go 方式接入，Go 源码零 `import "C"`**，无 CGO 编译要求。两条路径：
+本地能力（TTS/ASR、ONNX 推理、图片编解码）依赖原生 C/C++ 库，但**全部通过纯 Go 接入，Go 源码零 `import "C"`**。两条路径，新增原生库依赖时必须遵守：
 
-#### 1.1.1 动态库运行时加载（sherpa-onnx / onnxruntime）
+1. **动态库运行时加载**（sherpa-onnx / onnxruntime）：通过 **purego**（dlopen）在运行时加载，配合编译期生成的 C helper。helper 定义在 `scripts/helper.c`，由 `scripts/build-helper.sh` 编译；运行库由 `init` 命令下载到 `~/.config/aigc-cli/models/`。结构见 `internal/audio/`（`tts.go` / `tts_sherpa.go` / `sherpa_ffi.go` / `loadlib.go`）。
+2. **wasm 编解码**（jpegli / libwebp / libavif / libjxl）：通过 **gen2brain 系列库**接入，底层 codec 编译为 wasm 并 `go:embed`，由 **wazero**（纯 Go wasm 运行时）执行，零 CGO、零外部文件。编码统一走 `internal/imgcodec.EncodeToFile`。
 
-共享库通过 **purego**（纯 Go 的 dlopen）在运行时加载，配合编译期生成的 C helper：
-
-```
-internal/audio/
-├── tts.go              # 类型定义 + 统一接口
-├── tts_sherpa.go       # 真实实现（purego FFI 调 helper）
-├── sherpa_ffi.go       # FFI 绑定（purego.Dlopen）
-├── loadlib.go          # //go:build darwin || linux — purego.Dlopen
-└── loadlib_windows.go  # //go:build windows — windows.LoadLibrary
-```
-
-- **helper.c**（`scripts/helper.c`）：封装 sherpa C 结构体构造，由 `scripts/build-helper.sh` 编译成共享库（`libaigc-sherpa-helper.{so,dylib,dll}`）
-- **动态库下载**：onnxruntime / sherpa 运行库由 `init` 命令下载到 `~/.config/aigc-cli/models/`
-- **平台模块依赖**：`sherpa-onnx-go` 及其 `-linux/-macos/-windows` 平台模块**只被 helper 编译期使用**（提供 `c-api.h` 头文件和预编译 `.so/.dylib/.dll`），不参与 Go 运行时。通过 `internal/tools/tools.go` 空导入锁定，防止 `go mod tidy` 误删（见 1.1.3）
-
-#### 1.1.2 wasm 编解码（图片 codec）
-
-图片编解码（jpegli / libwebp / libavif / libjxl）通过 **gen2brain 系列库**接入：底层 C/C++ codec 编译为 wasm 并 `go:embed` 在库内，由 **wazero**（纯 Go wasm 运行时）执行，零 CGO、零外部文件：
-
-```go
-import (
-    "github.com/gen2brain/avif"    // libavif：AVIF/HEIC 解码 + AVIF 编码
-    "github.com/gen2brain/jpegli"   // Google JPEG 编码器
-    "github.com/gen2brain/jpegxl"   // libjxl：JXL 解码/编码
-    "github.com/gen2brain/webp"     // libwebp：WebP 解码/编码（wasm2go 转译）
-)
-```
-
-- 解码器通过 `image.RegisterFormat` 自动注册，import 即生效，全链路（detect/ocr/vision/background/MCP）支持 AVIF/HEIC/JXL
-- 编码统一走 `internal/imgcodec.EncodeToFile`，为 `--compress` / `--output-format` 提供 jpeg/webp/avif/jxl/png
-- wasm 模块首次调用时由 wazero 惰性编译，`imgcodec.Init()` 可启动时预编译
-
-#### 1.1.3 tools.go 依赖锁定
-
-`go mod tidy` 会删除"不被 Go 代码 import"的模块——而 sherpa 平台模块仅被 `scripts/build-helper.sh` 编译期使用，属于此类。**禁止**靠手动改回 go.mod 维护，正确做法是维护 `internal/tools/tools.go`：
-
-```go
-//go:build tools
-
-package tools
-
-import (
-    _ "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
-)
-```
-
-`//go:build tools` 使该文件默认不参与编译，但 `go mod tidy` 会扫描其 import 图，从而保留 sherpa 主模块及平台模块。新增"仅编译期/构建期使用"的模块时，一律在此空导入锁定。
-
-**适用场景**：引入新的原生库依赖时，按 1.1.1（purego 动态库）或 1.1.2（wasm codec）接入，不得引入 `import "C"`。若某库只能 CGO，需提供 stub 实现并合入前评审。
+**依赖锁定**：`go mod tidy` 会删除"不被 Go 代码 import"的模块——仅被编译期使用的模块（如 sherpa 平台模块）必须通过 `internal/tools/tools.go`（`//go:build tools`）空导入锁定，**禁止**手动改 go.mod 维护。若某库只能 CGO，需提供 stub 实现并合入前评审。
 
 ---
 
-## 二、开发工作流（强制遵守）
+## 二、开发工作流（强制）
 
-每次修改代码后，**必须**按以下顺序执行：
+每次修改代码后必须按此顺序：
 
 ```
 代码修改 → make fmt → make build → make test → 同步文档
 ```
 
-### 2.1 修改代码
-
 - 遵循 Go 标准风格，提交前必须 `make fmt`
-- 内部包导入顺序：标准库 → 第三方 → 内部包，组间空行分隔
+- 编译产物在项目根目录（`aigc-cli` 或 `aigc-cli.exe`）
+- 测试失败时：先确认是否**已有失败**（`git stash` 后对比），自己引入的修复，已有的在变更中注明
+- 覆盖率关注变更文件趋势，非硬性门槛
 
-### 2.2 编译验证
+### 2.1 调试原则
 
-```bash
-make fmt && make build
-```
-
-编译必须通过。编译产物在项目根目录（`aigc-cli.exe` 或 `aigc-cli`）。
-
-### 2.3 运行测试
-
-```bash
-make test
-```
-
-所有测试必须通过。若测试失败：
-
-1. 确认是否为**已有失败**（`git stash` 后跑一遍对比）
-2. 如果是自己引入的：修复代码
-3. 如果是已有失败：在变更中注明
-
-### 2.4 覆盖率检查
-
-```bash
-make cover
-```
-
-重点关注变更文件的覆盖率变化趋势，非硬性门槛。
-
-### 2.5 调试原则
-
-调试时**优先使用 CLI 现有的诊断开关**（`-v/--verbose` 详细输出、`--dry-run` 打印等价 curl、既有日志），**而不是在代码里临时插入 `fmt.Println`/调试打印**。
-
-理由：临时调试代码调试结束后必须手动清理，容易残留进提交；而诊断开关是产品能力，无需清理，也不会污染代码。
-
-若诊断开关仍不足以定位问题，再考虑临时埋点——但提交前务必删除，或用 `// TODO(debug)` 明确标记以便复查。
+优先使用 CLI 现有诊断开关（`-v/--verbose`、`--dry-run` 打印等价 curl、既有日志），**不要临时插入 `fmt.Println`**——诊断开关是产品能力，无需清理；临时埋点提交前务必删除或用 `// TODO(debug)` 标记。
 
 ---
 
 ## 三、文档同步规则（⚡ 硬性要求）
 
-**文档不得滞后于代码。** 任何功能性变更（新增/修改命令、参数、行为）都必须同步更新文档。
+**文档不得滞后于代码。** 任何功能性变更（新增/修改命令、参数、行为）都必须同步更新对应文档（`docs/zh/` 与 `docs/en/` 都要改）：
 
-### 3.1 需要同步的文档
-
-| 文档 | 触发条件 |
+| 变更 | 同步文档 |
 |---|---|
-| `README.md` | 新增/删除命令、修改用法、新增依赖 |
-| `docs/installation.md` | 修改安装方式、环境变量、配置路径 |
-| `docs/guide-image.md` | 修改 `image` 命令参数或行为 |
-| `docs/guide-video.md` | 修改 `video` 命令参数或行为 |
-| `docs/guide-chat.md` | 修改 `chat` 命令参数或行为 |
-| `docs/guide-detect.md` | 修改 `detect` 命令参数或行为 |
-| `docs/guide-watermark.md` | 修改水印引擎（学习/去除/添加流程） |
-| `docs/guide-midjourney.md` | 修改 `midjourney` 命令参数或行为 |
-| `docs/guide-ideas.md` | 修改 `ideas` 命令参数或行为 |
-| `docs/guide-audio.md` | 修改 `audio` 命令参数或行为 |
-| `docs/guide-commands.md` | 修改 `models`/`task`/`balance`/`dry-run` 等辅助命令 |
-| `docs/faq.md` | 新增常见问题 |
-| `docs/guide-mcp.md` | 修改 MCP 工具定义或配置方式 |
-| `docs/config.example.yaml` | 新增/修改配置字段 |
-| `docs/release_notes/vX.Y.Z.md` | 每次发版前创建 |
+| 新增/删除命令、修改用法、新增依赖 | `README.md` |
+| 修改安装方式、环境变量、配置路径 | `docs/*/installation.md` |
+| 修改 `image`/`video`/`chat`/`detect`/`midjourney`/`ideas`/`audio` 命令 | 对应 `docs/*/guide-*.md` |
+| 修改 `models`/`task`/`balance`/`dry-run` 等辅助命令 | `docs/*/guide-commands.md` |
+| 修改 MCP 工具定义 | `docs/*/guide-mcp.md` |
+| 新增/修改配置字段 | `docs/*/config.example.yaml` |
+| 新增常见问题 | `docs/*/faq.md` |
+| 每次发版前 | `docs/release_notes/vX.Y.Z.md` |
 
-### 3.2 注意事项
-
-- 文档要写**用户视角**，而非实现细节
-- 示例命令必须真实可运行
-- 新增 flag 要同时在 `--help` 和对应 guide 文档中体现
-- **例外**：纯重构、修 typo、内部测试代码变更无需更新文档，但要在 commit message 中注明 `(no-doc)`
+注意事项：
+- 文档写**用户视角**，示例命令必须真实可运行
+- 新增 flag 要同时在 `--help` 和对应 guide 中体现
+- **例外**：纯重构、修 typo、内部测试变更无需更新文档，但 commit message 注明 `(no-doc)`
 
 ---
 
 ## 四、代码规范
 
-### 4.1 导入顺序
+> 完整代码规范（导入顺序、错误处理、SilenceUsage、命名、文件规模、共享工具、配置访问器）见 @SPEC.md。
 
-```go
-import (
-    "fmt"           // 标准库
-    "os"
-
-    "github.com/spf13/cobra"  // 第三方
-
-    "github.com/martianzhang/aigc-cli/internal/types"  // 内部包
-)
-```
-
-### 4.2 错误处理
-
-- 错误包装用 `%w`，不是 `%v`
-- 错误消息首字母小写
-- CLI 层返回 error，由 `cmd.Execute()` 统一处理
-
-### 4.3 SilenceUsage
-
-所有有 `RunE` 的 cobra 命令**必须**设置 `SilenceUsage: true`。因为 `RunE` 返回的错误通常是运行时错误（API 调用失败、网络超时等），不是参数解析错误。显示 Usage 会干扰用户查看真正的错误信息。
-
-```go
-// ✅ 正确
-var chatCmd = &cobra.Command{
-    Use:          "chat",
-    SilenceUsage: true,
-    RunE: runChat,
-}
-
-// ❌ 错误 — 运行时错误也会打印 Usage
-var chatCmd = &cobra.Command{
-    Use:   "chat",
-    RunE: runChat,
-}
-```
-
-### 4.4 变量命名
-
-- Go 驼峰式：`APIKey`、`HTTPProxy`、`baseURL`
-- 不要用拼音命名，不要用单字母变量（循环变量除外）
-
-### 4.5 配置优先级
-
-```
-CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值
-```
-
-修改配置相关代码时，务必维护此优先级。
-
-### 4.6 提交信息
-
-```
-<type>(<scope>): <简短描述>
-
-<可选详细描述>
-```
-
-type: `feat` / `fix` / `refactor` / `docs` / `test` / `chore` / `style`
-scope: `image` / `video` / `chat` / `ideas` / `midjourney` / `mcp` / `config` / `docs` / `skill`
-
-### 4.7 文件规模与共享工具
-
-#### 4.7.1 文件规模
-
-单个 `.go` 文件尽量控制在 200 行以内（不含空白行和注释）。超过后建议按功能域拆分到独立文件，便于 AI 分析。拆分时保持 `package cmd` 不变，不修改任何代码逻辑。
-
-示例：`cmd/image.go`（823 行 → 5 个文件）
-
-| 文件 | 职责 | 行数 |
-|---|---|---|
-| `image.go` | 命令定义、`runImageGenerate`、标志注册、`init` | ~175 |
-| `image_request.go` | 请求构建（`buildImageRequest`、`buildImageCurl`）和输入解析 | ~70 |
-| `image_dispatch.go` | 策略上下文/类型/路由表（`imageDispatchCtx`、`imageStrategy`、`imageStrategies`） | ~45 |
-| `image_runners.go` | 各 Provider 执行函数（`runSyncImage`、`runAsyncImage`、`runOpenRouterDedicatedImage`）和 `downloadImages` | ~210 |
-| `image_helpers.go` | Image 模块专有辅助函数（`loadImageDefaults`、`savePromptFile`、`generateImageAndSave`） | ~155 |
-
-同样，`cmd/video.go`（901 行 → 5 个文件）：
-
-| 文件 | 职责 | 行数 |
-|---|---|---|
-| `video.go` | 命令定义、`runVideo`、job 持久化、标志注册、`init` | ~185 |
-| `video_request.go` | 请求构建（`buildVideoRequest`、`buildVideoCurl`、`resolveVideoPrompt`） | ~110 |
-| `video_dispatch.go` | 策略上下文/类型/路由表（`videoDispatchCtx`、`videoStrategy`、`videoStrategies`） | ~45 |
-| `video_runners.go` | 各 Provider 执行函数（`runAPIMartVideo`、`runYunwuVideo`、`runVideoRemix`、`runOpenRouterVideo`/`Resume`） | ~430 |
-| `video_helpers.go` | Video 模块专有辅助函数（`loadVideoDefaults`、`generateVideoAndSave`） | ~125 |
-
-#### 4.7.2 共享工具文件 `cmd/util.go`
-
-跨模块复用的公共函数放在 `cmd/util.go` 中，不挂靠在任何一个命令文件上。当前已提取的共享函数：
-
-| 函数 | 调用方 | 职责 |
-|---|---|---|
-| `readInput` | image / video / midjourney / chat (25 处) | 从文件、stdin 或字符串读取输入 |
-| `isFile` | image / video / midjourney | 判断路径是否为已有文件 |
-| `httpGet` | image / video | HTTP GET 或 data URI 转二进制 |
-| `applyTimeout` | image / video / midjourney | 按优先级设置 HTTP 客户端超时 |
-| `isOpenRouterProvider` | image / models / video / chat | 判断当前 base URL 是否为 OpenRouter（deprecated，改用 `p.ProviderType`） |
-| `isAPIMartProvider` | image / chat | 判断是否使用 APIMart 异步模式（deprecated，改用 `p.ProviderType`） |
-| `setIntFlag` | video / chat | 按 cobra flag 是否变更设置 `*int` 字段 |
-| `setBoolFlag` | video / chat | 按 cobra flag 是否变更设置 `*bool` 字段 |
-| `extractExt` | video / models | 从 URL 提取文件扩展名，默认 `.mp4` |
-| `downloadVideos` | video / midjourney / task | 下载生成的视频列表到输出目录 |
-
-**规则**：新增的跨命令公共函数必须放在 `cmd/util.go` 中，不要放在某个命令的专属文件（如 `image_*.go`）里。如果某个函数理论上可以独立存在、不依赖具体命令的业务逻辑，它就是共享工具函数。
+**核心红线**（详见 @SPEC.md）：
+- 配置访问一律用访问器（`chatDefaults()` / `imageDefaults()` 等），**禁止手写 `shared.Cfg != nil && shared.Cfg.Defaults != nil && ...` 长链 nil 判断**
+- 所有有 `RunE` 的 cobra 命令必须 `SilenceUsage: true`
+- 错误包装用 `%w`，错误消息首字母小写
+- 提交信息格式：`<type>(<scope>): <描述>`（type: feat/fix/refactor/docs/test/chore/style）
 
 ---
 
-## 五、项目架构
+## 五、项目架构与关键设计
 
-```
-aigc-cli/
-├── cmd/              # cobra 命令定义（薄层：解析参数→调用逻辑→输出结果）
-│   ├── image.go      # 图片生成（命令定义 + 主流程）
-│   ├── image_request.go
-│   ├── image_dispatch.go
-│   ├── image_runners.go
-│   ├── image_helpers.go
-│   ├── util.go       # 跨命令共享工具函数（readInput / isFile / httpGet / applyTimeout / provider 检测）
-│   ├── video.go      # 视频生成（命令定义 + 主流程）
-│   ├── video_request.go
-│   ├── video_dispatch.go
-│   ├── video_runners.go
-│   ├── video_helpers.go
-│   ├── chat.go       # AI 对话
-│   ├── ideas.go      # 提示词灵感搜索
-│   └── ...
-├── internal/
-│   ├── client/       # HTTP API 客户端（APIMart / OpenAI / OpenRouter / 云雾）
-│   ├── config/       # Viper 配置加载（YAML + 环境变量）
-│   ├── mcp/          # MCP Server 实现
-│   ├── provider/     # Provider 检测 + 命名 Provider 解析 + 在线 LLM 调用
-│   └── types/        # 请求/响应数据结构和配置类型
-├── docs/             # 用户文档
-│   ├── release_notes/ # 各版本 release notes
-├── skills/           # AI Agent SKILL 定义
-├── main.go           # 入口
-├── Makefile          # 统一构建入口
-├── AGENTS.md         # ← 当前文件
-```
+项目目录结构见 @CONTRIBUTING.md（单一来源）。
 
 ### 5.1 HTTP 代理（http_proxy）
 
-配置了 `http_proxy` 后，**所有** HTTP 请求都必须走代理，包括：
-- API 调用（image/video/chat/balance/task 等） — 通过 `client.New()` 创建的客户端
-- 文件下载（下载生成的图片/视频） — 使用 `http.Get()` / `http.DefaultClient`
-- 非 API 请求（如 ideas 搜索、模型定价查询）
-
-实现方式：在启动入口（`root.go` / `mcp.go` 的 `PersistentPreRunE`）调用 `client.ConfigureDefaultClient(proxyURL)` 配置全局 `http.DefaultClient`。所有使用 `http.Get()`、`http.DefaultClient` 或自定义 HTTP 客户端的地方**不要自行构建 transport**，应复用 `http.DefaultClient` 以自动继承代理配置。
-
-> 新增 HTTP 调用时，优先使用 `http.DefaultClient`，不要新建 `http.Client` 或使用裸 `http.Get()` 以外的 `Transport` 配置。
+配置了 `http_proxy` 后，**所有** HTTP 请求都必须走代理（API 调用、文件下载、非 API 请求）。在启动入口（`root.go` / `mcp.go` 的 `PersistentPreRunE`）调用 `client.ConfigureDefaultClient(proxyURL)` 配置全局 `http.DefaultClient`。新增 HTTP 调用时**优先使用 `http.DefaultClient`**，不要新建 `http.Client` 或自行配置 `Transport`。
 
 ### 5.2 关键设计决策
 
-- **Provider 检测**集中到 `internal/provider`，新增 provider 只需改此包和策略表
-- **策略路由**（`imageStrategies` / `videoStrategies`）用 match-run 模式派发到不同后端
-- **命名 Provider 架构**：用户在配置中定义可复用的命名 Provider，各命令通过 `defaults.{cmd}.provider` 引用，实现不同命令使用不同厂商
-- **Provider 优先级链**：`--api-key/--api-base` CLI 参数 > `--provider` 参数 > `defaults.{cmd}.provider` > 全局 `api_key/base_url` > 代码内置默认值
-- **`shared.ResolveProvider(cmdName)`**：各命令通过此方法获取 `*provider.EffectiveProvider`，代替直接访问 `shared.APIKey`/`shared.APIBase`
-- **`client.NewFromProvider(p)`**：通过 `*provider.EffectiveProvider` 创建 API 客户端
-- **内置 `local` Provider**：`--provider local` 自动路由到本地 ONNX 推理，无需在配置中定义
-- **在线/离线分支**：有本地能力的命令（ocr/vision/detect/background/audio）在未指定 provider 时默认走本地 ONNX，指定了 provider 或 model 时走在线
-- **`internal/provider/online.go`**：提供 `OCRImage()`/`DescribeImage()` 等在线 LLM 调用函数
-- **文件上传**在 client 层自动处理本地路径→URL 转换
-- **配置文件**位于 `~/.config/aigc-cli/config.yaml`
-
-### 5.1 已知技术债务
+- **Provider 检测**集中到 `internal/provider`，新增 provider 只改此包和策略表
+- **策略路由**（`imageStrategies` / `videoStrategies`）用 match-run 模式派发
+- **命名 Provider**：配置 `providers`，各命令通过 `defaults.{cmd}.provider` 引用
+- **Provider 优先级链**：`--api-key/--api-base` > `--provider` > `defaults.{cmd}.provider` > 全局 `api_key/base_url` > 代码默认
+- **`shared.ResolveProvider(cmdName)`**：获取 `*provider.EffectiveProvider`，代替直接访问 `shared.APIKey`/`shared.APIBase`
+- **`client.NewFromProvider(p)`**：通过 provider 创建客户端
+- **内置 `local` Provider**：`--provider local` 自动路由到本地 ONNX
+- **在线/离线分支**：ocr/vision/detect/background/audio 未指定 provider 时默认本地 ONNX，指定了则走在线
+- **`internal/provider/online.go`**：在线 LLM 调用（`OCRImage()`/`DescribeImage()`）
+- **文件上传**在 client 层自动处理本地路径→URL
+- **配置文件**：`~/.config/aigc-cli/config.yaml`
 
 ---
 
-## 六、测试策略
+## 六、水印流程
 
-由于大部分 API 接口（图片生成、视频生成、对话）是**付费接口**，无法在 CI 中无成本调用，测试策略如下：
-
-### 6.1 可以无成本测试的（必须覆盖）
-
-- 配置加载与合并（`internal/config` — 已有 91.7%）
-- Provider 检测（`internal/provider` — 已有 93.3%）
-- 类型序列化/反序列化（`internal/types` — 已有 76.5%）
-- CLI 参数解析与校验（`cmd/` — 当前仅 18%，需加强）
-- HTTP 请求构建与 curl 生成（`cmd/` 中的 buildXxxCurl）
-- 无外部依赖的纯函数（文件名提取、URL 解析等）
-
-### 6.2 需要 mock 的（逐步推进）
-
-- Client 层的请求/响应处理（`internal/client` — 当前 16.3%）
-- MCP handler 逻辑（`internal/mcp` — 当前 9.2%）
-- 命令的完整执行路径
-
-### 6.3 新增代码原则
-
-- 纯函数必须写表驱动测试
-- 重构时优先提取可测试的纯函数
-- mock 测试优先于集成测试
+完整的水印学习 / 去除 / 添加流程见 @docs/zh/guide-watermark.md（两拍法：黑底+灰底种子图 → `--learn-watermark` 求解 alpha map）。
 
 ---
 
-## 六-B、scripts/ 辅助脚本说明
+## 七、测试策略
 
-`scripts/check_watermark.py` 和 `scripts/verify_watermark.py` 可用于验证去水印效果。
+大部分 API（图片/视频/对话）是**付费接口**，无法在 CI 无成本调用：
 
-所有脚本依赖 `pip install Pillow numpy`。
-
-### 6B.1 check_watermark.py — 可视化诊断
-
-并排对比原图和 clean 图，生成差异热力图：
-
-```bash
-python scripts/check_watermark.py <原图> <clean图> --report
-```
-
-### 6B.2 verify_watermark.py — 量化验证
-
-输出 PASS/WARN/FAIL，适合 CI 回归测试：
-
-```bash
-python scripts/verify_watermark.py <原图> <clean图>
-```
-
----
-
-## 新增水印流程
-
-本项目**不内置任何厂商的水印数据**。所有水印均由用户自行生成。
-
-### 流程：两拍法学习自定义水印
-
-1. 到 AI 平台生成两张纯色图（文生图，开启"添加水印"）：
-
-| 文件名 | 颜色 | Prompt |
-|---|---|---|
-| `<name>.black.png` | RGB(0,0,0) | "Generate a pure black image, RGB(0,0,0), no content. 1:1" |
-| `<name>.gray.png` | RGB(128,128,128) | "Generate a pure gray image, RGB(128,128,128), no content. 1:1" |
-
-2. 放到 `~/.config/aigc-cli/watermark/` 目录：
-
-```bash
-cp <name>.black.png <name>.gray.png ~/.config/aigc-cli/watermark/
-```
-
-3. 学习：
-
-```bash
-aigc-cli detect --learn-watermark <name>
-```
-
-输出 `~/.config/aigc-cli/watermark/<name>.watermark.png`，自包含格式（灰度图 + PNG tEXt 元数据）。
-
-4. 使用：
-
-```bash
-aigc-cli detect photo.png --remove-watermark --producer <name>
-```
-
-`scripts/assets/` 目录下有参考种子图（`baidu.black.png`、`baidu.gray.png`、`doubao.black.png`、`doubao.gray.png` 等），可用作测试数据。
-
----
-
-## 七、Release 流程
-
-### 7.1 每次发版前
-
-打 tag 前**必须**在 `docs/release_notes/` 下创建对应版本的 release notes 文件：
-
-```
-docs/release_notes/vX.Y.Z.md
-```
-
-CI 脚本（`.github/workflows/ci.yml`）在 push tag 时会自动读取该文件作为 GitHub Release 的 notes 内容。如果文件不存在，会自动 fallback 到 `--generate-notes`。
-
-### 7.2 标准发版步骤
-
-```bash
-# 1. 编写 release notes
-echo "..." > docs/release_notes/v1.2.3.md
-
-# 2. 提交 release notes
-git add docs/release_notes/v1.2.3.md
-git commit -m "docs: add release notes for v1.2.3"
-
-# 3. 打 tag
-git tag v1.2.3
-
-# 4. 推送（CI 自动构建并发布）
-git push origin main --tags
-```
-
-### 7.3 版本号规则（语义化版本）
-
-遵循 [SemVer](https://semver.org/) 规范：
-
-| 版本 | 场景 | 示例 |
-|---|---|---|
-| **v0.Y.Z** (minor) | 新增功能、新命令、新配置项 | v0.5.0 → v0.6.0 |
-| **v0.Y.Z** (patch) | Bug 修复、重构、文档、测试 | v0.5.0 → v0.5.1 |
-
-判断标准：
-- **有新增功能**（新命令、新参数、新配置项、新工具）→ bump minor (`v0.5.0` → `v0.6.0`)
-- **只有修 bug、重构、文档、测试** → bump patch (`v0.5.0` → `v0.5.1`)
-- **破坏性变更**（删除命令、修改 flag 名、不兼容的配置变更）→ bump major（v0 阶段暂不适用）
-
-### 7.4 已发布版本的 release notes 补录
-
-如果某个版本发布时没有 notes 文件（v0.5.0 之前），补写文件后可以用 `gh` 命令同步到 GitHub：
-
-```bash
-# 写好文件后，更新已有 release
-gh release edit v0.5.0 --notes-file docs/release_notes/v0.5.0.md
-```
+- **必须覆盖**（无成本）：配置加载合并、Provider 检测、类型序列化、CLI 参数解析校验、HTTP 请求构建与 curl 生成、无外部依赖的纯函数
+- **逐步 mock**：Client 请求/响应、MCP handler、命令完整执行路径
+- **新增代码原则**：纯函数写表驱动测试；重构优先提取可测纯函数；mock 优先于集成测试
 
 ---
 
@@ -483,10 +138,8 @@ gh release edit v0.5.0 --notes-file docs/release_notes/v0.5.0.md
 | 禁止事项 | 说明 |
 |---|---|
 | ❌ 直接调用 `go build` / `go test` / `go fmt` | 必须走 Makefile |
-| ❌ 修改代码后不跑 `make build` | 必须确保编译通过 |
-| ❌ 修改代码后不跑 `make test` | 必须确保测试通过 |
+| ❌ 修改后不跑 `make build` / `make test` | 必须确保编译与测试通过 |
 | ❌ 功能变更不同步文档 | 文档不得滞后代码 |
-| ❌ 使用 `as any` / `@ts-ignore` | Go 没有，但任何时候不要抑制类型检查 |
-| ❌ 多余的空 `catch` 块 | Go 中没有 try-catch，但不要吞错误 |
-| ❌ 主动 commit | 除非用户明确要求 "commit"，否则不得提交代码。讨论阶段的修改先暂存，确认后再统一提交 |
-| ❌ 提交前不检查变更文件的 LSP 诊断 | 确保新增代码无警告 |
+| ❌ 抑制类型检查 / 吞错误 | 不用 `as any`/`@ts-ignore`；不写空 catch；错误用 `%w` 包装 |
+| ❌ 主动 commit | 除非用户明确要求 "commit"，否则不提交；讨论阶段先暂存 |
+| ❌ 提交前不检查 LSP 诊断 | 确保新增代码无警告 |

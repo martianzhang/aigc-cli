@@ -25,26 +25,37 @@ make build
 
 ```
 aigc-cli/
-├── cmd/              # CLI 命令定义（cobra）
-│   ├── root.go       # 根命令、全局 flag、配置加载
-│   ├── image.go      # 图片生成
-│   ├── video.go      # 视频生成
+├── cmd/              # cobra 命令定义（薄层：解析参数→调用逻辑→输出结果）
+│   ├── image.go      # 图片生成（命令定义 + 主流程）
+│   ├── image_request.go   # 请求构建 + 输入解析
+│   ├── image_dispatch.go  # 策略上下文/类型/路由表
+│   ├── image_runners.go   # 各 Provider 执行函数 + 下载
+│   ├── image_helpers.go   # Image 模块专有辅助函数
+│   ├── video.go      # 视频生成（命令定义 + 主流程）
+│   ├── video_request.go
+│   ├── video_dispatch.go
+│   ├── video_runners.go
+│   ├── video_helpers.go
 │   ├── chat.go       # AI 对话
-│   ├── midjourney.go # Midjourney 生成/编辑
-│   ├── models.go     # 模型列表 & 定价
-│   ├── task.go       # 任务查询
-│   ├── balance.go    # 余额查询
+│   ├── util.go       # 跨命令共享工具函数
+│   ├── util_ptr.go   # 泛型安全导航（field / deref）
+│   ├── config_defaults.go # 配置 section 访问器（chatDefaults() 等）
 │   ├── mcp.go        # MCP Server 入口
-│   └── version.go    # 版本信息
+│   └── ...
 ├── internal/
-│   ├── client/       # HTTP API 客户端
+│   ├── client/       # HTTP API 客户端（APIMart / OpenAI / OpenRouter 等）
 │   ├── config/       # YAML 配置加载（viper）
+│   ├── provider/     # Provider 检测 + 命名 Provider 解析 + 在线 LLM 调用
+│   ├── imgcodec/     # 图片编解码（wasm codec）
 │   ├── mcp/          # MCP Server 实现
-│   └── types/        # 请求/响应数据结构
-├── docs/             # 用户文档
+│   └── types/        # 请求/响应数据结构和配置类型
+├── docs/             # 用户文档（zh/ 与 en/）
+│   └── release_notes/ # 各版本 release notes
 ├── skills/           # AI Agent SKILL 定义
+├── scripts/          # 辅助脚本（helper.c / build-helper.sh 等）
 ├── main.go           # 入口
-└── Makefile          # 构建、测试、发布
+├── Makefile          # 统一构建入口
+└── AGENTS.md         # AI 助手开发约束（引用 SPEC.md）
 ```
 
 ## 常用命令
@@ -63,47 +74,16 @@ make run ARGS="chat --message hello"
 
 ## 开发规范
 
+> 完整的代码规范（导入顺序、错误处理、SilenceUsage、命名、配置访问器、提交信息、文件规模、共享工具）见 [SPEC.md](SPEC.md)，本文档只保留贡献流程要点。
+
 ### 代码风格
 
 - 使用 `go fmt ./...`（`make fmt`）自动格式化
 - 使用 `go vet ./...`（`make lint`）检查常见问题
 - 导入按标准库 → 第三方 → 内部包分组，组间空行分隔
-
-### 错误处理
-
-- 使用 `fmt.Errorf("context: %w", err)` 包装错误（`%w`，不是 `%v`）
-- 有意义的错误消息，首字母小写
-- CLI 错误统一返回 error，由 `cmd.Execute()` 打印到 stderr
-
-### 命名
-
-- 遵循 Go 惯例：驼峰式，缩写全大写（`APIKey`、`HTTPProxy`）
-- 包名小写、单数（`client`、`config`、`types`）
-- 测试函数：`TestXxx`，表驱动测试优先
-
-### 配置优先级
-
-CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值
-
-添加新 flag 时，确保按此优先级处理。
-
-### 提交信息
-
-```
-<type>(<scope>): <简短描述>
-
-<可选详细描述>
-```
-
-type: feat / fix / refactor / docs / test / chore / style
-scope: image / video / chat / midjourney / mcp / config / docs / skill
-
-示例：
-```
-feat(image): 支持 Grok Imagine 1.5 Edit
-fix(mcp): 使用配置文件中的 output_dir
-docs(image): 补充 --edit 模式说明
-```
+- 错误用 `%w` 包装，首字母小写
+- 配置访问用访问器（`chatDefaults()` 等），禁止手写长链 nil 判断
+- 提交信息格式 `<type>(<scope>): <描述>`
 
 ### 测试
 
