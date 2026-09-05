@@ -63,8 +63,10 @@ var (
 func runDetectInit(cmd *cobra.Command, args []string) error {
 	// Resolve model: CLI flag > config > default "vit-base"
 	modelID := detectModelID
-	if !cmd.Flags().Changed("model") && shared.Cfg != nil && shared.Cfg.Detect != nil && shared.Cfg.Detect.Model != "" {
-		modelID = shared.Cfg.Detect.Model
+	if !cmd.Flags().Changed("model") {
+		if cfg := detectConfig(); cfg != nil && cfg.Model != "" {
+			modelID = cfg.Model
+		}
 	}
 	info, ok := modelInfo[modelID]
 	if !ok {

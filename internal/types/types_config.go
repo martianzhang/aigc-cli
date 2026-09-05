@@ -160,6 +160,7 @@ type ChatDefaults struct {
 	Model             string   `mapstructure:"model" yaml:"model,omitempty"`
 	Temperature       float64  `mapstructure:"temperature" yaml:"temperature,omitempty"`
 	MaxTokens         int      `mapstructure:"max_tokens" yaml:"max_tokens,omitempty"`
+	ContextSize       int      `mapstructure:"context_size" yaml:"context_size,omitempty"`               // 输入上下文窗口大小（token），0=使用模型默认值。超过时自动压缩对话
 	MaxIterations     int      `mapstructure:"max_iterations" yaml:"max_iterations,omitempty"`           // 每次用户消息，LLM 最多连续调工具次数（默认 10）
 	Tools             []string `mapstructure:"tools" yaml:"tools,omitempty"`                             // 允许的工具白名单（glob 模式），空或["*"]=全部允许
 	DisableTools      []string `mapstructure:"disable_tools" yaml:"disable_tools,omitempty"`             // 禁用的工具黑名单（glob 模式），覆盖 tools

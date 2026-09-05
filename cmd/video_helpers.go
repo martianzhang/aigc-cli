@@ -15,8 +15,8 @@ import (
 // loadVideoDefaults returns the user's video config defaults.
 // Tries shared.Cfg first (fast), falls back to reading from file.
 func loadVideoDefaults() *types.VideoDefaults {
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Video != nil {
-		return shared.Cfg.Defaults.Video
+	if cfg := videoDefaults(); cfg != nil {
+		return cfg
 	}
 	if cfg, err := config.Load(shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
 		return cfg.Defaults.Video
@@ -34,8 +34,8 @@ func generateVideoAndSave(c *client.Client, req *types.VideoGenerateRequest) ([]
 
 	// Check if LLM is allowed to override (default: false = config wins)
 	allowOverride := false
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
-		allowOverride = shared.Cfg.Defaults.Chat.AllowToolOverride
+	if cfg := chatDefaults(); cfg != nil {
+		allowOverride = cfg.AllowToolOverride
 	}
 
 	if vidCfg != nil {

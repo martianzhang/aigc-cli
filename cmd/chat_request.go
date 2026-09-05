@@ -44,7 +44,7 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		v := chatTemperature
 		req.Temperature = &v
 	}
-	setIntFlag(cmd, "max-tokens", &req.MaxTokens, chatMaxTokens)
+	setIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
 
 	return req, nil
 }
@@ -57,9 +57,9 @@ func sendChatRequest(cmd *cobra.Command, req *types.ChatRequest) error {
 	}
 
 	// Merge config defaults (only if not already set via --model flag or JSON)
-	if req.Model == "" && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
-		if shared.Cfg.Defaults.Chat.Model != "" {
-			req.Model = shared.Cfg.Defaults.Chat.Model
+	if req.Model == "" {
+		if cfg := chatDefaults(); cfg != nil && cfg.Model != "" {
+			req.Model = cfg.Model
 		}
 	}
 

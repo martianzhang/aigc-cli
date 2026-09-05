@@ -103,8 +103,8 @@ func tryInitONNX() *onnx.Detector {
 
 	modelsDir := detectModelsDir()
 	preferredID := "vit-base"
-	if shared.Cfg != nil && shared.Cfg.Detect != nil && shared.Cfg.Detect.Model != "" {
-		preferredID = shared.Cfg.Detect.Model
+	if cfg := detectConfig(); cfg != nil && cfg.Model != "" {
+		preferredID = cfg.Model
 	}
 	modelFiles := []string{modelFilename(preferredID)}
 	for _, id := range []string{"vit-base", "distilled-vit"} {
@@ -140,8 +140,8 @@ func modelFilename(modelID string) string {
 }
 
 func detectModelsDir() string {
-	if shared.Cfg != nil && shared.Cfg.Detect != nil && shared.Cfg.Detect.ModelsDir != "" {
-		return shared.Cfg.Detect.ModelsDir
+	if cfg := detectConfig(); cfg != nil && cfg.ModelsDir != "" {
+		return cfg.ModelsDir
 	}
 	return filepath.Join(configDir(), "models", "detect")
 }

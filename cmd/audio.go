@@ -417,8 +417,10 @@ func runLocalAudioSpeak(cmd *cobra.Command) error {
 // Falls back to config.defaults.audio.voice, then DefaultKokoroVoice.
 func resolveSID(voiceFlag string) int {
 	v := voiceFlag
-	if v == "" && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil {
-		v = shared.Cfg.Defaults.Audio.Voice
+	if v == "" {
+		if cfg := audioDefaults(); cfg != nil {
+			v = cfg.Voice
+		}
 	}
 	if v == "" {
 		return audio.DefaultKokoroVoice
@@ -475,8 +477,10 @@ func runLocalAudioTranscribe(cmd *cobra.Command) error {
 	}
 
 	modelID := audioTranscribeModel
-	if modelID == "" && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil {
-		modelID = shared.Cfg.Defaults.Audio.TranscribeModel
+	if modelID == "" {
+		if cfg := audioDefaults(); cfg != nil {
+			modelID = cfg.TranscribeModel
+		}
 	}
 	if modelID == "" {
 		modelID = "sense-voice"

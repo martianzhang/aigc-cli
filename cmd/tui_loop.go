@@ -99,6 +99,17 @@ func (m *chatModel) runTUIAgentLoop() {
 					Content:    toolResult,
 				})
 			}
+
+			// Auto-compact if context is getting full
+			if m.contextSize > 0 {
+				before := estimateHistoryTokens(localHistory)
+				localHistory = autoCompactIfNeeded(m.client, m.model, m.temperature, m.maxTokens, m.contextSize, localHistory)
+				after := estimateHistoryTokens(localHistory)
+				if after < before {
+					prog.Send(logMsg(fmt.Sprintf("[auto-compact] %d → %d tokens (saved %d)\r\n",
+						before, after, before-after)))
+				}
+			}
 			continue
 		}
 
@@ -188,12 +199,9 @@ func setProgram(p *tea.Program) {
 // runChatTUI initialises and runs the Bubble Tea TUI chat program.
 func runChatTUI(cmd *cobra.Command) error {
 	// Load chat config for agent loop settings
-	var chatCfg *types.ChatDefaults
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
-		chatCfg = shared.Cfg.Defaults.Chat
-		if shared.Model == "" && chatCfg.Model != "" {
-			shared.Model = chatCfg.Model
-		}
+	chatCfg := chatDefaults()
+	if shared.Model == "" && chatCfg != nil && chatCfg.Model != "" {
+		shared.Model = chatCfg.Model
 	}
 
 	maxIterations := 10
@@ -219,7 +227,7 @@ func runChatTUI(cmd *cobra.Command) error {
 
 	// Build the TUI model
 	tuiModel := newChatModel(c, agentTools, maxIterations, model, chatSystem, cmd, shared.Verbose,
-		chatTemperature, chatMaxTokens)
+		chatTemperature, chatMaxTokens, chatContextSize)
 	tuiModel.history = history
 
 	// Create the Bubble Tea program with alt screen

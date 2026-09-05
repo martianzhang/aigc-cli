@@ -22,8 +22,8 @@ func savePromptFile(taskID, prompt string) {
 // loadImageDefaults returns the user's image config defaults.
 // Tries shared.Cfg first (fast), falls back to reading from file.
 func loadImageDefaults() *types.ImageDefaults {
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Image != nil {
-		return shared.Cfg.Defaults.Image
+	if cfg := imageDefaults(); cfg != nil {
+		return cfg
 	}
 	// Fallback: load from file directly
 	if cfg, err := config.Load(shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
@@ -54,8 +54,8 @@ func generateImageAndSave(c client.APIClient, req *types.GenerateRequest) ([]str
 
 	// Check if LLM is allowed to override config (default: false = config wins)
 	allowOverride := false
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
-		allowOverride = shared.Cfg.Defaults.Chat.AllowToolOverride
+	if cfg := chatDefaults(); cfg != nil {
+		allowOverride = cfg.AllowToolOverride
 	}
 
 	if imgCfg != nil {

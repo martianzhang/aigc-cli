@@ -179,52 +179,15 @@ func (m *chatModel) compactConversation(count int) {
 		return
 	}
 
-	summarizePrompt := `Please provide a detailed summary of our conversation above. Capture: 1) the user's goals and requirements, 2) key decisions made, 3) any files created or modified, 4) current status of any ongoing work. Be thorough — this summary will replace the conversation history so nothing important should be lost.`
-
-	req := &types.ChatRequest{
-		Model:    m.model,
-		Messages: append(history, types.ChatMessage{Role: "user", Content: summarizePrompt}),
-		Stream:   false,
-	}
-	if m.temperature > 0 {
-		t := m.temperature
-		req.Temperature = &t
-	}
-	if m.maxTokens > 0 {
-		t := m.maxTokens
-		req.MaxTokens = &t
-	}
-
-	result, err := m.client.ChatCompletion(req)
-	if err != nil {
-		prog.Send(compactDone{err: err})
+	result := compactConversation(m.client, m.model, m.temperature, m.maxTokens, history)
+	if result == nil {
+		prog.Send(compactDone{err: fmt.Errorf("compaction failed")})
 		return
 	}
-
-	if len(result.Choices) == 0 {
-		prog.Send(compactDone{err: fmt.Errorf("API returned no choices")})
-		return
-	}
-
-	summary := result.Choices[0].Message.Content
-
-	// Build the compacted history locally — don't write to m.history
-	// from a goroutine (same Bubble Tea value-copy trap).
-	var newHistory []types.ChatMessage
-	if len(history) > 0 && history[0].Role == "system" {
-		// Preserve the original system message (includes date context)
-		newHistory = append(newHistory, history[0])
-	} else if m.system != "" {
-		newHistory = append(newHistory, types.ChatMessage{Role: "system", Content: m.system})
-	}
-	newHistory = append(newHistory, types.ChatMessage{
-		Role:    "system",
-		Content: "Previous conversation summary:\n\n" + summary,
-	})
 
 	prog.Send(compactDone{
-		summary:    fmt.Sprintf("Compacted %d messages into 1 summary:\n\n%s", count, summary),
-		newHistory: newHistory,
+		summary:    fmt.Sprintf("Compacted %d messages into 1 summary:\n\n%s", count, result.Summary),
+		newHistory: result.History,
 	})
 }
 

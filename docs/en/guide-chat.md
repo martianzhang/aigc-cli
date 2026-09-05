@@ -66,9 +66,16 @@ tools_disable:
 | `--message` / `-m` | Single message (non-interactive) | — |
 | `--model` | Model name | `deepseek-v4-flash` |
 | `--temperature` | Response temperature | `0.7` |
-| `--max-tokens` | Max response tokens | `4096` |
+| `--max-output` | Max response tokens | `4096` |
+| `--context-size` | Max input context tokens; auto-compacts at 80% (summarizes older messages) | `0` (model default) |
 | `--system` | System prompt | — |
 | `--json` | Pass messages as JSON | — |
+
+### Context Management
+
+When `--context-size` is set, the conversation history is automatically summarized
+(compacted) once it exceeds 80% of the limit, freeing space without manual action.
+You can also type `/compact` in interactive mode to trigger compaction manually.
 
 ## JSON Mode
 

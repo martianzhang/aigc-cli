@@ -141,6 +141,8 @@ defaults:
 
   chat:
     model: "deepseek-v4-flash"
+    max_tokens: 4096            # Max response tokens
+    context_size: 32768         # Max input context tokens; 0=model default. Auto-compacts at 80%
 
   # ── Optional: offline commands with online LLM ──
   # Setting a provider routes to online API; unset uses local ONNX.

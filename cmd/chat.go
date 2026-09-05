@@ -25,6 +25,7 @@ var (
 	chatMessages    []string
 	chatTemperature float64
 	chatMaxTokens   int
+	chatContextSize int
 	chatNoStream    bool
 	chatJSONFlag    string
 	chatInteractive bool
@@ -43,6 +44,11 @@ Streaming output is enabled by default.
 Agentic Chat:
   Chat supports tool calling by default.
 
+Context Management:
+  Use --context-size to limit input context. When the conversation exceeds
+  80% of the limit, older messages are automatically summarized to stay
+  within bounds. Use /compact in interactive mode for manual compaction.
+
 Modes:
   - Interactive multi-turn (default without --message):
       aigc-cli chat
@@ -51,11 +57,15 @@ Modes:
 
 Examples:
   aigc-cli chat --message "Hello, who are you?"
+  aigc-cli chat --context-size 8192 --max-output 2048
   aigc-cli chat --json '{"model":"gpt-5","messages":[{"role":"user","content":"Hi"}]}'`,
 	RunE: runChat,
 }
 
 func runChat(cmd *cobra.Command, args []string) error {
+	chatCfg := chatDefaults()
+	applyChatConfigDefaults(cmd, chatCfg)
+
 	// --json mode is always single-turn
 	if chatJSONFlag != "" {
 		req, err := buildChatRequest(cmd)
@@ -85,11 +95,6 @@ func runChat(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Check if agent loop should be used (has tools configured)
-	var chatCfg *types.ChatDefaults
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
-		chatCfg = shared.Cfg.Defaults.Chat
-	}
 	maxIterations := 10
 	if chatCfg != nil && chatCfg.MaxIterations > 0 {
 		maxIterations = chatCfg.MaxIterations
@@ -108,6 +113,20 @@ func runChat(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(chatStderr, "Agent loop completed: %d additional messages accumulated (tool calls + responses)\n", added)
 	}
 	return nil
+}
+
+// applyChatConfigDefaults fills flag variables from config when the flag
+// was not set on the CLI. Config priority: CLI flags > config defaults.
+func applyChatConfigDefaults(cmd *cobra.Command, cfg *types.ChatDefaults) {
+	if cfg == nil {
+		return
+	}
+	if !cmd.Flags().Changed("context-size") && cfg.ContextSize > 0 {
+		chatContextSize = cfg.ContextSize
+	}
+	if !cmd.Flags().Changed("max-output") && cfg.MaxTokens > 0 {
+		chatMaxTokens = cfg.MaxTokens
+	}
 }
 
 // generateImageArgs is the JSON structure for generate_image tool arguments.
@@ -137,7 +156,8 @@ func init() {
 	f.StringVarP(&chatSystem, "system", "s", "", "System prompt to set AI behavior")
 	f.StringArrayVar(&chatMessages, "message", nil, "User message (repeatable for multi-turn)")
 	f.Float64VarP(&chatTemperature, "temperature", "t", 0, "Sampling temperature (0-2)")
-	f.IntVar(&chatMaxTokens, "max-tokens", 0, "Maximum tokens in response")
+	f.IntVar(&chatMaxTokens, "max-output", 0, "Maximum tokens in response")
+	f.IntVar(&chatContextSize, "context-size", 0, "Maximum input context size in tokens (0 = model default). Auto-compacts at 80% by summarizing older messages.")
 	f.BoolVar(&chatNoStream, "no-stream", false, "Disable streaming, wait for full response")
 	f.StringVar(&chatJSONFlag, "json", "", "JSON file, string, or \"-\" for stdin")
 	f.BoolVarP(&chatInteractive, "interactive", "i", false, "Enter interactive multi-turn chat mode")

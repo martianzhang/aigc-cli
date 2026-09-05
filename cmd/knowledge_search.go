@@ -100,8 +100,8 @@ func searchWithProvider(store *knowledge.Store, cmd *cobra.Command, query, proje
 }
 
 func registerSearchProviders(router *search.Router) error {
-	if shared.Cfg != nil && shared.Cfg.WebSearch != nil {
-		for name, cfg := range shared.Cfg.WebSearch {
+	if providers := webSearchConfig(); providers != nil {
+		for name, cfg := range providers {
 			info := search.ConfigFromTypes(map[string]*types.WebSearchProvider{name: cfg})[name]
 			p, err := search.NewProviderFromConfig(cfg)
 			if err != nil {
@@ -196,10 +196,8 @@ func resolveSearchProvider(cmd *cobra.Command) string {
 			return v
 		}
 	}
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Knowledgebase != nil {
-		if p := shared.Cfg.Defaults.Knowledgebase.SearchProvider; p != "" {
-			return p
-		}
+	if cfg := knowledgeDefaults(); cfg != nil && cfg.SearchProvider != "" {
+		return cfg.SearchProvider
 	}
 	return "auto"
 }

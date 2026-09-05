@@ -274,8 +274,8 @@ func tryInitRMBG() (*rmbg.Detector, error) {
 
 // rmbgModelsDir 返回 RMBG 模型存储目录。
 func rmbgModelsDir() string {
-	if shared.Cfg != nil && shared.Cfg.Background != nil && shared.Cfg.Background.ModelsDir != "" {
-		return shared.Cfg.Background.ModelsDir
+	if cfg := backgroundConfig(); cfg != nil && cfg.ModelsDir != "" {
+		return cfg.ModelsDir
 	}
 	return filepath.Join(configDir(), "models", "background")
 }

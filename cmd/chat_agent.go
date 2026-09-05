@@ -19,8 +19,10 @@ import (
 // If ctx is cancelled (Ctrl+C), returns immediately with context.Canceled.
 func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMessage, agentTools []types.ToolDefinition, maxIterations int, cmd *cobra.Command) (*types.ChatResponse, error) {
 	// Merge defaults.chat.model into shared.Model if empty
-	if shared.Model == "" && shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil {
-		shared.Model = shared.Cfg.Defaults.Chat.Model
+	if shared.Model == "" {
+		if cfg := chatDefaults(); cfg != nil && cfg.Model != "" {
+			shared.Model = cfg.Model
+		}
 	}
 
 	turnCount := 0
@@ -34,6 +36,9 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 		}
 		turnCount++
 
+		// Auto-compact before building request if context is getting full
+		*history = autoCompactIfNeeded(c, shared.Model, chatTemperature, chatMaxTokens, chatContextSize, *history)
+
 		req := &types.ChatRequest{
 			Model:        shared.Model,
 			Messages:     *history,
@@ -44,7 +49,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 			req.Tools = agentTools
 		}
 		setFloatFlag(cmd, "temperature", &req.Temperature, chatTemperature)
-		setIntFlag(cmd, "max-tokens", &req.MaxTokens, chatMaxTokens)
+		setIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
 
 		if turnCount > 1 {
 			fmt.Fprint(chatStderr, "\r\n---\r\n")

@@ -175,9 +175,9 @@ func executeGenerateImage(c *client.Client, argsJSON string) string {
 	}
 
 	// Show actual config defaults that will be applied
-	hasCfg := shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Image != nil
+	d := imageDefaults()
+	hasCfg := d != nil
 	if hasCfg {
-		d := shared.Cfg.Defaults.Image
 		var overrides []string
 		if d.Model != "" {
 			overrides = append(overrides, fmt.Sprintf("model=%s", d.Model))
@@ -448,8 +448,8 @@ func executeMidjourney(c *client.Client, toolName, argsJSON string) string {
 			Speed:     args.Speed,
 		}
 		// Merge config defaults
-		if shared.Cfg != nil && shared.Cfg.Defaults != nil {
-			shared.Cfg.Defaults.Midjourney.MergeIntoImagine(mjReq)
+		if mj := midjourneyDefaults(); mj != nil {
+			mj.MergeIntoImagine(mjReq)
 		}
 		text, err := midjourneySubmitAndGetText(mjClient, "imagine", mjReq)
 		if err != nil {
@@ -585,8 +585,8 @@ func executeGenerateSpeech(argsJSON string) string {
 	}
 	model := params.Model
 	if model == "" {
-		if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil && shared.Cfg.Defaults.Audio.SpeakModel != "" {
-			model = shared.Cfg.Defaults.Audio.SpeakModel
+		if cfg := audioDefaults(); cfg != nil && cfg.SpeakModel != "" {
+			model = cfg.SpeakModel
 		} else {
 			model = "gpt-4o-mini-tts"
 		}
@@ -635,8 +635,8 @@ func executeTranscribeAudio(argsJSON string) string {
 	}
 	model := params.Model
 	if model == "" {
-		if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Audio != nil && shared.Cfg.Defaults.Audio.TranscribeModel != "" {
-			model = shared.Cfg.Defaults.Audio.TranscribeModel
+		if cfg := audioDefaults(); cfg != nil && cfg.TranscribeModel != "" {
+			model = cfg.TranscribeModel
 		} else {
 			model = "whisper-1"
 		}

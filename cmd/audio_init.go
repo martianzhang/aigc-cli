@@ -504,11 +504,11 @@ func runCmd(name string, args ...string) error {
 // Default: ~/.config/aigc-cli/models/audio/
 func audioModelsDir() string {
 	// Use shared models directory if available from detect config
-	if shared.Cfg != nil && shared.Cfg.Detect != nil && shared.Cfg.Detect.ModelsDir != "" {
-		return filepath.Join(shared.Cfg.Detect.ModelsDir, "audio")
+	if cfg := detectConfig(); cfg != nil && cfg.ModelsDir != "" {
+		return filepath.Join(cfg.ModelsDir, "audio")
 	}
-	if shared.Cfg != nil && shared.Cfg.Background != nil && shared.Cfg.Background.ModelsDir != "" {
-		return filepath.Join(shared.Cfg.Background.ModelsDir, "audio")
+	if cfg := backgroundConfig(); cfg != nil && cfg.ModelsDir != "" {
+		return filepath.Join(cfg.ModelsDir, "audio")
 	}
 	return filepath.Join(configDir(), "models", "audio")
 }

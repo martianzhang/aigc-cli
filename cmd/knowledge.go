@@ -127,18 +127,16 @@ func openKBStore() (*knowledge.Store, error) {
 		return nil, err
 	}
 	// Set min score threshold from config
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Knowledgebase != nil {
-		if ms := shared.Cfg.Defaults.Knowledgebase.MinScore; ms > 0 {
-			store.SetMinScore(ms)
-		}
+	if cfg := knowledgeDefaults(); cfg != nil && cfg.MinScore > 0 {
+		store.SetMinScore(cfg.MinScore)
 	}
 	return store, nil
 }
 
 // resolveConfigBaseDir returns the base_dir from config defaults if set.
 func resolveConfigBaseDir() string {
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Knowledgebase != nil {
-		return shared.Cfg.Defaults.Knowledgebase.BaseDir
+	if cfg := knowledgeDefaults(); cfg != nil {
+		return cfg.BaseDir
 	}
 	return ""
 }
@@ -151,18 +149,16 @@ func shouldAutoSave() bool {
 		return false
 	}
 	// Config auto_save (only when explicitly configured)
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Knowledgebase != nil {
-		if shared.Cfg.Defaults.Knowledgebase.AutoSave != nil {
-			return *shared.Cfg.Defaults.Knowledgebase.AutoSave
-		}
+	if cfg := knowledgeDefaults(); cfg != nil {
+		return deref(cfg.AutoSave, true)
 	}
 	return true
 }
 
 // resolveLoaders returns the external file loaders from config.
 func resolveLoaders() map[string]string {
-	if shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Knowledgebase != nil {
-		return shared.Cfg.Defaults.Knowledgebase.Loaders
+	if cfg := knowledgeDefaults(); cfg != nil {
+		return cfg.Loaders
 	}
 	return nil
 }

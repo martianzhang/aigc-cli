@@ -139,6 +139,7 @@ type chatModel struct {
 	// Cobra flag values used when building requests
 	temperature float64
 	maxTokens   int
+	contextSize int
 
 	// UI components
 	viewport viewport.Model
@@ -229,7 +230,7 @@ func defaultChatStyles() chatStyles {
 // ---------------------------------------------------------------------------
 
 func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl, sys string,
-	cobraCmd *cobra.Command, verb bool, temp float64, maxTok int) chatModel {
+	cobraCmd *cobra.Command, verb bool, temp float64, maxTok, ctxSize int) chatModel {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -268,6 +269,7 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 		verbose:     verb,
 		temperature: temp,
 		maxTokens:   maxTok,
+		contextSize: ctxSize,
 		input:       ti,
 		spinner:     s,
 		messages:    []message{{role: "system", content: welcomeMsg}},

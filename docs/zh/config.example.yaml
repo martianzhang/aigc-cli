@@ -141,6 +141,8 @@ defaults:
 
   chat:
     model: "deepseek-v4-flash"
+    max_tokens: 4096            # 最大生成 token 数
+    context_size: 32768         # 输入上下文窗口大小（token），0=使用模型默认值。超过 80% 自动压缩
 
   # ── 可选：离线命令对接在线 LLM ──
   # 配置了 provider 则走在线，不配则走本地 ONNX
