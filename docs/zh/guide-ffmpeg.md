@@ -32,7 +32,7 @@ ffmpeg -i video_xxx.mp4 -frames:v 1 -vf scale=320:-1 thumb.jpg
 
 ### 转 GIF（社媒分享）
 
-> 视频转 GIF 用内置的 **`aigc-cli video --gif`** 即可，无需手敲命令：生成后自动转（`video -p "..." --gif`）或转换本地存量视频（`video --gif -i file.mp4`），见 [guide-video.md](guide-video.md#gif-转换)。以下原始 ffmpeg 命令保留备查。
+> 视频转 GIF 用内置的 **`aigc-cli video --gif`** 即可，无需手敲命令：生成后自动转（`video -p "..." --gif`）或转换本地存量视频（`video --gif -i file.mp4`），见 [guide-video.md](guide-video.md#gif-转换)。反向（GIF/WebP 等转 MP4）见 `video --mp4`。以下原始 ffmpeg 命令保留备查。
 
 ```bash
 # 基础转换（质量尚可）
@@ -40,6 +40,14 @@ ffmpeg -i video_xxx.mp4 -vf fps=10,scale=480:-1 out.gif
 
 # 高质调色板模式（推荐，体积小、无抖动）
 ffmpeg -i video_xxx.mp4 -vf "fps=12,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" out.gif
+```
+
+### 转 MP4（GIF/WebP 等 → MP4）
+
+> 反向转换（图片/动画格式 → MP4）用内置的 **`aigc-cli video --mp4`**：`aigc-cli video --mp4 -i file.gif`，见 [guide-video.md](guide-video.md#媒体转-mp4)。以下原始 ffmpeg 命令保留备查。
+
+```bash
+ffmpeg -i anim.gif -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -crf 20 -pix_fmt yuv420p -movflags +faststart anim.mp4
 ```
 
 ### 截取片段

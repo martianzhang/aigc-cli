@@ -36,6 +36,7 @@ var (
 	vidPreview         bool
 	vidGIF             bool
 	vidGIFWidth        int
+	vidMP4             bool
 	vidCropMargin      string
 	vidFFmpegFlags     string
 )
@@ -102,7 +103,9 @@ aigc-cli video --gif -i pushup.mp4                               # convert an ex
   aigc-cli video --gif -i org.mp4 --crop-margin 40,0               # crop only top/bottom (CSS margin shorthand)
   aigc-cli video --gif -i org.mp4 --crop-margin 0,0,40,0           # crop only the bottom edge
   aigc-cli video --crop-margin 40 -i org.mp4                       # crop a local video, keep the original (no --gif)
-  aigc-cli video -p "a cat" --crop-margin 40                       # crop generated videos, keep the originals`,
+  aigc-cli video -p "a cat" --crop-margin 40                       # crop generated videos, keep the originals
+  aigc-cli video --mp4 -i anim.gif                                 # convert a local GIF/WebP/MOV to MP4
+  aigc-cli video --mp4 -i clip.mov                                 # keep the source resolution`,
 	RunE: runVideo,
 }
 
@@ -116,22 +119,37 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		return runOpenRouterVideoResume(vidJobID)
 	}
 
-	// 本地视频处理：--gif -i <本地> 转 GIF；--crop-margin -i <本地> 裁边（均无 prompt 时纯本地）。
-	// -i 是 --image-url 的简写（对齐 image 命令）；仅当值是本地文件且未给 prompt 时走此分支。
-	if vidPrompt == "" && len(vidImageURLs) > 0 && (vidGIF || vidCropMargin != "") {
-		for _, u := range vidImageURLs {
-			if isFile(u) {
-				if vidGIF {
-					return convertLocalToGIF(u)
-				}
-				return cropLocalVideo(u)
-			}
-		}
-		return fmt.Errorf("--gif/--crop-margin with --image-url/-i and no --prompt requires a local video file, got remote URL: %s", vidImageURLs[0])
+	// --mp4 仅做本地格式转换，与生成/转 GIF 互斥。
+	if vidGIF && vidMP4 {
+		return fmt.Errorf("--gif and --mp4 are mutually exclusive")
+	}
+	if vidMP4 && vidPrompt != "" {
+		return fmt.Errorf("--mp4 converts a local file only: use -i <file> without --prompt")
+	}
+	if vidMP4 && len(vidImageURLs) == 0 {
+		return fmt.Errorf("--mp4 requires a local input file: -i <file>")
 	}
 
-	// GIF/裁边后处理需要 ffmpeg，且 --crop-margin 参数需合法；提前校验避免浪费一次 API 调用。
-	if vidGIF || vidCropMargin != "" {
+	// 本地媒体处理：--gif -i <本地> 转 GIF；--mp4 -i <本地> 转 MP4；--crop-margin -i <本地> 裁边（均无 prompt 时纯本地）。
+	// -i 是 --image-url 的简写（对齐 image 命令）；仅当值是本地文件且未给 prompt 时走此分支。
+	if vidPrompt == "" && len(vidImageURLs) > 0 && (vidGIF || vidMP4 || vidCropMargin != "") {
+		for _, u := range vidImageURLs {
+			if isFile(u) {
+				switch {
+				case vidMP4:
+					return convertLocalToMP4(u)
+				case vidGIF:
+					return convertLocalToGIF(u)
+				default:
+					return cropLocalVideo(u)
+				}
+			}
+		}
+		return fmt.Errorf("--gif/--mp4/--crop-margin with --image-url/-i and no --prompt requires a local file, got remote URL: %s", vidImageURLs[0])
+	}
+
+	// GIF/MP4/裁边后处理需要 ffmpeg，且 --crop-margin 参数需合法；提前校验避免浪费一次 API 调用。
+	if vidGIF || vidMP4 || vidCropMargin != "" {
 		if err := ensureFFmpegAvailable(); err != nil {
 			return err
 		}
@@ -220,7 +238,7 @@ func init() {
 	f.IntVar(&vidSeed, "seed", 0, "Random seed for reproducibility")
 	f.BoolVarP(&vidGenerateAudio, "generate-audio", "a", false, "Generate AI audio for the video")
 	f.BoolVar(&vidReturnLastFrame, "return-last-frame", false, "Return the last frame image URL for continuation")
-	f.StringArrayVarP(&vidImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable); with --gif and no --prompt, converts a local video to GIF")
+	f.StringArrayVarP(&vidImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable); with --gif/--mp4 and no --prompt, converts a local file")
 	f.StringVar(&vidFirstFrame, "first-frame", "", "First frame image URL or local path")
 	f.StringVar(&vidLastFrame, "last-frame", "", "Last frame image URL or local path")
 	f.StringArrayVar(&vidVideoURLs, "video-url", nil, "Reference video URL (repeatable)")
@@ -233,6 +251,7 @@ func init() {
 	f.BoolVar(&vidPreview, "preview", false, "Open generated video with system default player")
 	f.BoolVar(&vidGIF, "gif", false, "Convert generated videos to GIF after download, or convert a local video via -i/--image-url")
 	f.IntVar(&vidGIFWidth, "gif-width", 160, "GIF output width in px (height auto, even)")
+	f.BoolVar(&vidMP4, "mp4", false, "Convert a local media file (GIF/WebP/MOV/…) to MP4 via -i/--image-url (local only, needs ffmpeg)")
 	f.StringVar(&vidCropMargin, "crop-margin", "", `Crop N px from each side (crops exactly what you specify, no extra crop).
 Without a prompt: crops the local video (-i file), the original is kept. With a prompt: crops the AI-generated videos, the originals are kept.
 CSS margin shorthand, comma-separated: 40 (all sides) | 40,0 (top/bottom, left/right) | 40,30,20,10 (top,right,bottom,left)`)

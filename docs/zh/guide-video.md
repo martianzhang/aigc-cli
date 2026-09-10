@@ -182,6 +182,30 @@ aigc-cli video --gif -i org.mp4 --crop-margin 0,0,40,0
 - 生成路径下 `--gif` 同时作用于主生成、VEO3 Remix（`--remix`）和 `--job-id` 恢复三条路径。
 - 本地转换的触发条件：`--gif` + `-i/--image-url` 指定本地视频文件 + **未指定 `--prompt`**。`-i` 是 `--image-url` 的简写（与 `image` 命令一致）。
 
+## 媒体转 MP4
+
+`--mp4` 把本地媒体文件（GIF / WebP / APNG / MOV / MKV / WebM / AVI 等任意 ffmpeg 可解码格式）转成 MP4（H.264 + yuv420p，兼容性最好）。纯本地，不调 API、不消耗额度。
+
+```bash
+# GIF 转 MP4：anim.gif → anim.mp4
+aigc-cli video --mp4 -i anim.gif
+
+# MOV / WebM 等其他格式，音轨会自动保留
+aigc-cli video --mp4 -i clip.mov
+
+# 先裁边再转（输出保持原分辨率）
+aigc-cli video --mp4 -i anim.gif --crop-margin 10
+```
+
+**说明：**
+- 依赖系统 **ffmpeg**（须在 PATH），缺失时会提示安装方式。
+- 输出 `<stem>.mp4`（与输入同目录），**原文件保留**，不覆盖输入。
+- 保持原分辨率（宽高自动取偶，H.264 要求偶数尺寸）；带透明通道的 GIF/WebP 会压成黑底。
+- 源带音轨时自动保留；源无音轨则不产出音轨。
+- 当输出会与输入为同一文件（如直接对 `.mp4` 转换）时直接报错，不覆盖输入。
+- 转换时会把实际执行的 ffmpeg 命令打印到 stdout，可用 `--ffmpeg-flags` 追加额外参数。
+- 与 `--gif` 互斥；只处理本地文件（`-i file` + 无 `--prompt`）。
+
 ## 边缘裁剪（Edge Crop）
 
 `--crop-margin` 可以**单独使用**（不需要 `--gif`），重新编码视频裁掉四周边缘。**原视频始终保留**，输出新文件 `<stem>_crop.mp4`（与输入同目录）。只裁指定的边——例如 `40,0` 只裁上下 40px，左右保持不动。
@@ -214,7 +238,7 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 | `--dry-run` | | 打印 curl 不调用 API |
 | `--seed` | | 随机种子，用于复现 |
 | `--return-last-frame` | | 返回最后一帧用于续拍 |
-| `--image-url` | `-i` | 参考图片 URL 或本地文件（可重复）；配合 `--gif` 且无 `--prompt` 时转换本地视频 |
+| `--image-url` | `-i` | 参考图片 URL 或本地文件（可重复）；配合 `--gif`/`--mp4` 且无 `--prompt` 时转换本地文件 |
 | `--first-frame` | | 首帧图片 |
 | `--last-frame` | | 尾帧图片 |
 | `--video-url` | | 参考视频 URL（可重复） |
@@ -225,6 +249,7 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 | `--save-prompt` | | 保存 prompt 到 `video_{task_id}.md` |
 | `--gif` | | 生成后把视频转成 GIF，或配合 `-i/--image-url` 转换本地视频（需 ffmpeg 在 PATH） |
 | `--gif-width` | | GIF 输出宽度（px），高度自动等比取偶，默认 `160` |
+| `--mp4` | | 把本地媒体文件（GIF/WebP/MOV 等）转成 MP4（`-i file`，需 ffmpeg；与 `--gif` 互斥） |
 | `--crop-margin` | | 裁掉四周边缘：无 prompt 时裁剪本地视频（`-i file`，保留原文件）；有 prompt 时裁剪 AI 生成的视频（保留原视频）。CSS margin 简写：`40`=四边、`40,0`=上下,左右、`40,30,20,10`=上,右,下,左 |
 | `--ffmpeg-flags` | | 追加额外 ffmpeg 参数（高级逃生门，追加在 GIF filter 之后） |
 | `--verbose` | `-v` | 显示请求 JSON 和完整响应（全局 flag） |

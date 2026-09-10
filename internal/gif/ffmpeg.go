@@ -50,7 +50,7 @@ type missingFFmpegError struct{}
 func (e *missingFFmpegError) Error() string {
 	return `ffmpeg not found in PATH.
 
-GIF conversion requires ffmpeg (aigc-cli does NOT bundle it).
+Media conversion requires ffmpeg (aigc-cli does NOT bundle it).
 Install it on your platform:
 
   macOS:    brew install ffmpeg

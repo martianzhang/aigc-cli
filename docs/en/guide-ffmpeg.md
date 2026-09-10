@@ -32,7 +32,7 @@ ffmpeg -i video_xxx.mp4 -frames:v 1 -vf scale=320:-1 thumb.jpg
 
 ### Convert to GIF (social sharing)
 
-> Use the built-in **`aigc-cli video --gif`** for video → GIF: auto-convert after generation (`video -p "..." --gif`) or convert an existing local video (`video --gif -i file.mp4`), see [guide-video.md](guide-video.md#gif-conversion). The raw ffmpeg commands below are kept for reference.
+> Use the built-in **`aigc-cli video --gif`** for video → GIF: auto-convert after generation (`video -p "..." --gif`) or convert an existing local video (`video --gif -i file.mp4`), see [guide-video.md](guide-video.md#gif-conversion). For the reverse (GIF/WebP → MP4), see `video --mp4`. The raw ffmpeg commands below are kept for reference.
 
 ```bash
 # Basic conversion (acceptable quality)
@@ -40,6 +40,14 @@ ffmpeg -i video_xxx.mp4 -vf fps=10,scale=480:-1 out.gif
 
 # High-quality palette mode (recommended: smaller, no banding)
 ffmpeg -i video_xxx.mp4 -vf "fps=12,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" out.gif
+```
+
+### Convert to MP4 (GIF/WebP etc. → MP4)
+
+> For the reverse direction (image/animation → MP4) use the built-in **`aigc-cli video --mp4`**: `aigc-cli video --mp4 -i file.gif`, see [guide-video.md](guide-video.md#media-to-mp4). The raw ffmpeg command below is kept for reference.
+
+```bash
+ffmpeg -i anim.gif -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -crf 20 -pix_fmt yuv420p -movflags +faststart anim.mp4
 ```
 
 ### Clip a Segment
