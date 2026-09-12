@@ -89,7 +89,7 @@ func buildVideoCurl(req *types.VideoGenerateRequest) string {
 	url := base + "/videos/generations"
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", shared.APIKey)
+	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", maskKey(shared.APIKey))
 	cmd += "  -H \"Content-Type: application/json\" \\\n"
 	cmd += fmt.Sprintf("  -d '%s'", string(body))
 	return cmd
@@ -105,7 +105,7 @@ func buildVideoRemixCurl(req *types.VideoRemixRequest) string {
 	url := fmt.Sprintf("%s/videos/%s/remix", base, vidTaskID)
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", shared.APIKey)
+	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", maskKey(shared.APIKey))
 	cmd += "  -H \"Content-Type: application/json\" \\\n"
 	cmd += fmt.Sprintf("  -d '%s'", string(body))
 	return cmd

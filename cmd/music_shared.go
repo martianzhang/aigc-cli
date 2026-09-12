@@ -26,7 +26,7 @@ func buildMusicCurl(baseURL, apiKey string, body any) string {
 	url := base + "/music/generations"
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", apiKey)
+	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", maskKey(apiKey))
 	cmd += "  -H \"Content-Type: application/json\" \\\n"
 	cmd += fmt.Sprintf("  -d '%s'", string(bodyJSON))
 	return cmd

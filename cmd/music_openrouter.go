@@ -62,7 +62,7 @@ func buildOpenRouterMusicCurl(baseURL, apiKey string, req *types.MusicGenerateRe
 	url := base + "/chat/completions"
 
 	cmd := fmt.Sprintf("curl -N -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", apiKey)
+	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", maskKey(apiKey))
 	cmd += "  -H \"Content-Type: application/json\" \\\n"
 	cmd += fmt.Sprintf("  -d '%s'", string(bodyJSON))
 	return cmd

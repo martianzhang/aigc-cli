@@ -139,8 +139,11 @@ func TestBuildMusicCurl(t *testing.T) {
 	if !strings.Contains(curl, "/v1/music/generations") {
 		t.Errorf("curl should contain /v1/music/generations, got:\n%s", curl)
 	}
-	if !strings.Contains(curl, "test-key-123") {
-		t.Error("curl should contain API key")
+	if strings.Contains(curl, "test-key-123") {
+		t.Error("curl must not expose the raw API key")
+	}
+	if !strings.Contains(curl, "-123") {
+		t.Error("curl should contain the masked API key suffix")
 	}
 	if !strings.Contains(curl, "city pop") {
 		t.Error("curl should contain prompt")

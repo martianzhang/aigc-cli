@@ -167,8 +167,8 @@ func TestBuildImageCurl(t *testing.T) {
 	if curl == "" {
 		t.Fatal("buildImageCurl() returned empty string")
 	}
-	if !strings.Contains(curl, "test-key") {
-		t.Error("curl should contain API key")
+	if !strings.Contains(curl, "...-key") {
+		t.Error("curl should contain masked API key")
 	}
 	if !strings.Contains(curl, "gpt-image-2-official") {
 		t.Error("curl should contain model name")
@@ -186,8 +186,8 @@ func TestBuildVideoCurl(t *testing.T) {
 	if curl == "" {
 		t.Fatal("buildVideoCurl() returned empty string")
 	}
-	if !strings.Contains(curl, "test-key") {
-		t.Error("curl should contain API key")
+	if !strings.Contains(curl, "...-key") {
+		t.Error("curl should contain masked API key")
 	}
 	if !strings.Contains(curl, "doubao-seedance-2.0") {
 		t.Error("curl should contain model name")

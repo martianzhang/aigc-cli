@@ -107,7 +107,7 @@ func buildMJCurl(action string, reqBody any) string {
 	url := base + "/midjourney/generations/" + action
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", shared.APIKey)
+	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", maskKey(shared.APIKey))
 	cmd += "  -H \"Content-Type: application/json\" \\\n"
 	cmd += fmt.Sprintf("  -d '%s'", string(body))
 	return cmd

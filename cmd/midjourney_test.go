@@ -28,8 +28,8 @@ func TestBuildMJCurl_imagine(t *testing.T) {
 	if curl == "" {
 		t.Fatal("buildMJCurl() returned empty string")
 	}
-	if !strings.Contains(curl, "test-key-123") {
-		t.Error("curl should contain API key")
+	if !strings.Contains(curl, "...-123") {
+		t.Error("curl should contain masked API key")
 	}
 	if !strings.Contains(curl, "/midjourney/generations/imagine") {
 		t.Error("curl should contain correct MJ path")
