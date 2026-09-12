@@ -56,6 +56,15 @@ audio_*.flac
 audio_*.pcm
 audio_*.md
 
+# Generated music files (music_ prefix)
+music_*.mp3
+music_*.m4a
+music_*.wav
+music_*.flac
+music_*.opus
+music_*.aac
+music_*.md
+
 # Coverage output
 *.out
 
