@@ -131,6 +131,7 @@ aigc-cli chat --message "生成一段日落海滩的视频"
 |---|---|---|
 | `generate_image` | AI 图片生成 | `cmd/image.go: generateImageAndSave` |
 | `generate_video` | AI 视频生成 | `cmd/video.go: generateVideoAndSave` |
+| `generate_music` | AI 音乐生成 | `cmd/music_shared.go: generateMusicAndSave` |
 | `midjourney_imagine` | Midjourney 艺术生图 | `cmd/midjourney.go: midjourneySubmitAndGetText` |
 | `midjourney_describe` | 图片反推提示词 | 同上 |
 | `midjourney_reroll` | 重新生成 MJ 结果 | 同上 |

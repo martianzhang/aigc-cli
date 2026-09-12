@@ -99,6 +99,7 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 | 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 切换 Provider，命令不变 |
 | 🧠 | **Provider 自动适配** | OpenRouter 自动走专用图片/视频 API，零配置 |
 | 🎨 | **Midjourney 完整管线** | 17 子命令覆盖 imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord |
+| 🎵 | **AI 音乐生成** | 自然语言生成音乐：APIMart（suno / flowmusic，异步提交→轮询→下载）与 OpenRouter（Lyria-3，同步流式） |
 | 💬 | **Agentic Chat** | 交互式 REPL 内嵌 `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` 等工具 |
 | 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集 |
 | 🔊 | **本地 TTS / ASR** | sherpa-onnx 离线语音合成（kokoro 53 种音色，中英日韩法）和语音识别（SenseVoice 中文最佳），无需联网 |
@@ -112,18 +113,18 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 
 ## Provider 自动适配
 
-同样的 `image` / `video` / `audio` / `models` 命令，背后走的 API 路径根据 Provider 自动切换：
+同样的 `image` / `video` / `audio` / `music` / `models` 命令，背后走的 API 路径根据 Provider 自动切换：
 
-| Provider | Image | Video | Audio | Models |
-|---|---|---|---|---|
-| **OpenAI** | `POST /v1/images/generations`（同步） | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `GET /v1/models` |
-| **OpenRouter** | `POST /api/v1/images`（专用图片 API） | `POST /api/v1/videos` 异步→轮询→下载 + `--job-id` 恢复 | `POST /api/v1/audio/speech` + `POST /api/v1/audio/transcriptions`（10+ TTS 模型聚合） | `GET /api/v1/images/models` / `GET /api/v1/videos/models`（免认证） |
-| **APIMart** | 异步 Task 提交→轮询→下载 | 异步 Task + VEO3 Remix（延长视频） | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | 市场 API + 模型定价查询 |
-| **Agnes AI** | `POST /v1/images/generations`（同步，像素尺寸） | `POST /v1/videos` 异步→轮询→下载（text/keyframe/reference，720P） | ❌ 暂未发现 | `GET /v1/models` |
-| **云雾 AI** | `POST /v1/images/generations`（sync） | `POST /v1/video/create` + `GET /v1/video/query` | ❌ 暂未发现 | `GET /v1/models` |
-| **Ollama / 本地模型** | `POST /v1/images/generations`（experimental，无需 API Key） | ❌ | 可通过 LocalAI/openedai-speech 等第三方服务 | `GET /v1/models` |
-| **Anthropic** | — | — | `POST /v1/messages`（通过 Anthropic 兼容中转） | — |
-| **通用中转** | `POST /v1/images/generations`（同步） | — | `POST /v1/audio/speech`（透传） | `GET /v1/models` |
+| Provider | Image | Video | Audio | Music | Models |
+|---|---|---|---|---|---|
+| **OpenAI** | `POST /v1/images/generations`（同步） | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | — | `GET /v1/models` |
+| **OpenRouter** | `POST /api/v1/images`（专用图片 API） | `POST /api/v1/videos` 异步→轮询→下载 + `--job-id` 恢复 | `POST /api/v1/audio/speech` + `POST /api/v1/audio/transcriptions`（10+ TTS 模型聚合） | `POST /api/v1/chat/completions`（`modalities: text+audio`）同步流式 — Lyria-3 | `GET /api/v1/images/models` / `GET /api/v1/videos/models`（免认证） |
+| **APIMart** | 异步 Task 提交→轮询→下载 | 异步 Task + VEO3 Remix（延长视频） | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `POST /v1/music/generations` 异步→轮询（`GET /v1/music/tasks/{id}`）— suno / flowmusic | 市场 API + 模型定价查询 |
+| **Agnes AI** | `POST /v1/images/generations`（同步，像素尺寸） | `POST /v1/videos` 异步→轮询→下载（text/keyframe/reference，720P） | ❌ 暂未发现 | — | `GET /v1/models` |
+| **云雾 AI** | `POST /v1/images/generations`（sync） | `POST /v1/video/create` + `GET /v1/video/query` | ❌ 暂未发现 | — | `GET /v1/models` |
+| **Ollama / 本地模型** | `POST /v1/images/generations`（experimental，无需 API Key） | ❌ | 可通过 LocalAI/openedai-speech 等第三方服务 | — | `GET /v1/models` |
+| **Anthropic** | — | — | `POST /v1/messages`（通过 Anthropic 兼容中转） | — | — |
+| **通用中转** | `POST /v1/images/generations`（同步） | — | `POST /v1/audio/speech`（透传） | — | `GET /v1/models` |
 
 > 本地模型 / 服务无需 API Key，aigc-cli 会自动豁免 API Key 检查并跳过 Authorization 头。详见 [docs/zh/installation.md](docs/zh/zh/installation.md)。
 
@@ -143,6 +144,9 @@ aigc-cli
 │   ├── tts / speak  文字→语音（云端 API 或本地 sherpa-onnx 离线合成）
 │   ├── asr / stt    语音→文字（云端 API 或本地 sherpa-onnx 离线识别）
 │   └── init         下载本地模型（kokoro / sense-voice 等 12 种）
+├── music          音乐生成（APIMart suno/flowmusic 异步，OpenRouter Lyria 同步流式）  →  docs/zh/guide-music.md
+│   ├── generate / gen  提交音乐生成任务
+│   └── query           查询音乐任务状态并下载
 ├── ocr            离线文字识别（DBNet + CRNN，ONNX 本地推理）            →  docs/guide-ocr.md
 │   ├── init        下载 OCR 模型
 │   └── scan        识别图片中的文字
@@ -224,6 +228,7 @@ aigc-cli midjourney (或 mj)
 | [安装与配置](docs/zh/installation.md) | 安装、API Key、配置文件、代理 |
 | [图片生成](docs/zh/guide-image.md) | 全部参数、同步/异步模式、图生图、Inpainting |
 | [视频生成](docs/zh/guide-video.md) | 全部参数、首尾帧、参考视频（APIMart） |
+| [音乐生成](docs/zh/guide-music.md) | 自然语言生成音乐：APIMart 异步（suno/flowmusic）、OpenRouter Lyria 同步流式 |
 | [深度转换](docs/zh/guide-depth.md) | 图片/视频 → 深度图，Depth Anything V2 模型，参数说明 |
 | [Midjourney 生成](docs/zh/guide-midjourney.md) | 17 个子命令完整说明：imagine、blend、upscale 等 |
 | [AI 对话](docs/zh/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |

@@ -1,5 +1,9 @@
 # Other Commands
 
+## music
+
+Generate music from a natural-language prompt (APIMart suno/flowmusic async, OpenRouter Lyria sync streaming). See [guide-music.md](guide-music.md).
+
 ## models
 
 Query available models and pricing:

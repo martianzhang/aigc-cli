@@ -27,6 +27,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `generate_image` | Generate images | Paid (API) |
 | `generate_video` | Generate videos | Paid (API) |
 | `generate_speech` | Text-to-speech | Paid/Free |
+| `generate_music` | Generate music (APIMart suno/flowmusic, OpenRouter Lyria) | Paid (API) |
 | `transcribe_audio` | Speech-to-text | Paid/Free |
 | `midjourney_imagine` | Midjourney imagine | Paid (API) |
 | `midjourney_upscale` | Midjourney upscale | Paid (API) |

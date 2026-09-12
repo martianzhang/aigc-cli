@@ -4,6 +4,10 @@
 
 详见 [docs/guide-detect.md](guide-detect.md)。
 
+## 音乐生成
+
+自然语言生成音乐（APIMart suno/flowmusic 异步、OpenRouter Lyria 同步流式），详见 [guide-music.md](guide-music.md)。
+
 ## Shell 补全
 
 生成并启用 shell 命令补全脚本（bash/zsh/fish/powershell）：

@@ -76,6 +76,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `generate_image` | Image generation (text-to-image, image-to-image, inpainting) | ✅ |
 | `generate_video` | Video generation (async submit + poll for result) | ✅ |
 | `generate_speech` | Text-to-speech: convert text to spoken audio (TTS) | ✅ |
+| `generate_music` | Music generation: natural-language music via APIMart (suno/flowmusic) or OpenRouter Lyria | ✅ |
 | `transcribe_audio` | Speech-to-text: transcribe audio file to text (STT) | ✅ |
 | `list_models` | List marketplace models, filterable by type | ❌ |
 | `get_model_pricing` | Query pricing for a specific model | ❌ |

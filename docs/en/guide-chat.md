@@ -36,6 +36,7 @@ In REPL mode, the AI can use built-in tools:
 |---|---|
 | `generate_image` | Generate images |
 | `generate_video` | Generate videos |
+| `generate_music` | Generate music |
 | `midjourney_imagine` | Midjourney text-to-image |
 | `search_ideas` | Search prompt ideas |
 | `kb_find` | Search knowledge base |
