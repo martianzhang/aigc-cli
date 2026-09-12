@@ -18,17 +18,21 @@ import (
 var musicGenerateCmd = &cobra.Command{
 	Use:          "generate",
 	Aliases:      []string{"gen"},
-	Short:        "Generate music (suno / flowmusic)",
+	Short:        "Generate music (suno / flowmusic / Lyria-3)",
 	SilenceUsage: true,
-	Long: `Submit a music generation task.
+	Long: `Submit a music generation request.
 
-The backend is selected by --model: anything containing "flowmusic" uses the
-flowmusic request shape, otherwise suno is used.
+APIMart (default) is async: submit -> poll -> download. --model selects the
+request shape: suno (default) or flowmusic.
+
+OpenRouter is synchronous streaming (Google Lyria-3): select it with
+--provider openrouter and a google/lyria-3-* model.
 
 Examples:
   aigc-cli music generate --prompt "city pop"
   aigc-cli music gen --prompt "rock" --model flowmusic
   aigc-cli music gen --prompt "lofi" --lyrics "..." --instrumental
+  aigc-cli music gen --provider openrouter --model google/lyria-3-pro-preview --prompt "cinematic"
   aigc-cli music gen --json '{"model":"suno","prompt":"jazz"}'`,
 	RunE: runMusicGenerate,
 }

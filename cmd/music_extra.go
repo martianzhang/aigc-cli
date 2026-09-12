@@ -12,9 +12,9 @@ import (
 // ============================================================================
 var musicQueryCmd = &cobra.Command{
 	Use:          "query <task-id>",
-	Short:        "Get music task status and result",
+	Short:        "Get an APIMart music task status and result",
 	SilenceUsage: true,
-	Long: `Query a music task by its task ID.
+	Long: `Query a music task by its task ID (APIMart only; OpenRouter is synchronous).
 
 Example:
   aigc-cli music query task_xxx`,

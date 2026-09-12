@@ -32,6 +32,8 @@ APIMart 是一个 AI API 中转服务平台，兼容 OpenAI 格式并扩展了�
 | `POST /v1/audio/transcriptions` | 语音转文字（STT） | [Whisper](https://docs.apimart.ai/en/api-reference/audios/whisper-1) |
 | `POST /v1/midjourney/generations/{action}` | Midjourney 生成（imagine/blend/upscale 等） | [Midjourney](https://docs.apimart.ai/en) |
 | `GET /v1/midjourney/{task_id}` | 查询 MJ 任务状态 | [Midjourney](https://docs.apimart.ai/en) |
+| `POST /v1/music/generations` | 音乐生成（异步 task，`model` 选 suno / flowmusic） | [Suno](https://docs.apimart.ai/en/api-reference/audios/suno/generation) / [Flow Music](https://docs.apimart.ai/en/api-reference/audios/flow-music/music) |
+| `GET /v1/music/tasks/{task_id}` | 查询音乐任务状态 | [Suno Overview](https://docs.apimart.ai/en/api-reference/audios/suno/overview) |
 | `POST /v1/uploads/images` | 上传图片 | [Uploads](https://docs.apimart.ai/en) |
 | `GET /v1/tasks/{task_id}` | 查询异步任务状态 | [Tasks](https://docs.apimart.ai/en) |
 | `GET /v1/balance` | Token 余额查询 | [Balance](https://docs.apimart.ai/en) |
@@ -107,6 +109,16 @@ OpenRouter 有两种图片生成路径：
 | `POST /api/v1/audio/transcriptions` | 语音转文字（STT）— OpenAI 兼容 | [STT Guide](https://openrouter.ai/docs/guides/overview/multimodal/stt) |
 | `GET /v1/models?output_modalities=speech` | 发现 TTS 模型 | [Model Discovery](https://openrouter.ai/docs/guides/overview/multimodal/tts#model-discovery) |
 | `GET /v1/models?output_modalities=transcription` | 发现 STT 模型 | [STT Model Discovery](https://openrouter.ai/docs/guides/overview/multimodal/stt#model-discovery) |
+
+### 3.6 音乐生成（Lyria-3）
+
+音乐模型走标准 chat completions 端点，通过 `modalities` 开启音频输出，且**必须流式**（`stream: true`）；音频以 base64 分片返回在 `choices[].delta.audio.data`。
+
+| 端点 | 用途 | 参考链接 |
+|---|---|---|
+| `POST /v1/chat/completions` | Google Lyria-3 音乐生成（`modalities: ["text","audio"]`，`stream: true`） | [Lyria 3 Clip](https://openrouter.ai/google/lyria-3-clip-preview) / [Lyria 3 Pro](https://openrouter.ai/google/lyria-3-pro-preview) |
+
+> 模型：`google/lyria-3-clip-preview`（约 30 秒 mp3）、`google/lyria-3-pro-preview`（数分钟 mp3/wav）。该模型可能受地区限制（403），必要时经代理访问。
 
 ### 3.4 OpenRouter 特有 Header
 
@@ -187,6 +199,17 @@ Yunwu:      域名包含 yunwu.ai
 | 2 | 云雾 Yunwu | 云雾视频 API | `POST /v1/video/create` |
 | 3 | 默认（兜底） | APIMart 异步任务 | `POST /v1/videos/generations` |
 
+### `music` 策略表（`cmd/music_generate.go` / `cmd/music_shared.go`）
+
+按 Provider 类型分派（非 match-run 表）：
+
+| 条件 | 路由目标 | 使用的端点 |
+|---|---|---|
+| OpenRouter 域名 | 同步流式（Google Lyria-3），一次调用返回音频 | `POST /v1/chat/completions`（`modalities: ["text","audio"]`, `stream: true`） |
+| 默认（兜底，含 APIMart） | APIMart 异步任务 → 轮询 → 下载 | `POST /v1/music/generations` → `GET /v1/music/tasks/{task_id}` |
+
+`suno` / `flowmusic` 由请求体的 `model` 字段区分（名称含 `flowmusic` 走 flowmusic）。
+
 ### `models` 策略表（`cmd/models.go`）
 
 | 条件 | 路由目标 | 端点 |
@@ -202,3 +225,4 @@ Yunwu:      域名包含 yunwu.ai
 | 日期 | 变更 | 说明 |
 |---|---|---|
 | 2026-06-29 | 初始创建 | 记录各 Provider 的 API 参考来源 |
+| 2026-09-12 | 新增 music | APIMart suno/flowmusic 异步、OpenRouter Lyria-3 同步流式 |

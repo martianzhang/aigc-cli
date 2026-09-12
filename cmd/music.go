@@ -45,24 +45,25 @@ var (
 // ============================================================================
 var musicCmd = &cobra.Command{
 	Use:          "music",
-	Short:        "AI music generation (APIMart: suno / flowmusic)",
+	Short:        "AI music generation (APIMart suno/flowmusic, OpenRouter Lyria-3)",
 	SilenceUsage: true,
-	Long: `Generate music via the APIMart music API.
+	Long: `Generate music from a natural-language prompt.
 
-Music uses an async task model — you submit a job, get a task_id, then poll
-for results. Both endpoints live under /v1/music/.
-
-The --model flag selects the backend:
-  suno       (default) — prompt/lyrics/style/title, optional duration/format
-  flowmusic            — sound_prompt/lyrics/title/length
+The backend is selected by Provider:
+  APIMart (default)  async: submit -> poll -> download
+    --model suno (default) — prompt/lyrics/style/title, optional duration/format
+    --model flowmusic      — sound_prompt/lyrics/title/length
+  OpenRouter         synchronous streaming (Google Lyria-3)
+    --provider openrouter --model google/lyria-3-clip-preview (or -pro-preview)
 
 Subcommands:
   generate (gen)   Submit a music generation task
-  query            Get music task status and result
+  query            Get an APIMart music task status and result
 
 Examples:
   aigc-cli music generate --prompt "city pop"
   aigc-cli music gen --prompt "rock" --model flowmusic
+  aigc-cli music gen --provider openrouter --model google/lyria-3-clip-preview --prompt "ambient"
   aigc-cli music query task_xxx`,
 }
 

@@ -4,12 +4,12 @@ This document lists the API specification sources used by aigc-cli's provider de
 
 ## Provider API Sources
 
-| Provider | Base URL | Image API | Video API |
-|---|---|---|---|
-| OpenAI | `https://api.openai.com/v1` | `POST /v1/images/generations` | — |
-| OpenRouter | `https://openrouter.ai/api/v1` | `POST /api/v1/images` | `POST /api/v1/videos` |
-| APIMart | `https://api.apimart.ai` | Async task | Async task + VEO3 Remix |
-| Yunwu AI | detector | — | `POST /v1/video/create` |
+| Provider | Base URL | Image API | Video API | Music API |
+|---|---|---|---|---|
+| OpenAI | `https://api.openai.com/v1` | `POST /v1/images/generations` | — | — |
+| OpenRouter | `https://openrouter.ai/api/v1` | `POST /api/v1/images` | `POST /api/v1/videos` | `POST /api/v1/chat/completions` (Lyria-3, sync streaming) |
+| APIMart | `https://api.apimart.ai` | Async task | Async task + VEO3 Remix | `POST /v1/music/generations` (async, suno/flowmusic via `model`) |
+| Yunwu AI | detector | — | `POST /v1/video/create` | — |
 
 ## Detection Logic
 
@@ -36,6 +36,8 @@ imageStrategies:
     run: Async task submit → poll → download
 ```
 
+`music` does not use a table; it dispatches directly on the detected provider: OpenRouter → sync streaming `POST /v1/chat/completions` (`modalities: ["text","audio"]`, `stream: true`), otherwise APIMart async `POST /v1/music/generations` → `GET /v1/music/tasks/{task_id}`.
+
 ## Web Search Providers
 
 | Provider | API | Pricing |
@@ -48,6 +50,13 @@ imageStrategies:
 ## Midjourney API
 
 aigc-cli translates Midjourney subcommands to the provider's API format. Currently supports APIMart Midjourney API.
+
+## Music API
+
+| Provider | Endpoint | Mode |
+|---|---|---|
+| APIMart | `POST /v1/music/generations` → `GET /v1/music/tasks/{task_id}` | Async; `model` selects `suno` (default) or `flowmusic` |
+| OpenRouter | `POST /api/v1/chat/completions` (`modalities: ["text","audio"]`, `stream: true`) | Sync streaming; Google Lyria-3 (`google/lyria-3-clip-preview` / `-pro-preview`) |
 
 ## AIGC Detection Signals
 
