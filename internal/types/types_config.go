@@ -115,6 +115,7 @@ type ConfigDefaults struct {
 	Image         *ImageDefaults      `mapstructure:"image" yaml:"image"`
 	Video         *VideoDefaults      `mapstructure:"video" yaml:"video"`
 	Midjourney    *MidjourneyDefaults `mapstructure:"midjourney" yaml:"midjourney"`
+	Music         *MusicDefaults      `mapstructure:"music" yaml:"music,omitempty"`
 	Chat          *ChatDefaults       `mapstructure:"chat" yaml:"chat"`
 	Audio         *AudioDefaults      `mapstructure:"audio" yaml:"audio"`
 	OCR           *OCRDefaults        `mapstructure:"ocr" yaml:"ocr,omitempty"`

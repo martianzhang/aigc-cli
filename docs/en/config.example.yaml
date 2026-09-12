@@ -60,6 +60,7 @@ base_url: "https://api.apimart.ai"
 #   - "generate_image"     # Image generation
 #   - "generate_video"     # Video generation
 #   - "generate_speech"    # TTS speech synthesis
+#   - "generate_music"     # AI music generation
 #   - "transcribe_audio"   # STT speech recognition
 #   - "midjourney_*"       # Midjourney suite (imagine/describe/reroll/video etc.)
 
@@ -138,6 +139,13 @@ defaults:
   midjourney:
     speed: "fast"
     version: "6.1"
+
+  music:
+    # provider: "apimart"
+    model: "suno"                # suno | flowmusic (flowmusic if the name contains it)
+    # instrumental: false        # true = no vocals
+    # duration: 120              # seconds (suno: duration, flowmusic: length)
+    # format: "mp3"              # audio format (suno backend only)
 
   chat:
     model: "deepseek-v4-flash"

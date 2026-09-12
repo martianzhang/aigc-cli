@@ -38,6 +38,7 @@ const (
 	ImageTimeout = 180 * time.Second
 	VideoTimeout = 600 * time.Second
 	MJTimeout    = 600 * time.Second
+	MusicTimeout = 600 * time.Second
 	AudioTimeout = 120 * time.Second
 )
 

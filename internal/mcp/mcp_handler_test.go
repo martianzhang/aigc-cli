@@ -86,6 +86,18 @@ func (m *mockAPIClient) MidjourneyGetTask(taskID string) (*types.MJTaskData, err
 func (m *mockAPIClient) MidjourneyPollTask(taskID string) (*types.MJTaskData, error) {
 	return nil, nil
 }
+func (m *mockAPIClient) MusicSubmit(reqBody any) (*types.MusicSubmitResponse, error) {
+	return nil, nil
+}
+func (m *mockAPIClient) MusicGetTask(taskID string) (*types.MusicTaskData, error) {
+	return nil, nil
+}
+func (m *mockAPIClient) MusicPollTask(taskID string) (*types.MusicTaskData, error) {
+	return nil, nil
+}
+func (m *mockAPIClient) OpenRouterMusicGenerate(req *types.OpenRouterMusicRequest) ([]byte, string, error) {
+	return nil, "", nil
+}
 func (m *mockAPIClient) AudioSpeech(req *types.AudioSpeechRequest) ([]byte, string, error) {
 	return nil, "", nil
 }

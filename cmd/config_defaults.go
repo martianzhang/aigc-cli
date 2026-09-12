@@ -37,6 +37,11 @@ func midjourneyDefaults() *types.MidjourneyDefaults {
 	return field(defaultsOrNil(), func(d *types.ConfigDefaults) *types.MidjourneyDefaults { return d.Midjourney })
 }
 
+// musicDefaults returns defaults.music, or nil.
+func musicDefaults() *types.MusicDefaults {
+	return field(defaultsOrNil(), func(d *types.ConfigDefaults) *types.MusicDefaults { return d.Music })
+}
+
 // detectConfig returns the top-level detect section, or nil.
 func detectConfig() *types.DetectConfig {
 	return field(shared.Cfg, func(c *types.Config) *types.DetectConfig { return c.Detect })

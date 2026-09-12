@@ -58,6 +58,7 @@ base_url: "https://api.apimart.ai"
 #   - "generate_image"     # 图片生成
 #   - "generate_video"     # 视频生成
 #   - "generate_speech"    # TTS 语音合成
+#   - "generate_music"     # AI 音乐生成
 #   - "transcribe_audio"   # STT 语音识别
 #   - "midjourney_*"       # Midjourney 全套（含 imagine/describe/reroll/video 等）
 
@@ -138,6 +139,13 @@ defaults:
   midjourney:
     speed: "fast"
     version: "6.1"
+
+  music:
+    # provider: "apimart"
+    model: "suno"                # suno | flowmusic（名称含 flowmusic 走 flowmusic 后端）
+    # instrumental: false        # 纯音乐（无人声）
+    # duration: 120              # 时长（秒），suno 用 duration，flowmusic 用 length
+    # format: "mp3"              # 音频格式（仅 suno 后端）
 
   chat:
     model: "deepseek-v4-flash"

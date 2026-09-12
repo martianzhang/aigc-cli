@@ -36,6 +36,10 @@ type APIClient interface {
 	MidjourneySubmit(action string, reqBody any) (*types.MJSubmitResponse, error)
 	MidjourneyGetTask(taskID string) (*types.MJTaskData, error)
 	MidjourneyPollTask(taskID string) (*types.MJTaskData, error)
+	MusicSubmit(reqBody any) (*types.MusicSubmitResponse, error)
+	MusicGetTask(taskID string) (*types.MusicTaskData, error)
+	MusicPollTask(taskID string) (*types.MusicTaskData, error)
+	OpenRouterMusicGenerate(req *types.OpenRouterMusicRequest) ([]byte, string, error)
 
 	// Audio (TTS/STT)
 	AudioSpeech(req *types.AudioSpeechRequest) ([]byte, string, error)

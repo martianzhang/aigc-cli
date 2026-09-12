@@ -70,6 +70,10 @@ func applyTimeout(c client.APIClient, modKey string, modDefault time.Duration) {
 				if cfg.Defaults.Midjourney != nil {
 					modTimeout = cfg.Defaults.Midjourney.Timeout
 				}
+			case "music":
+				if cfg.Defaults.Music != nil {
+					modTimeout = cfg.Defaults.Music.Timeout
+				}
 			case "audio":
 				if cfg.Defaults.Audio != nil {
 					modTimeout = cfg.Defaults.Audio.Timeout

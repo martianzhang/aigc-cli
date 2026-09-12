@@ -42,6 +42,7 @@ const (
 	ProviderNameChat       = "chat"
 	ProviderNameAudio      = "audio"
 	ProviderNameMidjourney = "midjourney"
+	ProviderNameMusic      = "music"
 	ProviderNameModels     = "models"
 	ProviderNameOCR        = "ocr"
 	ProviderNameVision     = "vision"
@@ -152,6 +153,12 @@ var cmdProviderMap = map[string]cmdProviderInfo{
 	ProviderNameMidjourney: {func(d *types.ConfigDefaults) (string, string) {
 		if d.Midjourney != nil {
 			return d.Midjourney.Provider, ""
+		}
+		return "", ""
+	}},
+	ProviderNameMusic: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Music != nil {
+			return d.Music.Provider, d.Music.Model
 		}
 		return "", ""
 	}},

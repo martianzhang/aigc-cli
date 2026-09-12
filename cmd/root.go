@@ -260,6 +260,7 @@ func printCmdProviders() {
 		{"chat", ProviderNameChat},
 		{"audio", ProviderNameAudio},
 		{"midjourney", ProviderNameMidjourney},
+		{"music", ProviderNameMusic},
 		{"ocr", ProviderNameOCR},
 		{"vision", ProviderNameVision},
 		{"detect", ProviderNameDetect},
@@ -320,6 +321,9 @@ func applyCLIOverrides(cmd *cobra.Command, defaults *types.ConfigDefaults) map[s
 	if defaults.Midjourney == nil {
 		defaults.Midjourney = &types.MidjourneyDefaults{}
 	}
+	if defaults.Music == nil {
+		defaults.Music = &types.MusicDefaults{}
+	}
 	if defaults.Chat == nil {
 		defaults.Chat = &types.ChatDefaults{}
 	}
@@ -331,6 +335,7 @@ func applyCLIOverrides(cmd *cobra.Command, defaults *types.ConfigDefaults) map[s
 	}
 	isMJ := parent == "midjourney" || parent == "mj" ||
 		sub == "midjourney" || sub == "mj"
+	isMusic := parent == "music" || sub == "music"
 	fs := cmd.Flags()
 	inh := cmd.InheritedFlags()
 
@@ -343,6 +348,8 @@ func applyCLIOverrides(cmd *cobra.Command, defaults *types.ConfigDefaults) map[s
 		overrideStruct(fs, inh, defaults.Chat, "chat", overrides)
 	case isMJ:
 		overrideStruct(fs, inh, defaults.Midjourney, "midjourney", overrides)
+	case isMusic:
+		overrideStruct(fs, inh, defaults.Music, "music", overrides)
 	default:
 		// Root command: apply --model to all applicable sections
 		for _, s := range []struct {
