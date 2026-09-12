@@ -47,6 +47,7 @@ Example MCP host config:
 			ProviderNameVideo:      shared.ResolveProvider(ProviderNameVideo),
 			ProviderNameChat:       shared.ResolveProvider(ProviderNameChat),
 			ProviderNameAudio:      shared.ResolveProvider(ProviderNameAudio),
+			ProviderNameMusic:      shared.ResolveProvider(ProviderNameMusic),
 			ProviderNameMidjourney: shared.ResolveProvider(ProviderNameMidjourney),
 		}
 

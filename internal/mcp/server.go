@@ -97,6 +97,28 @@ func buildVideoDesc(d *types.VideoDefaults, baseURL string) string {
 	return b.String()
 }
 
+// buildMusicDesc builds the generate_music tool description with config defaults injected.
+func buildMusicDesc(d *types.MusicDefaults, baseURL string) string {
+	b := new(strings.Builder)
+	p := provider.Detect(baseURL)
+	fmt.Fprintf(b, "Generate music via %s.\n\n", p)
+	if d != nil {
+		fmt.Fprintf(b, "  model = %s", d.Model)
+		if d.Instrumental != nil {
+			fmt.Fprintf(b, " | instrumental = %t", *d.Instrumental)
+		}
+		if d.Duration != nil {
+			fmt.Fprintf(b, " | duration = %ds", *d.Duration)
+		}
+		if d.Format != "" {
+			fmt.Fprintf(b, " | format = %s", d.Format)
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString("\nStrategy: Parameters already have defaults. Only set when the user explicitly specifies a value. Audio is saved to local files — do NOT invent URLs.\n")
+	return b.String()
+}
+
 // buildAudioDesc builds the generate_speech tool description with config defaults injected.
 func buildAudioDesc(d *types.AudioDefaults, baseURL string) string {
 	b := new(strings.Builder)
@@ -119,6 +141,7 @@ type toolInfo struct {
 var toolRegistry = []toolInfo{
 	{"generate_image", "Generate images via AI", newGenerateImageTool, func(cfg *Config) server.ToolHandlerFunc { return generateImageHandler(cfg) }},
 	{"generate_video", "Generate videos via AI (async submit → poll)", newGenerateVideoTool, func(cfg *Config) server.ToolHandlerFunc { return generateVideoHandler(cfg) }},
+	{"generate_music", "Generate music via AI (async submit → poll)", newGenerateMusicTool, func(cfg *Config) server.ToolHandlerFunc { return generateMusicHandler(cfg) }},
 	{"generate_speech", "Convert text to speech (TTS)", newGenerateSpeechTool, func(cfg *Config) server.ToolHandlerFunc { return generateSpeechHandler(cfg) }},
 	{"transcribe_audio", "Transcribe audio to text (STT)", newTranscribeAudioTool, func(cfg *Config) server.ToolHandlerFunc { return transcribeAudioHandler(cfg) }},
 	{"list_models", "List available models", func(desc string) mcp.Tool { return newListModelsTool() }, func(cfg *Config) server.ToolHandlerFunc { return listModelsHandler() }},
@@ -155,10 +178,12 @@ func NewServer(cfg *Config) *server.MCPServer {
 
 	imgDesc := buildImageDesc(cfg.Defaults.Image, cfg.BaseURL)
 	videoDesc := buildVideoDesc(cfg.Defaults.Video, cfg.BaseURL)
+	musicDesc := buildMusicDesc(cfg.Defaults.Music, cfg.BaseURL)
 	audioDesc := buildAudioDesc(cfg.Defaults.Audio, cfg.BaseURL)
 	toolDescriptions := map[string]string{
 		"generate_image":   imgDesc,
 		"generate_video":   videoDesc,
+		"generate_music":   musicDesc,
 		"generate_speech":  audioDesc,
 		"transcribe_audio": audioDesc,
 	}
@@ -304,6 +329,26 @@ func newGenerateVideoTool(desc string) mcp.Tool {
 		),
 		mcp.WithString("crop_margin",
 			mcp.Description("Crop N px from each side before GIF conversion (CSS margin shorthand: 40 | 40,0 | 40,30,20,10 = top,right,bottom,left)"),
+		),
+	)
+	return t
+}
+
+func newGenerateMusicTool(desc string) mcp.Tool {
+	t := mcp.NewTool("generate_music",
+		mcp.WithDescription(desc),
+		mcp.WithString("prompt",
+			mcp.Required(),
+			mcp.Description("Music description / prompt (genre, mood, instruments, etc.)"),
+		),
+		mcp.WithString("model",
+			mcp.Description("Override the config default model (e.g. suno, flowmusic, google/lyria-3-clip-preview)"),
+		),
+		mcp.WithInteger("duration",
+			mcp.Description("Target duration in seconds, override config default"),
+		),
+		mcp.WithBoolean("instrumental",
+			mcp.Description("Generate instrumental music only (no vocals)"),
 		),
 	)
 	return t

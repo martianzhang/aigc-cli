@@ -536,6 +536,200 @@ func mcpAPIMartVideo(c client.APIClient, req *types.VideoGenerateRequest, output
 	return saved, nil
 }
 
+// generateMusicHandler creates the handler for generate_music, capturing the config.
+// Supports APIMart (suno / flowmusic async task) and OpenRouter (Google Lyria sync streaming).
+func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		p := cfg.cmdProvider("music")
+		if p.RequiresAPIKey() {
+			return mcp.NewToolResultError("API Key not configured"), nil
+		}
+
+		prompt, err := request.RequireString("prompt")
+		if err != nil {
+			return mcp.NewToolResultError("prompt is required"), nil
+		}
+
+		req := &types.MusicGenerateRequest{
+			Model:  request.GetString("model", ""),
+			Prompt: prompt,
+		}
+		if d := request.GetInt("duration", 0); d > 0 {
+			v := d
+			req.Duration = &v
+		}
+		if request.GetBool("instrumental", false) {
+			v := true
+			req.Instrumental = &v
+		}
+
+		// Merge config defaults
+		if musicCfg := cfg.Defaults.Music; musicCfg != nil {
+			musicCfg.MergeIntoMusic(req)
+		}
+
+		c := client.NewFromProvider(p)
+
+		var saved []string
+		switch p.ProviderType {
+		case provider.OpenRouter:
+			saved, err = mcpOpenRouterMusic(c, req, cfg.Output)
+		default:
+			saved, err = mcpAPIMartMusic(c, req, cfg.Output)
+		}
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		lines := []string{"音乐生成完成。"}
+		lines = append(lines, "")
+		lines = append(lines, "已保存的音乐:")
+		for _, f := range saved {
+			lines = append(lines, fmt.Sprintf("  %s", f))
+		}
+		return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
+	}
+}
+
+// mcpOpenRouterMusic streams a music generation via OpenRouter's chat
+// completions endpoint and saves the decoded audio to outputDir.
+func mcpOpenRouterMusic(c client.APIClient, req *types.MusicGenerateRequest, outputDir string) ([]string, error) {
+	model := req.Model
+	if model == "" {
+		model = "google/lyria-3-clip-preview"
+	}
+
+	text := req.Prompt
+	if req.Instrumental != nil && *req.Instrumental {
+		text = "[Instrumental] " + text
+	}
+	if req.Duration != nil {
+		text += fmt.Sprintf("\n\nTarget duration: about %d seconds.", *req.Duration)
+	}
+
+	format := req.Format
+	if format == "" {
+		format = "mp3"
+	}
+
+	orReq := &types.OpenRouterMusicRequest{
+		Model:      model,
+		Messages:   []types.OpenRouterMusicMessage{{Role: "user", Content: text}},
+		Modalities: []string{"text", "audio"},
+		Audio:      &types.OpenRouterAudioConfig{Format: format},
+		Stream:     true,
+	}
+
+	audio, _, err := c.OpenRouterMusicGenerate(orReq)
+	if err != nil {
+		return nil, fmt.Errorf("OpenRouter music generation failed: %w", err)
+	}
+
+	ts := time.Now().Unix()
+	filename := filepath.Join(outputDir, fmt.Sprintf("music_%d.%s", ts, format))
+	if err := os.WriteFile(filename, audio, 0644); err != nil {
+		return nil, fmt.Errorf("failed to save music: %w", err)
+	}
+	return []string{filename}, nil
+}
+
+// mcpAPIMartMusic submits an APIMart music task, polls to completion, and downloads the tracks.
+func mcpAPIMartMusic(c client.APIClient, req *types.MusicGenerateRequest, outputDir string) ([]string, error) {
+	body := buildMCPMusicBody(req)
+
+	resp, err := c.MusicSubmit(body)
+	if err != nil {
+		return nil, fmt.Errorf("music submission failed: %w", err)
+	}
+	if len(resp.Data) == 0 {
+		return nil, fmt.Errorf("submission returned no tasks")
+	}
+
+	taskData, err := c.MusicPollTask(resp.Data[0].TaskID)
+	if err != nil {
+		return nil, fmt.Errorf("task polling failed: %w", err)
+	}
+	if taskData.Result == nil || len(taskData.Result.Music) == 0 {
+		return nil, fmt.Errorf("task completed but no music found")
+	}
+
+	var saved []string
+	for i, track := range taskData.Result.Music {
+		url := mcpMusicTrackURL(track)
+		if url == "" {
+			continue
+		}
+		filename, dlErr := service.DownloadFile(url, outputDir, fmt.Sprintf("music_%s_%d", taskData.ID, i))
+		if dlErr != nil {
+			return saved, fmt.Errorf("failed to download music %d: %w", i, dlErr)
+		}
+		saved = append(saved, filename)
+	}
+	if len(saved) == 0 {
+		return nil, fmt.Errorf("task completed but no downloadable music found")
+	}
+	return saved, nil
+}
+
+// buildMCPMusicBody maps a typed request to the backend-native music body.
+// The MCP tool exposes only prompt/model/duration/instrumental, so the suno and
+// flowmusic shapes are built from those plus format.
+func buildMCPMusicBody(req *types.MusicGenerateRequest) map[string]any {
+	model := req.Model
+	if model == "" {
+		model = "suno"
+	}
+	backend := "suno"
+	if strings.Contains(strings.ToLower(model), "flowmusic") {
+		backend = "flowmusic"
+	}
+
+	body := map[string]any{"model": model}
+	if backend == "flowmusic" {
+		body["sound_prompt"] = req.Prompt
+		length := 120
+		if req.Duration != nil {
+			length = *req.Duration
+		}
+		body["length"] = length
+		return body
+	}
+
+	instrumental := false
+	if req.Instrumental != nil {
+		instrumental = *req.Instrumental
+	}
+	body["instrumental"] = instrumental
+	body["custom"] = false
+	if req.Prompt != "" {
+		body["prompt"] = req.Prompt
+	}
+	body["version"] = "v6"
+	if req.Duration != nil {
+		body["duration"] = *req.Duration
+	}
+	if req.Format != "" {
+		body["audio_format"] = req.Format
+	}
+	return body
+}
+
+// mcpMusicTrackURL picks the preferred downloadable URL from a track.
+func mcpMusicTrackURL(track types.MusicTrack) string {
+	switch {
+	case track.AudioURL != "":
+		return track.AudioURL
+	case track.WAVURL != "":
+		return track.WAVURL
+	case track.FileURL != "":
+		return track.FileURL
+	case track.VideoURL != "":
+		return track.VideoURL
+	default:
+		return ""
+	}
+}
+
 // generateSpeechHandler creates the handler for generate_speech, capturing the config.
 func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

@@ -85,6 +85,8 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeGenerateImage(c, args)
 	case "generate_video":
 		return executeGenerateVideo(c, args)
+	case "generate_music":
+		return executeGenerateMusic(c, args)
 	case "midjourney_imagine", "midjourney_describe", "midjourney_reroll", "midjourney_video":
 		return executeMidjourney(c, tc.Function.Name, args)
 	case "search_ideas":
@@ -231,6 +233,35 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 	}
 
 	return fmt.Sprintf("Successfully generated %d video(s).\nFiles saved locally:\n  %s\nUser can use /preview to view them.", len(saved), strings.Join(saved, "\n  "))
+}
+
+// executeGenerateMusic runs music generation and returns a text summary for the LLM.
+// Uses defaults.music from config, NOT the chat model (shared.Model).
+func executeGenerateMusic(c *client.Client, argsJSON string) string {
+	var args generateMusicArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+
+	req := &types.MusicGenerateRequest{
+		Prompt: args.Prompt,
+		Model:  args.Model,
+	}
+	if args.Duration > 0 {
+		v := args.Duration
+		req.Duration = &v
+	}
+	if args.Instrumental {
+		v := true
+		req.Instrumental = &v
+	}
+
+	saved, err := generateMusicAndSave(c, req)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	return fmt.Sprintf("Successfully generated %d music file(s).\nFiles saved locally:\n  %s\nUser can use /preview to play them.", len(saved), strings.Join(saved, "\n  "))
 }
 
 // executeConvertDepth converts an image or video to a grayscale depth map

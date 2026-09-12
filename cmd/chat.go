@@ -144,6 +144,14 @@ type generateVideoArgs struct {
 	Resolution string `json:"resolution,omitempty"`
 }
 
+// generateMusicArgs is the JSON structure for generate_music tool arguments.
+type generateMusicArgs struct {
+	Prompt       string `json:"prompt"`
+	Model        string `json:"model,omitempty"`
+	Duration     int    `json:"duration,omitempty"`
+	Instrumental bool   `json:"instrumental,omitempty"`
+}
+
 // watermarkArgs is the JSON structure for watermark tools.
 type watermarkArgs struct {
 	FilePath   string `json:"file_path"`

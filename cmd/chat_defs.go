@@ -40,6 +40,23 @@ var agentToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "generate_music",
+			Description: "Generate music based on a text description. Audio is saved to local files — do NOT invent URLs. Use this when the user asks you to create, generate, or make music or a song.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"prompt": {"type": "string", "description": "Detailed text description of the music to generate (genre, mood, instruments, etc.)"},
+					"model": {"type": "string", "description": "Override the config default model (e.g. suno, flowmusic, google/lyria-3-clip-preview)"},
+					"duration": {"type": "integer", "description": "Target duration in seconds"},
+					"instrumental": {"type": "boolean", "description": "Generate instrumental music only (no vocals)"}
+				},
+				"required": ["prompt"]
+			}`),
+		},
+	},
 	// --- Midjourney tools ---
 	{
 		Type: "function",
