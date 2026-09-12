@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -238,5 +239,21 @@ func TestBuildOpenRouterMusicCurl_addsVersionSuffix(t *testing.T) {
 	curl := buildOpenRouterMusicCurl("https://openrouter.ai", "sk-x", &types.MusicGenerateRequest{Prompt: "lofi"})
 	if !strings.Contains(curl, "https://openrouter.ai/v1/chat/completions") {
 		t.Errorf("curl should add /v1, got:\n%s", curl)
+	}
+}
+
+func TestMusicTaskResponse_flexibleDuration(t *testing.T) {
+	raw := `{"code":200,"data":{"id":"t1","status":"completed","progress":100,` +
+		`"result":{"music":[{"clip_id":"c1","title":"x","duration":"181.70666667",` +
+		`"duration_seconds":"181.70666667","audio_url":"https://example.com/a.m4a"}]}}}`
+	var resp types.MusicTaskResponse
+	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
+		t.Fatalf("unmarshal flowmusic task: %v", err)
+	}
+	if len(resp.Data.Result.Music) != 1 {
+		t.Fatalf("tracks = %d, want 1", len(resp.Data.Result.Music))
+	}
+	if got := float64(resp.Data.Result.Music[0].Duration); got != 181.70666667 {
+		t.Errorf("duration = %v, want 181.70666667", got)
 	}
 }

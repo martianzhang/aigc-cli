@@ -1,5 +1,11 @@
 package types
 
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
 // MusicDefaults holds default values for music generation.
 // Note: provider-specific request shape and last-resort values (suno vs
 // flowmusic fields) live in code, not here.
@@ -86,18 +92,36 @@ type MusicTaskResult struct {
 // MusicTrack is the union of the suno and flowmusic track shapes.
 // DurationSeconds is a string because the flowmusic backend returns it as one.
 type MusicTrack struct {
-	AudioID         string  `json:"audio_id,omitempty"`
-	ClipID          string  `json:"clip_id,omitempty"`
-	Title           string  `json:"title,omitempty"`
-	Lyrics          string  `json:"lyrics,omitempty"`
-	Tags            string  `json:"tags,omitempty"`
-	DurationSeconds string  `json:"duration_seconds,omitempty"`
-	AudioURL        string  `json:"audio_url,omitempty"`
-	WAVURL          string  `json:"wav_url,omitempty"`
-	ImageURL        string  `json:"image_url,omitempty"`
-	VideoURL        string  `json:"video_url,omitempty"`
-	FileURL         string  `json:"file_url,omitempty"`
-	Duration        float64 `json:"duration,omitempty"`
+	AudioID         string    `json:"audio_id,omitempty"`
+	ClipID          string    `json:"clip_id,omitempty"`
+	Title           string    `json:"title,omitempty"`
+	Lyrics          string    `json:"lyrics,omitempty"`
+	Tags            string    `json:"tags,omitempty"`
+	DurationSeconds string    `json:"duration_seconds,omitempty"`
+	AudioURL        string    `json:"audio_url,omitempty"`
+	WAVURL          string    `json:"wav_url,omitempty"`
+	ImageURL        string    `json:"image_url,omitempty"`
+	VideoURL        string    `json:"video_url,omitempty"`
+	FileURL         string    `json:"file_url,omitempty"`
+	Duration        FlexFloat `json:"duration,omitempty"`
+}
+
+// FlexFloat unmarshals from either a JSON number or a numeric string.
+// Some music backends (flowmusic) return duration as a quoted number.
+type FlexFloat float64
+
+// UnmarshalJSON accepts a JSON number or a numeric string; empty and null are 0.
+func (f *FlexFloat) UnmarshalJSON(data []byte) error {
+	s := strings.Trim(string(data), `"`)
+	if s == "" || s == "null" {
+		return nil
+	}
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return fmt.Errorf("invalid numeric value %q: %w", s, err)
+	}
+	*f = FlexFloat(v)
+	return nil
 }
 
 // MusicTaskError describes a failed music task.

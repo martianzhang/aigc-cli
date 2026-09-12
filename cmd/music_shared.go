@@ -104,8 +104,8 @@ func displayMusicResult(task *types.MusicTaskData) {
 			}
 			fmt.Printf("Track %d: %s\n", i+1, title)
 			switch {
-			case track.Duration > 0:
-				fmt.Printf("  Duration: %.1fs\n", track.Duration)
+			case float64(track.Duration) > 0:
+				fmt.Printf("  Duration: %.1fs\n", float64(track.Duration))
 			case track.DurationSeconds != "":
 				fmt.Printf("  Duration: %ss\n", track.DurationSeconds)
 			}
