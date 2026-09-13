@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbletea"
 
+	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -121,7 +122,7 @@ func (m *chatModel) handleShellCommand(input string) (tea.Model, tea.Cmd) {
 
 	// Run synchronously — shell commands are fast and this avoids
 	// race conditions with subsequent user messages.
-	result := executeShellCommand(cmdLine)
+	result := agent.ShellCommand(cmdLine)
 
 	// Store in history as user message (not system) so it doesn't dilute
 	// the system prompt. The model sees it as contextual information

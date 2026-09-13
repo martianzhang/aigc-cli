@@ -122,13 +122,13 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	// URLs pass through to the existing upload path unchanged.
 	// Runs before dry-run so the printed curl reflects the real request.
 	if genDecode {
-		decoded, err := decodeImageURLsInline(req.ImageURLs, genOutputFormat)
+		decoded, err := service.DecodeImageURLsInline(req.ImageURLs, genOutputFormat)
 		if err != nil {
 			return fmt.Errorf("failed to decode image-urls: %w", err)
 		}
 		req.ImageURLs = decoded
 		if req.MaskURL != "" {
-			decodedMask, err := decodeImageURLsInline([]string{req.MaskURL}, genOutputFormat)
+			decodedMask, err := service.DecodeImageURLsInline([]string{req.MaskURL}, genOutputFormat)
 			if err != nil {
 				return fmt.Errorf("failed to decode mask-url: %w", err)
 			}

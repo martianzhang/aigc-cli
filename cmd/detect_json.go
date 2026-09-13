@@ -12,6 +12,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 
+	"github.com/martianzhang/aigc-cli/internal/detect"
 	"github.com/martianzhang/aigc-cli/internal/forensic"
 	"github.com/martianzhang/aigc-cli/internal/onnx"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -55,9 +56,9 @@ func detectOneFileJSON(path, pathOverride string, aiDetector *onnx.Detector, res
 		}
 	}
 
-	fftScore := analyzeFFTFile(path)
-	noiseScore := analyzeNoiseFile(path)
-	jpegScore := analyzeJPEGFile(path)
+	fftScore := detect.AnalyzeFFTFile(path)
+	noiseScore := detect.AnalyzeNoiseFile(path)
+	jpegScore := detect.AnalyzeJPEGFile(path)
 
 	opts := forensic.Options{
 		C2PAPresent:    result.C2PA != nil && result.C2PA.Present,
@@ -97,7 +98,7 @@ func detectOneFileJSON(path, pathOverride string, aiDetector *onnx.Detector, res
 		AIGenRate: fr.AIGenRate,
 		Emoji:     fr.Emoji,
 		Summary:   fr.Summary,
-		Details:   buildDetails(fr),
+		Details:   detect.BuildDetails(fr),
 	}
 
 	*results = append(*results, result)

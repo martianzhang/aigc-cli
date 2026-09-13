@@ -1,4 +1,4 @@
-package cmd
+package agent
 
 import (
 	"encoding/json"
@@ -10,8 +10,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 )
 
-func executeKbList(argsJSON string) string {
-	kbDir := filepath.Join(configDir(), "knowledge")
+func KbList(kbDir, argsJSON string) string {
 	if err := os.MkdirAll(kbDir, 0755); err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
@@ -44,7 +43,7 @@ func executeKbList(argsJSON string) string {
 	return out.String()
 }
 
-func executeKbShow(argsJSON string) string {
+func KbShow(kbDir, argsJSON string) string {
 	var args struct {
 		DocID string `json:"doc_id"`
 	}
@@ -55,7 +54,6 @@ func executeKbShow(argsJSON string) string {
 		return "Error: doc_id is required"
 	}
 
-	kbDir := filepath.Join(configDir(), "knowledge")
 	if err := os.MkdirAll(kbDir, 0755); err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}

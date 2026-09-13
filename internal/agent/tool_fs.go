@@ -1,4 +1,4 @@
-package cmd
+package agent
 
 import (
 	"encoding/json"
@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// executeFindFiles finds files by name/pattern under a directory (safe, pure Go).
-func executeFindFiles(argsJSON string) string {
+// FindFiles finds files by name/pattern under a directory (safe, pure Go).
+func FindFiles(argsJSON string) string {
 	var params struct {
 		Pattern   string `json:"pattern"`
 		Path      string `json:"path"`
@@ -71,7 +71,7 @@ func executeFindFiles(argsJSON string) string {
 	return header + strings.Join(results, "\n")
 }
 
-func executeReadFile(argsJSON string) string {
+func ReadFile(argsJSON string) string {
 	var args struct {
 		Filepath string `json:"filepath"`
 		Offset   int    `json:"offset"`

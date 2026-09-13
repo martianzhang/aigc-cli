@@ -11,6 +11,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 
+	"github.com/martianzhang/aigc-cli/internal/detect"
 	"github.com/martianzhang/aigc-cli/internal/forensic"
 	"github.com/martianzhang/aigc-cli/internal/onnx"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -37,9 +38,9 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		}
 	}
 
-	fftScore := analyzeFFTFile(path)
-	noiseScore := analyzeNoiseFile(path)
-	jpegScore := analyzeJPEGFile(path)
+	fftScore := detect.AnalyzeFFTFile(path)
+	noiseScore := detect.AnalyzeNoiseFile(path)
+	jpegScore := detect.AnalyzeJPEGFile(path)
 
 	opts := forensic.Options{
 		C2PAPresent:    result.C2PA != nil && result.C2PA.Present,
@@ -83,7 +84,7 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 			"Look for visual artifacts, unnatural patterns, and any signs of AI generation. "+
 			"Reply with only a number 0-100 where 0=certainly human, 100=certainly AI, then a brief reason.")
 		if err == nil {
-			opts.LLMScore = parseLLMScore(assessment)
+			opts.LLMScore = detect.ParseLLMScore(assessment)
 			opts.LLMDetail = assessment
 		}
 	}
@@ -94,7 +95,7 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 		AIGenRate: fr.AIGenRate,
 		Emoji:     fr.Emoji,
 		Summary:   fr.Summary,
-		Details:   buildDetails(fr),
+		Details:   detect.BuildDetails(fr),
 	}
 
 	if err := service.PrintDetectResult(os.Stdout, result, true); err != nil {

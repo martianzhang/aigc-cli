@@ -13,6 +13,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 
+	"github.com/martianzhang/aigc-cli/internal/detect"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
@@ -56,13 +57,13 @@ func applyWatermarkActions(path string, result *service.DetectResult) {
 		useMIGan := wmDetector != nil && (!detectAlphaMap || detectMiGAN)
 
 		if useMIGan {
-			wmX, wmY, wmW, wmH, wmOK := resolveWMBox(producer, decodedImg, dets)
+			wmX, wmY, wmW, wmH, wmOK := detect.ResolveWMBox(detectWatermarkBox, producer, decodedImg, dets)
 			// When producer is known but has no PositionResolver (e.g. Gemini
 			// sparkle), resolveWMBox can't find the position because the line-143
 			// guard skipped DetectWatermark. Retry detection now for MI-GAN.
 			if !wmOK && decodedImg != nil && len(dets) == 0 && producer != "" {
 				dets = watermark.DetectWatermark(decodedImg)
-				wmX, wmY, wmW, wmH, wmOK = resolveWMBox("", decodedImg, dets)
+				wmX, wmY, wmW, wmH, wmOK = detect.ResolveWMBox(detectWatermarkBox, "", decodedImg, dets)
 			}
 			// When no producer is known and auto-detection also failed, try
 			// PositionResolver from any registered config as a last resort

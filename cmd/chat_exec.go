@@ -4,11 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+func chatKbDir() string {
+	return filepath.Join(configDir(), "knowledge")
+}
 
 func resolveFileRefs(argsJSON string) string {
 	var raw interface{}
@@ -82,11 +88,11 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 	case "web_fetch":
 		return executeWebFetch(args)
 	case "grep":
-		return executeGrep(args)
+		return agent.Grep(args)
 	case "read_file":
-		return executeReadFile(args)
+		return agent.ReadFile(args)
 	case "find":
-		return executeFindFiles(args)
+		return agent.FindFiles(args)
 	case "remove_background":
 		return executeRemoveBackground(args)
 	case "convert_depth":
@@ -104,17 +110,17 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 	case "recognize_text":
 		return executeRecognizeText(args)
 	case "kb_find":
-		return executeKbFind(args)
+		return agent.KbFind(chatKbDir(), args)
 	case "kb_search":
-		return executeKbSearch(args)
+		return agent.KbSearch(chatKbDir(), args)
 	case "kb_add":
-		return executeKbAdd(args)
+		return agent.KbAdd(chatKbDir(), args)
 	case "kb_fetch":
-		return executeKbFetch(args)
+		return agent.KbFetch(chatKbDir(), args)
 	case "kb_list":
-		return executeKbList(args)
+		return agent.KbList(chatKbDir(), args)
 	case "kb_show":
-		return executeKbShow(args)
+		return agent.KbShow(chatKbDir(), args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}

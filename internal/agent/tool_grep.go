@@ -1,4 +1,4 @@
-package cmd
+package agent
 
 import (
 	"context"
@@ -22,7 +22,7 @@ type grepArgs struct {
 	MaxMatches int
 }
 
-func executeGrep(argsJSON string) string {
+func Grep(argsJSON string) string {
 	var raw struct {
 		Pattern    string `json:"pattern"`
 		Path       string `json:"path"`
@@ -65,10 +65,10 @@ func executeGrep(argsJSON string) string {
 		args.Context = 10
 	}
 
-	if hasExecutable("rg") {
+	if HasExecutable("rg") {
 		return grepWithRipgrep(&args, searchPath)
 	}
-	if hasExecutable("grep") {
+	if HasExecutable("grep") {
 		return grepWithGrep(&args, searchPath)
 	}
 	return grepGoImpl(&args, searchPath)
@@ -212,4 +212,9 @@ func grepGoImpl(args *grepArgs, searchPath string) string {
 		b.WriteString("...(truncated, max matches reached)")
 	}
 	return b.String()
+}
+
+func HasExecutable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
 }

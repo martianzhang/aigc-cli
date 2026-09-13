@@ -7,9 +7,9 @@ import (
 	imagepng "image/png"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/detect"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
@@ -59,7 +59,7 @@ func handleCropWatermark(path string) error {
 			fmt.Printf("  No watermark detected, applying default margin: %.0f%%\n", marginRatio*100)
 		}
 	} else {
-		targetW, targetH, keepRatio, parseErr := parseCropTarget(detectCropWM)
+		targetW, targetH, keepRatio, parseErr := detect.ParseCropTarget(detectCropWM)
 		if parseErr != nil {
 			return parseErr
 		}
@@ -117,28 +117,4 @@ func handleCropWatermark(path string) error {
 		service.PreviewFile(outPath)
 	}
 	return nil
-}
-
-func parseCropTarget(s string) (cropW, cropH int, keepRatio float64, err error) {
-	s = strings.TrimSpace(s)
-
-	if strings.HasSuffix(s, "%") {
-		pctStr := strings.TrimSuffix(s, "%")
-		pct, parseErr := strconv.ParseFloat(pctStr, 64)
-		if parseErr != nil || pct <= 0 || pct > 100 {
-			return 0, 0, 0, fmt.Errorf("invalid percentage %q, expected 1-100%%", s)
-		}
-		return 0, 0, pct / 100.0, nil
-	}
-
-	parts := strings.Split(strings.ToLower(s), "x")
-	if len(parts) == 2 {
-		w, wErr := strconv.Atoi(strings.TrimSpace(parts[0]))
-		h, hErr := strconv.Atoi(strings.TrimSpace(parts[1]))
-		if wErr == nil && hErr == nil && w > 0 && h > 0 {
-			return w, h, 0, nil
-		}
-	}
-
-	return 0, 0, 0, fmt.Errorf("invalid format %q, expected \"WxH\" or \"n%%\"", s)
 }

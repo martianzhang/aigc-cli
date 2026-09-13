@@ -15,43 +15,10 @@ import (
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
 
-	"github.com/martianzhang/aigc-cli/internal/forensic"
 	"github.com/martianzhang/aigc-cli/internal/onnx"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
-
-// --- analysis functions ---
-
-func analyzeFFTFile(path string) float64 {
-	f, err := os.Open(path)
-	if err != nil {
-		return -1
-	}
-	defer f.Close()
-	img, _, err := image.Decode(f)
-	if err != nil {
-		return -1
-	}
-	return forensic.AnalyzeFFT(img)
-}
-
-func analyzeNoiseFile(path string) float64 {
-	f, err := os.Open(path)
-	if err != nil {
-		return -1
-	}
-	defer f.Close()
-	img, _, err := image.Decode(f)
-	if err != nil {
-		return -1
-	}
-	return forensic.AnalyzeNoiseResidual(img)
-}
-
-func analyzeJPEGFile(path string) float64 {
-	return forensic.AnalyzeJPEGDoubleQuant(path)
-}
 
 // --- safety helpers ---
 

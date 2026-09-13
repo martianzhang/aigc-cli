@@ -1,15 +1,14 @@
-package cmd
+package agent
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 )
 
-func executeKbAdd(argsJSON string) string {
+func KbAdd(kbDir, argsJSON string) string {
 	var args struct {
 		FilePath string `json:"file_path"`
 	}
@@ -20,7 +19,6 @@ func executeKbAdd(argsJSON string) string {
 		return "Error: file_path is required"
 	}
 
-	kbDir := filepath.Join(configDir(), "knowledge")
 	if err := os.MkdirAll(kbDir, 0755); err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
@@ -73,7 +71,7 @@ func executeKbAdd(argsJSON string) string {
 	return fmt.Sprintf("Added %q to the knowledge base (%d chunks).", title, len(rawChunks))
 }
 
-func executeKbFetch(argsJSON string) string {
+func KbFetch(kbDir, argsJSON string) string {
 	var args struct {
 		URL string `json:"url"`
 	}
@@ -84,7 +82,6 @@ func executeKbFetch(argsJSON string) string {
 		return "Error: url is required"
 	}
 
-	kbDir := filepath.Join(configDir(), "knowledge")
 	if err := os.MkdirAll(kbDir, 0755); err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}

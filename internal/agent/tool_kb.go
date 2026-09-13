@@ -1,17 +1,16 @@
-package cmd
+package agent
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 )
 
-func executeKbFind(argsJSON string) string {
+func KbFind(kbDir, argsJSON string) string {
 	var args struct {
 		Query string  `json:"query"`
 		Limit float64 `json:"limit"`
@@ -27,7 +26,6 @@ func executeKbFind(argsJSON string) string {
 		limit = int(args.Limit)
 	}
 
-	kbDir := filepath.Join(configDir(), "knowledge")
 	if err := os.MkdirAll(kbDir, 0755); err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
@@ -93,7 +91,7 @@ func executeKbFind(argsJSON string) string {
 	return out.String()
 }
 
-func executeKbSearch(argsJSON string) string {
+func KbSearch(kbDir, argsJSON string) string {
 	var args struct {
 		Query    string `json:"query"`
 		Provider string `json:"provider"`
@@ -105,7 +103,6 @@ func executeKbSearch(argsJSON string) string {
 		return "Error: query is required"
 	}
 
-	kbDir := filepath.Join(configDir(), "knowledge")
 	if err := os.MkdirAll(kbDir, 0755); err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
