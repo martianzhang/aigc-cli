@@ -6,6 +6,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
+// allow: SIZE_OK — pure data table (agent tool definitions), no logic to split.
 var agentToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",

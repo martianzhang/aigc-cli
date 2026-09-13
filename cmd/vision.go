@@ -38,6 +38,24 @@ func init() {
 	rootCmd.AddCommand(visionCmd)
 	visionCmd.PersistentFlags().StringVar(&visionModelFlag, "model", vision.DefaultModelVariant,
 		"vision model variant: base-int8 (default)")
+
+	visionCmd.AddCommand(visionInitCmd)
+	visionInitCmd.Flags().BoolVar(&visionListFlag, "list", false, "list available model variants")
+	visionInitCmd.Flags().BoolVar(&visionForceFlag, "force", false, "re-download even if files already exist")
+
+	visionCmd.AddCommand(visionDescribeCmd)
+	visionDescribeCmd.Flags().IntVar(&visionMaxTokens, "max-tokens", 512, "maximum number of tokens to generate")
+	visionDescribeCmd.Flags().Float64Var(&visionTemperature, "temperature", 0.0, "sampling temperature (0 = greedy)")
+	visionDescribeCmd.Flags().IntVar(&visionTopK, "top-k", 0, "top-k sampling (0 = off)")
+	visionDescribeCmd.Flags().Float64Var(&visionRepetitionPenalty, "repetition-penalty", 1.2,
+		"repetition penalty to discourage loops (1.0=disabled, 1.0-1.5 typical)")
+	visionDescribeCmd.Flags().StringVarP(&visionPrompt, "prompt", "p", "", `Custom prompt for vision describe. Overrides default.
+
+Examples:
+  --prompt "Describe this image in detail."
+  --prompt "What objects are in this image?"
+  --prompt "请用中文详细描述这张图片"`)
+	visionDescribeCmd.Flags().StringVar(&visionPrompt, "ask", "", "Alias for --prompt")
 }
 
 var (
@@ -221,24 +239,4 @@ func isImageFile(path string) bool {
 		return true
 	}
 	return false
-}
-
-func init() {
-	visionCmd.AddCommand(visionInitCmd)
-	visionInitCmd.Flags().BoolVar(&visionListFlag, "list", false, "list available model variants")
-	visionInitCmd.Flags().BoolVar(&visionForceFlag, "force", false, "re-download even if files already exist")
-
-	visionCmd.AddCommand(visionDescribeCmd)
-	visionDescribeCmd.Flags().IntVar(&visionMaxTokens, "max-tokens", 512, "maximum number of tokens to generate")
-	visionDescribeCmd.Flags().Float64Var(&visionTemperature, "temperature", 0.0, "sampling temperature (0 = greedy)")
-	visionDescribeCmd.Flags().IntVar(&visionTopK, "top-k", 0, "top-k sampling (0 = off)")
-	visionDescribeCmd.Flags().Float64Var(&visionRepetitionPenalty, "repetition-penalty", 1.2,
-		"repetition penalty to discourage loops (1.0=disabled, 1.0-1.5 typical)")
-	visionDescribeCmd.Flags().StringVarP(&visionPrompt, "prompt", "p", "", `Custom prompt for vision describe. Overrides default.
-
-Examples:
-  --prompt "Describe this image in detail."
-  --prompt "What objects are in this image?"
-  --prompt "请用中文详细描述这张图片"`)
-	visionDescribeCmd.Flags().StringVar(&visionPrompt, "ask", "", "Alias for --prompt")
 }

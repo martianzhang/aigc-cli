@@ -4,18 +4,21 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/webp"
+
 	"github.com/martianzhang/aigc-cli/internal/background"
-	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/rmbg"
-	"github.com/martianzhang/aigc-cli/internal/service"
-	"github.com/martianzhang/aigc-cli/internal/types"
-	"github.com/spf13/cobra"
 )
 
 // rmbgDetector 是全局缓存的 RMBG Detector 实例（惰性初始化）。
@@ -160,103 +163,6 @@ func runBackground(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func processOneFile(path, outDir string, opts background.Options, doReplace bool, repColor color.Color, repImg image.Image, runOnlineBG bool, bgProvider *provider.EffectiveProvider) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	img, _, err := image.Decode(f)
-	if err != nil {
-		return fmt.Errorf("decode: %w", err)
-	}
-	f.Close()
-
-	base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-
-	// Online-only mode: generate via image API, skip local RMBG entirely.
-	if runOnlineBG {
-		defaultPrompt := "Remove the background from this image. Keep the main subject exactly as is. Replace the background with a solid white color."
-		if doReplace && repColor != nil {
-			defaultPrompt = fmt.Sprintf("Replace the background of this image with color %s.", repColor)
-		} else if doReplace && repImg != nil {
-			defaultPrompt = "Replace the background of this image with a new background from the reference image."
-		}
-		onlineOut, err := generateOnlineBackground(path, bgProvider, defaultPrompt, bgPrompt)
-		if err != nil {
-			return fmt.Errorf("online generation failed: %w", err)
-		}
-		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(onlineOut))
-		return nil
-	}
-
-	if bgMaskOnly {
-		gray, result, err := background.MaskOnly(img, &opts, rmbgDetector)
-		if err != nil {
-			return err
-		}
-		outPath := filepath.Join(outDir, base+"_mask.png")
-		if err := background.SavePNG(outPath, gray); err != nil {
-			return err
-		}
-		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
-		if bgJSON {
-			fmt.Printf("  %dx%d\n", result.Width, result.Height)
-		}
-		return nil
-	}
-
-	if bgRemove && !doReplace {
-		outImg, result, err := background.RemoveBackground(img, &opts, rmbgDetector)
-		if err != nil {
-			return err
-		}
-		outPath := filepath.Join(outDir, base+"_removebg.png")
-		if err := background.SavePNG(outPath, outImg); err != nil {
-			return err
-		}
-		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
-		if bgJSON {
-			fmt.Printf("  %dx%d\n", result.Width, result.Height)
-		}
-		if bgPreview {
-			service.PreviewFile(outPath)
-		}
-		return nil
-	}
-
-	if doReplace {
-		var result *background.Result
-		var err error
-
-		var outImg *image.NRGBA
-		if repColor != nil {
-			outImg, result, err = background.ReplaceColor(img, repColor, &opts, rmbgDetector)
-		} else {
-			outImg, result, err = background.ReplaceImage(img, repImg, &opts, rmbgDetector)
-		}
-		if err != nil {
-			return err
-		}
-
-		outPath := filepath.Join(outDir, base+"_replaced.png")
-		if err := background.SavePNG(outPath, outImg); err != nil {
-			return err
-		}
-		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
-		if bgJSON {
-			fmt.Printf("  %dx%d\n", result.Width, result.Height)
-		}
-		if bgPreview {
-			service.PreviewFile(outPath)
-		}
-		return nil
-	}
-
-	return nil
-}
-
 func tryInitRMBG() (*rmbg.Detector, error) {
 	// ONNX Runtime lives in the shared models root
 	libPath, err := rmbg.DefaultLibPath(filepath.Join(configDir(), "models"))
@@ -340,79 +246,4 @@ func init() {
 	backgroundCmd.Flags().IntVar(&bgShadowBlur, "shadow-blur", 6, "shadow blur radius in pixels")
 	backgroundCmd.Flags().StringVar(&bgShadowColor, "shadow-color", "#000000", "shadow color (hex)")
 	backgroundCmd.Flags().Float64Var(&bgShadowOpacity, "shadow-opacity", 40, "shadow opacity 0-100")
-}
-
-// generateOnlineBackground generates a background-modified image via the image API.
-// Reuses the existing image generation pipeline (sync for OpenAI, async for APIMart, native for Ollama).
-func generateOnlineBackground(imagePath string, p *provider.EffectiveProvider, defaultPrompt, userPrompt string) (string, error) {
-	prompt := userPrompt
-	if prompt == "" {
-		prompt = defaultPrompt
-	}
-	req := &types.GenerateRequest{
-		Model:     p.Model,
-		Prompt:    prompt,
-		ImageURLs: []string{imagePath},
-	}
-	// Ollama native API
-	if p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL) {
-		saved, err := ollamaGenerateImages(p.BaseURL, req)
-		if err != nil {
-			return "", err
-		}
-		if len(saved) == 0 {
-			return "", fmt.Errorf("no images saved")
-		}
-		return saved[0], nil
-	}
-	c := client.NewFromProvider(p)
-	if len(req.ImageURLs) > 0 {
-		resolved, err := c.ResolveLocalImages(req.ImageURLs)
-		if err != nil {
-			return "", fmt.Errorf("resolve image failed: %w", err)
-		}
-		req.ImageURLs = resolved
-	}
-	// APIMart: async submit → poll → download (reusing existing helpers)
-	if p.ProviderType == provider.APIMart {
-		subResp, err := c.Submit(req)
-		if err != nil {
-			return "", fmt.Errorf("submit failed: %w", err)
-		}
-		if len(subResp.Data) == 0 {
-			return "", fmt.Errorf("submit returned no tasks")
-		}
-		taskData, err := c.PollTask(subResp.Data[0].TaskID)
-		if err != nil {
-			return "", fmt.Errorf("poll failed: %w", err)
-		}
-		if taskData.Result == nil || len(taskData.Result.Images) == 0 {
-			return "", fmt.Errorf("no images in task result")
-		}
-		saved, err := downloadImages(taskData.Result.Images, taskData.ID)
-		if err != nil {
-			return "", fmt.Errorf("download failed: %w", err)
-		}
-		if len(saved) == 0 {
-			return "", fmt.Errorf("no images downloaded")
-		}
-		return saved[0], nil
-	}
-	// Sync provider (OpenAI, OpenRouter, etc.)
-	resp, err := c.ImageGenerateSync(req)
-	if err != nil {
-		return "", fmt.Errorf("online generation failed: %w", err)
-	}
-	if len(resp.Data) == 0 {
-		return "", fmt.Errorf("no images returned")
-	}
-	img := resp.Data[0]
-	prefix := fmt.Sprintf("bg_online_%d", time.Now().Unix())
-	if img.B64JSON != "" {
-		return service.SaveBase64Image(shared.OutputDir, prefix, img.B64JSON, 0)
-	}
-	if img.URL != "" {
-		return service.DownloadFile(img.URL, shared.OutputDir, prefix)
-	}
-	return "", fmt.Errorf("no image data in response")
 }
