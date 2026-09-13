@@ -1,0 +1,170 @@
+package chat
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/types"
+)
+
+// chat flag variables
+var (
+	chatSystem      string
+	chatMessages    []string
+	chatTemperature float64
+	chatMaxTokens   int
+	chatContextSize int
+	chatNoStream    bool
+	chatJSONFlag    string
+	chatInteractive bool
+)
+
+// chatCmd represents the `aigc-cli chat` command.
+var chatCmd = &cobra.Command{
+	Use:          "chat",
+	Short:        "Chat with AI models (streaming by default)",
+	SilenceUsage: true,
+	Long: `Start a chat conversation with AI models via the APIMart API.
+
+Supports all major models: GPT, Claude, Gemini, DeepSeek, and more.
+Streaming output is enabled by default.
+
+Agentic Chat:
+  Chat supports tool calling by default.
+
+Context Management:
+  Use --context-size to limit input context. When the conversation exceeds
+  80% of the limit, older messages are automatically summarized to stay
+  within bounds. Use /compact in interactive mode for manual compaction.
+
+Modes:
+  - Interactive multi-turn (default without --message):
+      aigc-cli chat
+  - Single-turn with --message:
+      aigc-cli chat --message "Hello"
+
+Examples:
+  aigc-cli chat --message "Hello, who are you?"
+  aigc-cli chat --context-size 8192 --max-output 2048
+  aigc-cli chat --json '{"model":"gpt-5","messages":[{"role":"user","content":"Hi"}]}'`,
+	RunE: runChat,
+}
+
+func runChat(cmd *cobra.Command, args []string) error {
+	chatCfg := options.ChatDefaults()
+	applyChatConfigDefaults(cmd, chatCfg)
+
+	// --json mode is always single-turn
+	if chatJSONFlag != "" {
+		req, err := buildChatRequest(cmd)
+		if err != nil {
+			return err
+		}
+		return sendChatRequest(cmd, req)
+	}
+
+	req, err := buildChatRequest(cmd)
+	if err != nil {
+		return err
+	}
+
+	// Interactive REPL (TUI) when no --message and not --json
+	if !cmd.Flags().Changed("message") || chatInteractive {
+		if !term.IsTerminal(int(os.Stdin.Fd())) {
+			// Piped input without messages -- non-interactive single turn
+			return sendChatRequest(cmd, req)
+		}
+
+		return runChatTUI(cmd)
+	}
+
+	// Non-interactive with --message(s)
+	if err := sendChatRequest(cmd, req); err != nil {
+		return err
+	}
+
+	maxIterations := 10
+	if chatCfg != nil && chatCfg.MaxIterations > 0 {
+		maxIterations = chatCfg.MaxIterations
+	}
+	agentTools := buildAgentTools(chatCfg)
+
+	p := options.Shared.ResolveProvider(options.ProviderNameChat)
+	c := client.NewFromProvider(p)
+	history := req.Messages
+	_, err = runAgentLoop(context.Background(), c, &history, agentTools, maxIterations, cmd)
+	if err != nil {
+		return err
+	}
+	if options.Shared.Verbose && len(history) > len(req.Messages) {
+		added := len(history) - len(req.Messages)
+		fmt.Fprintf(options.Stderr(), "Agent loop completed: %d additional messages accumulated (tool calls + responses)\n", added)
+	}
+	return nil
+}
+
+// applyChatConfigDefaults fills flag variables from config when the flag
+// was not set on the CLI. Config priority: CLI flags > config defaults.
+func applyChatConfigDefaults(cmd *cobra.Command, cfg *types.ChatDefaults) {
+	if cfg == nil {
+		return
+	}
+	if !cmd.Flags().Changed("context-size") && cfg.ContextSize > 0 {
+		chatContextSize = cfg.ContextSize
+	}
+	if !cmd.Flags().Changed("max-output") && cfg.MaxTokens > 0 {
+		chatMaxTokens = cfg.MaxTokens
+	}
+}
+
+// generateImageArgs is the JSON structure for generate_image tool arguments.
+type generateImageArgs struct {
+	Prompt  string `json:"prompt"`
+	Size    string `json:"size,omitempty"`
+	N       int    `json:"n,omitempty"`
+	Quality string `json:"quality,omitempty"`
+}
+
+// generateVideoArgs is the JSON structure for generate_video tool arguments.
+type generateVideoArgs struct {
+	Prompt     string `json:"prompt"`
+	Duration   int    `json:"duration,omitempty"`
+	Resolution string `json:"resolution,omitempty"`
+}
+
+// generateMusicArgs is the JSON structure for generate_music tool arguments.
+type generateMusicArgs struct {
+	Prompt       string `json:"prompt"`
+	Model        string `json:"model,omitempty"`
+	Duration     int    `json:"duration,omitempty"`
+	Instrumental bool   `json:"instrumental,omitempty"`
+}
+
+// watermarkArgs is the JSON structure for watermark tools.
+type watermarkArgs struct {
+	FilePath   string `json:"file_path"`
+	OutputPath string `json:"output_path"`
+	Producer   string `json:"producer"`
+}
+
+func init() {
+	f := chatCmd.Flags()
+	f.StringVarP(&chatSystem, "system", "s", "", "System prompt to set AI behavior")
+	f.StringArrayVar(&chatMessages, "message", nil, "User message (repeatable for multi-turn)")
+	f.Float64VarP(&chatTemperature, "temperature", "t", 0, "Sampling temperature (0-2)")
+	f.IntVar(&chatMaxTokens, "max-output", 0, "Maximum tokens in response")
+	f.IntVar(&chatContextSize, "context-size", 0, "Maximum input context size in tokens (0 = model default). Auto-compacts at 80% by summarizing older messages.")
+	f.BoolVar(&chatNoStream, "no-stream", false, "Disable streaming, wait for full response")
+	f.StringVar(&chatJSONFlag, "json", "", "JSON file, string, or \"-\" for stdin")
+	f.BoolVarP(&chatInteractive, "interactive", "i", false, "Enter interactive multi-turn chat mode")
+
+}
+
+// Cmd returns the chat command.
+func Cmd() *cobra.Command { return chatCmd }

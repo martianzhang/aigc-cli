@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -185,16 +186,16 @@ func printCmdProviders() {
 		Name string
 		Ref  string
 	}{
-		{"image", ProviderNameImage},
-		{"video", ProviderNameVideo},
-		{"chat", ProviderNameChat},
-		{"audio", ProviderNameAudio},
-		{"midjourney", ProviderNameMidjourney},
-		{"music", ProviderNameMusic},
-		{"ocr", ProviderNameOCR},
-		{"vision", ProviderNameVision},
-		{"detect", ProviderNameDetect},
-		{"background", ProviderNameBackground},
+		{"image", options.ProviderNameImage},
+		{"video", options.ProviderNameVideo},
+		{"chat", options.ProviderNameChat},
+		{"audio", options.ProviderNameAudio},
+		{"midjourney", options.ProviderNameMidjourney},
+		{"music", options.ProviderNameMusic},
+		{"ocr", options.ProviderNameOCR},
+		{"vision", options.ProviderNameVision},
+		{"detect", options.ProviderNameDetect},
+		{"background", options.ProviderNameBackground},
 	}
 
 	fmt.Println("# ── 各命令有效 Provider ──")

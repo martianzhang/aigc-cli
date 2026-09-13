@@ -1,79 +1,26 @@
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/spf13/cobra"
-
-	"github.com/martianzhang/aigc-cli/internal/client"
-	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/cli/task"
+	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// queryTaskText queries a task by ID and returns a text summary.
-// Downloads images if available. Shared by CLI and agent loop.
-func queryTaskText(taskID string) (string, error) {
-	// Task query is only supported on APIMart-compatible providers
-	p := provider.Detect(shared.APIBase)
-	if p != provider.APIMart {
-		switch p {
-		case provider.OpenRouter:
-			return "", fmt.Errorf("task query is not available on OpenRouter — use 'aigc-cli video --job-id %s' instead", taskID)
-		default:
-			return "", fmt.Errorf("task query is only supported on APIMart-compatible providers (apimart.ai / apib.ai / aiuxu.com / aishuch.com)")
-		}
+// taskDeps resolves the task command's dependencies from the loaded config.
+func taskDeps() task.Deps {
+	return task.Deps{
+		APIBase:   shared.APIBase,
+		APIKey:    shared.APIKey,
+		HTTPProxy: shared.HTTPProxy,
+		DownloadImages: func(images []types.ImageResult, id string) ([]string, error) {
+			return service.DownloadImages(images, shared.OutputDir, id)
+		},
+		DownloadVideos: func(videos []types.VideoResult, id string) ([]string, error) {
+			return service.DownloadVideos(videos, shared.OutputDir, id)
+		},
 	}
-
-	c := client.New(shared.APIKey, shared.APIBase, shared.HTTPProxy)
-	task, err := c.GetTask(taskID)
-	if err != nil {
-		return "", fmt.Errorf("failed to query task: %w", err)
-	}
-
-	msg := fmt.Sprintf("Task %s\nStatus: %s | Progress: %d%%", taskID, task.Status, task.Progress)
-	if task.Status == "completed" {
-		msg += fmt.Sprintf("\nCost: $%.5f (%.4f credits) | Time: %ds", task.Cost, task.CreditsCost, task.ActualTime)
-	}
-	if task.Error != nil {
-		msg += fmt.Sprintf("\nError: %s", task.Error.Message)
-	}
-
-	// Download images if available
-	if task.Result != nil && len(task.Result.Images) > 0 && task.Status == "completed" {
-		if saved, err := downloadImages(task.Result.Images, task.ID); err == nil {
-			msg += fmt.Sprintf("\nImages saved: %d file(s)", len(saved))
-		}
-	}
-	// Download videos if available
-	if task.Result != nil && len(task.Result.Videos) > 0 && task.Status == "completed" {
-		if saved, err := downloadVideos(task.Result.Videos, task.ID); err == nil {
-			msg += fmt.Sprintf("\nVideos saved: %d file(s)", len(saved))
-		}
-	}
-	return msg, nil
-}
-
-// taskCmd represents the `task` command.
-var taskCmd = &cobra.Command{
-	Use:          "task <task-id>",
-	Short:        "Query task status and result",
-	SilenceUsage: true,
-	Long: `Query the execution status and result of an asynchronous task.
-
-You can query any task by its ID, including image and video generation tasks.
-
-Example:
-  aigc-cli task task_01KV4KD9FBH3AZ4DE18A7Y17S3`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		text, err := queryTaskText(args[0])
-		if err != nil {
-			return err
-		}
-		fmt.Println(text)
-		return nil
-	},
 }
 
 func init() {
-	rootCmd.AddCommand(taskCmd)
+	rootCmd.AddCommand(task.NewCommand(taskDeps))
 }

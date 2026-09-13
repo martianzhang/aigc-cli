@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -186,13 +187,13 @@ func overrideStruct(fs, inherited *pflag.FlagSet, structPtr interface{}, section
 
 // validateCmdProviders checks that all defaults.{cmd}.provider references
 // point to existing entries in the providers map. Returns on first error.
-// Uses cmdProviderMap to keep the command list in one place.
+// Uses options.CmdProviderMap to keep the command list in one place.
 func validateCmdProviders(cfg *types.Config) {
 	if cfg == nil || cfg.Defaults == nil {
 		return
 	}
-	for cmdName, info := range cmdProviderMap {
-		providerRef, _ := info.getter(cfg.Defaults)
+	for cmdName, info := range options.CmdProviderMap {
+		providerRef, _ := info.Getter(cfg.Defaults)
 		if providerRef == "" {
 			continue
 		}

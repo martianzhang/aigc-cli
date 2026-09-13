@@ -6,14 +6,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/chat"
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// shared holds all shared configuration values, initialized in PersistentPreRunE.
-// Replaces the previous 12 individual global variables.
-var shared = &SharedConfig{}
+// shared aliases the options package's shared config (same pointer), so existing
+// call sites keep working while subpackages read options.Shared.
+var shared = options.Shared
 
 // rootCmd represents the base command.
 var rootCmd = &cobra.Command{
@@ -27,7 +29,8 @@ var rootCmd = &cobra.Command{
 	Long: `Unified CLI for OpenAI-compatible APIs. Supports OpenAI, OpenRouter, APIMart and any
 OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return chatCmd.RunE(chatCmd, args)
+		c := chat.Cmd()
+		return c.RunE(c, args)
 	},
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// --print-config: dump effective config with diagnostics
@@ -102,7 +105,7 @@ func init() {
 }
 
 func hasFlagChanged(cmd *cobra.Command, name string) bool {
-	return cmd.Flags().Changed(name) || cmd.PersistentFlags().Changed(name) || cmd.InheritedFlags().Changed(name)
+	return options.HasFlagChanged(cmd, name)
 }
 
 // configDisplay wraps types.Config to inline fields for clean YAML output.
