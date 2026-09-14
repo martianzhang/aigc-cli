@@ -15,7 +15,7 @@ import (
 func runModelsMarketplace(mediaType string) error {
 	base := d.APIBase
 	if base == "" {
-		base = "https://api.apimart.ai"
+		base = types.DefaultAPIBaseURL
 	}
 	base = strings.TrimRight(base, "/")
 	base = strings.TrimSuffix(base, "/v1")
@@ -195,7 +195,7 @@ func runModelsPricing(modelName string) error {
 // e.g. "https://api.apimart.ai" → "https://apimart.ai"
 func mainDomain(baseURL string) string {
 	if baseURL == "" {
-		baseURL = "https://api.apimart.ai"
+		baseURL = types.DefaultAPIBaseURL
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 	baseURL = strings.TrimSuffix(baseURL, "/v1")

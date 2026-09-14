@@ -281,7 +281,7 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 // fetchModels gets models from the marketplace API.
 func fetchModels(baseURL, mediaType, _ string) ([]types.MarketplaceModel, error) {
 	if baseURL == "" {
-		baseURL = "https://api.apimart.ai"
+		baseURL = types.DefaultAPIBaseURL
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 	baseURL = strings.TrimSuffix(baseURL, "/v1") // marketplace API doesn't use /v1 prefix

@@ -85,7 +85,7 @@ func buildVideoCurl(req *types.VideoGenerateRequest) string {
 	body, _ := json.Marshal(req)
 	base := options.Shared.APIBase
 	if base == "" {
-		base = "https://api.apimart.ai/v1" // matches client.defaultBaseURL
+		base = types.DefaultAPIBaseURL + "/v1"
 	}
 	base = strings.TrimRight(base, "/")
 	url := base + "/videos/generations"
@@ -101,7 +101,7 @@ func buildVideoRemixCurl(req *types.VideoRemixRequest) string {
 	body, _ := json.Marshal(req)
 	base := options.Shared.APIBase
 	if base == "" {
-		base = "https://api.apimart.ai/v1"
+		base = types.DefaultAPIBaseURL + "/v1"
 	}
 	base = strings.TrimRight(base, "/")
 	url := fmt.Sprintf("%s/videos/%s/remix", base, vidTaskID)

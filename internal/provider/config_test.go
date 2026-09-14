@@ -101,8 +101,8 @@ func TestResolveCmdProvider_GlobalFallback(t *testing.T) {
 	t.Run("empty global base url uses default", func(t *testing.T) {
 		global := &GlobalConfig{}
 		ep := ResolveCmdProvider(nil, "", nil, global)
-		if ep.BaseURL != defaultBaseURL {
-			t.Errorf("BaseURL = %q, want %q", ep.BaseURL, defaultBaseURL)
+		if ep.BaseURL != types.DefaultAPIBaseURL {
+			t.Errorf("BaseURL = %q, want %q", ep.BaseURL, types.DefaultAPIBaseURL)
 		}
 	})
 
@@ -124,6 +124,30 @@ func TestResolveCmdProvider_GlobalFallback(t *testing.T) {
 			t.Errorf("Type = %q, want %q", ep.Type, types.ProviderOpenAI)
 		}
 	})
+}
+
+func TestResolveCmdProvider_BaseURLNeverEmpty(t *testing.T) {
+	tests := []struct {
+		name   string
+		cli    *CLIOverride
+		ref    string
+		named  map[string]*types.NamedProvider
+		global *GlobalConfig
+	}{
+		{"empty everything", nil, "", nil, &GlobalConfig{}},
+		{"cli api key only", &CLIOverride{APIKey: "k"}, "", nil, &GlobalConfig{}},
+		{"cli proxy only skips cli path", &CLIOverride{Proxy: "http://p:8080"}, "", nil, &GlobalConfig{}},
+		{"named provider without base url", nil, "p", map[string]*types.NamedProvider{"p": {APIKey: "k"}}, &GlobalConfig{}},
+		{"unknown ref falls back", nil, "missing", map[string]*types.NamedProvider{"p": {BaseURL: "https://p.com"}}, &GlobalConfig{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ep := ResolveCmdProvider(tt.cli, tt.ref, tt.named, tt.global)
+			if ep.BaseURL == "" {
+				t.Fatal("BaseURL must never be empty; callers rely on this instead of a fallback")
+			}
+		})
+	}
 }
 
 func TestResolveCmdProvider_ProviderTypeDetection(t *testing.T) {

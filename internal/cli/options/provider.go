@@ -1,6 +1,9 @@
 package options
 
-import "github.com/martianzhang/aigc-cli/internal/provider"
+import (
+	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/types"
+)
 
 // IsOpenRouterProvider reports whether the current base URL points to OpenRouter.
 func IsOpenRouterProvider() bool {
@@ -17,7 +20,7 @@ func IsAPIMartProvider() bool {
 	default:
 		base := Shared.APIBase
 		if base == "" {
-			base = DefaultBaseURL
+			base = types.DefaultAPIBaseURL
 		}
 		return provider.IsAPIMart(base)
 	}

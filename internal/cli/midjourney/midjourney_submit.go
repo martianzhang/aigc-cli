@@ -15,7 +15,7 @@ func buildMJCurl(action string, reqBody any) string {
 	body, _ := json.Marshal(reqBody)
 	base := options.Shared.APIBase
 	if base == "" {
-		base = "https://api.apimart.ai/v1"
+		base = types.DefaultAPIBaseURL + "/v1"
 	}
 	base = strings.TrimRight(base, "/")
 	url := base + "/midjourney/generations/" + action

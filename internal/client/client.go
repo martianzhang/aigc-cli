@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	defaultBaseURL       = "https://api.apimart.ai"
 	imageSubmitPath      = "/images/generations"
 	videoSubmitPath      = "/videos/generations"
 	yunwuVideoSubPath    = "/video/create"

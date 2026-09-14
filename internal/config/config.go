@@ -11,9 +11,8 @@ import (
 )
 
 const (
-	configDir     = ".config/aigc-cli"
-	configFile    = "config"
-	defaultAPIURL = "https://api.apimart.ai"
+	configDir  = ".config/aigc-cli"
+	configFile = "config"
 )
 
 // Load reads the YAML config from ~/.config/aigc-cli/config.yaml or a custom path.
@@ -54,7 +53,7 @@ func Load(customPath string) (*types.Config, error) {
 
 	// Set default API base if not configured
 	if cfg.BaseURL == "" {
-		cfg.BaseURL = defaultAPIURL
+		cfg.BaseURL = types.DefaultAPIBaseURL
 	}
 
 	return cfg, nil

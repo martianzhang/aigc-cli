@@ -22,7 +22,7 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 // NewWithProvider creates a new API client with the given provider type.
 func NewWithProvider(apiKey, baseURL, proxyURL string, providerType types.ProviderType) *Client {
 	if baseURL == "" {
-		baseURL = defaultBaseURL
+		baseURL = types.DefaultAPIBaseURL
 	}
 	// Normalize: if baseURL doesn't already end with a version path segment like
 	// /v1, /v2, /v3, append "/v1" as the default API version for backward

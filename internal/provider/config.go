@@ -10,8 +10,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-const defaultBaseURL = "https://api.apimart.ai"
-
 // EffectiveProvider is the resolved effective provider configuration for a command.
 // It merges CLI flags, named provider config, global config, and built-in defaults.
 // Commands use this directly — they should not access SharedConfig.APIKey/APIBase.
@@ -61,6 +59,10 @@ type GlobalConfig struct {
 //
 // providerRef is the value of defaults.{cmd}.provider (e.g. "my-openrouter").
 // namedProviders is the full providers map from config.
+//
+// The returned BaseURL is always non-empty — the built-in default is applied
+// when neither CLI flags, named provider, nor global config supply one, so
+// callers must not add their own empty-BaseURL fallback.
 func ResolveCmdProvider(
 	cli *CLIOverride,
 	providerRef string,
@@ -71,7 +73,7 @@ func ResolveCmdProvider(
 	if cli != nil && (cli.APIKey != "" || cli.BaseURL != "") {
 		baseURL := cli.BaseURL
 		if baseURL == "" {
-			baseURL = firstNonEmpty(global.BaseURL, defaultBaseURL)
+			baseURL = firstNonEmpty(global.BaseURL, types.DefaultAPIBaseURL)
 		}
 		return &EffectiveProvider{
 			APIKey:       cli.APIKey,
@@ -88,7 +90,7 @@ func ResolveCmdProvider(
 		if named, ok := namedProviders[providerRef]; ok {
 			baseURL := named.BaseURL
 			if baseURL == "" {
-				baseURL = firstNonEmpty(global.BaseURL, defaultBaseURL)
+				baseURL = firstNonEmpty(global.BaseURL, types.DefaultAPIBaseURL)
 			}
 			ep := &EffectiveProvider{
 				Name:         providerRef,
@@ -118,7 +120,7 @@ func ResolveCmdProvider(
 	}
 
 	// 3. Global fallback
-	baseURL := firstNonEmpty(global.BaseURL, defaultBaseURL)
+	baseURL := firstNonEmpty(global.BaseURL, types.DefaultAPIBaseURL)
 	return &EffectiveProvider{
 		APIKey:       global.APIKey,
 		BaseURL:      baseURL,

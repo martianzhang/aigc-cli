@@ -50,9 +50,6 @@ const (
 	ProviderNameLocal      = "local"
 )
 
-// DefaultBaseURL is the built-in fallback when no base_url is configured anywhere.
-const DefaultBaseURL = "https://api.apimart.ai"
-
 // ResolveProvider returns the effective provider configuration for a command.
 // Priority (highest to lowest):
 //  1. CLI flags (--api-key / --api-base) — if set, skip all config
@@ -92,9 +89,6 @@ func (s *SharedConfig) ResolveProvider(cmdName string) *provider.EffectiveProvid
 	}
 
 	ep := provider.ResolveCmdProvider(cli, providerRef, providerMap(s.Cfg), global)
-	if ep.BaseURL == "" {
-		ep.BaseURL = DefaultBaseURL
-	}
 	if s.Model != "" {
 		ep.Model = s.Model
 	} else if defaultsModel != "" {

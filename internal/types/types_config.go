@@ -12,6 +12,11 @@ const (
 	ProviderLocal     ProviderType = "local"     // Local ONNX models (ocr/vision/detect/background)
 )
 
+// DefaultAPIBaseURL is the built-in fallback base URL (bare host, no version
+// suffix) used when no base_url is configured anywhere. Callers that need the
+// versioned API root append "/v1".
+const DefaultAPIBaseURL = "https://api.apimart.ai"
+
 // DetectProvider returns true if this provider type supports upstream provider
 // detection from the base URL (e.g., APIMart, OpenRouter). Types with their own
 // wire protocol (google, local) return false — their base URL is not analyzed.

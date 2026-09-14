@@ -117,10 +117,10 @@ func TestHasVersionSuffix_emptyLastSegment(t *testing.T) {
 // New client normalization tests
 // ---------------------------------------------------------------------------
 
-func TestNew_defaultBaseURL(t *testing.T) {
+func TestNew_DefaultAPIBaseURL(t *testing.T) {
 	c := New("test-key", "", "")
-	if c.baseURL != defaultBaseURL+"/v1" {
-		t.Errorf("New() with empty baseURL = %q, want %q", c.baseURL, defaultBaseURL+"/v1")
+	if c.baseURL != types.DefaultAPIBaseURL+"/v1" {
+		t.Errorf("New() with empty baseURL = %q, want %q", c.baseURL, types.DefaultAPIBaseURL+"/v1")
 	}
 }
 
