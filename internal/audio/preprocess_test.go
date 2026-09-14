@@ -169,6 +169,88 @@ func TestResample_emptyInput(t *testing.T) {
 	}
 }
 
+func TestResample_invalidRates(t *testing.T) {
+	input := []int16{0, 100, 200, 300}
+	tests := []struct {
+		name                  string
+		input                 []int16
+		inputRate, outputRate int
+	}{
+		{"zero input rate", input, 0, 16000},
+		{"zero output rate", input, 16000, 0},
+		{"both rates zero", input, 0, 0},
+		{"negative input rate", input, -8000, 16000},
+		{"negative output rate", input, 16000, -8000},
+		{"empty input with zero rate", nil, 0, 16000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("Resample(%d, %d) panicked: %v", tt.inputRate, tt.outputRate, r)
+				}
+			}()
+			if got := Resample(tt.input, tt.inputRate, tt.outputRate); len(got) != 0 {
+				t.Fatalf("len: got %d, want 0", len(got))
+			}
+		})
+	}
+}
+
+func TestNewMelFilterBank_invalidArgs(t *testing.T) {
+	tests := []struct {
+		name                   string
+		numFilters, sampleRate int
+	}{
+		{"zero sample rate", 40, 0},
+		{"negative sample rate", 40, -16000},
+		{"zero num filters", 0, 16000},
+		{"negative num filters", -1, 16000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mb, err := NewMelFilterBank(tt.numFilters, tt.sampleRate)
+			if err == nil {
+				t.Fatalf("NewMelFilterBank(%d, %d): expected error, got nil", tt.numFilters, tt.sampleRate)
+			}
+			if mb != nil {
+				t.Fatalf("expected nil bank on error, got %v", mb)
+			}
+		})
+	}
+}
+
+func TestNewMelFilterBank_validArgs(t *testing.T) {
+	mb, err := NewMelFilterBank(40, 16000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mb == nil {
+		t.Fatal("expected non-nil bank")
+	}
+}
+
+func TestMelFilterBank_Compute_zeroValueNoPanic(t *testing.T) {
+	var mb MelFilterBank
+	if got := mb.Compute([]int16{1, 2, 3, 4}); got != nil {
+		t.Fatalf("expected nil for zero-value bank, got %d frames", len(got))
+	}
+}
+
+func TestMelFilterBank_Compute_tinyRateNoPanic(t *testing.T) {
+	mb, err := NewMelFilterBank(40, 50) // 10ms shift truncates to 0 without the floor
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := mb.Compute([]int16{1, 2, 3, 4})
+	if len(got) == 0 {
+		t.Fatal("expected at least one frame")
+	}
+	if len(got[0]) != 40 {
+		t.Fatalf("filters per frame: got %d, want 40", len(got[0]))
+	}
+}
+
 func TestNormalizeInt16_alreadyMax(t *testing.T) {
 	input := []int16{0, 100, 32767, -32768}
 	output := NormalizeInt16(input)

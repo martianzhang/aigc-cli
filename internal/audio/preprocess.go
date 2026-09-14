@@ -265,7 +265,11 @@ func EncodeWAV(w io.Writer, data *AudioData) error {
 }
 
 // Resample changes the sample rate of PCM audio using linear interpolation.
+// Empty input or non-positive rates yield an empty slice (no division by zero).
 func Resample(input []int16, inputRate, outputRate int) []int16 {
+	if len(input) == 0 || inputRate <= 0 || outputRate <= 0 {
+		return []int16{}
+	}
 	if inputRate == outputRate {
 		out := make([]int16, len(input))
 		copy(out, input)
@@ -352,16 +356,30 @@ type MelFilterBank struct {
 }
 
 // NewMelFilterBank creates a mel filter bank for feature extraction.
-func NewMelFilterBank(numFilters, sampleRate int) *MelFilterBank {
-	return &MelFilterBank{numFilters: numFilters, sampleRate: sampleRate}
+// Both numFilters and sampleRate must be positive.
+func NewMelFilterBank(numFilters, sampleRate int) (*MelFilterBank, error) {
+	if numFilters <= 0 {
+		return nil, fmt.Errorf("mel filter bank: numFilters must be positive, got %d", numFilters)
+	}
+	if sampleRate <= 0 {
+		return nil, fmt.Errorf("mel filter bank: sampleRate must be positive, got %d", sampleRate)
+	}
+	return &MelFilterBank{numFilters: numFilters, sampleRate: sampleRate}, nil
 }
 
 // Compute extracts log-mel spectrogram from PCM audio.
 // Returns a 2D slice [numFrames][numFilters]float32.
+// A zero-value or invalid bank returns nil instead of dividing by zero.
 func (m *MelFilterBank) Compute(samples []int16) [][]float32 {
 	// Placeholder: returns zeros with the right shape
 	// Full implementation requires FFT + mel scaling + log
+	if m == nil || m.sampleRate <= 0 {
+		return nil
+	}
 	frameShift := int(0.010 * float64(m.sampleRate)) // 10ms
+	if frameShift < 1 {
+		frameShift = 1
+	}
 	numFrames := len(samples)/frameShift + 1
 
 	frames := make([][]float32, numFrames)
