@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"reflect"
 	"strings"
@@ -14,21 +13,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
-
-// maskBaseURL shows just the host part of a URL for display.
-func maskBaseURL(raw string) string {
-	if raw == "" {
-		return ""
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return raw
-	}
-	if u.Port() != "" {
-		return u.Host
-	}
-	return u.Host
-}
 
 // applyCLIOverrides reflects config defaults yaml tags to auto-discover CLI flag
 // mappings, so adding a new field to any *Defaults struct is automatically picked up.

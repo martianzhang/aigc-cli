@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -38,53 +38,25 @@ func runPrintConfig(cmd *cobra.Command) {
 		}
 	}
 
-	displayCfg := &configDisplay{}
+	// Merge config file with env/CLI overrides, then mask every secret before
+	// display. Masking runs on a deep copy so shared.Cfg stays intact.
+	raw := types.Config{}
 	if configFound && cfg != nil {
-		displayCfg.Config = *cfg
+		raw = *cfg
 	}
 	// env var / CLI flag takes priority over config file
 	if shared.APIKey != "" {
-		displayCfg.APIKey = shared.APIKey
+		raw.APIKey = shared.APIKey
 	}
-	if shared.APIBase != "" && displayCfg.BaseURL == "" {
-		displayCfg.BaseURL = shared.APIBase
+	if shared.APIBase != "" && raw.BaseURL == "" {
+		raw.BaseURL = shared.APIBase
 	}
-	if shared.HTTPProxy != "" && displayCfg.HTTPProxy == "" {
-		displayCfg.HTTPProxy = shared.HTTPProxy
+	if shared.HTTPProxy != "" && raw.HTTPProxy == "" {
+		raw.HTTPProxy = shared.HTTPProxy
 	}
-	// Mask API key for display
-	if displayCfg.APIKey != "" {
-		if len(displayCfg.APIKey) > 8 {
-			displayCfg.APIKey = displayCfg.APIKey[:8] + "..."
-		} else if len(displayCfg.APIKey) > 3 {
-			displayCfg.APIKey = displayCfg.APIKey[:3] + "..."
-		} else {
-			displayCfg.APIKey = displayCfg.APIKey[:1] + "..."
-		}
-	}
-	// Mask provider API keys
-	for _, p := range displayCfg.Providers {
-		if p != nil && p.APIKey != "" {
-			if len(p.APIKey) > 8 {
-				p.APIKey = p.APIKey[:8] + "..."
-			} else if len(p.APIKey) > 3 {
-				p.APIKey = p.APIKey[:3] + "..."
-			} else {
-				p.APIKey = p.APIKey[:1] + "..."
-			}
-		}
-	}
-	// Mask web search provider API keys
-	for _, p := range displayCfg.WebSearch {
-		if p != nil && p.APIKey != "" {
-			if len(p.APIKey) > 8 {
-				p.APIKey = p.APIKey[:8] + "..."
-			} else if len(p.APIKey) > 3 {
-				p.APIKey = p.APIKey[:3] + "..."
-			} else {
-				p.APIKey = p.APIKey[:1] + "..."
-			}
-		}
+	displayCfg := &configDisplay{}
+	if masked := service.MaskConfigSecrets(&raw); masked != nil {
+		displayCfg.Config = *masked
 	}
 	if displayCfg.Defaults == nil {
 		displayCfg.Defaults = &types.ConfigDefaults{}
@@ -172,49 +144,5 @@ func runPrintConfig(cmd *cobra.Command) {
 		if n != "" {
 			fmt.Println(n)
 		}
-	}
-
-	// ── 各命令有效 Provider 概览 ──
-	fmt.Println()
-	printCmdProviders()
-	fmt.Println()
-}
-
-// printCmdProviders prints the effective provider for each command.
-func printCmdProviders() {
-	cmds := []struct {
-		Name string
-		Ref  string
-	}{
-		{"image", options.ProviderNameImage},
-		{"video", options.ProviderNameVideo},
-		{"chat", options.ProviderNameChat},
-		{"audio", options.ProviderNameAudio},
-		{"midjourney", options.ProviderNameMidjourney},
-		{"music", options.ProviderNameMusic},
-		{"ocr", options.ProviderNameOCR},
-		{"vision", options.ProviderNameVision},
-		{"detect", options.ProviderNameDetect},
-		{"background", options.ProviderNameBackground},
-	}
-
-	fmt.Println("# ── 各命令有效 Provider ──")
-	for _, c := range cmds {
-		p := shared.ResolveProvider(c.Ref)
-		if p == nil {
-			continue
-		}
-		providerLabel := p.Name
-		if providerLabel == "" {
-			providerLabel = "(global)"
-		}
-		// Show explicit type if set, otherwise fall back to URL-based detection.
-		typeLabel := p.Type.DisplayType(p.ProviderType.String())
-		modelInfo := ""
-		if p.Model != "" {
-			modelInfo = fmt.Sprintf(", model=%s", p.Model)
-		}
-		fmt.Printf("  %-12s → %s (%s%s) %s\n",
-			c.Name+":", providerLabel, typeLabel, modelInfo, maskBaseURL(p.BaseURL))
 	}
 }
