@@ -169,7 +169,7 @@ aigc-cli
 │
 │   # 全局标志
 │   --dry-run      打印请求参数和等价 curl，不调用 API
-│   --print-config 打印当前生效的配置（含来源标注）
+│   --print-config 打印当前生效的配置（含来源标注，密钥已脱敏）
 │   -v/--verbose   显示详细输出：完整 JSON、Token 用量、耗时、费用
 │   --json         以 JSON 格式传入请求（文件、字符串或 stdin）
 │   --preview      生成完成后自动打开系统预览

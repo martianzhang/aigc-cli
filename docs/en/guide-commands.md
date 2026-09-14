@@ -69,7 +69,7 @@ aigc-cli completion powershell > aigc-cli.ps1
 | Flag | Description |
 |---|---|
 | `--dry-run` | Print request params and equivalent curl, no API call |
-| `--print-config` | Print effective config with source annotations |
+| `--print-config` | Print effective config with source annotations (secrets masked: API keys show only the last 4 chars, URL credentials/keys become `REDACTED`) |
 | `-v` / `--verbose` | Show detailed output: full JSON, token usage, timing, cost |
 | `--json` | Pass request as JSON (file, string, or stdin) |
 | `--preview` | Open system preview after generation |

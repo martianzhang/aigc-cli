@@ -169,7 +169,7 @@ aigc-cli
 │
 │   # Global flags
 │   --dry-run      Print request params and equivalent curl, no API call
-│   --print-config Print effective config with source annotations
+│   --print-config Print effective config with source annotations (secrets masked)
 │   -v/--verbose   Show detailed output: full JSON, token usage, timing, cost
 │   --json         Pass request as JSON (file, string, or stdin)
 │   --preview      Open system preview after generation

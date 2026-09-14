@@ -97,6 +97,16 @@ aigc-cli mj imagine --prompt "test" --dry-run
 aigc-cli mj upscale --task-id task_xxx --index 1 --dry-run
 ```
 
+## 查看生效配置
+
+打印当前生效的配置（含来源标注）。各命令实际使用的 Provider 由 `defaults.{命令}.provider` 与 `providers` 段共同决定，均在下文中列出。
+
+```bash
+aigc-cli --print-config
+```
+
+输出前所有密钥均已脱敏：API Key 仅保留后 4 位，`base_url` / `http_proxy` 中的密码与密钥参数以 `REDACTED` 替代。
+
 ## 查看版本
 
 ```bash
