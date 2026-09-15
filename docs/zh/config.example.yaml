@@ -81,6 +81,11 @@ providers:
   #   api_key: "sk-or-xxx"
   #   base_url: "https://openrouter.ai/api/v1"
 
+  # 示例：阿里云百炼（音乐用 Fun-Music 时配置；chat 走 compatible-mode，音乐会自动改走原生 services 路径）
+  # dashscope:
+  #   api_key: "sk-xxx"
+  #   base_url: "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+
   # 示例：Ollama 本地模型
   # ollama:
   #   type: ollama
@@ -141,11 +146,11 @@ defaults:
     version: "6.1"
 
   music:
-    # provider: "apimart"        # apimart（默认）或 openrouter（Lyria-3，需先配 providers.openrouter）
-    model: "suno"                # suno | flowmusic（名称含 flowmusic 走 flowmusic 后端）；OpenRouter 下填 google/lyria-3-clip-preview 等
+    # provider: "apimart"        # apimart（默认）或 openrouter / dashscope（Fun-Music）
+    model: "suno"                # suno | flowmusic（名称含 flowmusic 走 flowmusic 后端）；OpenRouter 填 google/lyria-3-*；dashscope 填 fun-music-v1 / fun-music-preview
     # instrumental: false        # 纯音乐（无人声）
-    # duration: 120              # 时长（秒），suno 用 duration，flowmusic 用 length
-    # format: "mp3"              # 音频格式（suno / OpenRouter；flowmusic 不支持）
+    # duration: 120              # 时长（秒），suno 用 duration，flowmusic 用 length；百炼 Fun-Music 不支持
+    # format: "mp3"              # 音频格式（suno / OpenRouter / 百炼；flowmusic 不支持）
 
   chat:
     model: "deepseek-v4-flash"

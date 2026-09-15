@@ -70,11 +70,11 @@ func buildOpenRouterMusicCurl(baseURL, apiKey string, req *types.MusicGenerateRe
 	return cmd
 }
 
-// runMusicOpenRouter streams a music generation and saves the decoded audio.
-func runMusicOpenRouter(c client.APIClient, baseURL, apiKey string, req *types.MusicGenerateRequest) error {
+// runOpenRouterMusic streams a music generation and saves the decoded audio.
+func runOpenRouterMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *musicDispatchCtx) ([]string, error) {
 	if musicDryRun {
-		fmt.Println(buildOpenRouterMusicCurl(baseURL, apiKey, req))
-		return nil
+		fmt.Println(buildOpenRouterMusicCurl(ctx.baseURL, ctx.apiKey, req))
+		return nil, nil
 	}
 
 	orReq := buildOpenRouterMusicReq(req)
@@ -85,7 +85,7 @@ func runMusicOpenRouter(c client.APIClient, baseURL, apiKey string, req *types.M
 
 	audio, transcript, err := c.OpenRouterMusicGenerate(orReq)
 	if err != nil {
-		return fmt.Errorf("openrouter music generation failed: %w", err)
+		return nil, fmt.Errorf("openrouter music generation failed: %w", err)
 	}
 
 	format := "mp3"
@@ -94,11 +94,11 @@ func runMusicOpenRouter(c client.APIClient, baseURL, apiKey string, req *types.M
 	}
 	saved, err := service.SaveAudioFile(audio, format, options.Shared.OutputDir)
 	if err != nil {
-		return fmt.Errorf("failed to save music: %w", err)
+		return nil, fmt.Errorf("failed to save music: %w", err)
 	}
 	fmt.Printf("Saved: %s\n", saved)
 	if transcript != "" {
 		fmt.Println(transcript)
 	}
-	return nil
+	return []string{saved}, nil
 }

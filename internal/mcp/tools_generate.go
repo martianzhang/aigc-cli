@@ -12,6 +12,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/music"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/gif"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -574,6 +575,8 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 		switch p.ProviderType {
 		case provider.OpenRouter:
 			saved, err = mcpOpenRouterMusic(c, req, cfg.Output)
+		case provider.Bailian:
+			saved, err = mcpFunMusic(c, req, cfg.Output)
 		default:
 			saved, err = mcpAPIMartMusic(c, req, cfg.Output)
 		}
@@ -669,6 +672,29 @@ func mcpAPIMartMusic(c client.APIClient, req *types.MusicGenerateRequest, output
 		return nil, fmt.Errorf("task completed but no downloadable music found")
 	}
 	return saved, nil
+}
+
+// mcpFunMusic runs the DashScope-native synchronous Fun-Music path.
+func mcpFunMusic(c client.APIClient, req *types.MusicGenerateRequest, outputDir string) ([]string, error) {
+	body, err := music.BuildFunMusicBody(req)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.FunMusicGenerate(body)
+	if err != nil {
+		return nil, fmt.Errorf("fun-music generation failed: %w", err)
+	}
+
+	url := mcpMusicTrackURL(resp.Track())
+	if url == "" {
+		return nil, fmt.Errorf("fun-music returned no downloadable audio")
+	}
+	filename, err := service.DownloadFile(url, outputDir, fmt.Sprintf("music_funmusic_%d", time.Now().Unix()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to download music: %w", err)
+	}
+	return []string{filename}, nil
 }
 
 // buildMCPMusicBody maps a typed request to the backend-native music body.

@@ -4,6 +4,7 @@
 
 - **APIMart (default)** — async task model: submit → poll → download. Use `--model suno` (default) or `--model flowmusic`.
 - **OpenRouter** — synchronous streaming: `--model google/lyria-3-clip-preview` (default, ~30s, mp3) or `google/lyria-3-pro-preview` (~minutes, mp3/wav). The audio is returned in a single call with **no task ID**.
+- **Alibaba Cloud Bailian (Fun-Music)** — synchronous: a single call returns an audio URL (valid 24 hours), with **no task ID**. Use `--model fun-music-v1` (default) or `fun-music-preview`.
 
 ## Commands
 
@@ -34,7 +35,11 @@ aigc-cli music gen --prompt "lofi beats" --instrumental
 # Duration and format (suno)
 aigc-cli music gen --prompt "epic orchestral" --duration 120 --format mp3
 
-# Query a task: downloads the audio when complete
+# Alibaba Cloud Bailian Fun-Music (synchronous)
+aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "summer folk"
+aigc-cli music gen --provider dashscope --prompt "rock" --json '{"gender":"male"}'
+
+# Query a task: downloads the audio when complete (APIMart only)
 aigc-cli music query task_xxx
 ```
 
@@ -48,8 +53,10 @@ aigc-cli music query task_xxx
 | APIMart | `flowmusic` | Async: submit → poll → download | sound_prompt / lyrics / title / length |
 | OpenRouter | `google/lyria-3-clip-preview` (default) | Sync streaming, audio returned in one call | ~30s, mp3 |
 | OpenRouter | `google/lyria-3-pro-preview` | Sync streaming | minutes, mp3 / wav |
+| Bailian | `fun-music-v1` (default) / `fun-music-preview` | Sync, one call returns an audio URL | prompt / lyrics / instrumental / format / gender |
 
-> If `--model` contains `flowmusic`, the flowmusic backend is used; otherwise suno is used.
+> If `--model` contains `flowmusic`, the flowmusic backend is used; otherwise suno is used. This rule applies to APIMart only.
+> The provider is detected from the base URL: `*.maas.aliyuncs.com` or `dashscope.aliyuncs.com` → Alibaba Cloud Bailian.
 
 ### APIMart (async)
 
@@ -99,6 +106,29 @@ Notes:
 - Synchronous — there is **no task ID**, so `music query` is neither needed nor supported.
 - OpenRouter has no lyrics / instrumental / duration request fields, so these are folded into the prompt text: instrumental is prefixed with `[Instrumental] `, lyrics are appended in a `Lyrics:` section, and duration is appended as `Target duration: about N seconds.`.
 
+### Alibaba Cloud Bailian Fun-Music (synchronous)
+
+Vendor docs: <https://docs.bailian.console.aliyun.com/zh/model-studio/fun-music>
+
+```bash
+aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "summer folk"
+```
+
+Notes:
+
+- **Endpoint**: `POST https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/api/v1/services/audio/music/generation`.
+  This is the DashScope **native** path, **not** the `compatible-mode/v1` path used for chat. The CLI takes only the scheme + host from the base URL and appends the native path, so the same named provider used for chat works unchanged.
+- Auth: `Authorization: Bearer <DASHSCOPE_API_KEY>`.
+- **Synchronous**: one call returns the audio URL (valid for 24 hours). There is **no task ID**, so `music query` is neither needed nor supported.
+- Model differences:
+  - `fun-music-v1`: at least one of `prompt` / `lyrics`; supports `gender` (male/female).
+  - `fun-music-preview`: `prompt` is required; `gender` is not supported.
+- Field mapping: `--prompt` (or `--style`, joined with `，` when both are given) → `input.prompt`; `--lyrics` → `input.lyrics`; `--instrumental` → `input.is_instrumental`; `--format` → `input.format`.
+- **No equivalent fields**: `--duration` and `--title` are ignored (the length is derived from the lyrics) and the CLI prints a warning.
+- Vendor-specific fields (`gender`, `enable_aigc_watermark`, …) go through `--json` and are merged into `input` (except `model`, which stays top-level).
+- When `is_instrumental=true`, `lyrics` and `gender` are invalid and the CLI removes them automatically.
+- Region/availability: the model is currently in **limited preview**, available **only in China (Beijing)**, and requires approval in the Bailian Model Gallery.
+
 ---
 
 ## Parameters
@@ -106,13 +136,13 @@ Notes:
 | Parameter | Short | Description |
 |---|---|---|
 | `--prompt` | `-p` | Music description / style (suno: prompt when no lyrics; flowmusic: sound_prompt) |
-| `--model` | `-m` | Backend model: `suno` (default) / `flowmusic`; on OpenRouter, the model ID |
-| `--style` | | Style (suno's style field; fallback when prompt is empty) |
-| `--title` | | Track title |
-| `--lyrics` | | Lyrics (suno non-empty enables custom mode; flowmusic sends as lyrics) |
+| `--model` | `-m` | Backend model: `suno` (default) / `flowmusic` / `fun-music-v1` / `fun-music-preview`; on OpenRouter, the model ID |
+| `--style` | | Style (suno's style field; fallback when prompt is empty; joined into the prompt on Bailian) |
+| `--title` | | Track title (not supported by Bailian; ignored) |
+| `--lyrics` | | Lyrics (suno non-empty enables custom mode; flowmusic / Bailian send as lyrics) |
 | `--instrumental` | | Instrumental only (no vocals) |
-| `--duration` | `-d` | Duration in seconds; suno → `duration`, flowmusic → `length` |
-| `--format` | | Audio format (suno / OpenRouter; not supported by flowmusic) |
+| `--duration` | `-d` | Duration in seconds; suno → `duration`, flowmusic → `length`; not supported by Bailian |
+| `--format` | | Audio format (suno / OpenRouter / Bailian; not supported by flowmusic) |
 | `--json` | | JSON input (file path, string, or `-` for stdin) |
 | `--dry-run` | | Print the equivalent curl, do not call the API |
 | `--provider` | | Global: reference a named provider (e.g. `openrouter`) |
@@ -135,6 +165,9 @@ aigc-cli music gen --prompt "rock" --model flowmusic --json '{"bpm":"128","seed"
 
 # OpenRouter
 aigc-cli music gen --prompt "ambient" --provider openrouter --model google/lyria-3-pro-preview
+
+# Bailian Fun-Music: gender / enable_aigc_watermark are merged into input
+aigc-cli music gen --provider dashscope --prompt "urban folk" --json '{"gender":"male"}'
 ```
 
 ---
@@ -147,10 +180,12 @@ aigc-cli music gen --prompt "ambient" --provider openrouter --model google/lyria
 providers:
   apimart:  { type: openai, api_key: "sk-xxx", base_url: "https://api.apimart.ai" }
   openrouter: { type: openai, api_key: "sk-or-xxx", base_url: "https://openrouter.ai/api/v1" }
+  # Bailian: chat uses compatible-mode; music is redirected to the native services path
+  dashscope: { api_key: "sk-xxx", base_url: "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1" }
 defaults:
   music:
-    provider: apimart
-    model: suno
+    provider: apimart        # set to dashscope to enable Fun-Music
+    model: suno              # with dashscope use fun-music-v1 or fun-music-preview
     # instrumental: false
     # duration: 120
     # format: mp3
@@ -193,6 +228,15 @@ curl -N -X POST https://openrouter.ai/api/v1/chat/completions \
   -d '{"model":"google/lyria-3-clip-preview","messages":[{"role":"user","content":"ambient"}],"modalities":["text","audio"],"audio":{"format":"mp3"},"stream":true}'
 ```
 
+Alibaba Cloud Bailian (Fun-Music, synchronous; note the native services path):
+
+```
+curl -X POST 'https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/api/v1/services/audio/music/generation' \
+  -H "Authorization: Bearer sk-xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"input":{"prompt":"urban folk"},"model":"fun-music-v1"}'
+```
+
 ---
 
 ## MCP / Chat Agent
@@ -207,6 +251,7 @@ Generated audio is saved to the output directory (current directory by default; 
 
 - **APIMart**: each track is saved as `music_<task_id>_<n>.<ext>`.
 - **OpenRouter**: saved as `audio_<unix timestamp>.mp3` (or `.wav` with `--format wav`).
+- **Alibaba Cloud Bailian**: saved as `music_<audio_id>_0.<ext>`.
 
 ---
 
@@ -217,3 +262,4 @@ Generated audio is saved to the output directory (current directory by default; 
 | `POST /v1/music/generations` | Submit a music generation task (async) | APIMart ✅ |
 | `GET /v1/music/tasks/{task_id}` | Query music task status and result | APIMart ✅ |
 | `POST /v1/chat/completions` | Synchronous streaming music generation (`modalities: ["text","audio"]`) | OpenRouter ✅ |
+| `POST /api/v1/services/audio/music/generation` | Synchronous music generation (DashScope native protocol, returns an audio URL) | Alibaba Cloud Bailian ✅ |

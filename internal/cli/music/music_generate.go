@@ -20,7 +20,7 @@ import (
 var musicGenerateCmd = &cobra.Command{
 	Use:          "generate",
 	Aliases:      []string{"gen"},
-	Short:        "Generate music (suno / flowmusic / Lyria-3)",
+	Short:        "Generate music (suno / flowmusic / Lyria-3 / Fun-Music)",
 	SilenceUsage: true,
 	Long: `Submit a music generation request.
 
@@ -30,11 +30,15 @@ request shape: suno (default) or flowmusic.
 OpenRouter is synchronous streaming (Google Lyria-3): select it with
 --provider openrouter and a google/lyria-3-* model.
 
+Bailian (阿里云百炼) is synchronous (Fun-Music): select it with
+--provider dashscope and a fun-music-* model.
+
 Examples:
   aigc-cli music generate --prompt "city pop"
   aigc-cli music gen --prompt "rock" --model flowmusic
   aigc-cli music gen --prompt "lofi" --lyrics "..." --instrumental
   aigc-cli music gen --provider openrouter --model google/lyria-3-pro-preview --prompt "cinematic"
+  aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清新民谣"
   aigc-cli music gen --json '{"model":"suno","prompt":"jazz"}'`,
 	RunE: runMusicGenerate,
 }
@@ -48,23 +52,12 @@ func runMusicGenerate(cmd *cobra.Command, _ []string) error {
 	return runMusic(newMusicClient(), p, req)
 }
 
-// runMusic dispatches to the provider-specific runner. OpenRouter Lyria runs
-// synchronously over streaming chat completions; everything else uses the
-// APIMart async submit/poll path. baseURL/apiKey come from the resolved
-// provider so --dry-run renders the request against the actual endpoint.
+// runMusic dispatches to the provider-specific runner via the strategy table.
+// baseURL/apiKey come from the resolved provider so --dry-run renders the
+// request against the actual endpoint.
 func runMusic(c client.APIClient, p *provider.EffectiveProvider, req *types.MusicGenerateRequest) error {
-	baseURL, apiKey := "", ""
-	if p != nil {
-		baseURL, apiKey = p.BaseURL, p.APIKey
-	}
-	if provider.Detect(c.BaseURL()) == provider.OpenRouter {
-		return runMusicOpenRouter(c, baseURL, apiKey, req)
-	}
-	body, err := buildMusicBody(req)
-	if err != nil {
-		return err
-	}
-	return runMusicSubmitAndPoll(c, baseURL, apiKey, body)
+	_, err := dispatchMusic(c, req, newMusicDispatchCtx(c, p))
+	return err
 }
 
 // buildMusicGenerateReq builds a typed music request from flags, config

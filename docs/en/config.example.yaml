@@ -83,6 +83,12 @@ providers:
   #   api_key: "sk-or-xxx"
   #   base_url: "https://openrouter.ai/api/v1"
 
+  # Example: Alibaba Cloud Bailian (needed for Fun-Music; chat uses compatible-mode,
+  # music is automatically redirected to the native services path)
+  # dashscope:
+  #   api_key: "sk-xxx"
+  #   base_url: "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+
   # Example: Ollama local model
   # ollama:
   #   type: ollama
@@ -141,11 +147,11 @@ defaults:
     version: "6.1"
 
   music:
-    # provider: "apimart"        # apimart (default) or openrouter (Lyria-3; requires providers.openrouter)
-    model: "suno"                # suno | flowmusic (flowmusic if the name contains it); for OpenRouter use google/lyria-3-clip-preview etc.
+    # provider: "apimart"        # apimart (default), openrouter, or dashscope (Fun-Music)
+    model: "suno"                # suno | flowmusic (flowmusic if the name contains it); OpenRouter: google/lyria-3-*; dashscope: fun-music-v1 / fun-music-preview
     # instrumental: false        # true = no vocals
-    # duration: 120              # seconds (suno: duration, flowmusic: length)
-    # format: "mp3"              # audio format (suno / OpenRouter; flowmusic not supported)
+    # duration: 120              # seconds (suno: duration, flowmusic: length); not supported by Bailian Fun-Music
+    # format: "mp3"              # audio format (suno / OpenRouter / Bailian; flowmusic not supported)
 
   chat:
     model: "deepseek-v4-flash"

@@ -46,7 +46,7 @@ var (
 // ============================================================================
 var musicCmd = &cobra.Command{
 	Use:          "music",
-	Short:        "AI music generation (APIMart suno/flowmusic, OpenRouter Lyria-3)",
+	Short:        "AI music generation (APIMart suno/flowmusic, OpenRouter Lyria-3, Bailian Fun-Music)",
 	SilenceUsage: true,
 	Long: `Generate music from a natural-language prompt.
 
@@ -56,6 +56,8 @@ The backend is selected by Provider:
     --model flowmusic      — sound_prompt/lyrics/title/length
   OpenRouter         synchronous streaming (Google Lyria-3)
     --provider openrouter --model google/lyria-3-clip-preview (or -pro-preview)
+  Bailian (阿里云百炼) synchronous (Fun-Music)
+    --provider dashscope --model fun-music-v1 (or fun-music-preview)
 
 Subcommands:
   generate (gen)   Submit a music generation task
@@ -65,6 +67,7 @@ Examples:
   aigc-cli music generate --prompt "city pop"
   aigc-cli music gen --prompt "rock" --model flowmusic
   aigc-cli music gen --provider openrouter --model google/lyria-3-clip-preview --prompt "ambient"
+  aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清新民谣"
   aigc-cli music query task_xxx`,
 }
 
@@ -74,7 +77,7 @@ Examples:
 func init() {
 	f := musicGenerateCmd.Flags()
 	f.StringVarP(&musicPrompt, "prompt", "p", "", "Music prompt / description (or style)")
-	f.StringVarP(&musicModel, "model", "m", "", "Backend model: suno (default) or flowmusic")
+	f.StringVarP(&musicModel, "model", "m", "", "Backend model: suno (default), flowmusic, or fun-music-v1/-preview")
 	f.StringVar(&musicStyle, "style", "", "Style (suno: style field; fallback for prompt)")
 	f.StringVar(&musicTitle, "title", "", "Track title")
 	f.StringVar(&musicLyrics, "lyrics", "", "Lyrics (enables custom mode on suno)")

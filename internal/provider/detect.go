@@ -20,6 +20,7 @@ const (
 	ModelScope
 	Agnes
 	Gemini
+	Bailian
 )
 
 var names = map[Type]string{
@@ -31,6 +32,7 @@ var names = map[Type]string{
 	ModelScope: "ModelScope",
 	Agnes:      "Agnes",
 	Gemini:     "Gemini",
+	Bailian:    "阿里云百炼",
 }
 
 func (t Type) String() string {
@@ -79,6 +81,16 @@ var agnesDomains = []string{
 // geminiDomains lists domains where Google Gemini APIs are served.
 var geminiDomains = []string{
 	"generativelanguage.googleapis.com",
+}
+
+// bailianDomains lists domains where Alibaba Cloud Bailian (DashScope) APIs are
+// served. Covers the workspace-scoped native hosts used by DashScope-native
+// models such as fun-music (e.g. {WorkspaceId}.cn-beijing.maas.aliyuncs.com) as
+// well as the legacy and international DashScope endpoints.
+var bailianDomains = []string{
+	"maas.aliyuncs.com",
+	"dashscope.aliyuncs.com",
+	"dashscope-intl.aliyuncs.com",
 }
 
 // matchDomain checks that host is the domain d or a subdomain of d.
@@ -132,6 +144,11 @@ func Detect(baseURL string) Type {
 			return Gemini
 		}
 	}
+	for _, d := range bailianDomains {
+		if matchDomain(baseURL, d) {
+			return Bailian
+		}
+	}
 	// Default to OpenAI-compatible for everything else
 	return OpenAI
 }
@@ -153,6 +170,9 @@ func IsAgnes(baseURL string) bool { return Detect(baseURL) == Agnes }
 
 // IsGemini is a convenience wrapper around Detect.
 func IsGemini(baseURL string) bool { return Detect(baseURL) == Gemini }
+
+// IsBailian is a convenience wrapper around Detect.
+func IsBailian(baseURL string) bool { return Detect(baseURL) == Bailian }
 
 // IsGeminiDomain returns true if baseURL points to Google Gemini API,
 // including the OpenAI-compatible /openai endpoint variant.

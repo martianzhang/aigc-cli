@@ -1,9 +1,10 @@
 # 音乐生成
 
-`aigc-cli music` 用自然语言提示词生成音乐。根据 Provider 自动选择两种后端：
+`aigc-cli music` 用自然语言提示词生成音乐。根据 Provider 自动选择后端：
 
 - **APIMart（默认）**：异步任务模型 —— 提交任务 → 轮询 → 下载。`--model suno`（默认）或 `--model flowmusic`。
 - **OpenRouter**：同步流式，`--model google/lyria-3-clip-preview`（默认，约 30 秒，mp3）或 `google/lyria-3-pro-preview`（数分钟，mp3/wav）。音频在一次调用中直接返回，**没有 task_id**。
+- **阿里云百炼（Fun-Music）**：同步，一次调用返回音频 URL（24 小时有效），**没有 task_id**。`--model fun-music-v1`（默认）或 `fun-music-preview`。
 
 ## 命令
 
@@ -34,7 +35,11 @@ aigc-cli music gen --prompt "lofi beats" --instrumental
 # 指定时长与格式（suno）
 aigc-cli music gen --prompt "epic orchestral" --duration 120 --format mp3
 
-# 查询任务：完成后自动下载音频
+# 阿里云百炼 Fun-Music（同步）
+aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清新民谣"
+aigc-cli music gen --provider dashscope --prompt "摇滚" --json '{"gender":"male"}'
+
+# 查询任务：完成后自动下载音频（仅 APIMart）
 aigc-cli music query task_xxx
 ```
 
@@ -48,8 +53,10 @@ aigc-cli music query task_xxx
 | APIMart | `flowmusic` | 异步：提交 → 轮询 → 下载 | sound_prompt / lyrics / title / length |
 | OpenRouter | `google/lyria-3-clip-preview`（默认） | 同步流式，一次调用返回音频 | 约 30 秒，mp3 |
 | OpenRouter | `google/lyria-3-pro-preview` | 同步流式 | 数分钟，mp3 / wav |
+| 阿里云百炼 | `fun-music-v1`（默认）/ `fun-music-preview` | 同步，一次调用返回音频 URL | prompt / lyrics / instrumental / format / gender |
 
-> `--model` 名称中包含 `flowmusic` 即走 flowmusic 后端，否则走 suno。
+> `--model` 名称中包含 `flowmusic` 即走 flowmusic 后端，否则走 suno。该规则仅适用于 APIMart。
+> Provider 由 base URL 自动识别：`*.maas.aliyuncs.com` 或 `dashscope.aliyuncs.com` → 阿里云百炼。
 
 ### APIMart（异步）
 
@@ -99,6 +106,29 @@ aigc-cli music gen --provider openrouter --prompt "ambient"
 - 同步返回，**无 task_id**，不需要（也不支持）`music query`。
 - OpenRouter 没有 lyrics / instrumental / duration 请求字段，这三者会被折叠进 prompt 文本：instrumental 前置 `[Instrumental] `，歌词追加 `Lyrics:` 段，时长追加 `Target duration: about N seconds.`。
 
+### 阿里云百炼 Fun-Music（同步）
+
+厂商文档：<https://docs.bailian.console.aliyun.com/zh/model-studio/fun-music>
+
+```bash
+aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清新民谣"
+```
+
+说明：
+
+- **端点**：`POST https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/api/v1/services/audio/music/generation`。
+  这是 DashScope **原生**路径，**不是** chat 用的 `compatible-mode/v1`。CLI 只取 base URL 的 scheme + host 再拼原生路径，因此可直接复用为 chat 配置的百炼 Provider。
+- 鉴权：`Authorization: Bearer <DASHSCOPE_API_KEY>`。
+- **同步返回**：一次调用直接返回音频 URL（24 小时有效），**没有 task_id**，不需要（也不支持）`music query`。
+- 模型差异：
+  - `fun-music-v1`：`prompt` 与 `lyrics` 至少传一个；支持 `gender`（男/女声）。
+  - `fun-music-preview`：`prompt` 必填；不支持 `gender`。
+- 字段映射：`--prompt`（或 `--style`，同时给出时用 `，` 连接）→ `input.prompt`；`--lyrics` → `input.lyrics`；`--instrumental` → `input.is_instrumental`；`--format` → `input.format`。
+- **无对应字段**：`--duration` 与 `--title` 会被忽略（时长由歌词长度决定），CLI 会打印告警。
+- vendor 专属字段（`gender`、`enable_aigc_watermark` 等）通过 `--json` 传入，会合并进 `input`（`model` 除外，它保持顶层）。
+- `is_instrumental=true` 时 `lyrics` 与 `gender` 无效，CLI 会自动移除这两个字段。
+- 区域/开通：该模型目前为**邀测**，仅**华北 2（北京）**可用，需在百炼模型广场申请开通。
+
 ---
 
 ## 参数
@@ -106,13 +136,13 @@ aigc-cli music gen --provider openrouter --prompt "ambient"
 | 参数 | 短参 | 说明 |
 |---|---|---|
 | `--prompt` | `-p` | 音乐描述 / 风格（suno 无歌词时作为 prompt，flowmusic 作为 sound_prompt） |
-| `--model` | `-m` | 后端模型：`suno`（默认）/ `flowmusic`；OpenRouter 下为模型 ID |
-| `--style` | | 风格（suno 的 style 字段；prompt 为空时兜底） |
-| `--title` | | 曲目名称 |
-| `--lyrics` | | 歌词（suno 非空时进入 custom 模式；flowmusic 作为 lyrics） |
+| `--model` | `-m` | 后端模型：`suno`（默认）/ `flowmusic` / `fun-music-v1` / `fun-music-preview`；OpenRouter 下为模型 ID |
+| `--style` | | 风格（suno 的 style 字段；prompt 为空时兜底；百炼下与 prompt 拼接） |
+| `--title` | | 曲目名称（百炼不支持，忽略） |
+| `--lyrics` | | 歌词（suno 非空时进入 custom 模式；flowmusic / 百炼作为 lyrics） |
 | `--instrumental` | | 纯音乐（无人声） |
-| `--duration` | `-d` | 时长（秒）；suno → `duration`，flowmusic → `length` |
-| `--format` | | 音频格式（suno / OpenRouter；flowmusic 不支持） |
+| `--duration` | `-d` | 时长（秒）；suno → `duration`，flowmusic → `length`；百炼不支持 |
+| `--format` | | 音频格式（suno / OpenRouter / 百炼；flowmusic 不支持） |
 | `--json` | | JSON 输入（文件、字符串，或 `-` 表示 stdin） |
 | `--dry-run` | | 打印等价 curl，不调用 API |
 | `--provider` | | 全局：引用命名 Provider（如 `openrouter`） |
@@ -135,6 +165,9 @@ aigc-cli music gen --prompt "rock" --model flowmusic --json '{"bpm":"128","seed"
 
 # OpenRouter
 aigc-cli music gen --prompt "ambient" --provider openrouter --model google/lyria-3-pro-preview
+
+# 百炼 Fun-Music：gender / enable_aigc_watermark 会合并进 input
+aigc-cli music gen --provider dashscope --prompt "城市民谣" --json '{"gender":"male"}'
 ```
 
 ---
@@ -147,10 +180,12 @@ aigc-cli music gen --prompt "ambient" --provider openrouter --model google/lyria
 providers:
   apimart:  { type: openai, api_key: "sk-xxx", base_url: "https://api.apimart.ai" }
   openrouter: { type: openai, api_key: "sk-or-xxx", base_url: "https://openrouter.ai/api/v1" }
+  # 百炼：chat 走 compatible-mode；music 会自动改走原生 services 路径
+  dashscope: { api_key: "sk-xxx", base_url: "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1" }
 defaults:
   music:
-    provider: apimart
-    model: suno
+    provider: apimart        # 改为 dashscope 即启用 Fun-Music
+    model: suno              # dashscope 下应写 fun-music-v1 或 fun-music-preview
     # instrumental: false
     # duration: 120
     # format: mp3
@@ -193,6 +228,15 @@ curl -N -X POST https://openrouter.ai/api/v1/chat/completions \
   -d '{"model":"google/lyria-3-clip-preview","messages":[{"role":"user","content":"ambient"}],"modalities":["text","audio"],"audio":{"format":"mp3"},"stream":true}'
 ```
 
+阿里云百炼（Fun-Music，同步；注意是原生 services 路径）：
+
+```
+curl -X POST 'https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/api/v1/services/audio/music/generation' \
+  -H "Authorization: Bearer sk-xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"input":{"prompt":"城市民谣"},"model":"fun-music-v1"}'
+```
+
 ---
 
 ## MCP / Chat 代理
@@ -207,6 +251,7 @@ curl -N -X POST https://openrouter.ai/api/v1/chat/completions \
 
 - **APIMart**：每首曲目保存为 `music_<task_id>_<n>.<ext>`。
 - **OpenRouter**：保存为 `audio_<unix 时间戳>.mp3`（`--format wav` 时为 `.wav`）。
+- **阿里云百炼**：保存为 `music_<audio_id>_0.<ext>`。
 
 ---
 
@@ -217,3 +262,4 @@ curl -N -X POST https://openrouter.ai/api/v1/chat/completions \
 | `POST /v1/music/generations` | 提交音乐生成任务（异步） | APIMart ✅ |
 | `GET /v1/music/tasks/{task_id}` | 查询音乐任务状态与结果 | APIMart ✅ |
 | `POST /v1/chat/completions` | 同步流式音乐生成（`modalities: ["text","audio"]`） | OpenRouter ✅ |
+| `POST /api/v1/services/audio/music/generation` | 同步音乐生成（DashScope 原生协议，返回音频 URL） | 阿里云百炼 ✅ |

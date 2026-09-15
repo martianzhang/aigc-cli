@@ -99,7 +99,7 @@ AI agents can generate images, create videos, search idea libraries, query model
 | 🔌 | **Multi-Provider Unified Entry** | Change one `base_url` to switch providers, commands unchanged |
 | 🧠 | **Provider Auto-Adapt** | OpenRouter automatically routes to dedicated image/video APIs, zero config |
 | 🎨 | **Complete Midjourney Pipeline** | 17 subcommands covering imagine → blend → describe → upscale → zoom → inpaint → video → remix, no Discord needed |
-| 🎵 | **AI Music Generation** | Natural-language music: APIMart (suno / flowmusic, async submit → poll → download) and OpenRouter (Lyria-3, sync streaming) |
+| 🎵 | **AI Music Generation** | Natural-language music: APIMart (suno / flowmusic, async submit → poll → download), OpenRouter (Lyria-3, sync streaming), Alibaba Cloud Bailian (Fun-Music, sync) |
 | 💬 | **Agentic Chat** | Interactive REPL with built-in `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` tools |
 | 🔍 | **Prompt Idea Library** | Offline BM25 search engine (CJK-aware + n-gram + RRF), 10K+ prompt dataset |
 | 🔊 | **Local TTS / ASR** | sherpa-onnx offline speech synthesis (kokoro, 53 voices, EN/ZH/JA/KR/FR) and speech recognition (SenseVoice, best for Chinese), no internet needed |
@@ -120,11 +120,14 @@ The same `image` / `video` / `audio` / `music` / `models` command automatically 
 | **OpenAI** | `POST /v1/images/generations` (sync) | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | — | `GET /v1/models` |
 | **OpenRouter** | `POST /api/v1/images` (dedicated image API) | `POST /api/v1/videos` async → poll → download + `--job-id` resume | `POST /api/v1/audio/speech` + `POST /api/v1/audio/transcriptions` (10+ TTS model aggregation) | `POST /api/v1/chat/completions` (`modalities: text+audio`) sync streaming — Lyria-3 | `GET /api/v1/images/models` / `GET /api/v1/videos/models` (auth-free) |
 | **APIMart** | Async task submit → poll → download | Async task + VEO3 Remix (extend video) | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `POST /v1/music/generations` async → poll (`GET /v1/music/tasks/{id}`) — suno / flowmusic | Marketplace API + model pricing query |
+| **Alibaba Cloud Bailian** | — | — | — | `POST /api/v1/services/audio/music/generation` sync (DashScope native) — fun-music-v1 / fun-music-preview | — |
 | **Agnes AI** | `POST /v1/images/generations` (sync, pixel size) | `POST /v1/videos` async → poll → download (text/keyframe/reference, 720P) | ❌ Not yet available | — | `GET /v1/models` |
 | **Yunwu AI** | `POST /v1/images/generations` (sync) | `POST /v1/video/create` + `GET /v1/video/query` | ❌ Not yet available | — | `GET /v1/models` |
 | **Ollama / Local** | `POST /v1/images/generations` (experimental, no API Key) | ❌ | Via LocalAI/openedai-speech etc. | — | `GET /v1/models` |
 | **Anthropic** | — | — | `POST /v1/messages` (via Anthropic-compatible relay) | — | — |
 | **Generic Relay** | `POST /v1/images/generations` (sync) | — | `POST /v1/audio/speech` (passthrough) | — | `GET /v1/models` |
+
+> Bailian (阿里云百炼) currently has a dedicated route for `music` only — Fun-Music uses the DashScope native services endpoint, which differs from the `compatible-mode` path used for chat. Image / video / audio fall through to the generic OpenAI-compatible path.
 
 > Local models/services don't need an API Key. aigc-cli auto-exempts API Key checks and skips the Authorization header. See [docs/en/installation.md#local-generation](docs/en/installation.md#local-generation).
 
@@ -144,7 +147,7 @@ aigc-cli
 │   ├── tts / speak  Text-to-speech (cloud API or local sherpa-onnx offline)
 │   ├── asr / stt    Speech-to-text (cloud API or local sherpa-onnx offline)
 │   └── init         Download local models (kokoro, sense-voice, etc.)
-├── music      AI music generation (APIMart suno/flowmusic async, OpenRouter Lyria sync)  →  docs/en/guide-music.md
+├── music      AI music generation (APIMart suno/flowmusic async, OpenRouter Lyria sync, Bailian Fun-Music)  →  docs/en/guide-music.md
 │   ├── generate / gen  Submit a music generation task
 │   └── query           Query music task status and result
 ├── ocr            Offline text recognition (DBNet + CRNN, ONNX local inference)     →  docs/en/guide-ocr.md
@@ -228,7 +231,7 @@ aigc-cli midjourney (or mj)
 | [Installation & Configuration](docs/en/installation.md) | Install, API Key, config file, proxy |
 | [Image Generation](docs/en/guide-image.md) | All parameters, sync/async modes, image-to-image, Inpainting |
 | [Video Generation](docs/en/guide-video.md) | All parameters, first/last frame, reference video (APIMart) |
-| [Music Generation](docs/en/guide-music.md) | Prompt-to-music: APIMart async (suno/flowmusic), OpenRouter Lyria sync streaming |
+| [Music Generation](docs/en/guide-music.md) | Prompt-to-music: APIMart async (suno/flowmusic), OpenRouter Lyria sync streaming, Alibaba Cloud Bailian Fun-Music sync |
 | [Depth Conversion](docs/en/guide-depth.md) | Image/video → depth map, Depth Anything V2 models, parameters |
 | [Midjourney](docs/en/guide-midjourney.md) | 17 subcommands complete guide: imagine, blend, upscale etc. |
 | [AI Chat](docs/en/guide-chat.md) | Interactive multi-turn REPL, streaming, verbose stats |

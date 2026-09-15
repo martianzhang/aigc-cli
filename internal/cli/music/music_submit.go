@@ -8,7 +8,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
-	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -40,10 +39,10 @@ func buildMusicCurl(baseURL, apiKey string, body any) string {
 
 // runMusicSubmitAndPoll submits a music body, polls, and displays results.
 // --dry-run short-circuits here (mirrors runMJSubmitAndPoll).
-func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any) error {
+func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any) ([]string, error) {
 	if musicDryRun {
 		fmt.Println(buildMusicCurl(baseURL, apiKey, body))
-		return nil
+		return nil, nil
 	}
 
 	if options.Shared.Verbose {
@@ -53,10 +52,10 @@ func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any)
 
 	resp, err := c.MusicSubmit(body)
 	if err != nil {
-		return fmt.Errorf("submission failed: %w", err)
+		return nil, fmt.Errorf("submission failed: %w", err)
 	}
 	if len(resp.Data) == 0 {
-		return fmt.Errorf("submission returned no tasks")
+		return nil, fmt.Errorf("submission returned no tasks")
 	}
 
 	task := resp.Data[0]
@@ -67,16 +66,18 @@ func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any)
 	fmt.Println("Polling for completion...")
 	taskData, err := c.MusicPollTask(task.TaskID)
 	if err != nil {
-		return fmt.Errorf("polling failed: %w", err)
+		return nil, fmt.Errorf("polling failed: %w", err)
 	}
 
 	displayMusicResult(taskData)
 	if taskData.Result != nil && len(taskData.Result.Music) > 0 {
-		if _, err := downloadMusics(taskData.Result.Music, taskData.ID); err != nil {
-			return fmt.Errorf("failed to download music: %w", err)
+		saved, err := downloadMusics(taskData.Result.Music, taskData.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to download music: %w", err)
 		}
+		return saved, nil
 	}
-	return nil
+	return nil, nil
 }
 
 // displayMusicResult prints a music task result in a human-readable format.
@@ -127,7 +128,7 @@ func displayMusicResult(task *types.MusicTaskData) {
 }
 
 // GenerateAndSave generates music via the configured provider and saves
-// the audio files to disk. Shared by CLI and the agent loop.
+// the audio files to disk. Shared by the CLI and the agent loop.
 func GenerateAndSave(c *client.Client, req *types.MusicGenerateRequest) ([]string, error) {
 	if req == nil {
 		return nil, fmt.Errorf("music request is required")
@@ -143,46 +144,5 @@ func GenerateAndSave(c *client.Client, req *types.MusicGenerateRequest) ([]strin
 
 	options.ApplyTimeout(c, "music", client.MusicTimeout)
 
-	if provider.Detect(c.BaseURL()) == provider.OpenRouter {
-		orReq := buildOpenRouterMusicReq(req)
-		audio, _, err := c.OpenRouterMusicGenerate(orReq)
-		if err != nil {
-			return nil, fmt.Errorf("music generation failed: %w", err)
-		}
-		format := "mp3"
-		if orReq.Audio != nil && orReq.Audio.Format != "" {
-			format = orReq.Audio.Format
-		}
-		saved, err := service.SaveAudioFile(audio, format, options.Shared.OutputDir)
-		if err != nil {
-			return nil, fmt.Errorf("failed to save music: %w", err)
-		}
-		return []string{saved}, nil
-	}
-
-	if req.Model == "" {
-		req.Model = "suno"
-	}
-
-	body, err := buildMusicBody(req)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.MusicSubmit(body)
-	if err != nil {
-		return nil, fmt.Errorf("submission failed: %w", err)
-	}
-	if len(resp.Data) == 0 {
-		return nil, fmt.Errorf("submission returned no tasks")
-	}
-
-	taskData, err := c.MusicPollTask(resp.Data[0].TaskID)
-	if err != nil {
-		return nil, fmt.Errorf("polling failed: %w", err)
-	}
-	if taskData.Result == nil || len(taskData.Result.Music) == 0 {
-		return nil, fmt.Errorf("no music in task result")
-	}
-	return downloadMusics(taskData.Result.Music, taskData.ID)
+	return dispatchMusic(c, req, newMusicDispatchCtx(c, nil))
 }

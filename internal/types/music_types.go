@@ -154,3 +154,43 @@ type OpenRouterMusicMessage struct {
 type OpenRouterAudioConfig struct {
 	Format string `json:"format,omitempty"`
 }
+
+// ============================================================================
+// Alibaba Bailian Fun-Music (百聆音乐) — DashScope-native synchronous generation
+// ============================================================================
+
+// FunMusicResponse is the DashScope-native Fun-Music response.
+// A non-empty Code indicates an error envelope.
+type FunMusicResponse struct {
+	RequestID string `json:"request_id"`
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	Output    struct {
+		Audio struct {
+			Data      string `json:"data"`
+			URL       string `json:"url"`
+			ID        string `json:"id"`
+			ExpiresAt int64  `json:"expires_at"`
+		} `json:"audio"`
+		ExtraInfo struct {
+			Channels   int    `json:"channels"`
+			SampleRate string `json:"sample_rate"`
+			Lyrics     string `json:"lyrics"`
+		} `json:"extra_info"`
+		FinishReason string `json:"finish_reason"`
+	} `json:"output"`
+	Usage struct {
+		Duration int `json:"duration"`
+	} `json:"usage"`
+}
+
+// Track converts the response into the shared MusicTrack shape.
+func (r *FunMusicResponse) Track() MusicTrack {
+	return MusicTrack{
+		AudioID:         r.Output.Audio.ID,
+		Lyrics:          r.Output.ExtraInfo.Lyrics,
+		AudioURL:        r.Output.Audio.URL,
+		DurationSeconds: strconv.Itoa(r.Usage.Duration),
+		Duration:        FlexFloat(r.Usage.Duration),
+	}
+}
