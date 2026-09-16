@@ -8,10 +8,13 @@ import (
 
 // taskDeps resolves the task command's dependencies from the loaded config.
 func taskDeps() task.Deps {
+	var providers map[string]*types.NamedProvider
+	if shared.Cfg != nil {
+		providers = shared.Cfg.Providers
+	}
 	return task.Deps{
-		APIBase:   shared.APIBase,
-		APIKey:    shared.APIKey,
-		HTTPProxy: shared.HTTPProxy,
+		ResolveProvider: shared.ResolveProvider,
+		Providers:       providers,
 		DownloadImages: func(images []types.ImageResult, id string) ([]string, error) {
 			return service.DownloadImages(images, shared.OutputDir, id)
 		},

@@ -66,8 +66,14 @@ aigc-cli models --api-base "https://api.openai.com/v1"
 仅 APIMart 异步模式可用：
 
 ```bash
+# 使用全局配置的 Provider
 aigc-cli task task_01KV4KD9FBH3AZ4DE18A7Y17S3
+
+# 使用指定 Provider 的账号与接口地址查询
+aigc-cli task --provider apimart task_01KV4KD9FBH3AZ4DE18A7Y17S3
 ```
+
+`--provider <name>` 决定用哪个 Provider 的账号与接口地址查询，被查询的任务必须属于该 Provider。未指定且全局未配置密钥时，命令会直接报错并提示已配置密钥的 Provider。
 
 返回完整的任务信息（状态、进度、耗时、费用、结果 URL 等）。图片任务完成后自动下载图片到 `--output` 目录。
 

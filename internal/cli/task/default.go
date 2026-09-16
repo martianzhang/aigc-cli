@@ -8,10 +8,13 @@ import (
 
 // QueryTextDefault queries a task using the process-global shared config.
 func QueryTextDefault(taskID string) (string, error) {
+	var providers map[string]*types.NamedProvider
+	if options.Shared.Cfg != nil {
+		providers = options.Shared.Cfg.Providers
+	}
 	return QueryText(Deps{
-		APIBase:   options.Shared.APIBase,
-		APIKey:    options.Shared.APIKey,
-		HTTPProxy: options.Shared.HTTPProxy,
+		ResolveProvider: options.Shared.ResolveProvider,
+		Providers:       providers,
 		DownloadImages: func(images []types.ImageResult, id string) ([]string, error) {
 			return service.DownloadImages(images, options.Shared.OutputDir, id)
 		},

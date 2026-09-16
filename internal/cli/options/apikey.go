@@ -61,8 +61,12 @@ func providerKeyClause(providers map[string]*types.NamedProvider) string {
 
 // apiKeyNote returns the command-specific closing note.
 func apiKeyNote(cmdName string) string {
-	if cmdName == "balance" {
+	switch cmdName {
+	case "balance":
 		return "note: the no-argument form queries every configured provider that has an API key"
+	case "task":
+		return "note: use the provider whose account submitted the task"
+	default:
+		return "note: --type and --price listings need no API key"
 	}
-	return "note: --type and --price listings need no API key"
 }

@@ -27,8 +27,14 @@ aigc-cli models --price
 Query async task status (APIMart compatible):
 
 ```bash
-aigc-cli task <task-id>
+# Use the globally configured provider
+aigc-cli task task_01KV4KD9FBH3AZ4DE18A7Y17S3
+
+# Query through a named provider's account and base URL
+aigc-cli task --provider apimart task_01KV4KD9FBH3AZ4DE18A7Y17S3
 ```
+
+`--provider <name>` selects which provider's account and base URL are queried, and the task must belong to that provider. Without it, a missing key fails fast with the list of configured providers that have keys.
 
 ## balance
 

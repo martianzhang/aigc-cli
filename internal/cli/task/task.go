@@ -6,36 +6,42 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // Deps carries the runtime configuration and callbacks the task command needs.
-// It is resolved lazily (after flags/config are loaded) via the provider func
-// passed to NewCommand.
+// Its provider is resolved lazily via ResolveProvider (after flags/config are
+// loaded) so `--provider` selects the account/base that is queried.
 type Deps struct {
-	APIBase        string
-	APIKey         string
-	HTTPProxy      string
-	DownloadImages func([]types.ImageResult, string) ([]string, error)
-	DownloadVideos func([]types.VideoResult, string) ([]string, error)
+	ResolveProvider func(string) *provider.EffectiveProvider
+	Providers       map[string]*types.NamedProvider
+	DownloadImages  func([]types.ImageResult, string) ([]string, error)
+	DownloadVideos  func([]types.VideoResult, string) ([]string, error)
 }
 
 // QueryText queries a task by ID and returns a text summary, downloading
 // results when available.
 func QueryText(d Deps, taskID string) (string, error) {
-	p := provider.Detect(d.APIBase)
-	if p != provider.APIMart {
-		switch p {
-		case provider.OpenRouter:
-			return "", fmt.Errorf("task query is not available on OpenRouter — use 'aigc-cli video --job-id %s' instead", taskID)
-		default:
-			return "", fmt.Errorf("task query is only supported on APIMart-compatible providers (apimart.ai / apib.ai / aiuxu.com / aishuch.com)")
-		}
+	var p *provider.EffectiveProvider
+	if d.ResolveProvider != nil {
+		p = d.ResolveProvider("task")
 	}
 
-	c := client.New(d.APIKey, d.APIBase, d.HTTPProxy)
+	if p != nil && p.ProviderType == provider.OpenRouter {
+		return "", fmt.Errorf("task query is not available on OpenRouter — use 'aigc-cli video --job-id %s' instead", taskID)
+	}
+	if p == nil || p.ProviderType != provider.APIMart {
+		return "", fmt.Errorf("task query is only supported on APIMart-compatible providers (apimart.ai / apib.ai / aiuxu.com / aishuch.com)")
+	}
+
+	if err := options.RequireAPIKey("task", p, d.Providers); err != nil {
+		return "", err
+	}
+
+	c := client.New(p.APIKey, p.BaseURL, p.HTTPProxy)
 	task, err := c.GetTask(taskID)
 	if err != nil {
 		return "", fmt.Errorf("failed to query task: %w", err)
