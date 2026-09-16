@@ -32,11 +32,20 @@ aigc-cli task <task-id>
 
 ## balance
 
-Query account balance (APIMart compatible):
+Query account balance across providers:
 
 ```bash
+# Query every configured provider that has an API key
 aigc-cli balance
+
+# Query one specific provider
+aigc-cli balance --provider siliconflow
+
+# Query the whole user account
+aigc-cli balance user
 ```
+
+> **API key**: without `--provider`, every configured provider that has an API key is queried (local providers such as Ollama are exempt). An explicitly selected non-local provider without a key fails fast with a clear error; use `--provider <name>` or configure its key.
 
 ## dry-run
 

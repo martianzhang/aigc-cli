@@ -73,15 +73,20 @@ aigc-cli task task_01KV4KD9FBH3AZ4DE18A7Y17S3
 
 ## 查询余额
 
-仅 APIMart 可用：
+查询各 Provider 的账户余额：
 
 ```bash
-# 查询当前 API Key（Token）的余额
+# 查询所有已配置且带 API Key 的 Provider
 aigc-cli balance
+
+# 查询指定 Provider
+aigc-cli balance --provider siliconflow
 
 # 查询用户账号的总余额
 aigc-cli balance user
 ```
+
+> **API Key**：未指定 `--provider` 时，会查询所有已配置且带 API Key 的 Provider（Ollama 等本地 Provider 免密钥）。显式指定但未配置密钥的非本地 Provider 会直接报错并给出提示；用 `--provider <name>` 指定已配置密钥的 Provider。
 
 ## Dry-run 调试
 

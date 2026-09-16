@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -63,15 +64,30 @@ func queryOne(p *provider.EffectiveProvider, scope string) string {
 
 // GetText queries balance for all configured providers.
 func GetText(d Deps, scope string) (string, error) {
+	if d.ProviderSet && d.Provider != "" {
+		if err := options.RequireAPIKey("balance", resolveGlobal(d), d.Providers); err != nil {
+			return "", err
+		}
+	}
 	providers := collectProviders(d)
 	var results []string
 	for _, p := range providers {
 		results = append(results, queryOne(p, scope))
 	}
 	if len(results) == 0 {
+		if err := options.RequireAPIKey("balance", resolveGlobal(d), d.Providers); err != nil {
+			return "", err
+		}
 		return "", fmt.Errorf("no providers configured")
 	}
 	return strings.Join(results, "\n\n"), nil
+}
+
+func resolveGlobal(d Deps) *provider.EffectiveProvider {
+	if d.ResolveProvider == nil {
+		return nil
+	}
+	return d.ResolveProvider("balance")
 }
 
 func collectProviders(d Deps) []*provider.EffectiveProvider {
@@ -130,7 +146,7 @@ func NewCommand(deps func() Deps) *cobra.Command {
 		Long: `Query balance information.
 
 Accepts --provider flag to query a specific named provider's balance.
-Uses the global/default provider if --provider is not set.
+Without --provider, queries every configured provider that has an API key.
 
 Subcommands:
   balance token   - Query the current API key (token) balance (default)
