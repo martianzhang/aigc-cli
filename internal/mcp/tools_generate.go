@@ -140,11 +140,16 @@ func handleMCPOpenRouterImage(c client.APIClient, req *types.GenerateRequest, ou
 // Transforms ImageURLs into extra_body.image and handles ratio for 2.1 tiered sizing.
 func handleMCPAgnesImage(c client.APIClient, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
 	// Transform ImageURLs into extra_body.image (Agnes requires it nested).
+	// Agnes has no upload endpoint, so local files become data URIs first.
 	if len(req.ImageURLs) > 0 {
+		resolved, err := service.LocalFilesToDataURI(req.ImageURLs)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve image URLs: %v", err)), nil
+		}
 		if req.ExtraBody == nil {
 			req.ExtraBody = make(map[string]interface{})
 		}
-		req.ExtraBody["image"] = req.ImageURLs
+		req.ExtraBody["image"] = resolved
 		req.ImageURLs = nil
 	}
 	if req.Ratio != "" {
