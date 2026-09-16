@@ -34,6 +34,14 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
   --size "1024x768" --prompt "a cat"
 ```
 
+> **Note:** Agnes has no image upload endpoint; local `--image-url` files are automatically converted to base64 Data URIs and embedded directly — no public URL needed.
+
+```bash
+# Agnes image-to-image: local file auto-converted to a data URI
+aigc-cli image --provider agnes --model agnes-image-2.5-flash \
+  --size "1024x768" --image-url photo.png --prompt "a cat wearing a hat"
+```
+
 ## Sync Mode
 
 The default mode for OpenAI-compatible APIs. Returns the image URL directly after generation.

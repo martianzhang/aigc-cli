@@ -59,6 +59,14 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
   --size "1024x768" --prompt "一只猫"
 ```
 
+> ⚠️ **Agnes 没有图片上传端点**：本地 `--image-url` 文件（如 `-i photo.png`）会自动转为 base64 Data URI 内嵌，无需公网 URL。
+
+```bash
+# Agnes 图生图：本地图片自动转 data URI
+aigc-cli image --provider agnes --model agnes-image-2.5-flash \
+  --size "1024x768" --image-url photo.png --prompt "一只戴帽子的猫"
+```
+
 ### 模式自动检测规则
 
 | base_url 包含 | 模式 | 说明 |

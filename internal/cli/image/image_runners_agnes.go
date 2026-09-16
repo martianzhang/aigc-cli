@@ -11,18 +11,20 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// runAgnesImage handles image generation via the Agnes API.
-// Key differences from standard OpenAI:
-//   - image URLs go in extra_body.image (not top-level image_urls)
-//   - response_format must be in extra_body (handled in image.go transform)
-//   - 2.1 Flash supports ratio for tiered sizing (e.g. "2K" + "16:9")
-func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
+// prepareAgnesImageRequest moves Agnes-specific fields into extra_body and
+// embeds local input images as data URIs (Agnes has no upload endpoint).
+func prepareAgnesImageRequest(req *types.GenerateRequest) error {
 	// Transform ImageURLs into extra_body.image (Agnes requires it nested).
+	// Agnes has no upload endpoint, so local files become data URIs first.
 	if len(req.ImageURLs) > 0 {
+		resolved, err := service.LocalFilesToDataURI(req.ImageURLs)
+		if err != nil {
+			return fmt.Errorf("failed to resolve image-urls: %w", err)
+		}
 		if req.ExtraBody == nil {
 			req.ExtraBody = make(map[string]interface{})
 		}
-		req.ExtraBody["image"] = req.ImageURLs
+		req.ExtraBody["image"] = resolved
 		req.ImageURLs = nil // clear top-level, Agnes rejects it there
 	}
 	// Move ratio into extra_body for consistency with Agnes API structure.
@@ -44,6 +46,18 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	req.Quality = ""
 	// Agnes text-image queue does not support output_format; drop it.
 	req.OutputFormat = ""
+	return nil
+}
+
+// runAgnesImage handles image generation via the Agnes API.
+// Key differences from standard OpenAI:
+//   - image URLs go in extra_body.image (not top-level image_urls)
+//   - response_format must be in extra_body (handled in image.go transform)
+//   - 2.1 Flash supports ratio for tiered sizing (e.g. "2K" + "16:9")
+func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
+	if err := prepareAgnesImageRequest(req); err != nil {
+		return nil, err
+	}
 
 	start := time.Now()
 	syncResp, err := c.ImageGenerateSync(req)
