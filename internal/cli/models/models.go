@@ -7,12 +7,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // Deps carries the runtime configuration the models command needs.
 type Deps struct {
 	APIBase         string
 	ResolveProvider func(string) *provider.EffectiveProvider
+	Providers       map[string]*types.NamedProvider
 }
 
 var d Deps

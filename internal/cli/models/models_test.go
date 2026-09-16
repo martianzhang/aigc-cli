@@ -3,8 +3,11 @@ package models
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -125,5 +128,90 @@ func TestOpenRouterModelsLocalServer(t *testing.T) {
 
 	if err := runModelsOpenRouterDiscovery("image"); err != nil {
 		t.Fatalf("runModelsOpenRouterDiscovery() error = %v", err)
+	}
+}
+
+func TestRequireAPIKey(t *testing.T) {
+	tests := []struct {
+		name    string
+		p       *provider.EffectiveProvider
+		wantErr bool
+	}{
+		{"empty key remote", &provider.EffectiveProvider{BaseURL: "https://api.example.com/v1", Type: types.ProviderOpenAI}, true},
+		{"key set", &provider.EffectiveProvider{APIKey: "sk-x", BaseURL: "https://api.example.com/v1", Type: types.ProviderOpenAI}, false},
+		{"nil provider", nil, false},
+		{"ollama", &provider.EffectiveProvider{Type: types.ProviderOllama, BaseURL: "https://ollama.example.com"}, false},
+		{"local onnx", &provider.EffectiveProvider{Type: types.ProviderLocal}, false},
+		{"localhost exempt", &provider.EffectiveProvider{BaseURL: "http://localhost:1234/v1", Type: types.ProviderOpenAI}, false},
+		{"127.0.0.1 exempt", &provider.EffectiveProvider{BaseURL: "http://127.0.0.1:1234/v1", Type: types.ProviderOpenAI}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := options.RequireAPIKey("models", tc.p, nil)
+			if tc.wantErr && err == nil {
+				t.Fatalf("RequireAPIKey() = nil, want error")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("RequireAPIKey() = %v, want nil", err)
+			}
+		})
+	}
+}
+
+func TestRequireAPIKeyErrorListsProviders(t *testing.T) {
+	orig := d
+	d = Deps{Providers: map[string]*types.NamedProvider{
+		"zeta":  {APIKey: "k"},
+		"alpha": {APIKey: "k"},
+		"blank": {},
+	}}
+	defer func() { d = orig }()
+
+	err := options.RequireAPIKey("models", &provider.EffectiveProvider{BaseURL: "https://api.example.com/v1", Type: types.ProviderOpenAI}, d.Providers)
+	if err == nil {
+		t.Fatal("RequireAPIKey() = nil, want error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "(configured with keys: alpha, zeta)") {
+		t.Errorf("error %q should list providers alphabetically and omit blank keys", msg)
+	}
+	if strings.Contains(msg, "blank") {
+		t.Errorf("error %q should omit providers without keys", msg)
+	}
+}
+
+func TestRunModelsOpenAINoRequestWithoutKey(t *testing.T) {
+	orig := d
+	d = Deps{}
+	defer func() { d = orig }()
+
+	p := &provider.EffectiveProvider{BaseURL: "http://models-no-key.invalid/v1", Type: types.ProviderOpenAI}
+	err := runModelsOpenAI(p)
+	if err == nil {
+		t.Fatal("runModelsOpenAI() = nil, want missing-key error")
+	}
+	if !strings.Contains(err.Error(), "no API key") {
+		t.Errorf("runModelsOpenAI() error = %q, want it to report the missing key", err)
+	}
+	if strings.Contains(err.Error(), "failed to list models") {
+		t.Errorf("runModelsOpenAI() error = %q, want no HTTP attempt before the guard", err)
+	}
+}
+
+func TestRunModelsDetailNoRequestWithoutKey(t *testing.T) {
+	orig := d
+	d = Deps{}
+	defer func() { d = orig }()
+
+	p := &provider.EffectiveProvider{BaseURL: "http://models-no-key.invalid/v1", Type: types.ProviderOpenAI}
+	err := runModelsDetail("m", p)
+	if err == nil {
+		t.Fatal("runModelsDetail() = nil, want missing-key error")
+	}
+	if !strings.Contains(err.Error(), "no API key") {
+		t.Errorf("runModelsDetail() error = %q, want it to report the missing key", err)
+	}
+	if strings.Contains(err.Error(), "failed to get model") {
+		t.Errorf("runModelsDetail() error = %q, want no HTTP attempt before the guard", err)
 	}
 }

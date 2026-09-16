@@ -20,6 +20,8 @@ aigc-cli models --type video
 aigc-cli models --price
 ```
 
+> **API key**: calling with no arguments (or with a bare model name, e.g. `aigc-cli models gpt-4o`) hits `/v1/models` and requires an API key. Without `--provider` and a global `api_key` / `OPENAI_API_KEY`, the command fails fast with a clear error listing the configured providers; use `--provider <name>` to pick one, or supply `--api-key`. `--type` and `--price` (marketplace and pricing) are auth-free — no key needed.
+
 ## task
 
 Query async task status (APIMart compatible):

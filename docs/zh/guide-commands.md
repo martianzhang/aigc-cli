@@ -56,8 +56,10 @@ aigc-cli models --type image   # 展示架构、参数、能力
 aigc-cli models --type video
 
 # OpenAI 标准模型列表
-aigc-cli models --base-url "https://api.openai.com/v1"
+aigc-cli models --api-base "https://api.openai.com/v1"
 ```
+
+> **API Key**：无参数调用（或查询单个模型，如 `aigc-cli models gpt-4o`）会请求 `/v1/models`，需要 API Key。未指定 `--provider` 且全局未配置 `api_key` / `OPENAI_API_KEY` 时，命令会直接报错并提示已配置密钥的 Provider；用 `--provider <name>` 指定 Provider，或通过 `--api-key` / 环境变量 `OPENAI_API_KEY` 提供密钥。`--type` / `--price`（市场与定价）免认证，无需 API Key。
 
 ## 查询任务状态
 

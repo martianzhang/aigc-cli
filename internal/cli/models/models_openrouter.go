@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -102,6 +103,9 @@ func runModelsOpenRouterDiscovery(mediaType string) error {
 
 // runModelsOpenAI fetches and displays models from OpenAI-compatible /v1/models.
 func runModelsOpenAI(p *provider.EffectiveProvider) error {
+	if err := options.RequireAPIKey("models", p, d.Providers); err != nil {
+		return err
+	}
 	base := p.BaseURL
 	if base == "" {
 		base = "https://api.openai.com"
@@ -138,6 +142,9 @@ func runModelsOpenAI(p *provider.EffectiveProvider) error {
 
 // runModelsDetail fetches and displays a single model via /v1/models/{model}.
 func runModelsDetail(modelID string, p *provider.EffectiveProvider) error {
+	if err := options.RequireAPIKey("models", p, d.Providers); err != nil {
+		return err
+	}
 	base := p.BaseURL
 	if base == "" {
 		base = "https://api.openai.com"
