@@ -85,6 +85,23 @@ aigc-cli image --prompt "edit this" --image-url "https://example.com/image.png"
 aigc-cli image --prompt "edit this" --image-url "data:image/png;base64,..."
 ```
 
+### Image-to-Image on `/images/edits` Relays (`image_edits: json`)
+
+Some relay panels reject `image_urls` on `/images/generations` (400) and instead expose `POST /images/edits` with a body like `{"model","prompt","size","images":[{"image_url":"..."}]}`. Opt in explicitly with `image_edits: json`:
+
+```bash
+# Enable per call (local files are embedded as data:image/png;base64,... in images[].image_url)
+aigc-cli image --provider zeekai --image-edits json -i photo.png -p "replace the background with a starry sky"
+
+# Or pin it on a provider in config.yaml
+# providers:
+#   zeekai:
+#     base_url: "https://your-relay.com/v1"
+#     image_edits: json
+```
+
+This protocol does not support `--mask-url` (it fails with a clear error). When `image_edits` is unset, behavior is unchanged: top-level `image_urls` to `/images/generations`.
+
 ## Decode Mode (--decode)
 
 `--decode` converts base64 text files (data URI or raw base64) into inline

@@ -3,11 +3,11 @@ package image
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -57,18 +57,33 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 
 // buildImageCurl generates an equivalent curl command for an image generation request.
 // baseURL and apiKey should come from the resolved provider so the dry-run output
-// accurately reflects which provider will be called.
-func buildImageCurl(req *types.GenerateRequest, baseURL, apiKey string) string {
-	body, _ := json.Marshal(req)
-	base := strings.TrimRight(baseURL, "/")
-	url := base + "/images/generations"
+// accurately reflects which provider will be called. imageEdits selects the
+// POST /images/edits JSON shape when true and image inputs are present.
+func buildImageCurl(req *types.GenerateRequest, baseURL, apiKey string, imageEdits bool) string {
+	base := client.NormalizeBaseURL(baseURL)
+	if imageEdits && len(req.ImageURLs) > 0 {
+		body, _ := json.Marshal(client.ImageEditsBody(req))
+		cmd := fmt.Sprintf("curl -X POST %s \\\n", base+"/images/edits")
+		cmd += curlHeaderLines(apiKey)
+		cmd += fmt.Sprintf("  -d '%s'\n", string(body))
+		cmd += "# note: local image files are embedded as data: URIs (data:image/...;base64,...) before sending"
+		return cmd
+	}
 
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
+	body, _ := json.Marshal(req)
+	cmd := fmt.Sprintf("curl -X POST %s \\\n", base+"/images/generations")
+	cmd += curlHeaderLines(apiKey)
+	cmd += fmt.Sprintf("  -d '%s'", string(body))
+	return cmd
+}
+
+// curlHeaderLines renders the Authorization and Content-Type header lines.
+func curlHeaderLines(apiKey string) string {
+	cmd := ""
 	if apiKey != "" {
 		cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(apiKey))
 	}
 	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(body))
 	return cmd
 }
 

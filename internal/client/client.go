@@ -10,6 +10,7 @@ import (
 
 const (
 	imageSubmitPath      = "/images/generations"
+	imageEditsPath       = "/images/edits"
 	videoSubmitPath      = "/videos/generations"
 	yunwuVideoSubPath    = "/video/create"
 	yunwuVideoQryPath    = "/video/query"

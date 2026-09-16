@@ -109,6 +109,11 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	isModelScope := p.ProviderType == provider.ModelScope
 	isGemini := p.ProviderType == provider.Gemini
 
+	reqEditsMode, err := resolveImageEditsMode(p.ImageEdits, genImageEdits)
+	if err != nil {
+		return err
+	}
+
 	// Strip APIMart-only fields for non-APIMart providers (e.g., Yunwu, OpenAI, Generic Relay).
 	// `resolution` is an APIMart proprietary field not part of the OpenAI image API;
 	// sending it to OpenAI-compatible providers can cause errors.
@@ -138,7 +143,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	if genDryRun {
-		curl := buildImageCurl(req, p.BaseURL, p.APIKey)
+		curl := buildImageCurl(req, p.BaseURL, p.APIKey, reqEditsMode == "json")
 		fmt.Println(curl)
 		return nil
 	}
@@ -189,6 +194,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		isGemini:      isGemini,
 		genEdit:       genEdit,
 		isOllama:      isOllama,
+		imageEdits:    reqEditsMode == "json",
 		modelScopeKey: p.APIKey,
 	}
 	for _, s := range imageStrategies {
@@ -209,6 +215,19 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 
 func init() {
 	registerImageGenerateFlags(imageCmd)
+}
+
+// resolveImageEditsMode picks the effective image_edits protocol (flag wins
+// over provider config) and rejects unknown values.
+func resolveImageEditsMode(providerVal, flagVal string) (string, error) {
+	mode := providerVal
+	if flagVal != "" {
+		mode = flagVal
+	}
+	if mode != "" && mode != "json" {
+		return "", fmt.Errorf("unsupported image_edits %q: supported value is \"json\"", mode)
+	}
+	return mode, nil
 }
 
 // Cmd returns the image command tree.

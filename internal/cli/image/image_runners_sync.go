@@ -29,10 +29,25 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispat
 		fmt.Printf("Created: %s\n", time.Unix(syncResp.Created, 0).Format("2006-01-02 15:04:05"))
 	}
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+
+	saved, err := saveOpenAIImageResponse(syncResp)
+	if err != nil {
+		return nil, err
+	}
+
+	postProcessImages(saved)
+	service.PrintUsage(syncResp.Usage)
+
+	return saved, nil
+}
+
+// saveOpenAIImageResponse saves every image in an OpenAI-style response and
+// prints its path. Shared by the sync and images/edits runners.
+func saveOpenAIImageResponse(resp *types.OpenAIImageResponse) ([]string, error) {
 	var saved []string
-	for i, img := range syncResp.Data {
+	for i, img := range resp.Data {
 		if img.B64JSON != "" {
-			taskID := fmt.Sprintf("image_sync_%d", syncResp.Created)
+			taskID := fmt.Sprintf("image_sync_%d", resp.Created)
 			filename, err := service.SaveBase64Image(options.Shared.OutputDir, taskID, img.B64JSON, i)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, err)
@@ -41,7 +56,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispat
 			fmt.Printf("Image %d: %s\n", i+1, filename)
 			saved = append(saved, filename)
 		} else if img.URL != "" {
-			taskID := fmt.Sprintf("sync_%d", syncResp.Created)
+			taskID := fmt.Sprintf("sync_%d", resp.Created)
 			filename, err := service.DownloadFile(img.URL, options.Shared.OutputDir, fmt.Sprintf("image_%s_%d", taskID, i))
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, err)
@@ -57,9 +72,8 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispat
 			fmt.Printf("  Revised prompt: %s\n", img.RevisedPrompt)
 		}
 	}
-
-	postProcessImages(saved)
-	service.PrintUsage(syncResp.Usage)
-
+	if len(saved) == 0 {
+		return nil, fmt.Errorf("no images saved")
+	}
 	return saved, nil
 }

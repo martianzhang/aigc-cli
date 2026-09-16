@@ -15,6 +15,7 @@ type APIClient interface {
 	SetTimeout(d time.Duration)
 	Submit(req *types.GenerateRequest) (*types.GenerateResponse, error)
 	ImageGenerateSync(req *types.GenerateRequest) (*types.OpenAIImageResponse, error)
+	ImageGenerateEdits(req *types.GenerateRequest) (*types.OpenAIImageResponse, error)
 	PollTask(taskID string) (*types.TaskData, error)
 	GetTask(taskID string) (*types.TaskData, error)
 	ResolveLocalImages(urls []string) ([]string, error)

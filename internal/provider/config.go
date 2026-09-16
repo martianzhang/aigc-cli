@@ -30,6 +30,9 @@ type EffectiveProvider struct {
 	Model string
 	// ProviderType is the cached provider type detection from BaseURL.
 	ProviderType Type
+	// ImageEdits is the named provider's image-to-image protocol override
+	// (e.g. "json" for relay panels using POST /images/edits).
+	ImageEdits string
 }
 
 // CLIOverride holds values from CLI flags (--api-key, --api-base, --http-proxy).
@@ -100,6 +103,7 @@ func ResolveCmdProvider(
 				ModelsDir:    named.ModelsDir,
 				Model:        named.Model,
 				ProviderType: Detect(baseURL),
+				ImageEdits:   named.ImageEdits,
 			}
 			if ep.Type == "" {
 				ep.Type = types.ProviderOpenAI

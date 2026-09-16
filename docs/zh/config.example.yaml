@@ -97,6 +97,14 @@ providers:
   #   api_key: "sk-or-xxx"
   #   base_url: "https://openrouter.ai/api/v1"
 
+  # 示例：图生图走 POST /images/edits 的中转面板（image_edits: json）
+  # 部分中转在 /images/generations 上不接受 image_urls，只支持 /images/edits +
+  # images[].image_url。开启后本地文件会自动编码为 data URI。
+  # zeekai:
+  #   api_key: "sk-xxx"
+  #   base_url: "https://your-relay.com/v1"
+  #   image_edits: json
+
   # 示例：本地 ONNX 模型目录
   # local:
   #   type: local

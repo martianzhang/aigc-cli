@@ -204,6 +204,23 @@ aigc-cli image \
   --image-url "https://example.com/img2.png"
 ```
 
+## 在 /images/edits 型中转上做图生图（`image_edits: json`）
+
+部分中转面板在 `/images/generations` 上不接受 `image_urls`（会返回 400），而是提供 `POST /images/edits`，请求体形如 `{"model","prompt","size","images":[{"image_url":"..."}]}`。对这类中转用 `image_edits: json` 显式开启：
+
+```bash
+# 命令行开启（本地文件会自动编码为 data:image/png;base64,... 内联进 images[].image_url）
+aigc-cli image --provider zeekai --image-edits json -i photo.png -p "把背景换成星空"
+
+# 或在 config.yaml 的 provider 上固定开启
+# providers:
+#   zeekai:
+#     base_url: "https://your-relay.com/v1"
+#     image_edits: json
+```
+
+该协议目前不支持 `--mask-url`（会明确报错）。未设置 `image_edits` 时行为不变，仍走默认的顶层 `image_urls` + `/images/generations`。
+
 ## 解码模式（--decode）
 
 `--decode` 把 base64 文本文件（data URI 或裸 base64）解码为内联 data URI 后再发送请求——**provider 无关**，适用于任意 OpenAI 兼容 API（真实图片文件与远程 URL 原样透传，走既有上传路径）。不带 `--prompt` 时**纯本地运行**——解码/转换文件并保存到输出目录，不调用 API：

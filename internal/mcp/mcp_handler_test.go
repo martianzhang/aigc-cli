@@ -24,6 +24,9 @@ func (m *mockAPIClient) Submit(req *types.GenerateRequest) (*types.GenerateRespo
 func (m *mockAPIClient) ImageGenerateSync(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
 	return nil, nil
 }
+func (m *mockAPIClient) ImageGenerateEdits(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
+	return nil, nil
+}
 func (m *mockAPIClient) PollTask(taskID string) (*types.TaskData, error) { return nil, nil }
 func (m *mockAPIClient) GetTask(taskID string) (*types.TaskData, error) {
 	if m.getTaskFn != nil {

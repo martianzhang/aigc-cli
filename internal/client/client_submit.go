@@ -27,10 +27,7 @@ func NewWithProvider(apiKey, baseURL, proxyURL string, providerType types.Provid
 	// Normalize: if baseURL doesn't already end with a version path segment like
 	// /v1, /v2, /v3, append "/v1" as the default API version for backward
 	// compatibility (e.g. bare "https://api.openai.com" → "https://api.openai.com/v1").
-	baseURL = strings.TrimRight(baseURL, "/")
-	if !HasVersionSuffix(baseURL) {
-		baseURL += "/v1"
-	}
+	baseURL = NormalizeBaseURL(baseURL)
 
 	transport := provider.NewTransport(proxyURL)
 

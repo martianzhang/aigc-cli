@@ -117,6 +117,27 @@ func TestHasVersionSuffix_emptyLastSegment(t *testing.T) {
 // New client normalization tests
 // ---------------------------------------------------------------------------
 
+func TestNormalizeBaseURL(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"versioned untouched", "https://api.openai.com/v1", "https://api.openai.com/v1"},
+		{"v2 untouched", "https://relay.com/v2", "https://relay.com/v2"},
+		{"bare host gains v1", "https://api.zeekai.cc", "https://api.zeekai.cc/v1"},
+		{"trailing slash trimmed", "https://api.zeekai.cc/", "https://api.zeekai.cc/v1"},
+		{"versioned trailing slash trimmed", "https://api.openai.com/v1/", "https://api.openai.com/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NormalizeBaseURL(tc.in); got != tc.want {
+				t.Errorf("NormalizeBaseURL(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestNew_DefaultAPIBaseURL(t *testing.T) {
 	c := New("test-key", "", "")
 	if c.baseURL != types.DefaultAPIBaseURL+"/v1" {

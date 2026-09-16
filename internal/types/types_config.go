@@ -52,6 +52,10 @@ type NamedProvider struct {
 	// Local model settings (used when type=local).
 	ModelsDir string `mapstructure:"models_dir" yaml:"models_dir,omitempty"`
 	Model     string `mapstructure:"model" yaml:"model,omitempty"`
+	// ImageEdits selects a non-standard image-to-image protocol for this
+	// provider. Currently only "json": POST /images/edits with
+	// images[].image_url (relay panels such as ZeekAI).
+	ImageEdits string `mapstructure:"image_edits" yaml:"image_edits,omitempty"`
 }
 
 type Config struct {

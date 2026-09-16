@@ -30,6 +30,16 @@ func HasVersionSuffix(urlStr string) bool {
 	return true
 }
 
+// NormalizeBaseURL trims trailing slashes and appends the default /v1
+// version segment when the URL carries no version segment.
+func NormalizeBaseURL(baseURL string) string {
+	baseURL = strings.TrimRight(baseURL, "/")
+	if !HasVersionSuffix(baseURL) {
+		baseURL += "/v1"
+	}
+	return baseURL
+}
+
 // isLocalFile returns true if the path points to an existing file.
 func isLocalFile(path string) bool {
 	info, err := os.Stat(path)

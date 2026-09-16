@@ -100,6 +100,15 @@ providers:
   #   api_key: "sk-or-xxx"
   #   base_url: "https://openrouter.ai/api/v1"
 
+  # Example: relay panel doing image-to-image via POST /images/edits
+  # (image_edits: json). Some relays reject image_urls on /images/generations
+  # and only accept /images/edits + images[].image_url. Local files are then
+  # embedded as data URIs.
+  # zeekai:
+  #   api_key: "sk-xxx"
+  #   base_url: "https://your-relay.com/v1"
+  #   image_edits: json
+
   # Example: Local ONNX model directory
   # local:
   #   type: local

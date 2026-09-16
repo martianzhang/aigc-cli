@@ -15,6 +15,7 @@ type imageDispatchCtx struct {
 	isGemini      bool
 	genEdit       bool
 	isOllama      bool
+	imageEdits    bool
 	modelScopeKey string // API key for ModelScope async submission
 }
 
@@ -69,6 +70,13 @@ var imageStrategies = []imageStrategy{
 			return ctx.isOllama
 		},
 		run: runOllamaImage,
+	},
+	{
+		// Relay panels: POST /images/edits with JSON images[].image_url
+		match: func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool {
+			return ctx.imageEdits && len(req.ImageURLs) > 0
+		},
+		run: runImageEditsJSON,
 	},
 	// Default: OpenAI-compatible synchronous generation
 	{

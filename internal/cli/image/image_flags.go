@@ -25,7 +25,8 @@ var (
 	genDryRun       bool
 	genEdit         bool // Grok Imagine 1.5 edit mode
 	genPreview      bool
-	genDecode       bool // decode base64 text files / convert image format for --image-url
+	genDecode       bool   // decode base64 text files / convert image format for --image-url
+	genImageEdits   string // image-to-image protocol for relay panels ("" or "json")
 )
 
 // registerImageGenerateFlags adds the image generation flags to a command.
@@ -50,6 +51,7 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.BoolVar(&genDryRun, "dry-run", false, "Print request parameters without calling API")
 	f.BoolVar(&genEdit, "edit", false, "Grok Imagine 1.5 Edit mode (requires --image-url)")
 	f.BoolVar(&genPreview, "preview", false, "Open generated image with system default viewer")
+	f.StringVar(&genImageEdits, "image-edits", "", "Image-to-image protocol for relay panels using POST /images/edits (value: json)")
 	f.StringVar(&options.Shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&options.Shared.Mode, "mode", "", "Generation mode: auto (detect), sync, async (default: auto)")
 	f.BoolVar(&options.Shared.SavePrompt, "save-prompt", false, "save prompt to .md file alongside results")
