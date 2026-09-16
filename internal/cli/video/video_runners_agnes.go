@@ -1,11 +1,7 @@
 package video
 
 import (
-	"encoding/base64"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
@@ -14,38 +10,13 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// imageToDataURI 读取本地图片文件并转为 base64 data URI（如 data:image/jpeg;base64,...）。
-// agnes 没有上传端点，图生视频需以 data URI 形式内嵌图片。
-func imageToDataURI(path string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to read image %q: %w", path, err)
-	}
-	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(path)), ".")
-	switch ext {
-	case "jpg", "jpeg":
-		ext = "jpeg"
-	case "png":
-		ext = "png"
-	case "webp":
-		ext = "webp"
-	case "gif":
-		ext = "gif"
-	case "bmp":
-		ext = "bmp"
-	default:
-		ext = "png"
-	}
-	return fmt.Sprintf("data:image/%s;base64,%s", ext, base64.StdEncoding.EncodeToString(data)), nil
-}
-
 // runAgnesVideo handles video generation via agnes.ai's async task API.
 // Uses POST /v1/videos for submission and GET /agnesapi?video_id= for polling.
 func runAgnesVideo(req *types.VideoGenerateRequest) ([]string, error) {
 	// agnes 没有上传端点，本地图片需转为 base64 data URI 内嵌。
 	for i, u := range req.ImageURLs {
 		if service.IsFile(u) {
-			uri, err := imageToDataURI(u)
+			uri, err := service.ImageToDataURI(u)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve image-url %q: %w", u, err)
 			}
@@ -54,7 +25,7 @@ func runAgnesVideo(req *types.VideoGenerateRequest) ([]string, error) {
 	}
 	for i := range req.ImageWithRoles {
 		if service.IsFile(req.ImageWithRoles[i].URL) {
-			uri, err := imageToDataURI(req.ImageWithRoles[i].URL)
+			uri, err := service.ImageToDataURI(req.ImageWithRoles[i].URL)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve image-with-role %q: %w", req.ImageWithRoles[i].URL, err)
 			}
