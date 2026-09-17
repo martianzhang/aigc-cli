@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,11 +11,11 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/image"
 	"github.com/martianzhang/aigc-cli/internal/cli/music"
+	"github.com/martianzhang/aigc-cli/internal/cli/video"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/gif"
-	"github.com/martianzhang/aigc-cli/internal/provider"
-	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -36,7 +35,7 @@ func parseImageURLs(raw string) []string {
 }
 
 // generateImageHandler creates the handler for generate_image, capturing the config.
-// Supports APIMart (async task) and OpenRouter (dedicated image API).
+// Delegates dispatch to the shared image runner so every supported provider is covered.
 func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		p := cfg.cmdProvider("image")
@@ -86,232 +85,17 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 
 		c := client.NewFromProvider(p)
 
-		switch p.ProviderType {
-		case provider.OpenRouter:
-			return handleMCPOpenRouterImage(c, req, cfg.Output)
-		case provider.Agnes:
-			return handleMCPAgnesImage(c, req, cfg.Output)
-		case provider.Zeekai:
-			return handleMCPZeekaiImage(c, req, cfg.Output)
-		default:
-			return handleMCPAPIMartImage(c, req, cfg.Output)
-		}
-	}
-}
-
-// handleMCPOpenRouterImage generates an image via OpenRouter's dedicated image API.
-func handleMCPOpenRouterImage(c client.APIClient, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
-	resp, err := c.OpenRouterDedicatedImage(req)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("OpenRouter image generation failed: %v", err)), nil
-	}
-
-	var savedFiles []string
-	for i, img := range resp.Data {
-		if img.B64JSON == "" {
-			continue
-		}
-		raw, decErr := base64.StdEncoding.DecodeString(img.B64JSON)
-		if decErr != nil {
-			continue
-		}
-		ts := time.Now().Unix()
-		ext := ".png"
-		filename := filepath.Join(outputDir, fmt.Sprintf("image_%d_%d%s", ts, i, ext))
-		if err := os.WriteFile(filename, raw, 0644); err != nil {
-			continue
-		}
-		savedFiles = append(savedFiles, filename)
-	}
-
-	lines := []string{fmt.Sprintf("Created: %d", resp.Created)}
-	if len(savedFiles) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, "已保存的图片:")
-		for _, f := range savedFiles {
-			lines = append(lines, fmt.Sprintf("  %s", f))
-		}
-	}
-	if resp.Usage != nil && resp.Usage.Cost > 0 {
-		lines = append(lines, fmt.Sprintf("Cost: $%.5f", resp.Usage.Cost))
-	}
-	return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
-}
-
-// handleMCPAgnesImage generates an image via Agnes API (sync).
-// Transforms ImageURLs into extra_body.image and handles ratio for 2.1 tiered sizing.
-func handleMCPAgnesImage(c client.APIClient, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
-	// Transform ImageURLs into extra_body.image (Agnes requires it nested).
-	// Agnes has no upload endpoint, so local files become data URIs first.
-	if len(req.ImageURLs) > 0 {
-		resolved, err := service.LocalFilesToDataURI(req.ImageURLs)
+		saved, err := image.GenerateAndSave(c, req)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve image URLs: %v", err)), nil
+			return mcp.NewToolResultError(err.Error()), nil
 		}
-		if req.ExtraBody == nil {
-			req.ExtraBody = make(map[string]interface{})
-		}
-		req.ExtraBody["image"] = resolved
-		req.ImageURLs = nil
-	}
-	if req.Ratio != "" {
-		if req.ExtraBody == nil {
-			req.ExtraBody = make(map[string]interface{})
-		}
-		req.ExtraBody["ratio"] = req.Ratio
-	}
-	if req.ResponseFormat != "" {
-		if req.ExtraBody == nil {
-			req.ExtraBody = make(map[string]interface{})
-		}
-		req.ExtraBody["response_format"] = req.ResponseFormat
-		req.ResponseFormat = ""
-	}
 
-	resp, err := c.ImageGenerateSync(req)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Agnes image generation failed: %v", err)), nil
-	}
-
-	savedFiles := saveMCPImages(resp, outputDir, "agnes")
-
-	lines := []string{fmt.Sprintf("Created: %d", resp.Created)}
-	if len(savedFiles) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, "已保存的图片:")
-		for _, f := range savedFiles {
+		lines := []string{"已保存的图片:"}
+		for _, f := range saved {
 			lines = append(lines, fmt.Sprintf("  %s", f))
 		}
+		return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
 	}
-	if resp.Usage != nil && resp.Usage.Cost > 0 {
-		lines = append(lines, fmt.Sprintf("Cost: $%.5f", resp.Usage.Cost))
-	}
-	return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
-}
-
-// handleMCPZeekaiImage generates an image via ZeekAI (sync). ZeekAI rejects
-// top-level image_urls on /images/generations, so requests with image input use
-// POST /images/edits with images[].image_url (local files become data URIs).
-func handleMCPZeekaiImage(c client.APIClient, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
-	var (
-		resp *types.OpenAIImageResponse
-		err  error
-	)
-	if len(req.ImageURLs) > 0 {
-		resolved, rerr := service.LocalFilesToDataURI(req.ImageURLs)
-		if rerr != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve image URLs: %v", rerr)), nil
-		}
-		req.ImageURLs = resolved
-		resp, err = c.ImageGenerateEdits(req)
-	} else {
-		resp, err = c.ImageGenerateSync(req)
-	}
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("ZeekAI image generation failed: %v", err)), nil
-	}
-
-	savedFiles := saveMCPImages(resp, outputDir, "zeekai")
-
-	lines := []string{fmt.Sprintf("Created: %d", resp.Created)}
-	if len(savedFiles) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, "已保存的图片:")
-		for _, f := range savedFiles {
-			lines = append(lines, fmt.Sprintf("  %s", f))
-		}
-	}
-	if resp.Usage != nil && resp.Usage.Cost > 0 {
-		lines = append(lines, fmt.Sprintf("Cost: $%.5f", resp.Usage.Cost))
-	}
-	return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
-}
-
-// saveMCPImages decodes base64 images and downloads URL images from a
-// synchronous response, returning the saved paths. prefix labels the filenames.
-func saveMCPImages(resp *types.OpenAIImageResponse, outputDir, prefix string) []string {
-	var saved []string
-	for i, img := range resp.Data {
-		if img.B64JSON != "" {
-			raw, decErr := base64.StdEncoding.DecodeString(img.B64JSON)
-			if decErr != nil {
-				continue
-			}
-			filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d_%d.png", prefix, time.Now().Unix(), i))
-			if err := os.WriteFile(filename, raw, 0644); err != nil {
-				continue
-			}
-			saved = append(saved, filename)
-		} else if img.URL != "" {
-			filename, dlErr := service.DownloadFile(img.URL, outputDir, fmt.Sprintf("%s_%d_%d", prefix, time.Now().Unix(), i))
-			if dlErr != nil {
-				continue
-			}
-			saved = append(saved, filename)
-		}
-	}
-	return saved
-}
-
-// handleMCPAPIMartImage generates an image via APIMart async task API.
-func handleMCPAPIMartImage(c client.APIClient, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
-	// Resolve local images if any
-	if len(req.ImageURLs) > 0 {
-		resolved, err := c.ResolveLocalImages(req.ImageURLs)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve image URLs: %v", err)), nil
-		}
-		req.ImageURLs = resolved
-	}
-	if req.MaskURL != "" {
-		resolved, err := c.ResolveLocalImages([]string{req.MaskURL})
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve mask URL: %v", err)), nil
-		}
-		req.MaskURL = resolved[0]
-	}
-
-	resp, err := c.Submit(req)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Submission failed: %v", err)), nil
-	}
-	if len(resp.Data) == 0 {
-		return mcp.NewToolResultError("Submission returned no tasks"), nil
-	}
-
-	taskInfo := resp.Data[0]
-	taskData, err := c.PollTask(taskInfo.TaskID)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Task polling failed: %v", err)), nil
-	}
-
-	var savedFiles []string
-	if taskData.Result != nil && len(taskData.Result.Images) > 0 {
-		for i, img := range taskData.Result.Images {
-			for j, url := range img.URL {
-				filename, err := service.DownloadFile(url, outputDir, fmt.Sprintf("image_%s_%d_%d", taskData.ID, i, j))
-				if err != nil {
-					continue
-				}
-				savedFiles = append(savedFiles, filename)
-			}
-		}
-	}
-
-	lines := []string{
-		fmt.Sprintf("Task ID: %s", taskData.ID),
-		"Status: completed",
-		fmt.Sprintf("Time: %ds | Cost: $%.5f (%.4f credits)", taskData.ActualTime, taskData.Cost, taskData.CreditsCost),
-	}
-	if len(savedFiles) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, "已保存的图片:")
-		for _, f := range savedFiles {
-			lines = append(lines, fmt.Sprintf("  %s", f))
-		}
-	}
-
-	return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
 }
 
 // generateVideoHandler creates the handler for generate_video, capturing the config.
@@ -373,17 +157,7 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 			gifOpts.CropMargin = m
 		}
 
-		c := client.NewFromProvider(p)
-
-		var saved []string
-		switch p.ProviderType {
-		case provider.OpenRouter:
-			saved, err = mcpOpenRouterVideo(c, req, cfg.Output)
-		case provider.Agnes:
-			saved, err = mcpAgnesVideo(c, req, cfg.Output)
-		default:
-			saved, err = mcpAPIMartVideo(c, req, cfg.Output)
-		}
+		saved, err := video.GenerateAndSave(req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -442,154 +216,8 @@ func convertVideosToGIF(saved []string, opts gifRequestOptions) ([]string, error
 	return gifs, nil
 }
 
-// mcpOpenRouterVideo submits an OpenRouter video job, polls to completion, and downloads the result.
-func mcpOpenRouterVideo(c client.APIClient, req *types.VideoGenerateRequest, outputDir string) ([]string, error) {
-	orReq := &types.OpenRouterVideoRequest{
-		Model:         req.Model,
-		Prompt:        req.Prompt,
-		AspectRatio:   req.Size,
-		Resolution:    req.Resolution,
-		Duration:      req.Duration,
-		Seed:          req.Seed,
-		GenerateAudio: req.GenerateAudio,
-	}
-	for _, u := range req.ImageURLs {
-		orReq.FrameImages = append(orReq.FrameImages, types.OpenRouterFrameImage{
-			Type: "image_url", FrameType: "first_frame",
-			ImageURL: struct {
-				URL string `json:"url"`
-			}{URL: u},
-		})
-	}
-
-	submitResp, err := c.OpenRouterVideoSubmit(orReq)
-	if err != nil {
-		return nil, fmt.Errorf("OpenRouter video submission failed: %w", err)
-	}
-	pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, 30*time.Second, 5*time.Minute)
-	if err != nil {
-		return nil, fmt.Errorf("video polling failed: %w", err)
-	}
-	if len(pollResp.UnsignedURLs) == 0 {
-		return nil, fmt.Errorf("video job completed but no download URLs returned")
-	}
-
-	var saved []string
-	for i, u := range pollResp.UnsignedURLs {
-		filename, dlErr := service.DownloadFile(u, outputDir, fmt.Sprintf("video_%s_%d", submitResp.ID, i))
-		if dlErr != nil {
-			return saved, fmt.Errorf("failed to download video %d: %w", i, dlErr)
-		}
-		saved = append(saved, filename)
-	}
-	return saved, nil
-}
-
-// mcpAgnesVideo submits an agnes.ai video task, polls to completion, and downloads the result.
-func mcpAgnesVideo(c client.APIClient, req *types.VideoGenerateRequest, outputDir string) ([]string, error) {
-	cc, ok := c.(*client.Client)
-	if !ok {
-		return nil, fmt.Errorf("unsupported client type for agnes video")
-	}
-	createResp, err := cc.AgnesVideoSubmit(req)
-	if err != nil {
-		return nil, fmt.Errorf("agnes video submission failed: %w", err)
-	}
-	videoID := createResp.VideoID
-	if videoID == "" {
-		videoID = createResp.TaskID
-	}
-	if videoID == "" {
-		return nil, fmt.Errorf("agnes video submission returned no video id")
-	}
-
-	const (
-		pollInterval = 15 * time.Second
-		maxWait      = 10 * time.Minute
-	)
-	start := time.Now()
-	var videoURL string
-	for {
-		if time.Since(start) > maxWait {
-			return nil, fmt.Errorf("agnes video polling timed out after %v", maxWait)
-		}
-		queryResp, qerr := cc.AgnesVideoQuery(videoID, req.Model)
-		if qerr != nil {
-			return nil, fmt.Errorf("polling failed: %w", qerr)
-		}
-		switch queryResp.Status {
-		case "completed", "succeeded", "success":
-			videoURL = queryResp.URL
-			if videoURL == "" && queryResp.Metadata != nil {
-				videoURL = queryResp.Metadata.URL
-			}
-			if videoURL == "" {
-				return nil, fmt.Errorf("agnes video completed but no url returned")
-			}
-		case "failed", "failure":
-			return nil, fmt.Errorf("agnes video generation failed: status=%s", queryResp.Status)
-		case "cancelled", "expired":
-			return nil, fmt.Errorf("agnes video generation %s", queryResp.Status)
-		default:
-			time.Sleep(pollInterval)
-		}
-		if videoURL != "" {
-			break
-		}
-	}
-
-	filename, err := service.DownloadFile(videoURL, outputDir, fmt.Sprintf("video_agnes_%s", videoID))
-	if err != nil {
-		return nil, fmt.Errorf("failed to download video: %w", err)
-	}
-	return []string{filename}, nil
-}
-
-// mcpAPIMartVideo submits an APIMart video task, polls to completion, and downloads the result.
-func mcpAPIMartVideo(c client.APIClient, req *types.VideoGenerateRequest, outputDir string) ([]string, error) {
-	// Resolve local images
-	if len(req.ImageURLs) > 0 {
-		resolved, err := c.ResolveLocalImages(req.ImageURLs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve image URLs: %w", err)
-		}
-		req.ImageURLs = resolved
-	}
-
-	resp, err := c.VideoSubmit(req)
-	if err != nil {
-		return nil, fmt.Errorf("video submission failed: %w", err)
-	}
-	if len(resp.Data) == 0 {
-		return nil, fmt.Errorf("submission returned no tasks")
-	}
-
-	taskInfo := resp.Data[0]
-	taskData, err := c.PollTask(taskInfo.TaskID)
-	if err != nil {
-		return nil, fmt.Errorf("task polling failed: %w", err)
-	}
-
-	var saved []string
-	if taskData.Result != nil && len(taskData.Result.Videos) > 0 {
-		for i, vid := range taskData.Result.Videos {
-			for j, url := range vid.URL {
-				filename, dlErr := service.DownloadFile(url, outputDir, fmt.Sprintf("video_%s_%d_%d", taskData.ID, i, j))
-				if dlErr != nil {
-					return saved, fmt.Errorf("failed to download video %d-%d: %w", i, j, dlErr)
-				}
-				saved = append(saved, filename)
-			}
-		}
-	}
-	if len(saved) == 0 {
-		return nil, fmt.Errorf("task completed but no videos found")
-	}
-	return saved, nil
-}
-
 // generateMusicHandler creates the handler for generate_music, capturing the config.
-// Supports APIMart (suno / flowmusic async task) and OpenRouter (Google Lyria sync streaming).
+// Delegates dispatch to the shared music runner so every supported provider is covered.
 func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		p := cfg.cmdProvider("music")
@@ -622,15 +250,7 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 
 		c := client.NewFromProvider(p)
 
-		var saved []string
-		switch p.ProviderType {
-		case provider.OpenRouter:
-			saved, err = mcpOpenRouterMusic(c, req, cfg.Output)
-		case provider.Bailian:
-			saved, err = mcpFunMusic(c, req, cfg.Output)
-		default:
-			saved, err = mcpAPIMartMusic(c, req, cfg.Output)
-		}
+		saved, err := music.GenerateAndSave(c, req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -642,168 +262,6 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 			lines = append(lines, fmt.Sprintf("  %s", f))
 		}
 		return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
-	}
-}
-
-// mcpOpenRouterMusic streams a music generation via OpenRouter's chat
-// completions endpoint and saves the decoded audio to outputDir.
-func mcpOpenRouterMusic(c client.APIClient, req *types.MusicGenerateRequest, outputDir string) ([]string, error) {
-	model := req.Model
-	if model == "" {
-		model = "google/lyria-3-clip-preview"
-	}
-
-	text := req.Prompt
-	if req.Instrumental != nil && *req.Instrumental {
-		text = "[Instrumental] " + text
-	}
-	if req.Duration != nil {
-		text += fmt.Sprintf("\n\nTarget duration: about %d seconds.", *req.Duration)
-	}
-
-	format := req.Format
-	if format == "" {
-		format = "mp3"
-	}
-
-	orReq := &types.OpenRouterMusicRequest{
-		Model:      model,
-		Messages:   []types.OpenRouterMusicMessage{{Role: "user", Content: text}},
-		Modalities: []string{"text", "audio"},
-		Audio:      &types.OpenRouterAudioConfig{Format: format},
-		Stream:     true,
-	}
-
-	audio, _, err := c.OpenRouterMusicGenerate(orReq)
-	if err != nil {
-		return nil, fmt.Errorf("OpenRouter music generation failed: %w", err)
-	}
-
-	ts := time.Now().Unix()
-	filename := filepath.Join(outputDir, fmt.Sprintf("music_%d.%s", ts, format))
-	if err := os.WriteFile(filename, audio, 0644); err != nil {
-		return nil, fmt.Errorf("failed to save music: %w", err)
-	}
-	return []string{filename}, nil
-}
-
-// mcpAPIMartMusic submits an APIMart music task, polls to completion, and downloads the tracks.
-func mcpAPIMartMusic(c client.APIClient, req *types.MusicGenerateRequest, outputDir string) ([]string, error) {
-	body := buildMCPMusicBody(req)
-
-	resp, err := c.MusicSubmit(body)
-	if err != nil {
-		return nil, fmt.Errorf("music submission failed: %w", err)
-	}
-	if len(resp.Data) == 0 {
-		return nil, fmt.Errorf("submission returned no tasks")
-	}
-
-	taskData, err := c.MusicPollTask(resp.Data[0].TaskID)
-	if err != nil {
-		return nil, fmt.Errorf("task polling failed: %w", err)
-	}
-	if taskData.Result == nil || len(taskData.Result.Music) == 0 {
-		return nil, fmt.Errorf("task completed but no music found")
-	}
-
-	var saved []string
-	for i, track := range taskData.Result.Music {
-		url := mcpMusicTrackURL(track)
-		if url == "" {
-			continue
-		}
-		filename, dlErr := service.DownloadFile(url, outputDir, fmt.Sprintf("music_%s_%d", taskData.ID, i))
-		if dlErr != nil {
-			return saved, fmt.Errorf("failed to download music %d: %w", i, dlErr)
-		}
-		saved = append(saved, filename)
-	}
-	if len(saved) == 0 {
-		return nil, fmt.Errorf("task completed but no downloadable music found")
-	}
-	return saved, nil
-}
-
-// mcpFunMusic runs the DashScope-native synchronous Fun-Music path.
-func mcpFunMusic(c client.APIClient, req *types.MusicGenerateRequest, outputDir string) ([]string, error) {
-	body, err := music.BuildFunMusicBody(req)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.FunMusicGenerate(body)
-	if err != nil {
-		return nil, fmt.Errorf("fun-music generation failed: %w", err)
-	}
-
-	url := mcpMusicTrackURL(resp.Track())
-	if url == "" {
-		return nil, fmt.Errorf("fun-music returned no downloadable audio")
-	}
-	filename, err := service.DownloadFile(url, outputDir, fmt.Sprintf("music_funmusic_%d", time.Now().Unix()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to download music: %w", err)
-	}
-	return []string{filename}, nil
-}
-
-// buildMCPMusicBody maps a typed request to the backend-native music body.
-// The MCP tool exposes only prompt/model/duration/instrumental, so the suno and
-// flowmusic shapes are built from those plus format.
-func buildMCPMusicBody(req *types.MusicGenerateRequest) map[string]any {
-	model := req.Model
-	if model == "" {
-		model = "suno"
-	}
-	backend := "suno"
-	if strings.Contains(strings.ToLower(model), "flowmusic") {
-		backend = "flowmusic"
-	}
-
-	body := map[string]any{"model": model}
-	if backend == "flowmusic" {
-		body["sound_prompt"] = req.Prompt
-		length := 120
-		if req.Duration != nil {
-			length = *req.Duration
-		}
-		body["length"] = length
-		return body
-	}
-
-	instrumental := false
-	if req.Instrumental != nil {
-		instrumental = *req.Instrumental
-	}
-	body["instrumental"] = instrumental
-	body["custom"] = false
-	if req.Prompt != "" {
-		body["prompt"] = req.Prompt
-	}
-	body["version"] = "v6"
-	if req.Duration != nil {
-		body["duration"] = *req.Duration
-	}
-	if req.Format != "" {
-		body["audio_format"] = req.Format
-	}
-	return body
-}
-
-// mcpMusicTrackURL picks the preferred downloadable URL from a track.
-func mcpMusicTrackURL(track types.MusicTrack) string {
-	switch {
-	case track.AudioURL != "":
-		return track.AudioURL
-	case track.WAVURL != "":
-		return track.WAVURL
-	case track.FileURL != "":
-		return track.FileURL
-	case track.VideoURL != "":
-		return track.VideoURL
-	default:
-		return ""
 	}
 }
 

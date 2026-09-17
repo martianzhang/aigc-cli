@@ -6,13 +6,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -229,8 +233,26 @@ func Run(cfg *Config) error {
 		ListTools(cfg)
 		return nil
 	}
+
+	// The shared CLI runners print progress to os.Stdout, which collides with
+	// MCP's JSON-RPC stream. Capture the protocol writer first, then point the
+	// process-wide stdout at stderr so progress output cannot corrupt it.
+	options.Shared.OutputDir = cfg.Output
 	s := NewServer(cfg)
-	return server.ServeStdio(s)
+
+	protocolOut := options.Stdout()
+	realOut := os.Stdout
+	os.Stdout = os.Stderr
+	defer func() { os.Stdout = realOut }()
+
+	restoreStdout := options.SetStdout(os.Stderr)
+	defer restoreStdout()
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
+	stdioServer := server.NewStdioServer(s)
+	return stdioServer.Listen(ctx, os.Stdin, protocolOut)
 }
 
 // ListTools prints all registered MCP tools and exits.
