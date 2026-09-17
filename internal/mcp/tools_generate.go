@@ -91,6 +91,8 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 			return handleMCPOpenRouterImage(c, req, cfg.Output)
 		case provider.Agnes:
 			return handleMCPAgnesImage(c, req, cfg.Output)
+		case provider.Zeekai:
+			return handleMCPZeekaiImage(c, req, cfg.Output)
 		default:
 			return handleMCPAPIMartImage(c, req, cfg.Output)
 		}
@@ -171,27 +173,7 @@ func handleMCPAgnesImage(c client.APIClient, req *types.GenerateRequest, outputD
 		return mcp.NewToolResultError(fmt.Sprintf("Agnes image generation failed: %v", err)), nil
 	}
 
-	var savedFiles []string
-	for i, img := range resp.Data {
-		if img.B64JSON != "" {
-			raw, decErr := base64.StdEncoding.DecodeString(img.B64JSON)
-			if decErr != nil {
-				continue
-			}
-			ts := time.Now().Unix()
-			filename := filepath.Join(outputDir, fmt.Sprintf("agnes_%d_%d.png", ts, i))
-			if err := os.WriteFile(filename, raw, 0644); err != nil {
-				continue
-			}
-			savedFiles = append(savedFiles, filename)
-		} else if img.URL != "" {
-			filename, dlErr := service.DownloadFile(img.URL, outputDir, fmt.Sprintf("agnes_%d_%d", time.Now().Unix(), i))
-			if dlErr != nil {
-				continue
-			}
-			savedFiles = append(savedFiles, filename)
-		}
-	}
+	savedFiles := saveMCPImages(resp, outputDir, "agnes")
 
 	lines := []string{fmt.Sprintf("Created: %d", resp.Created)}
 	if len(savedFiles) > 0 {
@@ -205,6 +187,70 @@ func handleMCPAgnesImage(c client.APIClient, req *types.GenerateRequest, outputD
 		lines = append(lines, fmt.Sprintf("Cost: $%.5f", resp.Usage.Cost))
 	}
 	return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
+}
+
+// handleMCPZeekaiImage generates an image via ZeekAI (sync). ZeekAI rejects
+// top-level image_urls on /images/generations, so requests with image input use
+// POST /images/edits with images[].image_url (local files become data URIs).
+func handleMCPZeekaiImage(c client.APIClient, req *types.GenerateRequest, outputDir string) (*mcp.CallToolResult, error) {
+	var (
+		resp *types.OpenAIImageResponse
+		err  error
+	)
+	if len(req.ImageURLs) > 0 {
+		resolved, rerr := service.LocalFilesToDataURI(req.ImageURLs)
+		if rerr != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to resolve image URLs: %v", rerr)), nil
+		}
+		req.ImageURLs = resolved
+		resp, err = c.ImageGenerateEdits(req)
+	} else {
+		resp, err = c.ImageGenerateSync(req)
+	}
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("ZeekAI image generation failed: %v", err)), nil
+	}
+
+	savedFiles := saveMCPImages(resp, outputDir, "zeekai")
+
+	lines := []string{fmt.Sprintf("Created: %d", resp.Created)}
+	if len(savedFiles) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, "已保存的图片:")
+		for _, f := range savedFiles {
+			lines = append(lines, fmt.Sprintf("  %s", f))
+		}
+	}
+	if resp.Usage != nil && resp.Usage.Cost > 0 {
+		lines = append(lines, fmt.Sprintf("Cost: $%.5f", resp.Usage.Cost))
+	}
+	return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
+}
+
+// saveMCPImages decodes base64 images and downloads URL images from a
+// synchronous response, returning the saved paths. prefix labels the filenames.
+func saveMCPImages(resp *types.OpenAIImageResponse, outputDir, prefix string) []string {
+	var saved []string
+	for i, img := range resp.Data {
+		if img.B64JSON != "" {
+			raw, decErr := base64.StdEncoding.DecodeString(img.B64JSON)
+			if decErr != nil {
+				continue
+			}
+			filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d_%d.png", prefix, time.Now().Unix(), i))
+			if err := os.WriteFile(filename, raw, 0644); err != nil {
+				continue
+			}
+			saved = append(saved, filename)
+		} else if img.URL != "" {
+			filename, dlErr := service.DownloadFile(img.URL, outputDir, fmt.Sprintf("%s_%d_%d", prefix, time.Now().Unix(), i))
+			if dlErr != nil {
+				continue
+			}
+			saved = append(saved, filename)
+		}
+	}
+	return saved
 }
 
 // handleMCPAPIMartImage generates an image via APIMart async task API.
