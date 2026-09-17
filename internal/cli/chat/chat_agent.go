@@ -179,8 +179,8 @@ func buildAgentTools(cfg *types.ChatDefaults) []types.ToolDefinition {
 		allTools = filtered
 	}
 
-	// Filter by provider
-	isAPIMart := options.IsAPIMartProvider()
+	// Filter by provider — use the resolved chat provider, not global state.
+	isAPIMart := options.IsAPIMartProvider(options.Shared.ResolveProvider(options.ProviderNameChat))
 
 	providerFiltered := make([]types.ToolDefinition, 0)
 	for _, t := range allTools {

@@ -7,6 +7,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -99,69 +100,57 @@ func GenerateAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, 
 	// Set timeout
 	options.ApplyTimeout(c, "image", client.ImageTimeout)
 
-	// Dispatch based on provider
-	if usesImageEditsJSON(options.Shared.ResolveProvider(options.ProviderNameImage), req) {
-		return runImageEditsJSON(c, req, &imageDispatchCtx{})
+	// Resolve provider (named provider > global > builtin)
+	p := options.Shared.ResolveProvider(options.ProviderNameImage)
+	isAPIMart := options.IsAPIMartProvider(p)
+	isOpenRouter := p.ProviderType == provider.OpenRouter
+	isAgnes := p.ProviderType == provider.Agnes
+	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
+	isModelScope := p.ProviderType == provider.ModelScope
+	isGemini := p.ProviderType == provider.Gemini
+	isZeekai := p.ProviderType == provider.Zeekai
+
+	// Strip APIMart-only fields for non-APIMart providers.
+	if !isAPIMart {
+		req.Resolution = ""
 	}
-	if options.IsAPIMartProvider() {
-		resp, err := c.Submit(req)
-		if err != nil {
-			return nil, fmt.Errorf("submission failed: %w", err)
-		}
-		if len(resp.Data) == 0 {
-			return nil, fmt.Errorf("submission returned no tasks")
-		}
 
-		taskData, err := c.PollTask(resp.Data[0].TaskID)
-		if err != nil {
-			return nil, fmt.Errorf("polling failed: %w", err)
-		}
-
-		savePromptFile(taskData.ID, req.Prompt)
-		if taskData.Result != nil && len(taskData.Result.Images) > 0 {
-			saved, err := service.DownloadImages(taskData.Result.Images, options.Shared.OutputDir, taskData.ID)
-			postProcessImages(saved)
+	// APIMart inputs are uploaded (local file paths -> URLs) before dispatch.
+	if isAPIMart {
+		if len(req.ImageURLs) > 0 {
+			resolved, err := c.ResolveLocalImages(req.ImageURLs)
 			if err != nil {
-				return saved, err
+				return nil, fmt.Errorf("failed to resolve image-urls: %w", err)
 			}
-			return saved, nil
+			req.ImageURLs = resolved
 		}
-		return nil, fmt.Errorf("no images in task result")
-	}
-
-	// OpenAI-compatible sync
-	resp, err := c.ImageGenerateSync(req)
-	if err != nil {
-		return nil, fmt.Errorf("image generation failed: %w", err)
-	}
-
-	var saved []string
-	for i, img := range resp.Data {
-		if img.B64JSON != "" {
-			taskID := fmt.Sprintf("image_sync_%d", resp.Created)
-			filename, saveErr := service.SaveBase64Image(options.Shared.OutputDir, taskID, img.B64JSON, i)
-			if saveErr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, saveErr)
-				continue
+		if req.MaskURL != "" {
+			resolved, err := c.ResolveLocalImages([]string{req.MaskURL})
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve mask-url: %w", err)
 			}
-			fmt.Printf("Image %d: %s\n", i+1, filename)
-			saved = append(saved, filename)
-		} else if img.URL != "" {
-			taskID := fmt.Sprintf("sync_%d", resp.Created)
-			filename, saveErr := service.DownloadFile(img.URL, options.Shared.OutputDir, fmt.Sprintf("image_%s_%d", taskID, i))
-			if saveErr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, saveErr)
-				continue
-			}
-			fmt.Printf("Image %d: %s\n", i+1, filename)
-			saved = append(saved, filename)
+			req.MaskURL = resolved[0]
 		}
 	}
-	postProcessImages(saved)
-	if len(saved) == 0 {
-		return nil, fmt.Errorf("no images saved")
+
+	// Strategy table: first match wins, last entry is the default.
+	ictx := &imageDispatchCtx{
+		isAPIMart:     isAPIMart,
+		isOpenRouter:  isOpenRouter,
+		isModelScope:  isModelScope,
+		isAgnes:       isAgnes,
+		isGemini:      isGemini,
+		isZeekai:      isZeekai,
+		genEdit:       false,
+		isOllama:      isOllama,
+		modelScopeKey: p.APIKey,
 	}
-	return saved, nil
+	for _, s := range imageStrategies {
+		if s.match(req, ictx) {
+			return s.run(c, req, ictx)
+		}
+	}
+	return nil, fmt.Errorf("no image strategy matched")
 }
 
 // postProcessImages applies --compress post-processing to already-saved images.
