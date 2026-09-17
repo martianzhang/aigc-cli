@@ -27,7 +27,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `generate_image` | Generate images | Paid (API) |
 | `generate_video` | Generate videos | Paid (API) |
 | `generate_speech` | Text-to-speech | Paid/Free |
-| `generate_music` | Generate music (APIMart suno/flowmusic, OpenRouter Lyria) | Paid (API) |
+| `generate_music` | Generate music (same provider routing as the CLI: APIMart suno/flowmusic, OpenRouter Lyria, Alibaba Cloud Bailian Fun-Music) | Paid (API) |
 | `transcribe_audio` | Speech-to-text | Paid/Free |
 | `midjourney_imagine` | Midjourney imagine | Paid (API) |
 | `midjourney_upscale` | Midjourney upscale | Paid (API) |
@@ -49,6 +49,10 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `list_models` | List available models | Free |
 | `get_balance` | Query account balance | Free |
 | `get_model_pricing` | Query model pricing | Free |
+
+> `generate_image` / `generate_video` / `generate_music` share the CLI provider routing, so every supported provider (OpenRouter, APIMart, Agnes, Yunwu, ModelScope, Gemini, ZeekAI, Alibaba Cloud Bailian, …) works without extra configuration.
+>
+> Image parameters are pinned by config: `defaults.image.*` overrides the same parameter passed by the agent unless `defaults.chat.allow_tool_override: true` is set.
 
 ## Tool Filtering
 
