@@ -204,22 +204,16 @@ aigc-cli image \
   --image-url "https://example.com/img2.png"
 ```
 
-## 在 /images/edits 型中转上做图生图（`image_edits: json`）
+## 在 /images/edits 型中转上做图生图（ZeekAI 自动识别，无需配置）
 
-部分中转面板在 `/images/generations` 上不接受 `image_urls`（会返回 400），而是提供 `POST /images/edits`，请求体形如 `{"model","prompt","size","images":[{"image_url":"..."}]}`。对这类中转用 `image_edits: json` 显式开启：
+ZeekAI（`zeekai.cc`）在 `/images/generations` 上不接受 `image_urls`（会返回 400），而是提供 `POST /images/edits`，请求体形如 `{"model","prompt","size","images":[{"image_url":"..."}]}`。aigc-cli **自动识别 ZeekAI 域名并切换到该协议，无需任何配置或开关**：
 
 ```bash
-# 命令行开启（本地文件会自动编码为 data:image/png;base64,... 内联进 images[].image_url）
-aigc-cli image --provider zeekai --image-edits json -i photo.png -p "把背景换成星空"
-
-# 或在 config.yaml 的 provider 上固定开启
-# providers:
-#   zeekai:
-#     base_url: "https://your-relay.com/v1"
-#     image_edits: json
+# 本地文件会自动编码为 data:image/png;base64,... 内联进 images[].image_url
+aigc-cli image --provider zeekai -i photo.png -p "把背景换成星空"
 ```
 
-该协议目前不支持 `--mask-url`（会明确报错）。未设置 `image_edits` 时行为不变，仍走默认的顶层 `image_urls` + `/images/generations`。
+该协议目前不支持 `--mask-url`（会明确报错）。未检测到 ZeekAI 时行为不变，仍走默认的顶层 `image_urls` + `/images/generations`。
 
 ## 解码模式（--decode）
 

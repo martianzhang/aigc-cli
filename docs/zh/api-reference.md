@@ -167,6 +167,7 @@ OpenRouter 有两种图片生成路径：
 APIMart:    域名包含 apimart.ai / apib.ai / aiuxu.com / aishuch.com
 OpenRouter: 域名包含 openrouter.ai
 Yunwu:      域名包含 yunwu.ai
+Zeekai:     域名包含 zeekai.cc（图生图自动改走 POST /images/edits）
 默认:       OpenAI 兼容（任何未匹配的 URL）
 ```
 

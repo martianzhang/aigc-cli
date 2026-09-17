@@ -122,6 +122,7 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 | **APIMart** | 异步 Task 提交→轮询→下载 | 异步 Task + VEO3 Remix（延长视频） | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `POST /v1/music/generations` 异步→轮询（`GET /v1/music/tasks/{id}`）— suno / flowmusic | 市场 API + 模型定价查询 |
 | **阿里云百炼** | — | — | — | `POST /api/v1/services/audio/music/generation` 同步（DashScope 原生）— fun-music-v1 / fun-music-preview | — |
 | **Agnes AI** | `POST /v1/images/generations`（同步，像素尺寸） | `POST /v1/videos` 异步→轮询→下载（text/keyframe/reference，720P） | ❌ 暂未发现 | — | `GET /v1/models` |
+| **ZeekAI** | 文生图 `POST /v1/images/generations`，图生图 `POST /v1/images/edits`（自动识别） | — | — | — | `GET /v1/models` |
 | **云雾 AI** | `POST /v1/images/generations`（sync） | `POST /v1/video/create` + `GET /v1/video/query` | ❌ 暂未发现 | — | `GET /v1/models` |
 | **Ollama / 本地模型** | `POST /v1/images/generations`（experimental，无需 API Key） | ❌ | 可通过 LocalAI/openedai-speech 等第三方服务 | — | `GET /v1/models` |
 | **Anthropic** | — | — | `POST /v1/messages`（通过 Anthropic 兼容中转） | — | — |
