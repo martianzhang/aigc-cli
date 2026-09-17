@@ -11,7 +11,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/music"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/cli/video"
-	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/depth"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -19,7 +18,7 @@ import (
 
 // executeGenerateImage runs image generation and returns a text summary for the LLM.
 // Uses defaults.image.model from config, NOT the chat model (options.Shared.Model).
-func executeGenerateImage(c *client.Client, argsJSON string) string {
+func executeGenerateImage(argsJSON string) string {
 	var args generateImageArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return fmt.Sprintf("Error: invalid arguments: %v", err)
@@ -57,7 +56,9 @@ func executeGenerateImage(c *client.Client, argsJSON string) string {
 		}
 	}
 
-	// Use shared generation function (same logic as aigc-cli image)
+	// Use shared generation function (same logic as aigc-cli image) with an
+	// image-scoped client, not the chat client.
+	c := options.NewClient(options.ProviderNameImage)
 	saved, err := image.GenerateAndSave(c, req)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
@@ -68,7 +69,7 @@ func executeGenerateImage(c *client.Client, argsJSON string) string {
 
 // executeGenerateVideo runs video generation and returns a text summary for the LLM.
 // Uses defaults.video.model from config, NOT the chat model (options.Shared.Model).
-func executeGenerateVideo(c *client.Client, argsJSON string) string {
+func executeGenerateVideo(argsJSON string) string {
 	var args generateVideoArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return fmt.Sprintf("Error: invalid arguments: %v", err)
@@ -85,8 +86,9 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 		req.Resolution = args.Resolution
 	}
 
-	// Use shared generation function (same logic as aigc-cli video)
-	saved, err := video.GenerateAndSave(c, req)
+	// Use shared generation function (same logic as aigc-cli video); the video
+	// strategy runner creates its own video-scoped client internally.
+	saved, err := video.GenerateAndSave(req)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
@@ -96,7 +98,7 @@ func executeGenerateVideo(c *client.Client, argsJSON string) string {
 
 // executeGenerateMusic runs music generation and returns a text summary for the LLM.
 // Uses defaults.music from config, NOT the chat model (options.Shared.Model).
-func executeGenerateMusic(c *client.Client, argsJSON string) string {
+func executeGenerateMusic(argsJSON string) string {
 	var args generateMusicArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return fmt.Sprintf("Error: invalid arguments: %v", err)
@@ -115,6 +117,8 @@ func executeGenerateMusic(c *client.Client, argsJSON string) string {
 		req.Instrumental = &v
 	}
 
+	// Use shared generation function with a music-scoped client, not the chat client.
+	c := options.NewClient(options.ProviderNameMusic)
 	saved, err := music.GenerateAndSave(c, req)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)

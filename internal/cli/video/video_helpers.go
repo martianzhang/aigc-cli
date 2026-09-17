@@ -2,14 +2,10 @@ package video
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
-	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
-	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -26,10 +22,10 @@ func loadVideoDefaults() *types.VideoDefaults {
 }
 
 // GenerateAndSave generates videos via the configured provider and saves them to disk.
-// Handles config merge, timeout, API dispatch, and download. Returns paths to saved files.
+// Handles config merge and API dispatch. Returns paths to saved files.
 // Shared by CLI (video command) and agent loop (chat) — single source of truth.
 // Supports APIMart async and OpenRouter video providers.
-func GenerateAndSave(c *client.Client, req *types.VideoGenerateRequest) ([]string, error) {
+func GenerateAndSave(req *types.VideoGenerateRequest) ([]string, error) {
 	// Always load the user's config — options.Shared.Cfg may be nil if PersistentPreRunE hasn't run.
 	vidCfg := loadVideoDefaults()
 
@@ -68,58 +64,18 @@ func GenerateAndSave(c *client.Client, req *types.VideoGenerateRequest) ([]strin
 		return nil, fmt.Errorf("model is required: set via defaults.video.model in config.yaml")
 	}
 
-	// Set timeout
-	options.ApplyTimeout(c, "video", client.VideoTimeout)
-
-	// Dispatch based on provider
-	if options.IsOpenRouterProvider() {
-		orReq := &types.OpenRouterVideoRequest{
-			Model:  req.Model,
-			Prompt: req.Prompt,
-		}
-		submitResp, err := c.OpenRouterVideoSubmit(orReq)
-		if err != nil {
-			return nil, fmt.Errorf("submission failed: %w", err)
-		}
-		pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, 30*time.Second, 5*time.Minute)
-		if err != nil {
-			return nil, fmt.Errorf("polling failed: %w", err)
-		}
-
-		var saved []string
-		for i, u := range pollResp.UnsignedURLs {
-			filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("video_%s_%d.mp4", submitResp.ID, i))
-			if err := service.SaveResource(u, filename); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
-				continue
-			}
-			fmt.Printf("Saved: %s\n", filename)
-			saved = append(saved, filename)
-		}
-		return saved, nil
+	// Resolve provider (named provider > global > builtin) and dispatch.
+	// Each strategy runner builds its own video-scoped client internally.
+	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
+	vctx := &videoDispatchCtx{
+		isOpenRouter: p.ProviderType == provider.OpenRouter,
+		isYunwu:      p.ProviderType == provider.Yunwu,
+		isAgnes:      p.ProviderType == provider.Agnes,
 	}
-
-	// APIMart async
-	resp, err := c.VideoSubmit(req)
-	if err != nil {
-		return nil, fmt.Errorf("submission failed: %w", err)
-	}
-	if len(resp.Data) == 0 {
-		return nil, fmt.Errorf("submission returned no tasks")
-	}
-
-	taskData, err := c.PollTask(resp.Data[0].TaskID)
-	if err != nil {
-		return nil, fmt.Errorf("polling failed: %w", err)
-	}
-
-	savePromptFile(taskData.ID, req.Prompt)
-	if taskData.Result != nil && len(taskData.Result.Videos) > 0 {
-		saved, err := service.DownloadVideos(taskData.Result.Videos, options.Shared.OutputDir, taskData.ID)
-		if err != nil {
-			return saved, err
+	for _, s := range videoStrategies {
+		if s.match(req, vctx) {
+			return s.run(req)
 		}
-		return saved, nil
 	}
-	return nil, fmt.Errorf("no videos in task result")
+	return nil, fmt.Errorf("no video strategy matched")
 }

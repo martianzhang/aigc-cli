@@ -73,11 +73,11 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 
 	switch tc.Function.Name {
 	case "generate_image":
-		return executeGenerateImage(c, args)
+		return executeGenerateImage(args)
 	case "generate_video":
-		return executeGenerateVideo(c, args)
+		return executeGenerateVideo(args)
 	case "generate_music":
-		return executeGenerateMusic(c, args)
+		return executeGenerateMusic(args)
 	case "midjourney_imagine", "midjourney_describe", "midjourney_reroll", "midjourney_video":
 		return executeMidjourney(c, tc.Function.Name, args)
 	case "search_ideas":
