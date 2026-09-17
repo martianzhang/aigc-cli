@@ -10,11 +10,11 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// runImageEditsJSON handles relay panels whose image-to-image endpoint is
-// POST /images/edits with JSON images[].image_url (image_edits: json).
+// runImageEditsJSON handles ZeekAI's image-to-image endpoint:
+// POST /images/edits with JSON images[].image_url.
 func runImageEditsJSON(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
 	if req.MaskURL != "" {
-		return nil, fmt.Errorf("mask is not supported by the image_edits json protocol")
+		return nil, fmt.Errorf("mask is not supported by the /images/edits protocol")
 	}
 
 	resolved, err := service.LocalFilesToDataURI(req.ImageURLs)
