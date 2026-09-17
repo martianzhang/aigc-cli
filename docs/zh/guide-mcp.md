@@ -76,7 +76,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `generate_image` | Image generation (text-to-image, image-to-image, inpainting) | ✅ |
 | `generate_video` | Video generation (async submit + poll for result) | ✅ |
 | `generate_speech` | Text-to-speech: convert text to spoken audio (TTS) | ✅ |
-| `generate_music` | Music generation: natural-language music via APIMart (suno/flowmusic) or OpenRouter Lyria | ✅ |
+| `generate_music` | Music generation: natural-language music via APIMart (suno/flowmusic), OpenRouter Lyria, or Alibaba Cloud Bailian Fun-Music | ✅ |
 | `transcribe_audio` | Speech-to-text: transcribe audio file to text (STT) | ✅ |
 | `list_models` | List marketplace models, filterable by type | ❌ |
 | `get_model_pricing` | Query pricing for a specific model | ❌ |
@@ -90,6 +90,10 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `crop_watermark` | Crop image to remove watermarks (no learning required, auto-detect or specify target) | ❌ |
 | `remove_background` | Remove image background using RMBG 2.0 AI semantic segmentation, optionally replace with color or another image | ❌ |
 | `convert_depth` | Convert image/video into grayscale depth map (Depth Anything V2), the input for depth-guided image-to-video。`annotate` 参数可叠加骨架（人体姿态）或人脸（关键点+眼睛）标注 | ❌ |
+
+> `generate_image` / `generate_video` / `generate_music` 与对应的 CLI 命令共用同一套 Provider 路由，所有已支持的 Provider（OpenRouter、APIMart、Agnes、Yunwu、ModelScope、Gemini、ZeekAI、阿里云百炼等）无需额外配置即可使用。
+>
+> 图片参数以配置为准：`defaults.image.*` 会覆盖 Agent 传入的同名参数，除非设置 `defaults.chat.allow_tool_override: true`。
 
 ### Filter Tools
 
