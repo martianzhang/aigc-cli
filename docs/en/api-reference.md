@@ -9,6 +9,7 @@ This document lists the API specification sources used by aigc-cli's provider de
 | OpenAI | `https://api.openai.com/v1` | `POST /v1/images/generations` | — | — |
 | OpenRouter | `https://openrouter.ai/api/v1` | `POST /api/v1/images` | `POST /api/v1/videos` | `POST /api/v1/chat/completions` (Lyria-3, sync streaming) |
 | APIMart | `https://api.apimart.ai` | Async task | Async task + VEO3 Remix | `POST /v1/music/generations` (async, suno/flowmusic via `model`) |
+| ZeekAI | detector | `POST /v1/images/generations` (text) / `POST /v1/images/edits` (image-to-image) | — | — |
 | Yunwu AI | detector | — | `POST /v1/video/create` | — |
 
 ## Detection Logic
@@ -19,6 +20,7 @@ Provider detection uses `base_url` pattern matching:
 |---|---|
 | `openrouter.ai` | OpenRouter |
 | `apimart.ai` | APIMart |
+| `zeekai.cc` | ZeekAI (image-to-image auto-routes to `/images/edits`) |
 | `yunwu` (in URL) | Yunwu AI |
 | `localhost` or `127.0.0.1` | Local (no API Key) |
 

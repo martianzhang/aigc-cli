@@ -122,6 +122,7 @@ The same `image` / `video` / `audio` / `music` / `models` command automatically 
 | **APIMart** | Async task submit → poll → download | Async task + VEO3 Remix (extend video) | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `POST /v1/music/generations` async → poll (`GET /v1/music/tasks/{id}`) — suno / flowmusic | Marketplace API + model pricing query |
 | **Alibaba Cloud Bailian** | — | — | — | `POST /api/v1/services/audio/music/generation` sync (DashScope native) — fun-music-v1 / fun-music-preview | — |
 | **Agnes AI** | `POST /v1/images/generations` (sync, pixel size) | `POST /v1/videos` async → poll → download (text/keyframe/reference, 720P) | ❌ Not yet available | — | `GET /v1/models` |
+| **ZeekAI** | `POST /v1/images/generations` for text-to-image, `POST /v1/images/edits` for image-to-image (auto-detected) | — | — | — | `GET /v1/models` |
 | **Yunwu AI** | `POST /v1/images/generations` (sync) | `POST /v1/video/create` + `GET /v1/video/query` | ❌ Not yet available | — | `GET /v1/models` |
 | **Ollama / Local** | `POST /v1/images/generations` (experimental, no API Key) | ❌ | Via LocalAI/openedai-speech etc. | — | `GET /v1/models` |
 | **Anthropic** | — | — | `POST /v1/messages` (via Anthropic-compatible relay) | — | — |

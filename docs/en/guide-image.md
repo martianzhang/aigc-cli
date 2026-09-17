@@ -85,22 +85,16 @@ aigc-cli image --prompt "edit this" --image-url "https://example.com/image.png"
 aigc-cli image --prompt "edit this" --image-url "data:image/png;base64,..."
 ```
 
-### Image-to-Image on `/images/edits` Relays (`image_edits: json`)
+### Image-to-Image on `/images/edits` Relays (ZeekAI auto-detected, no config)
 
-Some relay panels reject `image_urls` on `/images/generations` (400) and instead expose `POST /images/edits` with a body like `{"model","prompt","size","images":[{"image_url":"..."}]}`. Opt in explicitly with `image_edits: json`:
+ZeekAI (`zeekai.cc`) rejects `image_urls` on `/images/generations` (400) and instead exposes `POST /images/edits` with a body like `{"model","prompt","size","images":[{"image_url":"..."}]}`. aigc-cli **auto-detects the ZeekAI domain and switches to that protocol — no configuration or flag needed**:
 
 ```bash
-# Enable per call (local files are embedded as data:image/png;base64,... in images[].image_url)
-aigc-cli image --provider zeekai --image-edits json -i photo.png -p "replace the background with a starry sky"
-
-# Or pin it on a provider in config.yaml
-# providers:
-#   zeekai:
-#     base_url: "https://your-relay.com/v1"
-#     image_edits: json
+# Local files are embedded as data:image/png;base64,... in images[].image_url
+aigc-cli image --provider zeekai -i photo.png -p "replace the background with a starry sky"
 ```
 
-This protocol does not support `--mask-url` (it fails with a clear error). When `image_edits` is unset, behavior is unchanged: top-level `image_urls` to `/images/generations`.
+This protocol does not support `--mask-url` (it fails with a clear error). When ZeekAI is not detected, behavior is unchanged: top-level `image_urls` to `/images/generations`.
 
 ## Decode Mode (--decode)
 
