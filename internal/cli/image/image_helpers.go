@@ -100,6 +100,9 @@ func GenerateAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, 
 	options.ApplyTimeout(c, "image", client.ImageTimeout)
 
 	// Dispatch based on provider
+	if usesImageEditsJSON(options.Shared.ResolveProvider(options.ProviderNameImage), req) {
+		return runImageEditsJSON(c, req, &imageDispatchCtx{})
+	}
 	if options.IsAPIMartProvider() {
 		resp, err := c.Submit(req)
 		if err != nil {

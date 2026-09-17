@@ -2,6 +2,7 @@ package image
 
 import (
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -13,10 +14,25 @@ type imageDispatchCtx struct {
 	isModelScope  bool
 	isAgnes       bool
 	isGemini      bool
+	isZeekai      bool
 	genEdit       bool
 	isOllama      bool
-	imageEdits    bool
 	modelScopeKey string // API key for ModelScope async submission
+}
+
+// zeekaiImageEdits is the single definition of when a detected ZeekAI provider
+// must use the edits-JSON protocol: only for image-to-image, so text-only
+// generation keeps falling through to the normal sync path.
+func zeekaiImageEdits(isZeekai bool, imageCount int) bool {
+	return isZeekai && imageCount > 0
+}
+
+// usesImageEditsJSON reports whether p+req must route through POST /images/edits
+// with an images[].image_url body: an auto-detected ZeekAI provider handling
+// image input. Shared by the CLI strategy table and the chat/agent
+// GenerateAndSave path.
+func usesImageEditsJSON(p *provider.EffectiveProvider, req *types.GenerateRequest) bool {
+	return p != nil && req != nil && zeekaiImageEdits(p.ProviderType == provider.Zeekai, len(req.ImageURLs))
 }
 
 // imageStrategy defines a dispatch rule for image generation.
@@ -72,9 +88,10 @@ var imageStrategies = []imageStrategy{
 		run: runOllamaImage,
 	},
 	{
-		// Relay panels: POST /images/edits with JSON images[].image_url
+		// ZeekAI: image-to-image auto-routes to POST /images/edits with
+		// images[].image_url; text-only generation falls through to sync.
 		match: func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool {
-			return ctx.imageEdits && len(req.ImageURLs) > 0
+			return zeekaiImageEdits(ctx.isZeekai, len(req.ImageURLs))
 		},
 		run: runImageEditsJSON,
 	},

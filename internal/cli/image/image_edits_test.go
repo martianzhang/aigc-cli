@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -25,7 +26,7 @@ func firstMatchRunName(req *types.GenerateRequest, ctx *imageDispatchCtx) string
 	return ""
 }
 
-func TestImageEditsStrategyMatch(t *testing.T) {
+func TestZeekaiStrategyRouting(t *testing.T) {
 	withImage := &types.GenerateRequest{Model: "m", Prompt: "p", ImageURLs: []string{"a.png"}}
 	noImage := &types.GenerateRequest{Model: "m", Prompt: "p"}
 
@@ -35,10 +36,9 @@ func TestImageEditsStrategyMatch(t *testing.T) {
 		ctx       *imageDispatchCtx
 		wantEdits bool
 	}{
-		{"edits enabled with images", withImage, &imageDispatchCtx{imageEdits: true}, true},
-		{"edits enabled without images", noImage, &imageDispatchCtx{imageEdits: true}, false},
-		{"edits disabled with images", withImage, &imageDispatchCtx{}, false},
-		{"edits disabled without images", noImage, &imageDispatchCtx{}, false},
+		{"zeekai with image routes to edits", withImage, &imageDispatchCtx{isZeekai: true}, true},
+		{"zeekai text-only falls through to sync", noImage, &imageDispatchCtx{isZeekai: true}, false},
+		{"non-zeekai with image stays sync", withImage, &imageDispatchCtx{}, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -50,38 +50,25 @@ func TestImageEditsStrategyMatch(t *testing.T) {
 	}
 }
 
-func TestResolveImageEditsMode(t *testing.T) {
+func TestUsesImageEditsJSON(t *testing.T) {
+	withImage := &types.GenerateRequest{Model: "m", Prompt: "p", ImageURLs: []string{"a.png"}}
+	noImage := &types.GenerateRequest{Model: "m", Prompt: "p"}
+
 	tests := []struct {
-		name        string
-		providerVal string
-		flagVal     string
-		want        string
-		wantErr     bool
+		name string
+		p    *provider.EffectiveProvider
+		req  *types.GenerateRequest
+		want bool
 	}{
-		{"both unset", "", "", "", false},
-		{"provider json", "json", "", "json", false},
-		{"flag json", "", "json", "json", false},
-		{"flag wins", "json", "json", "json", false},
-		{"unknown provider value", "xml", "", "", true},
-		{"unknown flag value", "", "xml", "", true},
+		{"zeekai with image", &provider.EffectiveProvider{ProviderType: provider.Zeekai}, withImage, true},
+		{"zeekai without image", &provider.EffectiveProvider{ProviderType: provider.Zeekai}, noImage, false},
+		{"openai with image", &provider.EffectiveProvider{ProviderType: provider.OpenAI}, withImage, false},
+		{"nil provider", nil, withImage, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := resolveImageEditsMode(tc.providerVal, tc.flagVal)
-			if tc.wantErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if !strings.Contains(err.Error(), "json") {
-					t.Errorf("error should list supported value: %v", err)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tc.want {
-				t.Errorf("mode = %q, want %q", got, tc.want)
+			if got := usesImageEditsJSON(tc.p, tc.req); got != tc.want {
+				t.Errorf("usesImageEditsJSON() = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -121,7 +108,7 @@ func TestRunImageEditsJSON_localFileBecomesDataURI(t *testing.T) {
 		Size:      "1024x1024",
 		ImageURLs: []string{path},
 	}
-	_, _ = runImageEditsJSON(c, req, &imageDispatchCtx{imageEdits: true})
+	_, _ = runImageEditsJSON(c, req, &imageDispatchCtx{isZeekai: true})
 
 	if !strings.HasPrefix(gotURL, "data:image/png;base64,") {
 		t.Fatalf("images[0].image_url = %q, want data:image/png;base64, prefix", gotURL)
