@@ -21,6 +21,7 @@ const (
 	Agnes
 	Gemini
 	Bailian
+	Zeekai
 )
 
 var names = map[Type]string{
@@ -33,6 +34,7 @@ var names = map[Type]string{
 	Agnes:      "Agnes",
 	Gemini:     "Gemini",
 	Bailian:    "阿里云百炼",
+	Zeekai:     "ZeekAI",
 }
 
 func (t Type) String() string {
@@ -93,6 +95,13 @@ var bailianDomains = []string{
 	"dashscope-intl.aliyuncs.com",
 }
 
+// zeekaiDomains lists domains where ZeekAI relay APIs are served. ZeekAI
+// rejects top-level image_urls on /images/generations and only accepts
+// POST /images/edits with images[].image_url for image-to-image.
+var zeekaiDomains = []string{
+	"zeekai.cc",
+}
+
 // matchDomain checks that host is the domain d or a subdomain of d.
 // Uses url.Parse + u.Host to compare domains accurately and avoid
 // false positives like "x.evil.com" matching "evil.com".
@@ -149,6 +158,11 @@ func Detect(baseURL string) Type {
 			return Bailian
 		}
 	}
+	for _, d := range zeekaiDomains {
+		if matchDomain(baseURL, d) {
+			return Zeekai
+		}
+	}
 	// Default to OpenAI-compatible for everything else
 	return OpenAI
 }
@@ -173,6 +187,9 @@ func IsGemini(baseURL string) bool { return Detect(baseURL) == Gemini }
 
 // IsBailian is a convenience wrapper around Detect.
 func IsBailian(baseURL string) bool { return Detect(baseURL) == Bailian }
+
+// IsZeekai is a convenience wrapper around Detect.
+func IsZeekai(baseURL string) bool { return Detect(baseURL) == Zeekai }
 
 // IsGeminiDomain returns true if baseURL points to Google Gemini API,
 // including the OpenAI-compatible /openai endpoint variant.

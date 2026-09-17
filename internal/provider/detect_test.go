@@ -56,6 +56,30 @@ func TestDetect_Agnes(t *testing.T) {
 	}
 }
 
+func TestDetect_Zeekai(t *testing.T) {
+	tests := []struct {
+		url  string
+		want Type
+	}{
+		{"https://api.zeekai.cc", Zeekai},
+		{"https://api.zeekai.cc/v1", Zeekai},
+		{"https://zeekai.cc/v1", Zeekai},
+		{"https://notzeekai.cc.evil.com", OpenAI},
+		{"https://openrouter.ai/api/v1", OpenRouter},
+	}
+	for _, tc := range tests {
+		if got := Detect(tc.url); got != tc.want {
+			t.Errorf("Detect(%q) = %v, want %v", tc.url, got, tc.want)
+		}
+	}
+	if !IsZeekai("https://api.zeekai.cc/v1") {
+		t.Error("IsZeekai should be true for zeekai.cc")
+	}
+	if IsZeekai("https://openrouter.ai/api/v1") {
+		t.Error("IsZeekai should be false for openrouter.ai")
+	}
+}
+
 func TestDetect_OpenAI(t *testing.T) {
 	cases := []string{
 		"https://api.openai.com/v1",
