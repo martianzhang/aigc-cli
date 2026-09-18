@@ -190,6 +190,29 @@ export OPENAI_BASE_URL="https://yunwu-api.example.com"
 aigc-cli video --prompt "a dog running"
 ```
 
+## Pollinations Video
+
+When the base URL points at `pollinations.ai`, aigc-cli uses its synchronous media
+endpoint `GET /video/{prompt}`, which returns raw MP4 bytes:
+
+```bash
+# Text-to-video (community model)
+aigc-cli video --provider pollinations \
+  --model "community/NamanSoni78/Seedance-2.5" \
+  --prompt "a cat walking in a garden" --duration 4
+
+# Image-to-video (start frame)
+aigc-cli video --provider pollinations \
+  --model "community/NamanSoni78/Seedance-2.5" \
+  --prompt "the cat walks forward" --image-url ./cat.jpg
+```
+
+Notes:
+- The endpoint lives at the API root, `https://gen.pollinations.ai/video/{prompt}` — **not** under `/v1`. `model`, `duration`, and `seed` are passed as query parameters; a start-frame image is passed as the `image` parameter (`--image-url` and `--first-frame` both map to it).
+- **Cost depends on the model's price, not on whether it is a community model.** A model is free only when its advertised `pricing` is zero — inspect it with `GET /video/models` (or `aigc-cli models --provider pollinations`). Official models (`google/veo-3.1-fast`, `bytedance/seedance-*`, `alibaba/wan-*`, …) are `paid_only` and require **paid Pollen**, otherwise the request fails with `402 Insufficient balance`. Community models are **not** automatically free: `community/NamanSoni78/Seedance-2.5`, for example, is priced at `completionVideoSeconds: 0.25` and consumes Pollen; only zero-priced community models such as `community/ZapGaming/failure-reel-v1` cost nothing.
+- Pollinations' video endpoint **does not accept `--resolution`** (most models return 400), so the CLI does not forward it; `--size` is likewise unused.
+- Generation is synchronous and typically takes 1–3 minutes. Pollinations keeps generating after the client disconnects, so on timeout simply re-issue the identical request (it hits the cache and is not billed twice).
+
 ## JSON Input
 
 ```bash

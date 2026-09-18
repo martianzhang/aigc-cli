@@ -124,6 +124,7 @@ The same `image` / `video` / `audio` / `music` / `models` command automatically 
 | **Agnes AI** | `POST /v1/images/generations` (sync, pixel size) | `POST /v1/videos` async → poll → download (text/keyframe/reference, 720P) | ❌ Not yet available | — | `GET /v1/models` |
 | **ZeekAI** | `POST /v1/images/generations` for text-to-image, `POST /v1/images/edits` for image-to-image (auto-detected) | — | — | — | `GET /v1/models` |
 | **Yunwu AI** | `POST /v1/images/generations` (sync) | `POST /v1/video/create` + `GET /v1/video/query` | ❌ Not yet available | — | `GET /v1/models` |
+| **Pollinations** | `POST /v1/images/generations` (sync; pass `--quality`) | `GET /video/{prompt}` at the root (sync MP4) | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` (per-model pricing; `paidOnly` needs paid Pollen) | — | `GET /v1/models` (auth-free) |
 | **Ollama / Local** | `POST /v1/images/generations` (experimental, no API Key) | ❌ | Via LocalAI/openedai-speech etc. | — | `GET /v1/models` |
 | **Anthropic** | — | — | `POST /v1/messages` (via Anthropic-compatible relay) | — | — |
 | **Generic Relay** | `POST /v1/images/generations` (sync) | — | `POST /v1/audio/speech` (passthrough) | — | `GET /v1/models` |
