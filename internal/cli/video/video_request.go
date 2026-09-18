@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -82,6 +84,11 @@ func buildVideoRequest(cmd *cobra.Command) (*types.VideoGenerateRequest, error) 
 }
 
 func buildVideoCurl(req *types.VideoGenerateRequest) string {
+	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
+	if p.ProviderType == provider.Pollinations {
+		return buildPollinationsVideoCurl(req, p)
+	}
+
 	body, _ := json.Marshal(req)
 	base := options.Shared.APIBase
 	if base == "" {
@@ -94,6 +101,15 @@ func buildVideoCurl(req *types.VideoGenerateRequest) string {
 	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(options.Shared.APIKey))
 	cmd += "  -H \"Content-Type: application/json\" \\\n"
 	cmd += fmt.Sprintf("  -d '%s'", string(body))
+	return cmd
+}
+
+func buildPollinationsVideoCurl(req *types.VideoGenerateRequest, p *provider.EffectiveProvider) string {
+	url := client.NewFromProvider(p).PollinationsVideoURL(req)
+
+	cmd := fmt.Sprintf("curl -X GET %s \\\n", url)
+	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
+	cmd += "  --output video.mp4"
 	return cmd
 }
 
