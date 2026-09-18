@@ -162,9 +162,10 @@ func runVideo(cmd *cobra.Command, args []string) error {
 
 	// Strategy table: first match wins, last entry is the default.
 	vctx := &videoDispatchCtx{
-		isOpenRouter: p.ProviderType == provider.OpenRouter,
-		isYunwu:      p.ProviderType == provider.Yunwu,
-		isAgnes:      p.ProviderType == provider.Agnes,
+		isOpenRouter:   p.ProviderType == provider.OpenRouter,
+		isYunwu:        p.ProviderType == provider.Yunwu,
+		isAgnes:        p.ProviderType == provider.Agnes,
+		isPollinations: p.ProviderType == provider.Pollinations,
 	}
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {

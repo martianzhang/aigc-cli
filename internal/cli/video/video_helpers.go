@@ -68,9 +68,10 @@ func GenerateAndSave(req *types.VideoGenerateRequest) ([]string, error) {
 	// Each strategy runner builds its own video-scoped client internally.
 	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
 	vctx := &videoDispatchCtx{
-		isOpenRouter: p.ProviderType == provider.OpenRouter,
-		isYunwu:      p.ProviderType == provider.Yunwu,
-		isAgnes:      p.ProviderType == provider.Agnes,
+		isOpenRouter:   p.ProviderType == provider.OpenRouter,
+		isYunwu:        p.ProviderType == provider.Yunwu,
+		isAgnes:        p.ProviderType == provider.Agnes,
+		isPollinations: p.ProviderType == provider.Pollinations,
 	}
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {

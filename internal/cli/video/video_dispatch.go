@@ -7,9 +7,10 @@ import (
 // videoDispatchCtx holds provider context for video strategy matching.
 // Built from local variables in runVideo, not global state.
 type videoDispatchCtx struct {
-	isOpenRouter bool
-	isYunwu      bool
-	isAgnes      bool
+	isOpenRouter   bool
+	isYunwu        bool
+	isAgnes        bool
+	isPollinations bool
 }
 
 // videoStrategy defines a dispatch rule for video generation.
@@ -42,6 +43,13 @@ var videoStrategies = []videoStrategy{
 			return ctx.isYunwu
 		},
 		run: runYunwuVideo,
+	},
+	{
+		// Pollinations: synchronous GET /video/{prompt} returning raw MP4 bytes
+		match: func(req *types.VideoGenerateRequest, ctx *videoDispatchCtx) bool {
+			return ctx.isPollinations
+		},
+		run: runPollinationsVideo,
 	},
 	{
 		// Default: APIMart async task-based generation
