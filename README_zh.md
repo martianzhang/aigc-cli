@@ -124,6 +124,7 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 | **Agnes AI** | `POST /v1/images/generations`（同步，像素尺寸） | `POST /v1/videos` 异步→轮询→下载（text/keyframe/reference，720P） | ❌ 暂未发现 | — | `GET /v1/models` |
 | **ZeekAI** | 文生图 `POST /v1/images/generations`，图生图 `POST /v1/images/edits`（自动识别） | — | — | — | `GET /v1/models` |
 | **云雾 AI** | `POST /v1/images/generations`（sync） | `POST /v1/video/create` + `GET /v1/video/query` | ❌ 暂未发现 | — | `GET /v1/models` |
+| **Pollinations** | `POST /v1/images/generations`（同步；需指定 `--quality`） | `GET /video/{prompt}`（根路径，同步返回 MP4） | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions`（按模型计价；`paidOnly` 需付费 pollen） | — | `GET /v1/models`（免认证） |
 | **Ollama / 本地模型** | `POST /v1/images/generations`（experimental，无需 API Key） | ❌ | 可通过 LocalAI/openedai-speech 等第三方服务 | — | `GET /v1/models` |
 | **Anthropic** | — | — | `POST /v1/messages`（通过 Anthropic 兼容中转） | — | — |
 | **通用中转** | `POST /v1/images/generations`（同步） | — | `POST /v1/audio/speech`（透传） | — | `GET /v1/models` |

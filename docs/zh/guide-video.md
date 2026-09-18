@@ -11,10 +11,12 @@
 | APIMart | `POST /v1/videos/generations` | 异步 task → poll → download | [APIMart Docs](https://docs.apimart.ai/en) |
 | OpenRouter | `POST /v1/videos` | 异步 submit → poll → download | [OpenRouter Video](https://openrouter.ai/docs/guides/overview/multimodal/video-generation) |
 | 云雾 Yunwu | `POST /v1/video/create` + `GET /v1/video/query?id=` | 异步 submit → poll → download | 云雾 API 文档 |
+| Pollinations | `GET /video/{prompt}` | 同步，直接返回 MP4 | [Pollinations Docs](https://gen.pollinations.ai/docs) |
 | 本地模型（Ollama / LocalAI 等） | ❌ 不支持 | — | 当前无本地开源方案支持视频生成 |
 | 其他 | ❌ 不支持 | — | — |
 
 当 `base_url` 包含 `openrouter.ai` 时，自动切换到 OpenRouter 视频 API。
+当 `base_url` 指向 `pollinations.ai` 时，自动使用其同步媒体端点 `GET /video/{prompt}`。
 当 `base_url` 指向 `localhost` / `127.0.0.1` 时，视频生成不可用 — 当前没有开源本地方案支持视频生成（Ollama 和 LocalAI 均未实现视频生成端点）。
 
 ## 基本用法
@@ -140,6 +142,28 @@ Job 文件保存在 `video_job_{jobId}.json`，内含 `polling_url`、`model`、
 
 使用 `aigc-cli models --type video`（免认证）查看完整列表。
 
+## Pollinations 视频（自动适配）
+
+当检测到 `base_url` 含 `pollinations.ai` 时，使用其同步媒体端点 `GET /video/{prompt}`，直接返回 MP4 字节：
+
+```bash
+# 文生视频（社区模型）
+aigc-cli video --provider pollinations \
+  --model "community/NamanSoni78/Seedance-2.5" \
+  --prompt "a cat walking in a garden" --duration 4
+
+# 图生视频（首帧）
+aigc-cli video --provider pollinations \
+  --model "community/NamanSoni78/Seedance-2.5" \
+  --prompt "the cat walks forward" --image-url ./cat.jpg
+```
+
+**说明：**
+- 端点在 API 根路径 `https://gen.pollinations.ai/video/{prompt}`（**不在 `/v1` 下**）；`model`、`duration`、`seed` 以 query 参数传递，首帧图片通过 `image` 参数传入（`--image-url` / `--first-frame` 都会映射到它）。
+- **是否免费取决于模型价格，与「社区/官方」无关**：只有 `pricing` 为 0 的模型才免费（用 `GET /video/models` 或 `aigc-cli models --provider pollinations` 查看）。官方模型（`google/veo-3.1-fast`、`bytedance/seedance-*`、`alibaba/wan-*` 等）标记 `paid_only: true`，**只能使用付费 pollen**，否则返回 `402 Insufficient balance`。**社区模型并不天然免费**：例如 `community/NamanSoni78/Seedance-2.5` 定价 `completionVideoSeconds: 0.25`，会消耗 pollen；只有像 `community/ZapGaming/failure-reel-v1` 这种价格为 0 的社区模型才不扣费。
+- Pollinations 的视频端点**不接受 `--resolution`**（多数模型会返回 400），CLI 已自动不转发该参数；`--size` 同样不适用。
+- 生成为同步调用，耗时通常 1–3 分钟；pollinations 在客户端断开后仍会继续生成，超时后**重发同一请求**即可（相同参数会命中缓存，不重复计费）。
+
 ## GIF 转换
 
 `--gif` 支持两种场景：**AI 生成后自动转**，或**转换本地已有视频**（纯本地，不调 API、不消耗额度）。
@@ -233,7 +257,7 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 | `--model` | `-m` | 模型名（必填，可通过 `defaults.video.model` 在配置文件中设置默认值） |
 | `--duration` | `-d` | 时长 4-15 秒，默认 5 |
 | `--size` | `-s` | 宽高比：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`、`adaptive` |
-| `--resolution` | `-r` | 分辨率：`480p`、`720p`、`1080p`，默认 `480p` |
+| `--resolution` | `-r` | 分辨率：`480p`、`720p`、`1080p`，默认 `480p`（Pollinations 不使用此参数） |
 | `--generate-audio` | `-a` | 生成 AI 音频 |
 | `--dry-run` | | 打印 curl 不调用 API |
 | `--seed` | | 随机种子，用于复现 |
@@ -299,6 +323,10 @@ aigc-cli video --first-frame start.jpg --last-frame end.jpg --prompt "从首帧�
   ```bash
   aigc-cli video --job-id <job-id>
   ```
+
+**Pollinations 视频**
+- 同步生成，默认超时 600 秒
+- 超时后服务端仍继续生成，用**完全相同的参数**重发请求即可（命中缓存，不重复计费）
 
 **建议**：视频生成耗时长，推荐使用 APIMart 或 OpenRouter 的异步模式以获得可恢复能力。
 
