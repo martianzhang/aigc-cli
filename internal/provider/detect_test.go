@@ -80,6 +80,31 @@ func TestDetect_Zeekai(t *testing.T) {
 	}
 }
 
+func TestDetect_Pollinations(t *testing.T) {
+	tests := []struct {
+		url  string
+		want Type
+	}{
+		{"https://gen.pollinations.ai", Pollinations},
+		{"https://gen.pollinations.ai/v1", Pollinations},
+		{"https://text.pollinations.ai", Pollinations},
+		{"https://image.pollinations.ai/v1", Pollinations},
+		{"https://pollinations.ai.evil.com", OpenAI},
+		{"https://openrouter.ai/api/v1", OpenRouter},
+	}
+	for _, tc := range tests {
+		if got := Detect(tc.url); got != tc.want {
+			t.Errorf("Detect(%q) = %v, want %v", tc.url, got, tc.want)
+		}
+	}
+	if !IsPollinations("https://gen.pollinations.ai/v1") {
+		t.Error("IsPollinations should be true for pollinations.ai")
+	}
+	if IsPollinations("https://api.apimart.ai") {
+		t.Error("IsPollinations should be false for apimart.ai")
+	}
+}
+
 func TestDetect_OpenAI(t *testing.T) {
 	cases := []string{
 		"https://api.openai.com/v1",

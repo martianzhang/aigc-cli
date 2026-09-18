@@ -22,19 +22,21 @@ const (
 	Gemini
 	Bailian
 	Zeekai
+	Pollinations
 )
 
 var names = map[Type]string{
-	Unknown:    "unknown",
-	APIMart:    "APIMart",
-	OpenAI:     "OpenAI",
-	OpenRouter: "OpenRouter",
-	Yunwu:      "Yunwu（云雾AI）",
-	ModelScope: "ModelScope",
-	Agnes:      "Agnes",
-	Gemini:     "Gemini",
-	Bailian:    "阿里云百炼",
-	Zeekai:     "ZeekAI",
+	Unknown:      "unknown",
+	APIMart:      "APIMart",
+	OpenAI:       "OpenAI",
+	OpenRouter:   "OpenRouter",
+	Yunwu:        "Yunwu（云雾AI）",
+	ModelScope:   "ModelScope",
+	Agnes:        "Agnes",
+	Gemini:       "Gemini",
+	Bailian:      "阿里云百炼",
+	Zeekai:       "ZeekAI",
+	Pollinations: "Pollinations",
 }
 
 func (t Type) String() string {
@@ -102,6 +104,14 @@ var zeekaiDomains = []string{
 	"zeekai.cc",
 }
 
+// pollinationsDomains lists domains where pollinations.ai APIs are served.
+// Its media generation endpoints (/image/{prompt}, /video/{prompt}) live at
+// the API root rather than under the /v1 version prefix used by its
+// OpenAI-compatible routes.
+var pollinationsDomains = []string{
+	"pollinations.ai",
+}
+
 // matchDomain checks that host is the domain d or a subdomain of d.
 // Uses url.Parse + u.Host to compare domains accurately and avoid
 // false positives like "x.evil.com" matching "evil.com".
@@ -163,6 +173,11 @@ func Detect(baseURL string) Type {
 			return Zeekai
 		}
 	}
+	for _, d := range pollinationsDomains {
+		if matchDomain(baseURL, d) {
+			return Pollinations
+		}
+	}
 	// Default to OpenAI-compatible for everything else
 	return OpenAI
 }
@@ -190,6 +205,9 @@ func IsBailian(baseURL string) bool { return Detect(baseURL) == Bailian }
 
 // IsZeekai is a convenience wrapper around Detect.
 func IsZeekai(baseURL string) bool { return Detect(baseURL) == Zeekai }
+
+// IsPollinations is a convenience wrapper around Detect.
+func IsPollinations(baseURL string) bool { return Detect(baseURL) == Pollinations }
 
 // IsGeminiDomain returns true if baseURL points to Google Gemini API,
 // including the OpenAI-compatible /openai endpoint variant.
