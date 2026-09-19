@@ -52,6 +52,18 @@ type GenerateRequest struct {
 	// ExtraBody holds provider-specific fields that must be nested inside
 	// "extra_body" (e.g., Agnes API requires response_format in extra_body).
 	ExtraBody map[string]interface{} `json:"extra_body,omitempty" yaml:"extra_body,omitempty"`
+	// RawJSON is a verbatim --json body; when set it overrides MarshalJSON so
+	// provider-specific parameters reach the API unmodelled.
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
+}
+
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+func (r GenerateRequest) MarshalJSON() ([]byte, error) {
+	if len(r.RawJSON) > 0 {
+		return r.RawJSON, nil
+	}
+	type typed GenerateRequest
+	return json.Marshal(typed(r))
 }
 
 // ValidateBackground checks background/output_format compatibility.

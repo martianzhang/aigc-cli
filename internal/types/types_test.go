@@ -1,6 +1,8 @@
 package types
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -189,5 +191,27 @@ func TestValidateBackground(t *testing.T) {
 				t.Errorf("ValidateBackground() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestGenerateRequestMarshalJSONPassthrough(t *testing.T) {
+	raw := []byte(`{"model":"m","prompt":"p","loras":{"a":0.7,"b":0.3},"seed":1}`)
+	out, err := json.Marshal(GenerateRequest{RawJSON: raw})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if string(out) != string(raw) {
+		t.Errorf("Marshal() = %s, want verbatim %s", out, raw)
+	}
+
+	typed, err := json.Marshal(GenerateRequest{Model: "m", Prompt: "p"})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if !strings.Contains(string(typed), `"model":"m"`) {
+		t.Errorf("typed marshal = %s", typed)
+	}
+	if strings.Contains(string(typed), "RawJSON") {
+		t.Errorf("RawJSON leaked into typed marshal: %s", typed)
 	}
 }
