@@ -27,9 +27,60 @@ type modelScopeSubmitResponse struct {
 
 // modelScopeTaskResponse is the response from ModelScope task polling.
 type modelScopeTaskResponse struct {
-	TaskStatus   string   `json:"task_status"`   // "SUCCEED", "FAILED", "PENDING", "RUNNING"
-	OutputImages []string `json:"output_images"` // URLs to generated images
-	ErrMsg       string   `json:"err_msg,omitempty"`
+	TaskStatus   string            `json:"task_status"`   // "SUCCEED", "FAILED", "PENDING", "RUNNING"
+	OutputImages []string          `json:"output_images"` // URLs to generated images
+	ErrMsg       string            `json:"err_msg,omitempty"`
+	Errors       *modelScopeErrors `json:"errors,omitempty"`
+}
+
+// modelScopeErrors is the structured failure detail ModelScope actually returns
+// (errors.message), where the legacy flat err_msg is often empty.
+type modelScopeErrors struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+// errorMessage prefers the structured errors.message over the legacy err_msg.
+func (r *modelScopeTaskResponse) errorMessage() string {
+	if r.Errors != nil && r.Errors.Message != "" {
+		return r.Errors.Message
+	}
+	if r.ErrMsg != "" {
+		return r.ErrMsg
+	}
+	return "unknown error"
+}
+
+// buildModelScopeImageBody forwards a verbatim --json body as-is, otherwise
+// builds from typed fields, embedding local images as data URIs (no upload endpoint).
+func buildModelScopeImageBody(req *types.GenerateRequest) (map[string]interface{}, error) {
+	if len(req.RawJSON) > 0 {
+		body := map[string]interface{}{}
+		if err := json.Unmarshal(req.RawJSON, &body); err != nil {
+			return nil, fmt.Errorf("failed to parse json body: %w", err)
+		}
+		return body, nil
+	}
+	body := map[string]interface{}{
+		"model":  req.Model,
+		"prompt": req.Prompt,
+	}
+	if req.Size != "" {
+		body["size"] = req.Size
+	}
+	if len(req.ImageURLs) == 0 {
+		return body, nil
+	}
+	resolved, err := service.LocalFilesToDataURI(req.ImageURLs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve image-urls: %w", err)
+	}
+	if len(resolved) == 1 {
+		body["image_url"] = resolved[0]
+	} else {
+		body["image_url"] = resolved
+	}
+	return body, nil
 }
 
 // runModelScopeImage handles image generation via ModelScope's async task API.
@@ -45,12 +96,9 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 
 	// --- Step 1: Submit async task ---
 	submitURL := baseURL + "/v1/images/generations"
-	body := map[string]interface{}{
-		"model":  req.Model,
-		"prompt": req.Prompt,
-	}
-	if req.Size != "" {
-		body["size"] = req.Size
+	body, err := buildModelScopeImageBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("modelscope: %w", err)
 	}
 
 	bodyBytes, _ := json.Marshal(body)
@@ -130,11 +178,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 			taskResp = tmpResp
 			goto done
 		case "FAILED":
-			errMsg := tmpResp.ErrMsg
-			if errMsg == "" {
-				errMsg = "unknown error"
-			}
-			return nil, fmt.Errorf("modelscope: task %s failed: %s", taskID, errMsg)
+			return nil, fmt.Errorf("modelscope: task %s failed: %s", taskID, tmpResp.errorMessage())
 		case "PENDING", "RUNNING", "PROCESSING":
 			continue
 		case "CANCELED":
