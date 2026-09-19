@@ -98,6 +98,7 @@ func parseJSONInput() (*types.GenerateRequest, error) {
 	if err := json.Unmarshal(data, req); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)
 	}
+	req.RawJSON = data
 
 	if req.Prompt == "" {
 		return nil, fmt.Errorf("prompt is required in JSON input")

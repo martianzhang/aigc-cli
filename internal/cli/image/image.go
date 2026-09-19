@@ -164,21 +164,8 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	c := client.NewFromProvider(p)
 	options.ApplyTimeout(c, "image", client.ImageTimeout)
 
-	if isAPIMart {
-		if len(req.ImageURLs) > 0 {
-			resolved, err := c.ResolveLocalImages(req.ImageURLs)
-			if err != nil {
-				return fmt.Errorf("failed to resolve image-urls: %w", err)
-			}
-			req.ImageURLs = resolved
-		}
-		if req.MaskURL != "" {
-			resolved, err := c.ResolveLocalImages([]string{req.MaskURL})
-			if err != nil {
-				return fmt.Errorf("failed to resolve mask-url: %w", err)
-			}
-			req.MaskURL = resolved[0]
-		}
+	if err := resolveRequestImages(c, req, isAPIMart); err != nil {
+		return err
 	}
 
 	// Strategy table: first match wins, last entry is the default.
