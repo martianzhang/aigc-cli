@@ -42,6 +42,63 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
   --size "1024x768" --image-url photo.png --prompt "a cat wearing a hat"
 ```
 
+> **Note:** ModelScope has two gotchas:
+>
+> 1. **No image upload endpoint.** Local `--image-url` files are converted to base64 Data URIs and sent in the `image_url` field (a string for one input, an array for several).
+> 2. **LoRAs must go in the `loras` field — never pass a LoRA repo ID as `--model`.** Doing so makes ModelScope **silently fall back to the base checkpoint**: no error, but the output has nothing to do with that LoRA.
+
+### `--json` is forwarded verbatim
+
+**What you write is what gets sent.** The CLI does not rename, translate, or normalize anything, so vendor parameters reach the API exactly as documented. This applies to every provider — write the provider's own shape:
+
+```bash
+# single LoRA (ModelScope's documented string form) + fixed seed
+aigc-cli image --provider modelscope --json '{
+  "model": "krea/Krea-2-Turbo",
+  "prompt": "a young woman standing by a bright window, low-angle portrait",
+  "loras": "yan303145427/krea2-Cc-FY-portrait",
+  "seed": 12345,
+  "steps": 30,
+  "size": "1104x1472"
+}'
+```
+
+```bash
+# multiple LoRAs (ModelScope's documented id->weight map form)
+aigc-cli image --provider modelscope --json '{
+  "model": "krea/Krea-2-Turbo",
+  "prompt": "a young woman standing by a bright window, low-angle portrait",
+  "loras": {
+    "yan303145427/krea2-Cc-FY-portrait": 1.0,
+    "yan303145427/krea2-Cc-Ins-portrait": 1.0
+  },
+  "seed": 12345,
+  "steps": 30,
+  "size": "1104x1472"
+}'
+```
+
+```bash
+# image-to-image + LoRA + seed (local image paths become data URIs)
+aigc-cli image --provider modelscope --json '{
+  "model": "krea/Krea-2-Turbo",
+  "prompt": "baimo, 3d clay white model, untextured",
+  "loras": "LZFlzf10203810/3dbaimo",
+  "image_urls": ["photo.jpg"],
+  "seed": 12345,
+  "steps": 30,
+  "size": "1024x768"
+}'
+```
+
+> 💡 **Weights are not normalized.** `{"a": 1.0, "b": 1.0}` is sent as 1.0/1.0 — ModelScope accepts weights that do not sum to 1, so both run at full strength. For a 7:3 blend, write `{"a": 0.7, "b": 0.3}`.
+
+> ⚠️ A LoRA's trigger word belongs in `prompt`; without it the style or subject will not activate.
+
+> 💡 **To check whether a parameter really reached the API:** run the same `--json` twice — the output hashes must match. If they differ, the parameter was dropped upstream.
+
+> 💡 When a ModelScope task fails (e.g. blocked by content moderation), the error is read from the API's `errors.message`, so you see the specific reason instead of a generic `unknown error`.
+
 ## Sync Mode
 
 The default mode for OpenAI-compatible APIs. Returns the image URL directly after generation.
