@@ -67,6 +67,63 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
   --size "1024x768" --image-url photo.png --prompt "一只戴帽子的猫"
 ```
 
+> ⚠️ **ModelScope 有两个必须注意的点**：
+>
+> 1. **没有图片上传端点**：本地 `--image-url` 会自动转 base64 Data URI，以 `image_url` 字段提交（单张为字符串，多张为数组）。
+> 2. **LoRA 必须走 `loras` 字段，不能把 LoRA 仓库 ID 当 `--model`**。否则 ModelScope 会**静默回退到底模**——不报错，但出图和这个 LoRA 毫无关系。
+
+### `--json` 是逐字透传
+
+**你写什么，就发什么。** CLI 不改名、不翻译、不归一化，厂商参数按原样到达 API，因此直接照抄厂商文档的形状即可（对所有 provider 生效）：
+
+```bash
+# 单个 LoRA（ModelScope 文档的字符串形式）+ 固定 seed
+aigc-cli image --provider modelscope --json '{
+  "model": "krea/Krea-2-Turbo",
+  "prompt": "a young woman standing by a bright window, low-angle portrait",
+  "loras": "yan303145427/krea2-Cc-FY-portrait",
+  "seed": 12345,
+  "steps": 30,
+  "size": "1104x1472"
+}'
+```
+
+```bash
+# 多个 LoRA（ModelScope 文档的 id→权重 map 形式）
+aigc-cli image --provider modelscope --json '{
+  "model": "krea/Krea-2-Turbo",
+  "prompt": "a young woman standing by a bright window, low-angle portrait",
+  "loras": {
+    "yan303145427/krea2-Cc-FY-portrait": 1.0,
+    "yan303145427/krea2-Cc-Ins-portrait": 1.0
+  },
+  "seed": 12345,
+  "steps": 30,
+  "size": "1104x1472"
+}'
+```
+
+```bash
+# 图生图 + LoRA + seed（本地图片路径会自动转 data URI）
+aigc-cli image --provider modelscope --json '{
+  "model": "krea/Krea-2-Turbo",
+  "prompt": "baimo, 3d clay white model, untextured",
+  "loras": "LZFlzf10203810/3dbaimo",
+  "image_urls": ["photo.jpg"],
+  "seed": 12345,
+  "steps": 30,
+  "size": "1024x768"
+}'
+```
+
+> 💡 **权重不会被归一化**：写 `{"a": 1.0, "b": 1.0}` 就按 1.0/1.0 发送（ModelScope 接受总和不为 1 的权重，两者都是满强度）。想按 7:3 混合就直接写 `{"a": 0.7, "b": 0.3}`。
+
+> ⚠️ LoRA 的触发词要写进 `prompt`，否则风格/主体不会激活。
+
+> 💡 **验证参数是否真的传到位**：同一条 `--json` 跑两次，两次输出哈希必须一致。若不一致，说明参数被上游忽略了。
+
+> 💡 ModelScope 任务失败时（如内容审核拦截），错误信息取 API 返回的 `errors.message`，会显示具体原因而非笼统的 `unknown error`。
+
 ### 模式自动检测规则
 
 | base_url 包含 | 模式 | 说明 |
