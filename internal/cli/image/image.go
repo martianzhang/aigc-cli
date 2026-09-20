@@ -102,7 +102,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 
 	// ----- Resolve provider (named provider > global > builtin) -----
 	p := options.Shared.ResolveProvider(options.ProviderNameImage)
-	isAPIMart := p.ProviderType == provider.APIMart
+	isAPIMart := options.IsAPIMartProvider(p)
 	isOpenRouter := p.ProviderType == provider.OpenRouter
 	isAgnes := p.ProviderType == provider.Agnes
 	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
@@ -138,8 +138,15 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// ----- Step 4: Build the single request plan used by preview and execution -----
+	// The plan is pure (no network), so --dry-run returns before any client exists.
+	plan, err := buildImagePlan(req, p)
+	if err != nil {
+		return fmt.Errorf("failed to build request plan: %w", err)
+	}
+
 	if genDryRun {
-		fmt.Println(buildImageCurl(req, p))
+		fmt.Println(plan.RenderCurls(p.APIKey))
 		return nil
 	}
 
@@ -153,20 +160,19 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// ----- Step 4: Resolve local image files (upload if needed) -----
+	// ----- Step 5: Resolve local image files (upload if needed) -----
 	c := client.NewFromProvider(p)
 	options.ApplyTimeout(c, "image", client.ImageTimeout)
 
-	if err := resolveRequestImages(c, req, isAPIMart); err != nil {
+	if err := plan.applyUploads(c, req); err != nil {
 		return err
 	}
 
-	// ----- Step 5: Print the request payload (verbose only) -----
+	// ----- Step 6: Print the request payload (verbose only) -----
 	// Printed after image resolution so the dump matches what is actually sent
 	// (uploaded URLs for APIMart, data URIs elsewhere) rather than raw local paths.
 	if options.Shared.Verbose {
-		_, body, _ := imageWireRequest(req, p)
-		prettyReq, _ := json.MarshalIndent(body, "", "  ")
+		prettyReq, _ := json.MarshalIndent(plan.Body, "", "  ")
 		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
 	}
 

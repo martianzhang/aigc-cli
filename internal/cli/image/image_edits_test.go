@@ -108,6 +108,10 @@ func TestRunImageEditsJSON_localFileBecomesDataURI(t *testing.T) {
 		Size:      "1024x1024",
 		ImageURLs: []string{path},
 	}
+	p := &provider.EffectiveProvider{BaseURL: "https://api.zeekai.cc", APIKey: "test-key", ProviderType: provider.Zeekai}
+	if _, err := buildImagePlan(req, p); err != nil {
+		t.Fatalf("buildImagePlan() error = %v", err)
+	}
 	_, _ = runImageEditsJSON(c, req, &imageDispatchCtx{isZeekai: true})
 
 	if !strings.HasPrefix(gotURL, "data:image/png;base64,") {

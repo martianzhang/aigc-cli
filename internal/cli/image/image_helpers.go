@@ -116,7 +116,11 @@ func GenerateAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, 
 		req.Resolution = ""
 	}
 
-	if err := resolveRequestImages(c, req, isAPIMart); err != nil {
+	plan, err := buildImagePlan(req, p)
+	if err != nil {
+		return nil, err
+	}
+	if err := plan.applyUploads(c, req); err != nil {
 		return nil, err
 	}
 
@@ -172,40 +176,6 @@ func postProcessImages(saved []string) {
 			fmt.Printf("Compress %s: %s → %s (%d%% saved)%s → %s\n", path, originalStr, savedStr, pct, params, result.DstPath)
 		}
 	}
-}
-
-// resolveRequestImages makes image inputs usable before dispatch, for both the
-// typed path (APIMart upload) and a verbatim --json body (in-place rewrite).
-func resolveRequestImages(c client.APIClient, req *types.GenerateRequest, isAPIMart bool) error {
-	if isAPIMart {
-		if len(req.ImageURLs) > 0 {
-			resolved, err := c.ResolveLocalImages(req.ImageURLs)
-			if err != nil {
-				return fmt.Errorf("failed to resolve image-urls: %w", err)
-			}
-			req.ImageURLs = resolved
-		}
-		if req.MaskURL != "" {
-			resolved, err := c.ResolveLocalImages([]string{req.MaskURL})
-			if err != nil {
-				return fmt.Errorf("failed to resolve mask-url: %w", err)
-			}
-			req.MaskURL = resolved[0]
-		}
-	}
-	if len(req.RawJSON) == 0 {
-		return nil
-	}
-	resolve := service.LocalFilesToDataURI
-	if isAPIMart {
-		resolve = c.ResolveLocalImages
-	}
-	patched, err := resolveRawImagePaths(req.RawJSON, resolve)
-	if err != nil {
-		return fmt.Errorf("failed to resolve image paths in JSON body: %w", err)
-	}
-	req.RawJSON = patched
-	return nil
 }
 
 // rawImageKeyPaths are the nested image fields a verbatim --json body may use,

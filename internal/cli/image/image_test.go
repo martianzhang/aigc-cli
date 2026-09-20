@@ -1,6 +1,8 @@
 package image
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -91,6 +93,42 @@ func TestBuildImageCurlDefaultMode(t *testing.T) {
 	if !strings.Contains(curl, `"image_urls":["photo.png"]`) {
 		t.Errorf("default body should use top-level image_urls, got:\n%s", curl)
 	}
+}
+
+func TestBuildImageCurlLocalFile(t *testing.T) {
+	png := append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte("payload")...)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "photo.png")
+	if err := os.WriteFile(path, png, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("apimart real file renders upload curl and placeholder", func(t *testing.T) {
+		req := &types.GenerateRequest{Model: "gpt-image-2", Prompt: "a cat", ImageURLs: []string{path}}
+		p := &provider.EffectiveProvider{BaseURL: "https://api.apimart.ai", APIKey: "test-key", ProviderType: provider.APIMart}
+		curl := buildImageCurl(req, p)
+		if !strings.Contains(curl, "/uploads/images") {
+			t.Errorf("expected an upload curl, got:\n%s", curl)
+		}
+		if !strings.Contains(curl, "<UPLOAD_URL_0>") {
+			t.Errorf("expected the upload placeholder, got:\n%s", curl)
+		}
+		if strings.Contains(curl, `["`+path+`"]`) {
+			t.Errorf("local path should be replaced in the request body, got:\n%s", curl)
+		}
+	})
+
+	t.Run("default sync embeds a data uri", func(t *testing.T) {
+		req := &types.GenerateRequest{Model: "gpt-image-2", Prompt: "a cat", ImageURLs: []string{path}}
+		p := &provider.EffectiveProvider{BaseURL: "https://api.openai.com", APIKey: "test-key", ProviderType: provider.OpenAI}
+		curl := buildImageCurl(req, p)
+		if !strings.Contains(curl, `"image_urls":["data:image/png;base64,`) {
+			t.Errorf("expected a data: URI body, got:\n%s", curl)
+		}
+		if strings.Contains(curl, path) {
+			t.Errorf("local path should be encoded, got:\n%s", curl)
+		}
+	})
 }
 
 func TestBuildImageCurlVerbatimPerProvider(t *testing.T) {

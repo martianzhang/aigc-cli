@@ -17,12 +17,6 @@ func runImageEditsJSON(c client.APIClient, req *types.GenerateRequest, _ *imageD
 		return nil, fmt.Errorf("mask is not supported by the /images/edits protocol")
 	}
 
-	resolved, err := service.LocalFilesToDataURI(req.ImageURLs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve image-urls: %w", err)
-	}
-	req.ImageURLs = resolved
-
 	start := time.Now()
 	resp, err := c.ImageGenerateEdits(req)
 	if err != nil {
