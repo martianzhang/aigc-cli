@@ -54,6 +54,7 @@ func openRouterVideoBody(req *types.VideoGenerateRequest) *types.OpenRouterVideo
 }
 
 // runOpenRouterVideo handles video generation via OpenRouter's dedicated video API.
+// buildVideoPlan already embedded local images as data URIs in req.
 func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
 	orReq := openRouterVideoBody(req)
 

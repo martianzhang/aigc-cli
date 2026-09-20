@@ -1,6 +1,8 @@
 package video
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -95,6 +97,39 @@ func TestBuildVideoCurlVerbatimPerProvider(t *testing.T) {
 				t.Errorf("curl should forward the --json body verbatim, got:\n%s", curl)
 			}
 		})
+	}
+}
+
+func TestBuildVideoCurlRendersLocalUploads(t *testing.T) {
+	withVideoNamedProvider(t, "apimart", &types.NamedProvider{
+		Type:    types.ProviderOpenAI,
+		APIKey:  "k",
+		BaseURL: "https://api.apimart.ai",
+	})
+
+	local := filepath.Join(t.TempDir(), "seed.png")
+	if err := os.WriteFile(local, []byte("\x89PNG\r\n\x1a\nseed"), 0o644); err != nil {
+		t.Fatalf("write temp image: %v", err)
+	}
+
+	req := &types.VideoGenerateRequest{
+		Model:          "doubao-seedance-2.0",
+		Prompt:         "test",
+		ImageURLs:      []string{local},
+		ImageWithRoles: []types.ImageWithRole{{URL: local, Role: "first_frame"}},
+	}
+	curl := buildVideoCurl(req)
+
+	if !strings.Contains(curl, "https://api.apimart.ai/v1/uploads/images") {
+		t.Errorf("curl should render the upload endpoint:\n%s", curl)
+	}
+	if n := strings.Count(curl, `-F "file=@`); n != 2 {
+		t.Errorf("multipart upload count = %d, want 2:\n%s", n, curl)
+	}
+	for _, token := range []string{"<UPLOAD_URL_0>", "<UPLOAD_URL_1>"} {
+		if !strings.Contains(curl, token) {
+			t.Errorf("curl should carry literal placeholder %s:\n%s", token, curl)
+		}
 	}
 }
 

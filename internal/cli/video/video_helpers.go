@@ -67,6 +67,16 @@ func GenerateAndSave(req *types.VideoGenerateRequest) ([]string, error) {
 	// Resolve provider (named provider > global > builtin) and dispatch.
 	// Each strategy runner builds its own video-scoped client internally.
 	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
+	plan, err := buildVideoPlan(req, p)
+	if err != nil {
+		return nil, err
+	}
+	if len(plan.Uploads) > 0 {
+		c := options.NewClient(options.ProviderNameVideo)
+		if err := plan.applyUploads(c, req); err != nil {
+			return nil, err
+		}
+	}
 	vctx := &videoDispatchCtx{
 		isOpenRouter:   p.ProviderType == provider.OpenRouter,
 		isYunwu:        p.ProviderType == provider.Yunwu,

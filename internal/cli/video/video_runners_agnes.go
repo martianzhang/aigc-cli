@@ -12,27 +12,8 @@ import (
 
 // runAgnesVideo handles video generation via agnes.ai's async task API.
 // Uses POST /v1/videos for submission and GET /agnesapi?video_id= for polling.
+// agnes has no upload endpoint, so buildVideoPlan embeds local files as data URIs.
 func runAgnesVideo(req *types.VideoGenerateRequest) ([]string, error) {
-	// agnes 没有上传端点，本地图片需转为 base64 data URI 内嵌。
-	for i, u := range req.ImageURLs {
-		if service.IsFile(u) {
-			uri, err := service.ImageToDataURI(u)
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve image-url %q: %w", u, err)
-			}
-			req.ImageURLs[i] = uri
-		}
-	}
-	for i := range req.ImageWithRoles {
-		if service.IsFile(req.ImageWithRoles[i].URL) {
-			uri, err := service.ImageToDataURI(req.ImageWithRoles[i].URL)
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve image-with-role %q: %w", req.ImageWithRoles[i].URL, err)
-			}
-			req.ImageWithRoles[i].URL = uri
-		}
-	}
-
 	c := options.NewClient("video")
 	options.ApplyTimeout(c, "video", client.VideoTimeout)
 

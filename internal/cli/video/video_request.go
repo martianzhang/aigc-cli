@@ -3,13 +3,11 @@ package video
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
-	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -84,41 +82,16 @@ func buildVideoRequest(cmd *cobra.Command) (*types.VideoGenerateRequest, error) 
 	return req, nil
 }
 
-// videoWireRequest resolves the method, absolute URL and body a real video
-// request would use for p. Shared by --dry-run and --verbose so the preview
-// cannot drift from the client call it describes.
-func videoWireRequest(req *types.VideoGenerateRequest, p *provider.EffectiveProvider) (method, rawURL string, body interface{}) {
-	if p.ProviderType == provider.Pollinations {
-		return http.MethodGet, client.NewFromProvider(p).PollinationsVideoURL(req), nil
-	}
-	base := client.NormalizeBaseURL(p.BaseURL)
-	switch p.ProviderType {
-	case provider.OpenRouter:
-		return http.MethodPost, base + client.OpenRouterVideosPath, openRouterVideoBody(req)
-	case provider.Agnes:
-		return http.MethodPost, base + client.AgnesVideoSubmitPath, client.AgnesVideoBody(req)
-	case provider.Yunwu:
-		return http.MethodPost, base + client.YunwuVideoSubPath, client.YunwuVideoBody(req)
-	}
-	return http.MethodPost, base + client.VideoSubmitPath, req
-}
-
+// buildVideoCurl renders the equivalent curl commands for a video generation
+// request: one multipart upload per local image, then the generation call. It
+// renders the same plan the client executes, so the preview cannot drift.
 func buildVideoCurl(req *types.VideoGenerateRequest) string {
 	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
-	method, rawURL, body := videoWireRequest(req, p)
-	if method == http.MethodGet {
-		cmd := fmt.Sprintf("curl -X GET %s \\\n", rawURL)
-		cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
-		cmd += "  --output video.mp4"
-		return cmd
+	plan, err := buildVideoPlan(req, p)
+	if err != nil {
+		return fmt.Sprintf("# failed to build preview: %v", err)
 	}
-
-	data, _ := json.Marshal(body)
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", rawURL)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(data))
-	return cmd
+	return plan.RenderCurls(p.APIKey)
 }
 
 func buildVideoRemixCurl(req *types.VideoRemixRequest) string {

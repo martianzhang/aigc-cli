@@ -12,26 +12,8 @@ import (
 )
 
 // runAPIMartVideo handles video generation via APIMart async task API.
+// Local images are uploaded by videoPlan.applyUploads before dispatch.
 func runAPIMartVideo(req *types.VideoGenerateRequest) ([]string, error) {
-	// Resolve local image files in image_urls
-	if len(req.ImageURLs) > 0 {
-		c := options.NewClient("video")
-		resolved, err := c.ResolveLocalImages(req.ImageURLs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve image-urls: %w", err)
-		}
-		req.ImageURLs = resolved
-	}
-	// Resolve local image files in image_with_roles
-	for i := range req.ImageWithRoles {
-		c := options.NewClient("video")
-		resolved, err := c.ResolveLocalImages([]string{req.ImageWithRoles[i].URL})
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve image-with-role: %w", err)
-		}
-		req.ImageWithRoles[i].URL = resolved[0]
-	}
-
 	c := options.NewClient("video")
 	options.ApplyTimeout(c, "video", client.VideoTimeout)
 	resp, err := c.VideoSubmit(req)

@@ -146,23 +146,33 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		req.Resolution = "480p"
 	}
 
+	// Resolve provider (named provider > global > builtin). Building the plan
+	// is pure, so --dry-run stays network-free.
+	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
+	plan, err := buildVideoPlan(req, p)
+	if err != nil {
+		return err
+	}
+
 	if vidDryRun {
-		curl := buildVideoCurl(req)
-		fmt.Println(curl)
+		fmt.Println(plan.RenderCurls(p.APIKey))
 		return nil
 	}
 
-	// Resolve provider (named provider > global > builtin)
-	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
-
 	if options.Shared.Verbose {
-		if p.ProviderType == provider.Pollinations {
-			_, rawURL, _ := videoWireRequest(req, p)
-			fmt.Printf("Request: GET %s\n\n", rawURL)
+		if plan.Body == nil {
+			fmt.Printf("Request: GET %s\n\n", plan.URL)
 		} else {
-			_, _, body := videoWireRequest(req, p)
-			prettyReq, _ := json.MarshalIndent(body, "", "  ")
+			prettyReq, _ := json.MarshalIndent(plan.Body, "", "  ")
 			fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+		}
+	}
+
+	// Upload local images before dispatch so the request carries public URLs.
+	if len(plan.Uploads) > 0 {
+		c := options.NewClient(options.ProviderNameVideo)
+		if err := plan.applyUploads(c, req); err != nil {
+			return err
 		}
 	}
 

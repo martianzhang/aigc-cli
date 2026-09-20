@@ -12,25 +12,8 @@ import (
 
 // runYunwuVideo handles video generation via yunwu.ai's unified API (submit -> poll -> download).
 // Uses POST /v1/video/create for submission and GET /v1/video/query?id= for polling.
+// Local images are uploaded by videoPlan.applyUploads before dispatch.
 func runYunwuVideo(req *types.VideoGenerateRequest) ([]string, error) {
-	// Resolve local images before submission
-	if len(req.ImageURLs) > 0 {
-		c := options.NewClient("video")
-		resolved, err := c.ResolveLocalImages(req.ImageURLs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve image-urls: %w", err)
-		}
-		req.ImageURLs = resolved
-	}
-	for i := range req.ImageWithRoles {
-		c := options.NewClient("video")
-		resolved, err := c.ResolveLocalImages([]string{req.ImageWithRoles[i].URL})
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve image-with-role: %w", err)
-		}
-		req.ImageWithRoles[i].URL = resolved[0]
-	}
-
 	c := options.NewClient("video")
 	options.ApplyTimeout(c, "video", client.VideoTimeout)
 
