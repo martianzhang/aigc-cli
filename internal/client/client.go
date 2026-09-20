@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	imageSubmitPath      = "/images/generations"
-	imageEditsPath       = "/images/edits"
+	ImageSubmitPath      = "/images/generations"
+	ImageEditsPath       = "/images/edits"
 	videoSubmitPath      = "/videos/generations"
 	yunwuVideoSubPath    = "/video/create"
 	yunwuVideoQryPath    = "/video/query"

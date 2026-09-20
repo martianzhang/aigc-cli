@@ -11,7 +11,8 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-const geminiInteractionsPath = "/interactions"
+// GeminiInteractionsPath is Gemini's native Interactions endpoint.
+const GeminiInteractionsPath = "/interactions"
 
 // geminiInteractionsRequest is the request body for Gemini Interactions API.
 type geminiInteractionsRequest struct {
@@ -61,8 +62,11 @@ type geminiErrorResponse struct {
 	} `json:"error"`
 }
 
-// GeminiImageGenerate generates images using Gemini Interactions API.
-func (c *Client) GeminiImageGenerate(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
+// GeminiImageBody builds the body for Gemini's Interactions image API. A
+// verbatim --json body wins; otherwise the typed fields are mapped onto
+// input/response_format. Shared by the real request and --dry-run/--verbose so
+// the preview cannot drift from what is sent.
+func GeminiImageBody(req *types.GenerateRequest) interface{} {
 	input := []geminiInputItem{
 		{Type: "text", Text: req.Prompt},
 	}
@@ -77,13 +81,16 @@ func (c *Client) GeminiImageGenerate(req *types.GenerateRequest) (*types.OpenAII
 		}
 	}
 
-	geminiReq := &geminiInteractionsRequest{
+	return req.BodyOrRaw(&geminiInteractionsRequest{
 		Model:          req.Model,
 		Input:          input,
 		ResponseFormat: respFormat,
-	}
+	})
+}
 
-	body, err := c.doGeminiRequest(http.MethodPost, geminiInteractionsPath, geminiReq)
+// GeminiImageGenerate generates images using Gemini Interactions API.
+func (c *Client) GeminiImageGenerate(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
+	body, err := c.doGeminiRequest(http.MethodPost, GeminiInteractionsPath, GeminiImageBody(req))
 	if err != nil {
 		return nil, err
 	}

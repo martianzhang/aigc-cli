@@ -66,7 +66,7 @@ func (c *Client) BaseURL() string { return c.baseURL }
 // Submit sends a generation request and returns the task submission response.
 func (c *Client) Submit(req *types.GenerateRequest) (*types.GenerateResponse, error) {
 	var result types.GenerateResponse
-	if err := c.doJSON(http.MethodPost, imageSubmitPath, req, &result); err != nil {
+	if err := c.doJSON(http.MethodPost, ImageSubmitPath, req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

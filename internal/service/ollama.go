@@ -23,20 +23,31 @@ type ollamaGenerateResponse struct {
 	TotalDuration int64    `json:"total_duration,omitempty"`
 }
 
-// OllamaGenerateImages sends a request to Ollama's /api/generate and returns
-// the saved image filenames under outputDir.
-func OllamaGenerateImages(baseURL string, req *types.GenerateRequest, outputDir string) ([]string, error) {
+// OllamaGenerateURL returns Ollama's native /api/generate endpoint for baseURL,
+// stripping any OpenAI-style version suffix. Shared by the real request and
+// --dry-run/--verbose.
+func OllamaGenerateURL(baseURL string) string {
 	if idx := strings.LastIndex(baseURL, "/v"); idx > strings.LastIndex(baseURL, "://") {
 		baseURL = baseURL[:idx]
 	}
-	url := baseURL + "/api/generate"
-	body := map[string]interface{}{
+	return baseURL + "/api/generate"
+}
+
+// OllamaGenerateBody builds the /api/generate body. A verbatim --json body
+// wins; otherwise the typed fields are mapped.
+func OllamaGenerateBody(req *types.GenerateRequest) interface{} {
+	return req.BodyOrRaw(map[string]interface{}{
 		"model":  req.Model,
 		"prompt": req.Prompt,
 		"stream": false,
-	}
+	})
+}
 
-	bodyBytes, _ := json.Marshal(body)
+// OllamaGenerateImages sends a request to Ollama's /api/generate and returns
+// the saved image filenames under outputDir.
+func OllamaGenerateImages(baseURL string, req *types.GenerateRequest, outputDir string) ([]string, error) {
+	url := OllamaGenerateURL(baseURL)
+	bodyBytes, _ := json.Marshal(OllamaGenerateBody(req))
 	httpResp, err := http.Post(url, "application/json", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("ollama request failed: %w", err)

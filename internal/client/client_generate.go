@@ -46,7 +46,7 @@ func (c *Client) IsOpenRouterProvider() bool {
 func (c *Client) ImageGenerateSync(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
 	cleanReq := c.sanitizeImageRequest(req)
 	var result types.OpenAIImageResponse
-	if err := c.doJSON(http.MethodPost, imageSubmitPath, cleanReq, &result); err != nil {
+	if err := c.doJSON(http.MethodPost, ImageSubmitPath, cleanReq, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

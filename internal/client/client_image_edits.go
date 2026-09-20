@@ -23,14 +23,15 @@ type imageEditsInput struct {
 	ImageURL string `json:"image_url"`
 }
 
-// ImageEditsBody builds the JSON body for POST /images/edits. Shared by the
-// real request and --dry-run output so both describe the same payload.
+// ImageEditsBody builds the JSON body for POST /images/edits. A verbatim
+// --json body wins; otherwise the typed fields are mapped. Shared by the real
+// request and --dry-run output so both describe the same payload.
 func ImageEditsBody(req *types.GenerateRequest) any {
 	images := make([]imageEditsInput, 0, len(req.ImageURLs))
 	for _, u := range req.ImageURLs {
 		images = append(images, imageEditsInput{ImageURL: u})
 	}
-	return imageEditsRequest{
+	return req.BodyOrRaw(imageEditsRequest{
 		Model:        req.Model,
 		Prompt:       req.Prompt,
 		Size:         req.Size,
@@ -38,7 +39,7 @@ func ImageEditsBody(req *types.GenerateRequest) any {
 		Quality:      req.Quality,
 		OutputFormat: req.OutputFormat,
 		Images:       images,
-	}
+	})
 }
 
 // ImageGenerateEdits sends an image-to-image request to relay panels that
@@ -46,7 +47,7 @@ func ImageEditsBody(req *types.GenerateRequest) any {
 // be usable strings (public URLs or data: URIs); this method never reads files.
 func (c *Client) ImageGenerateEdits(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
 	var result types.OpenAIImageResponse
-	if err := c.doJSON(http.MethodPost, imageEditsPath, ImageEditsBody(req), &result); err != nil {
+	if err := c.doJSON(http.MethodPost, ImageEditsPath, ImageEditsBody(req), &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

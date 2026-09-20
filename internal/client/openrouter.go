@@ -21,12 +21,15 @@ import (
 // Image generation and video generation on OpenRouter can take 60-120s.
 const openrouterRequestTimeout = 120 * time.Second
 
-// OpenRouterDedicatedImage sends a text-to-image request via OpenRouter's
-// dedicated Image API (POST /v1/images). Returns standard OpenAI-compatible response.
-// Supports input_references (image-to-image) via req.ImageURLs.
-func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
-	// Build request body with OpenRouter-specific field mapping.
-	// OpenRouter uses "input_references" instead of "image_urls" for reference images.
+// OpenRouterImagesPath is OpenRouter's dedicated image endpoint (distinct from
+// the OpenAI-compatible /images/generations path).
+const OpenRouterImagesPath = "/images"
+
+// OpenRouterImageBody builds the request body for OpenRouter's dedicated image
+// API. A verbatim --json body wins; otherwise image_urls is mapped onto
+// input_references as OpenRouter requires. Shared by the real request and
+// --dry-run/--verbose so the preview cannot drift from what is sent.
+func OpenRouterImageBody(req *types.GenerateRequest) interface{} {
 	bodyMap := map[string]interface{}{
 		"model":  req.Model,
 		"prompt": req.Prompt,
@@ -67,13 +70,20 @@ func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.Op
 		bodyMap["input_references"] = refs
 	}
 
+	return req.BodyOrRaw(bodyMap)
+}
+
+// OpenRouterDedicatedImage sends a text-to-image request via OpenRouter's
+// dedicated Image API (POST /v1/images). Returns standard OpenAI-compatible response.
+// Supports input_references (image-to-image) via req.ImageURLs.
+func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
 	oldTimeout := c.httpClient.Timeout
 	c.httpClient.Timeout = openrouterRequestTimeout
 	defer func() { c.httpClient.Timeout = oldTimeout }()
 
 	headers := c.openRouterHeaders()
 	var result types.OpenAIImageResponse
-	if err := c.doJSONWithHeaders(http.MethodPost, "/images", bodyMap, &result, headers); err != nil {
+	if err := c.doJSONWithHeaders(http.MethodPost, OpenRouterImagesPath, OpenRouterImageBody(req), &result, headers); err != nil {
 		return nil, err
 	}
 	return &result, nil
