@@ -41,7 +41,7 @@ func (c *Client) UploadImage(filePath string) (*types.UploadResponse, error) {
 	}
 	w.Close()
 
-	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+uploadPath, &buf)
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+UploadPath, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create upload request: %w", err)
 	}

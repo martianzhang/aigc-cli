@@ -19,7 +19,7 @@ const (
 	ChatPath             = "/chat/completions"
 	audioSpeechPath      = "/audio/speech"
 	audioTranscribePath  = "/audio/transcriptions"
-	uploadPath           = "/uploads/images"
+	UploadPath           = "/uploads/images"
 	taskPath             = "/tasks/%s"
 	tokenBalancePath     = "/balance"
 	userBalancePath      = "/user/balance"
