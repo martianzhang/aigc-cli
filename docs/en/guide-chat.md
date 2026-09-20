@@ -70,7 +70,8 @@ tools_disable:
 | `--max-output` | Max response tokens | `4096` |
 | `--context-size` | Max input context tokens; auto-compacts at 80% (summarizes older messages) | `0` (model default) |
 | `--system` | System prompt | — |
-| `--json` | Pass messages as JSON | — |
+| `--json` | Pass messages as JSON; forwarded **verbatim**, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API | — |
+| `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
 
 ### Context Management
 

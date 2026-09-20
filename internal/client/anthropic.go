@@ -13,27 +13,25 @@ import (
 )
 
 const (
-	anthropicChatPath = "/messages" // Anthropic Messages API endpoint
-	anthropicVersion  = "2023-06-01"
+	AnthropicChatPath = "/messages" // Anthropic Messages API endpoint
+	AnthropicVersion  = "2023-06-01"
 )
 
 // anthropicChatCompletion handles chat via the Anthropic Messages API (/v1/messages).
 // Converted from the standard ChatRequest to Anthropic format and back.
 func (c *Client) anthropicChatCompletion(req *types.ChatRequest) (*types.ChatResponse, error) {
-	// Build Anthropic request from standard ChatRequest
-	anthropicReq := c.buildAnthropicRequest(req)
-	body, err := json.Marshal(anthropicReq)
+	body, err := AnthropicChatBody(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal anthropic request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+anthropicChatPath, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+AnthropicChatPath, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create anthropic request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("x-api-key", c.apiKey)
-	httpReq.Header.Set("anthropic-version", anthropicVersion)
+	httpReq.Header.Set("anthropic-version", AnthropicVersion)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -71,7 +69,7 @@ func (c *Client) anthropicChatCompletion(req *types.ChatRequest) (*types.ChatRes
 }
 
 // buildAnthropicRequest converts a standard ChatRequest to Anthropic format.
-func (c *Client) buildAnthropicRequest(req *types.ChatRequest) *types.AnthropicMessageRequest {
+func buildAnthropicRequest(req *types.ChatRequest) *types.AnthropicMessageRequest {
 	// Extract system prompt from messages (Anthropic supports system at top level)
 	var systemPrompt string
 	var msgs []types.AnthropicMessage
@@ -104,6 +102,15 @@ func (c *Client) buildAnthropicRequest(req *types.ChatRequest) *types.AnthropicM
 		ar.Temperature = req.Temperature
 	}
 	return ar
+}
+
+// AnthropicChatBody returns the Anthropic-native chat body, or the verbatim
+// --json body when set. Shared by the real request and --dry-run.
+func AnthropicChatBody(req *types.ChatRequest) ([]byte, error) {
+	if len(req.RawJSON) > 0 {
+		return req.RawJSON, nil
+	}
+	return json.Marshal(buildAnthropicRequest(req))
 }
 
 // anthropicToChatResponse converts an Anthropic response to the standard ChatResponse.

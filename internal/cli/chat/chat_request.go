@@ -10,6 +10,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -25,6 +26,7 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		if err := json.Unmarshal(data, req); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
+		req.RawJSON = data
 		return req, nil
 	}
 
@@ -66,6 +68,12 @@ func sendChatRequest(cmd *cobra.Command, req *types.ChatRequest) error {
 	}
 
 	p := options.Shared.ResolveProvider(options.ProviderNameChat)
+
+	if chatDryRun {
+		fmt.Println(buildChatCurl(req, p))
+		return nil
+	}
+
 	c := client.NewFromProvider(p)
 	req.OutputWriter = options.Stdout()
 
@@ -87,6 +95,28 @@ func sendChatRequest(cmd *cobra.Command, req *types.ChatRequest) error {
 	}
 
 	return nil
+}
+
+// buildChatCurl renders the equivalent curl for a chat request, using the
+// resolved provider host and the same body the client sends.
+func buildChatCurl(req *types.ChatRequest, p *provider.EffectiveProvider) string {
+	base := client.NormalizeBaseURL(p.BaseURL)
+	url := base + client.ChatPath
+	body, _ := json.Marshal(req)
+	auth := fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
+
+	if p.Type == types.ProviderAnthropic {
+		url = base + client.AnthropicChatPath
+		body, _ = client.AnthropicChatBody(req)
+		auth = fmt.Sprintf("  -H \"x-api-key: %s\" \\\n", service.MaskKey(p.APIKey))
+		auth += fmt.Sprintf("  -H \"anthropic-version: %s\" \\\n", client.AnthropicVersion)
+	}
+
+	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
+	cmd += auth
+	cmd += "  -H \"Content-Type: application/json\" \\\n"
+	cmd += fmt.Sprintf("  -d '%s'", string(body))
+	return cmd
 }
 
 // printUsageStats prints token/cost/timing stats to stderr.

@@ -86,7 +86,7 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+chatPath, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+ChatPath, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

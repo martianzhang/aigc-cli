@@ -16,7 +16,7 @@ const (
 	yunwuVideoQryPath    = "/video/query"
 	AgnesVideoSubmitPath = "/videos"
 	agnesVideoQueryPath  = "/agnesapi"
-	chatPath             = "/chat/completions"
+	ChatPath             = "/chat/completions"
 	audioSpeechPath      = "/audio/speech"
 	audioTranscribePath  = "/audio/transcriptions"
 	uploadPath           = "/uploads/images"

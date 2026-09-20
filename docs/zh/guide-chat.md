@@ -246,7 +246,8 @@ aigc-cli chat --message "Hello"
 | `--context-size` | 输入上下文窗口大小（token），0=使用模型默认值。对话超过其 80% 时自动压缩（总结早期消息） |
 | `--no-stream` | 关闭流式输出，等待完整响应 |
 | `--interactive`, `-i` | 强制进入交互式多轮模式 |
-| `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin） |
+| `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；**逐字透传**，未建模字段（如 `reasoning_effort`、厂商私有键）原样发出 |
+| `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |
 | `--verbose`, `-v` | 显示 token 消耗、费用和耗时统计（全局 flag） |
 
 ### 上下文管理

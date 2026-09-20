@@ -15,7 +15,6 @@ func floatPtr(v float64) *float64 { return &v }
 // ---------------------------------------------------------------------------
 
 func TestBuildAnthropicRequest_systemExtracted(t *testing.T) {
-	c := New("sk-test", "https://api.anthropic.com", "")
 	req := &types.ChatRequest{
 		Model: "claude-3-opus",
 		Messages: []types.ChatMessage{
@@ -24,7 +23,7 @@ func TestBuildAnthropicRequest_systemExtracted(t *testing.T) {
 		},
 	}
 
-	got := c.buildAnthropicRequest(req)
+	got := buildAnthropicRequest(req)
 
 	if got.System != "You are a helpful assistant." {
 		t.Errorf("System = %q, want %q", got.System, "You are a helpful assistant.")
@@ -35,7 +34,6 @@ func TestBuildAnthropicRequest_systemExtracted(t *testing.T) {
 }
 
 func TestBuildAnthropicRequest_normalMessages(t *testing.T) {
-	c := New("sk-test", "https://api.anthropic.com", "")
 	req := &types.ChatRequest{
 		Model: "claude-3-haiku",
 		Messages: []types.ChatMessage{
@@ -45,7 +43,7 @@ func TestBuildAnthropicRequest_normalMessages(t *testing.T) {
 		},
 	}
 
-	got := c.buildAnthropicRequest(req)
+	got := buildAnthropicRequest(req)
 
 	if len(got.Messages) != 3 {
 		t.Fatalf("Messages length = %d, want 3", len(got.Messages))
@@ -62,7 +60,6 @@ func TestBuildAnthropicRequest_normalMessages(t *testing.T) {
 }
 
 func TestBuildAnthropicRequest_maxTokens(t *testing.T) {
-	c := New("sk-test", "https://api.anthropic.com", "")
 
 	tests := []struct {
 		name      string
@@ -78,7 +75,7 @@ func TestBuildAnthropicRequest_maxTokens(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := &types.ChatRequest{Model: "claude-3", MaxTokens: tt.maxTokens}
-			got := c.buildAnthropicRequest(req)
+			got := buildAnthropicRequest(req)
 			if got.MaxTokens != tt.want {
 				t.Errorf("MaxTokens = %d, want %d", got.MaxTokens, tt.want)
 			}
@@ -87,7 +84,6 @@ func TestBuildAnthropicRequest_maxTokens(t *testing.T) {
 }
 
 func TestBuildAnthropicRequest_temperature(t *testing.T) {
-	c := New("sk-test", "https://api.anthropic.com", "")
 
 	tests := []struct {
 		name        string
@@ -104,7 +100,7 @@ func TestBuildAnthropicRequest_temperature(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := &types.ChatRequest{Model: "claude-3", Temperature: tt.temperature}
-			got := c.buildAnthropicRequest(req)
+			got := buildAnthropicRequest(req)
 			if tt.wantSet {
 				if got.Temperature == nil {
 					t.Fatal("Temperature is nil, want a value")
@@ -122,10 +118,9 @@ func TestBuildAnthropicRequest_temperature(t *testing.T) {
 }
 
 func TestBuildAnthropicRequest_emptyMessages(t *testing.T) {
-	c := New("sk-test", "https://api.anthropic.com", "")
 	req := &types.ChatRequest{Model: "claude-3", Messages: nil}
 
-	got := c.buildAnthropicRequest(req)
+	got := buildAnthropicRequest(req)
 
 	if got.Messages == nil {
 		t.Error("Messages should be empty slice, not nil")
@@ -136,7 +131,6 @@ func TestBuildAnthropicRequest_emptyMessages(t *testing.T) {
 }
 
 func TestBuildAnthropicRequest_streamFlag(t *testing.T) {
-	c := New("sk-test", "https://api.anthropic.com", "")
 
 	tests := []struct {
 		name   string
@@ -149,7 +143,7 @@ func TestBuildAnthropicRequest_streamFlag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := &types.ChatRequest{Model: "claude-3", Stream: tt.stream}
-			got := c.buildAnthropicRequest(req)
+			got := buildAnthropicRequest(req)
 			if got.Stream != tt.stream {
 				t.Errorf("Stream = %v, want %v", got.Stream, tt.stream)
 			}

@@ -402,6 +402,15 @@ type ChatRequest struct {
 	// accumulated silently and returned in the full response (no terminal output).
 	// CLI sets this to os.Stdout; MCP and other callers leave it nil.
 	OutputWriter io.Writer `json:"-" yaml:"-"`
+	// RawJSON is a verbatim --json body; when set it overrides MarshalJSON so
+	// provider-specific parameters reach the API unmodelled.
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
+}
+
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+func (r ChatRequest) MarshalJSON() ([]byte, error) {
+	type typed ChatRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
 }
 
 // ChatResponse is the non-streaming response from chat completion.

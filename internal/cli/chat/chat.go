@@ -23,6 +23,7 @@ var (
 	chatNoStream    bool
 	chatJSONFlag    string
 	chatInteractive bool
+	chatDryRun      bool
 )
 
 // chatCmd represents the `aigc-cli chat` command.
@@ -163,6 +164,7 @@ func init() {
 	f.BoolVar(&chatNoStream, "no-stream", false, "Disable streaming, wait for full response")
 	f.StringVar(&chatJSONFlag, "json", "", "JSON file, string, or \"-\" for stdin")
 	f.BoolVarP(&chatInteractive, "interactive", "i", false, "Enter interactive multi-turn chat mode")
+	f.BoolVar(&chatDryRun, "dry-run", false, "Print the equivalent curl without calling the API")
 
 }
 
