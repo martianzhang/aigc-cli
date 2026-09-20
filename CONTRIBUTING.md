@@ -51,7 +51,6 @@ aigc-cli/
 │   └── types/        # 请求/响应数据结构和配置类型
 ├── docs/             # 用户文档（zh/ 与 en/）
 │   └── release_notes/ # 各版本 release notes
-├── skills/           # AI Agent SKILL 定义
 ├── scripts/          # 辅助脚本（helper.c / build-helper.sh 等）
 ├── main.go           # 入口
 ├── Makefile          # 统一构建入口
@@ -97,7 +96,7 @@ make run ARGS="chat --message hello"
 1. Fork 仓库并创建你的 feature branch
 2. 遵循上述代码规范和提交信息格式
 3. 确保 `make lint && make test` 通过
-4. 如果新增了 CLI 命令，同步更新 docs/ 和 skills/ 目录
+4. 如果新增了 CLI 命令，同步更新 docs/ 目录
 5. 发起 PR 到 `main` 分支，描述变更内容
 
 ## Issue 报告
