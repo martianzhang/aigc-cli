@@ -172,6 +172,19 @@ Glob patterns are supported (`*` matches any tool name). Empty or absent lists =
 
 `web_fetch`、`grep`、`read_file`、`find` 是**仅限 Chat** 的 Agent 工具（位于 `internal/cli/chat`，供交互式 REPL / Agent Loop 使用），**刻意不通过 MCP 暴露**：它们会赋予 Agent 不受沙箱限制的任意文件与网页访问能力，一旦模型读到的页面或文件里藏有提示词注入（prompt injection），就可能被诱导读取并外泄本地文件；MCP 工具面被有意限定在 AIGC 能力范围内（生成、检测、OCR、知识库、Provider/配置查看）。这是刻意的边界，不是遗漏。
 
+### 安全加固（v3.3.0）
+
+发版前安全审计（攻击面测绘 + 3 条线 hunter + 2 名 PoC 工程师独立复现）后，MCP 面新增以下防线：
+
+- **`output_path` 约束**：watermark / background / depth 工具的显式输出路径必须落在 `output_dir`（`cfg.Output`）或**输入文件所在目录**两个根之内；符号链接目标被拒绝（防穿透截断）。不传 `output_path` 时默认「输出到输入旁」行为不变。
+- **本地图片校验**：`image_urls` 引用的本地文件必须是**可解码的图片**（≤32 MiB），非图片文件（如 `~/.ssh/id_rsa`、`config.yaml`）不会被内联发送给 Provider。
+- **解码炸弹防护**：本地图片处理工具先读头部尺寸，>1 亿像素（100 MP）拒绝解码。
+- **`generate_speech.format` 枚举**：仅 `mp3/wav/opus/aac/flac/pcm`，阻断 `speech_<ts>.<ext>` 路径穿越。
+- **任务 ID 清洗**：`get_task` 下载文件名使用 `filepath.Base` 后的安全令牌，阻断 `task_id` 目录穿越。
+- **KB 路径修复**：`kb_*` 工具指向 `~/.config/aigc-cli/knowledge`（与 CLI/chat 一致），消除「字面 `~` 目录 + 预置知识库投毒」向量。
+- **KB 网络出口**：`kb_fetch` / `kb_search` 走全局 HTTP 客户端（尊重 `http_proxy`），且**拒绝回环/内网/链路本地/元数据地址**（含重定向后复检），响应体读取有上限。
+- 修复 MCP server 在配置缺少 `defaults:` 段时的启动 panic。
+
 ## Prompts / 工作流模板
 
 MCP Prompts 是宿主（Claude Desktop、Cursor 等）里可直接点击调用的**工作流模板**：选中后会带着预设的指令和参数，引导 Agent 调用对应的 MCP 工具完成整条流程。

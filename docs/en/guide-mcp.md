@@ -129,6 +129,19 @@ tools_disable:
 
 `web_fetch`, `grep`, `read_file`, and `find` exist as **chat-only** agent tools (they live in `internal/cli/chat`, used by the interactive REPL / agent loop) and are **deliberately not exposed over MCP**: they hand an agent unsandboxed arbitrary file and web access, so a prompt-injection payload in a model-visible page or file could turn into local file disclosure. The MCP surface is intentionally scoped to AIGC capability (generation, detection, OCR, knowledge base, provider/config inspection). This is a deliberate boundary, not an oversight.
 
+### Security hardening (v3.3.0)
+
+After a pre-release security audit (attack-surface mapping + three hunter lanes + two independent PoC engineers), the MCP surface gained these defenses:
+
+- **`output_path` confinement**: explicit output paths for the watermark / background / depth tools must resolve inside `output_dir` (`cfg.Output`) or the **input file's directory**; symlink targets are rejected (no write-through-symlink truncation). Omitting `output_path` keeps the default "next to the input" behavior unchanged.
+- **Local-image validation**: local files referenced via `image_urls` must be **decodable images (≤32 MiB)**; non-image files (e.g. `~/.ssh/id_rsa`, `config.yaml`) are never inlined into requests sent to the provider.
+- **Decode-bomb guard**: local image tools read the header size first and refuse >100 megapixels.
+- **`generate_speech.format` enum**: only `mp3/wav/opus/aac/flac/pcm`, closing the `speech_<ts>.<ext>` path traversal.
+- **Task-ID sanitization**: `get_task` download filenames use a `filepath.Base`-sanitized token, blocking `task_id` directory traversal.
+- **KB path fix**: `kb_*` tools now use `~/.config/aigc-cli/knowledge` (same as CLI/chat), removing the literal-`~` directory and the pre-planted-KB poisoning vector.
+- **KB network egress**: `kb_fetch` / `kb_search` use the global HTTP client (honoring `http_proxy`) and **reject loopback / private / link-local / metadata addresses** (re-validated on every redirect); response bodies are size-capped.
+- Fixed the MCP server startup panic when the config has no `defaults:` section.
+
 ## Prompts / Workflow Templates
 
 MCP Prompts are clickable workflow templates in hosts such as Claude Desktop and Cursor. Selecting one sends a pre-filled instruction that tells the agent which MCP tool to call and how to complete the whole flow.
