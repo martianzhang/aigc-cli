@@ -51,6 +51,22 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
 
 **What you write is what gets sent.** The CLI does not rename, translate, or normalize anything, so vendor parameters reach the API exactly as documented. This applies to every provider — write the provider's own shape:
 
+Each provider's wire shape differs, so a verbatim `--json` body must match that provider's native shape (the CLI will not translate it). The body is sent to that provider's real endpoint:
+
+| Provider | Actual `--json` endpoint | Native shape notes |
+|---|---|---|
+| ModelScope | `POST {base}/images/generations` (async task) | `loras` / `image_url` |
+| APIMart | async task submit | unchanged |
+| OpenRouter | `POST {base}/images` | reference images use `input_references` |
+| Gemini | `POST {base}/interactions` | uses `input` / `response_format` |
+| Ollama | `POST {ollama-native-base}/api/generate` | `/api/generate` body |
+| ZeekAI (image-to-image) | `POST {base}/images/edits` | images use `images[].image_url` |
+| Generic OpenAI-compatible (OpenAI / Yunwu / SiliconFlow / AIBaseCamp / Pollinations) and Agnes | `POST {base}/images/generations` | OpenAI images shape |
+
+> 💡 The flag path (`--model` / `--prompt` / `--image-url` …) is unchanged — the CLI still maps and adapts fields per provider. Verbatim passthrough applies to `--json` only.
+
+> 💡 `--dry-run` and `--verbose` print the **real endpoint and real request body**, so you can use them to confirm whether a new vendor parameter is actually wired through.
+
 ```bash
 # single LoRA (ModelScope's documented string form) + fixed seed
 aigc-cli image --provider modelscope --json '{
