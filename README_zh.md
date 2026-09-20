@@ -17,7 +17,7 @@
 
 | | | |
 |---|---|---|
-| 🤖 | **MCP Server** | 内置 MCP Server，对接 Claude Desktop、Cursor、Windsurf。AI 代理可直接在对话中生成图片/视频、运行 Midjourney、搜索知识库、检测 AIGC、查询定价。 |
+| 🤖 | **MCP Server** | 内置 MCP Server，对接 Claude Desktop、Cursor、Windsurf：29 个工具、4 个工作流 Prompt、4 个只读 Resource，全部工具带 MCP annotations。AI 代理可直接在对话中生成图片/视频/音乐、运行 Midjourney、OCR、搜索知识库、检测 AIGC、查询定价。工具的 `provider` 参数仅接受 `config.yaml` 白名单中的名称，永远无法远程传入 `base_url`/`api_key`。 |
 | 🔬 | **AIGC 取证** | 离线多信号融合：C2PA、TC260（国标 GB 45438-2025）、SynthID、ONNX 分类器、FFT 频谱、SRM 噪声、JPEG 量化。全部本地，无需 API Key。 |
 | 🔌 | **多协议支持** | 不止 OpenAI——同时支持 Anthropic Messages API、Ollama、本地 ONNX 模型和任意 OpenAI 兼容端点。 |
 | 🧠 | **Provider 自动适配** | 每个厂商自动走正确的 API 路由（OpenRouter 专用图片/视频 API、APIMart 异步任务等） |
@@ -86,7 +86,7 @@ aigc-cli chat --message "Hello"
 }
 ```
 
-AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库、查询模型定价、检测 AIGC。详见 [docs/zh/guide-mcp.md](docs/zh/zh/guide-mcp.md)。
+AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney、OCR、搜索灵感库与知识库、查询模型定价、检测 AIGC——共 29 个工具、4 个工作流 Prompt、4 个只读 Resource（全部工具带 MCP annotations）。工具的 `provider` 参数仅接受 `config.providers` 白名单中的名称，任何工具都不接受 `base_url` 或 `api_key`。详见 [docs/zh/guide-mcp.md](docs/zh/guide-mcp.md)。
 
 ---
 
@@ -94,7 +94,7 @@ AI 代理可以在对话中直接生成图片、创建视频、搜索灵感库�
 
 | | 能力 | 说明 |
 |---|---|---|
-| 🤖 | **MCP Server** | 内置 MCP 协议支持，Claude Desktop / Cursor / Windsurf / VS Code 开箱即用 |
+| 🤖 | **MCP Server** | 内置 MCP 协议支持，含 29 个工具、4 个工作流 Prompt、4 个只读 Resource 与 MCP annotations；Claude Desktop / Cursor / Windsurf / VS Code 开箱即用 |
 | 🔬 | **AIGC 检测引擎** | C2PA / TC260 / SynthID / ONNX / FFT / SRM 噪声 / JPEG 量化，离线运行，emoji 输出 |
 | 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 切换 Provider，命令不变 |
 | 🧠 | **Provider 自动适配** | OpenRouter 自动走专用图片/视频 API，零配置 |
@@ -167,6 +167,7 @@ aigc-cli
 │   └── --price    查看模型定价
 ├── task       查询异步任务状态（兼容 APIMart 异步任务）
 ├── balance    查询余额（兼容 APIMart 余额查询）
+├── config     读写 config.yaml（get/set/list，密钥脱敏）                       →  docs/zh/guide-commands.md
 ├── preview / pr 看图 / --detail 元数据 / --describe 写说明                    →  docs/guide-preview.md
 ├── detect     检测 AIGC、元数据和篡改痕迹（多信号融合 + emoji）             →  docs/zh/guide-detect.md
 ├── completion 生成 shell 补全脚本（bash/zsh/fish/powershell）
@@ -240,7 +241,7 @@ aigc-cli midjourney (或 mj)
 | [AIGC 检测](docs/zh/guide-detect.md) | 多信号融合、ONNX 模型、FFT 频谱、emoji 输出 |
 | [提示词灵感](docs/zh/guide-ideas.md) | 离线 BM25 搜索引擎，万级提示词数据集 |
 | [知识库](docs/zh/guide-knowledgebase.md) | 本地知识库：FTS5 + 语义搜索、保险箱、web search |
-| [其他命令](docs/zh/guide-commands.md) | models、task、balance、dry-run、API 参考 |
+| [其他命令](docs/zh/guide-commands.md) | models、task、balance、config、dry-run、API 参考 |
 | [API 参考来源](docs/zh/api-reference.md) | 各 Provider 接口规范来源、检测机制、策略路由 |
 | [常见问题](docs/zh/faq.md) | 安装、使用、MCP、费用等常见问题解答 |
 | [MCP 集成](docs/zh/guide-mcp.md) | AI 代理（Claude/Cursor）集成指南 |

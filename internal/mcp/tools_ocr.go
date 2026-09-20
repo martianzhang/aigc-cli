@@ -25,6 +25,10 @@ import (
 // newRecognizeTextTool defines the recognize_text MCP tool.
 func newRecognizeTextTool() mcp.Tool {
 	return mcp.NewTool("recognize_text",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(false),
 		mcp.WithDescription(`Recognize text in an image file using offline OCR.
 
 Completely offline — no API key needed. Uses ONNX Runtime + PP-OCRv4 model

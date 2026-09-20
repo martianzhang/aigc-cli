@@ -34,9 +34,13 @@ type Config struct {
 	ToolsEnable  []string
 	ToolsDisable []string
 	ListTools    bool
+	ListPrompts  bool
 	// CmdProviders holds pre-resolved providers for each command,
 	// set by cmd/mcp.go at startup.
 	CmdProviders map[string]*provider.EffectiveProvider
+	// Providers is the named-provider whitelist from config.providers.
+	// The per-call `provider` tool argument may only reference these names.
+	Providers map[string]*types.NamedProvider
 }
 
 // cmdProvider returns the effective provider for a command.
@@ -148,6 +152,11 @@ var toolRegistry = []toolInfo{
 	{"generate_music", "Generate music via AI (async submit → poll)", newGenerateMusicTool, func(cfg *Config) server.ToolHandlerFunc { return generateMusicHandler(cfg) }},
 	{"generate_speech", "Convert text to speech (TTS)", newGenerateSpeechTool, func(cfg *Config) server.ToolHandlerFunc { return generateSpeechHandler(cfg) }},
 	{"transcribe_audio", "Transcribe audio to text (STT)", newTranscribeAudioTool, func(cfg *Config) server.ToolHandlerFunc { return transcribeAudioHandler(cfg) }},
+	// Midjourney tools
+	{"midjourney_imagine", "Midjourney image generation (costs 5-10x more than generate_image and produces 4 variants). Only use when the user explicitly asks for Midjourney, or needs highly artistic/stylized/painted results. For most use cases, prefer generate_image instead.", newMidjourneyImagineTool, func(cfg *Config) server.ToolHandlerFunc { return midjourneyImagineHandler(cfg) }},
+	{"midjourney_describe", "Get a text description of an image (reverse prompt). Upload an image URL and get back a prompt that MJ would use to generate it.", newMidjourneyDescribeTool, func(cfg *Config) server.ToolHandlerFunc { return midjourneyDescribeHandler(cfg) }},
+	{"midjourney_reroll", "Regenerate a Midjourney generation (same prompt, new results). Requires a previous MJ task ID.", newMidjourneyRerollTool, func(cfg *Config) server.ToolHandlerFunc { return midjourneyRerollHandler(cfg) }},
+	{"midjourney_video", "Turn an image into a short video via Midjourney.", newMidjourneyVideoTool, func(cfg *Config) server.ToolHandlerFunc { return midjourneyVideoHandler(cfg) }},
 	{"list_models", "List available models", func(desc string) mcp.Tool { return newListModelsTool() }, func(cfg *Config) server.ToolHandlerFunc { return listModelsHandler() }},
 	{"get_model_pricing", "Query model pricing details", func(desc string) mcp.Tool { return newGetModelPricingTool() }, func(cfg *Config) server.ToolHandlerFunc { return getModelPricingHandler() }},
 	{"get_balance", "Query API key or account balance", func(desc string) mcp.Tool { return newGetBalanceTool() }, func(cfg *Config) server.ToolHandlerFunc { return getBalanceHandler(cfg) }},
@@ -177,6 +186,7 @@ func NewServer(cfg *Config) *server.MCPServer {
 		"aigc-cli",
 		"0.1.0",
 		server.WithResourceCapabilities(true, true),
+		server.WithPromptCapabilities(true),
 		server.WithLogging(),
 	)
 
@@ -205,6 +215,9 @@ func NewServer(cfg *Config) *server.MCPServer {
 		s.AddTool(info.newTool(desc), info.handler(cfg))
 	}
 
+	registerPrompts(s)
+	registerResources(s, cfg)
+
 	return s
 }
 
@@ -231,6 +244,10 @@ func matchAny(name string, patterns []string) bool {
 func Run(cfg *Config) error {
 	if cfg.ListTools {
 		ListTools(cfg)
+		return nil
+	}
+	if cfg.ListPrompts {
+		ListPrompts(cfg)
 		return nil
 	}
 
@@ -277,13 +294,20 @@ func ListTools(cfg *Config) {
 
 func newGenerateImageTool(desc string) mcp.Tool {
 	t := mcp.NewTool("generate_image",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription(desc),
 		mcp.WithString("prompt",
 			mcp.Required(),
 			mcp.Description("Image description / prompt"),
 		),
 		mcp.WithString("model",
-			mcp.Description("Override the config default model"),
+			mcp.Description("Model name. The config default (defaults.image.model) wins unless defaults.chat.allow_tool_override: true is set in config.yaml"),
+		),
+		mcp.WithString("provider",
+			mcp.Description(providerArgDesc),
 		),
 		mcp.WithString("size",
 			mcp.Description("Override the config default size/aspect ratio"),
@@ -316,13 +340,17 @@ func newGenerateImageTool(desc string) mcp.Tool {
 
 func newGenerateVideoTool(desc string) mcp.Tool {
 	t := mcp.NewTool("generate_video",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription(desc),
 		mcp.WithString("prompt",
 			mcp.Required(),
 			mcp.Description("Video content description"),
 		),
 		mcp.WithString("model",
-			mcp.Description("Override the config default model"),
+			mcp.Description("Model name. The config default (defaults.video.model) wins unless defaults.chat.allow_tool_override: true is set in config.yaml"),
 		),
 		mcp.WithInteger("duration",
 			mcp.Description("Duration in seconds (4-15), override config default"),
@@ -358,13 +386,20 @@ func newGenerateVideoTool(desc string) mcp.Tool {
 
 func newGenerateMusicTool(desc string) mcp.Tool {
 	t := mcp.NewTool("generate_music",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription(desc),
 		mcp.WithString("prompt",
 			mcp.Required(),
 			mcp.Description("Music description / prompt (genre, mood, instruments, etc.)"),
 		),
 		mcp.WithString("model",
-			mcp.Description("Override the config default model (e.g. suno, flowmusic, google/lyria-3-clip-preview)"),
+			mcp.Description("Music model (e.g. suno, flowmusic, google/lyria-3-clip-preview). Used as given; defaults.music.model fills in only when omitted"),
+		),
+		mcp.WithString("provider",
+			mcp.Description(providerArgDesc),
 		),
 		mcp.WithInteger("duration",
 			mcp.Description("Target duration in seconds, override config default"),
@@ -378,13 +413,20 @@ func newGenerateMusicTool(desc string) mcp.Tool {
 
 func newGenerateSpeechTool(desc string) mcp.Tool {
 	t := mcp.NewTool("generate_speech",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription(desc),
 		mcp.WithString("input",
 			mcp.Required(),
 			mcp.Description("Text to convert to speech"),
 		),
 		mcp.WithString("model",
-			mcp.Description("TTS model (e.g. openai/gpt-4o-mini-tts)"),
+			mcp.Description("TTS model (e.g. openai/gpt-4o-mini-tts). Used as given; defaults.audio.speak_model fills in only when omitted"),
+		),
+		mcp.WithString("provider",
+			mcp.Description(providerArgDesc),
 		),
 		mcp.WithString("voice",
 			mcp.Required(),
@@ -399,13 +441,20 @@ func newGenerateSpeechTool(desc string) mcp.Tool {
 
 func newTranscribeAudioTool(desc string) mcp.Tool {
 	t := mcp.NewTool("transcribe_audio",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription(desc),
 		mcp.WithString("file_path",
 			mcp.Required(),
 			mcp.Description("Path to the audio file to transcribe"),
 		),
 		mcp.WithString("model",
-			mcp.Description("STT model (e.g. openai/whisper-1)"),
+			mcp.Description("STT model (e.g. openai/whisper-1). Used as given; defaults.audio.transcribe_model fills in only when omitted"),
+		),
+		mcp.WithString("provider",
+			mcp.Description(providerArgDesc),
 		),
 		mcp.WithString("language",
 			mcp.Description("Language hint (ISO-639-1, e.g. en, ja, zh)"),
@@ -416,6 +465,10 @@ func newTranscribeAudioTool(desc string) mcp.Tool {
 
 func newListModelsTool() mcp.Tool {
 	return mcp.NewTool("list_models",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("列出 APIMart 市场所有可用模型及其类型。无需 API Key。"),
 		mcp.WithString("type",
 			mcp.Enum("image", "video", "chat"),
@@ -426,6 +479,10 @@ func newListModelsTool() mcp.Tool {
 
 func newGetModelPricingTool() mcp.Tool {
 	return mcp.NewTool("get_model_pricing",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("查询指定模型的详细定价信息。无需 API Key。"),
 		mcp.WithString("model",
 			mcp.Required(),
@@ -436,12 +493,20 @@ func newGetModelPricingTool() mcp.Tool {
 
 func newGetBalanceTool() mcp.Tool {
 	return mcp.NewTool("get_balance",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("查询余额和用量。同时返回当前 API Key 的余额和用户账号的总余额。"),
 	)
 }
 
 func newGetTaskTool() mcp.Tool {
 	return mcp.NewTool("get_task",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("查询异步任务的状态和结果。APIMart: 查询 task_id；OpenRouter: 查询 job_id（视频提交后返回的 ID）。轮询直到 status 为 completed。"),
 		mcp.WithString("task_id",
 			mcp.Required(),
@@ -452,6 +517,10 @@ func newGetTaskTool() mcp.Tool {
 
 func newDetectTool() mcp.Tool {
 	return mcp.NewTool("detect_image",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(false),
 		mcp.WithDescription("检测图片中的 C2PA Content Credentials、SynthID 隐形水印、TC260 AIGC 标签（中国 GB 45438-2025），以及 EXIF 相机元数据。完全离线运行，无需 API Key。支持 PNG、JPEG、WebP、GIF、BMP 格式。"),
 		mcp.WithString("file_path",
 			mcp.Required(),
@@ -500,6 +569,10 @@ func detectHandler() server.ToolHandlerFunc {
 
 func newRemoveWatermarkTool() mcp.Tool {
 	return mcp.NewTool("remove_watermark",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("⚠️  检测并移除图片中的可见 AI 水印（内置 gemini，其他需通过 learn-watermark 学习）。\n\n仅用于验证检测算法或合法修复用途（如修复个人旧照片）。\n禁止用于去除他人版权图片的水印。\n\n完全离线运行，无需 API Key。输出为 <原图>_clean<ext>。"),
 		mcp.WithString("file_path",
 			mcp.Required(),
@@ -516,6 +589,10 @@ func newRemoveWatermarkTool() mcp.Tool {
 
 func newAddWatermarkTool() mcp.Tool {
 	return mcp.NewTool("add_watermark",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("向图片添加可见 AI 水印（仅用于创建去水印算法的测试样本，不注入任何元数据）。gemini 使用注册 alpha map；未知名称按文字渲染。完全离线运行，无需 API Key。输出为 <原图>_watermarked.png。"),
 		mcp.WithString("file_path",
 			mcp.Required(),
@@ -533,6 +610,10 @@ func newAddWatermarkTool() mcp.Tool {
 
 func newSearchIdeasTool() mcp.Tool {
 	return mcp.NewTool("search_ideas",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(false),
 		mcp.WithDescription("搜索本地灵感库，返回 AI 图片生成提示词及可下载的参考图片。支持多语言关键词搜索——如果用户输入的是中文、日文等非英文，建议先用英文翻译再搜索，同时也用原语言搜索一次，合并结果以获得更全面的匹配。支持随机获取（设置 random=true）。"),
 		mcp.WithString("keywords",
 			mcp.Description("搜索关键词，支持中文/英文/日文等多语言。建议同时用英文翻译后再搜一次以匹配更多结果。留空则返回随机灵感。"),
@@ -577,6 +658,10 @@ func searchIdeasHandler() server.ToolHandlerFunc {
 
 func newCaptionImageTool() mcp.Tool {
 	return mcp.NewTool("caption_image",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(false),
 		mcp.WithDescription("Read or write the caption/description of an image file. Provide file_path and optional caption to write. If caption is omitted, reads the current caption. Supports JPEG and PNG."),
 		mcp.WithString("file_path",
 			mcp.Required(),

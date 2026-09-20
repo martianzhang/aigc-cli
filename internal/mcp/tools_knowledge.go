@@ -29,6 +29,10 @@ func openKBStore() (*knowledge.Store, error) {
 
 func newKbFindTool() mcp.Tool {
 	return mcp.NewTool("kb_find",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(false),
 		mcp.WithDescription("Search the local knowledge base using keyword and semantic search. Use this when you need to recall information that was previously saved to the knowledge base."),
 		mcp.WithString("query",
 			mcp.Description("Search query"),
@@ -42,6 +46,10 @@ func newKbFindTool() mcp.Tool {
 
 func newKbSearchTool() mcp.Tool {
 	return mcp.NewTool("kb_search",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("Search the web and save results to the local knowledge base. Use this to research a topic and save it for later recall."),
 		mcp.WithString("query",
 			mcp.Description("Search query"),
@@ -55,6 +63,10 @@ func newKbSearchTool() mcp.Tool {
 
 func newKbAddTool() mcp.Tool {
 	return mcp.NewTool("kb_add",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("Add a local file to the knowledge base. Supports: .md, .txt, .go, .py, .json, .yaml, .html."),
 		mcp.WithString("file_path",
 			mcp.Description("Path to the local file"),
@@ -65,6 +77,10 @@ func newKbAddTool() mcp.Tool {
 
 func newKbFetchTool() mcp.Tool {
 	return mcp.NewTool("kb_fetch",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("Fetch a URL, extract its main content, convert to markdown, and save to the knowledge base."),
 		mcp.WithString("url",
 			mcp.Description("URL to fetch"),
@@ -75,6 +91,10 @@ func newKbFetchTool() mcp.Tool {
 
 func newKbShowTool() mcp.Tool {
 	return mcp.NewTool("kb_show",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(false),
 		mcp.WithDescription("Show the full content of a document in the knowledge base by its ID. Use the ID returned by kb_find."),
 		mcp.WithString("doc_id",
 			mcp.Description("Document ID (first 12 characters, as shown in kb_find results)"),
@@ -85,6 +105,10 @@ func newKbShowTool() mcp.Tool {
 
 func newKbListTool() mcp.Tool {
 	return mcp.NewTool("kb_list",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(false),
 		mcp.WithDescription("List all documents in the knowledge base."),
 	)
 }

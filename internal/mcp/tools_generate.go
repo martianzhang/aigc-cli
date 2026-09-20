@@ -38,7 +38,10 @@ func parseImageURLs(raw string) []string {
 // Delegates dispatch to the shared image runner so every supported provider is covered.
 func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		p := cfg.cmdProvider("image")
+		p, providerErr := cfg.resolveProviderRef("image", request.GetString("provider", ""))
+		if providerErr != "" {
+			return mcp.NewToolResultError(providerErr), nil
+		}
 		if p.RequiresAPIKey() {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
@@ -94,7 +97,7 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 		for _, f := range saved {
 			lines = append(lines, fmt.Sprintf("  %s", f))
 		}
-		return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
+		return toolResultTextWithMedia(strings.Join(lines, "\n"), saved...), nil
 	}
 }
 
@@ -156,6 +159,13 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 			}
 			gifOpts.CropMargin = m
 		}
+
+		// Coarse-phase progress: the host is told dispatch is starting, then
+		// that the long submit → poll phase begins. Silent unless the request
+		// carried a progressToken and a session is available.
+		reporter := newProgressReporter(ctx, request)
+		reporter.report(progressDispatch, progressDispatchMessage(p.ProviderType.String()))
+		reporter.report(progressGenerating, progressGeneratingMessage)
 
 		saved, err := video.GenerateAndSave(req)
 		if err != nil {
@@ -220,7 +230,10 @@ func convertVideosToGIF(saved []string, opts gifRequestOptions) ([]string, error
 // Delegates dispatch to the shared music runner so every supported provider is covered.
 func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		p := cfg.cmdProvider("music")
+		p, providerErr := cfg.resolveProviderRef("music", request.GetString("provider", ""))
+		if providerErr != "" {
+			return mcp.NewToolResultError(providerErr), nil
+		}
 		if p.RequiresAPIKey() {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
@@ -250,6 +263,12 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 
 		c := client.NewFromProvider(p)
 
+		// Same coarse-phase contract as generate_video: dispatch, then the
+		// long submit → poll phase. Silent without progressToken + session.
+		reporter := newProgressReporter(ctx, request)
+		reporter.report(progressDispatch, progressDispatchMessage(p.ProviderType.String()))
+		reporter.report(progressGenerating, progressGeneratingMessage)
+
 		saved, err := music.GenerateAndSave(c, req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
@@ -268,7 +287,10 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 // generateSpeechHandler creates the handler for generate_speech, capturing the config.
 func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		p := cfg.cmdProvider("audio")
+		p, providerErr := cfg.resolveProviderRef("audio", request.GetString("provider", ""))
+		if providerErr != "" {
+			return mcp.NewToolResultError(providerErr), nil
+		}
 		if p.RequiresAPIKey() {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
@@ -314,15 +336,18 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to save audio: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(fmt.Sprintf("Speech saved: %s\nFormat: %s\nSize: %d bytes\nModel: %s\nVoice: %s",
-			filename, req.ResponseFormat, len(audioData), req.Model, req.Voice)), nil
+		return toolResultTextWithMedia(fmt.Sprintf("Speech saved: %s\nFormat: %s\nSize: %d bytes\nModel: %s\nVoice: %s",
+			filename, req.ResponseFormat, len(audioData), req.Model, req.Voice), filename), nil
 	}
 }
 
 // transcribeAudioHandler creates the handler for transcribe_audio, capturing the config.
 func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		p := cfg.cmdProvider("audio")
+		p, providerErr := cfg.resolveProviderRef("audio", request.GetString("provider", ""))
+		if providerErr != "" {
+			return mcp.NewToolResultError(providerErr), nil
+		}
 		if p.RequiresAPIKey() {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}

@@ -24,7 +24,7 @@ tools directly: generate images, generate videos, query models, etc.
 
 Configuration is read from config.yaml, environment variables, and --config flag.
 
-Use --list-tools to see available tools.
+Use --list-tools to see available tools, and --list-prompts to see available prompts.
 
 Example MCP host config:
 {
@@ -38,6 +38,7 @@ Example MCP host config:
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		listTools, _ := cmd.Flags().GetBool("list-tools")
+		listPrompts, _ := cmd.Flags().GetBool("list-prompts")
 
 		// Load config (optional); non-fatal but logged via verbose if set.
 		cfg, loadErr := config.Load(options.Shared.CfgFile)
@@ -58,6 +59,7 @@ Example MCP host config:
 			Proxy:        options.Shared.HTTPProxy,
 			Output:       options.Shared.OutputDir,
 			ListTools:    listTools,
+			ListPrompts:  listPrompts,
 			CmdProviders: cmdProviders,
 		}
 
@@ -78,6 +80,7 @@ Example MCP host config:
 			mcpCfg.ToolsEnable = cfg.ToolsEnable
 			mcpCfg.ToolsDisable = cfg.ToolsDisable
 			mcpCfg.Defaults = cfg.Defaults
+			mcpCfg.Providers = cfg.Providers
 		}
 
 		return mcp.Run(mcpCfg)
@@ -115,6 +118,7 @@ func init() {
 	}
 
 	mcpCmd.Flags().Bool("list-tools", false, "list available MCP tools and exit")
+	mcpCmd.Flags().Bool("list-prompts", false, "list available MCP prompts and exit")
 }
 
 // Cmd returns the mcp command.

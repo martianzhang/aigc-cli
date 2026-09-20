@@ -71,7 +71,7 @@ func removeWatermarkHandler() server.ToolHandlerFunc {
 		if out == "" {
 			out = defaultCleanPath(path)
 		}
-		return mcp.NewToolResultText(fmt.Sprintf("Watermark removed (engine: %s). Output: %s\n\n⚠️ 合规提醒: 请确保您有权处理该图片。", res.Name, out)), nil
+		return toolResultTextWithMedia(fmt.Sprintf("Watermark removed (engine: %s). Output: %s\n\n⚠️ 合规提醒: 请确保您有权处理该图片。", res.Name, out), out), nil
 	}
 }
 
@@ -114,12 +114,16 @@ func addWatermarkHandler() server.ToolHandlerFunc {
 			ext := filepath.Ext(path)
 			out = strings.TrimSuffix(path, ext) + "_watermarked.png"
 		}
-		return mcp.NewToolResultText(fmt.Sprintf("Watermark added (engine: %s). Output: %s", res.Name, out)), nil
+		return toolResultTextWithMedia(fmt.Sprintf("Watermark added (engine: %s). Output: %s", res.Name, out), out), nil
 	}
 }
 
 func newCropWatermarkTool() mcp.Tool {
 	return mcp.NewTool("crop_watermark",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("裁切图片以去除水印。通用方法，无需学习水印模板。自动检测水印位置并裁切，适合边角水印。"),
 		mcp.WithString("file_path",
 			mcp.Required(),
@@ -250,6 +254,6 @@ func cropWatermarkHandler() server.ToolHandlerFunc {
 			}
 		}
 
-		return mcp.NewToolResultText(fmt.Sprintf("Cropped: %dx%d -> %dx%d. Output: %s", imgW, imgH, bounds.W, bounds.H, outputPath)), nil
+		return toolResultTextWithMedia(fmt.Sprintf("Cropped: %dx%d -> %dx%d. Output: %s", imgW, imgH, bounds.W, bounds.H, outputPath), outputPath), nil
 	}
 }

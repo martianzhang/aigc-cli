@@ -17,7 +17,7 @@ Generate, detect, and manage AI content from the terminal. Supports OpenAI, Open
 
 | | | |
 |---|---|---|
-| 🤖 | **MCP Server** | Built-in MCP Server for Claude Desktop, Cursor, Windsurf. AI agents can generate images/videos, run Midjourney, search KB, detect AIGC, query pricing — all in conversation. |
+| 🤖 | **MCP Server** | Built-in MCP Server for Claude Desktop, Cursor, Windsurf: 29 tools, 4 workflow prompts, 4 read-only resources, full MCP annotations. AI agents can generate images/videos/music, run Midjourney, OCR, search KB, detect AIGC, query pricing — all in conversation. The `provider` argument only accepts names from your `config.yaml` whitelist; no `base_url`/`api_key` can ever be passed remotely. |
 | 🔬 | **AIGC Forensics** | Offline multi-signal fusion: C2PA, TC260 (GB 45438-2025), SynthID, ONNX classifier, FFT spectrum, SRM noise, JPEG quantization. Zero API key needed. |
 | 🔌 | **Multi-Protocol** | Not just OpenAI — supports Anthropic Messages API, Ollama, local ONNX models alongside OpenAI-compatible endpoints. |
 | 🧠 | **Provider Auto-Adapt** | Each provider gets the correct API routing automatically (OpenRouter dedicated image/video API, APIMart async tasks, etc.) |
@@ -86,7 +86,7 @@ Add to your MCP config in Claude Desktop / Cursor / Windsurf:
 }
 ```
 
-AI agents can generate images, create videos, search idea libraries, query model pricing, and detect AIGC directly in conversation. See [docs/en/guide-mcp.md](docs/en/guide-mcp.md).
+AI agents can generate images/videos/music, run Midjourney, OCR, search the idea library or knowledge base, query model pricing, and detect AIGC directly in conversation — via 29 tools, 4 workflow prompts, and 4 read-only resources (all tools carry MCP annotations). The per-call `provider` argument is restricted to a whitelist of names from `config.providers`; no tool accepts `base_url` or `api_key`. See [docs/en/guide-mcp.md](docs/en/guide-mcp.md).
 
 ---
 
@@ -94,7 +94,7 @@ AI agents can generate images, create videos, search idea libraries, query model
 
 | | Capability | Description |
 |---|---|---|
-| 🤖 | **MCP Server** | Built-in MCP protocol support, works out of the box with Claude Desktop / Cursor / Windsurf / VS Code |
+| 🤖 | **MCP Server** | Built-in MCP protocol support with 29 tools, 4 workflow prompts, 4 read-only resources and MCP annotations; works out of the box with Claude Desktop / Cursor / Windsurf / VS Code |
 | 🔬 | **AIGC Detection Engine** | C2PA / TC260 / SynthID / ONNX / FFT / SRM noise / JPEG quantization, offline, emoji output |
 | 🔌 | **Multi-Provider Unified Entry** | Change one `base_url` to switch providers, commands unchanged |
 | 🧠 | **Provider Auto-Adapt** | OpenRouter automatically routes to dedicated image/video APIs, zero config |
@@ -167,6 +167,7 @@ aigc-cli
 │   └── --price    View model pricing
 ├── task       Query async task status (APIMart compatible)
 ├── balance    Query balance (APIMart compatible)
+├── config     Read/edit config.yaml (get/set/list; secrets masked)                   →  docs/en/guide-commands.md
 ├── preview / pr View images / --detail metadata / --describe caption                 →  docs/en/guide-preview.md
 ├── detect     Detect AIGC, metadata and tampering (multi-signal fusion + emoji)     →  docs/en/guide-detect.md
 ├── completion Generate shell completion scripts (bash/zsh/fish/powershell)
@@ -240,7 +241,7 @@ aigc-cli midjourney (or mj)
 | [AIGC Detection](docs/en/guide-detect.md) | Multi-signal fusion, ONNX models, FFT spectrum, emoji output |
 | [Prompt Ideas](docs/en/guide-ideas.md) | Offline BM25 search engine, 10K+ prompt dataset |
 | [Knowledge Base](docs/en/guide-knowledgebase.md) | Local KB: FTS5 + semantic search, vault, web search |
-| [Other Commands](docs/en/guide-commands.md) | models, task, balance, dry-run, API reference |
+| [Other Commands](docs/en/guide-commands.md) | models, task, balance, config, dry-run, API reference |
 | [API Reference](docs/en/api-reference.md) | Provider API specification sources, detection, strategy routing |
 | [FAQ](docs/en/faq.md) | Install, usage, MCP, pricing FAQs |
 | [MCP Integration](docs/en/guide-mcp.md) | AI agent (Claude/Cursor) integration guide |

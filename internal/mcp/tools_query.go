@@ -334,6 +334,10 @@ func fetchModels(baseURL, mediaType, _ string) ([]types.MarketplaceModel, error)
 
 func newGetConfigTool() mcp.Tool {
 	return mcp.NewTool("get_config",
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription("获取当前有效配置（provider、model、size 等），API key 已脱敏。用于确认生成 image/video 时应使用的参数。"),
 	)
 }

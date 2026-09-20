@@ -26,6 +26,10 @@ var mcpImageExts = map[string]bool{
 // 把图片或视频转成灰度深度图/视频（近亮远暗），本地 ONNX 推理，无需 API Key。
 func newConvertDepthTool() mcp.Tool {
 	return mcp.NewTool("convert_depth",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription(`Convert an image or video into a grayscale depth map (near = white, far = black) using a local Depth Anything V2 ONNX model.
 
 Completely offline — no API key needed. The output is the standard input for
@@ -156,7 +160,7 @@ func convertDepthImage(ctx context.Context, path, sharedDir, libPath string, req
 			return mcp.NewToolResultError(fmt.Sprintf("annotation failed: %v", err)), nil
 		}
 	}
-	return mcp.NewToolResultText("Depth image saved: " + out), nil
+	return toolResultTextWithMedia("Depth image saved: "+out, out), nil
 }
 
 // convertDepthVideo 处理视频输入 → 灰度深度视频（H.264 MP4，可选逐帧标注）。

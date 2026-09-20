@@ -25,6 +25,10 @@ import (
 // removeBackgroundTool 定义 remove_background MCP 工具。
 func newRemoveBackgroundTool() mcp.Tool {
 	return mcp.NewTool("remove_background",
+		mcp.WithReadOnlyHintAnnotation(false),
+		mcp.WithDestructiveHintAnnotation(false),
+		mcp.WithIdempotentHintAnnotation(false),
+		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithDescription(`Remove image background using RMBG 2.0 AI semantic segmentation.
 
 Completely offline — no API key needed. Uses ONNX Runtime + RMBG 2.0 model.
@@ -162,7 +166,7 @@ func removeBackgroundHandler() server.ToolHandlerFunc {
 			"height":      result.Height,
 		}
 		data, _ := json.MarshalIndent(info, "", "  ")
-		return mcp.NewToolResultText(string(data)), nil
+		return toolResultTextWithMedia(string(data), outputPath), nil
 	}
 }
 
