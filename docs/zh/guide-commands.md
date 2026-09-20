@@ -94,6 +94,42 @@ aigc-cli balance user
 
 > **API Key**：未指定 `--provider` 时，会查询所有已配置且带 API Key 的 Provider（Ollama 等本地 Provider 免密钥）。显式指定但未配置密钥的非本地 Provider 会直接报错并给出提示；用 `--provider <name>` 指定已配置密钥的 Provider。
 
+## 配置读写（config）
+
+无需手动编辑 YAML，即可读取和修改 `config.yaml`。键使用与 YAML 结构一致的点号路径：
+
+```bash
+# 读取单个值（密钥自动脱敏）
+aigc-cli config get defaults.image.model
+
+# 读取整个段落（嵌套的密钥同样脱敏）
+aigc-cli config get providers
+
+# 写入单个值：原子替换，原文件备份为 config.yaml.bak
+aigc-cli config set defaults.image.model gpt-image-2
+
+# 查看当前生效配置（密钥脱敏）
+aigc-cli config list
+```
+
+说明：
+
+- 配置文件解析规则与其他命令一致：优先 `--config <path>`，否则 `~/.config/aigc-cli/config.yaml`。文件不存在时 `get`/`set` 直接报错，**绝不自动创建文件**。
+- `set` 只替换叶子值。点号路径中缺少父级段落时会报错（`set defaults.chat.allow_tool_override: section not found`），**绝不自动创建段落**。
+- 保留已有键的 YAML 类型：原本是 int/bool/float 就继续保持该类型，无法解析的值会被拒绝；原本是字符串的仍是字符串。在已有段落中新建的键，除纯整数或 `true`/`false` 外都按字符串写入。
+- 写入是原子的：先把原文件复制为 `<path>.bak`，新内容写入 `<path>.tmp.<pid>`，再用 rename 覆盖目标文件。注释、键顺序、标量引号风格都会保留；空行与个别空格的排版可能被规范化。
+- 任何情况下都不会完整打印密钥：`api_key` 只显示后 4 位（`...abcd`），`base_url` / `http_proxy` 中的凭据显示为 `REDACTED`，与 `--print-config` 的脱敏规则一致。
+- 写入 `api_key` / `base_url`（全局或 `providers.*` 下）必须加 `--force`，因为它们决定密钥被发送到何处：
+
+```bash
+aigc-cli config set api_key sk-xxx
+# Error: refusing to set api_key without --force: api_key/base_url hold credentials or endpoint overrides
+
+aigc-cli config set api_key sk-xxx --force
+```
+
+- 配置文件不存在时 `config list` 依然可用：会打印一行 `# config file not found` 注释，再输出代码默认值。
+
 ## Dry-run 调试
 
 打印即将提交的 curl 命令，不实际调用 API：

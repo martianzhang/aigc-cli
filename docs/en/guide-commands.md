@@ -53,6 +53,43 @@ aigc-cli balance user
 
 > **API key**: without `--provider`, every configured provider that has an API key is queried (local providers such as Ollama are exempt). An explicitly selected non-local provider without a key fails fast with a clear error; use `--provider <name>` or configure its key.
 
+## config
+
+Read and edit `config.yaml` without opening an editor. Keys are dot paths that
+match the YAML structure:
+
+```bash
+# Print one value (secrets are masked)
+aigc-cli config get defaults.image.model
+
+# Print a whole section (nested secrets are masked too)
+aigc-cli config get providers
+
+# Set one value: atomic write, previous content backed up to config.yaml.bak
+aigc-cli config set defaults.image.model gpt-image-2
+
+# Print the effective config with secrets masked
+aigc-cli config list
+```
+
+Notes:
+
+- The file is resolved like every other command: `--config <path>` first, otherwise `~/.config/aigc-cli/config.yaml`. `get`/`set` fail with a clear error when the file is missing — they never create it.
+- `set` replaces one leaf only. If a parent section of the dot path does not exist, the command fails (`set defaults.chat.allow_tool_override: section not found`) instead of creating sections.
+- The existing YAML type of a key is kept: an int/bool/float stays that type and a value that cannot be parsed as it is rejected; existing strings stay strings. New keys inside an existing section become plain strings unless the value is a plain integer or `true`/`false`.
+- Writing is atomic: the previous file is copied to `<path>.bak`, the new content goes to `<path>.tmp.<pid>`, then that file is renamed over the target. Comments, key order and scalar styles survive the round-trip; blank lines and unrelated spacing may be normalized.
+- Secrets are never printed in full: `api_key` shows only the last 4 chars (`...abcd`), and credentials inside `base_url` / `http_proxy` become `REDACTED` — the same masking as `--print-config`.
+- `api_key` and `base_url` (global or under `providers.*`) require `--force`, because they control where credentials are sent:
+
+```bash
+aigc-cli config set api_key sk-xxx
+# Error: refusing to set api_key without --force: api_key/base_url hold credentials or endpoint overrides
+
+aigc-cli config set api_key sk-xxx --force
+```
+
+- `config list` works without a config file: it prints the code defaults with a `# config file not found` comment.
+
 ## dry-run
 
 See what API request would be sent without actually calling:
