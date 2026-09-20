@@ -54,6 +54,8 @@ aigc-cli mj imagine \
 aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}'
 ```
 
+> 💡 `--json` 是**逐字透传**：原文原样发往 `POST {base}/midjourney/generations/{action}`，CLI 不注入默认值，未知字段（厂商新参数）也不会被丢弃。`--flag` 路径行为不变（仍拼接 MJ prompt 参数）。`--dry-run` 打印的是**解析后 provider 的真实 host 与真实请求体**。
+
 ### Imagine 参数
 
 | 参数 | 说明 |
@@ -85,8 +87,8 @@ aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}'
 | `--hd` | HD 模式（v8/v8.1） |
 | `--stop` | 提前停止 10-100 |
 | `--extra` | 额外 flag 转义口，原样追加到 prompt |
-| `--json` | JSON 输入 |
-| `--dry-run` | 打印 curl 不调用 API |
+| `--json` | JSON 输入（逐字透传，未知字段不丢弃） |
+| `--dry-run` | 打印真实 host 与请求体的等价 curl，不调用 API |
 
 ---
 

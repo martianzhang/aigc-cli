@@ -1,6 +1,8 @@
 // Package types defines request/response data structures for the Midjourney API.
 package types
 
+import "encoding/json"
+
 // ============================================================================
 // MJ submission response (shared by all POST /v1/midjourney/generations/* endpoints)
 // ============================================================================
@@ -88,6 +90,8 @@ type MJImagineRequest struct {
 	Hd             *bool    `json:"hd,omitempty"`
 	Stop           *int     `json:"stop,omitempty"`
 	Extra          string   `json:"extra,omitempty"`
+
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Blend (POST /v1/midjourney/generations/blend) ----
@@ -99,6 +103,8 @@ type MJBlendRequest struct {
 	Size       string            `json:"size,omitempty"`
 	Speed      string            `json:"speed,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
+
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Describe (POST /v1/midjourney/generations/describe) ----
@@ -108,6 +114,8 @@ type MJDescribeRequest struct {
 	ImageURLs []string          `json:"image_urls"`
 	Speed     string            `json:"speed,omitempty"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
+
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Edits (POST /v1/midjourney/generations/edits) ----
@@ -124,6 +132,8 @@ type MJTaskActionRequest struct {
 	CustomID string            `json:"custom_id,omitempty"`
 	Speed    string            `json:"speed,omitempty"`
 	Metadata map[string]string `json:"metadata,omitempty"`
+
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Reroll (POST /v1/midjourney/generations/reroll) ----
@@ -134,6 +144,8 @@ type MJRerollRequest struct {
 	CustomID string            `json:"custom_id,omitempty"`
 	Speed    string            `json:"speed,omitempty"`
 	Metadata map[string]string `json:"metadata,omitempty"`
+
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Zoom (POST /v1/midjourney/generations/zoom) ----
@@ -146,6 +158,8 @@ type MJZoomRequest struct {
 	ZoomRatio *float64          `json:"zoom_ratio,omitempty"`
 	Speed     string            `json:"speed,omitempty"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
+
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Pan (POST /v1/midjourney/generations/pan) ----
@@ -158,6 +172,8 @@ type MJPanRequest struct {
 	Direction string            `json:"direction,omitempty"` // left / right / up / down
 	Speed     string            `json:"speed,omitempty"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
+
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Modal (POST /v1/midjourney/generations/modal) ----
@@ -169,6 +185,8 @@ type MJModalRequest struct {
 	MaskURL  string            `json:"mask_url,omitempty"`
 	Speed    string            `json:"speed,omitempty"`
 	Metadata map[string]string `json:"metadata,omitempty"`
+
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Video (POST /v1/midjourney/generations/video) ----
@@ -184,6 +202,8 @@ type MJVideoRequest struct {
 	Motion      string   `json:"motion,omitempty"`
 	BatchSize   *int     `json:"batch_size,omitempty"`
 	EndURL      string   `json:"end_url,omitempty"`
+
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Remix (POST /v1/midjourney/generations/remix-strong / remix-subtle) ----
@@ -194,4 +214,56 @@ type MJRemixRequest struct {
 	Index  *int   `json:"index"`
 	Prompt string `json:"prompt,omitempty"`
 	Speed  string `json:"speed,omitempty"`
+
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
+}
+
+func (r MJImagineRequest) MarshalJSON() ([]byte, error) {
+	type typed MJImagineRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
+}
+
+func (r MJBlendRequest) MarshalJSON() ([]byte, error) {
+	type typed MJBlendRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
+}
+
+func (r MJDescribeRequest) MarshalJSON() ([]byte, error) {
+	type typed MJDescribeRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
+}
+
+func (r MJTaskActionRequest) MarshalJSON() ([]byte, error) {
+	type typed MJTaskActionRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
+}
+
+func (r MJRerollRequest) MarshalJSON() ([]byte, error) {
+	type typed MJRerollRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
+}
+
+func (r MJZoomRequest) MarshalJSON() ([]byte, error) {
+	type typed MJZoomRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
+}
+
+func (r MJPanRequest) MarshalJSON() ([]byte, error) {
+	type typed MJPanRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
+}
+
+func (r MJModalRequest) MarshalJSON() ([]byte, error) {
+	type typed MJModalRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
+}
+
+func (r MJVideoRequest) MarshalJSON() ([]byte, error) {
+	type typed MJVideoRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
+}
+
+func (r MJRemixRequest) MarshalJSON() ([]byte, error) {
+	type typed MJRemixRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
 }

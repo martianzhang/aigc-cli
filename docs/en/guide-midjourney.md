@@ -38,6 +38,14 @@ aigc-cli mj imagine --prompt "a cat" --version 6.1 --speed fast
 aigc-cli mj imagine --prompt "a cat" --image-url /path/to/input.png
 ```
 
+### JSON Input
+
+`--json` is forwarded verbatim to `POST {base}/midjourney/generations/{action}` — the CLI injects no defaults and drops no unknown keys, so a new vendor parameter needs no code change. The flag path is unchanged, and `--dry-run` prints the resolved provider's real host and request body.
+
+```bash
+aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}'
+```
+
 ## Blend
 
 Blend 2-4 images:

@@ -116,6 +116,7 @@ func runMJRmix(cmd *cobra.Command, action string) error {
 		if err := json.Unmarshal(data, req); err != nil {
 			return fmt.Errorf("failed to parse JSON: %w", err)
 		}
+		req.RawJSON = data
 		if req.TaskID == "" {
 			return fmt.Errorf("task_id is required")
 		}

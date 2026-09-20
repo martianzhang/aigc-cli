@@ -12,16 +12,12 @@ import (
 )
 
 func buildMJCurl(action string, reqBody any) string {
+	p := options.Shared.ResolveProvider(options.ProviderNameMidjourney)
 	body, _ := json.Marshal(reqBody)
-	base := options.Shared.APIBase
-	if base == "" {
-		base = types.DefaultAPIBaseURL + "/v1"
-	}
-	base = strings.TrimRight(base, "/")
-	url := base + "/midjourney/generations/" + action
+	url := client.NormalizeBaseURL(p.BaseURL) + "/midjourney/generations/" + action
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(options.Shared.APIKey))
+	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
 	cmd += "  -H \"Content-Type: application/json\" \\\n"
 	cmd += fmt.Sprintf("  -d '%s'", string(body))
 	return cmd

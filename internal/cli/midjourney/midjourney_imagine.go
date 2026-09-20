@@ -71,6 +71,7 @@ Examples:
 			if err := json.Unmarshal(data, req); err != nil {
 				return fmt.Errorf("failed to parse JSON: %w", err)
 			}
+			req.RawJSON = data
 			if len(req.ImageURLs) < 2 {
 				return fmt.Errorf("at least 2 image_urls required")
 			}
@@ -124,6 +125,7 @@ Example:
 			if err := json.Unmarshal(data, req); err != nil {
 				return fmt.Errorf("failed to parse JSON: %w", err)
 			}
+			req.RawJSON = data
 			if len(req.ImageURLs) == 0 {
 				return fmt.Errorf("image_urls is required")
 			}

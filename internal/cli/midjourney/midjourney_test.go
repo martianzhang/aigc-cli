@@ -16,9 +16,31 @@ import (
 // buildMJCurl
 // ============================================================================
 
+// setMJProviderOverride pins the resolved MJ provider via the CLI-override
+// path (--api-key / --api-base), which is where ResolveProvider reads it.
+func setMJProviderOverride(t *testing.T, base, key string) {
+	t.Helper()
+	options.Shared.APIKey = key
+	options.Shared.APIBase = base
+	options.Shared.APIKeySet = true
+	options.Shared.APIBaseSet = true
+	t.Cleanup(func() {
+		options.Shared.APIKeySet = false
+		options.Shared.APIBaseSet = false
+	})
+}
+
+func TestBuildMJCurlVerbatimRawJSON(t *testing.T) {
+	setMJProviderOverride(t, "https://api.apimart.ai", "test-key")
+	const raw = `{"prompt":"p","custom_x":1,"weird_vendor_key":"v"}`
+	curl := buildMJCurl("imagine", &types.MJImagineRequest{RawJSON: []byte(raw)})
+	if !strings.Contains(curl, raw) {
+		t.Errorf("curl should forward the --json body verbatim, got:\n%s", curl)
+	}
+}
+
 func TestBuildMJCurl_imagine(t *testing.T) {
-	options.Shared.APIKey = "test-key-123"
-	options.Shared.APIBase = "https://api.apimart.ai"
+	setMJProviderOverride(t, "https://api.apimart.ai", "test-key-123")
 
 	req := &types.MJImagineRequest{
 		Prompt: "a cute cat",
@@ -44,8 +66,7 @@ func TestBuildMJCurl_imagine(t *testing.T) {
 }
 
 func TestBuildMJCurl_upscale(t *testing.T) {
-	options.Shared.APIKey = "test-key"
-	options.Shared.APIBase = "https://api.apimart.ai"
+	setMJProviderOverride(t, "https://api.apimart.ai", "test-key")
 
 	idx := 1
 	req := &types.MJTaskActionRequest{
@@ -63,8 +84,7 @@ func TestBuildMJCurl_upscale(t *testing.T) {
 }
 
 func TestBuildMJCurl_blend(t *testing.T) {
-	options.Shared.APIKey = "test-key"
-	options.Shared.APIBase = "https://api.apimart.ai"
+	setMJProviderOverride(t, "https://api.apimart.ai", "test-key")
 
 	req := &types.MJBlendRequest{
 		ImageURLs:  []string{"a.png", "b.png"},
@@ -81,8 +101,7 @@ func TestBuildMJCurl_blend(t *testing.T) {
 }
 
 func TestBuildMJCurl_customBaseURL(t *testing.T) {
-	options.Shared.APIKey = "test-key"
-	options.Shared.APIBase = "https://custom-relay.com/v1"
+	setMJProviderOverride(t, "https://custom-relay.com/v1", "test-key")
 
 	req := &types.MJImagineRequest{Prompt: "test"}
 	curl := buildMJCurl("imagine", req)

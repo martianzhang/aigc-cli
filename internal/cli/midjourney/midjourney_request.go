@@ -22,6 +22,7 @@ func buildMJImagineReq(cmd *cobra.Command) (*types.MJImagineRequest, error) {
 		if err := json.Unmarshal(data, req); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
+		req.RawJSON = data
 		if req.Prompt == "" {
 			return nil, fmt.Errorf("prompt is required in JSON input")
 		}
@@ -98,6 +99,7 @@ func buildMJTaskActionReqFromJSON() (*types.MJTaskActionRequest, error) {
 		if err := json.Unmarshal(data, req); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
+		req.RawJSON = data
 		if req.TaskID == "" {
 			return nil, fmt.Errorf("task_id is required in JSON input")
 		}
