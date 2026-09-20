@@ -153,19 +153,21 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// ----- Step 4: Print the request payload (verbose only) -----
-	if options.Shared.Verbose {
-		_, body, _ := imageWireRequest(req, p)
-		prettyReq, _ := json.MarshalIndent(body, "", "  ")
-		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
-	}
-
-	// ----- Step 5: Resolve local image files (upload if needed) -----
+	// ----- Step 4: Resolve local image files (upload if needed) -----
 	c := client.NewFromProvider(p)
 	options.ApplyTimeout(c, "image", client.ImageTimeout)
 
 	if err := resolveRequestImages(c, req, isAPIMart); err != nil {
 		return err
+	}
+
+	// ----- Step 5: Print the request payload (verbose only) -----
+	// Printed after image resolution so the dump matches what is actually sent
+	// (uploaded URLs for APIMart, data URIs elsewhere) rather than raw local paths.
+	if options.Shared.Verbose {
+		_, body, _ := imageWireRequest(req, p)
+		prettyReq, _ := json.MarshalIndent(body, "", "  ")
+		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
 	}
 
 	// Strategy table: first match wins, last entry is the default.

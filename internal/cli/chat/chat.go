@@ -75,6 +75,11 @@ func runChat(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// --dry-run is single-turn: a preview must never open the interactive TUI.
+	if chatDryRun {
+		return sendChatRequest(cmd, req)
+	}
+
 	// Interactive REPL (TUI) when no --message and not --json
 	if !cmd.Flags().Changed("message") || chatInteractive {
 		if !term.IsTerminal(int(os.Stdin.Fd())) {

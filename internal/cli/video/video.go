@@ -152,13 +152,19 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if options.Shared.Verbose {
-		prettyReq, _ := json.MarshalIndent(req, "", "  ")
-		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
-	}
-
 	// Resolve provider (named provider > global > builtin)
 	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
+
+	if options.Shared.Verbose {
+		if p.ProviderType == provider.Pollinations {
+			_, rawURL, _ := videoWireRequest(req, p)
+			fmt.Printf("Request: GET %s\n\n", rawURL)
+		} else {
+			_, _, body := videoWireRequest(req, p)
+			prettyReq, _ := json.MarshalIndent(body, "", "  ")
+			fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+		}
+	}
 
 	// Strategy table: first match wins, last entry is the default.
 	vctx := &videoDispatchCtx{
