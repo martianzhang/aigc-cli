@@ -66,6 +66,17 @@ func (r GenerateRequest) MarshalJSON() ([]byte, error) {
 	return json.Marshal(typed(r))
 }
 
+// BodyOrRaw returns the verbatim --json body when set, otherwise the
+// caller-built body. Providers whose endpoint needs a different wire shape
+// (OpenRouter, Gemini, Ollama, /images/edits) build that shape and pass it
+// here, so --json passthrough cannot be silently dropped on those paths.
+func (r *GenerateRequest) BodyOrRaw(built interface{}) interface{} {
+	if len(r.RawJSON) > 0 {
+		return r.RawJSON
+	}
+	return built
+}
+
 // ValidateBackground checks background/output_format compatibility.
 // OpenAI's Images API requires png or webp when background=transparent.
 func (r *GenerateRequest) ValidateBackground() error {
