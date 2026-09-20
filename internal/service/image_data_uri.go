@@ -3,23 +3,58 @@ package service
 import (
 	"encoding/base64"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"os"
 	"path/filepath"
 	"strings"
 
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/webp"
+
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
+
+// maxLocalImageBytes caps local images embedded as data URIs at 32 MiB.
+const maxLocalImageBytes = 32 << 20
 
 // ImageToDataURI reads a local image file and returns a data: URI
 // (e.g. data:image/png;base64,...) accepted by providers without an
 // upload endpoint (Agnes).
 func ImageToDataURI(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read image %q: %w", path, err)
+	}
+	if info.Size() > maxLocalImageBytes {
+		return "", fmt.Errorf("local image exceeds 32 MiB: %s", path)
+	}
+	if err := validateLocalImage(path); err != nil {
+		return "", err
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to read image %q: %w", path, err)
 	}
 	mime := imageMIME(data, path)
 	return fmt.Sprintf("data:image/%s;base64,%s", mime, base64.StdEncoding.EncodeToString(data)), nil
+}
+
+// validateLocalImage rejects any local file that is not a decodable image
+// (e.g. ~/.ssh/id_rsa), so it can never be embedded as an "image".
+func validateLocalImage(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("failed to read image %q: %w", path, err)
+	}
+	defer f.Close()
+	if _, _, err := image.DecodeConfig(f); err != nil {
+		return fmt.Errorf("not a valid image file: %s", path)
+	}
+	return nil
 }
 
 // LocalFilesToDataURI converts entries that are local files into data URIs.

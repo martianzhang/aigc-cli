@@ -1,8 +1,6 @@
 package video
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -107,10 +105,7 @@ func TestBuildVideoCurlRendersLocalUploads(t *testing.T) {
 		BaseURL: "https://api.apimart.ai",
 	})
 
-	local := filepath.Join(t.TempDir(), "seed.png")
-	if err := os.WriteFile(local, []byte("\x89PNG\r\n\x1a\nseed"), 0o644); err != nil {
-		t.Fatalf("write temp image: %v", err)
-	}
+	local := testLocalImage(t)
 
 	req := &types.VideoGenerateRequest{
 		Model:          "doubao-seedance-2.0",

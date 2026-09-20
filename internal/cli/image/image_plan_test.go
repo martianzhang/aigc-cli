@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,14 +19,17 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// pngFixture is a minimal PNG header plus a payload, enough for MIME sniffing.
-var pngFixture = append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte("payload")...)
-
+// writeLocalPNG writes a tiny decodable PNG (the data-URI gate validates it).
 func writeLocalPNG(t *testing.T, dir string) string {
 	t.Helper()
 	path := filepath.Join(dir, "photo.png")
-	if err := os.WriteFile(path, pngFixture, 0o600); err != nil {
-		t.Fatalf("write fixture: %v", err)
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create fixture: %v", err)
+	}
+	defer f.Close()
+	if err := png.Encode(f, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatalf("encode fixture: %v", err)
 	}
 	return path
 }

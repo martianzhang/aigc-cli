@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -132,12 +131,7 @@ func recognizeTextHandler() server.ToolHandlerFunc {
 		if strings.EqualFold(filepath.Ext(filePath), ".pdf") {
 			result, err = ocrPDF(engine, filePath)
 		} else {
-			f, openErr := os.Open(filePath)
-			if openErr != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("cannot open file: %v", openErr)), nil
-			}
-			img, _, decodeErr := image.Decode(f)
-			f.Close()
+			img, _, decodeErr := decodeImageGuarded(filePath)
 			if decodeErr != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("cannot decode image: %v", decodeErr)), nil
 			}
@@ -204,12 +198,7 @@ func ocrPDF(engine *ocr.Engine, pdfPath string) (*ocr.OCRResult, error) {
 	allText := make([]string, 0, len(pngs))
 
 	for pageIdx, pngPath := range pngs {
-		f, openErr := os.Open(pngPath)
-		if openErr != nil {
-			return nil, fmt.Errorf("open rendered page %d: %w", pageIdx+1, openErr)
-		}
-		img, _, decodeErr := image.Decode(f)
-		f.Close()
+		img, _, decodeErr := decodeImageGuarded(pngPath)
 		if decodeErr != nil {
 			return nil, fmt.Errorf("decode rendered page %d: %w", pageIdx+1, decodeErr)
 		}

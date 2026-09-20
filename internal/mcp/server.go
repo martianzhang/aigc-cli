@@ -164,12 +164,12 @@ var toolRegistry = []toolInfo{
 	{"get_config", "Get current effective configuration (provider, model, size, etc.)", func(desc string) mcp.Tool { return newGetConfigTool() }, func(cfg *Config) server.ToolHandlerFunc { return getConfigHandler() }},
 	{"caption_image", "Read or write image caption", func(desc string) mcp.Tool { return newCaptionImageTool() }, func(cfg *Config) server.ToolHandlerFunc { return captionImageHandler() }},
 	{"search_ideas", "Search AI prompt ideas", func(desc string) mcp.Tool { return newSearchIdeasTool() }, func(cfg *Config) server.ToolHandlerFunc { return searchIdeasHandler() }},
-	{"remove_background", "Remove image background (offline)", func(desc string) mcp.Tool { return newRemoveBackgroundTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeBackgroundHandler() }},
+	{"remove_background", "Remove image background (offline)", func(desc string) mcp.Tool { return newRemoveBackgroundTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeBackgroundHandler(cfg) }},
 	{"convert_depth", "Convert image/video to grayscale depth map (offline)", func(desc string) mcp.Tool { return newConvertDepthTool() }, func(cfg *Config) server.ToolHandlerFunc { return convertDepthHandler(cfg) }},
 	{"detect_image", "Detect AIGC/watermark in images (offline)", func(desc string) mcp.Tool { return newDetectTool() }, func(cfg *Config) server.ToolHandlerFunc { return detectHandler() }},
-	{"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler() }},
-	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler() }},
-	{"crop_watermark", "Crop image to remove watermarks (no learning required)", func(desc string) mcp.Tool { return newCropWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return cropWatermarkHandler() }},
+	{"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler(cfg) }},
+	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler(cfg) }},
+	{"crop_watermark", "Crop image to remove watermarks (no learning required)", func(desc string) mcp.Tool { return newCropWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return cropWatermarkHandler(cfg) }},
 	{"recognize_text", "Recognize text in images/PDF using offline OCR", func(desc string) mcp.Tool { return newRecognizeTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return recognizeTextHandler() }},
 	// Knowledge base tools
 	{"kb_find", "Search the local knowledge base", func(desc string) mcp.Tool { return newKbFindTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbFindHandler() }},
@@ -182,6 +182,10 @@ var toolRegistry = []toolInfo{
 
 // NewServer creates and configures an MCP server, registering tools based on config.
 func NewServer(cfg *Config) *server.MCPServer {
+	if cfg.Defaults == nil {
+		cfg.Defaults = &types.ConfigDefaults{}
+	}
+
 	s := server.NewMCPServer(
 		"aigc-cli",
 		"0.1.0",
@@ -433,6 +437,7 @@ func newGenerateSpeechTool(desc string) mcp.Tool {
 			mcp.Description("Voice name (e.g. alloy, nova, echo, fable)"),
 		),
 		mcp.WithString("format",
+			mcp.Enum("mp3", "wav", "opus", "aac", "flac", "pcm"),
 			mcp.Description("Audio format: mp3, wav, opus, aac, flac, pcm (default: mp3)"),
 		),
 	)

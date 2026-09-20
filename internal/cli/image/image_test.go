@@ -1,8 +1,6 @@
 package image
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -96,12 +94,7 @@ func TestBuildImageCurlDefaultMode(t *testing.T) {
 }
 
 func TestBuildImageCurlLocalFile(t *testing.T) {
-	png := append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte("payload")...)
-	dir := t.TempDir()
-	path := filepath.Join(dir, "photo.png")
-	if err := os.WriteFile(path, png, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	path := writeLocalPNG(t, t.TempDir())
 
 	t.Run("apimart real file renders upload curl and placeholder", func(t *testing.T) {
 		req := &types.GenerateRequest{Model: "gpt-image-2", Prompt: "a cat", ImageURLs: []string{path}}

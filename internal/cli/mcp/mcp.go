@@ -9,6 +9,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/mcp"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +37,9 @@ Example MCP host config:
   }
 }
 `,
+	Example: `  aigc-cli mcp --list-tools     # list available MCP tools and exit
+  aigc-cli mcp --list-prompts   # list available workflow prompts and exit
+  aigc-cli mcp                  # run the stdio server (used by MCP host config)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		listTools, _ := cmd.Flags().GetBool("list-tools")
 		listPrompts, _ := cmd.Flags().GetBool("list-prompts")
@@ -80,6 +84,9 @@ Example MCP host config:
 			mcpCfg.ToolsEnable = cfg.ToolsEnable
 			mcpCfg.ToolsDisable = cfg.ToolsDisable
 			mcpCfg.Defaults = cfg.Defaults
+			if mcpCfg.Defaults == nil {
+				mcpCfg.Defaults = &types.ConfigDefaults{}
+			}
 			mcpCfg.Providers = cfg.Providers
 		}
 

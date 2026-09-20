@@ -20,11 +20,6 @@ import (
 // defaultUserAgent is used for web requests.
 const defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) aigc-cli-kb/1.0"
 
-// httpClient is the shared HTTP client for KB operations.
-var httpClient = &http.Client{
-	Timeout: 30 * time.Second,
-}
-
 // FetchResult holds the result of a URL fetch.
 type FetchResult struct {
 	URL         string
@@ -46,8 +41,8 @@ func FetchURL(rawURL string) (*FetchResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid URL %q: %w", rawURL, err)
 	}
-	if u.Host == "" {
-		return nil, fmt.Errorf("missing host in URL %q", rawURL)
+	if err := validatePublicURL(u.String()); err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest("GET", u.String(), nil)
@@ -58,7 +53,7 @@ func FetchURL(rawURL string) (*FetchResult, error) {
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
 
-	resp, err := httpClient.Do(req)
+	resp, err := newKBClient(30 * time.Second).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", u.String(), err)
 	}
@@ -75,13 +70,15 @@ func FetchURL(rawURL string) (*FetchResult, error) {
 		body = resp.Body
 	}
 
-	htmlBytes, err := io.ReadAll(body)
+	// Read at most maxFetchBytes+1 bytes so an oversized response is cut at
+	// the reader instead of being buffered whole in memory.
+	htmlBytes, err := io.ReadAll(io.LimitReader(body, maxFetchBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read body: %w", err)
 	}
 
 	size := int64(len(htmlBytes))
-	if size > 10*1024*1024 {
+	if size > maxFetchBytes {
 		return nil, fmt.Errorf("response too large: %d MB", size/(1024*1024))
 	}
 
@@ -198,9 +195,6 @@ func slugify(s string) string {
 	return result
 }
 
-// ddgClient is a dedicated HTTP client for DDG HTML searches with a short timeout.
-var ddgClient = &http.Client{Timeout: 10 * time.Second}
-
 // DDGSearchURLs performs a DuckDuckGo HTML search and returns result URLs.
 func DDGSearchURLs(query string) ([]string, error) {
 	searchURL := fmt.Sprintf("https://html.duckduckgo.com/html/?q=%s", url.QueryEscape(query))
@@ -210,7 +204,7 @@ func DDGSearchURLs(query string) ([]string, error) {
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; aigc-cli/1.0)")
 
-	resp, err := ddgClient.Do(req)
+	resp, err := newKBClient(10 * time.Second).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("search request: %w", err)
 	}
@@ -248,6 +242,17 @@ func DDGSearchURLs(query string) ([]string, error) {
 		}
 	}
 	walk(doc)
+
+	// Search results are attacker-influenceable: drop anything pointing at a
+	// non-public address before it ever reaches FetchURL.
+	safe := make([]string, 0, len(urls))
+	for _, u := range urls {
+		if err := validatePublicURL(u); err != nil {
+			continue
+		}
+		safe = append(safe, u)
+	}
+	urls = safe
 
 	if len(urls) > 3 {
 		urls = urls[:3]

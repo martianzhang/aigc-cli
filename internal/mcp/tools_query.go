@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -187,7 +188,19 @@ func getTaskHandler(cfg *Config) server.ToolHandlerFunc {
 	}
 }
 
+// safeFileToken reduces an externally supplied task/job ID to one filename
+// token, stripping any directory traversal.
+func safeFileToken(s string) string {
+	token := filepath.Base(filepath.Clean(s))
+	token = strings.NewReplacer("/", "_", "\\", "_", "..", "_").Replace(token)
+	if token == "" || token == "." || token == ".." {
+		return "task"
+	}
+	return token
+}
+
 func handleMCPGetOpenRouterJob(c client.APIClient, jobID, outputDir, apiKey string) (*mcp.CallToolResult, error) {
+	safeJobID := safeFileToken(jobID)
 	statusResp, err := c.OpenRouterVideoGet(jobID)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to query job: %v", err)), nil
@@ -201,13 +214,13 @@ func handleMCPGetOpenRouterJob(c client.APIClient, jobID, outputDir, apiKey stri
 	case "completed":
 		b.WriteString("\n视频:\n")
 		for i, u := range statusResp.UnsignedURLs {
-			fullpath, err := service.DownloadFile(u, outputDir, fmt.Sprintf("video_%s_%d", jobID, i))
+			fullpath, err := service.DownloadFile(u, outputDir, fmt.Sprintf("video_%s_%d", safeJobID, i))
 			if err == nil {
 				fmt.Fprintf(&b, "  %s\n", fullpath)
 			} else {
 				// Unsigned URL failed; try authenticated fallback
 				fallback := fmt.Sprintf("https://openrouter.ai/api/v1/videos/%s/content?index=%d", jobID, i)
-				fullpath, err = service.DownloadFile(fallback, outputDir, fmt.Sprintf("video_%s_%d", jobID, i))
+				fullpath, err = service.DownloadFile(fallback, outputDir, fmt.Sprintf("video_%s_%d", safeJobID, i))
 				if err == nil {
 					fmt.Fprintf(&b, "  %s\n", fullpath)
 				} else {
@@ -232,6 +245,7 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to query task: %v", err)), nil
 	}
+	safeTaskID := safeFileToken(task.ID)
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "Task ID: %s\n", task.ID)
@@ -245,7 +259,7 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 			b.WriteString("\n图片:\n")
 			for i, img := range task.Result.Images {
 				for j, url := range img.URL {
-					fullpath, err := service.DownloadFile(url, outputDir, fmt.Sprintf("image_%s_%d_%d", task.ID, i, j))
+					fullpath, err := service.DownloadFile(url, outputDir, fmt.Sprintf("image_%s_%d_%d", safeTaskID, i, j))
 					if err == nil {
 						fmt.Fprintf(&b, "  %s\n", fullpath)
 					} else {
@@ -258,7 +272,7 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 			b.WriteString("\n视频:\n")
 			for i, vid := range task.Result.Videos {
 				for j, url := range vid.URL {
-					fullpath, err := service.DownloadFile(url, outputDir, fmt.Sprintf("video_%s_%d_%d", task.ID, i, j))
+					fullpath, err := service.DownloadFile(url, outputDir, fmt.Sprintf("video_%s_%d_%d", safeTaskID, i, j))
 					if err == nil {
 						fmt.Fprintf(&b, "  %s\n", fullpath)
 					} else {

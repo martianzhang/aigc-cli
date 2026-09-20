@@ -31,11 +31,25 @@ func downloadModelFiles(info audio.ModelInfo, modelsBaseDir string, force bool) 
 
 // downloadFromURL downloads a model from an arbitrary URL (outside registry).
 func downloadFromURL(url, baseDir, name string, force bool) error {
-	modelDir := filepath.Join(baseDir, name)
+	safeName, err := sanitizeModelName(name)
+	if err != nil {
+		return err
+	}
+	modelDir := filepath.Join(baseDir, safeName)
 	os.MkdirAll(modelDir, 0755)
 	filename := filepath.Base(url)
 	dest := filepath.Join(modelDir, filename)
 	return downloadSingleFile(url, dest, filename, force)
+}
+
+// sanitizeModelName keeps only the final path element of a caller-supplied
+// model name so it cannot escape the models directory.
+func sanitizeModelName(name string) (string, error) {
+	base := filepath.Base(filepath.Clean(name))
+	if base == "." || base == ".." || base == string(filepath.Separator) {
+		return "", fmt.Errorf("invalid model name %q", name)
+	}
+	return base, nil
 }
 
 // downloadSingleFile downloads a single file, handling tar.bz2 extraction.
@@ -85,8 +99,14 @@ func extractTarBz2(archivePath, extractDir string) error {
 	}
 	defer f.Close()
 
-	bz2r := bzip2.NewReader(f)
-	tarr := tar.NewReader(bz2r)
+	return extractTar(tar.NewReader(bzip2.NewReader(f)), extractDir)
+}
+
+// extractTar extracts every tar entry into extractDir, stripping the archive's
+// top-level directory. Entries that would escape extractDir abort the
+// extraction; link entries are skipped because they can point outside it.
+func extractTar(tarr *tar.Reader, extractDir string) error {
+	cleanDir := filepath.Clean(extractDir)
 
 	// Detect the top-level directory name to strip it
 	var topDir string
@@ -112,7 +132,11 @@ func extractTarBz2(archivePath, extractDir string) error {
 			continue // skip the top directory entry itself
 		}
 
-		target := filepath.Join(extractDir, relPath)
+		target := filepath.Join(cleanDir, relPath)
+		if target != cleanDir && !strings.HasPrefix(target, cleanDir+string(os.PathSeparator)) {
+			return fmt.Errorf("unsafe archive entry %q escapes %s", header.Name, cleanDir)
+		}
+
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0755); err != nil {
@@ -131,6 +155,8 @@ func extractTarBz2(archivePath, extractDir string) error {
 			if err != nil {
 				return err
 			}
+		case tar.TypeSymlink, tar.TypeLink:
+			fmt.Printf("Warning: skipping link entry %s\n", header.Name)
 		}
 	}
 	return nil

@@ -1,8 +1,6 @@
 package image
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,10 +9,7 @@ import (
 
 func TestPrepareAgnesImageRequest(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "input.png")
-	if err := os.WriteFile(path, []byte("\x89PNG\r\n\x1a\nfake-body"), 0o644); err != nil {
-		t.Fatalf("write fixture: %v", err)
-	}
+	path := writeLocalPNG(t, dir)
 
 	req := &types.GenerateRequest{
 		ImageURLs:      []string{path},

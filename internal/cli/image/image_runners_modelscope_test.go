@@ -11,10 +11,7 @@ import (
 
 func TestBuildModelScopeImageBody(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "input.png")
-	if err := os.WriteFile(path, []byte("\x89PNG\r\n\x1a\nfake-body"), 0o644); err != nil {
-		t.Fatalf("write fixture: %v", err)
-	}
+	path := writeLocalPNG(t, dir)
 
 	t.Run("text to image sends no image_url", func(t *testing.T) {
 		body, err := buildModelScopeImageBody(&types.GenerateRequest{

@@ -307,6 +307,23 @@ func TestNewServer_toolsRegistered(t *testing.T) {
 	_ = s
 }
 
+func TestNewServer_nilDefaults(t *testing.T) {
+	cfg := &Config{
+		APIKey:  "sk-test",
+		BaseURL: "https://api.openai.com/v1",
+	}
+	s := NewServer(cfg)
+	if s == nil {
+		t.Fatal("expected non-nil server with nil Defaults")
+	}
+	if cfg.Defaults == nil {
+		t.Fatal("NewServer should install non-nil Defaults")
+	}
+	if got := len(s.ListTools()); got != len(toolRegistry) {
+		t.Errorf("registered %d tools, want %d", got, len(toolRegistry))
+	}
+}
+
 func TestNewServer_withEnableList(t *testing.T) {
 	cfg := &Config{
 		APIKey:       "sk-test",

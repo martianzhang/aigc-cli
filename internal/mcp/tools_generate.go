@@ -284,6 +284,19 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 	}
 }
 
+// validSpeechFormats is the security whitelist for generate_speech formats;
+// the value becomes the saved filename extension.
+var validSpeechFormats = map[string]bool{
+	"mp3": true, "wav": true, "opus": true, "aac": true, "flac": true, "pcm": true,
+}
+
+func validateSpeechFormat(format string) error {
+	if !validSpeechFormats[strings.ToLower(format)] {
+		return fmt.Errorf("invalid format: %s", format)
+	}
+	return nil
+}
+
 // generateSpeechHandler creates the handler for generate_speech, capturing the config.
 func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -300,11 +313,16 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError("input is required"), nil
 		}
 
+		format := strings.ToLower(request.GetString("format", "mp3"))
+		if err := validateSpeechFormat(format); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
 		req := &types.AudioSpeechRequest{
 			Model:          request.GetString("model", ""),
 			Input:          input,
 			Voice:          request.GetString("voice", ""),
-			ResponseFormat: request.GetString("format", "mp3"),
+			ResponseFormat: format,
 		}
 
 		if req.Model == "" {

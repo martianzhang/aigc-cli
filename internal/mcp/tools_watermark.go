@@ -43,7 +43,7 @@ func defaultCleanPath(path string) string {
 }
 
 // removeWatermarkHandler handles the remove_watermark tool call.
-func removeWatermarkHandler() server.ToolHandlerFunc {
+func removeWatermarkHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
@@ -55,7 +55,10 @@ func removeWatermarkHandler() server.ToolHandlerFunc {
 		path = resolveAbsPath(path)
 
 		producer := req.GetString("producer", "")
-		outputPath := req.GetString("output_path", "")
+		outputPath, err := confinedOutputPath(cfg, req.GetString("output_path", ""), path)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
 
 		loadCustomWatermarks()
 
@@ -86,7 +89,7 @@ func loadCustomWatermarks() {
 }
 
 // addWatermarkHandler handles the add_watermark tool call.
-func addWatermarkHandler() server.ToolHandlerFunc {
+func addWatermarkHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
@@ -102,7 +105,10 @@ func addWatermarkHandler() server.ToolHandlerFunc {
 			return mcp.NewToolResultError("producer is required (known: gemini, or custom text)"), nil
 		}
 
-		outputPath := req.GetString("output_path", "")
+		outputPath, err := confinedOutputPath(cfg, req.GetString("output_path", ""), path)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
 
 		res, err := watermark.AddWatermarkFile(path, outputPath, producer)
 		if err != nil {
@@ -138,7 +144,7 @@ func newCropWatermarkTool() mcp.Tool {
 	)
 }
 
-func cropWatermarkHandler() server.ToolHandlerFunc {
+func cropWatermarkHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
@@ -150,15 +156,12 @@ func cropWatermarkHandler() server.ToolHandlerFunc {
 		path = resolveAbsPath(path)
 
 		target := req.GetString("target", "auto")
-		outputPath := req.GetString("output_path", "")
-
-		f, err := os.Open(path)
+		outputPath, err := confinedOutputPath(cfg, req.GetString("output_path", ""), path)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("open failed: %v", err)), nil
+			return mcp.NewToolResultError(err.Error()), nil
 		}
-		defer f.Close()
 
-		img, _, err := image.Decode(f)
+		img, _, err := decodeImageGuarded(path)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("decode failed: %v", err)), nil
 		}

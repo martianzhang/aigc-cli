@@ -120,9 +120,9 @@ func convertDepthHandler(cfg *Config) server.ToolHandlerFunc {
 
 		opts := parseAnnotate(req.GetString("annotate", ""))
 		if mcpImageExts[strings.ToLower(filepath.Ext(path))] {
-			return convertDepthImage(ctx, path, sharedDir, libPath, req, opts)
+			return convertDepthImage(ctx, cfg, path, sharedDir, libPath, req, opts)
 		}
-		return convertDepthVideo(ctx, path, sharedDir, libPath, req, opts)
+		return convertDepthVideo(ctx, cfg, path, sharedDir, libPath, req, opts)
 	}
 }
 
@@ -141,8 +141,11 @@ func parseAnnotate(s string) annotate.Options {
 }
 
 // convertDepthImage 处理图片输入 → 灰度深度图 PNG（可选叠加标注）。
-func convertDepthImage(ctx context.Context, path, sharedDir, libPath string, req mcp.CallToolRequest, opts annotate.Options) (*mcp.CallToolResult, error) {
-	output := req.GetString("output_path", "")
+func convertDepthImage(ctx context.Context, cfg *Config, path, sharedDir, libPath string, req mcp.CallToolRequest, opts annotate.Options) (*mcp.CallToolResult, error) {
+	output, err := confinedOutputPath(cfg, req.GetString("output_path", ""), path)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
 	out, err := depth.ConvertImage(depth.ImageOptions{
 		Input:         path,
 		Output:        output,
@@ -164,10 +167,13 @@ func convertDepthImage(ctx context.Context, path, sharedDir, libPath string, req
 }
 
 // convertDepthVideo 处理视频输入 → 灰度深度视频（H.264 MP4，可选逐帧标注）。
-func convertDepthVideo(ctx context.Context, path, sharedDir, libPath string, req mcp.CallToolRequest, opts annotate.Options) (*mcp.CallToolResult, error) {
+func convertDepthVideo(ctx context.Context, cfg *Config, path, sharedDir, libPath string, req mcp.CallToolRequest, opts annotate.Options) (*mcp.CallToolResult, error) {
 	// Progress output buffer (MCP returns one result at the end).
 	var progress strings.Builder
-	output := req.GetString("output_path", "")
+	output, err := confinedOutputPath(cfg, req.GetString("output_path", ""), path)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
 	started := fmt.Sprintf("Converting %s → %s (may take minutes on CPU)...\n",
 		filepath.Base(path), filepath.Base(defaultDepthOutputPath(path, output)))
 

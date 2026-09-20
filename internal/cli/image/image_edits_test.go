@@ -5,8 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -75,12 +73,7 @@ func TestUsesImageEditsJSON(t *testing.T) {
 }
 
 func TestRunImageEditsJSON_localFileBecomesDataURI(t *testing.T) {
-	png := []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}
-	dir := t.TempDir()
-	path := filepath.Join(dir, "photo.png")
-	if err := os.WriteFile(path, png, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	path := writeLocalPNG(t, t.TempDir())
 
 	var gotURL string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

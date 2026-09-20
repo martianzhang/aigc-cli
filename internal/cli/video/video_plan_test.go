@@ -2,6 +2,8 @@ package video
 
 import (
 	"encoding/json"
+	"image"
+	"image/png"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,12 +15,17 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// testLocalImage writes a tiny PNG-signature file and returns its path.
+// testLocalImage writes a tiny decodable PNG and returns its path.
 func testLocalImage(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "seed.png")
-	if err := os.WriteFile(path, []byte("\x89PNG\r\n\x1a\nseed"), 0o644); err != nil {
-		t.Fatalf("write temp image: %v", err)
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create temp image: %v", err)
+	}
+	defer f.Close()
+	if err := png.Encode(f, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatalf("encode temp image: %v", err)
 	}
 	return path
 }

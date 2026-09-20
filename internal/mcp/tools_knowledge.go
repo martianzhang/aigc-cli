@@ -10,6 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 )
 
@@ -18,7 +19,7 @@ func kbDir() string {
 }
 
 func knowledgeBaseDir() string {
-	return "~/.config/aigc-cli/knowledge"
+	return filepath.Join(options.ConfigDir(), "knowledge")
 }
 
 func openKBStore() (*knowledge.Store, error) {

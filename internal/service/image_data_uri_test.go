@@ -1,17 +1,34 @@
 package service
 
 import (
+	"bytes"
 	"encoding/base64"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-var (
-	pngBytes  = []byte("\x89PNG\r\n\x1a\nfake-png-body")
-	jpegBytes = []byte("\xff\xd8\xff\xe0fake-jpeg-body")
-)
+func testPNG(t *testing.T) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func testJPEG(t *testing.T) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 2, 2)), nil); err != nil {
+		t.Fatalf("encode jpeg: %v", err)
+	}
+	return buf.Bytes()
+}
 
 func writeImageFixture(t *testing.T, dir, name string, data []byte) string {
 	t.Helper()
@@ -24,6 +41,8 @@ func writeImageFixture(t *testing.T, dir, name string, data []byte) string {
 
 func TestImageToDataURI(t *testing.T) {
 	dir := t.TempDir()
+	pngBytes := testPNG(t)
+	jpegBytes := testJPEG(t)
 	pngPath := writeImageFixture(t, dir, "photo.png", pngBytes)
 	jpgPath := writeImageFixture(t, dir, "photo.jpg", jpegBytes)
 	wrongExtPath := writeImageFixture(t, dir, "photo.txt", pngBytes)
@@ -58,10 +77,41 @@ func TestImageToDataURI(t *testing.T) {
 			t.Errorf("error = %v, want wrapped read error", err)
 		}
 	})
+
+	t.Run("non-image file rejected", func(t *testing.T) {
+		textPath := writeImageFixture(t, dir, "secrets.txt", []byte("ssh-rsa AAAA private key material"))
+		_, err := ImageToDataURI(textPath)
+		if err == nil {
+			t.Fatal("expected error for non-image file")
+		}
+		if !strings.Contains(err.Error(), "not a valid image file") {
+			t.Errorf("error = %v, want invalid-image rejection", err)
+		}
+	})
+
+	t.Run("oversize file rejected", func(t *testing.T) {
+		bigPath := filepath.Join(dir, "big.png")
+		f, err := os.Create(bigPath)
+		if err != nil {
+			t.Fatalf("create big file: %v", err)
+		}
+		f.Close()
+		if err := os.Truncate(bigPath, maxLocalImageBytes+1); err != nil {
+			t.Fatalf("truncate big file: %v", err)
+		}
+		_, err = ImageToDataURI(bigPath)
+		if err == nil {
+			t.Fatal("expected error for oversize image")
+		}
+		if !strings.Contains(err.Error(), "local image exceeds 32 MiB") {
+			t.Errorf("error = %v, want size-cap rejection", err)
+		}
+	})
 }
 
 func TestLocalFilesToDataURI(t *testing.T) {
 	dir := t.TempDir()
+	pngBytes := testPNG(t)
 	pngPath := writeImageFixture(t, dir, "local.png", pngBytes)
 
 	const (

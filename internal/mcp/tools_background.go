@@ -62,7 +62,7 @@ Examples:
 }
 
 // removeBackgroundHandler 处理 remove_background 工具调用。
-func removeBackgroundHandler() server.ToolHandlerFunc {
+func removeBackgroundHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
@@ -82,12 +82,7 @@ func removeBackgroundHandler() server.ToolHandlerFunc {
 		}
 
 		// 解码图片
-		f, err := os.Open(path)
-		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("cannot open file: %v", err)), nil
-		}
-		img, _, err := image.Decode(f)
-		f.Close()
+		img, _, err := decodeImageGuarded(path)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("cannot decode image: %v", err)), nil
 		}
@@ -144,7 +139,10 @@ func removeBackgroundHandler() server.ToolHandlerFunc {
 		}
 
 		// 确定输出路径
-		outputPath := req.GetString("output_path", "")
+		outputPath, err := confinedOutputPath(cfg, req.GetString("output_path", ""), path)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
 		if outputPath == "" {
 			ext := filepath.Ext(path)
 			base := strings.TrimSuffix(filepath.Base(path), ext)
@@ -198,11 +196,6 @@ func loadImage(path string) (image.Image, error) {
 		}
 		path = abs
 	}
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, _, err := decodeImageGuarded(path)
 	return img, err
 }
