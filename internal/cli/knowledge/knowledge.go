@@ -47,6 +47,10 @@ Use --project to scope documents to the current git repository.
 Use --all to search across all projects (for find/list).
 
 Data stored at ~/.config/aigc-cli/knowledge/ by default.`,
+	Example: `  aigc-cli kb init
+  aigc-cli kb add ./docs --recursive
+  aigc-cli kb find "install steps"
+  aigc-cli kb search "golang context timeout"`,
 	SilenceUsage: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if options.Shared.Cfg == nil {

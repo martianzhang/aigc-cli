@@ -14,6 +14,8 @@ var kbRmCmd = &cobra.Command{
 	Long: `Remove one or more documents by their ID prefix (as shown in 'kb list').
 
 Use --all to remove all documents.`,
+	Example: `  aigc-cli kb rm a1b2c3d4e5f6
+  aigc-cli kb rm a1b2c3d4e5f6 b2c3d4e5f6a1`,
 	Args:         cobra.MinimumNArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

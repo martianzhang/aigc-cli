@@ -17,6 +17,8 @@ var kbResetCmd = &cobra.Command{
 then reinitialize the database. The docs/ directory is also cleaned.
 
 Use --force to skip confirmation.`,
+	Example: `  aigc-cli kb reset
+  aigc-cli kb reset --force`,
 	Args:         cobra.NoArgs,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -69,5 +71,4 @@ Use --force to skip confirmation.`,
 
 func init() {
 	kbResetCmd.Flags().BoolVar(&kbResetForce, "force", false, "Skip confirmation")
-	kbCmd.AddCommand(kbResetCmd)
 }

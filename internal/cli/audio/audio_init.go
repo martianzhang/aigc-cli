@@ -42,6 +42,10 @@ ASR models:
 
 Use --list to see all available models. Use --list-installed to see what
 you already have. Proxy settings are automatically respected.`,
+	Example: `  aigc-cli audio init                                    # download defaults: kokoro (TTS) + sense-voice (ASR)
+  aigc-cli audio init --list                             # list available models
+  aigc-cli audio init --model kokoro --model sense-voice
+  aigc-cli audio init --list-voices --model kokoro`,
 	RunE: runAudioInit,
 }
 

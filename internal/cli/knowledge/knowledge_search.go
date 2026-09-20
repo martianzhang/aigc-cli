@@ -25,6 +25,9 @@ var kbSearchCmd = &cobra.Command{
 	Long: `Search the web using configured search provider and save results to KB.
 
 By default, only searches the web. Use --local to also include local KB results.`,
+	Example: `  aigc-cli kb search "golang context timeout"
+  aigc-cli kb search "golang context timeout" --local
+  aigc-cli kb search "vector database" --provider duckduckgo`,
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -86,7 +89,6 @@ func init() {
 	kbSearchCmd.Flags().StringVar(&kbSearchProviderFlag, "provider", "", "Search provider: duckduckgo, firecrawl (overrides config defaults)")
 	kbSearchCmd.Flags().BoolVar(&kbSearchSaveFlag, "auto-save", true, "Save web results to knowledge base")
 	kbSearchCmd.Flags().BoolVar(&kbSearchLocalFlag, "local", false, "Also search local knowledge base")
-	kbCmd.AddCommand(kbSearchCmd)
 }
 
 // searchWebWithRouter uses the search router or falls back to direct providers.

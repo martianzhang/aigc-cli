@@ -33,6 +33,9 @@ func newInitCommand(deps func() Deps) *cobra.Command {
 		Short:        "Download ONNX Runtime and depth estimation models",
 		SilenceUsage: true,
 		Long:         `Download the ONNX Runtime shared library and Depth Anything V2 models used by the depth command.`,
+		Example: `  aigc-cli depth init                                # default: depth-anything-v2-small
+  aigc-cli depth init --model depth-anything-v2-base
+  aigc-cli depth init --all --skeleton --face        # all models + pose + face assets`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			d = deps()
 			return runDepthInit(cmd, args)

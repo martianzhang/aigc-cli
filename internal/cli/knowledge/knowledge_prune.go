@@ -17,6 +17,8 @@ var kbPruneCmd = &cobra.Command{
 	Long: `Clean up the knowledge base:
   - Removes duplicate documents (same checksum)
   - With --check-urls, checks URL-based docs for 404 and removes dead ones`,
+	Example: `  aigc-cli kb prune
+  aigc-cli kb prune --check-urls`,
 	Args:         cobra.NoArgs,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -105,7 +107,6 @@ var kbPruneCmd = &cobra.Command{
 
 func init() {
 	kbPruneCmd.Flags().BoolVar(&kbPruneCheckURLs, "check-urls", false, "Check URL-based docs for 404 and remove dead ones")
-	kbCmd.AddCommand(kbPruneCmd)
 }
 
 func minInt(a, b int) int {

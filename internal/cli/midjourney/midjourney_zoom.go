@@ -17,10 +17,10 @@ var mjZoomCmd = &cobra.Command{
 	Use:   "zoom",
 	Short: "Zoom out / outpaint",
 	Long: `Zoom out on a single image after Upscale. zoom_ratio < 2 uses Outpaint (1.5x),
->= 2 or omitted uses CustomZoom (2x).
-
-Example:
-  aigc-cli midjourney zoom --task-id task_xxx --zoom-ratio 1.5`,
+>= 2 or omitted uses CustomZoom (2x).`,
+	Example: `  aigc-cli midjourney zoom --task-id task_xxx --zoom-ratio 1.5
+  aigc-cli midjourney zoom --task-id task_xxx --zoom-ratio 2
+  aigc-cli midjourney zoom --task-id task_xxx --index 1 --speed fast`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := service.ReadInput(mjJSONInput)
@@ -67,10 +67,10 @@ var mjPanCmd = &cobra.Command{
 	Use:   "pan",
 	Short: "Pan in a direction",
 	Long: `Pan out in a direction on a single image after Upscale.
-Direction: left, right, up, down.
-
-Example:
-  aigc-cli midjourney pan --task-id task_xxx --direction right`,
+Direction: left, right, up, down.`,
+	Example: `  aigc-cli midjourney pan --task-id task_xxx --direction right
+  aigc-cli midjourney pan --task-id task_xxx --direction up --index 2
+  aigc-cli midjourney pan --task-id task_xxx --direction left --speed fast`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := service.ReadInput(mjJSONInput)
@@ -120,10 +120,9 @@ var mjInpaintCmd = &cobra.Command{
 	Use:   "inpaint",
 	Short: "Region inpaint entry (→ modal)",
 	Long: `Entry point for region inpaint (Vary Region). After submission, the task enters
-MODAL state — then call "midjourney modal" with a mask + prompt.
-
-Example:
-  aigc-cli midjourney inpaint --task-id task_xxx`,
+MODAL state — then call "midjourney modal" with a mask + prompt.`,
+	Example: `  aigc-cli midjourney inpaint --json '{"task_id":"task_xxx"}'
+  aigc-cli midjourney modal --task-id task_yyy --prompt "replace with a red sofa" --mask-url mask.png`,
 	RunE: func(_ *cobra.Command, args []string) error {
 		req, err := buildMJTaskActionReqFromJSON()
 		if err != nil {
@@ -141,10 +140,10 @@ var mjModalCmd = &cobra.Command{
 	Use:   "modal",
 	Short: "Submit mask + prompt for inpaint",
 	Long: `Complete a MODAL-state inpaint task by supplying a mask + prompt.
-With mask_url → inpaint (local repaint). Without → outpaint (expand).
-
-Example:
-  aigc-cli midjourney modal --task-id task_xxx --prompt "replace with red sofa" --mask-url mask.png`,
+With mask_url → inpaint (local repaint). Without → outpaint (expand).`,
+	Example: `  aigc-cli midjourney modal --task-id task_xxx --prompt "replace with a red sofa" --mask-url mask.png
+  aigc-cli midjourney modal --task-id task_xxx --prompt "expand the scene" --speed fast
+  aigc-cli midjourney modal --json request.json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := service.ReadInput(mjJSONInput)

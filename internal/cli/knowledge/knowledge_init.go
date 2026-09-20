@@ -23,6 +23,8 @@ Run this once before using other kb commands. It's idempotent —
 re-running won't overwrite existing data or models.
 
 Use --force to re-download models.`,
+	Example: `  aigc-cli kb init
+  aigc-cli kb init --force`,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := openKBStore()

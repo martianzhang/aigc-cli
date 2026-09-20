@@ -13,48 +13,47 @@ import (
 // ============================================================================
 // Task-action subcommands (upscale, variation, high-variation, low-variation, inpaint)
 // ============================================================================
-var mjUpscaleCmd = registerMJTaskActionSubcommand(
-	"upscale",
-	"Upscale a tile (U1-U4)",
-	`Upscale one tile from the parent grid (U1-U4).
+var mjUpscaleCmd = registerMJTaskActionSubcommand(mjTaskActionSpec{
+	name:  "upscale",
+	short: "Upscale a tile (U1-U4)",
+	long: `Upscale one tile from the parent grid (U1-U4).
 
 Composed locally from existing images — usually returns instantly.
 
 Examples:
   aigc-cli midjourney upscale --task-id task_xxx --index 1
   aigc-cli midjourney upscale --task-id task_xxx --custom-id "MJ::JOB::upsample::1::abc"`,
-	"upscale",
-)
+	action: "upscale",
+})
 
-var mjVariationCmd = registerMJTaskActionSubcommand(
-	"variation",
-	"Subtle variation (V1-V4)",
-	`Create a subtle variation (varySubtle) from one tile of an Imagine grid.
+var mjVariationCmd = registerMJTaskActionSubcommand(mjTaskActionSpec{
+	name:  "variation",
+	short: "Subtle variation (V1-V4)",
+	long: `Create a subtle variation (varySubtle) from one tile of an Imagine grid.
 
 Examples:
   aigc-cli midjourney variation --task-id task_xxx --index 3`,
-	"variation",
-)
+	action: "variation",
+})
 
-var mjHighVariationCmd = registerMJTaskActionSubcommand(
-	"high-variation",
-	"High (strong) variation",
-	`Create a strong variation (varyStrong) from one tile of an Imagine grid.
+var mjHighVariationCmd = registerMJTaskActionSubcommand(mjTaskActionSpec{
+	name:  "high-variation",
+	short: "High (strong) variation",
+	long:  `Create a strong variation (varyStrong) from one tile of an Imagine grid.`,
+	example: `  aigc-cli midjourney high-variation --task-id task_xxx --index 2
+  aigc-cli midjourney high-variation --task-id task_xxx --index 2 --speed fast
+  aigc-cli midjourney high-variation --json request.json`,
+	action: "high-variation",
+})
 
-Example:
-  aigc-cli midjourney high-variation --task-id task_xxx --index 2`,
-	"high-variation",
-)
-
-var mjLowVariationCmd = registerMJTaskActionSubcommand(
-	"low-variation",
-	"Low (subtle) variation",
-	`Create a low (subtle) variation from one tile.
-
-Example:
-  aigc-cli midjourney low-variation --task-id task_xxx --index 4`,
-	"low-variation",
-)
+var mjLowVariationCmd = registerMJTaskActionSubcommand(mjTaskActionSpec{
+	name:  "low-variation",
+	short: "Low (subtle) variation",
+	long:  `Create a low (subtle) variation from one tile.`,
+	example: `  aigc-cli midjourney low-variation --task-id task_xxx --index 4
+  aigc-cli midjourney low-variation --task-id task_xxx --index 4 --speed fast`,
+	action: "low-variation",
+})
 
 // ============================================================================
 // Subcommand: reroll
@@ -62,10 +61,10 @@ Example:
 var mjRerollCmd = &cobra.Command{
 	Use:   "reroll",
 	Short: "Regenerate the grid (🔄)",
-	Long: `Regenerate 4 images from the source task's prompt. No index needed - whole grid is rerolled.
-
-Example:
-  aigc-cli midjourney reroll --task-id task_xxx`,
+	Long:  `Regenerate 4 images from the source task's prompt. No index needed - whole grid is rerolled.`,
+	Example: `  aigc-cli midjourney reroll --task-id task_xxx
+  aigc-cli midjourney reroll --task-id task_xxx --speed fast
+  aigc-cli midjourney reroll --json request.json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := service.ReadInput(mjJSONInput)

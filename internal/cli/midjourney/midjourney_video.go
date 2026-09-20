@@ -85,10 +85,10 @@ Examples:
 var mjRemixStrongCmd = &cobra.Command{
 	Use:   "remix-strong",
 	Short: "Strong reshape (v8/v8.1 only)",
-	Long: `Strong reshape of a v8/v8.1 parent image. Large change; composition/style may shift.
-
-Example:
-  aigc-cli midjourney remix-strong --task-id task_xxx --index 1`,
+	Long:  `Strong reshape of a v8/v8.1 parent image. Large change; composition/style may shift.`,
+	Example: `  aigc-cli midjourney remix-strong --task-id task_xxx --index 1
+  aigc-cli midjourney remix-strong --task-id task_xxx --index 1 --prompt "neon cyberpunk city"
+  aigc-cli midjourney remix-strong --task-id task_xxx --index 1 --speed fast`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runMJRmix(cmd, "remix-strong")
 	},
@@ -97,10 +97,10 @@ Example:
 var mjRemixSubtleCmd = &cobra.Command{
 	Use:   "remix-subtle",
 	Short: "Subtle reshape (v8/v8.1 only)",
-	Long: `Subtle reshape of a v8/v8.1 parent image. Small change; keeps subject/tone.
-
-Example:
-  aigc-cli midjourney remix-subtle --task-id task_xxx --index 1 --prompt "new style"`,
+	Long:  `Subtle reshape of a v8/v8.1 parent image. Small change; keeps subject/tone.`,
+	Example: `  aigc-cli midjourney remix-subtle --task-id task_xxx --index 1
+  aigc-cli midjourney remix-subtle --task-id task_xxx --index 1 --prompt "soft morning light"
+  aigc-cli midjourney remix-subtle --task-id task_xxx --index 1 --speed fast`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runMJRmix(cmd, "remix-subtle")
 	},

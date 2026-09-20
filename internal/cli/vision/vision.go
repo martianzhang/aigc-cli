@@ -30,6 +30,9 @@ Commands:
   describe    Describe an image
 
 Use 'aigc-cli vision <command> --help' for details.`,
+	Example: `  aigc-cli vision init                    # download the Florence-2 model (local)
+  aigc-cli vision describe photo.jpg
+  aigc-cli vision describe photo.jpg --prompt "请用中文详细描述这张图片"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -82,6 +85,9 @@ Models are saved to ~/.config/aigc-cli/models/vision/<variant>/.
 Uses Florence-2 (MIT license) for image captioning.
 
 Use --list to see available model variants.`,
+	Example: `  aigc-cli vision init                  # default variant: base-int8
+  aigc-cli vision init --list           # list available model variants
+  aigc-cli vision init --force          # re-download`,
 	RunE: runVisionInit,
 }
 

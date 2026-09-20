@@ -168,6 +168,8 @@ Examples:
 		Use:          "user",
 		Short:        "Query user account balance",
 		SilenceUsage: true,
+		Example: `  aigc-cli balance user
+  aigc-cli balance user --provider siliconflow`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return printBalance(deps(), "user")
 		},

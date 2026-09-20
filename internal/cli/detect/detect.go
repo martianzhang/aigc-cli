@@ -32,6 +32,11 @@ var detectCmd = &cobra.Command{
 --add-watermark 仅用于为去水印算法创建测试样本，不注入任何元数据。
 
 支持 PNG、JPEG、WebP、GIF、BMP 格式。`,
+	Example: `  aigc-cli detect photo.png                     # multi-signal AIGC report
+  aigc-cli detect a.png b.jpg c.webp            # scan several files
+  aigc-cli detect photo.png --json              # machine-readable output
+  aigc-cli detect photo.png --preview           # open in viewer after scanning
+  aigc-cli detect photo.png --remove-watermark  # remove a learned watermark`,
 	RunE: runDetect,
 }
 

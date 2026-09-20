@@ -17,10 +17,9 @@ import (
 var mjQueryCmd = &cobra.Command{
 	Use:   "query <task-id>",
 	Short: "Get MJ task status and result",
-	Long: `Query a Midjourney task by its task ID.
-
-Example:
-  aigc-cli midjourney query task_xxx`,
+	Long:  `Query a Midjourney task by its task ID.`,
+	Example: `  aigc-cli midjourney query task_xxx
+  aigc-cli mj query task_xxx`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		taskID := args[0]

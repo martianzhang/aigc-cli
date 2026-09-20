@@ -23,6 +23,9 @@ For PDF: convert to text with 'aigc-cli ocr scan' first.
 For DOCX: convert to markdown with officecli first.
 
 Use --recursive/-r to add all supported files in a directory.`,
+	Example: `  aigc-cli kb add notes.md
+  aigc-cli kb add ./docs --recursive
+  aigc-cli kb add secret.md --vault`,
 	Args:         cobra.MinimumNArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

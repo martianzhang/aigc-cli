@@ -53,16 +53,14 @@ func NewCommand(deps func() Deps) *cobra.Command {
 Outputs markdown by default, with each result containing
 reference images, full prompt text, and metadata.
 
-Keywords can be passed as arguments or via stdin:
-
-  aigc-cli ideas "cinematic portrait"
-  aigc-cli ideas "luxury perfume" --limit 3
-  aigc-cli ideas --random              # random ideas without keywords
-  aigc-cli ideas --random --limit 1    # single random idea
-  echo "cyberpunk city" | aigc-cli ideas
-  aigc-cli ideas --json "cat" | jq '.results[].prompt'
+Keywords can be passed as arguments or via stdin.
 
 Data file: ~/.config/aigc-cli/ideas.json (run "aigc-cli ideas init" to download).`,
+		Example: `  aigc-cli ideas "cinematic portrait"
+  aigc-cli ideas "luxury perfume" --limit 3
+  aigc-cli ideas --random --limit 1              # single random idea
+  echo "cyberpunk city" | aigc-cli ideas
+  aigc-cli ideas --json "cat" | jq '.results[].prompt'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(deps(), args, &f)
 		},
@@ -166,6 +164,7 @@ The data is saved to ~/.config/aigc-cli/ideas/ideas.json (or the configured idea
 
 Proxy settings from config.yaml, env vars (HTTP_PROXY), or --http-proxy flag
 are automatically respected.`,
+		Example: `  aigc-cli ideas init`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInit(deps())
 		},

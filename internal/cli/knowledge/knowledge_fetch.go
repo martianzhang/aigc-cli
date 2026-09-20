@@ -15,6 +15,9 @@ var kbFetchCmd = &cobra.Command{
 	Long: `Fetch web page(s), extract main content, and store.
 
 Use --vault to encrypt and store in the vault instead.`,
+	Example: `  aigc-cli kb fetch https://go.dev/doc/effective_go
+  aigc-cli kb fetch https://example.com/a https://example.com/b
+  aigc-cli kb fetch https://example.com/private --vault`,
 	Args:         cobra.MinimumNArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

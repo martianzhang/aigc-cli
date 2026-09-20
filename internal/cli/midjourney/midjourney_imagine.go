@@ -111,10 +111,10 @@ Examples:
 var mjDescribeCmd = &cobra.Command{
 	Use:   "describe",
 	Short: "Image to text (reverse prompt)",
-	Long: `Reverse-engineer a prompt from an image. Returns 4 prompt suggestions.
-
-Example:
-  aigc-cli midjourney describe --image-url input.png`,
+	Long:  `Reverse-engineer a prompt from an image. Returns 4 prompt suggestions.`,
+	Example: `  aigc-cli midjourney describe --image-url input.png
+  aigc-cli midjourney describe --image-url https://example.com/photo.jpg --speed fast
+  aigc-cli midjourney describe --image-url a.png --image-url b.png`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
 			data, err := service.ReadInput(mjJSONInput)
@@ -163,10 +163,10 @@ var mjEditsCmd = &cobra.Command{
 	Use:   "edits",
 	Short: "Image edit (rewrite whole image)",
 	Long: `Rewrite an entire image from a prompt + reference image.
-Good for background replacement, style transfer, and content changes.
-
-Example:
-  aigc-cli midjourney edits --prompt "replace background with a modern kitchen" --image-url product.png`,
+Good for background replacement, style transfer, and content changes.`,
+	Example: `  aigc-cli midjourney edits --prompt "replace background with a modern kitchen" --image-url product.png
+  aigc-cli midjourney edits --prompt "turn it into a watercolor" --image-url photo.jpg --iw 1.5
+  aigc-cli midjourney edits --prompt "add snow" --image-url scene.png --version "8.1" --raw`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		req, err := buildMJImagineReq(cmd) // Same structure as imagine
 		if err != nil {

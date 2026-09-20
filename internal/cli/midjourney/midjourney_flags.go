@@ -67,12 +67,21 @@ func registerSharedFlags(cmd *cobra.Command) {
 // Prompt resolver
 // ============================================================================
 
+type mjTaskActionSpec struct {
+	name    string
+	short   string
+	long    string
+	example string
+	action  string
+}
+
 // registerMJTaskActionSubcommand creates a task-action subcommand (upscale, variation, etc.).
-func registerMJTaskActionSubcommand(name, short, long, action string) *cobra.Command {
+func registerMJTaskActionSubcommand(spec mjTaskActionSpec) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   name,
-		Short: short,
-		Long:  long,
+		Use:     spec.name,
+		Short:   spec.short,
+		Long:    spec.long,
+		Example: spec.example,
 		RunE: func(_ *cobra.Command, args []string) error {
 			req, err := buildMJTaskActionReqFromJSON()
 			if err != nil {
@@ -86,7 +95,7 @@ func registerMJTaskActionSubcommand(name, short, long, action string) *cobra.Com
 				}
 			}
 			c := NewClient()
-			return runMJSubmitAndPoll(c, action, req)
+			return runMJSubmitAndPoll(c, spec.action, req)
 		},
 	}
 	registerTaskActionFlags(cmd)

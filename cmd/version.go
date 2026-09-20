@@ -15,6 +15,7 @@ var versionCmd = &cobra.Command{
 	Use:          "version",
 	Short:        "Print the version information",
 	SilenceUsage: true,
+	Example:      `  aigc-cli version`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println(Version)
 		return nil

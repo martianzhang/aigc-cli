@@ -25,11 +25,10 @@ var kbMapCmd = &cobra.Command{
 	Long: `Fetch a web page, discover all links, and add them to the knowledge base.
 
 By default only follows links on the same domain. Use --no-same-domain to
-allow cross-domain links. Use --limit to cap the number of URLs to fetch.
-
-Example:
-  aigc-cli kb map https://go.dev/doc/            # discover + fetch all doc pages
-  aigc-cli kb map https://example.com --dry-run   # just list URLs, don't fetch`,
+allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
+	Example: `  aigc-cli kb map https://go.dev/doc/
+  aigc-cli kb map https://example.com --dry-run
+  aigc-cli kb map https://go.dev/doc/ --limit 10`,
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -203,7 +202,6 @@ func init() {
 	kbMapCmd.Flags().IntVarP(&kbMapLimit, "limit", "n", 3, "Max URLs to fetch (0 = unlimited)")
 	kbMapCmd.Flags().BoolVar(&kbMapSameDomain, "same-domain", true, "Only follow links on the same domain")
 	kbMapCmd.Flags().BoolVar(&kbMapDryRun, "dry-run", false, "Only list discovered URLs, don't fetch")
-	kbCmd.AddCommand(kbMapCmd)
 }
 
 // resolveURL resolves a possibly-relative URL against a base.

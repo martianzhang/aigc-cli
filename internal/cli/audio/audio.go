@@ -26,6 +26,10 @@ Subcommands:
   play              Play an audio file (no external app needed)
   transcribe / asr  Convert audio to text
   init              Download local audio models`,
+	Example: `  aigc-cli audio speak --input "Hello world" --voice alloy
+  aigc-cli audio speak --input text.txt --voice nova --play
+  aigc-cli audio transcribe --input recording.wav
+  aigc-cli audio init --list`,
 }
 
 var speechCmd = &cobra.Command{

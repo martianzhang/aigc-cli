@@ -21,6 +21,9 @@ var kbFindCmd = &cobra.Command{
 	Long: `Search the knowledge base. Results are grouped by document with a summary.
 
 Use --show to display full chunk content inline.`,
+	Example: `  aigc-cli kb find "install steps"
+  aigc-cli kb find "install steps" --show
+  aigc-cli kb find "install steps" -n 5`,
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -16,6 +16,8 @@ var kbIndexCmd = &cobra.Command{
 	Long: `Scan the docs/ directory, re-chunk, re-embed, and re-index
 all documents. Use this after updating the chunking strategy or
 embedding model, or after manually copying files into docs/.`,
+	Example: `  aigc-cli kb index
+  aigc-cli kb index --dir ~/.config/aigc-cli/knowledge`,
 	Args:         cobra.NoArgs,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -23,8 +23,11 @@ var (
 )
 
 var kbListCmd = &cobra.Command{
-	Use:          "list",
-	Short:        "List all documents",
+	Use:   "list",
+	Short: "List all documents",
+	Example: `  aigc-cli kb list
+  aigc-cli kb list --limit 20
+  aigc-cli kb list --all`,
 	Args:         cobra.NoArgs,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

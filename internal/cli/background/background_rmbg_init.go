@@ -25,7 +25,9 @@ var backgroundInitCmd = &cobra.Command{
 	Short:        "Download ONNX Runtime and RMBG 2.0 model",
 	SilenceUsage: true,
 	Long:         `Download the ONNX Runtime shared library and the RMBG 2.0 model.`,
-	RunE:         runBackgroundInit,
+	Example: `  aigc-cli background init           # download ONNX Runtime + RMBG 2.0 model
+  aigc-cli background init --force   # re-download even if already installed`,
+	RunE: runBackgroundInit,
 }
 
 var (

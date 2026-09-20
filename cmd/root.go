@@ -26,8 +26,32 @@ var rootCmd = &cobra.Command{
 	CompletionOptions: cobra.CompletionOptions{
 		HiddenDefaultCmd: false,
 	},
-	Long: `Unified CLI for OpenAI-compatible APIs. Supports OpenAI, OpenRouter, APIMart and any
-OpenAI-compatible third-party relay. Backward-compatible with APIMart.`,
+	Long: `Unified CLI for OpenAI-compatible APIs (OpenAI, OpenRouter, APIMart and any
+compatible relay), plus local offline models for AIGC detection, OCR, background
+removal, depth maps, TTS/ASR, and image understanding.
+
+Generate images, videos and music, run Midjourney, chat with tools, search prompt
+ideas and knowledge bases — or expose all of it to AI agents via MCP.
+
+Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
+'aigc-cli <command> --help' for command-specific flags.`,
+	Example: `# Common workflows
+  aigc-cli image --prompt "A cat under starry sky"
+  aigc-cli video --prompt "A kitten yawning at the camera"
+  aigc-cli chat --message "Hello, who are you?"
+  aigc-cli midjourney imagine --prompt "a cute cat --ar 16:9"
+  aigc-cli detect photo.png
+  aigc-cli mcp
+
+# Diagnostics — --dry-run/--json are per-command flags, not global
+  aigc-cli image --prompt "A cat" --dry-run              # print equivalent curl, zero cost (also video/chat/midjourney/music/audio/depth)
+  aigc-cli image --json '{"prompt":"a red fox","n":4}'   # pass request as JSON (image/video/chat/midjourney/music)
+  aigc-cli detect photo.png --json                       # output as JSON (detect/ideas/ocr scan/background)
+  aigc-cli image --prompt "A cat" -v                     # full result JSON + token/cost stats (global flag)
+
+# Agent integration and guides
+  aigc-cli mcp --list-tools                              # list MCP tools (--list-prompts for workflow prompts)
+  # docs/zh/ and docs/en/ guide-*.md files are the authoritative reference`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		c := chat.Cmd()
 		return c.RunE(c, args)

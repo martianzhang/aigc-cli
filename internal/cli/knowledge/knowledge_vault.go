@@ -21,6 +21,9 @@ var kbVaultCmd = &cobra.Command{
 
   kb vault export backup.tar.gz    Export vault to a tar.gz file
   kb vault import backup.tar.gz    Import vault from a tar.gz file`,
+	Example: `  aigc-cli kb vault export backup.tar.gz
+  aigc-cli kb vault import backup.tar.gz
+  aigc-cli kb list --vault`,
 	SilenceUsage: true,
 }
 
@@ -29,6 +32,8 @@ var kbVaultExportCmd = &cobra.Command{
 	Short: "Export vault to a tar.gz file",
 	Long: `Export the vault contents and identity key to a tarball.
 The identity key is included in plaintext — keep the archive secure.`,
+	Example: `  aigc-cli kb vault export backup.tar.gz
+  aigc-cli kb vault export ~/backups/vault-2026.tar.gz`,
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -104,8 +109,10 @@ The identity key is included in plaintext — keep the archive secure.`,
 }
 
 var kbVaultImportCmd = &cobra.Command{
-	Use:          "import <file>",
-	Short:        "Import vault from a tar.gz file",
+	Use:   "import <file>",
+	Short: "Import vault from a tar.gz file",
+	Example: `  aigc-cli kb vault import backup.tar.gz
+  aigc-cli kb vault import ~/backups/vault-2026.tar.gz`,
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

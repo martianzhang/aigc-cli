@@ -53,6 +53,9 @@ Use --model to choose which ONNX model to download:
 The model can also be set in config.yaml:
   detect:
     model: "distilled-vit"`,
+	Example: `  aigc-cli detect init                        # download default vit-base model (327MB)
+  aigc-cli detect init --model distilled-vit  # smaller and faster (56MB)
+  aigc-cli detect init --force                # re-download`,
 	RunE: runDetectInit,
 }
 

@@ -17,6 +17,8 @@ var kbShowCmd = &cobra.Command{
 
 The doc-id is the first 12 characters of the document hash,
 as shown in 'kb list'.`,
+	Example: `  aigc-cli kb show a1b2c3d4e5f6
+  aigc-cli kb show a1b2c3d4e5f6 --vault`,
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

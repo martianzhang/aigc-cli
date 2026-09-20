@@ -20,6 +20,10 @@ var ocrCmd = &cobra.Command{
 	
 Detection (DBNet) + Recognition (CRNN/SVTR) pipeline, fully local.
 No API key or internet connection required after model download.`,
+	Example: `  aigc-cli ocr init                             # download OCR models first
+  aigc-cli ocr scan invoice.png
+  aigc-cli ocr scan invoice.png --json          # bounding boxes + confidence
+  aigc-cli ocr scan report.pdf --pages "1-3"    # PDF pages, --engine auto|pdf|ocr`,
 }
 
 // ocrInitCmd represents `aigc-cli ocr init`.
@@ -27,7 +31,10 @@ var ocrInitCmd = &cobra.Command{
 	Use:          "init",
 	Short:        "Download OCR models",
 	SilenceUsage: true,
-	RunE:         runOCRInit,
+	Example: `  aigc-cli ocr init                    # download the default model pack
+  aigc-cli ocr init --list             # list available model packs
+  aigc-cli ocr init --list-installed   # list installed packs`,
+	RunE: runOCRInit,
 }
 
 // ocrScanCmd represents `aigc-cli ocr scan`.
