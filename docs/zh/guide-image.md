@@ -76,6 +76,22 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
 
 **你写什么，就发什么。** CLI 不改名、不翻译、不归一化，厂商参数按原样到达 API，因此直接照抄厂商文档的形状即可（对所有 provider 生效）：
 
+各 provider 的线上形状不同，`--json` 的原文会发往该 provider 的**真实端点**；逐字透传时你要写对应的原生形状（CLI 不会替你转换）：
+
+| Provider | `--json` 实际请求端点 | 原生字段差异 |
+|---|---|---|
+| ModelScope | `POST {base}/images/generations`（异步任务） | `loras` / `image_url` |
+| APIMart | 异步任务提交 | 不变 |
+| OpenRouter | `POST {base}/images` | 参考图用 `input_references` |
+| Gemini | `POST {base}/interactions` | 用 `input` / `response_format` |
+| Ollama | `POST {ollama 原生 base}/api/generate` | `/api/generate` 形状 |
+| ZeekAI（图生图） | `POST {base}/images/edits` | 图片用 `images[].image_url` |
+| 通用 OpenAI 兼容（OpenAI / Yunwu / SiliconFlow / AIBaseCamp / Pollinations）与 Agnes | `POST {base}/images/generations` | OpenAI 图像接口形状 |
+
+> 💡 用 `--flag`（`--model` / `--prompt` / `--image-url` 等）时行为不变，CLI 仍按各 provider 做字段映射与适配；逐字透传只针对 `--json`。
+
+> 💡 `--dry-run` 与 `--verbose` 打印的是**真实端点与真实请求体**，可直接用来确认厂商新参数是否已经接通。
+
 ```bash
 # 单个 LoRA（ModelScope 文档的字符串形式）+ 固定 seed
 aigc-cli image --provider modelscope --json '{
