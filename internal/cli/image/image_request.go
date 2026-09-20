@@ -8,6 +8,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -55,25 +56,42 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 	return req, nil
 }
 
-// buildImageCurl generates an equivalent curl command for an image generation request.
-// baseURL and apiKey should come from the resolved provider so the dry-run output
-// accurately reflects which provider will be called. imageEdits selects the
-// POST /images/edits JSON shape when true and image inputs are present.
-func buildImageCurl(req *types.GenerateRequest, baseURL, apiKey string, imageEdits bool) string {
-	base := client.NormalizeBaseURL(baseURL)
-	if imageEdits && len(req.ImageURLs) > 0 {
-		body, _ := json.Marshal(client.ImageEditsBody(req))
-		cmd := fmt.Sprintf("curl -X POST %s \\\n", base+"/images/edits")
-		cmd += curlHeaderLines(apiKey)
-		cmd += fmt.Sprintf("  -d '%s'\n", string(body))
-		cmd += "# note: local image files are embedded as data: URIs (data:image/...;base64,...) before sending"
+const imageEditsDataURINote = "# note: local image files are embedded as data: URIs (data:image/...;base64,...) before sending"
+
+// imageWireRequest resolves the absolute URL and body a real image request
+// would use for p. It is the single source of truth shared by --dry-run and
+// --verbose, so a preview cannot drift from the client call it describes.
+func imageWireRequest(req *types.GenerateRequest, p *provider.EffectiveProvider) (rawURL string, body interface{}, note string) {
+	if p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL) {
+		return service.OllamaGenerateURL(p.BaseURL), service.OllamaGenerateBody(req), ""
+	}
+	base := client.NormalizeBaseURL(p.BaseURL)
+	switch p.ProviderType {
+	case provider.OpenRouter:
+		return base + client.OpenRouterImagesPath, client.OpenRouterImageBody(req), ""
+	case provider.Gemini:
+		return base + client.GeminiInteractionsPath, client.GeminiImageBody(req), ""
+	case provider.Zeekai:
+		if usesImageEditsJSON(p, req) {
+			return base + client.ImageEditsPath, client.ImageEditsBody(req), imageEditsDataURINote
+		}
+	}
+	return base + client.ImageSubmitPath, req, ""
+}
+
+// buildImageCurl generates an equivalent curl command for an image generation
+// request, rendering the same endpoint and body the client will actually use.
+func buildImageCurl(req *types.GenerateRequest, p *provider.EffectiveProvider) string {
+	rawURL, body, note := imageWireRequest(req, p)
+	data, _ := json.Marshal(body)
+	cmd := fmt.Sprintf("curl -X POST %s \\\n", rawURL)
+	cmd += curlHeaderLines(p.APIKey)
+	if note != "" {
+		cmd += fmt.Sprintf("  -d '%s'\n", string(data))
+		cmd += note
 		return cmd
 	}
-
-	body, _ := json.Marshal(req)
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", base+"/images/generations")
-	cmd += curlHeaderLines(apiKey)
-	cmd += fmt.Sprintf("  -d '%s'", string(body))
+	cmd += fmt.Sprintf("  -d '%s'", string(data))
 	return cmd
 }
 

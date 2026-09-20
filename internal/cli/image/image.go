@@ -139,8 +139,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	if genDryRun {
-		curl := buildImageCurl(req, p.BaseURL, p.APIKey, usesImageEditsJSON(p, req))
-		fmt.Println(curl)
+		fmt.Println(buildImageCurl(req, p))
 		return nil
 	}
 
@@ -156,7 +155,8 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 
 	// ----- Step 4: Print the request payload (verbose only) -----
 	if options.Shared.Verbose {
-		prettyReq, _ := json.MarshalIndent(req, "", "  ")
+		_, body, _ := imageWireRequest(req, p)
+		prettyReq, _ := json.MarshalIndent(body, "", "  ")
 		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
 	}
 
