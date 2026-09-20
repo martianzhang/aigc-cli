@@ -238,7 +238,57 @@ Each provider has its own endpoint and native shape (the CLI will not translate 
 
 > 💡 The flag path (`--prompt` / `--size` / `--duration` …) is unchanged — the CLI still maps fields per provider and fills defaults. Verbatim passthrough applies to `--json` only.
 
-> 💡 `--dry-run` and `--verbose` print the **real endpoint and real request body** (including the provider endpoints above), so you can confirm a new parameter is wired through.
+> 💡 `--dry-run` and `--verbose` print the **real endpoint and real request body** (including the provider endpoints above), so you can confirm a new parameter is wired through. Upload-based providers (APIMart, Yunwu) print one multipart upload curl per local reference image first, then the generation curl with `<UPLOAD_URL_n>` placeholders.
+
+## How Reference Images Are Sent: Upload vs Inline Data URI
+
+How a local reference image (`--image-url` / `--first-frame` / `--last-frame`) is sent depends on the provider: upload-based providers send the file first and reference the returned URL, while inline providers encode it directly as `data:image/<mime>;base64,...`. Remote `https://` URLs and data URIs always pass through unchanged.
+
+| Handling | Provider | Image value in the preview |
+|---|---|---|
+| Upload (send file, then reference its URL) | APIMart, Yunwu (the generic OpenAI-compatible relay follows the same path) | `<UPLOAD_URL_0>`, `<UPLOAD_URL_1>`, … |
+| Inline data URI | OpenRouter, Agnes | `data:image/png;base64,...` |
+
+### Upload-based (APIMart, Yunwu): `--dry-run` prints upload curls + the generation curl
+
+The CLI uploads **each local reference image** with a multipart request first, then sends the generation request with the returned public URL. `--dry-run` prints exactly that sequence: N local images produce N upload curls, followed by one generation curl whose image value is the placeholder `<UPLOAD_URL_n>`.
+
+```bash
+aigc-cli video --base-url "https://api.apimart.ai" \
+  --model "veo3.1-fast" \
+  --prompt "transition from day to night" \
+  --first-frame day.jpg --last-frame night.jpg --dry-run
+```
+
+```bash
+# Output (API key masked)
+curl -X POST https://api.apimart.ai/v1/uploads/images \
+  -H "Authorization: Bearer ...xxxx" \
+  -F "file=@day.jpg"
+curl -X POST https://api.apimart.ai/v1/uploads/images \
+  -H "Authorization: Bearer ...xxxx" \
+  -F "file=@night.jpg"
+curl -X POST https://api.apimart.ai/v1/videos/generations \
+  -H "Authorization: Bearer ...xxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"veo3.1-fast","prompt":"transition from day to night","image_with_roles":[{"url":"<UPLOAD_URL_0>","role":"first_frame"},{"url":"<UPLOAD_URL_1>","role":"last_frame"}]}'
+```
+
+`--dry-run` is preview only: **it makes no network calls and does not upload**. On a real run the placeholder is replaced with the URL returned by the upload. Remote URLs do not trigger an upload and stay in the body as-is. With `--image-url` (no frame role), the value lands in the `image_urls` array and is likewise a `<UPLOAD_URL_n>` placeholder.
+
+### Inline providers (no upload endpoint)
+
+| Provider | Local reference lands in | Shape in the preview body |
+|---|---|---|
+| OpenRouter | `frame_images[]` | `{"type":"image_url","image_url":{"url":"data:image/png;base64,..."},"frame_type":"first_frame"}` |
+| Agnes | `images[]` (reference mode) or `first_frame` / `last_frame` (keyframe mode) | `data:image/png;base64,...` |
+
+### Known limitations
+
+| Limitation | Detail |
+|---|---|
+| Yunwu flattens first/last frame roles | Yunwu's body has a single `images[]` array, so the CLI places the `--first-frame` / `--last-frame` URLs into `images[]` in order and **drops the first-frame/last-frame role information**. |
+| OpenRouter marks every `--image-url` as a first frame | In OpenRouter's `frame_images[]`, every entry that came from `--image-url` is written with `"frame_type":"first_frame"`; only `--first-frame` / `--last-frame` keep their own roles. |
 
 ## Depth Conversion
 

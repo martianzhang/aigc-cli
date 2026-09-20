@@ -65,7 +65,7 @@ Each provider's wire shape differs, so a verbatim `--json` body must match that 
 
 > 💡 The flag path (`--model` / `--prompt` / `--image-url` …) is unchanged — the CLI still maps and adapts fields per provider. Verbatim passthrough applies to `--json` only.
 
-> 💡 `--dry-run` and `--verbose` print the **real endpoint and real request body**, so you can use them to confirm whether a new vendor parameter is actually wired through.
+> 💡 `--dry-run` and `--verbose` print the **real endpoint and real request body**, so you can use them to confirm whether a new vendor parameter is actually wired through. For upload-based providers (such as APIMart), the preview prints one multipart upload curl per local reference image, then the generation curl with `<UPLOAD_URL_n>` placeholders.
 
 ```bash
 # single LoRA (ModelScope's documented string form) + fixed seed
@@ -115,6 +115,58 @@ aigc-cli image --provider modelscope --json '{
 
 > 💡 When a ModelScope task fails (e.g. blocked by content moderation), the error is read from the API's `errors.message`, so you see the specific reason instead of a generic `unknown error`.
 
+## How Reference Images Are Sent: Upload vs Inline Data URI
+
+How a local reference image (`--image-url`, `--mask-url`, or an image field pointing at a local file inside `--json`) is sent depends on the provider: either it is uploaded to an upload endpoint first and the returned URL is referenced by the generation request, or it is encoded inline as a `data:image/<mime>;base64,...` value in the body. Remote `https://` URLs and data URIs always pass through unchanged, never re-encoded or re-uploaded.
+
+| Handling | Provider | Image value in the preview |
+|---|---|---|
+| Upload (send file, then reference its URL) | APIMart | `<UPLOAD_URL_0>`, `<UPLOAD_URL_1>`, … |
+| Inline data URI (no upload endpoint) | OpenRouter, Gemini, ModelScope, Zeekai (image-to-image), Agnes | `data:image/png;base64,...` |
+| Inline data URI (default OpenAI-compatible) | OpenAI / Yunwu / SiliconFlow and other generic relays | `data:image/png;base64,...` inside the `image_urls` array |
+
+### Upload-based (APIMart): `--dry-run` prints upload curls + the generation curl
+
+APIMart cannot take a local file directly in the generation body: the CLI uploads **each local reference image** with a multipart request first, then sends the generation request with the returned public URL. `--dry-run` prints exactly that sequence: N local images produce N upload curls, followed by one generation curl whose image value is the placeholder `<UPLOAD_URL_n>`.
+
+```bash
+aigc-cli image --base-url "https://api.apimart.ai" \
+  --prompt "turn this photo into a Ghibli-style scene" \
+  --image-url ./photo.png --dry-run
+```
+
+```bash
+# Output (API key masked)
+curl -X POST https://api.apimart.ai/v1/uploads/images \
+  -H "Authorization: Bearer ...xxxx" \
+  -F "file=@./photo.png"
+curl -X POST https://api.apimart.ai/v1/images/generations \
+  -H "Authorization: Bearer ...xxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-image-2-official","prompt":"turn this photo into a Ghibli-style scene","image_urls":["<UPLOAD_URL_0>"]}'
+```
+
+`--dry-run` is preview only: **it makes no network calls and does not upload**. On a real run the placeholder is replaced with the URL returned by the upload. Remote URLs do not trigger an upload and stay in the body as-is. `--mode async` also selects this upload plan.
+
+> 💡 **`--json` uploads too:** image fields pointing at local files in a verbatim `--json` body are replaced with placeholders, and the uploaded URLs are written back on a real run. The `--dry-run` body keeps the original `--json` shape, only the image values become placeholders.
+
+### Inline providers (no upload endpoint)
+
+These providers encode local files as data URIs inline in the body; `--dry-run` / `--verbose` show each provider's real body shape:
+
+| Provider | Local reference lands in | Shape in the preview body |
+|---|---|---|
+| OpenRouter | `input_references[]` | `{"type":"image_url","image_url":{"url":"data:image/png;base64,..."}}` |
+| Gemini | `input[]` | `{"type":"image","data":"<base64>","mime_type":"image/png"}` |
+| ModelScope | `image_url` | a string for one image, an array for several, each `data:image/png;base64,...` |
+| Zeekai (image-to-image) | `images[].image_url` | `"images":[{"image_url":"data:image/png;base64,..."}]`, with a trailing `# note:` line |
+| Agnes | `extra_body.image` | `"extra_body":{"image":["data:image/png;base64,..."]}` |
+| Default OpenAI-compatible | `image_urls[]` | `"image_urls":["data:image/png;base64,..."]` |
+
+> 💡 **Gemini image-to-image now works:** local and remote reference images are both sent as image items in `input` (a local file becomes `{"type":"image","data":...,"mime_type":...}`, a remote URL becomes `{"type":"image","uri":...}`), instead of being dropped.
+
+> ⚠️ **Native OpenAI `/images/generations` has no image field:** the CLI encodes local reference images into `image_urls` before sending, which works for compatible relays that accept that field (a self-contained data URI is strictly better than sending a local path that never worked). Native OpenAI image editing uses `POST /v1/images/edits`, so use an `/images/edits` relay (such as Zeekai) or the provider's own edit protocol.
+
 ## Sync Mode
 
 The default mode for OpenAI-compatible APIs. Returns the image URL directly after generation.
@@ -157,6 +209,8 @@ URLs and data URIs are also supported:
 aigc-cli image --prompt "edit this" --image-url "https://example.com/image.png"
 aigc-cli image --prompt "edit this" --image-url "data:image/png;base64,..."
 ```
+
+> 💡 How each provider sends local files (an upload curl vs an inline data URI) is covered in [How Reference Images Are Sent](#how-reference-images-are-sent-upload-vs-inline-data-uri).
 
 ### Image-to-Image on `/images/edits` Relays (ZeekAI auto-detected, no config)
 
@@ -236,6 +290,8 @@ Preview the API request without sending:
 ```bash
 aigc-cli image --prompt "a cat" --dry-run
 ```
+
+For upload-based providers (APIMart), the preview also prints the multipart upload curl for each local reference image, followed by the generation curl. See [How Reference Images Are Sent](#how-reference-images-are-sent-upload-vs-inline-data-uri) for a full example.
 
 ## JSON Input
 

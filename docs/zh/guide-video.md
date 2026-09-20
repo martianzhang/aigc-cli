@@ -75,7 +75,57 @@ aigc-cli video --provider openrouter --json '{
 
 > 💡 用 `--flag`（`--prompt` / `--size` / `--duration` 等）时行为不变，CLI 仍按 provider 映射字段并补默认值；逐字透传只针对 `--json`。
 
-> 💡 `--dry-run` 与 `--verbose` 打印的是**真实端点与真实请求体**（含上表的 provider 端点），可直接用来验证新参数。
+> 💡 `--dry-run` 与 `--verbose` 打印的是**真实端点与真实请求体**（含上表的 provider 端点），可直接用来验证新参数。上传型 provider（APIMart、Yunwu）会先打印每个本地参考图的 multipart 上传 curl，再打印生成 curl，图片值用 `<UPLOAD_URL_n>` 占位。
+
+## 参考图怎么发：上传 vs 内嵌 data URI
+
+本地参考图（`--image-url` / `--first-frame` / `--last-frame`）的发送方式取决于 provider：上传型先传文件再引用返回的 URL，内嵌型直接编码成 `data:image/<mime>;base64,...`。远程 `https://` URL 和数据 URI 一律原样透传。
+
+| 处理方式 | Provider | 预览里的图片值 |
+|---|---|---|
+| 上传（先传文件，再引用 URL） | APIMart、Yunwu（通用 OpenAI 兼容中转同样走此路径） | `<UPLOAD_URL_0>`、`<UPLOAD_URL_1>` … |
+| 内嵌 data URI | OpenRouter、Agnes | `data:image/png;base64,...` |
+
+### 上传型（APIMart、Yunwu）：`--dry-run` 打印上传 curl + 生成 curl
+
+CLI 先对**每个本地参考图**发一次 multipart 上传，拿到公网 URL 后再发生成请求。`--dry-run` 如实打印这一串调用：N 个本地图片对应 N 条上传 curl，最后一条是生成 curl，生成 curl 里的图片值就是占位符 `<UPLOAD_URL_n>`。
+
+```bash
+aigc-cli video --base-url "https://api.apimart.ai" \
+  --model "veo3.1-fast" \
+  --prompt "从白天过渡到夜晚" \
+  --first-frame day.jpg --last-frame night.jpg --dry-run
+```
+
+```bash
+# 输出（API Key 已脱敏）
+curl -X POST https://api.apimart.ai/v1/uploads/images \
+  -H "Authorization: Bearer ...xxxx" \
+  -F "file=@day.jpg"
+curl -X POST https://api.apimart.ai/v1/uploads/images \
+  -H "Authorization: Bearer ...xxxx" \
+  -F "file=@night.jpg"
+curl -X POST https://api.apimart.ai/v1/videos/generations \
+  -H "Authorization: Bearer ...xxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"veo3.1-fast","prompt":"从白天过渡到夜晚","image_with_roles":[{"url":"<UPLOAD_URL_0>","role":"first_frame"},{"url":"<UPLOAD_URL_1>","role":"last_frame"}]}'
+```
+
+`--dry-run` 只做预览：**不发网络请求，也不会上传**。真实执行时占位符会被上传返回的 URL 替换。远程 URL 不触发上传，直接留在请求体里。用 `--image-url`（不带首尾帧角色）时，图片值落在 `image_urls` 数组里，同样是 `<UPLOAD_URL_n>` 占位。
+
+### 内嵌型（无上传端点）
+
+| Provider | 本地参考图落在 | 预览正文里的形状 |
+|---|---|---|
+| OpenRouter | `frame_images[]` | `{"type":"image_url","image_url":{"url":"data:image/png;base64,..."},"frame_type":"first_frame"}` |
+| Agnes | `images[]`（reference 模式）或 `first_frame` / `last_frame`（keyframe 模式） | `data:image/png;base64,...` |
+
+### 已知限制
+
+| 限制 | 说明 |
+|---|---|
+| Yunwu 首尾帧角色被拉平 | Yunwu 的请求体只有一个 `images[]` 数组，CLI 会把 `--first-frame` / `--last-frame` 的 URL 依次放进 `images[]`，**不携带首帧/尾帧角色信息**。 |
+| OpenRouter 多张 `--image-url` 都标为首帧 | OpenRouter 的 `frame_images[]` 里，每个来自 `--image-url` 的条目都会写成 `"frame_type":"first_frame"`；只有 `--first-frame` / `--last-frame` 才会保留各自的角色。 |
 
 ## VEO3 Remix（视频续拍）
 
@@ -286,7 +336,7 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 | `--size` | `-s` | 宽高比：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`、`adaptive` |
 | `--resolution` | `-r` | 分辨率：`480p`、`720p`、`1080p`，默认 `480p`（Pollinations 不使用此参数） |
 | `--generate-audio` | `-a` | 生成 AI 音频 |
-| `--dry-run` | | 打印 curl 不调用 API |
+| `--dry-run` | | 打印等价 curl（上传型 provider 会先打印每个本地参考图的上传 curl），不调用 API |
 | `--seed` | | 随机种子，用于复现 |
 | `--return-last-frame` | | 返回最后一帧用于续拍 |
 | `--image-url` | `-i` | 参考图片 URL 或本地文件（可重复）；配合 `--gif`/`--mp4` 且无 `--prompt` 时转换本地文件 |

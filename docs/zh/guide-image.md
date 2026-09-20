@@ -48,7 +48,7 @@ aigc-cli image < prompt.txt
 | `--save-prompt` | | 保存 prompt 到 `image_{task_id}.md` | 通用 |
 | `--verbose` | `-v` | 显示请求 JSON 和完整响应（全局 flag） | 通用 |
 | `--mode` | | 强制指定模式：`auto`、`sync`、`async` | 通用 |
-| `--dry-run` | | 打印 curl 不调用 API | 通用 |
+| `--dry-run` | | 打印等价 curl（上传型 provider 会先打印每个本地参考图的上传 curl），不调用 API | 通用 |
 | `--preview` | | 生成后自动用系统默认程序打开图片 | 通用 |
 
 > ⚠️ **--size 格式因厂商而异**：OpenAI/OpenRouter/APIMart 等大多数厂商支持宽高比格式（如 `1:1`、`16:9`），但部分厂商（如 Agnes、ModelScope）要求像素尺寸（如 `1024x1024`、`1024x768`）。使用前请查阅对应厂商的 API 文档确认 `size` 参数格式。
@@ -90,7 +90,7 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
 
 > 💡 用 `--flag`（`--model` / `--prompt` / `--image-url` 等）时行为不变，CLI 仍按各 provider 做字段映射与适配；逐字透传只针对 `--json`。
 
-> 💡 `--dry-run` 与 `--verbose` 打印的是**真实端点与真实请求体**，可直接用来确认厂商新参数是否已经接通。
+> 💡 `--dry-run` 与 `--verbose` 打印的是**真实端点与真实请求体**，可直接用来确认厂商新参数是否已经接通。上传型 provider（如 APIMart）会先打印每个本地参考图的 multipart 上传 curl，再打印生成 curl，图片值用 `<UPLOAD_URL_n>` 占位。
 
 ```bash
 # 单个 LoRA（ModelScope 文档的字符串形式）+ 固定 seed
@@ -139,6 +139,58 @@ aigc-cli image --provider modelscope --json '{
 > 💡 **验证参数是否真的传到位**：同一条 `--json` 跑两次，两次输出哈希必须一致。若不一致，说明参数被上游忽略了。
 
 > 💡 ModelScope 任务失败时（如内容审核拦截），错误信息取 API 返回的 `errors.message`，会显示具体原因而非笼统的 `unknown error`。
+
+## 参考图怎么发：上传 vs 内嵌 data URI
+
+本地参考图（`--image-url`、`--mask-url`，或 `--json` 里指向本地文件的图片字段）的发送方式取决于 provider：要么先上传到上传端点、再在生成请求里引用返回的 URL，要么直接编码成 `data:image/<mime>;base64,...` 内嵌进请求体。远程 `https://` URL 和数据 URI 一律原样透传，不会被再次编码或上传。
+
+| 处理方式 | Provider | 预览里的图片值 |
+|---|---|---|
+| 上传（先传文件，再引用 URL） | APIMart | `<UPLOAD_URL_0>`、`<UPLOAD_URL_1>` … |
+| 内嵌 data URI（无上传端点） | OpenRouter、Gemini、ModelScope、Zeekai（图生图）、Agnes | `data:image/png;base64,...` |
+| 内嵌 data URI（默认 OpenAI 兼容） | OpenAI / Yunwu / SiliconFlow 等通用兼容端点 | `image_urls` 数组里的 `data:image/png;base64,...` |
+
+### 上传型（APIMart）：`--dry-run` 打印上传 curl + 生成 curl
+
+APIMart 不能把本地文件直接塞进生成请求体：CLI 先对**每个本地参考图**发一次 multipart 上传，拿到公网 URL 后再发生成请求。`--dry-run` 如实打印这一串调用：N 个本地图片对应 N 条上传 curl，最后一条是生成 curl，生成 curl 里的图片值就是占位符 `<UPLOAD_URL_n>`。
+
+```bash
+aigc-cli image --base-url "https://api.apimart.ai" \
+  --prompt "把这张照片改成吉卜力风格" \
+  --image-url ./photo.png --dry-run
+```
+
+```bash
+# 输出（API Key 已脱敏）
+curl -X POST https://api.apimart.ai/v1/uploads/images \
+  -H "Authorization: Bearer ...xxxx" \
+  -F "file=@./photo.png"
+curl -X POST https://api.apimart.ai/v1/images/generations \
+  -H "Authorization: Bearer ...xxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-image-2-official","prompt":"把这张照片改成吉卜力风格","image_urls":["<UPLOAD_URL_0>"]}'
+```
+
+`--dry-run` 只做预览：**不发网络请求，也不会上传**。真实执行时占位符会被上传返回的 URL 替换。远程 URL 不触发上传，直接留在请求体里。`--mode async` 同样会选择这条上传型计划。
+
+> 💡 **`--json` 也会先上传**：`--json` 原文中指向本地文件的图片字段会被替换为占位符，真实执行时再写回上传后的 URL。`--dry-run` 打印的正文保持 `--json` 的原有形状，只是图片值变成了占位符。
+
+### 内嵌型（无上传端点）
+
+这些 provider 直接把本地文件编码成 data URI 内联进请求体，`--dry-run` / `--verbose` 打印的就是每家的真实正文形状：
+
+| Provider | 本地参考图落在 | 预览正文里的形状 |
+|---|---|---|
+| OpenRouter | `input_references[]` | `{"type":"image_url","image_url":{"url":"data:image/png;base64,..."}}` |
+| Gemini | `input[]` | `{"type":"image","data":"<base64>","mime_type":"image/png"}` |
+| ModelScope | `image_url` | 单张为字符串、多张为数组，值为 `data:image/png;base64,...` |
+| Zeekai（图生图） | `images[].image_url` | `"images":[{"image_url":"data:image/png;base64,..."}]`，正文末尾附一行 `# note:` |
+| Agnes | `extra_body.image` | `"extra_body":{"image":["data:image/png;base64,..."]}` |
+| 默认 OpenAI 兼容 | `image_urls[]` | `"image_urls":["data:image/png;base64,..."]` |
+
+> 💡 **Gemini 图生图现已可用**：本地或远程参考图都会作为 `input` 里的 image 项发送（本地文件为 `{"type":"image","data":...,"mime_type":...}`，远程 URL 为 `{"type":"image","uri":...}`），不再被丢弃。
+
+> ⚠️ **原生 OpenAI `/images/generations` 没有图片字段**：CLI 会把本地参考图编码进 `image_urls` 再发送，这对接受该字段的兼容中转有效（自包含的 data URI 也严格优于发一个本地路径），但原生 OpenAI 的图编辑走 `POST /v1/images/edits`，请使用 `/images/edits` 型中转（如 Zeekai）或对应 provider 的编辑协议。
 
 ### 模式自动检测规则
 
@@ -276,6 +328,8 @@ aigc-cli image \
   --image-url "https://example.com/img1.png" \
   --image-url "https://example.com/img2.png"
 ```
+
+> 💡 上传细节、`--dry-run` 输出，以及各 provider 内嵌 data URI 的正文形状，见上文《参考图怎么发：上传 vs 内嵌 data URI》。
 
 ## 在 /images/edits 型中转上做图生图（ZeekAI 自动识别，无需配置）
 
