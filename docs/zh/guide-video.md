@@ -50,6 +50,33 @@ aigc-cli video --prompt "A person speaking" \
 aigc-cli video --json request.json
 ```
 
+## JSON 输入是逐字透传
+
+`--json` 的原文字节会**原样**发往该 provider 的真实端点——CLI 不改名、不翻译、不归一化，也**不注入默认值**，因此厂商新参数无需改代码即可调试。
+
+```bash
+aigc-cli video --provider openrouter --json '{
+  "model": "google/veo-3.1",
+  "prompt": "a dog running",
+  "aspect_ratio": "16:9",
+  "generate_audio": true
+}'
+```
+
+各 provider 的 `--json` 实际端点与原生形状不同（CLI 不会替你转换）：
+
+| Provider | 端点 |
+|---|---|
+| OpenRouter | `POST {base}/videos` |
+| Agnes | `POST {base}/videos` |
+| Yunwu | `POST {base}/video/create` |
+| Pollinations | `GET {pollinations 根}/video/{prompt}`（GET，无请求体） |
+| APIMart / 通用 OpenAI 兼容 | `POST {base}/videos/generations` |
+
+> 💡 用 `--flag`（`--prompt` / `--size` / `--duration` 等）时行为不变，CLI 仍按 provider 映射字段并补默认值；逐字透传只针对 `--json`。
+
+> 💡 `--dry-run` 与 `--verbose` 打印的是**真实端点与真实请求体**（含上表的 provider 端点），可直接用来验证新参数。
+
 ## VEO3 Remix（视频续拍）
 
 > ⚠️ 仅 **VEO3** 系列模型支持 remix，不是所有视频模型都有此功能。

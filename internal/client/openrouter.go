@@ -25,6 +25,9 @@ const openrouterRequestTimeout = 120 * time.Second
 // the OpenAI-compatible /images/generations path).
 const OpenRouterImagesPath = "/images"
 
+// OpenRouterVideosPath is OpenRouter's dedicated video endpoint.
+const OpenRouterVideosPath = "/videos"
+
 // OpenRouterImageBody builds the request body for OpenRouter's dedicated image
 // API. A verbatim --json body wins; otherwise image_urls is mapped onto
 // input_references as OpenRouter requires. Shared by the real request and
@@ -97,7 +100,7 @@ func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.Op
 func (c *Client) OpenRouterVideoSubmit(req *types.OpenRouterVideoRequest) (*types.OpenRouterVideoSubmitResponse, error) {
 	headers := c.openRouterHeaders()
 	var result types.OpenRouterVideoSubmitResponse
-	if err := c.doJSONWithHeaders(http.MethodPost, "/videos", req, &result, headers); err != nil {
+	if err := c.doJSONWithHeaders(http.MethodPost, OpenRouterVideosPath, req, &result, headers); err != nil {
 		return nil, err
 	}
 	return &result, nil

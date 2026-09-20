@@ -10,7 +10,7 @@ import (
 // VideoSubmit sends a video generation request and returns the task submission.
 func (c *Client) VideoSubmit(req *types.VideoGenerateRequest) (*types.VideoGenerateResponse, error) {
 	var result types.VideoGenerateResponse
-	if err := c.doJSON(http.MethodPost, videoSubmitPath, req, &result); err != nil {
+	if err := c.doJSON(http.MethodPost, VideoSubmitPath, req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

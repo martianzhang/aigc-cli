@@ -13,9 +13,10 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// runOpenRouterVideo handles video generation via OpenRouter's dedicated video API.
-func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
-	// Build OpenRouter video request
+// openRouterVideoBody maps a generic video request onto OpenRouter's shape.
+// A verbatim --json body is carried through unchanged. Shared by the real
+// request and --dry-run/--verbose.
+func openRouterVideoBody(req *types.VideoGenerateRequest) *types.OpenRouterVideoRequest {
 	orReq := &types.OpenRouterVideoRequest{
 		Model:         req.Model,
 		Prompt:        req.Prompt,
@@ -24,6 +25,7 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
 		Duration:      req.Duration,
 		Seed:          req.Seed,
 		GenerateAudio: req.GenerateAudio,
+		RawJSON:       req.RawJSON,
 	}
 
 	// Map image_urls -> frame_images
@@ -47,6 +49,13 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
 		}
 		orReq.FrameImages = append(orReq.FrameImages, frame)
 	}
+
+	return orReq
+}
+
+// runOpenRouterVideo handles video generation via OpenRouter's dedicated video API.
+func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
+	orReq := openRouterVideoBody(req)
 
 	if options.Shared.Verbose {
 		prettyReq, _ := json.MarshalIndent(orReq, "", "  ")

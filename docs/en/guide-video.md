@@ -215,9 +215,30 @@ Notes:
 
 ## JSON Input
 
+`--json` is forwarded verbatim: your bytes are sent to that provider's real endpoint unchanged. The CLI does not rename, translate, normalize, or inject defaults, so a new vendor parameter needs no code change.
+
 ```bash
-aigc-cli video --json '{"prompt": "a dog running", "model": "google/veo-3.1"}'
+aigc-cli video --provider openrouter --json '{
+  "model": "google/veo-3.1",
+  "prompt": "a dog running",
+  "aspect_ratio": "16:9",
+  "generate_audio": true
+}'
 ```
+
+Each provider has its own endpoint and native shape (the CLI will not translate it):
+
+| Provider | Endpoint |
+|---|---|
+| OpenRouter | `POST {base}/videos` |
+| Agnes | `POST {base}/videos` |
+| Yunwu | `POST {base}/video/create` |
+| Pollinations | `GET {pollinations-root}/video/{prompt}` (GET, no body) |
+| APIMart / generic OpenAI-compatible | `POST {base}/videos/generations` |
+
+> 💡 The flag path (`--prompt` / `--size` / `--duration` …) is unchanged — the CLI still maps fields per provider and fills defaults. Verbatim passthrough applies to `--json` only.
+
+> 💡 `--dry-run` and `--verbose` print the **real endpoint and real request body** (including the provider endpoints above), so you can confirm a new parameter is wired through.
 
 ## Depth Conversion
 

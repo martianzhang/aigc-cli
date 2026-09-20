@@ -59,11 +59,8 @@ type GenerateRequest struct {
 
 // MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
 func (r GenerateRequest) MarshalJSON() ([]byte, error) {
-	if len(r.RawJSON) > 0 {
-		return r.RawJSON, nil
-	}
 	type typed GenerateRequest
-	return json.Marshal(typed(r))
+	return marshalVerbatim(r.RawJSON, typed(r))
 }
 
 // BodyOrRaw returns the verbatim --json body when set, otherwise the
@@ -71,10 +68,30 @@ func (r GenerateRequest) MarshalJSON() ([]byte, error) {
 // (OpenRouter, Gemini, Ollama, /images/edits) build that shape and pass it
 // here, so --json passthrough cannot be silently dropped on those paths.
 func (r *GenerateRequest) BodyOrRaw(built interface{}) interface{} {
-	if len(r.RawJSON) > 0 {
-		return r.RawJSON
+	return RawOr(r.RawJSON, built)
+}
+
+// BodyOrRaw is the video twin of GenerateRequest.BodyOrRaw.
+func (r *VideoGenerateRequest) BodyOrRaw(built interface{}) interface{} {
+	return RawOr(r.RawJSON, built)
+}
+
+// RawOr returns raw verbatim when set, otherwise built.
+func RawOr(raw json.RawMessage, built interface{}) interface{} {
+	if len(raw) > 0 {
+		return raw
 	}
 	return built
+}
+
+// marshalVerbatim returns raw unchanged when set, otherwise the marshalled
+// typed view. Request types route MarshalJSON through it so a --json body
+// reaches the wire verbatim instead of being rebuilt from modeled fields.
+func marshalVerbatim(raw json.RawMessage, typed interface{}) ([]byte, error) {
+	if len(raw) > 0 {
+		return raw, nil
+	}
+	return json.Marshal(typed)
 }
 
 // ValidateBackground checks background/output_format compatibility.
@@ -224,6 +241,15 @@ type VideoGenerateRequest struct {
 	ImageWithRoles  []ImageWithRole `json:"image_with_roles,omitempty"`
 	VideoURLs       []string        `json:"video_urls,omitempty"`
 	AudioURLs       []string        `json:"audio_urls,omitempty"`
+	// RawJSON is a verbatim --json body; when set it overrides MarshalJSON so
+	// provider-specific parameters reach the API unmodelled.
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
+}
+
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+func (r VideoGenerateRequest) MarshalJSON() ([]byte, error) {
+	type typed VideoGenerateRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
 }
 
 // VideoTool represents a tool for video generation (e.g. web_search).

@@ -11,10 +11,10 @@ import (
 const (
 	ImageSubmitPath      = "/images/generations"
 	ImageEditsPath       = "/images/edits"
-	videoSubmitPath      = "/videos/generations"
-	yunwuVideoSubPath    = "/video/create"
+	VideoSubmitPath      = "/videos/generations"
+	YunwuVideoSubPath    = "/video/create"
 	yunwuVideoQryPath    = "/video/query"
-	agnesVideoSubmitPath = "/videos"
+	AgnesVideoSubmitPath = "/videos"
 	agnesVideoQueryPath  = "/agnesapi"
 	chatPath             = "/chat/completions"
 	audioSpeechPath      = "/audio/speech"

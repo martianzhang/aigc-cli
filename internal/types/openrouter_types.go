@@ -1,6 +1,8 @@
 // Package types — OpenRouter-specific API types for image and video generation.
 package types
 
+import "encoding/json"
+
 // OpenRouterUsage holds token and cost information.
 type OpenRouterUsage struct {
 	InputTokens  int     `json:"input_tokens,omitempty"`
@@ -23,6 +25,14 @@ type OpenRouterVideoRequest struct {
 	GenerateAudio *bool                  `json:"generate_audio,omitempty"`
 	Seed          *int                   `json:"seed,omitempty"`
 	FrameImages   []OpenRouterFrameImage `json:"frame_images,omitempty"`
+	// RawJSON is a verbatim --json body carried over from the video command.
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
+}
+
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+func (r OpenRouterVideoRequest) MarshalJSON() ([]byte, error) {
+	type typed OpenRouterVideoRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
 }
 
 // OpenRouterFrameImage represents an image used as first/last frame or reference.

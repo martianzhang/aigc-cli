@@ -24,9 +24,10 @@ func agnesSize(resolution string) string {
 	}
 }
 
-// AgnesVideoSubmit sends a video generation request to agnes.ai's POST /v1/videos (async task).
-// See https://agnes-ai.com/zh-Hans/docs/agnes-video-25-flash for the official API spec.
-func (c *Client) AgnesVideoSubmit(req *types.VideoGenerateRequest) (*types.AgnesVideoCreateResponse, error) {
+// AgnesVideoBody builds the agnes video request body. A verbatim --json body
+// wins; otherwise the typed fields are mapped. Shared by the real request and
+// --dry-run/--verbose so the preview cannot drift from what is sent.
+func AgnesVideoBody(req *types.VideoGenerateRequest) interface{} {
 	bodyMap := map[string]interface{}{
 		"model":  req.Model,
 		"prompt": req.Prompt,
@@ -62,8 +63,14 @@ func (c *Client) AgnesVideoSubmit(req *types.VideoGenerateRequest) (*types.Agnes
 		bodyMap["images"] = req.ImageURLs
 	}
 
+	return req.BodyOrRaw(bodyMap)
+}
+
+// AgnesVideoSubmit sends a video generation request to agnes.ai's POST /v1/videos (async task).
+// See https://agnes-ai.com/zh-Hans/docs/agnes-video-25-flash for the official API spec.
+func (c *Client) AgnesVideoSubmit(req *types.VideoGenerateRequest) (*types.AgnesVideoCreateResponse, error) {
 	var result types.AgnesVideoCreateResponse
-	if err := c.doJSON(http.MethodPost, agnesVideoSubmitPath, bodyMap, &result); err != nil {
+	if err := c.doJSON(http.MethodPost, AgnesVideoSubmitPath, AgnesVideoBody(req), &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

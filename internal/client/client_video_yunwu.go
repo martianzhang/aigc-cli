@@ -11,8 +11,10 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// YunwuVideoSubmit sends a video generation request to yunwu.ai's POST /v1/video/create.
-func (c *Client) YunwuVideoSubmit(req *types.VideoGenerateRequest) (*types.YunwuVideoCreateResponse, error) {
+// YunwuVideoBody builds the yunwu video request body. A verbatim --json body
+// wins; otherwise the typed fields are mapped. Shared by the real request and
+// --dry-run/--verbose.
+func YunwuVideoBody(req *types.VideoGenerateRequest) interface{} {
 	bodyMap := map[string]interface{}{
 		"model":  req.Model,
 		"prompt": req.Prompt,
@@ -29,13 +31,17 @@ func (c *Client) YunwuVideoSubmit(req *types.VideoGenerateRequest) (*types.Yunwu
 		}
 		bodyMap["images"] = images
 	}
+	return req.BodyOrRaw(bodyMap)
+}
 
-	body, err := json.Marshal(bodyMap)
+// YunwuVideoSubmit sends a video generation request to yunwu.ai's POST /v1/video/create.
+func (c *Client) YunwuVideoSubmit(req *types.VideoGenerateRequest) (*types.YunwuVideoCreateResponse, error) {
+	body, err := json.Marshal(YunwuVideoBody(req))
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+yunwuVideoSubPath, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+YunwuVideoSubPath, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

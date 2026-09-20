@@ -11,6 +11,13 @@ import (
 func TestBuildVideoCurl(t *testing.T) {
 	options.Shared.APIKey = "test-key"
 	options.Shared.APIBase = "https://api.apimart.ai"
+	options.Shared.APIKeySet = true
+	options.Shared.APIBaseSet = true
+	t.Cleanup(func() {
+		options.Shared.APIKeySet = false
+		options.Shared.APIBaseSet = false
+	})
+
 	req := &types.VideoGenerateRequest{
 		Model:  "doubao-seedance-2.0",
 		Prompt: "test video",
@@ -24,6 +31,70 @@ func TestBuildVideoCurl(t *testing.T) {
 	}
 	if !strings.Contains(curl, "doubao-seedance-2.0") {
 		t.Error("curl should contain model name")
+	}
+	if !strings.Contains(curl, "https://api.apimart.ai/v1/videos/generations") {
+		t.Errorf("curl should target the resolved provider host, got:\n%s", curl)
+	}
+}
+
+func withVideoNamedProvider(t *testing.T, ref string, np *types.NamedProvider) {
+	t.Helper()
+	options.Shared.APIKeySet = false
+	options.Shared.APIBaseSet = false
+	options.Shared.ProviderSet = false
+	options.Shared.Cfg = &types.Config{
+		Providers: map[string]*types.NamedProvider{ref: np},
+		Defaults:  &types.ConfigDefaults{Video: &types.VideoDefaults{Provider: ref}},
+	}
+	t.Cleanup(func() { options.Shared.Cfg = nil })
+}
+
+func TestBuildVideoCurlVerbatimPerProvider(t *testing.T) {
+	const raw = `{"model":"m","prompt":"p","aspect_ratio":"16:9","custom_x":1}`
+	req := &types.VideoGenerateRequest{RawJSON: []byte(raw)}
+
+	tests := []struct {
+		name    string
+		ref     string
+		np      *types.NamedProvider
+		wantURL string
+	}{
+		{
+			"openrouter uses /videos",
+			"openrouter",
+			&types.NamedProvider{Type: types.ProviderOpenAI, APIKey: "k", BaseURL: "https://openrouter.ai/api/v1"},
+			"https://openrouter.ai/api/v1/videos",
+		},
+		{
+			"agnes uses /videos",
+			"agnes",
+			&types.NamedProvider{Type: types.ProviderOpenAI, APIKey: "k", BaseURL: "https://apihub.agnes-ai.com/v1"},
+			"https://apihub.agnes-ai.com/v1/videos",
+		},
+		{
+			"yunwu uses /video/create",
+			"yunwu",
+			&types.NamedProvider{Type: types.ProviderOpenAI, APIKey: "k", BaseURL: "https://yunwu.ai"},
+			"https://yunwu.ai/v1/video/create",
+		},
+		{
+			"apimart uses /videos/generations",
+			"apimart",
+			&types.NamedProvider{Type: types.ProviderOpenAI, APIKey: "k", BaseURL: "https://api.apimart.ai"},
+			"https://api.apimart.ai/v1/videos/generations",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			withVideoNamedProvider(t, tc.ref, tc.np)
+			curl := buildVideoCurl(req)
+			if !strings.Contains(curl, tc.wantURL) {
+				t.Errorf("curl should target %s, got:\n%s", tc.wantURL, curl)
+			}
+			if !strings.Contains(curl, raw) {
+				t.Errorf("curl should forward the --json body verbatim, got:\n%s", curl)
+			}
+		})
 	}
 }
 

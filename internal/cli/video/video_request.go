@@ -3,7 +3,7 @@ package video
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
+	"net/http"
 
 	"github.com/spf13/cobra"
 
@@ -40,6 +40,7 @@ func buildVideoRequest(cmd *cobra.Command) (*types.VideoGenerateRequest, error) 
 		if err := json.Unmarshal(data, req); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
+		req.RawJSON = data
 		return req, nil
 	}
 
@@ -83,47 +84,50 @@ func buildVideoRequest(cmd *cobra.Command) (*types.VideoGenerateRequest, error) 
 	return req, nil
 }
 
-func buildVideoCurl(req *types.VideoGenerateRequest) string {
-	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
+// videoWireRequest resolves the method, absolute URL and body a real video
+// request would use for p. Shared by --dry-run and --verbose so the preview
+// cannot drift from the client call it describes.
+func videoWireRequest(req *types.VideoGenerateRequest, p *provider.EffectiveProvider) (method, rawURL string, body interface{}) {
 	if p.ProviderType == provider.Pollinations {
-		return buildPollinationsVideoCurl(req, p)
+		return http.MethodGet, client.NewFromProvider(p).PollinationsVideoURL(req), nil
 	}
-
-	body, _ := json.Marshal(req)
-	base := options.Shared.APIBase
-	if base == "" {
-		base = types.DefaultAPIBaseURL + "/v1"
+	base := client.NormalizeBaseURL(p.BaseURL)
+	switch p.ProviderType {
+	case provider.OpenRouter:
+		return http.MethodPost, base + client.OpenRouterVideosPath, openRouterVideoBody(req)
+	case provider.Agnes:
+		return http.MethodPost, base + client.AgnesVideoSubmitPath, client.AgnesVideoBody(req)
+	case provider.Yunwu:
+		return http.MethodPost, base + client.YunwuVideoSubPath, client.YunwuVideoBody(req)
 	}
-	base = strings.TrimRight(base, "/")
-	url := base + "/videos/generations"
-
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(options.Shared.APIKey))
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(body))
-	return cmd
+	return http.MethodPost, base + client.VideoSubmitPath, req
 }
 
-func buildPollinationsVideoCurl(req *types.VideoGenerateRequest, p *provider.EffectiveProvider) string {
-	url := client.NewFromProvider(p).PollinationsVideoURL(req)
+func buildVideoCurl(req *types.VideoGenerateRequest) string {
+	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
+	method, rawURL, body := videoWireRequest(req, p)
+	if method == http.MethodGet {
+		cmd := fmt.Sprintf("curl -X GET %s \\\n", rawURL)
+		cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
+		cmd += "  --output video.mp4"
+		return cmd
+	}
 
-	cmd := fmt.Sprintf("curl -X GET %s \\\n", url)
+	data, _ := json.Marshal(body)
+	cmd := fmt.Sprintf("curl -X POST %s \\\n", rawURL)
 	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
-	cmd += "  --output video.mp4"
+	cmd += "  -H \"Content-Type: application/json\" \\\n"
+	cmd += fmt.Sprintf("  -d '%s'", string(data))
 	return cmd
 }
 
 func buildVideoRemixCurl(req *types.VideoRemixRequest) string {
+	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
 	body, _ := json.Marshal(req)
-	base := options.Shared.APIBase
-	if base == "" {
-		base = types.DefaultAPIBaseURL + "/v1"
-	}
-	base = strings.TrimRight(base, "/")
-	url := fmt.Sprintf("%s/videos/%s/remix", base, vidTaskID)
+	url := fmt.Sprintf("%s/videos/%s/remix", client.NormalizeBaseURL(p.BaseURL), vidTaskID)
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(options.Shared.APIKey))
+	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
 	cmd += "  -H \"Content-Type: application/json\" \\\n"
 	cmd += fmt.Sprintf("  -d '%s'", string(body))
 	return cmd
