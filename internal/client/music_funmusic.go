@@ -29,7 +29,7 @@ func FunMusicEndpoint(baseURL string) string {
 // which returns the finished audio URL in the same response. body is taken as a
 // map so the --json overlay can pass through vendor-specific fields (gender,
 // enable_aigc_watermark) that are not modelled as typed fields.
-func (c *Client) FunMusicGenerate(body map[string]any) (*types.FunMusicResponse, error) {
+func (c *Client) FunMusicGenerate(body any) (*types.FunMusicResponse, error) {
 	var result types.FunMusicResponse
 	if err := c.doJSONAbsolute(http.MethodPost, FunMusicEndpoint(c.baseURL), body, &result, nil); err != nil {
 		return nil, err

@@ -75,25 +75,6 @@ func TestBuildFunMusicBody(t *testing.T) {
 			},
 		},
 		{
-			name: "extras merge into input",
-			req:  &types.MusicGenerateRequest{Prompt: "x", Extras: map[string]any{"gender": "male"}},
-			want: map[string]any{
-				"model": "fun-music-v1",
-				"input": map[string]any{"prompt": "x", "gender": "male"},
-			},
-		},
-		{
-			name: "nested input extras merge rather than replace",
-			req: &types.MusicGenerateRequest{
-				Prompt: "x",
-				Extras: map[string]any{"input": map[string]any{"enable_aigc_watermark": true}},
-			},
-			want: map[string]any{
-				"model": "fun-music-v1",
-				"input": map[string]any{"prompt": "x", "enable_aigc_watermark": true},
-			},
-		},
-		{
 			name: "duration and title are dropped",
 			req:  &types.MusicGenerateRequest{Prompt: "x", Duration: &duration, Title: "t"},
 			want: map[string]any{
@@ -126,6 +107,18 @@ func TestBuildFunMusicBody(t *testing.T) {
 				t.Errorf("body mismatch\n got: %s\nwant: %s", gotJSON, wantJSON)
 			}
 		})
+	}
+}
+
+func TestBuildFunMusicBodyForwardsRawJSON(t *testing.T) {
+	const raw = `{"model":"fun-music-v1","input":{"prompt":"x","gender":"male"},"vendor_future_key":9}`
+	got, err := BuildFunMusicBody(&types.MusicGenerateRequest{RawJSON: []byte(raw)})
+	if err != nil {
+		t.Fatalf("BuildFunMusicBody: %v", err)
+	}
+	gotJSON, _ := json.Marshal(got)
+	if string(gotJSON) != raw {
+		t.Errorf("raw --json body = %s, want %s", gotJSON, raw)
 	}
 }
 

@@ -37,7 +37,7 @@ aigc-cli music gen --prompt "epic orchestral" --duration 120 --format mp3
 
 # 阿里云百炼 Fun-Music（同步）
 aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清新民谣"
-aigc-cli music gen --provider dashscope --prompt "摇滚" --json '{"gender":"male"}'
+aigc-cli music gen --provider dashscope --json '{"model":"fun-music-v1","input":{"prompt":"摇滚","gender":"male"}}'
 
 # 查询任务：完成后自动下载音频（仅 APIMart）
 aigc-cli music query task_xxx
@@ -125,7 +125,7 @@ aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清
   - `fun-music-preview`：`prompt` 必填；不支持 `gender`。
 - 字段映射：`--prompt`（或 `--style`，同时给出时用 `，` 连接）→ `input.prompt`；`--lyrics` → `input.lyrics`；`--instrumental` → `input.is_instrumental`；`--format` → `input.format`。
 - **无对应字段**：`--duration` 与 `--title` 会被忽略（时长由歌词长度决定），CLI 会打印告警。
-- vendor 专属字段（`gender`、`enable_aigc_watermark` 等）通过 `--json` 传入，会合并进 `input`（`model` 除外，它保持顶层）。
+- vendor 专属字段（`gender`、`enable_aigc_watermark` 等）通过 `--json` 传入；`--json` 是**逐字透传**，需自行写完整的 DashScope 原生形状（含 `input` 嵌套）。
 - `is_instrumental=true` 时 `lyrics` 与 `gender` 无效，CLI 会自动移除这两个字段。
 - 区域/开通：该模型目前为**邀测**，仅**华北 2（北京）**可用，需在百炼模型广场申请开通。
 
@@ -143,7 +143,7 @@ aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清
 | `--instrumental` | | 纯音乐（无人声） |
 | `--duration` | `-d` | 时长（秒）；suno → `duration`，flowmusic → `length`；百炼不支持 |
 | `--format` | | 音频格式（suno / OpenRouter / 百炼；flowmusic 不支持） |
-| `--json` | | JSON 输入（文件、字符串，或 `-` 表示 stdin） |
+| `--json` | | JSON 输入（文件、字符串，或 `-` 表示 stdin）；**逐字透传**，替换整个请求体 |
 | `--dry-run` | | 打印等价 curl，不调用 API |
 | `--provider` | | 全局：引用命名 Provider（如 `openrouter`） |
 | `--api-key` | | 全局：覆盖 API Key |
@@ -152,23 +152,27 @@ aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清
 
 ---
 
-## `--json` 覆盖语义
+## `--json` 逐字透传
 
-Provider 专属字段通过 `--json` 传入。`--json` 的键**最后合并，始终覆盖** flag 与代码默认值（用于传递各后端独有的参数）。
+`--json` 的原文**替换整个请求体**——不合并、不翻译、不补默认值，也不做字段映射与校验。因此要写**该后端的原生形状**：
 
 ```bash
-# suno 专属字段：style_weight / vocal_gender / weirdness_constraint / version 等
-aigc-cli music gen --prompt "city pop" --json '{"style_weight":0.6,"vocal_gender":"Female"}'
+# suno 专属字段（原生扁平形状）
+aigc-cli music gen --provider apimart --json '{"model":"suno","prompt":"city pop","style_weight":0.6,"vocal_gender":"Female"}'
 
-# flowmusic 专属字段：bpm / seed 等
-aigc-cli music gen --prompt "rock" --model flowmusic --json '{"bpm":"128","seed":"42"}'
+# flowmusic 专属字段
+aigc-cli music gen --provider apimart --json '{"model":"flowmusic","sound_prompt":"rock","length":120,"bpm":"128","seed":"42"}'
 
-# OpenRouter
-aigc-cli music gen --prompt "ambient" --provider openrouter --model google/lyria-3-pro-preview
+# 百炼 Fun-Music：原生 input 嵌套
+aigc-cli music gen --provider dashscope --json '{"model":"fun-music-v1","input":{"prompt":"城市民谣","gender":"male"}}'
 
-# 百炼 Fun-Music：gender / enable_aigc_watermark 会合并进 input
-aigc-cli music gen --provider dashscope --prompt "城市民谣" --json '{"gender":"male"}'
+# OpenRouter（chat/completions 形状）
+aigc-cli music gen --provider openrouter --json '{"model":"google/lyria-3-pro-preview","messages":[{"role":"user","content":"ambient"}],"modalities":["text","audio"],"stream":true}'
 ```
+
+> ⚠️ 用了 `--json` 就不要再依赖 `--prompt` / `--model` 等 flag——请求体只由 `--json` 决定。
+> 💡 `--dry-run` / `--verbose` 打印真实端点与真实请求体，可直接验证。
+> 💡 各后端端点不同：APIMart `{base}/music/generations`、OpenRouter `{base}/chat/completions`、百炼 DashScope 原生 `/api/v1/services/audio/music/generation`。
 
 ---
 

@@ -101,7 +101,7 @@ func (m *mockAPIClient) MusicPollTask(taskID string) (*types.MusicTaskData, erro
 func (m *mockAPIClient) OpenRouterMusicGenerate(req *types.OpenRouterMusicRequest) ([]byte, string, error) {
 	return nil, "", nil
 }
-func (m *mockAPIClient) FunMusicGenerate(body map[string]any) (*types.FunMusicResponse, error) {
+func (m *mockAPIClient) FunMusicGenerate(body any) (*types.FunMusicResponse, error) {
 	return nil, nil
 }
 func (m *mockAPIClient) AudioSpeech(req *types.AudioSpeechRequest) ([]byte, string, error) {

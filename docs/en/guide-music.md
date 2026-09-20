@@ -37,7 +37,7 @@ aigc-cli music gen --prompt "epic orchestral" --duration 120 --format mp3
 
 # Alibaba Cloud Bailian Fun-Music (synchronous)
 aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "summer folk"
-aigc-cli music gen --provider dashscope --prompt "rock" --json '{"gender":"male"}'
+aigc-cli music gen --provider dashscope --json '{"model":"fun-music-v1","input":{"prompt":"rock","gender":"male"}}'
 
 # Query a task: downloads the audio when complete (APIMart only)
 aigc-cli music query task_xxx
@@ -125,7 +125,7 @@ Notes:
   - `fun-music-preview`: `prompt` is required; `gender` is not supported.
 - Field mapping: `--prompt` (or `--style`, joined with `，` when both are given) → `input.prompt`; `--lyrics` → `input.lyrics`; `--instrumental` → `input.is_instrumental`; `--format` → `input.format`.
 - **No equivalent fields**: `--duration` and `--title` are ignored (the length is derived from the lyrics) and the CLI prints a warning.
-- Vendor-specific fields (`gender`, `enable_aigc_watermark`, …) go through `--json` and are merged into `input` (except `model`, which stays top-level).
+- Vendor-specific fields (`gender`, `enable_aigc_watermark`, …) go through `--json`; `--json` is forwarded **verbatim**, so write the full DashScope-native shape (including the `input` nesting).
 - When `is_instrumental=true`, `lyrics` and `gender` are invalid and the CLI removes them automatically.
 - Region/availability: the model is currently in **limited preview**, available **only in China (Beijing)**, and requires approval in the Bailian Model Gallery.
 
@@ -143,7 +143,7 @@ Notes:
 | `--instrumental` | | Instrumental only (no vocals) |
 | `--duration` | `-d` | Duration in seconds; suno → `duration`, flowmusic → `length`; not supported by Bailian |
 | `--format` | | Audio format (suno / OpenRouter / Bailian; not supported by flowmusic) |
-| `--json` | | JSON input (file path, string, or `-` for stdin) |
+| `--json` | | JSON input (file path, string, or `-` for stdin); forwarded **verbatim**, replacing the whole body |
 | `--dry-run` | | Print the equivalent curl, do not call the API |
 | `--provider` | | Global: reference a named provider (e.g. `openrouter`) |
 | `--api-key` | | Global: override API key |
@@ -152,23 +152,27 @@ Notes:
 
 ---
 
-## `--json` Overlay Semantics
+## `--json` Is Forwarded Verbatim
 
-Provider-specific fields are passed via `--json`. Its keys are merged **last and always win**, overriding flags and code defaults (the escape hatch for each backend's own parameters).
+`--json` **replaces the whole request body** — no merging, no translation, no defaults, no field mapping or validation. Write **that backend's native shape**:
 
 ```bash
-# suno-specific fields: style_weight / vocal_gender / weirdness_constraint / version, etc.
-aigc-cli music gen --prompt "city pop" --json '{"style_weight":0.6,"vocal_gender":"Female"}'
+# suno-specific fields (native flat shape)
+aigc-cli music gen --provider apimart --json '{"model":"suno","prompt":"city pop","style_weight":0.6,"vocal_gender":"Female"}'
 
-# flowmusic-specific fields: bpm / seed, etc.
-aigc-cli music gen --prompt "rock" --model flowmusic --json '{"bpm":"128","seed":"42"}'
+# flowmusic-specific fields
+aigc-cli music gen --provider apimart --json '{"model":"flowmusic","sound_prompt":"rock","length":120,"bpm":"128","seed":"42"}'
 
-# OpenRouter
-aigc-cli music gen --prompt "ambient" --provider openrouter --model google/lyria-3-pro-preview
+# Bailian Fun-Music: native input nesting
+aigc-cli music gen --provider dashscope --json '{"model":"fun-music-v1","input":{"prompt":"urban folk","gender":"male"}}'
 
-# Bailian Fun-Music: gender / enable_aigc_watermark are merged into input
-aigc-cli music gen --provider dashscope --prompt "urban folk" --json '{"gender":"male"}'
+# OpenRouter (chat/completions shape)
+aigc-cli music gen --provider openrouter --json '{"model":"google/lyria-3-pro-preview","messages":[{"role":"user","content":"ambient"}],"modalities":["text","audio"],"stream":true}'
 ```
+
+> ⚠️ With `--json`, don't rely on `--prompt` / `--model` and friends — the body comes from `--json` alone.
+> 💡 `--dry-run` / `--verbose` print the real endpoint and real body, so you can verify directly.
+> 💡 Endpoints differ per backend: APIMart `{base}/music/generations`, OpenRouter `{base}/chat/completions`, Bailian's native DashScope `/api/v1/services/audio/music/generation`.
 
 ---
 

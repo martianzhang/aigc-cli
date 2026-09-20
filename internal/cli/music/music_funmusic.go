@@ -20,7 +20,10 @@ const funMusicDefaultModel = "fun-music-v1"
 // Fun-Music exposes no style or duration field: style folds into prompt and the
 // duration is derived by the model from the lyric length, so an explicit
 // --duration/--title is reported and dropped.
-func BuildFunMusicBody(req *types.MusicGenerateRequest) (map[string]any, error) {
+func BuildFunMusicBody(req *types.MusicGenerateRequest) (any, error) {
+	if len(req.RawJSON) > 0 {
+		return req.RawJSON, nil
+	}
 	if req.Duration != nil {
 		fmt.Fprintln(os.Stderr, "Warning: fun-music ignores --duration (length is derived from the lyrics)")
 	}
@@ -57,26 +60,6 @@ func BuildFunMusicBody(req *types.MusicGenerateRequest) (map[string]any, error) 
 	}
 
 	body := map[string]any{"model": model, "input": input}
-
-	// --json overlay last: its keys win. Every Fun-Music tunable lives under
-	// "input", so extras are merged there; only "model" stays top-level.
-	for k, v := range req.Extras {
-		if k == "model" {
-			if s, ok := v.(string); ok && s != "" {
-				body["model"] = s
-			}
-			continue
-		}
-		if k == "input" {
-			if nested, ok := v.(map[string]any); ok {
-				for ik, iv := range nested {
-					input[ik] = iv
-				}
-			}
-			continue
-		}
-		input[k] = v
-	}
 
 	// is_instrumental=true makes lyrics and gender invalid per the API contract.
 	if inst, _ := input["is_instrumental"].(bool); inst {
@@ -131,7 +114,9 @@ func runFunMusicMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *
 	}
 
 	track := resp.Track()
-	fmt.Printf("Model: %v\n", body["model"])
+	if built, ok := body.(map[string]any); ok {
+		fmt.Printf("Model: %v\n", built["model"])
+	}
 	fmt.Printf("Duration: %ds\n", resp.Usage.Duration)
 	if track.AudioURL != "" {
 		fmt.Printf("Audio: %s\n", track.AudioURL)

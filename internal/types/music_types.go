@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -39,17 +40,24 @@ func (d *MusicDefaults) MergeIntoMusic(req *MusicGenerateRequest) {
 }
 
 // MusicGenerateRequest is the typed, backend-agnostic music request.
-// Extras carries the --json overlay and is merged last (its keys win).
 type MusicGenerateRequest struct {
-	Model        string         `json:"model"`
-	Prompt       string         `json:"prompt,omitempty"`
-	Title        string         `json:"title,omitempty"`
-	Style        string         `json:"style,omitempty"`
-	Lyrics       string         `json:"lyrics,omitempty"`
-	Instrumental *bool          `json:"instrumental,omitempty"`
-	Duration     *int           `json:"duration,omitempty"`
-	Format       string         `json:"format,omitempty"`
-	Extras       map[string]any `json:"-"`
+	Model        string `json:"model"`
+	Prompt       string `json:"prompt,omitempty"`
+	Title        string `json:"title,omitempty"`
+	Style        string `json:"style,omitempty"`
+	Lyrics       string `json:"lyrics,omitempty"`
+	Instrumental *bool  `json:"instrumental,omitempty"`
+	Duration     *int   `json:"duration,omitempty"`
+	Format       string `json:"format,omitempty"`
+	// RawJSON is a verbatim --json body; when set it overrides MarshalJSON so
+	// provider-specific parameters reach the API unmodelled.
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
+}
+
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+func (r MusicGenerateRequest) MarshalJSON() ([]byte, error) {
+	type typed MusicGenerateRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
 }
 
 // MusicSubmitResponse is the POST /v1/music/generations response. Data is an array.
@@ -142,6 +150,14 @@ type OpenRouterMusicRequest struct {
 	Modalities []string                 `json:"modalities"`
 	Audio      *OpenRouterAudioConfig   `json:"audio,omitempty"`
 	Stream     bool                     `json:"stream"`
+	// RawJSON is a verbatim --json body carried over from the music command.
+	RawJSON json.RawMessage `json:"-" yaml:"-"`
+}
+
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+func (r OpenRouterMusicRequest) MarshalJSON() ([]byte, error) {
+	type typed OpenRouterMusicRequest
+	return marshalVerbatim(r.RawJSON, typed(r))
 }
 
 // OpenRouterMusicMessage is a single chat message carrying the music prompt.

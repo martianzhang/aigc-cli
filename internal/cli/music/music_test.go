@@ -86,22 +86,6 @@ func TestBuildMusicBody(t *testing.T) {
 			},
 		},
 		{
-			name: "json overlay wins",
-			req: &types.MusicGenerateRequest{
-				Model:  "suno",
-				Prompt: "x",
-				Extras: map[string]any{"length": 200, "custom": true},
-			},
-			want: map[string]any{
-				"model":        "suno",
-				"prompt":       "x",
-				"custom":       true,
-				"instrumental": false,
-				"version":      "v6",
-				"length":       200,
-			},
-		},
-		{
 			name:    "suno empty prompt errors",
 			req:     &types.MusicGenerateRequest{Model: "suno"},
 			wantErr: true,
@@ -129,6 +113,18 @@ func TestBuildMusicBody(t *testing.T) {
 				t.Errorf("buildMusicBody() = %#v, want %#v", got, c.want)
 			}
 		})
+	}
+}
+
+func TestBuildMusicBodyForwardsRawJSON(t *testing.T) {
+	const raw = `{"model":"suno","prompt":"city pop","vendor_future_key":9}`
+	got, err := buildMusicBody(&types.MusicGenerateRequest{RawJSON: []byte(raw)})
+	if err != nil {
+		t.Fatalf("buildMusicBody: %v", err)
+	}
+	gotJSON, _ := json.Marshal(got)
+	if string(gotJSON) != raw {
+		t.Errorf("raw --json body = %s, want %s", gotJSON, raw)
 	}
 }
 

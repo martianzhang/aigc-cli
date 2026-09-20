@@ -41,7 +41,7 @@ type APIClient interface {
 	MusicGetTask(taskID string) (*types.MusicTaskData, error)
 	MusicPollTask(taskID string) (*types.MusicTaskData, error)
 	OpenRouterMusicGenerate(req *types.OpenRouterMusicRequest) ([]byte, string, error)
-	FunMusicGenerate(body map[string]any) (*types.FunMusicResponse, error)
+	FunMusicGenerate(body any) (*types.FunMusicResponse, error)
 
 	// Audio (TTS/STT)
 	AudioSpeech(req *types.AudioSpeechRequest) ([]byte, string, error)

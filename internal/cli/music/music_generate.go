@@ -79,26 +79,29 @@ func buildMusicGenerateReq(cmd *cobra.Command) (*types.MusicGenerateRequest, err
 		cfg.MergeIntoMusic(req)
 	}
 
-	// --json overlay is merged last in buildMusicBody (its keys win).
+	// --json is forwarded verbatim; it replaces the mapped body entirely.
 	if musicJSONInput != "" {
 		data, err := service.ReadInput(musicJSONInput)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read JSON input: %w", err)
 		}
-		extras := map[string]any{}
-		if err := json.Unmarshal(data, &extras); err != nil {
+		var probe any
+		if err := json.Unmarshal(data, &probe); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
-		req.Extras = extras
+		req.RawJSON = data
 	}
 
 	return req, nil
 }
 
-// buildMusicBody maps a typed request to the backend-native body.
-// Provider-specific shape and last-resort values live here (in code), and the
-// --json overlay (Extras) is applied last so its keys always win.
-func buildMusicBody(req *types.MusicGenerateRequest) (map[string]any, error) {
+// buildMusicBody maps a typed request to the backend-native body. A verbatim
+// --json body is returned as-is, skipping the mapping and its validation.
+func buildMusicBody(req *types.MusicGenerateRequest) (any, error) {
+	if len(req.RawJSON) > 0 {
+		return req.RawJSON, nil
+	}
+
 	model := req.Model
 	if model == "" {
 		model = "suno"
@@ -158,12 +161,7 @@ func buildMusicBody(req *types.MusicGenerateRequest) (map[string]any, error) {
 		}
 	}
 
-	// --json overlay last: its keys win over flags, config and code defaults.
-	for k, v := range req.Extras {
-		body[k] = v
-	}
-
-	// Validation against the final merged body.
+	// Validation against the built body.
 	if backend == "flowmusic" {
 		sound, _ := body["sound_prompt"].(string)
 		lyrics, _ := body["lyrics"].(string)
