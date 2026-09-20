@@ -35,6 +35,7 @@ type geminiInputItem struct {
 	Text     string `json:"text,omitempty"`
 	Data     string `json:"data,omitempty"`
 	MimeType string `json:"mime_type,omitempty"`
+	URI      string `json:"uri,omitempty"`
 }
 
 // geminiInteractionsResponse is the response from Gemini Interactions API.
@@ -70,6 +71,9 @@ func GeminiImageBody(req *types.GenerateRequest) interface{} {
 	input := []geminiInputItem{
 		{Type: "text", Text: req.Prompt},
 	}
+	for _, ref := range req.ImageURLs {
+		input = append(input, geminiImageItem(ref))
+	}
 
 	respFormat := &geminiResponseFormat{Type: "image"}
 
@@ -86,6 +90,20 @@ func GeminiImageBody(req *types.GenerateRequest) interface{} {
 		Input:          input,
 		ResponseFormat: respFormat,
 	})
+}
+
+// geminiImageItem maps one reference image onto the Interactions input shape. A
+// data URI (data:<mime>;base64,<b64>) becomes raw base64 in data; anything else
+// (public https URL or opaque handle) is passed through as uri.
+func geminiImageItem(value string) geminiInputItem {
+	if strings.HasPrefix(value, "data:") {
+		header, payload, ok := strings.Cut(value, ",")
+		if ok && strings.HasSuffix(header, ";base64") {
+			mimeType := strings.TrimSuffix(strings.TrimPrefix(header, "data:"), ";base64")
+			return geminiInputItem{Type: "image", Data: payload, MimeType: mimeType}
+		}
+	}
+	return geminiInputItem{Type: "image", URI: value}
 }
 
 // GeminiImageGenerate generates images using Gemini Interactions API.
