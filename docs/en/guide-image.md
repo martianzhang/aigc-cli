@@ -49,7 +49,9 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
 
 ### `--json` is forwarded verbatim
 
-**What you write is what gets sent.** The CLI does not rename, translate, or normalize anything, so vendor parameters reach the API exactly as documented. This applies to every provider — write the provider's own shape:
+**What you write is what gets sent** — as long as no flags accompany `--json`. The CLI does not rename, translate, or normalize anything, so vendor parameters reach the API exactly as documented. This applies to every provider — write the provider's own shape:
+
+When you do combine `--json` with CLI flags, only the flags you explicitly set override the matching JSON key; every key you did not touch (including vendor-only fields such as `loras`, `seed`, `steps`, or any custom key) is preserved exactly. With `--json` and no flags, the body is sent byte-for-byte unchanged.
 
 Each provider's wire shape differs, so a verbatim `--json` body must match that provider's native shape (the CLI will not translate it). The body is sent to that provider's real endpoint:
 
@@ -114,6 +116,17 @@ aigc-cli image --provider modelscope --json '{
 > 💡 **To check whether a parameter really reached the API:** run the same `--json` twice — the output hashes must match. If they differ, the parameter was dropped upstream.
 
 > 💡 When a ModelScope task fails (e.g. blocked by content moderation), the error is read from the API's `errors.message`, so you see the specific reason instead of a generic `unknown error`.
+
+### Overriding `--json` Keys with Flags
+
+Flags and `--json` compose: each flag you explicitly set wins over the matching key, everything else in the body stays untouched. This is handy when the JSON file holds the stable structural params (LoRAs, seed, steps, size) and the prompt varies per run.
+
+```bash
+# JSON holds the structural params; the prompt comes from a separate flag
+aigc-cli image --provider modelscope --json downloads/prompt.json --prompt "a low-angle legwear ad"
+```
+
+In this example the JSON's `prompt` is replaced by the flag value, while `loras`, `seed`, `steps`, and `size` from the JSON are preserved exactly. Flag-to-key mapping follows the normal flag path (`--output-format` → `output_format`, `--image-url` → `image_urls`). Behavioral flags such as `--dry-run`, `--preview`, `--provider`, `--api-key`, `--api-base`, `--http-proxy`, `--output`, `--verbose`, and `--timeout` never enter the body.
 
 ## How Reference Images Are Sent: Upload vs Inline Data URI
 

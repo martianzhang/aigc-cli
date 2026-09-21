@@ -125,7 +125,7 @@ Notes:
   - `fun-music-preview`: `prompt` is required; `gender` is not supported.
 - Field mapping: `--prompt` (or `--style`, joined with `，` when both are given) → `input.prompt`; `--lyrics` → `input.lyrics`; `--instrumental` → `input.is_instrumental`; `--format` → `input.format`.
 - **No equivalent fields**: `--duration` and `--title` are ignored (the length is derived from the lyrics) and the CLI prints a warning.
-- Vendor-specific fields (`gender`, `enable_aigc_watermark`, …) go through `--json`; `--json` is forwarded **verbatim**, so write the full DashScope-native shape (including the `input` nesting).
+- Vendor-specific fields (`gender`, `enable_aigc_watermark`, …) go through `--json`; with no flags accompanying it, `--json` is forwarded **verbatim**, so write the full DashScope-native shape (including the `input` nesting).
 - When `is_instrumental=true`, `lyrics` and `gender` are invalid and the CLI removes them automatically.
 - Region/availability: the model is currently in **limited preview**, available **only in China (Beijing)**, and requires approval in the Bailian Model Gallery.
 
@@ -143,7 +143,7 @@ Notes:
 | `--instrumental` | | Instrumental only (no vocals) |
 | `--duration` | `-d` | Duration in seconds; suno → `duration`, flowmusic → `length`; not supported by Bailian |
 | `--format` | | Audio format (suno / OpenRouter / Bailian; not supported by flowmusic) |
-| `--json` | | JSON input (file path, string, or `-` for stdin); forwarded **verbatim**, replacing the whole body |
+| `--json` | | JSON input (file path, string, or `-` for stdin); a backend-native body sent **verbatim** when no flags are set. Explicitly-set flags overlay the key the active backend uses |
 | `--dry-run` | | Print the equivalent curl, do not call the API |
 | `--provider` | | Global: reference a named provider (e.g. `openrouter`) |
 | `--api-key` | | Global: override API key |
@@ -152,9 +152,18 @@ Notes:
 
 ---
 
-## `--json` Is Forwarded Verbatim
+## `--json`: Backend-Native Body, Flag Overlay
 
-`--json` **replaces the whole request body** — no merging, no translation, no defaults, no field mapping or validation. Write **that backend's native shape**:
+`--json` is a **backend-native body**. The four backends use different keys, so write **that backend's native shape** — the CLI does not translate one backend's shape into another's:
+
+| Backend | `--json` keys the CLI can target |
+|---|---|
+| APIMart `suno` | `prompt` / `style` / `title` / `duration` / `audio_format` |
+| APIMart `flowmusic` | `sound_prompt` / `length` |
+| OpenRouter Lyria | folded into `messages[0].content` + `audio.format` |
+| Bailian fun-music | `input.prompt` / `input.lyrics` / `input.format` / `input.is_instrumental` |
+
+With `--json` and no flags, the body is sent byte-for-byte unchanged:
 
 ```bash
 # suno-specific fields (native flat shape)
@@ -170,8 +179,16 @@ aigc-cli music gen --provider dashscope --json '{"model":"fun-music-v1","input":
 aigc-cli music gen --provider openrouter --json '{"model":"google/lyria-3-pro-preview","messages":[{"role":"user","content":"ambient"}],"modalities":["text","audio"],"stream":true}'
 ```
 
-> ⚠️ With `--json`, don't rely on `--prompt` / `--model` and friends — the body comes from `--json` alone.
-> 💡 `--dry-run` / `--verbose` print the real endpoint and real body, so you can verify directly.
+When you also pass flags, only the flags you explicitly set overlay the key the **active backend** would use; every key you did not touch is preserved exactly.
+
+```bash
+# JSON holds the model + lyrics; style and title come from flags
+aigc-cli music gen --provider apimart --json downloads/track.json --style "city pop" --title "Neon Rain"
+```
+
+> ⚠️ A backend only has a target for the keys it actually uses. Some flags are silently dropped when the active backend has no matching key: `--format` has no target for flowmusic, and `--duration` / `--title` have none for Bailian fun-music. On suno, `--prompt` maps to `style` when lyrics are present, otherwise to `prompt`.
+
+> 💡 `--dry-run` / `--verbose` print the real endpoint and real body, so you can verify the overlay directly.
 > 💡 Endpoints differ per backend: APIMart `{base}/music/generations`, OpenRouter `{base}/chat/completions`, Bailian's native DashScope `/api/v1/services/audio/music/generation`.
 
 ---

@@ -253,6 +253,13 @@ aigc-cli midjourney (or mj)
 
 **CLI flags > JSON input > YAML config > Code defaults**
 
+For `--json` this precedence holds per key: when flags accompany `--json`, each flag you explicitly set overrides the matching key in the JSON body, while every key you did not touch is kept exactly as written. With `--json` and no flags, the body is sent verbatim.
+
+```bash
+# JSON holds the stable params (model, loras, seed, steps, size); the prompt varies per run
+aigc-cli image --provider modelscope --json downloads/prompt.json --prompt "a low-angle legwear ad"
+```
+
 Proxy priority:
 **`--http-proxy` flag > `HTTP_PROXY` / `HTTPS_PROXY` standard env vars**
 

@@ -50,9 +50,16 @@ aigc-cli video --prompt "A person speaking" \
 aigc-cli video --json request.json
 ```
 
-## JSON 输入是逐字透传
+## JSON 输入：原样转发 + 显式参数覆盖
 
-`--json` 的原文字节会**原样**发往该 provider 的真实端点——CLI 不改名、不翻译、不归一化，也**不注入默认值**，因此厂商新参数无需改代码即可调试。
+**不带任何参数时**，`--json` 的原文字节会**原样**发往该 provider 的真实端点——CLI 不改名、不翻译、不归一化，也**不注入默认值**，因此厂商新参数无需改代码即可调试。
+
+当 `--json` 与 CLI 参数同时出现时，只有你**显式指定**的参数会覆盖 body 中对应的键，其余键（包括 CLI 未建模的厂商私有键）原样保留：
+
+```bash
+# request.json 里的 generate_audio 被 flag 覆盖，其余键（如 aspect_ratio）一并保留
+aigc-cli video --provider openrouter --json request.json --generate-audio
+```
 
 ```bash
 aigc-cli video --provider openrouter --json '{
@@ -62,6 +69,10 @@ aigc-cli video --provider openrouter --json '{
   "generate_audio": true
 }'
 ```
+
+> 💡 参数到 JSON 键的映射沿用常规的 flag→字段映射（如 `--generate-audio` → `generate_audio`）。body 必须是 JSON **对象**；`--json` 支持内联字符串、文件路径或 `-`（stdin），路径文件不存在时明确报 `file not found: <路径>`。
+
+> 💡 行为类参数永远不写进 body：`--dry-run`、`--preview`、`--provider`、`--api-key`、`--api-base`、`--http-proxy`、`--output`、`--verbose`、`--timeout`、`--config`、`--print-config`，以及 video 专有的 `--remix`、`--raw`、`--task-id`、`--job-id`、`--gif`、`--mp4`、`--crop-margin`、`--ffmpeg-flags`。
 
 各 provider 的 `--json` 实际端点与原生形状不同（CLI 不会替你转换）：
 
@@ -73,7 +84,7 @@ aigc-cli video --provider openrouter --json '{
 | Pollinations | `GET {pollinations 根}/video/{prompt}`（GET，无请求体） |
 | APIMart / 通用 OpenAI 兼容 | `POST {base}/videos/generations` |
 
-> 💡 用 `--flag`（`--prompt` / `--size` / `--duration` 等）时行为不变，CLI 仍按 provider 映射字段并补默认值；逐字透传只针对 `--json`。
+> 💡 用 `--flag`（`--prompt` / `--size` / `--duration` 等）时行为不变，CLI 仍按 provider 映射字段并补默认值；JSON 原样保留只针对 `--json` 未涉及的那些键。
 
 > 💡 `--dry-run` 与 `--verbose` 打印的是**真实端点与真实请求体**（含上表的 provider 端点），可直接用来验证新参数。上传型 provider（APIMart、Yunwu）会先打印每个本地参考图的 multipart 上传 curl，再打印生成 curl，图片值用 `<UPLOAD_URL_n>` 占位。
 

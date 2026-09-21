@@ -70,7 +70,7 @@ tools_disable:
 | `--max-output` | Max response tokens | `4096` |
 | `--context-size` | Max input context tokens; auto-compacts at 80% (summarizes older messages) | `0` (model default) |
 | `--system` | System prompt | — |
-| `--json` | Pass messages as JSON; forwarded **verbatim**, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API | — |
+| `--json` | Pass messages as JSON; forwarded **verbatim** when no flags are set, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API. Explicitly-set flags override the matching key | — |
 | `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
 
 ### Context Management
@@ -84,6 +84,15 @@ You can also type `/compact` in interactive mode to trigger compaction manually.
 ```bash
 aigc-cli chat --json '{"messages": [{"role": "user", "content": "Hello"}]}'
 ```
+
+With `--json` and no flags, the body is sent byte-for-byte unchanged. When you also pass flags, only the flags you explicitly set override the matching JSON key; every key you did not touch (including unmodeled vendor keys) is preserved exactly. Flag-to-key mapping follows the normal flag path (`--max-output` → `max_tokens`, `--no-stream` → `stream`, `--temperature` → `temperature`).
+
+```bash
+# JSON supplies the messages; the model and token cap come from flags
+aigc-cli chat --json '{"messages": [{"role": "user", "content": "Hello"}]}' --model deepseek-v4-flash --max-output 2048
+```
+
+Here `messages` stays as written while `model` and `max_tokens` come from the flags. Behavioral flags (`--dry-run`, `--provider`, `--api-key`, `--api-base`, `--output`, `--verbose`, `--timeout`, `--context-size`, `--interactive`) never enter the body.
 
 ## Verbose Output
 

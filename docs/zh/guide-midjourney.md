@@ -54,7 +54,14 @@ aigc-cli mj imagine \
 aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}'
 ```
 
-> 💡 `--json` 是**逐字透传**：原文原样发往 `POST {base}/midjourney/generations/{action}`，CLI 不注入默认值，未知字段（厂商新参数）也不会被丢弃。`--flag` 路径行为不变（仍拼接 MJ prompt 参数）。`--dry-run` 打印的是**解析后 provider 的真实 host 与真实请求体**。
+> 💡 `--json` 不带参数时**逐字透传**：原文原样发往 `POST {base}/midjourney/generations/{action}`，CLI 不注入默认值，未知字段（厂商新参数）也不会被丢弃。与 CLI 参数同时出现时，只有**显式指定**的参数覆盖 body 中对应的键，其余键原样保留。`--flag` 路径行为不变（仍拼接 MJ prompt 参数）。`--dry-run` 打印的是**解析后 provider 的真实 host 与真实请求体**。
+
+```bash
+# JSON 提供结构化参数，只临时改提示词
+aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}' --prompt "a corgi"
+```
+
+> 💡 body 必须是 JSON **对象**；`--json` 支持内联字符串、文件路径或 `-`（stdin），路径文件不存在时明确报 `file not found: <路径>`。行为类参数（`--dry-run`、`--provider`、`--api-key`、`--api-base`、`--output` 等）永远不写进 body。
 
 ### Imagine 参数
 
@@ -87,7 +94,7 @@ aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}'
 | `--hd` | HD 模式（v8/v8.1） |
 | `--stop` | 提前停止 10-100 |
 | `--extra` | 额外 flag 转义口，原样追加到 prompt |
-| `--json` | JSON 输入（逐字透传，未知字段不丢弃） |
+| `--json` | JSON 输入（原样转发；显式 flag 覆盖对应键，未知字段不丢弃） |
 | `--dry-run` | 打印真实 host 与请求体的等价 curl，不调用 API |
 
 ---

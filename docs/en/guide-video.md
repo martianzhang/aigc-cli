@@ -215,7 +215,7 @@ Notes:
 
 ## JSON Input
 
-`--json` is forwarded verbatim: your bytes are sent to that provider's real endpoint unchanged. The CLI does not rename, translate, normalize, or inject defaults, so a new vendor parameter needs no code change.
+`--json` is forwarded verbatim when no flags accompany it: your bytes are sent to that provider's real endpoint unchanged. The CLI does not rename, translate, normalize, or inject defaults, so a new vendor parameter needs no code change.
 
 ```bash
 aigc-cli video --provider openrouter --json '{
@@ -225,6 +225,15 @@ aigc-cli video --provider openrouter --json '{
   "generate_audio": true
 }'
 ```
+
+When you combine `--json` with CLI flags, only the flags you explicitly set override the matching JSON key; every key you did not touch is preserved exactly. Flag-to-key mapping follows the normal flag path (`--generate-audio` → `generate_audio`, `--aspect-ratio` → `aspect_ratio`). With `--json` and no flags, the body is sent byte-for-byte unchanged.
+
+```bash
+# JSON holds the structural params; the prompt comes from a flag
+aigc-cli video --provider openrouter --json downloads/video.json --prompt "a dog running through autumn leaves"
+```
+
+In this example the JSON's `prompt` is replaced by the flag value, while `model`, `aspect_ratio`, and `generate_audio` from the JSON are preserved. Behavioral flags (`--dry-run`, `--preview`, `--provider`, `--api-key`, `--api-base`, `--output`, `--verbose`, `--timeout`, and video's `--remix` / `--raw` / `--task-id` / `--job-id` / `--gif` / `--mp4` / `--crop-margin` / `--ffmpeg-flags`) never enter the body.
 
 Each provider has its own endpoint and native shape (the CLI will not translate it):
 

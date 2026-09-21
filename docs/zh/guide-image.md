@@ -72,11 +72,22 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
 > 1. **没有图片上传端点**：本地 `--image-url` 会自动转 base64 Data URI，以 `image_url` 字段提交（单张为字符串，多张为数组）。
 > 2. **LoRA 必须走 `loras` 字段，不能把 LoRA 仓库 ID 当 `--model`**。否则 ModelScope 会**静默回退到底模**——不报错，但出图和这个 LoRA 毫无关系。
 
-### `--json` 是逐字透传
+### `--json`：原样转发 + 显式参数覆盖
 
-**你写什么，就发什么。** CLI 不改名、不翻译、不归一化，厂商参数按原样到达 API，因此直接照抄厂商文档的形状即可（对所有 provider 生效）：
+**不带任何参数时，你写什么就发什么。** CLI 不改名、不翻译、不归一化，厂商参数逐字节原样到达 API，因此直接照抄厂商文档的形状即可（对所有 provider 生效）。
 
-各 provider 的线上形状不同，`--json` 的原文会发往该 provider 的**真实端点**；逐字透传时你要写对应的原生形状（CLI 不会替你转换）：
+当 `--json` 与 CLI 参数同时出现时，只有你**显式指定**的参数会覆盖 body 中对应的键，其余键**原样保留**——包括 CLI 未建模的厂商私有键（如 `loras`、`seed`、`steps` 或任意自定义键）。这样就能把结构化参数放进 JSON 文件，临时只改一个提示词：
+
+```bash
+# downloads/prompt.json 里的 prompt 被参数值替换，loras / seed / steps / size 等键全部保留
+aigc-cli image --provider modelscope --json downloads/prompt.json --prompt "低角度丝袜广告"
+```
+
+> 💡 参数到 JSON 键的映射沿用常规的 flag→字段映射（如 `--output-format` → `output_format`、`--image-url` → `image_urls`）。body 必须是 JSON **对象**；`--json` 支持内联字符串、文件路径或 `-`（stdin），路径文件不存在时明确报 `file not found: <路径>`。
+
+> 💡 行为类参数永远不写进 body：`--dry-run`、`--preview`、`--provider`、`--api-key`、`--api-base`、`--http-proxy`、`--output`、`--verbose`、`--timeout`、`--config`、`--print-config`，以及 image 专有的 `--edit`、`--mode`、`--decode`、`--save-prompt`、`--compress`。
+
+各 provider 的线上形状不同，`--json` 的原文会发往该 provider 的**真实端点**；你要写对应的原生形状（CLI 不会替你转换）：
 
 | Provider | `--json` 实际请求端点 | 原生字段差异 |
 |---|---|---|
@@ -88,7 +99,7 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
 | ZeekAI（图生图） | `POST {base}/images/edits` | 图片用 `images[].image_url` |
 | 通用 OpenAI 兼容（OpenAI / Yunwu / SiliconFlow / AIBaseCamp / Pollinations）与 Agnes | `POST {base}/images/generations` | OpenAI 图像接口形状 |
 
-> 💡 用 `--flag`（`--model` / `--prompt` / `--image-url` 等）时行为不变，CLI 仍按各 provider 做字段映射与适配；逐字透传只针对 `--json`。
+> 💡 用 `--flag`（`--model` / `--prompt` / `--image-url` 等）时行为不变，CLI 仍按各 provider 做字段映射与适配；JSON 原样保留只针对 `--json` 未涉及的那些键。
 
 > 💡 `--dry-run` 与 `--verbose` 打印的是**真实端点与真实请求体**，可直接用来确认厂商新参数是否已经接通。上传型 provider（如 APIMart）会先打印每个本地参考图的 multipart 上传 curl，再打印生成 curl，图片值用 `<UPLOAD_URL_n>` 占位。
 

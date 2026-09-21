@@ -246,9 +246,22 @@ aigc-cli chat --message "Hello"
 | `--context-size` | 输入上下文窗口大小（token），0=使用模型默认值。对话超过其 80% 时自动压缩（总结早期消息） |
 | `--no-stream` | 关闭流式输出，等待完整响应 |
 | `--interactive`, `-i` | 强制进入交互式多轮模式 |
-| `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；**逐字透传**，未建模字段（如 `reasoning_effort`、厂商私有键）原样发出 |
+| `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
 | `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |
 | `--verbose`, `-v` | 显示 token 消耗、费用和耗时统计（全局 flag） |
+
+### `--json` 与参数合并
+
+只传 `--json`（不带任何其他参数）时，原文逐字节原样发送。同时给出 CLI 参数时，只有**显式指定**的参数覆盖 body 中对应的键，其余键原样保留：
+
+```bash
+# messages 结构照常来自 JSON，只把 max_tokens / stream 换成参数值
+aigc-cli chat --json request.json --max-output 1024 --no-stream
+```
+
+> 💡 参数到 JSON 键的映射沿用常规的 flag→字段映射（如 `--max-output` → `max_tokens`、`--no-stream` → `stream`）。body 必须是 JSON **对象**；`--json` 支持内联字符串、文件路径或 `-`（stdin），路径文件不存在时明确报 `file not found: <路径>`。
+
+> 💡 行为类参数永远不写进 body：`--dry-run`、`--provider`、`--api-key`、`--api-base`、`--http-proxy`、`--output`、`--verbose`、`--timeout`、`--config`、`--print-config`，以及 chat 专有的 `--context-size`、`--interactive`。
 
 ### 上下文管理
 

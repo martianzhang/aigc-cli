@@ -40,11 +40,20 @@ aigc-cli mj imagine --prompt "a cat" --image-url /path/to/input.png
 
 ### JSON Input
 
-`--json` is forwarded verbatim to `POST {base}/midjourney/generations/{action}` — the CLI injects no defaults and drops no unknown keys, so a new vendor parameter needs no code change. The flag path is unchanged, and `--dry-run` prints the resolved provider's real host and request body.
+`--json` is forwarded verbatim to `POST {base}/midjourney/generations/{action}` when no flags accompany it — the CLI injects no defaults and drops no unknown keys, so a new vendor parameter needs no code change. The flag path is unchanged, and `--dry-run` prints the resolved provider's real host and request body.
 
 ```bash
 aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}'
 ```
+
+When you combine `--json` with CLI flags, only the flags you explicitly set override the matching JSON key; every key you did not touch is preserved exactly. With `--json` and no flags, the body is sent byte-for-byte unchanged. Behavioral flags (`--dry-run`, `--preview`, `--provider`, `--api-key`, `--api-base`, `--output`, `--verbose`, `--timeout`) never enter the body.
+
+```bash
+# JSON holds the structural params; the prompt comes from a flag
+aigc-cli mj imagine --json downloads/mj.json --prompt "a cat wearing a hat"
+```
+
+Here the JSON's `prompt` is replaced by the flag value, while `size` and `version` from the JSON are preserved.
 
 ## Blend
 
