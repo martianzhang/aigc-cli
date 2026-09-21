@@ -119,6 +119,19 @@ func TestReadJSONInput(t *testing.T) {
 			t.Errorf("ReadJSONInput() error = %v, want it to mention 'file not found'", err)
 		}
 	})
+
+	t.Run("inline jsonc with leading comment", func(t *testing.T) {
+		got, err := ReadJSONInput("// note\n{\"prompt\":\"x\"}")
+		if err != nil {
+			t.Fatalf("ReadJSONInput() error = %v", err)
+		}
+		if strings.Contains(string(got), "note") {
+			t.Errorf("ReadJSONInput() = %q, want the comment stripped", string(got))
+		}
+		if !strings.Contains(string(got), `"prompt":"x"`) {
+			t.Errorf("ReadJSONInput() = %q, want the JSON preserved", string(got))
+		}
+	})
 }
 
 func TestIsImageInput(t *testing.T) {

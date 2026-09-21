@@ -39,13 +39,18 @@ func ReadInput(input string) ([]byte, error) {
 // "file not found" instead of failing later in the JSON parser.
 func ReadJSONInput(input string) ([]byte, error) {
 	if input == "-" || IsFile(input) || isInlineJSON(input) {
-		return ReadInput(input)
+		data, err := ReadInput(input)
+		if err != nil {
+			return nil, err
+		}
+		return NormalizeJSONC(data), nil
 	}
 	return nil, fmt.Errorf("file not found: %s (pass a file path, inline JSON, or \"-\" for stdin)", input)
 }
 
 // isInlineJSON reports whether input looks like an inline JSON document rather
-// than a file path. Leading whitespace is ignored.
+// than a file path. Leading whitespace is ignored. A JSONC document may open
+// with a comment, so a value starting with "//" or "/*" is treated as inline.
 func isInlineJSON(input string) bool {
 	trimmed := strings.TrimLeft(input, " \t\r\n")
 	if trimmed == "" {
@@ -54,6 +59,8 @@ func isInlineJSON(input string) bool {
 	switch trimmed[0] {
 	case '{', '[', '"':
 		return true
+	case '/':
+		return strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "/*")
 	default:
 		return false
 	}
