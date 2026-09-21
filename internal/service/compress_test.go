@@ -295,3 +295,172 @@ func TestCompressImage_BinarySearch(t *testing.T) {
 		os.Remove(result.DstPath)
 	}
 }
+
+func TestParseCompressOption_Table(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		wantTarget  int64
+		wantQuality int
+		wantErr     bool
+	}{
+		{name: "empty", input: "", wantErr: true},
+		{name: "whitespace only", input: "   ", wantErr: true},
+		{name: "auto lower", input: "auto"},
+		{name: "auto upper", input: "AUTO"},
+		{name: "kilobytes", input: "800KB", wantTarget: 800 * 1024},
+		{name: "kilobytes lower", input: "800kb", wantTarget: 800 * 1024},
+		{name: "megabytes", input: "2MB", wantTarget: 2 * 1024 * 1024},
+		{name: "megabytes lower", input: "2mb", wantTarget: 2 * 1024 * 1024},
+		{name: "short kilo", input: "500K", wantTarget: 500 * 1024},
+		{name: "short mega", input: "1M", wantTarget: 1 * 1024 * 1024},
+		{name: "bytes suffix", input: "1024B", wantTarget: 1024},
+		{name: "bare bytes", input: "1024", wantTarget: 1024},
+		{name: "percent", input: "85%", wantQuality: 85},
+		{name: "percent lower bound", input: "1%", wantQuality: 1},
+		{name: "percent upper bound", input: "100%", wantQuality: 100},
+		{name: "padded input", input: " 800KB ", wantTarget: 800 * 1024},
+		{name: "invalid text", input: "abc", wantErr: true},
+		{name: "quality zero", input: "0%", wantErr: true},
+		{name: "quality too high", input: "101%", wantErr: true},
+		{name: "zero size", input: "0KB", wantErr: true},
+		{name: "negative size", input: "-5KB", wantErr: true},
+		{name: "fractional size", input: "1.5MB", wantErr: true},
+		{name: "percent without number", input: "%", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			target, quality, err := ParseCompressOption(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("ParseCompressOption(%q) expected error", tc.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseCompressOption(%q) unexpected error: %v", tc.input, err)
+			}
+			if target != tc.wantTarget || quality != tc.wantQuality {
+				t.Errorf("ParseCompressOption(%q) = (%d, %d), want (%d, %d)",
+					tc.input, target, quality, tc.wantTarget, tc.wantQuality)
+			}
+		})
+	}
+}
+
+func TestCompressOptions_Fields(t *testing.T) {
+	opts := CompressOptions{TargetSize: 2048, Quality: 75, Format: "webp"}
+	if opts.TargetSize != 2048 {
+		t.Errorf("TargetSize = %d, want 2048", opts.TargetSize)
+	}
+	if opts.Quality != 75 {
+		t.Errorf("Quality = %d, want 75", opts.Quality)
+	}
+	if opts.Format != "webp" {
+		t.Errorf("Format = %q, want %q", opts.Format, "webp")
+	}
+
+	var zero CompressOptions
+	if zero.TargetSize != 0 || zero.Quality != 0 || zero.Format != "" {
+		t.Errorf("zero CompressOptions = %+v, want all fields unset", zero)
+	}
+}
+
+func TestCompressResult_Fields(t *testing.T) {
+	res := CompressResult{
+		DstPath: "/tmp/out.jpg",
+		Before:  4096,
+		After:   1024,
+		Skipped: false,
+		Reason:  "",
+		Format:  "jpg",
+		Quality: 80,
+	}
+	if res.DstPath != "/tmp/out.jpg" {
+		t.Errorf("DstPath = %q, want /tmp/out.jpg", res.DstPath)
+	}
+	if res.Before != 4096 || res.After != 1024 {
+		t.Errorf("Before/After = %d/%d, want 4096/1024", res.Before, res.After)
+	}
+	if res.Skipped {
+		t.Error("Skipped = true, want false")
+	}
+	if res.Reason != "" {
+		t.Errorf("Reason = %q, want empty", res.Reason)
+	}
+	if res.Format != "jpg" || res.Quality != 80 {
+		t.Errorf("Format/Quality = %q/%d, want jpg/80", res.Format, res.Quality)
+	}
+
+	skipped := CompressResult{Skipped: true, Reason: "already ≤ target"}
+	if !skipped.Skipped || skipped.Reason == "" {
+		t.Errorf("skipped result not populated: %+v", skipped)
+	}
+}
+
+func TestTryEncode_Formats(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	draw.Draw(img, img.Bounds(), image.NewUniform(color.RGBA{R: 10, G: 20, B: 30, A: 255}), image.Point{}, draw.Src)
+
+	tests := []struct {
+		name    string
+		outFmt  string
+		wantErr bool
+	}{
+		{name: "jpg", outFmt: "jpg"},
+		{name: "jpeg alias", outFmt: "jpeg"},
+		{name: "png", outFmt: "png"},
+		{name: "unsupported format", outFmt: "bmp", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dst := filepath.Join(t.TempDir(), "out."+tc.outFmt)
+			size, err := tryEncode(img, dst, tc.outFmt, 80)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("tryEncode(%q) expected error", tc.outFmt)
+				}
+				if _, statErr := os.Stat(dst); !os.IsNotExist(statErr) {
+					t.Errorf("tryEncode(%q) should remove %s on failure", tc.outFmt, dst)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("tryEncode(%q) unexpected error: %v", tc.outFmt, err)
+			}
+			if size <= 0 {
+				t.Errorf("tryEncode(%q) size = %d, want > 0", tc.outFmt, size)
+			}
+			info, err := os.Stat(dst)
+			if err != nil {
+				t.Fatalf("stat %s: %v", dst, err)
+			}
+			if info.Size() != size {
+				t.Errorf("tryEncode(%q) returned size %d, but file size is %d", tc.outFmt, size, info.Size())
+			}
+		})
+	}
+}
+
+func TestEncodeImage_ReturnsFileSize(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	draw.Draw(img, img.Bounds(), image.NewUniform(color.RGBA{R: 200, G: 100, B: 50, A: 255}), image.Point{}, draw.Src)
+
+	dst := filepath.Join(t.TempDir(), "encoded.jpg")
+	size, err := encodeImage(img, dst, "jpg", 70)
+	if err != nil {
+		t.Fatalf("encodeImage: %v", err)
+	}
+	if size <= 0 {
+		t.Errorf("encodeImage size = %d, want > 0", size)
+	}
+	info, err := os.Stat(dst)
+	if err != nil {
+		t.Fatalf("stat %s: %v", dst, err)
+	}
+	if info.Size() != size {
+		t.Errorf("encodeImage returned size %d, but file size is %d", size, info.Size())
+	}
+}

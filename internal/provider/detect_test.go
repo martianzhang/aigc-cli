@@ -223,3 +223,146 @@ func TestType_IsAsync(t *testing.T) {
 		t.Error("Agnes should not be async")
 	}
 }
+
+func TestDetect_Gemini(t *testing.T) {
+	tests := []struct {
+		url  string
+		want Type
+	}{
+		{"https://generativelanguage.googleapis.com", Gemini},
+		{"https://generativelanguage.googleapis.com/v1beta", Gemini},
+		{"https://generativelanguage.googleapis.com/v1beta/models", Gemini},
+		// The OpenAI-compatible /openai suffix is intentionally reported as
+		// OpenAI so Gemini-OpenAI requests use the OpenAI-compatible path.
+		{"https://generativelanguage.googleapis.com/v1beta/openai", OpenAI},
+		{"https://generativelanguage.googleapis.com/v1beta/openai/", OpenAI},
+		// gemini.google.com is not in the Gemini domain list, so it defaults to OpenAI.
+		{"https://gemini.google.com", OpenAI},
+		{"https://generativelanguage.googleapis.com.evil.com", OpenAI},
+		{"https://openrouter.ai/api/v1", OpenRouter},
+	}
+	for _, tc := range tests {
+		if got := Detect(tc.url); got != tc.want {
+			t.Errorf("Detect(%q) = %v, want %v", tc.url, got, tc.want)
+		}
+	}
+}
+
+func TestDetect_Bailian(t *testing.T) {
+	tests := []struct {
+		url  string
+		want Type
+	}{
+		{"https://dashscope.aliyuncs.com", Bailian},
+		{"https://dashscope.aliyuncs.com/compatible-mode/v1", Bailian},
+		{"https://dashscope-intl.aliyuncs.com/compatible-mode/v1", Bailian},
+		// Workspace-scoped native host, e.g. {WorkspaceId}.cn-beijing.maas.aliyuncs.com.
+		{"https://ws-abc123.cn-beijing.maas.aliyuncs.com", Bailian},
+		{"https://ws-abc123.cn-beijing.maas.aliyuncs.com/api/v1", Bailian},
+		{"https://dashscope.aliyuncs.com.evil.com", OpenAI},
+		{"https://dashscope.aliyuncs.com.evil.com/v1", OpenAI},
+		{"https://openrouter.ai/api/v1", OpenRouter},
+	}
+	for _, tc := range tests {
+		if got := Detect(tc.url); got != tc.want {
+			t.Errorf("Detect(%q) = %v, want %v", tc.url, got, tc.want)
+		}
+	}
+}
+
+func TestDetect_ModelScope(t *testing.T) {
+	tests := []struct {
+		url  string
+		want Type
+	}{
+		{"https://api-inference.modelscope.cn", ModelScope},
+		{"https://api-inference.modelscope.cn/v1", ModelScope},
+		{"https://api-inference.modelscope.ai", ModelScope},
+		{"https://api-inference.modelscope.ai/v1", ModelScope},
+		// Only the api-inference.* hosts are recognized; the apex domain falls through.
+		{"https://modelscope.cn", OpenAI},
+		{"https://api-inference.modelscope.cn.evil.com", OpenAI},
+		{"https://openrouter.ai/api/v1", OpenRouter},
+	}
+	for _, tc := range tests {
+		if got := Detect(tc.url); got != tc.want {
+			t.Errorf("Detect(%q) = %v, want %v", tc.url, got, tc.want)
+		}
+	}
+}
+
+// TestDetect_IsOpenAI covers the OpenAI/default branch. The package does not
+// export an IsOpenAI helper, so the assertion goes through Detect directly.
+func TestDetect_IsOpenAI(t *testing.T) {
+	isOpenAI := func(baseURL string) bool { return Detect(baseURL) == OpenAI }
+	tests := []struct {
+		url  string
+		want bool
+	}{
+		{"https://api.openai.com", true},
+		{"https://api.openai.com/v1", true},
+		// Unknown relays default to OpenAI-compatible.
+		{"https://custom.relay.com/v1", true},
+		{"https://my-gateway.internal", true},
+		{"https://openrouter.ai/api/v1", false},
+		{"https://dashscope.aliyuncs.com/compatible-mode/v1", false},
+		// Empty URL is Unknown, not OpenAI.
+		{"", false},
+	}
+	for _, tc := range tests {
+		if got := isOpenAI(tc.url); got != tc.want {
+			t.Errorf("isOpenAI(%q) = %v, want %v", tc.url, got, tc.want)
+		}
+	}
+}
+
+func TestDetect_IsModelScope(t *testing.T) {
+	if !IsModelScope("https://api-inference.modelscope.cn/v1") {
+		t.Error("IsModelScope should be true for api-inference.modelscope.cn")
+	}
+	if !IsModelScope("https://api-inference.modelscope.ai") {
+		t.Error("IsModelScope should be true for api-inference.modelscope.ai")
+	}
+	if IsModelScope("https://api.openai.com/v1") {
+		t.Error("IsModelScope should be false for api.openai.com")
+	}
+	if IsModelScope("https://modelscope.cn") {
+		t.Error("IsModelScope should be false for the modelscope.cn apex domain")
+	}
+}
+
+func TestDetect_IsGemini(t *testing.T) {
+	if !IsGemini("https://generativelanguage.googleapis.com/v1beta") {
+		t.Error("IsGemini should be true for generativelanguage.googleapis.com")
+	}
+	// /openai reports as OpenAI, so IsGemini must be false there.
+	if IsGemini("https://generativelanguage.googleapis.com/v1beta/openai") {
+		t.Error("IsGemini should be false for the /openai variant")
+	}
+	if IsGemini("https://api.openai.com/v1") {
+		t.Error("IsGemini should be false for api.openai.com")
+	}
+	// IsGeminiDomain is deliberately broader: it still recognizes the
+	// OpenAI-compatible /openai endpoint as a Gemini host.
+	if !IsGeminiDomain("https://generativelanguage.googleapis.com/v1beta/openai") {
+		t.Error("IsGeminiDomain should be true for the /openai variant")
+	}
+	if IsGeminiDomain("https://api.openai.com/v1") {
+		t.Error("IsGeminiDomain should be false for api.openai.com")
+	}
+}
+
+func TestDetect_IsBailian(t *testing.T) {
+	if !IsBailian("https://dashscope.aliyuncs.com/compatible-mode/v1") {
+		t.Error("IsBailian should be true for dashscope.aliyuncs.com")
+	}
+	if !IsBailian("https://ws-abc123.cn-beijing.maas.aliyuncs.com") {
+		t.Error("IsBailian should be true for maas.aliyuncs.com")
+	}
+	if IsBailian("https://api.openai.com/v1") {
+		t.Error("IsBailian should be false for api.openai.com")
+	}
+	if IsBailian("https://dashscope.aliyuncs.com.evil.com") {
+		t.Error("IsBailian should be false for a lookalike host")
+	}
+}

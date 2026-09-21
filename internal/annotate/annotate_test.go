@@ -63,3 +63,119 @@ func TestModelsDir(t *testing.T) {
 		t.Fatalf("ModelsDir = %q, want /tmp/fakehome/.config/aigc-cli/models", got)
 	}
 }
+
+// TestModelsDirHomeUnset 验证 HOME 未设置时回退到相对路径。
+func TestModelsDirHomeUnset(t *testing.T) {
+	t.Setenv("HOME", "")
+	want := filepath.Join(".config", "aigc-cli", "models")
+	if got := ModelsDir(); got != want {
+		t.Fatalf("ModelsDir = %q, want %q", got, want)
+	}
+}
+
+// TestToRGBAIdentity 验证 *image.RGBA 输入原样返回同一指针。
+func TestToRGBAIdentity(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	src.Set(1, 2, color.RGBA{R: 10, G: 20, B: 30, A: 255})
+
+	if got := toRGBA(src); got != src {
+		t.Fatalf("toRGBA(*image.RGBA) = %p, want same pointer %p", got, src)
+	}
+}
+
+// TestToRGBAFromGray 验证 *image.Gray 转换为新的 *image.RGBA 且边界与像素一致。
+func TestToRGBAFromGray(t *testing.T) {
+	src := image.NewGray(image.Rect(0, 0, 3, 2))
+	src.SetGray(0, 0, color.Gray{Y: 0})
+	src.SetGray(1, 0, color.Gray{Y: 128})
+	src.SetGray(2, 1, color.Gray{Y: 255})
+
+	got := toRGBA(src)
+	if got == nil {
+		t.Fatal("toRGBA returned nil")
+	}
+	assertSamePixels(t, got, src)
+}
+
+// TestToRGBAFromNRGBA 验证 *image.NRGBA 转换为新的 *image.RGBA 且边界与像素一致。
+func TestToRGBAFromNRGBA(t *testing.T) {
+	src := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	src.SetNRGBA(0, 0, color.NRGBA{R: 255, A: 255})
+	src.SetNRGBA(1, 0, color.NRGBA{G: 255, A: 128})
+	src.SetNRGBA(0, 1, color.NRGBA{B: 255, A: 0})
+
+	got := toRGBA(src)
+	if got == nil {
+		t.Fatal("toRGBA returned nil")
+	}
+	assertSamePixels(t, got, src)
+}
+
+// assertSamePixels 验证 got 与 src 边界一致且逐像素等值（统一按 RGBA 比较）。
+func assertSamePixels(t *testing.T, got *image.RGBA, src image.Image) {
+	t.Helper()
+	if got.Bounds() != src.Bounds() {
+		t.Fatalf("bounds = %v, want %v", got.Bounds(), src.Bounds())
+	}
+	b := src.Bounds()
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			want := color.RGBAModel.Convert(src.At(x, y)).(color.RGBA)
+			if have := got.At(x, y).(color.RGBA); have != want {
+				t.Errorf("pixel (%d,%d) = %v, want %v", x, y, have, want)
+			}
+		}
+	}
+}
+
+// TestDefaultLibPathMissing 验证目录下无库文件时返回错误。
+func TestDefaultLibPathMissing(t *testing.T) {
+	dir := t.TempDir()
+	got, err := defaultLibPath(dir)
+	if err == nil {
+		t.Fatalf("defaultLibPath(%q) = %q, want error", dir, got)
+	}
+	if !strings.Contains(err.Error(), dir) {
+		t.Errorf("error = %v, want mention of %q", err, dir)
+	}
+}
+
+// TestDefaultLibPathDylib 验证 libonnxruntime.dylib 存在时返回其路径。
+func TestDefaultLibPathDylib(t *testing.T) {
+	dir := t.TempDir()
+	want := filepath.Join(dir, "libonnxruntime.dylib")
+	if err := os.WriteFile(want, []byte("fake"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := defaultLibPath(dir)
+	if err != nil {
+		t.Fatalf("defaultLibPath: %v", err)
+	}
+	if got != want {
+		t.Fatalf("defaultLibPath = %q, want %q", got, want)
+	}
+}
+
+// TestDefaultLibPathSoFallback 验证仅有 libonnxruntime.so 时（darwin 回退）返回其路径。
+func TestDefaultLibPathSoFallback(t *testing.T) {
+	dir := t.TempDir()
+	want := filepath.Join(dir, "libonnxruntime.so")
+	if err := os.WriteFile(want, []byte("fake"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := defaultLibPath(dir)
+	if err != nil {
+		t.Fatalf("defaultLibPath: %v", err)
+	}
+	if got != want {
+		t.Fatalf("defaultLibPath = %q, want %q", got, want)
+	}
+}
+
+// TestAnnotatorsCloseEmpty 验证 close 函数切片为空时 Close 不 panic。
+func TestAnnotatorsCloseEmpty(t *testing.T) {
+	a := &annotators{}
+	a.Close()
+}
