@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 // IsFile reports whether path points to an existing regular (non-directory) file.
@@ -29,5 +30,31 @@ func ReadInput(input string) ([]byte, error) {
 		return os.ReadFile(input)
 	default:
 		return []byte(input), nil
+	}
+}
+
+// ReadJSONInput resolves a JSON payload from stdin ("-"), a file path, or an
+// inline JSON literal (must start with '{', '[' or '"'). A value that is none
+// of those is reported as a missing file, so a mistyped path says
+// "file not found" instead of failing later in the JSON parser.
+func ReadJSONInput(input string) ([]byte, error) {
+	if input == "-" || IsFile(input) || isInlineJSON(input) {
+		return ReadInput(input)
+	}
+	return nil, fmt.Errorf("file not found: %s (pass a file path, inline JSON, or \"-\" for stdin)", input)
+}
+
+// isInlineJSON reports whether input looks like an inline JSON document rather
+// than a file path. Leading whitespace is ignored.
+func isInlineJSON(input string) bool {
+	trimmed := strings.TrimLeft(input, " \t\r\n")
+	if trimmed == "" {
+		return false
+	}
+	switch trimmed[0] {
+	case '{', '[', '"':
+		return true
+	default:
+		return false
 	}
 }

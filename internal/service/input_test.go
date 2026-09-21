@@ -2,6 +2,7 @@ package service
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -69,6 +70,53 @@ func TestReadInput(t *testing.T) {
 		}
 		if string(got) != "file content" {
 			t.Errorf("ReadInput() = %q, want %q", string(got), "file content")
+		}
+	})
+}
+
+func TestReadJSONInput(t *testing.T) {
+	t.Run("inline object", func(t *testing.T) {
+		const raw = `{"prompt":"a cat"}`
+		got, err := ReadJSONInput(raw)
+		if err != nil {
+			t.Fatalf("ReadJSONInput() error = %v", err)
+		}
+		if string(got) != raw {
+			t.Errorf("ReadJSONInput() = %q, want %q", string(got), raw)
+		}
+	})
+
+	t.Run("inline array with leading space", func(t *testing.T) {
+		got, err := ReadJSONInput("  [1,2]")
+		if err != nil {
+			t.Fatalf("ReadJSONInput() error = %v", err)
+		}
+		if string(got) != "  [1,2]" {
+			t.Errorf("ReadJSONInput() = %q, want %q", string(got), "  [1,2]")
+		}
+	})
+
+	t.Run("existing file", func(t *testing.T) {
+		tmp, _ := os.CreateTemp("", "testjson")
+		tmp.WriteString(`{"prompt":"x"}`)
+		tmp.Close()
+		defer os.Remove(tmp.Name())
+		got, err := ReadJSONInput(tmp.Name())
+		if err != nil {
+			t.Fatalf("ReadJSONInput() error = %v", err)
+		}
+		if string(got) != `{"prompt":"x"}` {
+			t.Errorf("ReadJSONInput() = %q", string(got))
+		}
+	})
+
+	t.Run("missing path reports file not found", func(t *testing.T) {
+		_, err := ReadJSONInput("downloads/does-not-exist.json")
+		if err == nil {
+			t.Fatal("ReadJSONInput() error = nil, want file not found")
+		}
+		if !strings.Contains(err.Error(), "file not found") {
+			t.Errorf("ReadJSONInput() error = %v, want it to mention 'file not found'", err)
 		}
 	})
 }
