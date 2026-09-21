@@ -261,6 +261,17 @@ aigc-cli chat --json request.json --max-output 1024 --no-stream
 
 > 💡 参数到 JSON 键的映射沿用常规的 flag→字段映射（如 `--max-output` → `max_tokens`、`--no-stream` → `stream`）。body 必须是 JSON **对象**；`--json` 支持内联字符串、文件路径或 `-`（stdin），路径文件不存在时明确报 `file not found: <路径>`。
 
+`--json` 也接受 **JSONC**：解析前会剥离 `//` 行注释、`/* */` 块注释和 `}` / `]` 前的尾随逗号，并忽略开头的 UTF-8 BOM；字符串里的 `//` 或 `/*` 原样保留，不含注释的严格 JSON 逐字节不变。真正发往 API 的 body 是去掉注释后的 JSON。
+
+```jsonc
+{
+  // 结构化参数可以写注释
+  "model": "gpt-4o",
+  "messages": [{ "role": "user", "content": "你好" }],
+  "stream": false, // 尾随逗号也可以
+}
+```
+
 > 💡 行为类参数永远不写进 body：`--dry-run`、`--provider`、`--api-key`、`--api-base`、`--http-proxy`、`--output`、`--verbose`、`--timeout`、`--config`、`--print-config`，以及 chat 专有的 `--context-size`、`--interactive`。
 
 ### 上下文管理

@@ -85,6 +85,8 @@ You can also type `/compact` in interactive mode to trigger compaction manually.
 aigc-cli chat --json '{"messages": [{"role": "user", "content": "Hello"}]}'
 ```
 
+`--json` also accepts **JSONC**: `//` and `/* */` comments, trailing commas, and a leading UTF-8 BOM are stripped before parsing. Stripping is string-literal aware, so a `//` in `"https://host/path"` is kept, and a comment-free strict JSON body is unchanged byte-for-byte.
+
 With `--json` and no flags, the body is sent byte-for-byte unchanged. When you also pass flags, only the flags you explicitly set override the matching JSON key; every key you did not touch (including unmodeled vendor keys) is preserved exactly. Flag-to-key mapping follows the normal flag path (`--max-output` → `max_tokens`, `--no-stream` → `stream`, `--temperature` → `temperature`).
 
 ```bash

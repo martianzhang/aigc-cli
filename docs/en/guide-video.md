@@ -217,6 +217,8 @@ Notes:
 
 `--json` is forwarded verbatim when no flags accompany it: your bytes are sent to that provider's real endpoint unchanged. The CLI does not rename, translate, normalize, or inject defaults, so a new vendor parameter needs no code change.
 
+> 💡 **JSONC is accepted.** `//` line comments, `/* */` block comments, trailing commas, and a leading UTF-8 BOM are stripped before parsing. The stripping is string-literal aware, so a `//` inside a value such as `"https://host/path"` is preserved, and a comment-free strict JSON body is unchanged byte-for-byte.
+
 ```bash
 aigc-cli video --provider openrouter --json '{
   "model": "google/veo-3.1",

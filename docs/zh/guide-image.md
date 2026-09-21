@@ -28,7 +28,7 @@ aigc-cli image < prompt.txt
 |---|---|---|---|---|
 | `--prompt` | `-p` | 文本描述（自动识别文件/stdin） | 通用 |
 | `--model` | `-m` | 模型名（可通过 `defaults.image.model` 或 `providers.{name}.model` 设默认值） | 通用 |
-| `--provider` | | 命名 Provider 名称（覆盖 `defaults.image.provider`，见 `docs/config.example.yaml`） | 通用 |
+| `--provider` | `-P` | 命名 Provider 名称（覆盖 `defaults.image.provider`，见 `docs/config.example.yaml`） | 通用 |
 | `--size` | `-s` | 宽高比，如 `16:9`、`1:1`，或像素如 `1024x1024` | 通用 |
 | `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` | 通用 |
 | `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp`、`avif`、`jxl` | 通用 |
@@ -84,6 +84,18 @@ aigc-cli image --provider modelscope --json downloads/prompt.json --prompt "低�
 ```
 
 > 💡 参数到 JSON 键的映射沿用常规的 flag→字段映射（如 `--output-format` → `output_format`、`--image-url` → `image_urls`）。body 必须是 JSON **对象**；`--json` 支持内联字符串、文件路径或 `-`（stdin），路径文件不存在时明确报 `file not found: <路径>`。
+
+`--json` 也接受 **JSONC**：解析前会剥离 `//` 行注释、`/* */` 块注释和 `}` / `]` 前的尾随逗号，并忽略开头的 UTF-8 BOM。该处理是字符串感知的，字符串里的 `//` 或 `/*`（例如 `"https://host/path"`）原样保留；不含注释的严格 JSON 逐字节不变，因此上面的原样转发保证不受影响。真正发往 API 的 body 是去掉注释后的 JSON。
+
+```jsonc
+{
+  // 结构化参数可以写注释
+  "model": "krea/Krea-2-Turbo",
+  "prompt": "低角度丝袜广告",
+  "loras": { "yan303145427/krea2-Cc-FY-portrait": 1.0 }, // 尾随逗号也可以
+  "size": "1080x1920",
+}
+```
 
 > 💡 行为类参数永远不写进 body：`--dry-run`、`--preview`、`--provider`、`--api-key`、`--api-base`、`--http-proxy`、`--output`、`--verbose`、`--timeout`、`--config`、`--print-config`，以及 image 专有的 `--edit`、`--mode`、`--decode`、`--save-prompt`、`--compress`。
 

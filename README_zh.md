@@ -254,6 +254,8 @@ aigc-cli midjourney (或 mj)
 
 `--json` 与 CLI 参数同时出现时，只有**显式指定**的参数会覆盖 JSON body 中对应的键；其余键（包括 CLI 未建模的厂商私有键）原样保留。只传 `--json`、不带任何参数时，body 逐字节原样发送。
 
+`--json` 支持 JSONC（注释与尾随逗号会被剥离；严格 JSON 原样不变）。
+
 ```bash
 # JSON 放稳定参数（model、loras、seed、steps、size），提示词每次单独传
 aigc-cli image --provider modelscope --json downloads/prompt.json --prompt "低角度丝袜广告"

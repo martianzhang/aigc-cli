@@ -72,6 +72,17 @@ aigc-cli video --provider openrouter --json '{
 
 > 💡 参数到 JSON 键的映射沿用常规的 flag→字段映射（如 `--generate-audio` → `generate_audio`）。body 必须是 JSON **对象**；`--json` 支持内联字符串、文件路径或 `-`（stdin），路径文件不存在时明确报 `file not found: <路径>`。
 
+`--json` 也接受 **JSONC**：解析前会剥离 `//` 行注释、`/* */` 块注释和 `}` / `]` 前的尾随逗号，并忽略开头的 UTF-8 BOM；字符串里的 `//` 或 `/*` 原样保留，不含注释的严格 JSON 逐字节不变。真正发往 API 的 body 是去掉注释后的 JSON。
+
+```jsonc
+{
+  // 注释与尾随逗号都会被剥离
+  "model": "google/veo-3.1",
+  "prompt": "a dog running",
+  "aspect_ratio": "16:9",
+}
+```
+
 > 💡 行为类参数永远不写进 body：`--dry-run`、`--preview`、`--provider`、`--api-key`、`--api-base`、`--http-proxy`、`--output`、`--verbose`、`--timeout`、`--config`、`--print-config`，以及 video 专有的 `--remix`、`--raw`、`--task-id`、`--job-id`、`--gif`、`--mp4`、`--crop-margin`、`--ffmpeg-flags`。
 
 各 provider 的 `--json` 实际端点与原生形状不同（CLI 不会替你转换）：

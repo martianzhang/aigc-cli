@@ -63,6 +63,17 @@ aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}' --
 
 > 💡 body 必须是 JSON **对象**；`--json` 支持内联字符串、文件路径或 `-`（stdin），路径文件不存在时明确报 `file not found: <路径>`。行为类参数（`--dry-run`、`--provider`、`--api-key`、`--api-base`、`--output` 等）永远不写进 body。
 
+`--json` 也接受 **JSONC**：解析前会剥离 `//` 行注释、`/* */` 块注释和 `}` / `]` 前的尾随逗号，并忽略开头的 UTF-8 BOM；字符串里的 `//` 或 `/*` 原样保留，不含注释的严格 JSON 逐字节不变。真正发往 API 的 body 是去掉注释后的 JSON。
+
+```jsonc
+{
+  // 注释与尾随逗号都会被剥离
+  "prompt": "a cat",
+  "size": "16:9",
+  "version": "6.1",
+}
+```
+
 ### Imagine 参数
 
 | 参数 | 说明 |

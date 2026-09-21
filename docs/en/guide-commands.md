@@ -133,6 +133,6 @@ aigc-cli completion powershell > aigc-cli.ps1
 | `--api-key` | API key (overrides config/env) |
 | `--api-base` | API base URL (overrides config/env) |
 | `--model` / `-m` | Model name |
-| `--provider` | Named provider reference |
+| `--provider` / `-P` | Named provider reference |
 | `--output` | Output directory |
 | `--timeout` | HTTP request timeout in seconds |

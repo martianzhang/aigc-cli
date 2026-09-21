@@ -145,7 +145,7 @@ aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清
 | `--format` | | 音频格式（suno / OpenRouter / 百炼；flowmusic 不支持） |
 | `--json` | | JSON 输入（文件、字符串，或 `-` 表示 stdin）；不带参数时逐字节原样发送，显式参数覆盖当前后端的对应键 |
 | `--dry-run` | | 打印等价 curl，不调用 API |
-| `--provider` | | 全局：引用命名 Provider（如 `openrouter`） |
+| `--provider` | `-P` | 全局：引用命名 Provider（如 `openrouter`） |
 | `--api-key` | | 全局：覆盖 API Key |
 | `--api-base` | | 全局：覆盖 Base URL |
 | `--output` | | 全局：下载目录（默认当前目录） |
@@ -191,6 +191,18 @@ aigc-cli music gen --provider apimart --json '{"model":"suno","prompt":"lofi","s
 ```
 
 > 💡 body 必须是 JSON **对象**；`--json` 支持内联字符串、文件路径或 `-`（stdin），路径文件不存在时明确报 `file not found: <路径>`。行为类参数（`--dry-run`、`--provider`、`--api-key`、`--api-base`、`--output`）永远不写进 body。
+
+`--json` 也接受 **JSONC**：解析前会剥离 `//` 行注释、`/* */` 块注释和 `}` / `]` 前的尾随逗号，并忽略开头的 UTF-8 BOM；字符串里的 `//` 或 `/*` 原样保留，不含注释的严格 JSON 逐字节不变。真正发往 API 的 body 是去掉注释后的 JSON。
+
+```jsonc
+{
+  // 注释与尾随逗号都会被剥离
+  "model": "suno",
+  "prompt": "city pop",
+  "style_weight": 0.6, // 尾随逗号也可以
+}
+```
+
 > 💡 `--dry-run` / `--verbose` 打印真实端点与真实请求体，可直接验证。
 > 💡 各后端端点不同：APIMart `{base}/music/generations`、OpenRouter `{base}/chat/completions`、百炼 DashScope 原生 `/api/v1/services/audio/music/generation`。
 

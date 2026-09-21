@@ -53,6 +53,18 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
 
 When you do combine `--json` with CLI flags, only the flags you explicitly set override the matching JSON key; every key you did not touch (including vendor-only fields such as `loras`, `seed`, `steps`, or any custom key) is preserved exactly. With `--json` and no flags, the body is sent byte-for-byte unchanged.
 
+> 💡 **JSONC is accepted.** `//` line comments, `/* */` block comments, trailing commas, and a leading UTF-8 BOM are stripped before parsing. The stripping is string-literal aware, so a `//` inside a value such as `"https://host/path"` is preserved, and a comment-free strict JSON body is unchanged byte-for-byte.
+
+```jsonc
+{
+  // structural params can be commented
+  "model": "krea/Krea-2-Turbo",
+  "prompt": "a low-angle legwear ad",
+  "loras": { "yan303145427/krea2-Cc-FY-portrait": 1.0 },
+  "size": "1080x1920", // trailing comma is fine
+}
+```
+
 Each provider's wire shape differs, so a verbatim `--json` body must match that provider's native shape (the CLI will not translate it). The body is sent to that provider's real endpoint:
 
 | Provider | Actual `--json` endpoint | Native shape notes |

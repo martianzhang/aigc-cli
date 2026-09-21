@@ -255,6 +255,8 @@ aigc-cli midjourney (or mj)
 
 For `--json` this precedence holds per key: when flags accompany `--json`, each flag you explicitly set overrides the matching key in the JSON body, while every key you did not touch is kept exactly as written. With `--json` and no flags, the body is sent verbatim.
 
+`--json` also accepts JSONC: `//` and `/* */` comments, trailing commas, and a leading UTF-8 BOM are stripped before parsing (string-literal aware, so the `//` in a URL is kept). Strict JSON with no comments passes through unchanged.
+
 ```bash
 # JSON holds the stable params (model, loras, seed, steps, size); the prompt varies per run
 aigc-cli image --provider modelscope --json downloads/prompt.json --prompt "a low-angle legwear ad"

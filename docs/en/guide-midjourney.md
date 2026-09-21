@@ -42,6 +42,8 @@ aigc-cli mj imagine --prompt "a cat" --image-url /path/to/input.png
 
 `--json` is forwarded verbatim to `POST {base}/midjourney/generations/{action}` when no flags accompany it — the CLI injects no defaults and drops no unknown keys, so a new vendor parameter needs no code change. The flag path is unchanged, and `--dry-run` prints the resolved provider's real host and request body.
 
+`--json` also accepts **JSONC**: `//` and `/* */` comments, trailing commas, and a leading UTF-8 BOM are stripped before parsing. Stripping is string-literal aware, so a `//` in `"https://host/path"` is kept, and a comment-free strict JSON body is unchanged byte-for-byte.
+
 ```bash
 aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}'
 ```

@@ -145,7 +145,7 @@ Notes:
 | `--format` | | Audio format (suno / OpenRouter / Bailian; not supported by flowmusic) |
 | `--json` | | JSON input (file path, string, or `-` for stdin); a backend-native body sent **verbatim** when no flags are set. Explicitly-set flags overlay the key the active backend uses |
 | `--dry-run` | | Print the equivalent curl, do not call the API |
-| `--provider` | | Global: reference a named provider (e.g. `openrouter`) |
+| `--provider` | `-P` | Global: reference a named provider (e.g. `openrouter`) |
 | `--api-key` | | Global: override API key |
 | `--api-base` | | Global: override base URL |
 | `--output` | | Global: download directory (default: current directory) |
@@ -178,6 +178,8 @@ aigc-cli music gen --provider dashscope --json '{"model":"fun-music-v1","input":
 # OpenRouter (chat/completions shape)
 aigc-cli music gen --provider openrouter --json '{"model":"google/lyria-3-pro-preview","messages":[{"role":"user","content":"ambient"}],"modalities":["text","audio"],"stream":true}'
 ```
+
+> 💡 **JSONC is accepted.** `//` line comments, `/* */` block comments, trailing commas, and a leading UTF-8 BOM are stripped before parsing. The stripping is string-literal aware, so a `//` inside a value such as `"https://host/path"` is preserved, and a comment-free strict JSON body is unchanged byte-for-byte.
 
 When you also pass flags, only the flags you explicitly set overlay the key the **active backend** would use; every key you did not touch is preserved exactly.
 
