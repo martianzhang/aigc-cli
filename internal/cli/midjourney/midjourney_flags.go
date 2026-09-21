@@ -82,8 +82,8 @@ func registerMJTaskActionSubcommand(spec mjTaskActionSpec) *cobra.Command {
 		Short:   spec.short,
 		Long:    spec.long,
 		Example: spec.example,
-		RunE: func(_ *cobra.Command, args []string) error {
-			req, err := buildMJTaskActionReqFromJSON()
+		RunE: func(cmd *cobra.Command, args []string) error {
+			req, err := buildMJTaskActionReqFromJSON(cmd)
 			if err != nil {
 				return err
 			}

@@ -49,7 +49,21 @@ func runMusicGenerate(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	p := options.Shared.ResolveProvider(options.ProviderNameMusic)
+	// Explicitly-set flags override the backend-native --json body; with no
+	// changed body flags the verbatim body is left untouched.
+	if err := applyMusicJSONOverlay(changedMusicFlags(cmd), req, p); err != nil {
+		return err
+	}
 	return runMusic(newMusicClient(), p, req)
+}
+
+// musicPromptStyle is the style value shared by the suno and flowmusic shapes:
+// an explicit prompt wins, falling back to the style field.
+func musicPromptStyle(req *types.MusicGenerateRequest) string {
+	if req.Prompt != "" {
+		return req.Prompt
+	}
+	return req.Style
 }
 
 // runMusic dispatches to the provider-specific runner via the strategy table.
@@ -81,7 +95,7 @@ func buildMusicGenerateReq(cmd *cobra.Command) (*types.MusicGenerateRequest, err
 
 	// --json is forwarded verbatim; it replaces the mapped body entirely.
 	if musicJSONInput != "" {
-		data, err := service.ReadInput(musicJSONInput)
+		data, err := service.ReadJSONInput(musicJSONInput)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read JSON input: %w", err)
 		}
@@ -111,10 +125,7 @@ func buildMusicBody(req *types.MusicGenerateRequest) (any, error) {
 		backend = "flowmusic"
 	}
 
-	style := req.Prompt
-	if style == "" {
-		style = req.Style
-	}
+	style := musicPromptStyle(req)
 
 	body := map[string]any{"model": model}
 

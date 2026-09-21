@@ -13,9 +13,40 @@ import (
 )
 
 // buildImageRequest constructs a GenerateRequest from --json or individual flags.
+// When both are given, explicitly set CLI flags override the matching JSON keys
+// (CLI flags > JSON input).
 func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 	if options.Shared.JSONInput != "" {
-		return parseJSONInput()
+		data, err := service.ReadJSONInput(options.Shared.JSONInput)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read JSON input: %w", err)
+		}
+
+		req := &types.GenerateRequest{}
+		if err := json.Unmarshal(data, req); err != nil {
+			return nil, fmt.Errorf("failed to parse JSON: %w", err)
+		}
+
+		set, err := imageFlagOverlay(cmd)
+		if err != nil {
+			return nil, err
+		}
+		merged, err := service.MergeJSONOverlay(data, set)
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge flags into JSON input: %w", err)
+		}
+		req.RawJSON = merged
+		// Refresh typed fields from the merged body so later defaults and
+		// providers see the flag-overridden values, not the JSON originals.
+		if err := json.Unmarshal(merged, req); err != nil {
+			return nil, fmt.Errorf("failed to parse JSON: %w", err)
+		}
+
+		if req.Prompt == "" {
+			return nil, fmt.Errorf("prompt is required in JSON input")
+		}
+
+		return req, nil
 	}
 
 	prompt, err := resolvePrompt()
@@ -68,26 +99,6 @@ func buildImageCurl(req *types.GenerateRequest, p *provider.EffectiveProvider) s
 		return ""
 	}
 	return pl.RenderCurls(p.APIKey)
-}
-
-// parseJSONInput reads JSON from file path, string literal, or stdin.
-func parseJSONInput() (*types.GenerateRequest, error) {
-	data, err := service.ReadInput(options.Shared.JSONInput)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read JSON input: %w", err)
-	}
-
-	req := &types.GenerateRequest{}
-	if err := json.Unmarshal(data, req); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
-	}
-	req.RawJSON = data
-
-	if req.Prompt == "" {
-		return nil, fmt.Errorf("prompt is required in JSON input")
-	}
-
-	return req, nil
 }
 
 // resolvePrompt resolves the prompt text from --prompt flag.

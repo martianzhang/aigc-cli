@@ -173,9 +173,10 @@ func TestBuildMJTaskActionReq_withCustomID(t *testing.T) {
 // ============================================================================
 
 func TestBuildMJTaskActionReqFromJSON(t *testing.T) {
+	cmd := newMJTaskActionTestCmd()
 	mjJSONInput = `{"task_id": "task_json", "index": 3, "speed": "turbo"}`
 
-	req, err := buildMJTaskActionReqFromJSON()
+	req, err := buildMJTaskActionReqFromJSON(cmd)
 	if err != nil {
 		t.Fatalf("buildMJTaskActionReqFromJSON() error = %v", err)
 	}
@@ -192,9 +193,10 @@ func TestBuildMJTaskActionReqFromJSON(t *testing.T) {
 }
 
 func TestBuildMJTaskActionReqFromJSON_missingTaskID(t *testing.T) {
+	cmd := newMJTaskActionTestCmd()
 	mjJSONInput = `{"index": 1}`
 
-	_, err := buildMJTaskActionReqFromJSON()
+	_, err := buildMJTaskActionReqFromJSON(cmd)
 	if err == nil || !strings.Contains(err.Error(), "task_id") {
 		t.Errorf("expected 'task_id is required' error, got: %v", err)
 	}

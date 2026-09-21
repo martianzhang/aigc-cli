@@ -1,6 +1,7 @@
 package image
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -188,10 +189,14 @@ var rawImageKeyPaths = [][]string{
 }
 
 // resolveRawImagePaths rewrites local file paths under a raw body's image keys
-// so a verbatim --json body still accepts local files.
+// so a verbatim --json body still accepts local files. Numbers and special
+// characters survive the round trip: decode uses json.Number and encode leaves
+// HTML escaping off, matching MergeJSONOverlay's fidelity guarantees.
 func resolveRawImagePaths(raw json.RawMessage, resolve func([]string) ([]string, error)) (json.RawMessage, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
 	var body map[string]interface{}
-	if err := json.Unmarshal(raw, &body); err != nil {
+	if err := dec.Decode(&body); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON body: %w", err)
 	}
 	changed := false
@@ -222,7 +227,13 @@ func resolveRawImagePaths(raw json.RawMessage, resolve func([]string) ([]string,
 	if !changed {
 		return raw, nil
 	}
-	return json.Marshal(body)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(body); err != nil {
+		return nil, fmt.Errorf("failed to encode JSON body: %w", err)
+	}
+	return json.RawMessage(bytes.TrimSuffix(buf.Bytes(), []byte{'\n'})), nil
 }
 
 // resolveRawImageValue resolves one image field; ok is false when no local file

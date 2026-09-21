@@ -24,7 +24,7 @@ Examples:
   aigc-cli midjourney video --task-id task_xxx --index 0 --animate-mode auto`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
-			data, err := service.ReadInput(mjJSONInput)
+			data, err := service.ReadJSONInput(mjJSONInput)
 			if err != nil {
 				return fmt.Errorf("failed to read JSON input: %w", err)
 			}
@@ -32,6 +32,11 @@ Examples:
 			if err := json.Unmarshal(data, req); err != nil {
 				return fmt.Errorf("failed to parse JSON: %w", err)
 			}
+			merged, err := mjVideoOverlay(cmd).apply(data, req)
+			if err != nil {
+				return err
+			}
+			req.RawJSON = merged
 			if len(req.ImageURLs) > 0 {
 				c := NewClient()
 				resolved, err := c.ResolveLocalImages(req.ImageURLs)
@@ -107,27 +112,39 @@ var mjRemixSubtleCmd = &cobra.Command{
 }
 
 func runMJRmix(cmd *cobra.Command, action string) error {
+	req, err := buildMJRemixReq(cmd)
+	if err != nil {
+		return err
+	}
+	c := NewClient()
+	return runMJSubmitAndPoll(c, action, req)
+}
+
+// buildMJRemixReq builds MJRemixRequest from --json (with flag overlay) or flags.
+func buildMJRemixReq(cmd *cobra.Command) (*types.MJRemixRequest, error) {
 	if mjJSONInput != "" {
-		data, err := service.ReadInput(mjJSONInput)
+		data, err := service.ReadJSONInput(mjJSONInput)
 		if err != nil {
-			return fmt.Errorf("failed to read JSON input: %w", err)
+			return nil, fmt.Errorf("failed to read JSON input: %w", err)
 		}
 		req := &types.MJRemixRequest{}
 		if err := json.Unmarshal(data, req); err != nil {
-			return fmt.Errorf("failed to parse JSON: %w", err)
+			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
-		req.RawJSON = data
+		merged, err := mjRemixOverlay(cmd).apply(data, req)
+		if err != nil {
+			return nil, err
+		}
+		req.RawJSON = merged
 		if req.TaskID == "" {
-			return fmt.Errorf("task_id is required")
+			return nil, fmt.Errorf("task_id is required")
 		}
-		c := NewClient()
-		return runMJSubmitAndPoll(c, action, req)
+		return req, nil
 	}
 
 	if mjTaskID == "" {
-		return fmt.Errorf("--task-id is required for remix")
+		return nil, fmt.Errorf("--task-id is required for remix")
 	}
-
 	req := &types.MJRemixRequest{
 		TaskID: mjTaskID,
 		Prompt: mjPrompt,
@@ -137,6 +154,5 @@ func runMJRmix(cmd *cobra.Command, action string) error {
 		v := mjIndex
 		req.Index = &v
 	}
-	c := NewClient()
-	return runMJSubmitAndPoll(c, action, req)
+	return req, nil
 }

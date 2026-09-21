@@ -211,7 +211,7 @@ type MJVideoRequest struct {
 // MJRemixRequest is the request body for remix.
 type MJRemixRequest struct {
 	TaskID string `json:"task_id"`
-	Index  *int   `json:"index"`
+	Index  *int   `json:"index,omitempty"`
 	Prompt string `json:"prompt,omitempty"`
 	Speed  string `json:"speed,omitempty"`
 

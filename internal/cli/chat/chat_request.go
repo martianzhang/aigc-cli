@@ -18,7 +18,7 @@ import (
 // buildChatRequest constructs a ChatRequest from --json or individual flags.
 func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 	if chatJSONFlag != "" {
-		data, err := service.ReadInput(chatJSONFlag)
+		data, err := service.ReadJSONInput(chatJSONFlag)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read JSON input: %w", err)
 		}
@@ -26,21 +26,38 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		if err := json.Unmarshal(data, req); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
-		req.RawJSON = data
-		return req, nil
-	}
 
-	messages := make([]types.ChatMessage, 0, len(chatMessages)+1)
-	if chatSystem != "" {
-		messages = append(messages, types.ChatMessage{Role: "system", Content: chatSystem})
-	}
-	for _, msg := range chatMessages {
-		messages = append(messages, types.ChatMessage{Role: "user", Content: msg})
+		set := map[string]any{}
+		if options.HasFlagChanged(cmd, "model") {
+			set["model"] = options.Shared.Model
+		}
+		if options.HasFlagChanged(cmd, "system") || options.HasFlagChanged(cmd, "message") {
+			set["messages"] = flagMessages()
+		}
+		if options.HasFlagChanged(cmd, "no-stream") {
+			set["stream"] = !chatNoStream
+		}
+		if options.HasFlagChanged(cmd, "temperature") {
+			set["temperature"] = chatTemperature
+		}
+		if options.HasFlagChanged(cmd, "max-output") {
+			set["max_tokens"] = chatMaxTokens
+		}
+
+		merged, err := service.MergeJSONOverlay(data, set)
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge flags into JSON input: %w", err)
+		}
+		req.RawJSON = merged
+		if err := json.Unmarshal(merged, req); err != nil {
+			return nil, fmt.Errorf("failed to parse merged JSON: %w", err)
+		}
+		return req, nil
 	}
 
 	req := &types.ChatRequest{
 		Model:        options.Shared.Model,
-		Messages:     messages,
+		Messages:     flagMessages(),
 		Stream:       !chatNoStream,
 		OutputWriter: options.Stdout(),
 	}
@@ -51,6 +68,17 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 	options.SetIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
 
 	return req, nil
+}
+
+func flagMessages() []types.ChatMessage {
+	messages := make([]types.ChatMessage, 0, len(chatMessages)+1)
+	if chatSystem != "" {
+		messages = append(messages, types.ChatMessage{Role: "system", Content: chatSystem})
+	}
+	for _, msg := range chatMessages {
+		messages = append(messages, types.ChatMessage{Role: "user", Content: msg})
+	}
+	return messages
 }
 
 // sendChatRequest sends a single chat request and prints the response.

@@ -67,7 +67,7 @@ var mjRerollCmd = &cobra.Command{
   aigc-cli midjourney reroll --json request.json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
-			data, err := service.ReadInput(mjJSONInput)
+			data, err := service.ReadJSONInput(mjJSONInput)
 			if err != nil {
 				return fmt.Errorf("failed to read JSON input: %w", err)
 			}
@@ -75,7 +75,11 @@ var mjRerollCmd = &cobra.Command{
 			if err := json.Unmarshal(data, req); err != nil {
 				return fmt.Errorf("failed to parse JSON: %w", err)
 			}
-			req.RawJSON = data
+			merged, err := mjRerollOverlay(cmd).apply(data, req)
+			if err != nil {
+				return err
+			}
+			req.RawJSON = merged
 			if req.TaskID == "" {
 				return fmt.Errorf("task_id is required")
 			}

@@ -63,7 +63,7 @@ Examples:
   aigc-cli midjourney blend --image-url a.png --image-url b.png --image-url c.png --dimensions PORTRAIT`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
-			data, err := service.ReadInput(mjJSONInput)
+			data, err := service.ReadJSONInput(mjJSONInput)
 			if err != nil {
 				return fmt.Errorf("failed to read JSON input: %w", err)
 			}
@@ -71,7 +71,11 @@ Examples:
 			if err := json.Unmarshal(data, req); err != nil {
 				return fmt.Errorf("failed to parse JSON: %w", err)
 			}
-			req.RawJSON = data
+			merged, err := mjBlendOverlay(cmd).apply(data, req)
+			if err != nil {
+				return err
+			}
+			req.RawJSON = merged
 			if len(req.ImageURLs) < 2 {
 				return fmt.Errorf("at least 2 image_urls required")
 			}
@@ -117,7 +121,7 @@ var mjDescribeCmd = &cobra.Command{
   aigc-cli midjourney describe --image-url a.png --image-url b.png`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
-			data, err := service.ReadInput(mjJSONInput)
+			data, err := service.ReadJSONInput(mjJSONInput)
 			if err != nil {
 				return fmt.Errorf("failed to read JSON input: %w", err)
 			}
@@ -125,7 +129,11 @@ var mjDescribeCmd = &cobra.Command{
 			if err := json.Unmarshal(data, req); err != nil {
 				return fmt.Errorf("failed to parse JSON: %w", err)
 			}
-			req.RawJSON = data
+			merged, err := mjDescribeOverlay(cmd).apply(data, req)
+			if err != nil {
+				return err
+			}
+			req.RawJSON = merged
 			if len(req.ImageURLs) == 0 {
 				return fmt.Errorf("image_urls is required")
 			}

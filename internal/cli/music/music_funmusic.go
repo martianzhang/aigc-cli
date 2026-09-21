@@ -15,6 +15,30 @@ import (
 // funMusicDefaultModel is the code last-resort model for Alibaba Fun-Music.
 const funMusicDefaultModel = "fun-music-v1"
 
+// funMusicModel returns a valid Fun-Music model, falling back to the default
+// when model does not name one. Shared by BuildFunMusicBody and the --json
+// overlay so both pick the same model value.
+func funMusicModel(model string) string {
+	if !strings.HasPrefix(model, "fun-music") {
+		return funMusicDefaultModel
+	}
+	return model
+}
+
+// funMusicPrompt joins prompt and style the way the Fun-Music builder does:
+// style folds into prompt (comma-separated) because Fun-Music has no style
+// field. Shared with the --json overlay.
+func funMusicPrompt(req *types.MusicGenerateRequest) string {
+	prompt := req.Prompt
+	if req.Style == "" {
+		return prompt
+	}
+	if prompt == "" {
+		return req.Style
+	}
+	return prompt + "，" + req.Style
+}
+
 // BuildFunMusicBody maps a typed request to the DashScope-native Fun-Music body.
 // Unlike the flat APIMart shapes all generation tunables live under "input".
 // Fun-Music exposes no style or duration field: style folds into prompt and the
@@ -31,19 +55,8 @@ func BuildFunMusicBody(req *types.MusicGenerateRequest) (any, error) {
 		fmt.Fprintln(os.Stderr, "Warning: fun-music ignores --title")
 	}
 
-	model := req.Model
-	if !strings.HasPrefix(model, "fun-music") {
-		model = funMusicDefaultModel
-	}
-
-	prompt := req.Prompt
-	if req.Style != "" {
-		if prompt == "" {
-			prompt = req.Style
-		} else {
-			prompt = prompt + "，" + req.Style
-		}
-	}
+	model := funMusicModel(req.Model)
+	prompt := funMusicPrompt(req)
 
 	input := map[string]any{}
 	if prompt != "" {

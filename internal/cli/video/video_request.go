@@ -30,16 +30,7 @@ func resolveVideoPrompt() (string, error) {
 
 func buildVideoRequest(cmd *cobra.Command) (*types.VideoGenerateRequest, error) {
 	if options.Shared.JSONInput != "" {
-		data, err := service.ReadInput(options.Shared.JSONInput)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read JSON input: %w", err)
-		}
-		req := &types.VideoGenerateRequest{}
-		if err := json.Unmarshal(data, req); err != nil {
-			return nil, fmt.Errorf("failed to parse JSON: %w", err)
-		}
-		req.RawJSON = data
-		return req, nil
+		return buildVideoRequestFromJSON(cmd)
 	}
 
 	prompt, err := resolveVideoPrompt()

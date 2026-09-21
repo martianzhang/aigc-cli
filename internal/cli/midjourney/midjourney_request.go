@@ -14,7 +14,7 @@ import (
 // buildMJImagineReq builds MJImagineRequest from flags or --json.
 func buildMJImagineReq(cmd *cobra.Command) (*types.MJImagineRequest, error) {
 	if mjJSONInput != "" {
-		data, err := service.ReadInput(mjJSONInput)
+		data, err := service.ReadJSONInput(mjJSONInput)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read JSON input: %w", err)
 		}
@@ -22,7 +22,15 @@ func buildMJImagineReq(cmd *cobra.Command) (*types.MJImagineRequest, error) {
 		if err := json.Unmarshal(data, req); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
-		req.RawJSON = data
+		overlay, err := mjImagineOverlay(cmd)
+		if err != nil {
+			return nil, err
+		}
+		merged, err := overlay.apply(data, req)
+		if err != nil {
+			return nil, err
+		}
+		req.RawJSON = merged
 		if req.Prompt == "" {
 			return nil, fmt.Errorf("prompt is required in JSON input")
 		}
@@ -89,9 +97,9 @@ func buildMJTaskActionReq() (*types.MJTaskActionRequest, error) {
 }
 
 // buildMJTaskActionReqFromJSON builds MJTaskActionRequest from --json or flags.
-func buildMJTaskActionReqFromJSON() (*types.MJTaskActionRequest, error) {
+func buildMJTaskActionReqFromJSON(cmd *cobra.Command) (*types.MJTaskActionRequest, error) {
 	if mjJSONInput != "" {
-		data, err := service.ReadInput(mjJSONInput)
+		data, err := service.ReadJSONInput(mjJSONInput)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read JSON input: %w", err)
 		}
@@ -99,7 +107,11 @@ func buildMJTaskActionReqFromJSON() (*types.MJTaskActionRequest, error) {
 		if err := json.Unmarshal(data, req); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
-		req.RawJSON = data
+		merged, err := mjTaskActionOverlay(cmd).apply(data, req)
+		if err != nil {
+			return nil, err
+		}
+		req.RawJSON = merged
 		if req.TaskID == "" {
 			return nil, fmt.Errorf("task_id is required in JSON input")
 		}

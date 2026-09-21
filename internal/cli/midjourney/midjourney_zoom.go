@@ -22,42 +22,54 @@ var mjZoomCmd = &cobra.Command{
   aigc-cli midjourney zoom --task-id task_xxx --zoom-ratio 2
   aigc-cli midjourney zoom --task-id task_xxx --index 1 --speed fast`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if mjJSONInput != "" {
-			data, err := service.ReadInput(mjJSONInput)
-			if err != nil {
-				return fmt.Errorf("failed to read JSON input: %w", err)
-			}
-			req := &types.MJZoomRequest{}
-			if err := json.Unmarshal(data, req); err != nil {
-				return fmt.Errorf("failed to parse JSON: %w", err)
-			}
-			req.RawJSON = data
-			if req.TaskID == "" {
-				return fmt.Errorf("task_id is required")
-			}
-			c := NewClient()
-			return runMJSubmitAndPoll(c, "zoom", req)
-		}
-
-		if mjTaskID == "" {
-			return fmt.Errorf("--task-id is required for zoom")
-		}
-		req := &types.MJZoomRequest{
-			TaskID:   mjTaskID,
-			CustomID: mjCustomID,
-			Speed:    mjSpeed,
-		}
-		if cmd.Flags().Changed("index") {
-			v := mjIndex
-			req.Index = &v
-		}
-		if cmd.Flags().Changed("zoom-ratio") {
-			v := mjZoomRatio
-			req.ZoomRatio = &v
+		req, err := buildMJZoomReq(cmd)
+		if err != nil {
+			return err
 		}
 		c := NewClient()
 		return runMJSubmitAndPoll(c, "zoom", req)
 	},
+}
+
+// buildMJZoomReq builds MJZoomRequest from --json (with flag overlay) or flags.
+func buildMJZoomReq(cmd *cobra.Command) (*types.MJZoomRequest, error) {
+	if mjJSONInput != "" {
+		data, err := service.ReadJSONInput(mjJSONInput)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read JSON input: %w", err)
+		}
+		req := &types.MJZoomRequest{}
+		if err := json.Unmarshal(data, req); err != nil {
+			return nil, fmt.Errorf("failed to parse JSON: %w", err)
+		}
+		merged, err := mjZoomOverlay(cmd).apply(data, req)
+		if err != nil {
+			return nil, err
+		}
+		req.RawJSON = merged
+		if req.TaskID == "" {
+			return nil, fmt.Errorf("task_id is required")
+		}
+		return req, nil
+	}
+
+	if mjTaskID == "" {
+		return nil, fmt.Errorf("--task-id is required for zoom")
+	}
+	req := &types.MJZoomRequest{
+		TaskID:   mjTaskID,
+		CustomID: mjCustomID,
+		Speed:    mjSpeed,
+	}
+	if cmd.Flags().Changed("index") {
+		v := mjIndex
+		req.Index = &v
+	}
+	if cmd.Flags().Changed("zoom-ratio") {
+		v := mjZoomRatio
+		req.ZoomRatio = &v
+	}
+	return req, nil
 }
 
 // ============================================================================
@@ -73,7 +85,7 @@ Direction: left, right, up, down.`,
   aigc-cli midjourney pan --task-id task_xxx --direction left --speed fast`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
-			data, err := service.ReadInput(mjJSONInput)
+			data, err := service.ReadJSONInput(mjJSONInput)
 			if err != nil {
 				return fmt.Errorf("failed to read JSON input: %w", err)
 			}
@@ -81,7 +93,11 @@ Direction: left, right, up, down.`,
 			if err := json.Unmarshal(data, req); err != nil {
 				return fmt.Errorf("failed to parse JSON: %w", err)
 			}
-			req.RawJSON = data
+			merged, err := mjPanOverlay(cmd).apply(data, req)
+			if err != nil {
+				return err
+			}
+			req.RawJSON = merged
 			if req.TaskID == "" {
 				return fmt.Errorf("task_id is required")
 			}
@@ -123,8 +139,8 @@ var mjInpaintCmd = &cobra.Command{
 MODAL state — then call "midjourney modal" with a mask + prompt.`,
 	Example: `  aigc-cli midjourney inpaint --json '{"task_id":"task_xxx"}'
   aigc-cli midjourney modal --task-id task_yyy --prompt "replace with a red sofa" --mask-url mask.png`,
-	RunE: func(_ *cobra.Command, args []string) error {
-		req, err := buildMJTaskActionReqFromJSON()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		req, err := buildMJTaskActionReqFromJSON(cmd)
 		if err != nil {
 			return err
 		}
@@ -146,7 +162,7 @@ With mask_url → inpaint (local repaint). Without → outpaint (expand).`,
   aigc-cli midjourney modal --json request.json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if mjJSONInput != "" {
-			data, err := service.ReadInput(mjJSONInput)
+			data, err := service.ReadJSONInput(mjJSONInput)
 			if err != nil {
 				return fmt.Errorf("failed to read JSON input: %w", err)
 			}
@@ -154,7 +170,11 @@ With mask_url → inpaint (local repaint). Without → outpaint (expand).`,
 			if err := json.Unmarshal(data, req); err != nil {
 				return fmt.Errorf("failed to parse JSON: %w", err)
 			}
-			req.RawJSON = data
+			merged, err := mjModalOverlay(cmd).apply(data, req)
+			if err != nil {
+				return err
+			}
+			req.RawJSON = merged
 			if req.TaskID == "" {
 				return fmt.Errorf("task_id is required")
 			}
