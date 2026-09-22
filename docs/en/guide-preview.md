@@ -15,6 +15,16 @@ aigc-cli preview photo.png --detail
 aigc-cli preview photo.png --describe
 ```
 
+## Terminal Display
+
+In iTerm2 and Sixel-capable terminals, `preview` renders the image inline instead of handing it to an external application:
+
+- An image larger than the budget is scaled down to about 60% of the terminal width and height, so it never fills the whole window.
+- An image that is already smaller than the budget is shown at its original size — previews are never enlarged.
+- The aspect ratio is preserved and the image stays fully visible — nothing scrolls off.
+- Sizing uses the terminal's real dimensions (columns × rows) at the time the command runs, so resize the window before running `preview`.
+- On terminals without inline image support, the image is opened with the system default application instead.
+
 ## Metadata Display
 
 `--detail` shows EXIF metadata including:

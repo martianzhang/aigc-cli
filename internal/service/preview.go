@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -15,6 +16,8 @@ import (
 	"time"
 
 	"github.com/mattn/go-sixel"
+	_ "golang.org/x/image/bmp"
+	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
@@ -111,19 +114,10 @@ func trySixelImage(path string) bool {
 		return false
 	}
 
-	// Get terminal width for sizing
-	termWidth := 80
-	imgBounds := img.Bounds()
-	imgW := imgBounds.Dx()
-	imgH := imgBounds.Dy()
-
-	// Scale to fit terminal width while maintaining aspect ratio
-	if imgW > termWidth*8 { // sixel uses 8 pixels per terminal column
-		scale := float64(termWidth*8) / float64(imgW)
-		newW := int(float64(imgW) * scale)
-		newH := int(float64(imgH) * scale)
-		img = resizeImage(img, newW, newH)
-	}
+	// Scale the image to the preview budget derived from the current terminal
+	// (a fraction of the window, see previewFillRatio). When the terminal size
+	// is unknown the image is left untouched.
+	img = fitImageToTerminal(img)
 
 	enc := sixel.NewEncoder(os.Stdout)
 	enc.Width = img.Bounds().Dx()
@@ -135,20 +129,14 @@ func trySixelImage(path string) bool {
 	return true
 }
 
-// resizeImage scales an image to the given dimensions using nearest-neighbor.
+// resizeImage scales an image to the given dimensions using Catmull-Rom
+// interpolation for smooth results. Non-positive dimensions return src as-is.
 func resizeImage(src image.Image, width, height int) image.Image {
-	dst := image.NewRGBA(image.Rect(0, 0, width, height))
-	srcBounds := src.Bounds()
-	srcW := srcBounds.Dx()
-	srcH := srcBounds.Dy()
-
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			sx := x * srcW / width
-			sy := y * srcH / height
-			dst.Set(x, y, src.At(sx, sy))
-		}
+	if width <= 0 || height <= 0 {
+		return src
 	}
+	dst := image.NewRGBA(image.Rect(0, 0, width, height))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Src, nil)
 	return dst
 }
 
@@ -171,7 +159,16 @@ func tryInlineImage(path string) bool {
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(data)
-	fmt.Printf("\033]1337;File=inline=1;preserveAspectRatio=1;mimeType=%s:%s\a\n", mime, encoded)
+	// Pass an explicit pixel size only when the image exceeds the ~60% terminal
+	// budget, so it gets shrunk to fit. Smaller images get no size argument and
+	// iTerm2 renders them at their native size — previews are never enlarged.
+	sizeArg := ""
+	if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
+		if w, h, ok := previewInlineSize(cfg.Width, cfg.Height); ok {
+			sizeArg = fmt.Sprintf("width=%dpx;height=%dpx;", w, h)
+		}
+	}
+	fmt.Printf("\033]1337;File=inline=1;preserveAspectRatio=1;%smimeType=%s:%s\a\n", sizeArg, mime, encoded)
 	return true
 }
 
