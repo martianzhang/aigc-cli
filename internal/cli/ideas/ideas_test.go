@@ -54,6 +54,18 @@ func captureStdout(fn func()) string {
 	return buf.String()
 }
 
+func captureStderr(fn func()) string {
+	r, w, _ := os.Pipe()
+	old := os.Stderr
+	os.Stderr = w
+	fn()
+	w.Close()
+	os.Stderr = old
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	return buf.String()
+}
+
 func TestOutputMarkdown_multipleResults(t *testing.T) {
 	results := []ideas.SearchResult{
 		{Entry: ideas.IdeaEntry{Title: "Test One", Prompt: "prompt one", Author: "Alice", License: "MIT"}, Score: 3},

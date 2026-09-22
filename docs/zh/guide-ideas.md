@@ -1,8 +1,8 @@
 # 提示词灵感搜索
 
-从本地的 `ideas.json` 文件中搜索 AI 图片生成提示词，找到高质量的风格参考和提示词示例。
+从本地 `ideas.json` 数据集和多个在线提示词库中搜索 AI 图片生成提示词，找到高质量的风格参考和提示词示例。默认 `--source all` 会把本地数据与 3 个在线源的结果用 RRF 融合成一个排序列表。
 
-无需 API Key。数据来自开源社区整理的优质提示词库，数据文件存储在 **`~/.config/aigc-cli/ideas/ideas.json`**（默认位置）。
+本地搜索完全离线（BM25 + 中文分词 + n-gram + RRF），无需 API Key。在线源同样是免 Key 的 JSON 接口，但需要联网（会走配置的 `http_proxy`）。数据文件存储在 **`~/.config/aigc-cli/ideas/ideas.json`**（默认位置）。
 
 ## 数据准备
 
@@ -41,7 +41,34 @@ aigc-cli ideas "luxury perfume" --limit 10
 
 # 从 stdin 读取关键词
 echo "cyberpunk city" | aigc-cli ideas
+
+# 只搜索某个在线源
+aigc-cli ideas "cyberpunk city" --source aipromptslibrary
+aigc-cli ideas "portrait" --source prompts.chat
+aigc-cli ideas "portrait" --source openart
+
+# 组合多个源（逗号分隔或重复传参均可）
+aigc-cli ideas "portrait" --source local,openart
+aigc-cli ideas "portrait" --source prompts.chat --source openart
 ```
+
+## 在线数据源（--source）
+
+| 取值 | 说明 |
+|---|---|
+| `all` | 本地数据集（存在 `ideas.json` 时）+ 全部 3 个在线源，**默认值** |
+| `local` | 仅本地 `ideas.json` 数据集（完全离线的 BM25 搜索） |
+| `aipromptslibrary` | [aipromptslibrary.sh](https://aipromptslibrary.sh) 图片生成提示词库 |
+| `prompts.chat` | [prompts.chat](https://prompts.chat) 社区提示词库 |
+| `openart` | [openart.ai](https://openart.ai) 社区提示词，**实验性**：搜索接口未公开文档且没有规范的条目链接，因此结果不带来源链接 |
+
+说明：
+
+- 支持单个值、逗号分隔（`--source local,openart`）或重复传参（`--source a --source b`）；名称大小写不敏感，重复项自动去重。
+- `ideas.json` 不存在时，默认的 `all` 会静默只搜索在线源（不会报错）。显式指定 `--source local` 且文件不存在时仍会报错，提示先执行 `aigc-cli ideas init`。
+- 在线源需要联网：配置文件 `http_proxy`、环境变量 `HTTP_PROXY` 或 `--http-proxy` 均会生效。
+- 某个在线源失败时只会在 stderr 打印 `Warning: source <名称>: <错误>`，其余源的结果照常返回；如果所有源都没有结果，输出既有的 `没有找到匹配的提示词。`
+- 不带关键词（位置参数和 stdin 都为空）时保持原有行为：从本地数据随机返回，在线源需要关键词无法参与。
 
 ## 输出格式
 
@@ -132,11 +159,12 @@ aigc-cli ideas "cat" --json \
 | 参数 | 短参 | 说明 |
 |---|---|---|
 | `keywords` | | 搜索关键词（位置参数，也从 stdin 读取） |
+| `--source` | | 搜索的数据源：`all`（默认）、`local`、`aipromptslibrary`、`prompts.chat`、`openart`；支持逗号分隔或重复传参 |
 | `--limit` | `-l` | 返回 N 条结果，默认 8 |
 | `--random` | | 从全量结果中随机抽取；不加参数时默认随机返回一条 |
 | `--json` | | 输出 JSON 格式（默认 Markdown） |
 | `--save` | | 下载参考图片到本地目录 |
-| `--find-image` | | 按参考图片文件名搜索 |
+| `--find-image` | | 按参考图片文件名搜索（仅本地数据集） |
 
 ## 图片保存
 

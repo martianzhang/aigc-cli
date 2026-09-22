@@ -23,7 +23,7 @@ Generate, detect, and manage AI content from the terminal. Supports OpenAI, Open
 | 🧠 | **Provider Auto-Adapt** | Each provider gets the correct API routing automatically (OpenRouter dedicated image/video API, APIMart async tasks, etc.) |
 | 🎨 | **Midjourney Pipeline** | 17 subcommands: imagine → blend → describe → upscale → zoom → inpaint → video → remix. No Discord required. |
 | 💬 | **Agentic Chat** | Interactive REPL with built-in tools: `generate_image`, `generate_video`, `midjourney_*`, `ideas`, `kb_*`, `detect_image`, `recognize_text`. |
-| 🔍 | **Prompt Ideas** | Offline BM25 search (CJK-aware + n-gram + RRF), 10K+ prompt dataset. |
+| 🔍 | **Prompt Ideas** | Offline BM25 search (CJK-aware + n-gram + RRF) plus 3 keyless online prompt libraries, fused with RRF; 10K+ prompt dataset. |
 | 🔊 | **Local TTS / ASR** | sherpa-onnx offline speech (kokoro 53 voices, EN/ZH/JA/KR/FR) and recognition (SenseVoice). No internet. |
 | 🔄 | **Video Job Persistence** | OpenRouter submit → poll → download pipeline. `--job-id` resume after timeout. |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` prints the equivalent curl command for any API call. Learn and debug without cost. |
@@ -101,7 +101,7 @@ AI agents can generate images/videos/music, run Midjourney, OCR, search the idea
 | 🎨 | **Complete Midjourney Pipeline** | 17 subcommands covering imagine → blend → describe → upscale → zoom → inpaint → video → remix, no Discord needed |
 | 🎵 | **AI Music Generation** | Natural-language music: APIMart (suno / flowmusic, async submit → poll → download), OpenRouter (Lyria-3, sync streaming), Alibaba Cloud Bailian (Fun-Music, sync) |
 | 💬 | **Agentic Chat** | Interactive REPL with built-in `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` tools |
-| 🔍 | **Prompt Idea Library** | Offline BM25 search engine (CJK-aware + n-gram + RRF), 10K+ prompt dataset |
+| 🔍 | **Prompt Idea Library** | Offline BM25 search engine (CJK-aware + n-gram + RRF), 10K+ prompt dataset, plus aipromptslibrary / prompts.chat / openart via `--source` |
 | 🔊 | **Local TTS / ASR** | sherpa-onnx offline speech synthesis (kokoro, 53 voices, EN/ZH/JA/KR/FR) and speech recognition (SenseVoice, best for Chinese), no internet needed |
 | 📏 | **Depth Map** | `depth`: local Depth Anything V2 ONNX → grayscale depth map (image or video) for depth-guided image-to-video |
 | 🔄 | **Video Job Persistence** | OpenRouter submit → poll → download full pipeline, `--job-id` one-key resume after timeout |
@@ -161,7 +161,7 @@ aigc-cli
 ├── midjourney / mj                                                                  →  docs/en/guide-midjourney.md
 │   └── mj     Alias for midjourney
 ├── chat      AI chat / Interactive REPL / Agent Loop (tool calling)                  →  docs/en/guide-chat.md
-├── ideas / idea  Prompt idea search (keyword / random, defaults to random)           →  docs/en/guide-ideas.md
+├── ideas / idea  Prompt idea search (local dataset + online libraries)                →  docs/en/guide-ideas.md
 ├── knowledgebase / kb  Local knowledge base (FTS5 + semantic search + ONNX embedding) →  docs/en/guide-knowledgebase.md
 ├── models / model                                                                    →  docs/en/guide-commands.md
 │   └── --price    View model pricing
@@ -239,7 +239,7 @@ aigc-cli midjourney (or mj)
 | [Midjourney](docs/en/guide-midjourney.md) | 17 subcommands complete guide: imagine, blend, upscale etc. |
 | [AI Chat](docs/en/guide-chat.md) | Interactive multi-turn REPL, streaming, verbose stats |
 | [AIGC Detection](docs/en/guide-detect.md) | Multi-signal fusion, ONNX models, FFT spectrum, emoji output |
-| [Prompt Ideas](docs/en/guide-ideas.md) | Offline BM25 search engine, 10K+ prompt dataset |
+| [Prompt Ideas](docs/en/guide-ideas.md) | Local BM25 search + online libraries (aipromptslibrary, prompts.chat, openart) |
 | [Knowledge Base](docs/en/guide-knowledgebase.md) | Local KB: FTS5 + semantic search, vault, web search |
 | [Other Commands](docs/en/guide-commands.md) | models, task, balance, config, dry-run, API reference |
 | [API Reference](docs/en/api-reference.md) | Provider API specification sources, detection, strategy routing |

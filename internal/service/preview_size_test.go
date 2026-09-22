@@ -14,12 +14,12 @@ func TestFitWithin(t *testing.T) {
 		maxW, maxH   int
 		wantW, wantH int
 	}{
-		{"square into box is height-constrained", 1000, 1000, 632, 368, 368, 368},
-		{"wide image is width-constrained", 4000, 1000, 632, 368, 632, 158},
-		{"wide image is height-constrained", 1000, 100, 632, 368, 632, 63},
-		{"image that fits is returned unchanged", 100, 50, 632, 368, 100, 50},
-		{"small image is never enlarged", 10, 10, 632, 368, 10, 10},
-		{"already matching box", 632, 368, 632, 368, 632, 368},
+		{"square into box is height-constrained", 1000, 1000, 600, 350, 350, 350},
+		{"wide image is width-constrained", 4000, 1000, 600, 350, 600, 150},
+		{"wide image is height-constrained", 1000, 100, 600, 350, 600, 60},
+		{"image that fits is returned unchanged", 100, 50, 600, 350, 100, 50},
+		{"small image is never enlarged", 10, 10, 600, 350, 10, 10},
+		{"already matching box", 500, 300, 500, 300, 500, 300},
 		{"non-positive source width", 0, 100, 632, 368, 0, 100},
 		{"non-positive source height", 100, 0, 632, 368, 100, 0},
 		{"non-positive max width", 100, 100, 0, 368, 100, 100},
@@ -154,7 +154,7 @@ func TestFitImageToTerminal_fitsWithinWindow(t *testing.T) {
 	}
 }
 
-func TestFitImageToTerminal_unknownSizeKeepsImage(t *testing.T) {
+func TestFitImageToTerminal_unknownSizeUsesDefaultBox(t *testing.T) {
 	if _, _, ok := queryTerminalSize(); ok {
 		t.Skip("stdout is a TTY; terminal size is host-dependent")
 	}
@@ -163,8 +163,13 @@ func TestFitImageToTerminal_unknownSizeKeepsImage(t *testing.T) {
 
 	src := image.NewRGBA(image.Rect(0, 0, 4000, 1000))
 	got := fitImageToTerminal(src)
-	if got.Bounds().Dx() != 4000 || got.Bounds().Dy() != 1000 {
-		t.Errorf("fitImageToTerminal() without size = %dx%d, want original 4000x1000",
-			got.Bounds().Dx(), got.Bounds().Dy())
+	boxW := scaledCells(defaultTerminalCols) * previewCellWidthPx
+	boxH := scaledCells(defaultTerminalRows) * previewCellHeightPx
+	if got.Bounds().Dx() > boxW || got.Bounds().Dy() > boxH {
+		t.Errorf("fitImageToTerminal() = %dx%d, exceeds default box %dx%d",
+			got.Bounds().Dx(), got.Bounds().Dy(), boxW, boxH)
+	}
+	if got.Bounds().Dx() == 4000 && got.Bounds().Dy() == 1000 {
+		t.Error("fitImageToTerminal() returned the oversized image unchanged")
 	}
 }

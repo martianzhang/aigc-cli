@@ -22,21 +22,40 @@ const (
 // whole window; 0.6 was chosen by eye. Tune this single value to adjust size.
 const previewFillRatio = 0.6
 
+// Maximum pixel dimensions for the preview image, regardless of terminal size.
+// Prevents overflow when the terminal size detection returns an unexpectedly
+// large value. Derived from a typical minimum terminal canvas of ~1024×768
+// scaled by previewFillRatio (0.6) so the preview never exceeds ~60% of a
+// modest terminal window.
+const (
+	maxPreviewWidthPx  = 614
+	maxPreviewHeightPx = 460
+)
+
+// Default terminal grid assumed when the real size cannot be detected. Bounding
+// to a conservative box beats native size, which can scroll the output away.
+const (
+	defaultTerminalCols = 80
+	defaultTerminalRows = 24
+)
+
 // previewTerminalSize returns the terminal grid size in character cells,
 // preferring a real TTY query and falling back to the COLUMNS/LINES env vars.
-// ok is false when no usable size could be determined, in which case callers
-// must leave the image size untouched.
+// ok is false when neither yields a usable size.
 func previewTerminalSize() (cols, rows int, ok bool) {
 	return terminalSizeFrom(queryTerminalSize, os.Getenv)
 }
 
-// queryTerminalSize reports the size of the controlling terminal for stdout.
+// queryTerminalSize reports the terminal window size, trying stdout, then
+// stderr and stdin so a redirected stdout (e.g. `| tee`) still yields the real
+// size without relying on a Unix-only /dev/tty.
 func queryTerminalSize() (cols, rows int, ok bool) {
-	w, h, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || w <= 0 || h <= 0 {
-		return 0, 0, false
+	for _, f := range []*os.File{os.Stdout, os.Stderr, os.Stdin} {
+		if w, h, err := term.GetSize(int(f.Fd())); err == nil && w > 0 && h > 0 {
+			return w, h, true
+		}
 	}
-	return w, h, true
+	return 0, 0, false
 }
 
 // terminalSizeFrom resolves the terminal grid size from an injected size probe
@@ -54,13 +73,21 @@ func terminalSizeFrom(getSize func() (int, int, bool), getenv func(string) strin
 }
 
 // fitWithin returns the largest width x height that fits srcW x srcH inside
-// maxW x maxH while preserving aspect ratio. It only ever shrinks: when the
-// source already fits the budget it is returned unchanged and never enlarged.
-// The result never drops below 1 in either dimension, and the source
-// dimensions are returned unchanged when any input is non-positive.
+// maxW x maxH while preserving aspect ratio. The caller-provided max budget
+// is itself capped to maxPreviewWidthPx x maxPreviewHeightPx so that a rogue
+// terminal size never produces an unmanageably large preview. It only ever
+// shrinks: when the source already fits the budget it is returned unchanged
+// and never enlarged. The result never drops below 1 in either dimension, and
+// the source dimensions are returned unchanged when any input is non-positive.
 func fitWithin(srcW, srcH, maxW, maxH int) (int, int) {
 	if srcW <= 0 || srcH <= 0 || maxW <= 0 || maxH <= 0 {
 		return srcW, srcH
+	}
+	if maxW > maxPreviewWidthPx {
+		maxW = maxPreviewWidthPx
+	}
+	if maxH > maxPreviewHeightPx {
+		maxH = maxPreviewHeightPx
 	}
 	scale := float64(maxW) / float64(srcW)
 	if s := float64(maxH) / float64(srcH); s < scale {
@@ -94,10 +121,7 @@ func inlineSizeIn(srcW, srcH, maxCols, maxRows int) (w, h int, ok bool) {
 
 // previewInlineSize resolves inlineSizeIn against the current terminal.
 func previewInlineSize(srcW, srcH int) (w, h int, ok bool) {
-	maxCols, maxRows, ok := previewCellBox()
-	if !ok {
-		return 0, 0, false
-	}
+	maxCols, maxRows := previewCellBox()
 	return inlineSizeIn(srcW, srcH, maxCols, maxRows)
 }
 
@@ -112,25 +136,23 @@ func scaledCells(cells int) int {
 }
 
 // previewCellBox returns the maximum size in character cells an inline image
-// may occupy: previewFillRatio of the terminal grid. ok is false when the
-// terminal size is unknown.
-func previewCellBox() (maxCols, maxRows int, ok bool) {
+// may occupy: previewFillRatio of the terminal grid. When the real terminal
+// size cannot be detected it falls back to a conservative default grid rather
+// than letting the image through at native size.
+func previewCellBox() (maxCols, maxRows int) {
 	cols, rows, ok := previewTerminalSize()
 	if !ok {
-		return 0, 0, false
+		cols, rows = defaultTerminalCols, defaultTerminalRows
 	}
-	return scaledCells(cols), scaledCells(rows), true
+	return scaledCells(cols), scaledCells(rows)
 }
 
 // fitImageToTerminal scales img to fit the preview budget derived from the
-// current terminal window, preserving aspect ratio. It returns img unchanged
-// when the terminal size is unknown or the image already matches the target
-// dimensions.
+// current terminal window (or a conservative default when the size cannot be
+// detected), preserving aspect ratio. It returns img unchanged when it already
+// matches the target dimensions.
 func fitImageToTerminal(img image.Image) image.Image {
-	maxCols, maxRows, ok := previewCellBox()
-	if !ok {
-		return img
-	}
+	maxCols, maxRows := previewCellBox()
 	bounds := img.Bounds()
 	srcW := bounds.Dx()
 	srcH := bounds.Dy()

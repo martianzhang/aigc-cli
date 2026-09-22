@@ -168,7 +168,10 @@ func tryInlineImage(path string) bool {
 			sizeArg = fmt.Sprintf("width=%dpx;height=%dpx;", w, h)
 		}
 	}
-	fmt.Printf("\033]1337;File=inline=1;preserveAspectRatio=1;%smimeType=%s:%s\a\n", sizeArg, mime, encoded)
+	// Start on a fresh line before the protocol escape, so the image renders
+	// at a predictable position regardless of prior text output on stdout.
+	header := fmt.Sprintf("\033]1337;File=inline=1;preserveAspectRatio=1;%smimeType=%s:", sizeArg, mime)
+	os.Stdout.WriteString("\n" + header + encoded + "\a\n")
 	return true
 }
 

@@ -4,7 +4,7 @@ import "github.com/martianzhang/aigc-cli/internal/cli/ideas"
 
 // ideasDeps resolves the ideas command's dependencies.
 func ideasDeps() ideas.Deps {
-	return ideas.Deps{Cfg: shared.Cfg, OutputDir: shared.OutputDir}
+	return ideas.Deps{Cfg: shared.Cfg, OutputDir: shared.OutputDir, Verbose: shared.Verbose}
 }
 
 func init() {
