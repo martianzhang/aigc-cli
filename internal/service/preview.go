@@ -21,6 +21,7 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
 // PreviewFile opens a file or URL with the system default application.
@@ -109,7 +110,7 @@ func trySixelImage(path string) bool {
 	}
 	defer f.Close()
 
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return false
 	}
@@ -163,7 +164,7 @@ func tryInlineImage(path string) bool {
 	// budget, so it gets shrunk to fit. Smaller images get no size argument and
 	// iTerm2 renders them at their native size — previews are never enlarged.
 	sizeArg := ""
-	if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
+	if cfg, _, err := imgcodec.DecodeConfig(bytes.NewReader(data)); err == nil {
 		if w, h, ok := previewInlineSize(cfg.Width, cfg.Height); ok {
 			sizeArg = fmt.Sprintf("width=%dpx;height=%dpx;", w, h)
 		}
