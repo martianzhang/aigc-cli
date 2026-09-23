@@ -23,7 +23,7 @@ func TestBuildVideoPlanRoleUploads(t *testing.T) {
 		bodyKey string
 	}{
 		{"apimart", &provider.EffectiveProvider{APIKey: "k", BaseURL: "https://api.apimart.ai", ProviderType: provider.APIMart}, "image_with_roles"},
-		{"yunwu", &provider.EffectiveProvider{APIKey: "k", BaseURL: "https://yunwu.ai", ProviderType: provider.Yunwu}, "images"},
+		{"openlux", &provider.EffectiveProvider{APIKey: "k", BaseURL: "https://api.openlux.ai", ProviderType: provider.OpenLux}, "images"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

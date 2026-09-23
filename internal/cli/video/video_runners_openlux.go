@@ -10,17 +10,17 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// runYunwuVideo handles video generation via yunwu.ai's unified API (submit -> poll -> download).
+// runOpenLuxVideo handles video generation via api.openlux.ai's unified API (submit -> poll -> download).
 // Uses POST /v1/video/create for submission and GET /v1/video/query?id= for polling.
 // Local images are uploaded by videoPlan.applyUploads before dispatch.
-func runYunwuVideo(req *types.VideoGenerateRequest) ([]string, error) {
+func runOpenLuxVideo(req *types.VideoGenerateRequest) ([]string, error) {
 	c := options.NewClient("video")
 	options.ApplyTimeout(c, "video", client.VideoTimeout)
 
 	// Step 1: Submit
-	createResp, err := c.YunwuVideoSubmit(req)
+	createResp, err := c.OpenLuxVideoSubmit(req)
 	if err != nil {
-		return nil, fmt.Errorf("yunwu video submission failed: %w", err)
+		return nil, fmt.Errorf("openlux video submission failed: %w", err)
 	}
 
 	fmt.Printf("Provider: %s\n", options.Shared.ResolveProvider("video").ProviderType)
@@ -32,17 +32,17 @@ func runYunwuVideo(req *types.VideoGenerateRequest) ([]string, error) {
 	fmt.Println("Polling for completion...")
 	taskID := createResp.ID
 	const (
-		yunwuPollInterval = 10 * time.Second
-		yunwuMaxWait      = 5 * time.Minute
+		openluxPollInterval = 10 * time.Second
+		openluxMaxWait      = 5 * time.Minute
 	)
 	start := time.Now()
 	var videoURL string
 	for {
-		if time.Since(start) > yunwuMaxWait {
-			return nil, fmt.Errorf("yunwu video polling timed out after %v", yunwuMaxWait)
+		if time.Since(start) > openluxMaxWait {
+			return nil, fmt.Errorf("openlux video polling timed out after %v", openluxMaxWait)
 		}
 
-		queryResp, err := c.YunwuVideoQuery(taskID)
+		queryResp, err := c.OpenLuxVideoQuery(taskID)
 		if err != nil {
 			return nil, fmt.Errorf("polling failed: %w", err)
 		}
@@ -51,17 +51,17 @@ func runYunwuVideo(req *types.VideoGenerateRequest) ([]string, error) {
 		case "completed", "succeeded", "success":
 			videoURL = queryResp.VideoURL
 			if videoURL == "" {
-				return nil, fmt.Errorf("yunwu video completed but no video_url returned")
+				return nil, fmt.Errorf("openlux video completed but no video_url returned")
 			}
 		case "failed", "failure":
-			return nil, fmt.Errorf("yunwu video generation failed: status=%s", queryResp.Status)
+			return nil, fmt.Errorf("openlux video generation failed: status=%s", queryResp.Status)
 		case "cancelled", "expired":
-			return nil, fmt.Errorf("yunwu video generation %s", queryResp.Status)
+			return nil, fmt.Errorf("openlux video generation %s", queryResp.Status)
 		default:
 			// pending / running / in_progress / queued -- keep waiting
 			progress := fmt.Sprintf("%.0fs", time.Since(start).Seconds())
 			fmt.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
-			time.Sleep(yunwuPollInterval)
+			time.Sleep(openluxPollInterval)
 		}
 
 		if videoURL != "" {
@@ -72,7 +72,7 @@ func runYunwuVideo(req *types.VideoGenerateRequest) ([]string, error) {
 	// Step 3: Download
 	fmt.Println()
 	fmt.Printf("Downloading video...\n")
-	filename, err := service.DownloadFile(videoURL, options.Shared.OutputDir, fmt.Sprintf("video_yunwu_%s", taskID))
+	filename, err := service.DownloadFile(videoURL, options.Shared.OutputDir, fmt.Sprintf("video_openlux_%s", taskID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to download video: %w", err)
 	}

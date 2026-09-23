@@ -75,7 +75,7 @@ Each provider's wire shape differs, so a verbatim `--json` body must match that 
 | Gemini | `POST {base}/interactions` | uses `input` / `response_format` |
 | Ollama | `POST {ollama-native-base}/api/generate` | `/api/generate` body |
 | ZeekAI (image-to-image) | `POST {base}/images/edits` | images use `images[].image_url` |
-| Generic OpenAI-compatible (OpenAI / Yunwu / SiliconFlow / AIBaseCamp / Pollinations) and Agnes | `POST {base}/images/generations` | OpenAI images shape |
+| Generic OpenAI-compatible (OpenAI / OpenLux / SiliconFlow / AIBaseCamp / Pollinations) and Agnes | `POST {base}/images/generations` | OpenAI images shape |
 
 > 💡 The flag path (`--model` / `--prompt` / `--image-url` …) is unchanged — the CLI still maps and adapts fields per provider. Verbatim passthrough applies to `--json` only.
 
@@ -148,7 +148,7 @@ How a local reference image (`--image-url`, `--mask-url`, or an image field poin
 |---|---|---|
 | Upload (send file, then reference its URL) | APIMart | `<UPLOAD_URL_0>`, `<UPLOAD_URL_1>`, … |
 | Inline data URI (no upload endpoint) | OpenRouter, Gemini, ModelScope, Zeekai (image-to-image), Agnes | `data:image/png;base64,...` |
-| Inline data URI (default OpenAI-compatible) | OpenAI / Yunwu / SiliconFlow and other generic relays | `data:image/png;base64,...` inside the `image_urls` array |
+| Inline data URI (default OpenAI-compatible) | OpenAI / OpenLux / SiliconFlow and other generic relays | `data:image/png;base64,...` inside the `image_urls` array |
 
 ### Upload-based (APIMart): `--dry-run` prints upload curls + the generation curl
 

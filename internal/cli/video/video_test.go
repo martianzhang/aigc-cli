@@ -72,10 +72,10 @@ func TestBuildVideoCurlVerbatimPerProvider(t *testing.T) {
 			"https://apihub.agnes-ai.com/v1/videos",
 		},
 		{
-			"yunwu uses /video/create",
-			"yunwu",
-			&types.NamedProvider{Type: types.ProviderOpenAI, APIKey: "k", BaseURL: "https://yunwu.ai"},
-			"https://yunwu.ai/v1/video/create",
+			"openlux uses /video/create",
+			"openlux",
+			&types.NamedProvider{Type: types.ProviderOpenAI, APIKey: "k", BaseURL: "https://api.openlux.ai"},
+			"https://api.openlux.ai/v1/video/create",
 		},
 		{
 			"apimart uses /videos/generations",

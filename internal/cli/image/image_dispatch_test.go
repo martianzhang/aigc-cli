@@ -25,7 +25,7 @@ func TestImageStrategyDispatch_AllProviders(t *testing.T) {
 		{"ZeekAI image-to-image uses edits JSON", withImage, &imageDispatchCtx{isZeekai: true}, "runImageEditsJSON"},
 		{"ZeekAI text-to-image falls through to sync", noImage, &imageDispatchCtx{isZeekai: true}, "runSyncImage"},
 		{"Ollama uses native generate endpoint", noImage, &imageDispatchCtx{isOllama: true}, "runOllamaImage"},
-		{"Yunwu falls through to generic sync", noImage, &imageDispatchCtx{}, "runSyncImage"},
+		{"OpenLux falls through to generic sync", noImage, &imageDispatchCtx{}, "runSyncImage"},
 		{"generic default falls back to sync", noImage, &imageDispatchCtx{}, "runSyncImage"},
 	}
 	for _, tc := range tests {

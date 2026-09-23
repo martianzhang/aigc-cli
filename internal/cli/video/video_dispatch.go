@@ -8,7 +8,7 @@ import (
 // Built from local variables in runVideo, not global state.
 type videoDispatchCtx struct {
 	isOpenRouter   bool
-	isYunwu        bool
+	isOpenLux      bool
 	isAgnes        bool
 	isPollinations bool
 }
@@ -38,11 +38,11 @@ var videoStrategies = []videoStrategy{
 		run: runAgnesVideo,
 	},
 	{
-		// Yunwu (云雾AI): unified video API (submit -> poll -> download)
+		// OpenLux: unified video API (submit -> poll -> download)
 		match: func(req *types.VideoGenerateRequest, ctx *videoDispatchCtx) bool {
-			return ctx.isYunwu
+			return ctx.isOpenLux
 		},
-		run: runYunwuVideo,
+		run: runOpenLuxVideo,
 	},
 	{
 		// Pollinations: synchronous GET /video/{prompt} returning raw MP4 bytes

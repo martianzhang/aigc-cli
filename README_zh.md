@@ -123,7 +123,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 | **阿里云百炼** | — | — | — | `POST /api/v1/services/audio/music/generation` 同步（DashScope 原生）— fun-music-v1 / fun-music-preview | — |
 | **Agnes AI** | `POST /v1/images/generations`（同步，像素尺寸） | `POST /v1/videos` 异步→轮询→下载（text/keyframe/reference，720P） | ❌ 暂未发现 | — | `GET /v1/models` |
 | **ZeekAI** | 文生图 `POST /v1/images/generations`，图生图 `POST /v1/images/edits`（自动识别） | — | — | — | `GET /v1/models` |
-| **云雾 AI** | `POST /v1/images/generations`（sync） | `POST /v1/video/create` + `GET /v1/video/query` | ❌ 暂未发现 | — | `GET /v1/models` |
+| **OpenLux** | `POST /v1/images/generations`（sync） | `POST /v1/video/create` + `GET /v1/video/query` | ❌ 暂未发现 | — | `GET /v1/models` |
 | **Pollinations** | `POST /v1/images/generations`（同步；需指定 `--quality`） | `GET /video/{prompt}`（根路径，同步返回 MP4） | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions`（按模型计价；`paidOnly` 需付费 pollen） | — | `GET /v1/models`（免认证） |
 | **Ollama / 本地模型** | `POST /v1/images/generations`（experimental，无需 API Key） | ❌ | 可通过 LocalAI/openedai-speech 等第三方服务 | — | `GET /v1/models` |
 | **Anthropic** | — | — | `POST /v1/messages`（通过 Anthropic 兼容中转） | — | — |
@@ -143,7 +143,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 ```
 aigc-cli
 ├── image / img   图片生成（同步/异步/OpenRouter 专用 API / Grok Edit）    →  docs/guide-image.md
-├── video / vid   视频生成（Agnes / OpenRouter / 云雾 + VEO3 Remix）                    →  docs/zh/guide-video.md
+├── video / vid   视频生成（Agnes / OpenRouter / OpenLux + VEO3 Remix）                   →  docs/zh/guide-video.md
 ├── depth         图片/视频 → 灰度深度图（离线 ONNX，支持 V2 模型）                 →  docs/guide-depth.md
 ├── audio / voice 音频：文字转语音（TTS）和语音转文字（STT）              →  docs/guide-audio.md
 │   ├── tts / speak  文字→语音（云端 API 或本地 sherpa-onnx 离线合成）

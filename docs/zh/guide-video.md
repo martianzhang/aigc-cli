@@ -10,7 +10,7 @@
 |---|---|---|---|---|
 | APIMart | `POST /v1/videos/generations` | 异步 task → poll → download | [APIMart Docs](https://docs.apimart.ai/en) |
 | OpenRouter | `POST /v1/videos` | 异步 submit → poll → download | [OpenRouter Video](https://openrouter.ai/docs/guides/overview/multimodal/video-generation) |
-| 云雾 Yunwu | `POST /v1/video/create` + `GET /v1/video/query?id=` | 异步 submit → poll → download | 云雾 API 文档 |
+| OpenLux | `POST /v1/video/create` + `GET /v1/video/query?id=` | 异步 submit → poll → download | [OpenLux 官方文档](https://doc.openlux.ai/en/tutorials/00-intro) |
 | Pollinations | `GET /video/{prompt}` | 同步，直接返回 MP4 | [Pollinations Docs](https://gen.pollinations.ai/docs) |
 | 本地模型（Ollama / LocalAI 等） | ❌ 不支持 | — | 当前无本地开源方案支持视频生成 |
 | 其他 | ❌ 不支持 | — | — |
@@ -91,13 +91,13 @@ aigc-cli video --provider openrouter --json '{
 |---|---|
 | OpenRouter | `POST {base}/videos` |
 | Agnes | `POST {base}/videos` |
-| Yunwu | `POST {base}/video/create` |
+| OpenLux | `POST {base}/video/create` |
 | Pollinations | `GET {pollinations 根}/video/{prompt}`（GET，无请求体） |
 | APIMart / 通用 OpenAI 兼容 | `POST {base}/videos/generations` |
 
 > 💡 用 `--flag`（`--prompt` / `--size` / `--duration` 等）时行为不变，CLI 仍按 provider 映射字段并补默认值；JSON 原样保留只针对 `--json` 未涉及的那些键。
 
-> 💡 `--dry-run` 与 `--verbose` 打印的是**真实端点与真实请求体**（含上表的 provider 端点），可直接用来验证新参数。上传型 provider（APIMart、Yunwu）会先打印每个本地参考图的 multipart 上传 curl，再打印生成 curl，图片值用 `<UPLOAD_URL_n>` 占位。
+> 💡 `--dry-run` 与 `--verbose` 打印的是**真实端点与真实请求体**（含上表的 provider 端点），可直接用来验证新参数。上传型 provider（APIMart、OpenLux）会先打印每个本地参考图的 multipart 上传 curl，再打印生成 curl，图片值用 `<UPLOAD_URL_n>` 占位。
 
 ## 参考图怎么发：上传 vs 内嵌 data URI
 
@@ -105,10 +105,10 @@ aigc-cli video --provider openrouter --json '{
 
 | 处理方式 | Provider | 预览里的图片值 |
 |---|---|---|
-| 上传（先传文件，再引用 URL） | APIMart、Yunwu（通用 OpenAI 兼容中转同样走此路径） | `<UPLOAD_URL_0>`、`<UPLOAD_URL_1>` … |
+| 上传（先传文件，再引用 URL） | APIMart、OpenLux（通用 OpenAI 兼容中转同样走此路径） | `<UPLOAD_URL_0>`、`<UPLOAD_URL_1>` … |
 | 内嵌 data URI | OpenRouter、Agnes | `data:image/png;base64,...` |
 
-### 上传型（APIMart、Yunwu）：`--dry-run` 打印上传 curl + 生成 curl
+### 上传型（APIMart、OpenLux）：`--dry-run` 打印上传 curl + 生成 curl
 
 CLI 先对**每个本地参考图**发一次 multipart 上传，拿到公网 URL 后再发生成请求。`--dry-run` 如实打印这一串调用：N 个本地图片对应 N 条上传 curl，最后一条是生成 curl，生成 curl 里的图片值就是占位符 `<UPLOAD_URL_n>`。
 
@@ -146,7 +146,7 @@ curl -X POST https://api.apimart.ai/v1/videos/generations \
 
 | 限制 | 说明 |
 |---|---|
-| Yunwu 首尾帧角色被拉平 | Yunwu 的请求体只有一个 `images[]` 数组，CLI 会把 `--first-frame` / `--last-frame` 的 URL 依次放进 `images[]`，**不携带首帧/尾帧角色信息**。 |
+| OpenLux 首尾帧角色被拉平 | OpenLux 的请求体只有一个 `images[]` 数组，CLI 会把 `--first-frame` / `--last-frame` 的 URL 依次放进 `images[]`，**不携带首帧/尾帧角色信息**。 |
 | OpenRouter 多张 `--image-url` 都标为首帧 | OpenRouter 的 `frame_images[]` 里，每个来自 `--image-url` 的条目都会写成 `"frame_type":"first_frame"`；只有 `--first-frame` / `--last-frame` 才会保留各自的角色。 |
 
 ## VEO3 Remix（视频续拍）

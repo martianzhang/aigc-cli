@@ -58,7 +58,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 >
 > Tools declared read-only (`readOnlyHint=true`, hosts may skip confirmation): `list_models`, `get_model_pricing`, `get_balance`, `get_task`, `get_config`, `caption_image`, `search_ideas`, `detect_image`, `recognize_text`, `kb_find`, `kb_list`, `kb_show`.
 
-> `generate_image` / `generate_video` / `generate_music` share the CLI provider routing, so every supported provider (OpenRouter, APIMart, Agnes, Yunwu, ModelScope, Gemini, ZeekAI, Alibaba Cloud Bailian, …) works without extra configuration.
+> `generate_image` / `generate_video` / `generate_music` share the CLI provider routing, so every supported provider (OpenRouter, APIMart, Agnes, OpenLux, ModelScope, Gemini, ZeekAI, Alibaba Cloud Bailian, …) works without extra configuration.
 >
 > `midjourney_*` tools resolve their provider from `defaults.midjourney.provider` (or the global `api_key`/`base_url`), and `midjourney_imagine` merges the `defaults.midjourney.*` settings.
 >

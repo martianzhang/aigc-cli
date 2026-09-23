@@ -183,10 +183,10 @@ Extend a reference video:
 aigc-cli video --prompt "keep going" --video-url /path/to/reference.mp4
 ```
 
-## Yunwu AI Video
+## OpenLux Video
 
 ```bash
-export OPENAI_BASE_URL="https://yunwu-api.example.com"
+export OPENAI_BASE_URL="https://api.openlux.ai"
 aigc-cli video --prompt "a dog running"
 ```
 
@@ -243,13 +243,13 @@ Each provider has its own endpoint and native shape (the CLI will not translate 
 |---|---|
 | OpenRouter | `POST {base}/videos` |
 | Agnes | `POST {base}/videos` |
-| Yunwu | `POST {base}/video/create` |
+| OpenLux | `POST {base}/video/create` |
 | Pollinations | `GET {pollinations-root}/video/{prompt}` (GET, no body) |
 | APIMart / generic OpenAI-compatible | `POST {base}/videos/generations` |
 
 > 💡 The flag path (`--prompt` / `--size` / `--duration` …) is unchanged — the CLI still maps fields per provider and fills defaults. Verbatim passthrough applies to `--json` only.
 
-> 💡 `--dry-run` and `--verbose` print the **real endpoint and real request body** (including the provider endpoints above), so you can confirm a new parameter is wired through. Upload-based providers (APIMart, Yunwu) print one multipart upload curl per local reference image first, then the generation curl with `<UPLOAD_URL_n>` placeholders.
+> 💡 `--dry-run` and `--verbose` print the **real endpoint and real request body** (including the provider endpoints above), so you can confirm a new parameter is wired through. Upload-based providers (APIMart, OpenLux) print one multipart upload curl per local reference image first, then the generation curl with `<UPLOAD_URL_n>` placeholders.
 
 ## How Reference Images Are Sent: Upload vs Inline Data URI
 
@@ -257,10 +257,10 @@ How a local reference image (`--image-url` / `--first-frame` / `--last-frame`) i
 
 | Handling | Provider | Image value in the preview |
 |---|---|---|
-| Upload (send file, then reference its URL) | APIMart, Yunwu (the generic OpenAI-compatible relay follows the same path) | `<UPLOAD_URL_0>`, `<UPLOAD_URL_1>`, … |
+| Upload (send file, then reference its URL) | APIMart, OpenLux (the generic OpenAI-compatible relay follows the same path) | `<UPLOAD_URL_0>`, `<UPLOAD_URL_1>`, … |
 | Inline data URI | OpenRouter, Agnes | `data:image/png;base64,...` |
 
-### Upload-based (APIMart, Yunwu): `--dry-run` prints upload curls + the generation curl
+### Upload-based (APIMart, OpenLux): `--dry-run` prints upload curls + the generation curl
 
 The CLI uploads **each local reference image** with a multipart request first, then sends the generation request with the returned public URL. `--dry-run` prints exactly that sequence: N local images produce N upload curls, followed by one generation curl whose image value is the placeholder `<UPLOAD_URL_n>`.
 
@@ -298,7 +298,7 @@ curl -X POST https://api.apimart.ai/v1/videos/generations \
 
 | Limitation | Detail |
 |---|---|
-| Yunwu flattens first/last frame roles | Yunwu's body has a single `images[]` array, so the CLI places the `--first-frame` / `--last-frame` URLs into `images[]` in order and **drops the first-frame/last-frame role information**. |
+| OpenLux flattens first/last frame roles | OpenLux's body has a single `images[]` array, so the CLI places the `--first-frame` / `--last-frame` URLs into `images[]` in order and **drops the first-frame/last-frame role information**. |
 | OpenRouter marks every `--image-url` as a first frame | In OpenRouter's `frame_images[]`, every entry that came from `--image-url` is written with `"frame_type":"first_frame"`; only `--first-frame` / `--last-frame` keep their own roles. |
 
 ## Depth Conversion

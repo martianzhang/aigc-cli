@@ -28,7 +28,7 @@ func TestVideoStrategyDispatch_AllProviders(t *testing.T) {
 	}{
 		{"OpenRouter uses dedicated video API", &videoDispatchCtx{isOpenRouter: true}, "runOpenRouterVideo"},
 		{"Agnes uses async task API", &videoDispatchCtx{isAgnes: true}, "runAgnesVideo"},
-		{"Yunwu uses unified video API", &videoDispatchCtx{isYunwu: true}, "runYunwuVideo"},
+		{"OpenLux uses unified video API", &videoDispatchCtx{isOpenLux: true}, "runOpenLuxVideo"},
 		{"APIMart default uses async task API", &videoDispatchCtx{}, "runAPIMartVideo"},
 		{"generic default falls back to APIMart", &videoDispatchCtx{}, "runAPIMartVideo"},
 	}

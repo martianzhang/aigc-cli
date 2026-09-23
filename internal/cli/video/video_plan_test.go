@@ -61,7 +61,7 @@ func firstBodyImage(t *testing.T, ptype provider.Type, body any) string {
 		img, _ := frame["image_url"].(map[string]any)
 		s, _ := img["url"].(string)
 		return s
-	case provider.Yunwu, provider.Agnes:
+	case provider.OpenLux, provider.Agnes:
 		return firstString(m["images"])
 	default:
 		return firstString(m["image_urls"])
@@ -100,10 +100,10 @@ func TestBuildVideoPlanImageRouting(t *testing.T) {
 			wantLocal:   "<UPLOAD_URL_0>",
 		},
 		{
-			name:        "yunwu uploads and inlines placeholders",
-			p:           &provider.EffectiveProvider{APIKey: "k", BaseURL: "https://yunwu.ai", ProviderType: provider.Yunwu},
+			name:        "openlux uploads and inlines placeholders",
+			p:           &provider.EffectiveProvider{APIKey: "k", BaseURL: "https://api.openlux.ai", ProviderType: provider.OpenLux},
 			wantMethod:  http.MethodPost,
-			wantURL:     "https://yunwu.ai/v1/video/create",
+			wantURL:     "https://api.openlux.ai/v1/video/create",
 			wantUploads: 1,
 			wantLocal:   "<UPLOAD_URL_0>",
 		},

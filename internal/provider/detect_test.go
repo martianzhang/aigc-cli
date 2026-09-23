@@ -29,14 +29,14 @@ func TestDetect_OpenRouter(t *testing.T) {
 	}
 }
 
-func TestDetect_Yunwu(t *testing.T) {
+func TestDetect_OpenLux(t *testing.T) {
 	cases := []string{
-		"https://api.yunwu.ai",
-		"https://yunwu.ai",
+		"https://api.openlux.ai",
+		"https://openlux.ai",
 	}
 	for _, url := range cases {
-		if got := Detect(url); got != Yunwu {
-			t.Errorf("Detect(%q) = %v, want Yunwu", url, got)
+		if got := Detect(url); got != OpenLux {
+			t.Errorf("Detect(%q) = %v, want OpenLux", url, got)
 		}
 	}
 }
@@ -126,12 +126,12 @@ func TestDetect_Unknown(t *testing.T) {
 	}
 }
 
-func TestDetect_IsYunwu(t *testing.T) {
-	if !IsYunwu("https://api.yunwu.ai/v1") {
-		t.Error("IsYunwu should be true for yunwu.ai")
+func TestDetect_IsOpenLux(t *testing.T) {
+	if !IsOpenLux("https://api.openlux.ai/v1") {
+		t.Error("IsOpenLux should be true for openlux.ai")
 	}
-	if IsYunwu("https://api.apimart.ai") {
-		t.Error("IsYunwu should be false for apimart.ai")
+	if IsOpenLux("https://api.apimart.ai") {
+		t.Error("IsOpenLux should be false for apimart.ai")
 	}
 }
 
@@ -172,8 +172,8 @@ func TestType_String(t *testing.T) {
 	if OpenAI.String() != "OpenAI" {
 		t.Errorf("OpenAI.String() = %q", OpenAI.String())
 	}
-	if Yunwu.String() != "Yunwu（云雾AI）" {
-		t.Errorf("Yunwu.String() = %q", Yunwu.String())
+	if OpenLux.String() != "OpenLux" {
+		t.Errorf("OpenLux.String() = %q", OpenLux.String())
 	}
 	if ModelScope.String() != "ModelScope" {
 		t.Errorf("ModelScope.String() = %q", ModelScope.String())

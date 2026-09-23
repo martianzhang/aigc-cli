@@ -107,7 +107,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 >
 > 声明为只读（`readOnlyHint=true`，宿主可跳过确认）的工具：`list_models`、`get_model_pricing`、`get_balance`、`get_task`、`get_config`、`caption_image`、`search_ideas`、`detect_image`、`recognize_text`、`kb_find`、`kb_list`、`kb_show`。
 
-> `generate_image` / `generate_video` / `generate_music` 与对应的 CLI 命令共用同一套 Provider 路由，所有已支持的 Provider（OpenRouter、APIMart、Agnes、Yunwu、ModelScope、Gemini、ZeekAI、阿里云百炼等）无需额外配置即可使用。
+> `generate_image` / `generate_video` / `generate_music` 与对应的 CLI 命令共用同一套 Provider 路由，所有已支持的 Provider（OpenRouter、APIMart、Agnes、OpenLux、ModelScope、Gemini、ZeekAI、阿里云百炼等）无需额外配置即可使用。
 >
 > `midjourney_*` 工具通过 `defaults.midjourney.provider`（或全局 `api_key`/`base_url`）解析 Provider，`midjourney_imagine` 会合并 `defaults.midjourney.*` 默认参数。
 >

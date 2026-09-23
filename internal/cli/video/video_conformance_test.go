@@ -104,23 +104,23 @@ func TestVideoConformanceAPIMartRemoteURL(t *testing.T) {
 	requirePreviewMatchesSent(t, plan.Body, nil, rec.Body)
 }
 
-// TestVideoConformanceYunwuLocalUpload proves a Yunwu local image uploads and
+// TestVideoConformanceOpenLuxLocalUpload proves an OpenLux local image uploads and
 // the sent images list carries the uploaded URL.
-func TestVideoConformanceYunwuLocalUpload(t *testing.T) {
+func TestVideoConformanceOpenLuxLocalUpload(t *testing.T) {
 	local := testLocalImage(t)
 	srv := newWireServer(t)
-	p := conformanceProvider(srv.URL, provider.Yunwu)
+	p := conformanceProvider(srv.URL, provider.OpenLux)
 	req := &types.VideoGenerateRequest{Model: "veo3", Prompt: "a cat", ImageURLs: []string{local}}
 
-	plan, rec := runConformance(t, srv, p, req, submitYunwuVideo)
+	plan, rec := runConformance(t, srv, p, req, submitOpenLuxVideo)
 	if len(plan.Uploads) != 1 {
 		t.Fatalf("plan uploads = %d, want 1", len(plan.Uploads))
 	}
 	if got := srv.uploadCount(); got != 1 {
 		t.Errorf("upload requests = %d, want 1", got)
 	}
-	if rec.Method != http.MethodPost || rec.Path != "/v1"+client.YunwuVideoSubPath {
-		t.Errorf("sent %s %s, want POST /v1%s", rec.Method, rec.Path, client.YunwuVideoSubPath)
+	if rec.Method != http.MethodPost || rec.Path != "/v1"+client.OpenLuxVideoSubPath {
+		t.Errorf("sent %s %s, want POST /v1%s", rec.Method, rec.Path, client.OpenLuxVideoSubPath)
 	}
 
 	var sent struct {

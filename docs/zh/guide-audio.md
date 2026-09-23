@@ -8,19 +8,19 @@
 
 ## 接口兼容性总览
 
-目前已确认支持 TTS 的 Provider 如下，Yunwu（云雾 AI）暂未发现公开的 TTS/STT 端点：
+目前已确认支持 TTS 的 Provider 如下，OpenLux 暂未发现公开的 TTS/STT 端点：
 
 | Provider | TTS 端点 | STT 端点 | 兼容性 |
 |---|---|---|---|---|
 | **OpenAI** | `POST /v1/audio/speech` | `POST /v1/audio/transcriptions` | 基准实现 |
 | **OpenRouter** | `POST /api/v1/audio/speech` | `POST /api/v1/audio/transcriptions` | OpenAI 完全兼容，SDK 直连 |
 | **APIMart** | `POST /v1/audio/speech` | `POST /v1/audio/transcriptions` | OpenAI 兼容 |
-| **Yunwu** | ❌ 未发现 | ❌ 未发现 | — |
+| **OpenLux** | ❌ 未发现 | ❌ 未发现 | — |
 | **本地 TTS 服务** | `POST /v1/audio/speech` | — | 见下方"本地 TTS 方案" |
 
-> Yunwu 官网自称"完全兼容 OpenAI API 协议"且聚合了 500+ 模型，理论上 `/v1/audio/speech` 透传可能也能通，但公开文档和定价页中均未列出 TTS 相关模型或接口，其视频 API 走的是自定义端点（`/v1/video/create` + `/v1/video/query`）。建议后续实现时实测确认。
+> OpenLux 是 OpenAI 兼容的聚合中转，理论上 `/v1/audio/speech` 透传可能也能通，但公开文档中未列出 TTS 相关模型或接口，其视频 API 走的是自定义端点（`/v1/video/create` + `/v1/video/query`）。建议后续实现时实测确认。
 
-检测逻辑：沿用现有 `base_url` 自动识别机制（OpenAI / OpenRouter / APIMart），无需新增 Provider 类型。Yunwu 走通用 OpenAI 兼容兜底逻辑。本地方案走 localhost 自动豁免，无需 API Key。
+检测逻辑：沿用现有 `base_url` 自动识别机制（OpenAI / OpenRouter / APIMart），无需新增 Provider 类型。OpenLux 走通用 OpenAI 兼容兜底逻辑。本地方案走 localhost 自动豁免，无需 API Key。
 
 ### 本地 TTS 方案
 

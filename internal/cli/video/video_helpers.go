@@ -79,7 +79,7 @@ func GenerateAndSave(req *types.VideoGenerateRequest) ([]string, error) {
 	}
 	vctx := &videoDispatchCtx{
 		isOpenRouter:   p.ProviderType == provider.OpenRouter,
-		isYunwu:        p.ProviderType == provider.Yunwu,
+		isOpenLux:      p.ProviderType == provider.OpenLux,
 		isAgnes:        p.ProviderType == provider.Agnes,
 		isPollinations: p.ProviderType == provider.Pollinations,
 	}

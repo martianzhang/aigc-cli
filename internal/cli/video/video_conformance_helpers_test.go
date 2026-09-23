@@ -139,8 +139,8 @@ func submitVideo(c *client.Client, req *types.VideoGenerateRequest) error {
 	return err
 }
 
-func submitYunwuVideo(c *client.Client, req *types.VideoGenerateRequest) error {
-	_, err := c.YunwuVideoSubmit(req)
+func submitOpenLuxVideo(c *client.Client, req *types.VideoGenerateRequest) error {
+	_, err := c.OpenLuxVideoSubmit(req)
 	return err
 }
 

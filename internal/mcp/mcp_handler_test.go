@@ -74,10 +74,10 @@ func (m *mockAPIClient) OpenRouterVideoGet(jobID string) (*types.OpenRouterVideo
 func (m *mockAPIClient) OpenRouterVideoPollUntilComplete(pollingURL string, pollInterval, maxWait time.Duration) (*types.OpenRouterVideoStatusResponse, error) {
 	return nil, nil
 }
-func (m *mockAPIClient) YunwuVideoSubmit(req *types.VideoGenerateRequest) (*types.YunwuVideoCreateResponse, error) {
+func (m *mockAPIClient) OpenLuxVideoSubmit(req *types.VideoGenerateRequest) (*types.OpenLuxVideoCreateResponse, error) {
 	return nil, nil
 }
-func (m *mockAPIClient) YunwuVideoQuery(taskID string) (*types.YunwuVideoQueryResponse, error) {
+func (m *mockAPIClient) OpenLuxVideoQuery(taskID string) (*types.OpenLuxVideoQueryResponse, error) {
 	return nil, nil
 }
 func (m *mockAPIClient) MidjourneySubmit(action string, reqBody any) (*types.MJSubmitResponse, error) {

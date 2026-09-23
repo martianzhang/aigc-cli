@@ -16,7 +16,7 @@ const (
 	APIMart
 	OpenAI
 	OpenRouter
-	Yunwu
+	OpenLux
 	ModelScope
 	Agnes
 	Gemini
@@ -30,7 +30,7 @@ var names = map[Type]string{
 	APIMart:      "APIMart",
 	OpenAI:       "OpenAI",
 	OpenRouter:   "OpenRouter",
-	Yunwu:        "Yunwu（云雾AI）",
+	OpenLux:      "OpenLux",
 	ModelScope:   "ModelScope",
 	Agnes:        "Agnes",
 	Gemini:       "Gemini",
@@ -65,9 +65,9 @@ var openrouterDomains = []string{
 	"openrouter.ai",
 }
 
-// yunwuDomains lists domains where Yunwu AI (云雾AI) APIs are served.
-var yunwuDomains = []string{
-	"yunwu.ai",
+// openluxDomains lists domains where OpenLux APIs are served.
+var openluxDomains = []string{
+	"openlux.ai",
 }
 
 // modelscopeDomains lists domains where ModelScope API-Inference is served.
@@ -140,9 +140,9 @@ func Detect(baseURL string) Type {
 			return OpenRouter
 		}
 	}
-	for _, d := range yunwuDomains {
+	for _, d := range openluxDomains {
 		if matchDomain(baseURL, d) {
-			return Yunwu
+			return OpenLux
 		}
 	}
 	for _, d := range modelscopeDomains {
@@ -188,8 +188,8 @@ func IsAPIMart(baseURL string) bool { return Detect(baseURL) == APIMart }
 // IsOpenRouter is a convenience wrapper around Detect.
 func IsOpenRouter(baseURL string) bool { return Detect(baseURL) == OpenRouter }
 
-// IsYunwu is a convenience wrapper around Detect.
-func IsYunwu(baseURL string) bool { return Detect(baseURL) == Yunwu }
+// IsOpenLux is a convenience wrapper around Detect.
+func IsOpenLux(baseURL string) bool { return Detect(baseURL) == OpenLux }
 
 // IsModelScope is a convenience wrapper around Detect.
 func IsModelScope(baseURL string) bool { return Detect(baseURL) == ModelScope }

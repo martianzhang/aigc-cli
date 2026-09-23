@@ -284,15 +284,15 @@ type VideoGenerateResponse struct {
 	Data []TaskSubmission `json:"data"`
 }
 
-// YunwuVideoCreateResponse is returned by yunwu.ai's POST /v1/video/create.
-type YunwuVideoCreateResponse struct {
+// OpenLuxVideoCreateResponse is returned by api.openlux.ai's POST /v1/video/create.
+type OpenLuxVideoCreateResponse struct {
 	ID               string `json:"id"`
 	Status           string `json:"status"`
 	StatusUpdateTime int64  `json:"status_update_time,omitempty"`
 }
 
-// YunwuVideoQueryResponse is returned when polling yunwu.ai's video task.
-type YunwuVideoQueryResponse struct {
+// OpenLuxVideoQueryResponse is returned when polling api.openlux.ai's video task.
+type OpenLuxVideoQueryResponse struct {
 	ID               string `json:"id"`
 	Status           string `json:"status"`
 	VideoURL         string `json:"video_url,omitempty"`

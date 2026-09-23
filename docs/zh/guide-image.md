@@ -109,7 +109,7 @@ aigc-cli image --provider modelscope --json downloads/prompt.json --prompt "低�
 | Gemini | `POST {base}/interactions` | 用 `input` / `response_format` |
 | Ollama | `POST {ollama 原生 base}/api/generate` | `/api/generate` 形状 |
 | ZeekAI（图生图） | `POST {base}/images/edits` | 图片用 `images[].image_url` |
-| 通用 OpenAI 兼容（OpenAI / Yunwu / SiliconFlow / AIBaseCamp / Pollinations）与 Agnes | `POST {base}/images/generations` | OpenAI 图像接口形状 |
+| 通用 OpenAI 兼容（OpenAI / OpenLux / SiliconFlow / AIBaseCamp / Pollinations）与 Agnes | `POST {base}/images/generations` | OpenAI 图像接口形状 |
 
 > 💡 用 `--flag`（`--model` / `--prompt` / `--image-url` 等）时行为不变，CLI 仍按各 provider 做字段映射与适配；JSON 原样保留只针对 `--json` 未涉及的那些键。
 
@@ -171,7 +171,7 @@ aigc-cli image --provider modelscope --json '{
 |---|---|---|
 | 上传（先传文件，再引用 URL） | APIMart | `<UPLOAD_URL_0>`、`<UPLOAD_URL_1>` … |
 | 内嵌 data URI（无上传端点） | OpenRouter、Gemini、ModelScope、Zeekai（图生图）、Agnes | `data:image/png;base64,...` |
-| 内嵌 data URI（默认 OpenAI 兼容） | OpenAI / Yunwu / SiliconFlow 等通用兼容端点 | `image_urls` 数组里的 `data:image/png;base64,...` |
+| 内嵌 data URI（默认 OpenAI 兼容） | OpenAI / OpenLux / SiliconFlow 等通用兼容端点 | `image_urls` 数组里的 `data:image/png;base64,...` |
 
 ### 上传型（APIMart）：`--dry-run` 打印上传 curl + 生成 curl
 

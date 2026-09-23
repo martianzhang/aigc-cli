@@ -37,7 +37,7 @@ type videoPlan struct {
 
 // buildVideoPlan resolves the plan for req under p.
 //
-// Upload providers (APIMart, Yunwu) keep req untouched: their preview body is a
+// Upload providers (APIMart, OpenLux) keep req untouched: their preview body is a
 // shallow copy whose local values are placeholders, and applyUploads later
 // rewrites req with the uploaded URLs. Encode providers (OpenRouter, Agnes)
 // have no upload endpoint, so their local files are embedded as data: URIs in
@@ -72,13 +72,13 @@ func buildVideoPlan(req *types.VideoGenerateRequest, p *provider.EffectiveProvid
 			URL:    base + client.AgnesVideoSubmitPath,
 			Body:   client.AgnesVideoBody(req),
 		}}, nil
-	case provider.Yunwu:
+	case provider.OpenLux:
 		preview, uploads, slots := collectVideoUploads(req)
 		return &videoPlan{
 			Plan: reqbuild.Plan{
 				Method:    http.MethodPost,
-				URL:       base + client.YunwuVideoSubPath,
-				Body:      client.YunwuVideoBody(preview),
+				URL:       base + client.OpenLuxVideoSubPath,
+				Body:      client.OpenLuxVideoBody(preview),
 				Uploads:   uploads,
 				UploadURL: base + client.UploadPath,
 			},
