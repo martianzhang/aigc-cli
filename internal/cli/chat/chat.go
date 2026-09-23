@@ -90,11 +90,8 @@ func runChat(cmd *cobra.Command, args []string) error {
 		return runChatTUI(cmd)
 	}
 
-	// Non-interactive with --message(s)
-	if err := sendChatRequest(cmd, req); err != nil {
-		return err
-	}
-
+	// Non-interactive with --message(s): the agent loop below performs the
+	// single send (with tools) and prints the answer once.
 	maxIterations := 10
 	if chatCfg != nil && chatCfg.MaxIterations > 0 {
 		maxIterations = chatCfg.MaxIterations

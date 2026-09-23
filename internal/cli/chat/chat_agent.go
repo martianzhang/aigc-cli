@@ -44,7 +44,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 		req := &types.ChatRequest{
 			Model:        options.Shared.Model,
 			Messages:     *history,
-			Stream:       true,
+			Stream:       !chatNoStream,
 			OutputWriter: options.Stdout(),
 		}
 		if len(agentTools) > 0 {
@@ -92,7 +92,10 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 			continue
 		}
 
-		// Text response -- already streamed to stdout by handleSSE
+		// Text response: streamed by handleSSE when streaming, printed here otherwise.
+		if chatNoStream && choice.Message.Content != "" {
+			fmt.Fprintln(options.Stdout(), choice.Message.Content)
+		}
 		*history = append(*history, choice.Message)
 
 		if options.Shared.Verbose {
