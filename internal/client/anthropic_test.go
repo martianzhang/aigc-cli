@@ -1,7 +1,10 @@
 package client
 
 import (
+	"io"
+	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -273,5 +276,51 @@ func TestAnthropicToChatResponse_propagatesIDAndModel(t *testing.T) {
 				t.Errorf("Object = %q, want %q", got.Object, "chat.completion")
 			}
 		})
+	}
+}
+
+type captureTransport struct {
+	last *http.Request
+	body string
+}
+
+func (t *captureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	t.last = req
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(t.body)),
+		Request:    req,
+	}, nil
+}
+
+// TestAnthropicChatCompletion_OpenRouterAttribution guards the bug where an
+// anthropic-typed provider pointed at OpenRouter sent no app attribution.
+func TestAnthropicChatCompletion_OpenRouterAttribution(t *testing.T) {
+	t.Setenv("OPENAI_REFERER", "")
+	t.Setenv("OPENAI_APP_TITLE", "")
+
+	c := NewWithProvider("sk-test", "https://openrouter.ai/api/v1", "", types.ProviderAnthropic)
+	tr := &captureTransport{body: `{"id":"m1","type":"message","model":"x","content":[{"type":"text","text":"ok"}]}`}
+	c.httpClient.Transport = tr
+
+	if _, err := c.ChatCompletion(&types.ChatRequest{
+		Model:    "x",
+		Messages: []types.ChatMessage{{Role: "user", Content: "hi"}},
+	}); err != nil {
+		t.Fatalf("ChatCompletion() unexpected error: %v", err)
+	}
+
+	if got := tr.last.URL.Path; !strings.HasSuffix(got, AnthropicChatPath) {
+		t.Fatalf("path = %q, want a suffix of %q", got, AnthropicChatPath)
+	}
+	if got := tr.last.Header.Get(headerReferer); got != "https://github.com/martianzhang/aigc-cli" {
+		t.Errorf("%s = %q, want the built-in default", headerReferer, got)
+	}
+	if got := tr.last.Header.Get(headerTitle); got != "aigc-cli" {
+		t.Errorf("%s = %q, want aigc-cli", headerTitle, got)
+	}
+	if tr.last.Header.Get("User-Agent") == "" {
+		t.Error("User-Agent should be set")
 	}
 }

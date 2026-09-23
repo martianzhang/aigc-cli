@@ -105,6 +105,7 @@ func ollamaNativeChat(p *EffectiveProvider, b64Image, textPrompt string) (string
 		return "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	SetAttribution(req, p.BaseURL)
 
 	hc := httpClient(p, 120*time.Second)
 	resp, err := hc.Do(req)
@@ -176,6 +177,7 @@ func openaiCompatVisionChat(p *EffectiveProvider, dataURL, textPrompt string) (s
 	if p.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+p.APIKey)
 	}
+	SetAttribution(req, p.BaseURL)
 
 	hc := httpClient(p, 120*time.Second)
 	resp, err := hc.Do(req)
@@ -252,6 +254,7 @@ func anthropicVisionChat(p *EffectiveProvider, b64Image, mimeType, textPrompt st
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", p.APIKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
+	SetAttribution(req, p.BaseURL)
 
 	hc := httpClient(p, 120*time.Second)
 	resp, err := hc.Do(req)

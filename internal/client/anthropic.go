@@ -32,6 +32,7 @@ func (c *Client) anthropicChatCompletion(req *types.ChatRequest) (*types.ChatRes
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("x-api-key", c.apiKey)
 	httpReq.Header.Set("anthropic-version", AnthropicVersion)
+	c.setOpenRouterHeaders(httpReq)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
