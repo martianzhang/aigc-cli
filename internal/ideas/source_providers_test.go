@@ -3,9 +3,12 @@ package ideas
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -212,5 +215,164 @@ func TestTitleFromPrompt(t *testing.T) {
 				t.Fatalf("titleFromPrompt(%q) = %q, want %q", tt.prompt, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCivitaiSource(t *testing.T) {
+	var modelsPath, imagesPath string
+	var modelsQuery, imagesQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/models":
+			modelsPath, modelsQuery = r.URL.Path, r.URL.Query()
+			_, _ = w.Write([]byte(`{"items":[
+				{"id":1,"modelVersions":[{"id":111},{"id":110}]}
+			]}`))
+		case "/api/v1/images":
+			imagesPath, imagesQuery = r.URL.Path, r.URL.Query()
+			_, _ = w.Write([]byte(`{"items":[
+				{"id":9001,"url":"https://img.civitai.com/1.jpeg","username":"Yoruuu","meta":{"prompt":"A neon cyberpunk city at night","negativePrompt":"blur"}},
+				{"id":9002,"url":"https://img.civitai.com/2.jpeg","username":"Comfy","meta":{"comfy":"workflow only"}},
+				{"id":9003,"url":"https://img.civitai.com/3.jpeg","username":"NoMeta"},
+				{"id":9004,"url":"https://img.civitai.com/4.jpeg","username":"Blank","meta":{"prompt":"   "}},
+				{"id":9005,"url":"https://img.civitai.com/5.jpeg","username":"Bob","meta":{"prompt":"Second prompt"}}
+			]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	defer overrideBaseURL(&civitaiBaseURL, srv.URL)()
+
+	src := civitaiSource{}
+	if src.Name() != SourceCivitai {
+		t.Fatalf("Name() = %q, want %q", src.Name(), SourceCivitai)
+	}
+
+	got, err := src.Search(context.Background(), "cyberpunk", 5)
+	if err != nil {
+		t.Fatalf("Search() unexpected error: %v", err)
+	}
+	if modelsPath != "/api/v1/models" {
+		t.Errorf("models path = %q, want /api/v1/models", modelsPath)
+	}
+	if v := modelsQuery.Get("query"); v != "cyberpunk" {
+		t.Errorf("models query = %q, want cyberpunk", v)
+	}
+	if v := modelsQuery.Get("limit"); v != "3" {
+		t.Errorf("models limit = %q, want 3", v)
+	}
+	if imagesPath != "/api/v1/images" {
+		t.Errorf("images path = %q, want /api/v1/images", imagesPath)
+	}
+	if v := imagesQuery.Get("modelVersionId"); v != "111" {
+		t.Errorf("modelVersionId = %q, want 111 (latest version)", v)
+	}
+	if v := imagesQuery.Get("withMeta"); v != "true" {
+		t.Errorf("withMeta = %q, want true", v)
+	}
+	if v := imagesQuery.Get("nsfw"); v != "None" {
+		t.Errorf("nsfw = %q, want None", v)
+	}
+	if v := imagesQuery.Get("sort"); v != civitaiSort {
+		t.Errorf("sort = %q, want %q", v, civitaiSort)
+	}
+	if v := imagesQuery.Get("limit"); v != "5" {
+		t.Errorf("images limit = %q, want 5", v)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("Search() returned %d entries, want 2 (meta-less items skipped)", len(got))
+	}
+	first := got[0]
+	if first.Prompt != "A neon cyberpunk city at night" || first.Author != "Yoruuu" || first.Lang != "en" {
+		t.Errorf("entry[0] = %+v, want the prompt/author mapping", first)
+	}
+	if want := "A neon cyberpunk city at night"; first.Title != want {
+		t.Errorf("entry[0].Title = %q, want %q", first.Title, want)
+	}
+	if want := srv.URL + "/images/9001"; first.SourceURL != want {
+		t.Errorf("entry[0].SourceURL = %q, want %q", first.SourceURL, want)
+	}
+	if !slices.Equal(first.ImageURLs, []string{"https://img.civitai.com/1.jpeg"}) {
+		t.Errorf("entry[0].ImageURLs = %v, want the image url", first.ImageURLs)
+	}
+	if got[1].Prompt != "Second prompt" {
+		t.Errorf("entry[1].Prompt = %q, want Second prompt", got[1].Prompt)
+	}
+
+	limited, err := src.Search(context.Background(), "cyberpunk", 1)
+	if err != nil {
+		t.Fatalf("Search(limit=1) unexpected error: %v", err)
+	}
+	if len(limited) != 1 {
+		t.Fatalf("Search(limit=1) returned %d entries, want 1", len(limited))
+	}
+
+	if _, err := src.Search(context.Background(), "  ", 5); !errors.Is(err, errEmptyQuery) {
+		t.Fatalf("Search(blank) error = %v, want errEmptyQuery", err)
+	}
+}
+
+func TestCivitaiSourceQueriesEveryModelAndClampsLimit(t *testing.T) {
+	var mu sync.Mutex
+	var versionIDs []string
+	var imageLimit string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/models":
+			_, _ = w.Write([]byte(`{"items":[
+				{"id":1,"modelVersions":[{"id":111}]},
+				{"id":2,"modelVersions":[{"id":222}]},
+				{"id":3,"modelVersions":[]}
+			]}`))
+		case "/api/v1/images":
+			mu.Lock()
+			versionIDs = append(versionIDs, r.URL.Query().Get("modelVersionId"))
+			imageLimit = r.URL.Query().Get("limit")
+			mu.Unlock()
+			_, _ = w.Write([]byte(`{"items":[{"id":1,"url":"u","username":"a","meta":{"prompt":"p"}}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	defer overrideBaseURL(&civitaiBaseURL, srv.URL)()
+
+	got, err := civitaiSource{}.Search(context.Background(), "anything", 50)
+	if err != nil {
+		t.Fatalf("Search() unexpected error: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	slices.Sort(versionIDs)
+	if !slices.Equal(versionIDs, []string{"111", "222"}) {
+		t.Errorf("queried model versions = %v, want [111 222] (versionless model skipped)", versionIDs)
+	}
+	if imageLimit != "12" {
+		t.Errorf("images limit = %q, want 12 (clamped by civitaiImageLimit)", imageLimit)
+	}
+	if len(got) != 1 {
+		t.Fatalf("Search() returned %d entries, want 1 (identical images deduped)", len(got))
+	}
+}
+
+func TestCivitaiSourceReportsErrorWhenAllRequestsFail(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"items":[{"id":1,"modelVersions":[{"id":111}]}]}`))
+			return
+		}
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	defer overrideBaseURL(&civitaiBaseURL, srv.URL)()
+
+	if _, err := (civitaiSource{}).Search(context.Background(), "x", 5); err == nil {
+		t.Fatal("Search() = nil error, want the upstream failure surfaced when nothing was collected")
 	}
 }

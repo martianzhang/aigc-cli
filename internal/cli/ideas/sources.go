@@ -9,8 +9,10 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 )
 
-// onlineSearchTimeout bounds the concurrent online source queries.
-const onlineSearchTimeout = 5 * time.Second
+// onlineSearchTimeout bounds the concurrent online source queries. It must
+// cover the slowest source: most issue a single request, but civitai resolves
+// models first and only then fetches their images (two round-trips).
+const onlineSearchTimeout = 12 * time.Second
 
 // localResults builds the ranked local list. The empty flag reports a
 // present-but-empty dataset so the caller can keep the historical message.

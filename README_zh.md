@@ -23,7 +23,7 @@
 | 🧠 | **Provider 自动适配** | 每个厂商自动走正确的 API 路由（OpenRouter 专用图片/视频 API、APIMart 异步任务等） |
 | 🎨 | **Midjourney 完整管线** | 17 子命令：imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord。 |
 | 💬 | **Agentic Chat** | 交互式 REPL，内嵌 `generate_image`、`generate_video`、`midjourney_*`、`ideas`、`kb_*`、`detect_image`、`recognize_text` 等工具。 |
-| 🔍 | **提示词灵感** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF）+ 3 个免 Key 在线提示词库，RRF 融合，万级提示词数据集。 |
+| 🔍 | **提示词灵感** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF）+ 4 个免 Key 在线提示词库，RRF 融合，万级提示词数据集。 |
 | 🔊 | **本地 TTS / ASR** | sherpa-onnx 离线语音合成（kokoro 53 种音色，中英日韩法）和语音识别（SenseVoice 中文最佳），无需联网。 |
 | 🔄 | **视频任务持久化** | OpenRouter 提交→轮询→下载全流程，`--job-id` 超时后一键恢复。 |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，零成本学习和调试。 |
@@ -101,7 +101,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 | 🎨 | **Midjourney 完整管线** | 17 子命令覆盖 imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord |
 | 🎵 | **AI 音乐生成** | 自然语言生成音乐：APIMart（suno / flowmusic，异步提交→轮询→下载）、OpenRouter（Lyria-3，同步流式）、阿里云百炼（Fun-Music，同步） |
 | 💬 | **Agentic Chat** | 交互式 REPL 内嵌 `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` 等工具 |
-| 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集；`--source` 可叠加 aipromptslibrary / prompts.chat / openart 在线源 |
+| 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集；`--source` 可叠加 aipromptslibrary / prompts.chat / openart / civitai 在线源 |
 | 🔊 | **本地 TTS / ASR** | sherpa-onnx 离线语音合成（kokoro 53 种音色，中英日韩法）和语音识别（SenseVoice 中文最佳），无需联网 |
 | 📏 | **深度图** | `depth`：本地 Depth Anything V2 ONNX 转灰度深度图（图片/视频），用于深度引导图生视频 |
 | 🔄 | **视频任务持久化** | OpenRouter 提交→轮询→下载全流程，超时后 `--job-id` 一键恢复 |
@@ -239,7 +239,7 @@ aigc-cli midjourney (或 mj)
 | [Midjourney 生成](docs/zh/guide-midjourney.md) | 17 个子命令完整说明：imagine、blend、upscale 等 |
 | [AI 对话](docs/zh/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
 | [AIGC 检测](docs/zh/guide-detect.md) | 多信号融合、ONNX 模型、FFT 频谱、emoji 输出 |
-| [提示词灵感](docs/zh/guide-ideas.md) | 本地 BM25 搜索 + 在线提示词库（aipromptslibrary、prompts.chat、openart） |
+| [提示词灵感](docs/zh/guide-ideas.md) | 本地 BM25 搜索 + 在线提示词库（aipromptslibrary、prompts.chat、openart、civitai） |
 | [知识库](docs/zh/guide-knowledgebase.md) | 本地知识库：FTS5 + 语义搜索、保险箱、web search |
 | [其他命令](docs/zh/guide-commands.md) | models、task、balance、config、dry-run、API 参考 |
 | [API 参考来源](docs/zh/api-reference.md) | 各 Provider 接口规范来源、检测机制、策略路由 |

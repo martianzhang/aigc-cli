@@ -1,6 +1,6 @@
 # 提示词灵感搜索
 
-从本地 `ideas.json` 数据集和多个在线提示词库中搜索 AI 图片生成提示词，找到高质量的风格参考和提示词示例。默认 `--source all` 会把本地数据与 3 个在线源的结果用 RRF 融合成一个排序列表。
+从本地 `ideas.json` 数据集和多个在线提示词库中搜索 AI 图片生成提示词，找到高质量的风格参考和提示词示例。默认 `--source all` 会把本地数据与 4 个在线源的结果用 RRF 融合成一个排序列表。
 
 本地搜索完全离线（BM25 + 中文分词 + n-gram + RRF），无需 API Key。在线源同样是免 Key 的 JSON 接口，但需要联网（会走配置的 `http_proxy`）。数据文件存储在 **`~/.config/aigc-cli/ideas/ideas.json`**（默认位置）。
 
@@ -46,6 +46,7 @@ echo "cyberpunk city" | aigc-cli ideas
 aigc-cli ideas "cyberpunk city" --source aipromptslibrary
 aigc-cli ideas "portrait" --source prompts.chat
 aigc-cli ideas "portrait" --source openart
+aigc-cli ideas "cyberpunk city" --source civitai
 
 # 组合多个源（逗号分隔或重复传参均可）
 aigc-cli ideas "portrait" --source local,openart
@@ -56,11 +57,12 @@ aigc-cli ideas "portrait" --source prompts.chat --source openart
 
 | 取值 | 说明 |
 |---|---|
-| `all` | 本地数据集（存在 `ideas.json` 时）+ 全部 3 个在线源，**默认值** |
+| `all` | 本地数据集（存在 `ideas.json` 时）+ 全部在线源，**默认值** |
 | `local` | 仅本地 `ideas.json` 数据集（完全离线的 BM25 搜索） |
 | `aipromptslibrary` | [aipromptslibrary.sh](https://aipromptslibrary.sh) 图片生成提示词库 |
 | `prompts.chat` | [prompts.chat](https://prompts.chat) 社区提示词库 |
 | `openart` | [openart.ai](https://openart.ai) 社区提示词，**实验性**：搜索接口未公开文档且没有规范的条目链接，因此结果不带来源链接 |
+| `civitai` | [civitai.com](https://civitai.com) 图片提示词：先用关键词检索 Civitai 的模型，再从这些模型图片的元数据中提取提示词（Civitai 没有提示词检索接口）。结果默认过滤 NSFW（`nsfw=None`） |
 
 说明：
 
@@ -159,7 +161,7 @@ aigc-cli ideas "cat" --json \
 | 参数 | 短参 | 说明 |
 |---|---|---|
 | `keywords` | | 搜索关键词（位置参数，也从 stdin 读取） |
-| `--source` | | 搜索的数据源：`all`（默认）、`local`、`aipromptslibrary`、`prompts.chat`、`openart`；支持逗号分隔或重复传参 |
+| `--source` | | 搜索的数据源：`all`（默认）、`local`、`aipromptslibrary`、`prompts.chat`、`openart`、`civitai`；支持逗号分隔或重复传参 |
 | `--limit` | `-l` | 返回 N 条结果，默认 8 |
 | `--random` | | 从全量结果中随机抽取；不加参数时默认随机返回一条 |
 | `--json` | | 输出 JSON 格式（默认 Markdown） |

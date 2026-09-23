@@ -1,6 +1,6 @@
 # Prompt Ideas
 
-Use `aigc-cli ideas` (alias `idea`) to search prompt idea libraries: the built-in local dataset, three online prompt libraries, or all of them fused into one ranked list.
+Use `aigc-cli ideas` (alias `idea`) to search prompt idea libraries: the built-in local dataset, four online prompt libraries, or all of them fused into one ranked list.
 
 Local search is fully offline (BM25, CJK-aware, n-gram, RRF). Online sources are keyless JSON APIs, so no API key is required — but they do need network access.
 
@@ -21,6 +21,7 @@ aigc-cli ideas "猫"
 aigc-cli ideas "cyberpunk city" --source aipromptslibrary
 aigc-cli ideas "portrait" --source prompts.chat
 aigc-cli ideas "portrait" --source openart
+aigc-cli ideas "cyberpunk city" --source civitai
 
 # Combine sources (comma-separated or repeatable)
 aigc-cli ideas "portrait" --source local,openart
@@ -33,11 +34,12 @@ The local idea library contains 10,000+ prompts covering various styles, subject
 
 | Value | Description |
 |---|---|
-| `all` | Local dataset (when `ideas.json` exists) plus all three online sources. **Default.** |
+| `all` | Local dataset (when `ideas.json` exists) plus all online sources. **Default.** |
 | `local` | Local `ideas.json` dataset only — fully offline BM25 search. |
 | `aipromptslibrary` | [aipromptslibrary.sh](https://aipromptslibrary.sh) image-generation prompts. |
 | `prompts.chat` | [prompts.chat](https://prompts.chat) community prompt library. |
 | `openart` | [openart.ai](https://openart.ai) community prompts — **experimental**: the search endpoint is undocumented and has no canonical per-item URL, so results carry no source link. |
+| `civitai` | [civitai.com](https://civitai.com) image prompts — the keyword is resolved through Civitai's model search, then the prompts are read from those models' image metadata (Civitai exposes no prompt-search endpoint). Results are NSFW-filtered (`nsfw=None`). |
 
 Notes:
 
@@ -51,7 +53,7 @@ Notes:
 
 | Flag | Description |
 |---|---|
-| `--source` | Sources to search: `all` (default), `local`, `aipromptslibrary`, `prompts.chat`, `openart` |
+| `--source` | Sources to search: `all` (default), `local`, `aipromptslibrary`, `prompts.chat`, `openart`, `civitai` |
 | `--limit`, `-l` | Number of results to show (default 8) |
 | `--random` | Shuffle matched results randomly |
 | `--json` | Output JSON instead of markdown |

@@ -56,6 +56,7 @@ Sources (--source):
   aipromptslibrary  aipromptslibrary.sh image-generation prompts
   prompts.chat      prompts.chat community prompt library
   openart           openart.ai community prompts (experimental)
+  civitai           civitai.com image prompts (matched via model search)
 
 Pass one value, a comma-separated list, or repeat the flag:
   --source local,openart
@@ -67,6 +68,7 @@ online sources only.`,
 		Example: `  aigc-cli ideas "cinematic portrait"
   aigc-cli ideas "cyberpunk city" --source aipromptslibrary
   aigc-cli ideas "portrait" --source prompts.chat --source openart
+  aigc-cli ideas "cyberpunk city" --source civitai
   aigc-cli ideas "luxury perfume" --limit 3
   aigc-cli ideas --random --limit 1              # single random idea
   echo "cyberpunk city" | aigc-cli ideas
@@ -83,7 +85,7 @@ online sources only.`,
 	fl.BoolVar(&f.save, "save", false, "Download reference images to local directory")
 	fl.BoolVar(&f.preview, "preview", false, "Open saved images with system default viewer (implies --save)")
 	fl.StringVar(&f.findImage, "find-image", "", "Search by image filename (matches image_urls in dataset)")
-	fl.StringSliceVar(&f.sources, "source", []string{ideas.SourceAll}, "Sources to search (comma-separated or repeatable): all, local, aipromptslibrary, prompts.chat, openart")
+	fl.StringSliceVar(&f.sources, "source", []string{ideas.SourceAll}, "Sources to search (comma-separated or repeatable): all, local, aipromptslibrary, prompts.chat, openart, civitai")
 
 	cmd.AddCommand(newInitCommand(deps))
 	return cmd
