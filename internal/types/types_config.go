@@ -4,12 +4,14 @@ package types
 type ProviderType string
 
 const (
-	ProviderOpenAI    ProviderType = "openai"    // OpenAI-compatible API (default)
-	ProviderOllama    ProviderType = "ollama"    // Ollama local (OpenAI subset, no API key)
-	ProviderGoogle    ProviderType = "google"    // Google Gemini API (reserved)
-	ProviderGemini    ProviderType = "gemini"    // Google Gemini native API
-	ProviderAnthropic ProviderType = "anthropic" // Anthropic Messages API
-	ProviderLocal     ProviderType = "local"     // Local ONNX models (ocr/vision/detect/background)
+	ProviderOpenAI                ProviderType = "openai"                  // OpenAI-compatible /chat/completions (default)
+	ProviderOpenAIChatCompletions ProviderType = "openai_chat_completions" // Explicit alias of openai: classic /chat/completions
+	ProviderOpenAIResponses       ProviderType = "openai_responses"        // OpenAI Responses API (/v1/responses)
+	ProviderOllama                ProviderType = "ollama"                  // Ollama local (OpenAI subset, no API key)
+	ProviderGoogle                ProviderType = "google"                  // Google Gemini API (reserved)
+	ProviderGemini                ProviderType = "gemini"                  // Google Gemini native API
+	ProviderAnthropic             ProviderType = "anthropic"               // Anthropic Messages API
+	ProviderLocal                 ProviderType = "local"                   // Local ONNX models (ocr/vision/detect/background)
 )
 
 // DefaultAPIBaseURL is the built-in fallback base URL (bare host, no version
@@ -22,7 +24,8 @@ const DefaultAPIBaseURL = "https://api.apimart.ai"
 // wire protocol (google, local) return false — their base URL is not analyzed.
 func (pt ProviderType) DetectProvider() bool {
 	switch pt {
-	case ProviderOpenAI, ProviderOllama, ProviderAnthropic, ProviderGemini:
+	case ProviderOpenAI, ProviderOpenAIChatCompletions, ProviderOpenAIResponses,
+		ProviderOllama, ProviderAnthropic, ProviderGemini:
 		return true
 	default:
 		return false

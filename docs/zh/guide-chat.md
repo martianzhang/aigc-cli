@@ -274,6 +274,38 @@ aigc-cli chat --json request.json --max-output 1024 --no-stream
 
 > 💡 行为类参数永远不写进 body：`--dry-run`、`--provider`、`--api-key`、`--api-base`、`--http-proxy`、`--output`、`--verbose`、`--timeout`、`--config`、`--print-config`，以及 chat 专有的 `--context-size`、`--interactive`。
 
+### Provider 协议类型
+
+`config.providers.<name>.type` 决定该 Provider 的 `chat` 命令走哪种协议：
+
+| 类型值 | 说明 |
+|---|---|
+| `openai` | 默认。OpenAI 兼容协议，`POST /v1/chat/completions` |
+| `openai_chat_completions` | `openai` 的显式别名，同样是经典 chat completions |
+| `openai_responses` | OpenAI Responses API，`POST {base_url}/responses` |
+| `anthropic` | Anthropic Messages API |
+| `ollama` | Ollama 本地模型 |
+
+`type: openai_responses` 用于部分推理模型（如通过 OpenLux 等中转的 GPT-6 系列）在 `/v1/chat/completions` 上拒绝函数工具的情况。这些模型返回 HTTP 400：“Function tools with reasoning_effort are not supported ... use /v1/responses or set reasoning_effort to 'none'”。将 Provider 类型设为 `openai_responses` 后，`chat` 会改用 Responses API 发送请求，从而支持工具调用与推理并存。
+
+配置示例：
+
+```yaml
+providers:
+  openlux:
+    type: openai_responses
+    api_key: sk-xxx
+    base_url: https://api.openlux.ai
+defaults:
+  chat:
+    provider: openlux
+    model: gpt-6-luna
+```
+
+其他命令（image / video / audio / music）不受 `chat` 协议类型影响。
+
+使用 `--json` 时，请求体原样转发。若 Provider 类型为 `openai_responses`，JSON 内容需符合 Responses API 格式（使用 `input` / `instructions` 等字段），而非 chat completions 的 `messages` 格式。
+
 ### 上下文管理
 
 交互模式中，当历史对话接近 `--context-size` 限制时（超过 80%），会自动将早期消息总结为一条摘要以释放空间，无需手动干预。你也可以随时输入 `/compact` 手动触发压缩。

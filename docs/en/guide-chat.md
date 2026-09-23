@@ -96,6 +96,38 @@ aigc-cli chat --json '{"messages": [{"role": "user", "content": "Hello"}]}' --mo
 
 Here `messages` stays as written while `model` and `max_tokens` come from the flags. Behavioral flags (`--dry-run`, `--provider`, `--api-key`, `--api-base`, `--output`, `--verbose`, `--timeout`, `--context-size`, `--interactive`) never enter the body.
 
+When using `--json` with an `openai_responses` provider, the JSON body must be in Responses shape (`input` / `instructions`), not chat-completions shape (`messages`).
+
+## Provider Type
+
+`config.providers.<name>.type` selects the wire protocol for `chat`:
+
+| Type | Protocol |
+|---|---|
+| `openai` | OpenAI-compatible (default), `POST /v1/chat/completions` |
+| `openai_chat_completions` | Explicit alias of `openai` — classic chat completions |
+| `openai_responses` | OpenAI Responses API, `POST {base_url}/responses` |
+| `anthropic` | Anthropic Messages API |
+| `ollama` | Ollama local |
+
+Use `type: openai_responses` when a reasoning model rejects function tools on `/v1/chat/completions` with HTTP 400 "Function tools with reasoning_effort are not supported ... use /v1/responses". This makes the agent/tool loop work because the Responses API supports tools together with reasoning.
+
+Example config:
+
+```yaml
+providers:
+  openlux:
+    type: openai_responses
+    api_key: sk-xxx
+    base_url: https://api.openlux.ai
+defaults:
+  chat:
+    provider: openlux
+    model: gpt-6-luna
+```
+
+Other commands (image, video, audio, music) are unaffected.
+
 ## Verbose Output
 
 ```bash

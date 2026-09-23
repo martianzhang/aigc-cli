@@ -58,6 +58,28 @@ func TestNewFromProvider(t *testing.T) {
 			wantProvider: types.ProviderOpenAI,
 		},
 		{
+			name: "OpenAI Responses provider",
+			p: &provider.EffectiveProvider{
+				Type:    types.ProviderOpenAIResponses,
+				BaseURL: srv.URL,
+				APIKey:  "sk-responses-test",
+			},
+			wantAPIKey:   "sk-responses-test",
+			wantBaseURL:  srv.URL + "/v1",
+			wantProvider: types.ProviderOpenAIResponses,
+		},
+		{
+			name: "OpenAI chat-completions alias maps to chat completions",
+			p: &provider.EffectiveProvider{
+				Type:    types.ProviderOpenAIChatCompletions,
+				BaseURL: srv.URL,
+				APIKey:  "sk-chatc-test",
+			},
+			wantAPIKey:   "sk-chatc-test",
+			wantBaseURL:  srv.URL + "/v1",
+			wantProvider: types.ProviderOpenAI,
+		},
+		{
 			name: "Unknown provider falls back to OpenAI",
 			p: &provider.EffectiveProvider{
 				Type:    types.ProviderGoogle,

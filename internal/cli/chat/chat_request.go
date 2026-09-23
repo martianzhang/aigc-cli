@@ -133,11 +133,15 @@ func buildChatCurl(req *types.ChatRequest, p *provider.EffectiveProvider) string
 	body, _ := json.Marshal(req)
 	auth := fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
 
-	if p.Type == types.ProviderAnthropic {
+	switch p.Type {
+	case types.ProviderAnthropic:
 		url = base + client.AnthropicChatPath
 		body, _ = client.AnthropicChatBody(req)
 		auth = fmt.Sprintf("  -H \"x-api-key: %s\" \\\n", service.MaskKey(p.APIKey))
 		auth += fmt.Sprintf("  -H \"anthropic-version: %s\" \\\n", client.AnthropicVersion)
+	case types.ProviderOpenAIResponses:
+		url = base + client.ResponsesPath
+		body, _ = client.ResponsesBody(req)
 	}
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)

@@ -11,7 +11,7 @@
 | **APIMart**（apimart.ai） | [docs.apimart.ai](https://docs.apimart.ai/en) | `internal/client/client.go` |
 | **OpenAI** | [platform.openai.com/docs/api-reference](https://platform.openai.com/docs/api-reference) | `internal/client/client.go` |
 | **OpenRouter** | [openrouter.ai/docs](https://openrouter.ai/docs) | `internal/client/openrouter.go` |
-| **云雾 Yunwu**（yunwu.ai） | 云雾官方文档（需自行查阅） | `internal/client/client.go` |
+| **OpenLux**（api.openlux.ai） | [doc.openlux.ai](https://doc.openlux.ai/en/tutorials/00-intro) | `internal/client/client.go` |
 | 其他 OpenAI 兼容中转 | 各自服务商的文档 | `internal/client/client.go` |
 
 ---
@@ -62,6 +62,16 @@ APIMart 是一个 AI API 中转服务平台，兼容 OpenAI 格式并扩展了�
 | `GET /v1/models/{model}` | 单个模型详情 | [Retrieve model](https://platform.openai.com/docs/api-reference/models/retrieve) |
 
 > OpenAI 标准是所有兼容 API 的基线。本项目中的 OpenAI 实现也是其他中转服务（APIMart 同步模式、第三方中转）的后备默认路径。
+
+### OpenAI Responses API（chat 专用）
+
+Provider 配置 `type: openai_responses` 时，`chat` 命令改走 OpenAI Responses 协议：
+
+| 端点 | 用途 |
+|---|---|
+| `POST {base_url}/responses` | AI 对话（支持 reasoning + function tools） |
+
+用于部分推理模型（如 GPT-6 系列）在 `/v1/chat/completions` 上因 `reasoning_effort` 与函数工具冲突而返回 HTTP 400 的场景。仅影响 `chat` 命令。
 
 ---
 
@@ -129,16 +139,16 @@ OpenRouter 有两种图片生成路径：
 
 ---
 
-## 4. 云雾 Yunwu（yunwu.ai）
+## 4. OpenLux（api.openlux.ai）
 
-**官方文档**：请自行查阅 yunwu.ai 网站或联系其客服获取 API 文档。
+**官方文档**：[https://doc.openlux.ai/en/tutorials/00-intro](https://doc.openlux.ai/en/tutorials/00-intro)
 
 | 端点 | 用途 | 参考 |
 |---|---|---|
-| `POST /v1/video/create` | 提交视频生成任务 | 云雾 API 文档 |
-| `GET /v1/video/query?id={id}` | 查询视频任务状态 | 云雾 API 文档 |
+| `POST /v1/video/create` | 提交视频生成任务 | OpenLux 官方文档 |
+| `GET /v1/video/query?id={id}` | 查询视频任务状态 | OpenLux 官方文档 |
 
-> 云雾支持由 `internal/provider/detect.go` 中的 `yunwuDomains` 列表检测。
+> OpenLux 由 `internal/provider/detect.go` 中的 `openluxDomains` 列表检测。
 
 ---
 
@@ -166,7 +176,7 @@ OpenRouter 有两种图片生成路径：
 ```go
 APIMart:    域名包含 apimart.ai / apib.ai / aiuxu.com / aishuch.com
 OpenRouter: 域名包含 openrouter.ai
-Yunwu:      域名包含 yunwu.ai
+OpenLux:    域名包含 openlux.ai
 Zeekai:     域名包含 zeekai.cc（图生图自动改走 POST /images/edits）
 默认:       OpenAI 兼容（任何未匹配的 URL）
 ```
@@ -197,7 +207,7 @@ Zeekai:     域名包含 zeekai.cc（图生图自动改走 POST /images/edits）
 | 优先级 | 匹配条件 | 路由目标 | 使用的端点 |
 |---|---|---|---|
 | 1 | OpenRouter | OpenRouter 视频 API | `POST /v1/videos` |
-| 2 | 云雾 Yunwu | 云雾视频 API | `POST /v1/video/create` |
+| 2 | OpenLux | OpenLux 统一视频 API | `POST /v1/video/create` |
 | 3 | 默认（兜底） | APIMart 异步任务 | `POST /v1/videos/generations` |
 
 ### `music` 策略表（`cmd/music_generate.go` / `cmd/music_shared.go`）

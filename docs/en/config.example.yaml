@@ -73,6 +73,7 @@ base_url: "https://api.apimart.ai"
 #   ollama    — Ollama local (OpenAI subset, no API Key needed)
 #   google    — Google Gemini API (reserved)
 #   anthropic — Anthropic Messages API (via OpenRouter or other Anthropic-compatible relays)
+#   responses — OpenAI Responses API (chat only; fixes reasoning models that reject tools on /v1/chat/completions)
 #   local     — Local ONNX models (OCR / Vision / Detect / Background)
 #
 # Unconfigured fields inherit global top-level values (api_key / base_url / http_proxy).
@@ -99,6 +100,12 @@ providers:
   #   type: anthropic
   #   api_key: "sk-or-xxx"
   #   base_url: "https://openrouter.ai/api/v1"
+
+  # Example: OpenAI Responses API (for reasoning models that support tools + reasoning)
+  # openlux:
+  #   type: openai_responses
+  #   api_key: "sk-xxx"
+  #   base_url: "https://api.openlux.ai"
 
   # Example: Local ONNX model directory
   # local:

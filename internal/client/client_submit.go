@@ -76,9 +76,12 @@ func (c *Client) Submit(req *types.GenerateRequest) (*types.GenerateResponse, er
 // When req.Stream is true, it prints tokens as they arrive and returns the full response.
 // When req.Stream is false, it returns the full response as-is.
 func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, error) {
-	// Anthropic Messages API uses a different endpoint and format.
-	if c.providerType == types.ProviderAnthropic {
+	// Anthropic Messages API and OpenAI Responses API use different endpoints and formats.
+	switch c.providerType {
+	case types.ProviderAnthropic:
 		return c.anthropicChatCompletion(req)
+	case types.ProviderOpenAIResponses:
+		return c.responsesChatCompletion(req)
 	}
 
 	body, err := json.Marshal(req)
