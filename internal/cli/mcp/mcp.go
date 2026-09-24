@@ -20,7 +20,7 @@ var mcpCmd = &cobra.Command{
 	SilenceUsage: true,
 	Long: `Start an MCP (Model Context Protocol) server over stdio.
 
-This allows AI agents (Claude Desktop, Cursor, etc.) to call APIMart
+This allows AI agents (Claude Desktop, Cursor, etc.) to call aigc-cli
 tools directly: generate images, generate videos, query models, etc.
 
 Configuration is read from config.yaml, environment variables, and --config flag.
@@ -30,7 +30,7 @@ Use --list-tools to see available tools, and --list-prompts to see available pro
 Example MCP host config:
 {
   "mcpServers": {
-    "apimart": {
+    "aigc-cli": {
       "command": "aigc-cli",
       "args": ["mcp"]
     }

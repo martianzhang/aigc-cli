@@ -85,10 +85,12 @@ func init() {
 	f.IntVarP(&musicDuration, "duration", "d", 0, "Duration in seconds")
 	f.StringVar(&musicFormat, "format", "", "Audio format (suno backend)")
 	f.StringVar(&musicJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	f.BoolVar(&musicDryRun, "dry-run", false, "Print request without calling API")
 
 	musicCmd.AddCommand(musicGenerateCmd)
 	musicCmd.AddCommand(musicQueryCmd)
+
+	// --dry-run is shared by all music subcommands.
+	musicCmd.PersistentFlags().BoolVar(&musicDryRun, "dry-run", false, "Print request without calling API")
 
 	// Silence usage on all subcommands — errors are runtime API failures.
 	for _, sub := range musicCmd.Commands() {

@@ -6,10 +6,10 @@ Use `aigc-cli background` (alias `bg`) to remove image backgrounds using RMBG 2.
 
 ```bash
 # Remove background from an image
-aigc-cli background input.png
+  aigc-cli background input.png --remove
 
-# Specify output path
-aigc-cli background input.png --output output.png
+# Write the result to a specific output directory (global --output / -o)
+  aigc-cli background input.png --remove -o ./output/
 ```
 
 ## How It Works

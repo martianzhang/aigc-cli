@@ -45,7 +45,7 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
   aigc-cli mcp
 
 # Diagnostics — --dry-run/--json are per-command flags, not global
-  aigc-cli image --prompt "A cat" --dry-run              # print equivalent curl, zero cost (also video/chat/midjourney/music/audio/depth)
+  aigc-cli image --prompt "A cat" --dry-run              # print equivalent curl, zero cost (also video/chat/depth; midjourney/music/audio: on their subcommands)
   aigc-cli image --json '{"prompt":"a red fox","n":4}'   # pass request as JSON (image/video/chat/midjourney/music)
   aigc-cli detect photo.png --json                       # output as JSON (detect/ideas/ocr scan/background)
   aigc-cli image --prompt "A cat" -v                     # full result JSON + token/cost stats (global flag)
@@ -124,7 +124,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&shared.HTTPProxy, "http-proxy", "", "HTTP proxy URL (env: HTTP_PROXY / HTTPS_PROXY / NO_PROXY)")
 	rootCmd.PersistentFlags().StringVarP(&shared.Model, "model", "m", "", "Model name (optional; subcommand applies its own default when omitted)")
 	rootCmd.PersistentFlags().StringVarP(&shared.Provider, "provider", "P", "", "Named provider from config.providers (overrides defaults.{cmd}.provider)")
-	rootCmd.PersistentFlags().StringVar(&shared.OutputDir, "output", ".", "output directory for downloaded images")
+	rootCmd.PersistentFlags().StringVarP(&shared.OutputDir, "output", "o", ".", "output directory for downloaded/generated files")
 	rootCmd.PersistentFlags().BoolVarP(&shared.Verbose, "verbose", "v", false, "verbose output: show full result JSON")
 	rootCmd.PersistentFlags().IntVar(&shared.TimeoutFlag, "timeout", 0, "HTTP request timeout in seconds (overrides config)")
 	rootCmd.PersistentFlags().BoolVar(&shared.PrintConfig, "print-config", false, "show effective configuration and exit")

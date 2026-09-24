@@ -24,7 +24,6 @@ var d Deps
 
 var (
 	depthInput      string
-	depthOutput     string
 	depthModel      string
 	depthSize       int
 	depthInvert     bool
@@ -132,13 +131,16 @@ func runDepthAnnotateImage(cmd *cobra.Command) error {
 	return nil
 }
 
+// depthOutputPath returns the default output path for input inside the output
+// directory: <stem><ext>, e.g. photo.jpg → <output>/photo_depth.png.
+func depthOutputPath(input, ext string) string {
+	stem := strings.TrimSuffix(filepath.Base(input), filepath.Ext(input))
+	return filepath.Join(d.OutputDir, stem+ext)
+}
+
 // depthAnnotatePath returns the annotated output path (the _depth file).
 func depthAnnotatePath() string {
-	if depthOutput != "" {
-		return depthOutput
-	}
-	stem := strings.TrimSuffix(filepath.Base(depthInput), filepath.Ext(depthInput))
-	return filepath.Join(d.OutputDir, stem+"_depth.png")
+	return depthOutputPath(depthInput, "_depth.png")
 }
 
 // isImageInput reports whether path has an image extension.
@@ -152,11 +154,7 @@ func runDepthImage(cmd *cobra.Command) error {
 	if !ok {
 		modelInfo, _ = depth.ResolveModel(depth.DefaultModelID)
 	}
-	outPath := depthOutput
-	if outPath == "" {
-		stem := strings.TrimSuffix(filepath.Base(depthInput), filepath.Ext(depthInput))
-		outPath = filepath.Join(d.OutputDir, stem+"_depth.png")
-	}
+	outPath := depthOutputPath(depthInput, "_depth.png")
 
 	if depthDryRun {
 		size := depthSize
@@ -198,7 +196,6 @@ func runDepthImage(cmd *cobra.Command) error {
 func registerDepthFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
 	f.StringVarP(&depthInput, "input", "i", "", "Input image or video file")
-	f.StringVarP(&depthOutput, "output", "o", "", "Output path (default: <name>_depth.png/.mp4)")
 	f.StringVar(&depthModel, "model", "", fmt.Sprintf("Depth model (default: %s). Options: %s", depth.DefaultModelID, strings.Join(depth.ListModelIDs(), ", ")))
 	f.IntVar(&depthSize, "size", 0, "Inference resolution, short side (14-aligned; default 280 video / 518 image)")
 	f.BoolVar(&depthInvert, "invert", false, "Invert depth (near = black instead of near = white)")

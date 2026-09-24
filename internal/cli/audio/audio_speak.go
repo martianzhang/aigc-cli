@@ -53,7 +53,7 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 		req.Speed = 1.0
 	}
 
-	if audioSpeechDryRun {
+	if audioDryRun {
 		fmt.Println(buildAudioSpeechCurl(req))
 		return nil
 	}

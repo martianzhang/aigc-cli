@@ -94,6 +94,9 @@ Examples:
 }
 
 var (
+	// Shared flags
+	audioDryRun bool
+
 	// Speak flags
 	audioSpeechModel        string
 	audioSpeechInput        string
@@ -101,7 +104,6 @@ var (
 	audioSpeechFormat       string
 	audioSpeechSpeed        float64
 	audioSpeechInstructions string
-	audioSpeechDryRun       bool
 	audioSpeechPlay         bool
 	audioSpeechLocal        bool
 
@@ -111,7 +113,6 @@ var (
 	audioTranscribeFormat      string
 	audioTranscribeLanguage    string
 	audioTranscribeTemperature float64
-	audioTranscribeDryRun      bool
 	audioTranscribeLocal       bool
 )
 
@@ -146,7 +147,6 @@ func registerAudioSpeakFlags(cmd *cobra.Command) {
 	f.StringVarP(&audioSpeechFormat, "format", "f", "", "Audio format: mp3, wav, opus, aac, flac, pcm (default: mp3)")
 	f.Float64VarP(&audioSpeechSpeed, "speed", "s", 0, "Playback speed: 0.25-4.0 (default: 1.0)")
 	f.StringVar(&audioSpeechInstructions, "instructions", "", "Tone/voice instructions (OpenAI gpt-4o-mini-tts only)")
-	f.BoolVar(&audioSpeechDryRun, "dry-run", false, "Print curl command without calling API")
 	f.BoolVar(&audioSpeechPlay, "play", false, "Play audio with system default player after generation")
 	f.BoolVar(&audioSpeechLocal, "local", false, "Use local TTS model instead of cloud API")
 }
@@ -158,7 +158,6 @@ func registerAudioTranscribeFlags(cmd *cobra.Command) {
 	f.StringVar(&audioTranscribeFormat, "format", "", "Audio format: wav, mp3, flac, m4a, ogg (auto-detected from file extension)")
 	f.StringVarP(&audioTranscribeLanguage, "language", "l", "", "Language hint (ISO-639-1, e.g. en, ja, zh)")
 	f.Float64Var(&audioTranscribeTemperature, "temperature", 0, "Sampling temperature 0-1 (default: 0)")
-	f.BoolVar(&audioTranscribeDryRun, "dry-run", false, "Print curl command without calling API")
 	f.BoolVar(&audioTranscribeLocal, "local", false, "Use local ASR model instead of cloud API")
 }
 
@@ -168,6 +167,9 @@ func init() {
 	audioCmd.AddCommand(speechCmd)
 	audioCmd.AddCommand(playCmd)
 	audioCmd.AddCommand(transcribeCmd)
+
+	// --dry-run is shared by speak/transcribe.
+	audioCmd.PersistentFlags().BoolVar(&audioDryRun, "dry-run", false, "Print curl command without calling API")
 }
 
 // Cmd returns the audio command tree.

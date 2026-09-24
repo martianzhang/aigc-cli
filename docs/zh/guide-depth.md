@@ -35,14 +35,14 @@ aigc-cli depth -i photo.jpg --dry-run         # 只打印将执行的命令，�
 | `.png` / `.jpg` / `.jpeg` / `.webp` / `.bmp` / `.gif` / `.avif` / `.heic` / `.jxl` | `<文件名>_depth.png`（单图推理，无需 ffmpeg） |
 | `.mp4` / `.mov` / `.mkv` / `.avi` / `.webm` … | `<文件名>_depth.mp4`（H.264、`yuv420p`、faststart） |
 
-输出默认保存在输入文件旁边，或通过 `--output` 指定路径。
+输出默认保存在当前目录（`<文件名>_depth.png` / `.mp4`），可用全局 `--output` / `-o` 指定输出目录。
 
 ## 参数
 
 | 参数 | 说明 | 默认 |
 |---|---|---|
 | `--input` / `-i` | 输入图片或视频文件 | 必填 |
-| `--output` / `-o` | 输出路径（默认 `<文件名>_depth.png` / `.mp4`） | 自动 |
+| `--output` / `-o` | 输出目录（全局参数；文件名固定为 `<文件名>_depth.png` / `.mp4`） | `.` |
 | `--model` | 深度模型（见下方表格；别名：`small`、`base`、`large`） | `depth-anything-v2-small` |
 | `--size` | 推理分辨率（短边，14 对齐）。图片默认 `518`；视频默认 `280`（快）——追求更高质量用 `378` / `518` | 图片 `518` / 视频 `280` |
 | `--invert` | 反转深度方向（近暗远亮） | off |

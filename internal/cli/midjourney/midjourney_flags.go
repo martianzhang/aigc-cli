@@ -59,7 +59,6 @@ func registerSharedFlags(cmd *cobra.Command) {
 	f.IntVar(&mjIndex, "index", 0, "Tile index (1-4)")
 	f.StringVar(&mjCustomID, "custom-id", "", "Button customId for direct action")
 	f.StringVar(&mjSpeed, "speed", "", "Speed: relax (default), fast, turbo")
-	f.BoolVar(&mjDryRun, "dry-run", false, "Print request parameters without calling API")
 	f.StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 }
 

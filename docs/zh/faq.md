@@ -166,7 +166,7 @@ MCP（Model Context Protocol）是一种让 AI 代理（Claude、Cursor 等）�
 ```json
 {
   "mcpServers": {
-    "apimart": {
+    "aigc-cli": {
       "command": "aigc-cli",
       "args": ["mcp"]
     }

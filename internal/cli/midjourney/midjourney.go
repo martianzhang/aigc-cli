@@ -73,6 +73,9 @@ Examples:
 // Init — register all subcommands and flags
 // ============================================================================
 func init() {
+	// --- shared persistent flags ---
+	midjourneyCmd.PersistentFlags().BoolVar(&mjDryRun, "dry-run", false, "Print request parameters without calling API")
+
 	// --- imagine ---
 	registerSharedFlags(mjImagineCmd)
 	registerImagineStructuredFlags(mjImagineCmd)
@@ -87,13 +90,11 @@ func init() {
 	mjBlendCmd.Flags().StringVar(&mjSize, "size", "", `Free aspect ratio, e.g. "16:9" (takes priority over --dimensions)`)
 	mjBlendCmd.Flags().StringVar(&mjSpeed, "speed", "", "Speed: relax (default), fast, turbo")
 	mjBlendCmd.Flags().StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	mjBlendCmd.Flags().BoolVar(&mjDryRun, "dry-run", false, "Print request without calling API")
 
 	// --- describe ---
 	mjDescribeCmd.Flags().StringArrayVar(&mjImageURLs, "image-url", nil, "Image URL or local path (required)")
 	mjDescribeCmd.Flags().StringVar(&mjSpeed, "speed", "", "Speed: relax (default), fast, turbo")
 	mjDescribeCmd.Flags().StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	mjDescribeCmd.Flags().BoolVar(&mjDryRun, "dry-run", false, "Print request without calling API")
 
 	// --- edits ---
 	registerSharedFlags(mjEditsCmd)
@@ -109,7 +110,6 @@ func init() {
 	mjRerollCmd.Flags().StringVar(&mjCustomID, "custom-id", "", "Button customId for direct action")
 	mjRerollCmd.Flags().StringVar(&mjSpeed, "speed", "", "Speed: relax (default), fast, turbo")
 	mjRerollCmd.Flags().StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	mjRerollCmd.Flags().BoolVar(&mjDryRun, "dry-run", false, "Print request without calling API")
 
 	// --- zoom ---
 	mjZoomCmd.Flags().StringVar(&mjTaskID, "task-id", "", "Parent task ID (required)")
@@ -118,7 +118,6 @@ func init() {
 	mjZoomCmd.Flags().Float64Var(&mjZoomRatio, "zoom-ratio", 0, "Zoom ratio (<2 = 1.5x Outpaint, >=2 or omit = 2x CustomZoom)")
 	mjZoomCmd.Flags().StringVar(&mjSpeed, "speed", "", "Speed: relax (default), fast, turbo")
 	mjZoomCmd.Flags().StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	mjZoomCmd.Flags().BoolVar(&mjDryRun, "dry-run", false, "Print request without calling API")
 
 	// --- pan ---
 	mjPanCmd.Flags().StringVar(&mjTaskID, "task-id", "", "Parent task ID (required)")
@@ -127,7 +126,6 @@ func init() {
 	mjPanCmd.Flags().StringVar(&mjCustomID, "custom-id", "", "Button customId (bypasses direction matching)")
 	mjPanCmd.Flags().StringVar(&mjSpeed, "speed", "", "Speed: relax (default), fast, turbo")
 	mjPanCmd.Flags().StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	mjPanCmd.Flags().BoolVar(&mjDryRun, "dry-run", false, "Print request without calling API")
 
 	// --- inpaint (flags via registerTaskActionFlags in registerMJTaskActionSubcommand) ---
 	mjInpaintCmd.Flags().StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
@@ -138,7 +136,6 @@ func init() {
 	mjModalCmd.Flags().StringVar(&mjMaskURL, "mask-url", "", "Mask image URL or local path (white=repaint area)")
 	mjModalCmd.Flags().StringVar(&mjSpeed, "speed", "", "Speed: relax (default), fast, turbo")
 	mjModalCmd.Flags().StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	mjModalCmd.Flags().BoolVar(&mjDryRun, "dry-run", false, "Print request without calling API")
 
 	// --- video ---
 	mjVideoCmd.Flags().StringVarP(&mjPrompt, "prompt", "p", "", "Video prompt (optional)")
@@ -151,7 +148,6 @@ func init() {
 	mjVideoCmd.Flags().IntVar(&mjBatchSize, "batch-size", 0, "Batch size: 1, 2, or 4 (billed ×N)")
 	mjVideoCmd.Flags().StringVar(&mjEndURL, "end-url", "", "End frame URL (enables start/end transition)")
 	mjVideoCmd.Flags().StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	mjVideoCmd.Flags().BoolVar(&mjDryRun, "dry-run", false, "Print request without calling API")
 
 	// --- remix-strong ---
 	mjRemixStrongCmd.Flags().StringVar(&mjTaskID, "task-id", "", "Parent v8/v8.1 task ID (required)")
@@ -159,7 +155,6 @@ func init() {
 	mjRemixStrongCmd.Flags().StringVarP(&mjPrompt, "prompt", "p", "", "New prompt (inherits parent if empty)")
 	mjRemixStrongCmd.Flags().StringVar(&mjSpeed, "speed", "", "Speed: relax (default), fast, turbo")
 	mjRemixStrongCmd.Flags().StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	mjRemixStrongCmd.Flags().BoolVar(&mjDryRun, "dry-run", false, "Print request without calling API")
 
 	// --- remix-subtle ---
 	mjRemixSubtleCmd.Flags().StringVar(&mjTaskID, "task-id", "", "Parent v8/v8.1 task ID (required)")
@@ -167,7 +162,6 @@ func init() {
 	mjRemixSubtleCmd.Flags().StringVarP(&mjPrompt, "prompt", "p", "", "New prompt (inherits parent if empty)")
 	mjRemixSubtleCmd.Flags().StringVar(&mjSpeed, "speed", "", "Speed: relax (default), fast, turbo")
 	mjRemixSubtleCmd.Flags().StringVar(&mjJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	mjRemixSubtleCmd.Flags().BoolVar(&mjDryRun, "dry-run", false, "Print request without calling API")
 
 	// --- Add subcommands to parent ---
 	midjourneyCmd.AddCommand(mjImagineCmd)

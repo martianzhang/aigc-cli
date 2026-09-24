@@ -59,7 +59,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 			fmt.Printf("Uploading file: %s\n", audioTranscribeInput)
 		}
 
-		if audioTranscribeDryRun {
+		if audioDryRun {
 			fmt.Printf("curl %s/audio/transcriptions \\\n", options.Shared.APIBase)
 			fmt.Printf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(options.Shared.APIKey))
 			fmt.Printf("  -F file=\"@%s\" \\\n", audioTranscribeInput)
@@ -115,7 +115,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 		Temperature: audioTranscribeTemperature,
 	}
 
-	if audioTranscribeDryRun {
+	if audioDryRun {
 		fmt.Println(buildAudioTranscribeCurl(req))
 		return nil
 	}

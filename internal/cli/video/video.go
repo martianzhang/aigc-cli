@@ -44,9 +44,9 @@ var (
 // videoCmd represents the `aigc-cli video` command.
 var videoCmd = &cobra.Command{
 	Use:          "video",
-	Short:        "Generate videos via the APIMart API",
+	Short:        "Generate videos (text/image-to-video, remix, GIF/MP4)",
 	SilenceUsage: true,
-	Long: `Generate videos using APIMart video models (doubao-seedance-2.0).
+	Long: `Generate videos via any OpenAI-compatible API.
 
 Supports text-to-video, image-to-video, first/last frame video,
 reference video, audio-enabled video, and VEO3 video remix.
@@ -65,7 +65,7 @@ Examples:
   aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "continue running"
   aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "keep going" --raw --resolution 1080p
   aigc-cli video --prompt "A man doing push-ups" --gif            # generate then convert to GIF
-aigc-cli video --gif -i pushup.mp4                               # convert an existing local video
+  aigc-cli video --gif -i pushup.mp4                               # convert an existing local video
   aigc-cli video --gif -i org.mp4 --crop-margin 40                 # crop 40px from each side
   aigc-cli video --gif -i org.mp4 --crop-margin 40,0               # crop only top/bottom (CSS margin shorthand)
   aigc-cli video --gif -i org.mp4 --crop-margin 0,0,40,0           # crop only the bottom edge

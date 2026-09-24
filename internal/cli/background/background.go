@@ -54,7 +54,6 @@ var (
 	bgAspectRatio   string
 	bgJSON          bool
 	bgPreview       bool
-	bgOutput        string
 	bgShadow        bool
 	bgShadowOffset  string
 	bgShadowBlur    int
@@ -104,11 +103,8 @@ func runBackground(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// 确定输出目录
-	outDir := bgOutput
-	if outDir == "" {
-		outDir = "."
-	}
+	// 输出目录统一使用全局 --output（默认 "."，可由 config 注入）
+	outDir := options.Shared.OutputDir
 
 	// 确定替换颜色或图片
 	var repColor color.Color
@@ -206,7 +202,6 @@ func init() {
 	// 输出标志
 	backgroundCmd.Flags().BoolVarP(&bgJSON, "json", "j", false, "JSON output")
 	backgroundCmd.Flags().BoolVarP(&bgPreview, "preview", "p", false, "open result in system viewer")
-	backgroundCmd.Flags().StringVarP(&bgOutput, "output", "o", "", "output directory (default: current directory)")
 
 	// Online LLM 评估标志
 	backgroundCmd.Flags().StringVar(&bgPrompt, "prompt", "", "custom prompt for online LLM assessment (requires --provider)")

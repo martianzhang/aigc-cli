@@ -42,14 +42,14 @@ The input type is auto-detected by file extension:
 | `.png` / `.jpg` / `.jpeg` / `.webp` / `.bmp` / `.gif` / `.avif` / `.heic` / `.jxl` | `<name>_depth.png` (single-image inference, no ffmpeg needed) |
 | `.mp4` / `.mov` / `.mkv` / `.avi` / `.webm` … | `<name>_depth.mp4` (H.264, `yuv420p`, faststart) |
 
-Output is saved next to the input by default, or to `--output <path>`.
+Output is saved to the current directory by default (`<name>_depth.png`), or to the directory given by the global `--output` / `-o`.
 
 ## Parameters
 
 | Parameter | Description | Default |
 |---|---|---|
 | `--input` / `-i` | Input image or video file | required |
-| `--output` / `-o` | Output path (else `<name>_depth.png` / `.mp4`) | auto |
+| `--output` / `-o` | Output directory (global flag; the filename is fixed to `<name>_depth.png` / `.mp4`) | `.` |
 | `--model` | Depth model (see table below; aliases: `small`, `base`, `large`) | `depth-anything-v2-small` |
 | `--size` | Inference resolution, short side (14-aligned). Images default to `518`; videos default to `280` (fast) — raise to `378`/`518` for higher quality | image `518` / video `280` |
 | `--invert` | Invert depth (near = black) | off |

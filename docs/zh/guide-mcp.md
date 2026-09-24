@@ -11,7 +11,7 @@ Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "apimart": {
+    "aigc-cli": {
       "command": "aigc-cli",
       "args": ["mcp"]
     }
@@ -33,7 +33,7 @@ Add to Cursor's MCP configuration (`~/.cursor/mcp.json`):
 ```json
 {
   "mcpServers": {
-    "apimart": {
+    "aigc-cli": {
       "command": "aigc-cli",
       "args": ["mcp"]
     }
@@ -48,7 +48,7 @@ Same config pattern — every MCP-compatible client uses the same entry:
 ```json
 {
   "mcpServers": {
-    "apimart": {
+    "aigc-cli": {
       "command": "aigc-cli",
       "args": ["mcp"]
     }
@@ -61,7 +61,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 ```json
 {
   "mcpServers": {
-    "apimart": {
+    "aigc-cli": {
       "command": "/absolute/path/to/aigc-cli",
       "args": ["mcp"]
     }

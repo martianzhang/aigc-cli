@@ -31,7 +31,7 @@ var chatCmd = &cobra.Command{
 	Use:          "chat",
 	Short:        "Chat with AI models (streaming by default)",
 	SilenceUsage: true,
-	Long: `Start a chat conversation with AI models via the APIMart API.
+	Long: `Start a chat conversation with AI models via any OpenAI-compatible API.
 
 Supports all major models: GPT, Claude, Gemini, DeepSeek, and more.
 Streaming output is enabled by default.
