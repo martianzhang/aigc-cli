@@ -22,6 +22,8 @@ var visionCmd = &cobra.Command{
 	SilenceUsage: true,
 	Long: `Local image understanding powered by ONNX-based vision model (Florence-2).
 
+First use: run 'aigc-cli vision init' to download the model.
+
 Describes images in natural language. No API key required — runs entirely
 on your machine.
 

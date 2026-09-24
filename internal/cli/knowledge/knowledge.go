@@ -30,6 +30,8 @@ var kbCmd = &cobra.Command{
 	Short:   "Local knowledge base management (also: kb)",
 	Long: `A local knowledge base with full-text and semantic search (also: kb).
 
+First use: run 'aigc-cli knowledgebase init' to initialize.
+
   knowledgebase init          Initialize the knowledge base
   knowledgebase add <path>    Add a local file or directory
   knowledgebase fetch <url>   Fetch a URL and add it

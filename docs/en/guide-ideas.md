@@ -56,24 +56,15 @@ Notes:
 | `--source` | Sources to search: `all` (default), `local`, `aipromptslibrary`, `prompts.chat`, `openart`, `civitai` |
 | `--limit`, `-l` | Number of results to show (default 8) |
 | `--random` | Shuffle matched results randomly |
-| `--json` | Output JSON instead of markdown |
 | `--save` | Download reference images to a local directory |
 | `--find-image` | Search by image filename (local dataset only) |
 | `--preview` | Open saved images with the system default viewer (implies `--save`) |
 
 ## Output
 
-Markdown by default, with each result containing a title, reference images, the full prompt text, and metadata. With `--json`, the fused result list is emitted as a JSON object.
+Markdown by default, with each result containing a title, reference images, the full prompt text, and metadata.
 
 ```bash
 # Markdown (default), easy to redirect to a file
 aigc-cli ideas "cat" > my-ideas.md
-
-# JSON output, easy to filter with jq
-aigc-cli ideas "portrait" --json | jq '.results[].prompt'
-
-# Search -> extract prompt -> generate an image
-aigc-cli ideas "cat" --json \
-  | jq -r '.results[0].prompt' \
-  | aigc-cli image --model gpt-image-2 --prompt -
 ```

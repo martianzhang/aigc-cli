@@ -81,9 +81,6 @@ aigc-cli ocr scan --pages 1-3 doc.pdf       # 指定页码范围
 # 从 stdin 读取
 cat document.png | aigc-cli ocr scan
 
-# JSON 输出（含位置坐标和置信度，用于调试/自定义处理）
-aigc-cli ocr scan --json receipt.jpg
-
 
 ```
 
@@ -181,26 +178,6 @@ aigc-cli ocr scan test.png --provider ollama --model deepseek-ocr -p "Free OCR."
 
 > 注：表格和图片区域的文字不会被 OCR 识别，而是保留为截图，
 > 确保信息的原始样貌和布局完全保真。
-```
-
-如需纯 JSON 格式用于二次处理，通过 `--json` 输出行级坐标和置信度：
-
-```json
-{
-  "text": "上海市浦东新区张江高科技园区\n招商银行股份有限公司上海分行\n(人民币) 壹佰万元整",
-  "pages": [
-    {
-      "page": 0,
-      "lines": [
-        {
-          "text": "上海市浦东新区张江高科技园区",
-          "bbox": [345, 120, 890, 160],
-          "confidence": 0.982
-        }
-      ]
-    }
-  ]
-}
 ```
 
 ---

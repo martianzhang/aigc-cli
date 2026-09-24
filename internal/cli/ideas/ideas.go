@@ -24,7 +24,6 @@ const defaultLimit = 8
 type cmdFlags struct {
 	limit     int
 	random    bool
-	jsonOut   bool
 	save      bool
 	preview   bool
 	findImage string
@@ -71,8 +70,7 @@ online sources only.`,
   aigc-cli ideas "cyberpunk city" --source civitai
   aigc-cli ideas "luxury perfume" --limit 3
   aigc-cli ideas --random --limit 1              # single random idea
-  echo "cyberpunk city" | aigc-cli ideas
-  aigc-cli ideas --json "cat" | jq '.results[].prompt'`,
+  echo "cyberpunk city" | aigc-cli ideas`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(deps(), args, &f)
 		},
@@ -81,7 +79,6 @@ online sources only.`,
 	fl := cmd.Flags()
 	fl.IntVarP(&f.limit, "limit", "l", defaultLimit, "Number of results to show (default 8)")
 	fl.BoolVar(&f.random, "random", false, "Shuffle matched results randomly (default: ranked by relevance)")
-	fl.BoolVar(&f.jsonOut, "json", false, "Output as JSON instead of markdown")
 	fl.BoolVar(&f.save, "save", false, "Download reference images to local directory")
 	fl.BoolVar(&f.preview, "preview", false, "Open saved images with system default viewer (implies --save)")
 	fl.StringVar(&f.findImage, "find-image", "", "Search by image filename (matches image_urls in dataset)")
@@ -177,14 +174,8 @@ func run(d Deps, args []string, f *cmdFlags) error {
 			imgEntries = append(imgEntries, r.Entry)
 		}
 		saved, _ := saveIdeaImages(imgEntries, d.OutputDir)
-		if f.jsonOut {
-			return outputJSON(results, total)
-		}
 		return outputMarkdown(results, keywords, total, saved, f.preview)
 	}
 
-	if f.jsonOut {
-		return outputJSON(results, total)
-	}
 	return outputMarkdown(results, keywords, total, nil, f.preview)
 }

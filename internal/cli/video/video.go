@@ -222,7 +222,7 @@ func init() {
 	f.IntVar(&vidSeed, "seed", 0, "Random seed for reproducibility")
 	f.BoolVarP(&vidGenerateAudio, "generate-audio", "a", false, "Generate AI audio for the video")
 	f.BoolVar(&vidReturnLastFrame, "return-last-frame", false, "Return the last frame image URL for continuation")
-	f.StringArrayVarP(&vidImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable); with --gif/--mp4 and no --prompt, converts a local file")
+	f.StringArrayVarP(&vidImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable); with --gif/--mp4 and no --prompt, also accepts a local video file")
 	f.StringVar(&vidFirstFrame, "first-frame", "", "First frame image URL or local path")
 	f.StringVar(&vidLastFrame, "last-frame", "", "Last frame image URL or local path")
 	f.StringArrayVar(&vidVideoURLs, "video-url", nil, "Reference video URL (repeatable)")

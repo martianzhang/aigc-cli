@@ -79,33 +79,6 @@ aigc-cli ideas "portrait" --source prompts.chat --source openart
 ```bash
 # Markdown 输出（默认），自由重定向到文件
 aigc-cli ideas "cat" > my-ideas.md
-
-# JSON 输出，方便用 jq 做二次过滤
-aigc-cli ideas "portrait" --json | jq '.results[].prompt'
-
-# 搜索 → jq 提取 prompt → 生成图片
-aigc-cli ideas "cat" --json \
-  | jq -r '.results[0].prompt' \
-  | aigc-cli image --model gpt-image-2 --prompt -
-```
-
-### JSON 输出示例
-
-```json
-{
-  "total": 42,
-  "results": [
-    {
-      "title": "CCD flash beauty portrait template",
-      "prompt": "A hyper-photorealistic shot...",
-      "image_urls": ["https://raw.githubusercontent.com/..."],
-      "source_url": "https://x.com/...",
-      "author": "AIwithAliya",
-      "license": "Apache 2.0",
-      "lang": "en"
-    }
-  ]
-}
 ```
 
 ## 数据格式说明（ideas.json）
@@ -164,7 +137,6 @@ aigc-cli ideas "cat" --json \
 | `--source` | | 搜索的数据源：`all`（默认）、`local`、`aipromptslibrary`、`prompts.chat`、`openart`、`civitai`；支持逗号分隔或重复传参 |
 | `--limit` | `-l` | 返回 N 条结果，默认 8 |
 | `--random` | | 从全量结果中随机抽取；不加参数时默认随机返回一条 |
-| `--json` | | 输出 JSON 格式（默认 Markdown） |
 | `--save` | | 下载参考图片到本地目录 |
 | `--find-image` | | 按参考图片文件名搜索（仅本地数据集） |
 

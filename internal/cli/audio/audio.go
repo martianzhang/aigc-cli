@@ -17,6 +17,8 @@ var audioCmd = &cobra.Command{
 	Short:   "Audio operations (also: voice)",
 	Long: `Generate speech from text (TTS) or transcribe audio to text (STT).
 
+First use: run 'aigc-cli audio init' to download local TTS/ASR models.
+
 Supports OpenAI, OpenRouter, and APIMart providers with automatic detection.
 All providers use the OpenAI-compatible endpoints. Local inference via --local
 uses ONNX models downloaded with 'audio init'.

@@ -2,7 +2,6 @@ package ideas
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,27 +159,6 @@ func TestOutputMarkdown_emptyTitle(t *testing.T) {
 	}
 }
 
-func TestOutputJSON(t *testing.T) {
-	results := []ideas.SearchResult{
-		{Entry: ideas.IdeaEntry{Title: "JSON Test", Prompt: "test prompt"}, Score: 1},
-	}
-	output := captureStdout(func() {
-		if err := outputJSON(results, 1); err != nil {
-			t.Errorf("outputJSON() returned error: %v", err)
-		}
-	})
-	var parsed struct {
-		Total   int               `json:"total"`
-		Results []ideas.IdeaEntry `json:"results"`
-	}
-	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, output)
-	}
-	if parsed.Total != 1 || len(parsed.Results) != 1 || parsed.Results[0].Title != "JSON Test" {
-		t.Errorf("unexpected JSON payload: %+v", parsed)
-	}
-}
-
 func TestLocalImagePath(t *testing.T) {
 	if got := localImagePath("", "/tmp/out"); got != "" {
 		t.Errorf("localImagePath('') = %q, want empty", got)
@@ -285,59 +263,5 @@ func TestDataSavePath_defaultPathWithoutFile(t *testing.T) {
 	}
 	if got := resolveDataPath(nil); got != "" {
 		t.Errorf("resolveDataPath(nil) = %q, want empty while file is missing", got)
-	}
-}
-
-func TestOutputJSON_multipleResults(t *testing.T) {
-	results := []ideas.SearchResult{
-		{Entry: ideas.IdeaEntry{Title: "First", Prompt: "prompt one", Author: "Alice"}, Score: 9},
-		{Entry: ideas.IdeaEntry{Title: "Second", Prompt: "prompt two", Author: "Bob"}, Score: 4},
-	}
-	var outErr error
-	output := captureStdout(func() { outErr = outputJSON(results, 7) })
-	if outErr != nil {
-		t.Fatalf("outputJSON() returned error: %v", outErr)
-	}
-
-	var parsed struct {
-		Total   int               `json:"total"`
-		Results []ideas.IdeaEntry `json:"results"`
-	}
-	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, output)
-	}
-	if parsed.Total != 7 {
-		t.Errorf("total = %d, want 7 (independent of len(results))", parsed.Total)
-	}
-	if len(parsed.Results) != 2 {
-		t.Fatalf("len(results) = %d, want 2", len(parsed.Results))
-	}
-	if parsed.Results[0].Title != "First" || parsed.Results[0].Prompt != "prompt one" {
-		t.Errorf("results[0] = %+v, want First/prompt one", parsed.Results[0])
-	}
-	if parsed.Results[1].Title != "Second" || parsed.Results[1].Author != "Bob" {
-		t.Errorf("results[1] = %+v, want Second/Bob", parsed.Results[1])
-	}
-	if !strings.HasPrefix(output, "{\n") {
-		t.Errorf("expected indented JSON object, got:\n%s", output)
-	}
-}
-
-func TestOutputJSON_emptyResults(t *testing.T) {
-	var outErr error
-	output := captureStdout(func() { outErr = outputJSON(nil, 0) })
-	if outErr != nil {
-		t.Fatalf("outputJSON() returned error: %v", outErr)
-	}
-
-	var parsed struct {
-		Total   int               `json:"total"`
-		Results []ideas.IdeaEntry `json:"results"`
-	}
-	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, output)
-	}
-	if parsed.Total != 0 || len(parsed.Results) != 0 {
-		t.Errorf("unexpected payload: %+v", parsed)
 	}
 }

@@ -34,10 +34,6 @@ func detectFiles(paths []string, pathOverride string) error {
 		}
 	}
 
-	if detectJSON {
-		return detectFilesJSON(paths, pathOverride, aiDetector)
-	}
-
 	for _, path := range paths {
 		if err := detectOneFile(path, pathOverride, aiDetector); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)

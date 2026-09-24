@@ -188,9 +188,6 @@ aigc-cli background photo.png --remove --shadow \
 # 指定输出目录
 aigc-cli background photo.png --remove -o ./output/
 
-# 输出 JSON 元数据
-aigc-cli background photo.png --remove --json
-
 # 处理后在系统预览中打开
 aigc-cli background photo.png --remove --preview
 ```
@@ -214,7 +211,6 @@ aigc-cli background photo.png --remove --preview
 | `--shadow-opacity` | | 40 | 投影不透明度 0-100 |
 | `--output` | `-o` | `.` | 输出目录 |
 | `--preview` | `-p` | false | 在系统预览中打开 |
-| `--json` | `-j` | false | JSON 格式输出 |
 | `--prompt` | | `""` | 自定义在线生成提示词（需配合 `--provider` 或 `--api-base`） |
 
 子命令：

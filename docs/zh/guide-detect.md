@@ -13,9 +13,6 @@ aigc-cli detect image.png
 # 检测并打开图片
 aigc-cli detect --preview image.png
 
-# JSON 输出
-aigc-cli detect --json image.png
-
 # 批量检测
 aigc-cli detect *.png
 ```
@@ -160,36 +157,6 @@ ONNX 检测不可用
 ```bash
 aigc-cli detect --preview image.png
 # 终端输出检测结果，同时弹出系统看图软件
-```
-
----
-
-## `--json` 输出
-
-结构化 JSON，适合脚本处理：
-
-```bash
-aigc-cli detect --json image.png
-```
-
-```json
-{
-  "path": "image.png",
-  "size": 161170,
-  "format": "PNG",
-  "width": 2250,
-  "height": 2279,
-  "c2pa": {
-    "present": true,
-    "vendor": "OpenAI Media Service",
-    "source": "AI Generated"
-  },
-  "ai_detect": {
-    "ai_gen_rate": 0.99,
-    "emoji": "🤖",
-    "summary": "🤖 99% Confirmed AI-generated"
-  }
-}
 ```
 
 ---

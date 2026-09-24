@@ -14,6 +14,8 @@ var detectCmd = &cobra.Command{
 	SilenceUsage: true,
 	Long: `AIGC 检测与研究工具 — 通过多信号融合分析图片是否为 AI 生成。
 
+首次使用先运行 'aigc-cli detect init' 下载 ONNX 检测模型。
+
 分析信号包括:
   - C2PA Content Credentials（防篡改溯源元数据）
   - TC260 AIGC 标签（国标 GB 45438-2025）
@@ -34,13 +36,11 @@ var detectCmd = &cobra.Command{
 支持 PNG、JPEG、WebP、GIF、BMP 格式。`,
 	Example: `  aigc-cli detect photo.png                     # multi-signal AIGC report
   aigc-cli detect a.png b.jpg c.webp            # scan several files
-  aigc-cli detect photo.png --json              # machine-readable output
   aigc-cli detect photo.png --preview           # open in viewer after scanning
   aigc-cli detect photo.png --remove-watermark  # remove a learned watermark`,
 	RunE: runDetect,
 }
 
-var detectJSON bool
 var detectPreview bool
 var detectRemoveWM bool
 var detectAlphaMap bool // --alpha-map: use learned alpha map removal instead of AI
@@ -95,7 +95,6 @@ func runDetect(cmd *cobra.Command, args []string) error {
 }
 
 func init() {
-	detectCmd.Flags().BoolVar(&detectJSON, "json", false, "output results as JSON")
 	detectCmd.Flags().BoolVar(&detectPreview, "preview", false, "open image in system viewer after detection")
 	detectCmd.Flags().BoolVar(&detectRemoveWM, "remove-watermark", false, "remove visible AI watermarks (uses MI-GAN AI inpainting; on failure, try --alpha-map or --producer)")
 	detectCmd.Flags().BoolVar(&detectAlphaMap, "alpha-map", false, "use learned alpha map removal (classical, fallback when MI-GAN fails)")

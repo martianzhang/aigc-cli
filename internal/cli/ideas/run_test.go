@@ -57,29 +57,6 @@ func TestRunLocalKeywordSearch(t *testing.T) {
 	}
 }
 
-func TestRunLocalJSON(t *testing.T) {
-	d := localDeps(writeIdeasFixture(t, fixtureEntries()))
-	f := &cmdFlags{limit: 5, jsonOut: true, sources: []string{ideas.SourceLocal}}
-
-	var runErr error
-	output := captureStdout(func() {
-		runErr = run(d, []string{"photo"}, f)
-	})
-	if runErr != nil {
-		t.Fatalf("run() unexpected error: %v", runErr)
-	}
-	var parsed struct {
-		Total   int               `json:"total"`
-		Results []ideas.IdeaEntry `json:"results"`
-	}
-	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
-		t.Fatalf("invalid JSON output: %v\n%s", err, output)
-	}
-	if parsed.Total != 2 || len(parsed.Results) != 2 {
-		t.Errorf("payload = %+v, want 2 local matches", parsed)
-	}
-}
-
 func TestRunLocalRandomWithoutKeywords(t *testing.T) {
 	d := localDeps(writeIdeasFixture(t, fixtureEntries()))
 	f := &cmdFlags{limit: 5, sources: []string{ideas.SourceLocal}}

@@ -52,7 +52,6 @@ var (
 	bgAutocrop      bool
 	bgPadding       string
 	bgAspectRatio   string
-	bgJSON          bool
 	bgPreview       bool
 	bgShadow        bool
 	bgShadowOffset  string
@@ -200,7 +199,6 @@ func init() {
 	backgroundCmd.Flags().StringVar(&bgAspectRatio, "ar", "", "shorthand for --aspect-ratio")
 
 	// 输出标志
-	backgroundCmd.Flags().BoolVarP(&bgJSON, "json", "j", false, "JSON output")
 	backgroundCmd.Flags().BoolVarP(&bgPreview, "preview", "p", false, "open result in system viewer")
 
 	// Online LLM 评估标志

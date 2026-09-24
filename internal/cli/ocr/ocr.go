@@ -17,12 +17,13 @@ var ocrCmd = &cobra.Command{
 	Short:        "Offline OCR text recognition",
 	SilenceUsage: true,
 	Long: `Offline OCR text recognition using ONNX Runtime.
-	
+
+First use: run 'aigc-cli ocr init' to download the OCR models.
+
 Detection (DBNet) + Recognition (CRNN/SVTR) pipeline, fully local.
 No API key or internet connection required after model download.`,
 	Example: `  aigc-cli ocr init                             # download OCR models first
   aigc-cli ocr scan invoice.png
-  aigc-cli ocr scan invoice.png --json          # bounding boxes + confidence
   aigc-cli ocr scan report.pdf --pages "1-3"    # PDF pages, --engine auto|pdf|ocr`,
 }
 
@@ -50,8 +51,6 @@ var ocrScanPreview bool
 
 var ocrScanLang string
 
-var ocrScanJSON bool
-
 var ocrScanPages string
 
 var ocrScanSpellcheck bool
@@ -68,7 +67,6 @@ func init() {
 
 	ocrScanCmd.Flags().BoolVar(&ocrScanPreview, "preview", false, "Preview recognized text in terminal")
 	ocrScanCmd.Flags().StringVar(&ocrScanLang, "lang", "auto", "Language: auto, zh (Chinese), en (English)")
-	ocrScanCmd.Flags().BoolVar(&ocrScanJSON, "json", false, "Output as JSON with bounding boxes and confidence scores")
 	ocrScanCmd.Flags().StringVar(&ocrScanPages, "pages", "", "Page range for PDF input (e.g. \"1-3,5\")")
 	ocrScanCmd.Flags().BoolVar(&ocrScanSpellcheck, "spellcheck", true, "Auto-correct spelling errors using dictionary")
 	ocrScanCmd.Flags().StringVar(&ocrScanModel, "model", "", "Model name for online OCR (overrides defaults.ocr.model)")

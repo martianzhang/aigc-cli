@@ -51,7 +51,7 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 	}
 
 	if bgMaskOnly {
-		gray, result, err := background.MaskOnly(img, &opts, rmbgDetector)
+		gray, _, err := background.MaskOnly(img, &opts, rmbgDetector)
 		if err != nil {
 			return err
 		}
@@ -60,14 +60,11 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 			return err
 		}
 		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
-		if bgJSON {
-			fmt.Printf("  %dx%d\n", result.Width, result.Height)
-		}
 		return nil
 	}
 
 	if bgRemove && !doReplace {
-		outImg, result, err := background.RemoveBackground(img, &opts, rmbgDetector)
+		outImg, _, err := background.RemoveBackground(img, &opts, rmbgDetector)
 		if err != nil {
 			return err
 		}
@@ -76,9 +73,6 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 			return err
 		}
 		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
-		if bgJSON {
-			fmt.Printf("  %dx%d\n", result.Width, result.Height)
-		}
 		if bgPreview {
 			service.PreviewFile(outPath)
 		}
@@ -86,14 +80,13 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 	}
 
 	if doReplace {
-		var result *background.Result
 		var err error
 
 		var outImg *image.NRGBA
 		if repColor != nil {
-			outImg, result, err = background.ReplaceColor(img, repColor, &opts, rmbgDetector)
+			outImg, _, err = background.ReplaceColor(img, repColor, &opts, rmbgDetector)
 		} else {
-			outImg, result, err = background.ReplaceImage(img, repImg, &opts, rmbgDetector)
+			outImg, _, err = background.ReplaceImage(img, repImg, &opts, rmbgDetector)
 		}
 		if err != nil {
 			return err
@@ -104,9 +97,6 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 			return err
 		}
 		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
-		if bgJSON {
-			fmt.Printf("  %dx%d\n", result.Width, result.Height)
-		}
 		if bgPreview {
 			service.PreviewFile(outPath)
 		}

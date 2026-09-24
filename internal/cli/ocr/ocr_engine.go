@@ -1,7 +1,6 @@
 package ocr
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -73,14 +72,10 @@ func NewOCREngineWithLang(modelsDir, lang string) (*ocr.Engine, error) {
 	return ocr.NewEngine(libPath, detPath, recPath, clsPath, dictPath, 6625, "softmax_11.tmp_0", enModelPath, enDictPath, lang)
 }
 
-// saveOCRResult saves an OCR result to a file and optionally previews it.
-// Output format is Markdown by default, or JSON when --json is set.
+// saveOCRResult saves an OCR result to a Markdown file and optionally previews it.
 func saveOCRResult(cmd *cobra.Command, result *ocr.OCRResult, inputPath string) error {
 	outPath := ""
 	outExt := ".md"
-	if ocrScanJSON {
-		outExt = ".json"
-	}
 	if inputPath != "" && inputPath != "stdin" {
 		ext := filepath.Ext(inputPath)
 		outPath = strings.TrimSuffix(inputPath, ext) + outExt
@@ -93,25 +88,6 @@ func saveOCRResult(cmd *cobra.Command, result *ocr.OCRResult, inputPath string) 
 			return fmt.Errorf("create output dir: %w", err)
 		}
 		outPath = filepath.Join(dir, fmt.Sprintf("ocr_%d%s", time.Now().Unix(), outExt))
-	}
-
-	if ocrScanJSON {
-		data, err := json.MarshalIndent(result, "", "  ")
-		if err != nil {
-			return fmt.Errorf("JSON encode: %w", err)
-		}
-		if err := os.WriteFile(outPath, data, 0644); err != nil {
-			return fmt.Errorf("save output: %w", err)
-		}
-		fmt.Fprintf(os.Stderr, "Saved: %s\n", outPath)
-
-		if ocrScanPreview {
-			fmt.Print(string(data))
-			if !strings.HasSuffix(string(data), "\n") {
-				fmt.Println()
-			}
-		}
-		return nil
 	}
 
 	rawText := ""

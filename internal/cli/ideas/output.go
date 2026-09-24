@@ -1,7 +1,6 @@
 package ideas
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -85,17 +84,4 @@ func outputMarkdown(results []ideas.SearchResult, keywords string, total int, sa
 		}
 	}
 	return nil
-}
-
-func outputJSON(results []ideas.SearchResult, total int) error {
-	out := struct {
-		Total   int               `json:"total"`
-		Results []ideas.IdeaEntry `json:"results"`
-	}{Total: total}
-	for _, r := range results {
-		out.Results = append(out.Results, r.Entry)
-	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
 }
