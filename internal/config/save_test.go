@@ -3,8 +3,11 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 )
 
 func TestSaveNodeAtomicWithBackup(t *testing.T) {
@@ -40,6 +43,59 @@ func TestSaveNodeAtomicWithBackup(t *testing.T) {
 		if strings.Contains(entry.Name(), ".tmp.") {
 			t.Errorf("temp file left behind: %s", entry.Name())
 		}
+	}
+}
+
+func TestSaveNodeWritesOwnerOnlyPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permissions are not enforced on Windows")
+	}
+	path := writeFixture(t, "config.yaml", nodeFixture)
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatalf("chmod fixture: %v", err)
+	}
+	doc, err := LoadNode(path)
+	if err != nil {
+		t.Fatalf("LoadNode() error = %v", err)
+	}
+	if err := SetScalar(doc, "defaults.chat.max_iterations", "10"); err != nil {
+		t.Fatalf("SetScalar() error = %v", err)
+	}
+	if err := SaveNode(path, doc); err != nil {
+		t.Fatalf("SaveNode() error = %v", err)
+	}
+
+	assertPrivateMode(t, path)
+	assertPrivateMode(t, path+".bak")
+}
+
+func TestSaveNodeTightensExistingBackup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permissions are not enforced on Windows")
+	}
+	path := writeFixture(t, "config.yaml", nodeFixture)
+	doc, err := LoadNode(path)
+	if err != nil {
+		t.Fatalf("LoadNode() error = %v", err)
+	}
+	if err := os.WriteFile(path+".bak", []byte("stale"), 0o644); err != nil {
+		t.Fatalf("write stale backup: %v", err)
+	}
+	if err := SaveNode(path, doc); err != nil {
+		t.Fatalf("SaveNode() error = %v", err)
+	}
+
+	assertPrivateMode(t, path+".bak")
+}
+
+func assertPrivateMode(t *testing.T, path string) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat %s: %v", path, err)
+	}
+	if got := info.Mode().Perm(); got != fsutil.PrivateFileMode {
+		t.Errorf("%s mode = %04o, want %04o", path, got, fsutil.PrivateFileMode)
 	}
 }
 

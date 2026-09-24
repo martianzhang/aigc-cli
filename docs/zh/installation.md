@@ -188,6 +188,8 @@ defaults:
 
 完整示例见 [config.example.yaml](config.example.yaml)。
 
+该文件可能包含 API Key，写入时使用仅属主可读写的权限（`0600`），请勿纳入版本控制。
+
 ### 提示词文件
 
 加 `--save-prompt` 可将提示词保存到 `image_{task_id}.md` 文件，方便追溯：

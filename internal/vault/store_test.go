@@ -5,8 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 )
 
 // testDoc builds a VaultDoc with deterministic fields for assertions.
@@ -94,6 +97,40 @@ func TestMetadataPath(t *testing.T) {
 	want := filepath.Join(v.BaseDir(), "metadata.json")
 	if got != want {
 		t.Errorf("metadataPath() = %q, want %q", got, want)
+	}
+}
+
+func TestOpenCreatesOwnerOnlyDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permissions are not enforced on Windows")
+	}
+	base := filepath.Join(t.TempDir(), "vault")
+	if _, err := Open(base); err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	info, err := os.Stat(filepath.Join(base, "docs"))
+	if err != nil {
+		t.Fatalf("stat docs dir: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o700 {
+		t.Errorf("docs dir mode = %04o, want 0700", got)
+	}
+}
+
+func TestWriteMetadataOwnerOnly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permissions are not enforced on Windows")
+	}
+	v := newTestVault(t)
+	if err := v.writeMetadata([]VaultDoc{*testDoc("id-1", "first")}); err != nil {
+		t.Fatalf("writeMetadata() error = %v", err)
+	}
+	info, err := os.Stat(v.metadataPath())
+	if err != nil {
+		t.Fatalf("stat metadata: %v", err)
+	}
+	if got := info.Mode().Perm(); got != fsutil.PrivateFileMode {
+		t.Errorf("metadata mode = %04o, want %04o", got, fsutil.PrivateFileMode)
 	}
 }
 

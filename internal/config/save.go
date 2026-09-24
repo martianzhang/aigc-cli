@@ -7,21 +7,21 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 )
 
 // SaveNode writes doc back to path. The current file is copied to
 // path+".bak" first, the new content goes to path+".tmp.<pid>", and that temp
 // file is renamed over path so an interrupted write cannot corrupt the config.
+// The config can hold API keys, so it and its backup are always written with
+// owner-only permissions (0600), even if the existing file was more permissive.
 func SaveNode(path string, doc *yaml.Node) error {
 	original, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read config: %w", err)
 	}
-	mode := os.FileMode(0o644)
-	if info, statErr := os.Stat(path); statErr == nil {
-		mode = info.Mode().Perm()
-	}
-	if err := os.WriteFile(path+".bak", original, mode); err != nil {
+	if err := fsutil.WritePrivate(path+".bak", original); err != nil {
 		return fmt.Errorf("write config backup: %w", err)
 	}
 
@@ -30,7 +30,7 @@ func SaveNode(path string, doc *yaml.Node) error {
 		return err
 	}
 	tmp := fmt.Sprintf("%s.tmp.%d", path, os.Getpid())
-	if err := os.WriteFile(tmp, data, mode); err != nil {
+	if err := fsutil.WritePrivate(tmp, data); err != nil {
 		return fmt.Errorf("write temp config: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {

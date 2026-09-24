@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/vault"
 	"github.com/spf13/cobra"
 )
@@ -99,7 +100,7 @@ The identity key is included in plaintext — keep the archive secure.`,
 			return err
 		}
 
-		if err := os.WriteFile(outputPath, buf.Bytes(), 0644); err != nil {
+		if err := fsutil.WritePrivate(outputPath, buf.Bytes()); err != nil {
 			return fmt.Errorf("write archive: %w", err)
 		}
 
@@ -154,10 +155,10 @@ var kbVaultImportCmd = &cobra.Command{
 
 			case "metadata.json":
 				metaPath := filepath.Join(vaultBaseDir, "metadata.json")
-				if err := os.MkdirAll(filepath.Dir(metaPath), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(metaPath), 0o700); err != nil {
 					return err
 				}
-				if err := os.WriteFile(metaPath, data, 0644); err != nil {
+				if err := fsutil.WritePrivate(metaPath, data); err != nil {
 					return fmt.Errorf("write metadata: %w", err)
 				}
 				fmt.Fprintf(os.Stderr, "  Imported metadata\n")
@@ -166,10 +167,10 @@ var kbVaultImportCmd = &cobra.Command{
 				if strings.HasPrefix(header.Name, "docs/") {
 					docName := filepath.Base(header.Name)
 					dest := filepath.Join(vaultBaseDir, "docs", docName)
-					if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+					if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
 						return err
 					}
-					if err := os.WriteFile(dest, data, 0644); err != nil {
+					if err := fsutil.WritePrivate(dest, data); err != nil {
 						return fmt.Errorf("write %s: %w", docName, err)
 					}
 					fmt.Fprintf(os.Stderr, "  Imported: %s\n", docName)
@@ -191,7 +192,7 @@ func addFileToTar(tw *tar.Writer, name string, data []byte) error {
 	if err := tw.WriteHeader(&tar.Header{
 		Name: name,
 		Size: int64(len(data)),
-		Mode: 0644,
+		Mode: int64(fsutil.PrivateFileMode),
 	}); err != nil {
 		return err
 	}

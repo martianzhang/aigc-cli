@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 )
 
 // VaultDoc represents a document in the vault.
@@ -25,7 +27,7 @@ type Vault struct {
 
 // Open opens or initializes the vault directory.
 func Open(baseDir string) (*Vault, error) {
-	if err := os.MkdirAll(filepath.Join(baseDir, "docs"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(baseDir, "docs"), 0o700); err != nil {
 		return nil, fmt.Errorf("create vault dir: %w", err)
 	}
 	return &Vault{baseDir: baseDir}, nil
@@ -53,7 +55,7 @@ func (v *Vault) Save(doc *VaultDoc, plaintext []byte) error {
 	}
 
 	// Write encrypted file
-	if err := os.WriteFile(v.docPath(doc.ID), ciphertext, 0644); err != nil {
+	if err := fsutil.WritePrivate(v.docPath(doc.ID), ciphertext); err != nil {
 		return fmt.Errorf("write doc: %w", err)
 	}
 
@@ -165,5 +167,5 @@ func (v *Vault) writeMetadata(docs []VaultDoc) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(v.metadataPath(), data, 0644)
+	return fsutil.WritePrivate(v.metadataPath(), data)
 }
