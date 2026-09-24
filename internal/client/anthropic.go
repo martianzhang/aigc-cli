@@ -221,5 +221,12 @@ func (c *Client) handleAnthropicSSE(resp *http.Response, w io.Writer) (*types.Ch
 		return nil, fmt.Errorf("anthropic SSE read error: %w", err)
 	}
 
+	// Terminate the streamed line so the shell prompt starts on a fresh line.
+	// Without it the cursor is left mid-line and zsh renders its stray '%'
+	// end-of-line mark. Mirrors handleSSE and handleResponsesSSE.
+	if full.Choices[0].Message.Content != "" {
+		fmt.Fprintln(w)
+	}
+
 	return full, nil
 }

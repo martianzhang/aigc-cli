@@ -56,7 +56,6 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 		if turnCount > 1 {
 			fmt.Fprint(options.Stderr(), "\r\n---\r\n")
 		}
-		fmt.Fprint(options.Stderr(), "\r\n")
 
 		result, err := c.ChatCompletion(req)
 		if err != nil {

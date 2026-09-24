@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"reflect"
@@ -322,5 +323,47 @@ func TestAnthropicChatCompletion_OpenRouterAttribution(t *testing.T) {
 	}
 	if tr.last.Header.Get("User-Agent") == "" {
 		t.Error("User-Agent should be set")
+	}
+}
+
+// TestHandleAnthropicSSE_trailingNewline guards that a streamed Anthropic reply
+// ends with a newline: without it the terminal prompt is left mid-line and zsh
+// renders a stray '%' end-of-line mark.
+func TestHandleAnthropicSSE_trailingNewline(t *testing.T) {
+	tests := []struct {
+		name    string
+		delta   string
+		wantOut string
+	}{
+		{"text delta terminated by newline", "Pong!", "Pong!\n"},
+		{"empty content prints nothing", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var body strings.Builder
+			body.WriteString("event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\",\"model\":\"x\"}}\n\n")
+			if tt.delta != "" {
+				body.WriteString("event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"" + tt.delta + "\"}}\n\n")
+			}
+			body.WriteString("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
+
+			c := NewWithProvider("sk-test", "https://openrouter.ai/api/v1", "", types.ProviderAnthropic)
+			c.httpClient.Transport = &captureTransport{body: body.String()}
+
+			var out bytes.Buffer
+			if _, err := c.ChatCompletion(&types.ChatRequest{
+				Model:        "x",
+				Messages:     []types.ChatMessage{{Role: "user", Content: "ping"}},
+				Stream:       true,
+				OutputWriter: &out,
+			}); err != nil {
+				t.Fatalf("ChatCompletion() error = %v", err)
+			}
+
+			if got := out.String(); got != tt.wantOut {
+				t.Errorf("streamed output = %q, want %q", got, tt.wantOut)
+			}
+		})
 	}
 }
