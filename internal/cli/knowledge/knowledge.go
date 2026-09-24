@@ -35,7 +35,7 @@ First use: run 'aigc-cli knowledgebase init' to initialize.
   knowledgebase init          Initialize the knowledge base
   knowledgebase add <path>    Add a local file or directory
   knowledgebase fetch <url>   Fetch a URL and add it
-  knowledgebase map <url>     Discover URls from a page and batch fetch
+  knowledgebase map <url>     Discover URLs from a page and batch fetch
   knowledgebase find <query>  Search the knowledge base
   knowledgebase search <q>    Web search + save to knowledge base
   knowledgebase list          List all documents

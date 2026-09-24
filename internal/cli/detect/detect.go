@@ -109,7 +109,7 @@ func init() {
 	detectCmd.Flags().StringVar(&detectLearnWM, "learn-watermark", "", `learn a watermark from seed images in ~/.config/aigc-cli/watermark/
   {name}.black.png + {name}.gray.png (single pair)
   {name}.2.black.png + {name}.2.gray.png (2nd pair, averaged for lower noise)
-  {name}.3.black.png + ... (any number of pairs, all averaged) `)
+  {name}.3.black.png + ... (any number of pairs, all averaged)`)
 	detectCmd.Flags().StringVar(&detectLearnStrategy, "strategy", "alpha_blend",
 		`removal strategy: "alpha_blend" (default, reverse alpha blending) or "inpaint" (texture fill for badge-type watermarks)`)
 	detectCmd.Flags().IntVar(&detectNativeWidth, "native-width", 1024,
