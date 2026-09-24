@@ -164,6 +164,37 @@ func TestGeminiImageBodyMapsReferenceImages(t *testing.T) {
 	})
 }
 
+func TestOpenRouterImageBodyAspectRatio(t *testing.T) {
+	t.Run("ratio maps to aspect_ratio and keeps a tier size", func(t *testing.T) {
+		req := &types.GenerateRequest{Model: "m", Prompt: "p", Size: "2K", Ratio: "16:9"}
+		got := marshalBody(t, OpenRouterImageBody(req))
+		if !strings.Contains(got, `"aspect_ratio":"16:9"`) {
+			t.Errorf("openrouter body = %s, want aspect_ratio 16:9", got)
+		}
+		if !strings.Contains(got, `"size":"2K"`) {
+			t.Errorf("openrouter body = %s, want tier size 2K kept", got)
+		}
+	})
+
+	t.Run("empty ratio omits aspect_ratio", func(t *testing.T) {
+		req := &types.GenerateRequest{Model: "m", Prompt: "p", Size: "2K"}
+		if got := marshalBody(t, OpenRouterImageBody(req)); strings.Contains(got, "aspect_ratio") {
+			t.Errorf("openrouter body = %s, must not contain aspect_ratio", got)
+		}
+	})
+
+	t.Run("ratio drops a conflicting pixel size", func(t *testing.T) {
+		req := &types.GenerateRequest{Model: "m", Prompt: "p", Size: "1024x768", Ratio: "16:9"}
+		got := marshalBody(t, OpenRouterImageBody(req))
+		if !strings.Contains(got, `"aspect_ratio":"16:9"`) {
+			t.Errorf("openrouter body = %s, want aspect_ratio 16:9", got)
+		}
+		if strings.Contains(got, `"size"`) {
+			t.Errorf("openrouter body = %s, pixel size must be dropped when a ratio is set", got)
+		}
+	})
+}
+
 func TestImagePathsSendRawJSONVerbatim(t *testing.T) {
 	editsReq := rawImageReq()
 	editsReq.ImageURLs = []string{"photo.png"}

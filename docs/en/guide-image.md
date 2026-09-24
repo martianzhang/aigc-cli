@@ -18,19 +18,33 @@ aigc-cli image --model "dall-e-3" --size "1024x1024" --prompt "a cat"
 |---|---|---|
 | `--prompt` / `-p` | Image description prompt | required |
 | `--model` / `-m` | Model name | `gpt-image-2-official` (APIMart) |
-| `--size` | Image size (`1024x1024`, `1792x1024`, etc.) | varies by model |
-
-> **Note:** The `--size` format varies by provider. Most providers (OpenAI, OpenRouter, APIMart) accept aspect ratios like `1:1`, `16:9`. However, **Agnes requires pixel dimensions** (e.g. `1024x1024`, `1024x768`, `768x1024`). See the [Agnes Image docs](https://agnes-ai.com/zh-Hans/docs/agnes-image-20-flash) for details.
+| `--size` | Image size: aspect ratio (`16:9`), pixels (`1024x1024`), tier (`2K`), or compound (`2K@16:9`) | varies by model |
 
 ### Provider-specific parameters
 
-Some providers require non-standard parameter formats. aigc-cli handles these automatically where possible, but you should be aware of them when specifying `--size`:
+The `--size` flag accepts four forms: `<ratio>` (e.g. `16:9`), `<pixels>` (e.g. `1024x1024`), `<tier>` (e.g. `2K`), and the new compound `<tier>@<ratio>` (e.g. `2K@16:9`). The part before `@` is the resolution tier and the part after is the aspect ratio. The CLI splits it into `size` + `ratio`; anything without `@` is unchanged.
 
-- **Agnes** (`agnes-image-2.0-flash`, `agnes-image-2.5-flash`): requires **pixel dimensions** for `--size`, e.g. `1024x1024`, `1024x768`, `768x1024`. Aspect ratios like `16:9` are not documented. See the [Agnes Image docs](https://agnes-ai.com/zh-Hans/docs/agnes-image-20-flash).
+| Provider | Accepted `--size` values | Notes |
+|---|---|---|
+| OpenAI / generic OpenAI-compatible | `16:9`, `1024x1024` | single value: ratio or pixels |
+| OpenRouter | `16:9`, `1024x1024`, `2K`, `2K@16:9` | compound maps to `size` + `aspect_ratio`; which tiers a model supports depends on that model's `supported_parameters`. Example: Recraft V4.1 only declares `aspect_ratio` (1:1/4:3/3:4/16:9/9:16/auto), so `--size 2K` returns HTTP 400 — use `--size 16:9` (ratio only) for it |
+| Agnes image 2.0 | `1024x768` (pixels) | 2.0 needs pixel dimensions; see the [Agnes Image docs](https://agnes-ai.com/zh-Hans/docs/agnes-image-20-flash) |
+| Agnes image 2.1 Flash | `2K@16:9` (or `--size 2K --ratio 16:9`) | 2.1 supports tiered sizing: tier + ratio |
+| ModelScope | `1024x768` (pixels) | pixels only |
+| APIMart | `16:9`, `1024x1024` (+ `--resolution 1k/2k/4k`) | the tier goes through `--resolution` |
+| Gemini | `1024x1024` (pixels) | the CLI derives `aspect_ratio` from the pixel size |
+
+`--ratio` is an alternative to the `@` suffix and is honored by OpenRouter (mapped to `aspect_ratio`; a ratio overrides a conflicting pixel `size`) and Agnes (mapped to `extra_body.ratio`).
+
+> 💡 **When `--size` is combined with `--json`, the compound form is split automatically.** A `size` value containing `@` inside a `--json` body is also split. Everything else in a verbatim `--json` body stays byte-for-byte untouched.
 
 ```bash
-# Agnes: use pixel dimensions for --size
-aigc-cli image --provider agnes --model agnes-image-2.5-flash \
+# OpenRouter: tier + aspect ratio
+aigc-cli img -P openrouter -m recraft/recraft-v4.1-flash -p prompts/4.txt --size 16:9
+aigc-cli img -P openrouter -m <model> -p "a cat" --size 2K@16:9
+
+# Agnes image 2.0: pixel dimensions
+aigc-cli image --provider agnes --model agnes-image-2.0-flash \
   --size "1024x768" --prompt "a cat"
 ```
 

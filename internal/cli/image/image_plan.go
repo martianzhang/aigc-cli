@@ -42,6 +42,12 @@ func buildImagePlan(req *types.GenerateRequest, p *provider.EffectiveProvider) (
 		return nil, fmt.Errorf("provider is required")
 	}
 
+	// Expand a compound "<tier>@<ratio>" size (e.g. "2K@16:9") before any
+	// dispatch so every entry path (CLI, MCP/chat agent, --dry-run) sees the split.
+	if err := normalizeSizeTier(req); err != nil {
+		return nil, err
+	}
+
 	base := client.NormalizeBaseURL(p.BaseURL)
 	// APIMart precedes the local/Ollama check to mirror the strategy table,
 	// where an APIMart-typed provider outranks a local endpoint.

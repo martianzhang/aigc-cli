@@ -314,7 +314,7 @@ func newGenerateImageTool(desc string) mcp.Tool {
 			mcp.Description(providerArgDesc),
 		),
 		mcp.WithString("size",
-			mcp.Description("Override the config default size/aspect ratio"),
+			mcp.Description("Override the config default size/aspect ratio; accepts `<tier>@<ratio>` e.g. 2K@16:9"),
 		),
 		mcp.WithString("resolution",
 			mcp.Enum("1k", "2k", "4k"),

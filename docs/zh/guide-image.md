@@ -29,7 +29,7 @@ aigc-cli image < prompt.txt
 | `--prompt` | `-p` | 文本描述（自动识别文件/stdin） | 通用 |
 | `--model` | `-m` | 模型名（可通过 `defaults.image.model` 或 `providers.{name}.model` 设默认值） | 通用 |
 | `--provider` | `-P` | 命名 Provider 名称（覆盖 `defaults.image.provider`，见 `docs/config.example.yaml`） | 通用 |
-| `--size` | `-s` | 宽高比，如 `16:9`、`1:1`，或像素如 `1024x1024` | 通用 |
+| `--size` | `-s` | 图片尺寸：宽高比（`16:9`）、像素（`1024x1024`）、档位（`2K`）或组合形式（`2K@16:9`） | 通用 |
 | `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` | 通用 |
 | `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp`、`avif`、`jxl` | 通用 |
 | `--compress` | `-z` | 压缩目标：`800KB`/`2MB`（目标大小）或 `85%`（固定 quality） | 通用 |
@@ -51,11 +51,29 @@ aigc-cli image < prompt.txt
 | `--dry-run` | | 打印等价 curl（上传型 provider 会先打印每个本地参考图的上传 curl），不调用 API | 通用 |
 | `--preview` | | 生成后自动用系统默认程序打开图片 | 通用 |
 
-> ⚠️ **--size 格式因厂商而异**：OpenAI/OpenRouter/APIMart 等大多数厂商支持宽高比格式（如 `1:1`、`16:9`），但部分厂商（如 Agnes、ModelScope）要求像素尺寸（如 `1024x1024`、`1024x768`）。使用前请查阅对应厂商的 API 文档确认 `size` 参数格式。
+> ⚠️ **--size 格式因厂商而异**：`--size` 支持四种写法：`<ratio>`（如 `16:9`）、`<pixels>`（如 `1024x1024`）、`<tier>`（如 `2K`），以及新的组合形式 `<tier>@<ratio>`（如 `2K@16:9`）。`@` 前为分辨率档位，`@` 后为宽高比；CLI 会自动拆成 `size` + `ratio`，不含 `@` 的值行为不变。
+
+| Provider | 接受的 `--size` 值 | 说明 |
+|---|---|---|
+| OpenAI / 通用 OpenAI 兼容 | `16:9`、`1024x1024` | 单值：宽高比或像素 |
+| OpenRouter | `16:9`、`1024x1024`、`2K`、`2K@16:9` | 组合形式映射为 `size` + `aspect_ratio`；具体模型支持哪些档位取决于该模型的 `supported_parameters`。例如 Recraft V4.1 只声明了 `aspect_ratio`（1:1/4:3/3:4/16:9/9:16/auto），因此 `--size 2K` 会返回 HTTP 400，应使用 `--size 16:9`（仅宽高比） |
+| Agnes image 2.0 | `1024x768`（像素） | 2.0 需要像素尺寸 |
+| Agnes image 2.1 Flash | `2K@16:9`（或 `--size 2K --ratio 16:9`） | 2.1 支持档位化尺寸：档位 + 宽高比 |
+| ModelScope | `1024x768`（像素） | 仅像素 |
+| APIMart | `16:9`、`1024x1024`（另加 `--resolution 1k/2k/4k`） | 档位通过 `--resolution` 传递 |
+| Gemini | `1024x1024`（像素） | CLI 从像素尺寸推导 `aspect_ratio` |
+
+`--ratio` 是 `@` 后缀的替代写法，OpenRouter（映射为 `aspect_ratio`；与像素 `size` 冲突时以 `ratio` 为准）和 Agnes（映射为 `extra_body.ratio`）均支持。
+
+> 💡 **`--json` 中的 `@` 也会自动拆分**：当 `--size` 与 `--json` 同时使用时，含 `@` 的组合值会被自动拆分；`--json` 正文中包含 `@` 的 `size` 值同样会被拆分。除此之外，`--json` 的其余内容逐字节原样保留。
 
 ```bash
-# Agnes：--size 必须用像素尺寸（如 1024x768），不能用宽高比（16:9）
-aigc-cli image --provider agnes --model agnes-image-2.5-flash \
+# OpenRouter：档位 + 宽高比
+aigc-cli img -P openrouter -m recraft/recraft-v4.1-flash -p prompts/4.txt --size 16:9
+aigc-cli img -P openrouter -m <model> -p "a cat" --size 2K@16:9
+
+# Agnes image 2.0：像素尺寸
+aigc-cli image --provider agnes --model agnes-image-2.0-flash \
   --size "1024x768" --prompt "一只猫"
 ```
 

@@ -33,6 +33,7 @@ func prepareAgnesImageRequest(req *types.GenerateRequest) error {
 			req.ExtraBody = make(map[string]interface{})
 		}
 		req.ExtraBody["ratio"] = req.Ratio
+		req.Ratio = "" // clear top-level, Agnes expects it nested only
 	}
 	// Move response_format into extra_body (Agnes rejects it at top level).
 	if req.ResponseFormat != "" {

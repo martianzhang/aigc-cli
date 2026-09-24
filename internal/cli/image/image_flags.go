@@ -32,8 +32,8 @@ var (
 func registerImageGenerateFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
 	f.StringVarP(&genPrompt, "prompt", "p", "", "Text description (auto-reads from file if path exists, or \"-\" for stdin)")
-	f.StringVarP(&genSize, "size", "s", "", `Aspect ratio (e.g. "16:9", "1:1") or pixel dims (e.g. "1024x1024") or tier (e.g. "1K", "2K" for Agnes 2.1)`)
-	f.StringVar(&genRatio, "ratio", "", `Aspect ratio for tiered sizing (Agnes 2.1+): "1:1", "16:9", "3:4", "4:3", "9:16", "2:3", "3:2", "21:9"`)
+	f.StringVarP(&genSize, "size", "s", "", `Aspect ratio (e.g. "16:9", "1:1"), pixel dims (e.g. "1024x1024"), tier (e.g. "1K", "2K" for Agnes 2.1), or "<tier>@<ratio>" (e.g. "2K@16:9", sets --ratio)`)
+	f.StringVar(&genRatio, "ratio", "", `Aspect ratio for tiered sizing (Agnes 2.1+): "1:1", "16:9", "3:4", "4:3", "9:16", "2:3", "3:2", "21:9"; OpenRouter also honors it (aspect_ratio)`)
 	f.StringVarP(&genResolution, "resolution", "r", "", "Resolution tier: 1k, 2k, 4k (APIMart only)")
 	f.StringVarP(&genQuality, "quality", "q", "", "Quality: auto, low, medium, high")
 	f.StringVar(&genBackground, "background", "", "Background mode: auto, opaque, transparent")

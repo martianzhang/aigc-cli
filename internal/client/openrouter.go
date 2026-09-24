@@ -37,7 +37,11 @@ func OpenRouterImageBody(req *types.GenerateRequest) interface{} {
 		"model":  req.Model,
 		"prompt": req.Prompt,
 	}
-	if req.Size != "" {
+	// OpenRouter rejects an explicit pixel size combined with a mismatched
+	// aspect_ratio, so a ratio wins over a conflicting pixel size (e.g. a pixel
+	// size config default). A tier ("2K") is kept because OpenRouter combines
+	// tiers with aspect_ratio.
+	if req.Size != "" && (req.Ratio == "" || !isPixelSize(req.Size)) {
 		bodyMap["size"] = req.Size
 	}
 	if req.Quality != "" {
@@ -51,6 +55,11 @@ func OpenRouterImageBody(req *types.GenerateRequest) interface{} {
 	}
 	if req.Resolution != "" {
 		bodyMap["resolution"] = req.Resolution
+	}
+	// OpenRouter's Image API accepts aspect_ratio alongside a tier in size
+	// (e.g. size "2K" + aspect_ratio "16:9").
+	if req.Ratio != "" {
+		bodyMap["aspect_ratio"] = req.Ratio
 	}
 	if req.N != nil {
 		bodyMap["n"] = *req.N
@@ -74,6 +83,12 @@ func OpenRouterImageBody(req *types.GenerateRequest) interface{} {
 	}
 
 	return req.BodyOrRaw(bodyMap)
+}
+
+// isPixelSize reports whether a size value is an explicit WxH pixel size
+// (e.g. "1024x1024") rather than an aspect ratio ("16:9") or a tier ("2K").
+func isPixelSize(v string) bool {
+	return strings.Contains(strings.ToLower(v), "x")
 }
 
 // OpenRouterDedicatedImage sends a text-to-image request via OpenRouter's

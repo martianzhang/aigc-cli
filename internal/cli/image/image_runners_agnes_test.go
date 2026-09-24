@@ -41,6 +41,9 @@ func TestPrepareAgnesImageRequest(t *testing.T) {
 	if req.ExtraBody["ratio"] != "16:9" {
 		t.Errorf("extra_body.ratio = %v, want 16:9", req.ExtraBody["ratio"])
 	}
+	if req.Ratio != "" {
+		t.Errorf("top-level Ratio should be cleared, got %q", req.Ratio)
+	}
 	if req.ExtraBody["response_format"] != "url" {
 		t.Errorf("extra_body.response_format = %v, want url", req.ExtraBody["response_format"])
 	}
