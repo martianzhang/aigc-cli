@@ -105,6 +105,7 @@ aigc-cli music gen --provider openrouter --prompt "ambient"
 - 需要 OpenRouter API Key，base URL 为 `https://openrouter.ai/api/v1`。
 - 同步返回，**无 task_id**，不需要（也不支持）`music query`。
 - OpenRouter 没有 lyrics / instrumental / duration 请求字段，这三者会被折叠进 prompt 文本：instrumental 前置 `[Instrumental] `，歌词追加 `Lyrics:` 段，时长追加 `Target duration: about N seconds.`。
+- 加全局 `--zdr` 标志会附带 `provider: {zdr: true, data_collection: "deny"}`，只路由到符合 ZDR 的上游；若无可用上游则请求失败。
 
 ### 阿里云百炼 Fun-Music（同步）
 

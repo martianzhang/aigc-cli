@@ -181,6 +181,7 @@ aigc-cli
 │   --preview      Open system preview after generation
 │   --save-prompt  Save prompt as .md file
 │   --http-proxy   Specify HTTP proxy
+│   --zdr          Request zero data retention where supported (OpenRouter chat/music)
 ```
 
 ### Enable Tab Completion

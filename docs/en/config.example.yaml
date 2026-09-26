@@ -27,6 +27,11 @@ base_url: "https://api.apimart.ai"
 # Verbose output: show full result JSON (can also use --verbose / -v CLI flag)
 # verbose: true
 
+# Zero data retention: restrict OpenRouter chat/music to ZDR-compliant upstreams.
+# Can also use the global --zdr CLI flag (the flag overrides this value).
+# Ignored by every other provider and by OpenRouter image/video.
+# zdr: true
+
 # Output directory for downloaded files (default: current directory ".")
 # Can also use --output CLI flag
 # output_dir: "./downloads"
@@ -76,6 +81,10 @@ base_url: "https://api.apimart.ai"
 #   responses — OpenAI Responses API (chat only; fixes reasoning models that reject tools on /v1/chat/completions)
 #   local     — Local ONNX models (OCR / Vision / Detect / Background)
 #
+# Optional per-provider `zdr: true` opts that provider into zero-data-retention
+# requests. Only OpenRouter chat/music honor it; ignored elsewhere. Unset inherits
+# the global zdr; the --zdr CLI flag overrides both.
+#
 # Unconfigured fields inherit global top-level values (api_key / base_url / http_proxy).
 providers:
   # Example: OpenRouter dedicated account
@@ -83,6 +92,7 @@ providers:
   #   type: openai
   #   api_key: "sk-or-xxx"
   #   base_url: "https://openrouter.ai/api/v1"
+  #   zdr: true
 
   # Example: Alibaba Cloud Bailian (needed for Fun-Music; chat uses compatible-mode,
   # music is automatically redirected to the native services path)

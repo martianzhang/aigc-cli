@@ -129,6 +129,7 @@ aigc-cli completion powershell > aigc-cli.ps1
 | `--preview` | Open system preview after generation |
 | `--save-prompt` | Save prompt as .md file |
 | `--http-proxy` | Specify HTTP proxy |
+| `--zdr` | Request zero data retention where supported. OpenRouter chat-completions endpoints (`chat`, `music`) honor it via `provider.zdr` + `data_collection: deny`; every other provider/endpoint is a silent no-op |
 | `--config` | Path to config file |
 | `--api-key` | API key (overrides config/env) |
 | `--api-base` | API base URL (overrides config/env) |

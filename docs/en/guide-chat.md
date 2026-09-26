@@ -128,6 +128,39 @@ defaults:
 
 Other commands (image, video, audio, music) are unaffected.
 
+## Zero Data Retention (`--zdr`)
+
+`--zdr` asks the provider to retain nothing. OpenRouter is the only current
+provider with a request-level control, and it applies **only to its
+chat-completions endpoints** (`chat`, plus OpenRouter `music`):
+
+```bash
+export OPENAI_API_KEY="sk-or-xxx"
+export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
+
+aigc-cli chat --zdr --message "Hello"
+# request body includes: "provider": {"zdr": true, "data_collection": "deny"}
+```
+
+- Precedence: `--zdr` flag > `providers.{name}.zdr` > global `zdr` > off. Use the
+  per-provider form when only some of your accounts support ZDR:
+  ```yaml
+  providers:
+    openrouter:
+      base_url: "https://openrouter.ai/api/v1"
+      zdr: true
+  ```
+- OpenRouter then routes only to ZDR-compliant upstreams. If none is available
+  the request **fails** (HTTP 404 "No endpoints found matching your data
+  policy") instead of silently falling back to a non-ZDR provider.
+- Other `provider` fields in a `--json` body are preserved; `zdr` and
+  `data_collection` are forced on.
+- OpenRouter's **Images and Videos** APIs do not accept `zdr` (video is
+  ineligible for ZDR by design), so `--zdr` is a silent no-op for `image` and
+  `video` — it never injects an unsupported field.
+- Other providers have no request-level ZDR switch (retention is set on the
+  account/console side), so `--zdr` is a no-op there too.
+
 ## Verbose Output
 
 ```bash

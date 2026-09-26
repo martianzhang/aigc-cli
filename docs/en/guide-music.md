@@ -105,6 +105,7 @@ Notes:
 - Requires an OpenRouter API key; the base URL is `https://openrouter.ai/api/v1`.
 - Synchronous — there is **no task ID**, so `music query` is neither needed nor supported.
 - OpenRouter has no lyrics / instrumental / duration request fields, so these are folded into the prompt text: instrumental is prefixed with `[Instrumental] `, lyrics are appended in a `Lyrics:` section, and duration is appended as `Target duration: about N seconds.`.
+- Add the global `--zdr` flag to send `provider: {zdr: true, data_collection: "deny"}` and restrict routing to ZDR-compliant upstreams; the request fails if none is available.
 
 ### Alibaba Cloud Bailian Fun-Music (synchronous)
 

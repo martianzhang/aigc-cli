@@ -306,6 +306,30 @@ defaults:
 
 使用 `--json` 时，请求体原样转发。若 Provider 类型为 `openai_responses`，JSON 内容需符合 Responses API 格式（使用 `input` / `instructions` 等字段），而非 chat completions 的 `messages` 格式。
 
+### 零数据保留（ZDR）
+
+`--zdr` 请求服务商不保留任何数据。当前只有 OpenRouter 提供请求级开关，且**仅作用于其 chat-completions 端点**（`chat`，以及走 chat/completions 的 OpenRouter `music`）：
+
+```bash
+export OPENAI_API_KEY="sk-or-xxx"
+export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
+
+aigc-cli chat --zdr --message "你好"
+# 请求体包含："provider": {"zdr": true, "data_collection": "deny"}
+```
+
+- 优先级：`--zdr` 参数 > `providers.{name}.zdr` > 全局 `zdr` > 关闭。只有部分账号支持 ZDR 时用 Provider 级别配置：
+  ```yaml
+  providers:
+    openrouter:
+      base_url: "https://openrouter.ai/api/v1"
+      zdr: true
+  ```
+- 开启后 OpenRouter 只会路由到符合 ZDR 的上游；若无可用上游，请求会**直接失败**（HTTP 404 “No endpoints found matching your data policy”），而不会静默回退到非 ZDR 服务商。
+- `--json` body 中已有的其他 `provider` 字段会保留，仅强制写入 `zdr` 与 `data_collection`。
+- OpenRouter 的**图片 / 视频** API 不接受 `zdr`（视频按设计不支持 ZDR），因此 `--zdr` 在 `image` / `video` 上是静默空操作，绝不会注入不受支持的字段。
+- 其他 Provider 没有请求级 ZDR 开关（留存策略需在服务商控制台/账户侧配置），`--zdr` 同样为空操作。
+
 ### 上下文管理
 
 交互模式中，当历史对话接近 `--context-size` 限制时（超过 80%），会自动将早期消息总结为一条摘要以释放空间，无需手动干预。你也可以随时输入 `/compact` 手动触发压缩。

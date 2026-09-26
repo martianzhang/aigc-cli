@@ -25,6 +25,11 @@ base_url: "https://api.apimart.ai"
 # Verbose output: show full result JSON (can also use --verbose / -v CLI flag)
 # verbose: true
 
+# 零数据保留：将 OpenRouter 的 chat/music 限制为符合 ZDR 的上游。
+# 也可用全局 --zdr 命令行参数（flag 优先于此处配置）。
+# 其他 Provider 及 OpenRouter 的图片/视频会忽略该项。
+# zdr: true
+
 # Output directory for downloaded files (default: current directory ".")
 # Can also use --output CLI flag
 # output_dir: "./downloads"
@@ -74,6 +79,10 @@ base_url: "https://api.apimart.ai"
 #   responses — OpenAI Responses API（chat 专用；解决部分推理模型在 /v1/chat/completions 上拒绝工具调用的问题）
 #   local     — 本地 ONNX 模型（OCR / Vision / Detect / Background）
 #
+# 可选：为单个 Provider 设置 `zdr: true`，让它走零数据保留请求。
+# 目前仅 OpenRouter 的 chat/music 支持，其他 Provider/端点忽略该项。
+# 未设置时继承全局 zdr；--zdr 命令行参数优先级最高。
+#
 # 未配置的字段继承全局顶层值（api_key / base_url / http_proxy）。
 providers:
   # 示例：OpenRouter 专用账号
@@ -81,6 +90,7 @@ providers:
   #   type: openai
   #   api_key: "sk-or-xxx"
   #   base_url: "https://openrouter.ai/api/v1"
+  #   zdr: true
 
   # 示例：阿里云百炼（音乐用 Fun-Music 时配置；chat 走 compatible-mode，音乐会自动改走原生 services 路径）
   # dashscope:

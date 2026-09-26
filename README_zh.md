@@ -181,6 +181,7 @@ aigc-cli
 │   --preview      生成完成后自动打开系统预览
 │   --save-prompt  将提示词保存为 .md 文件
 │   --http-proxy   指定 HTTP 代理
+│   --zdr          请求零数据保留（ZDR，仅 OpenRouter chat/music 支持）
 ```
 
 ### 启用 Tab 补全
