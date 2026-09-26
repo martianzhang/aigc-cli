@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -213,5 +214,119 @@ func TestRunModelsDetailNoRequestWithoutKey(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "failed to get model") {
 		t.Errorf("runModelsDetail() error = %q, want no HTTP attempt before the guard", err)
+	}
+}
+
+func TestRunModelsOpenRouterDetailLocalServer(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"data": {
+				"id": "openai/gpt-6-luna",
+				"name": "GPT-6 Luna",
+				"description": "test model",
+				"context_length": 128000,
+				"architecture": {"input_modalities": ["text"], "output_modalities": ["text"]},
+				"supported_parameters": ["tools", "temperature", "top_p"],
+				"top_provider": {"context_length": 128000, "max_completion_tokens": 16384},
+				"pricing": {"prompt": "0.0000025", "completion": "0.00001"}
+			}
+		}`))
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{
+		BaseURL:      srv.URL + "/api/v1",
+		ProviderType: provider.OpenRouter,
+		Type:         types.ProviderOpenAI,
+	}
+	if err := runModelsOpenRouterDetail("openai/gpt-6-luna", p); err != nil {
+		t.Fatalf("runModelsOpenRouterDetail() error = %v", err)
+	}
+	if want := "/api/v1/model/openai/gpt-6-luna"; gotPath != want {
+		t.Errorf("request path = %q, want singular %q", gotPath, want)
+	}
+}
+
+func TestIndentJSONPreservesArbitraryShape(t *testing.T) {
+	raw := json.RawMessage(`{"data":{"supported_parameters":["tools"],"nested":{"a":[1,2]}}}`)
+	got, err := indentJSON(raw)
+	if err != nil {
+		t.Fatalf("indentJSON() error = %v", err)
+	}
+	if !strings.Contains(got, "\n") {
+		t.Errorf("indentJSON() = %q, want indented output", got)
+	}
+	if !strings.Contains(got, `"supported_parameters"`) {
+		t.Errorf("indentJSON() = %q, want original keys preserved", got)
+	}
+}
+
+func TestRunModelsDetailListsForAllProviders(t *testing.T) {
+	cases := []struct {
+		name         string
+		providerType provider.Type
+	}{
+		{"openai", provider.OpenAI},
+		{"apimart", provider.APIMart},
+		{"openlux", provider.OpenLux},
+		{"modelscope", provider.ModelScope},
+		{"agnes", provider.Agnes},
+		{"gemini", provider.Gemini},
+		{"bailian", provider.Bailian},
+		{"zeekai", provider.Zeekai},
+		{"pollinations", provider.Pollinations},
+		{"unknown", provider.Unknown},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var listHit, singleHit bool
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if strings.HasSuffix(r.URL.Path, "/models") {
+					listHit = true
+					w.Write([]byte(`{"data":[{"id":"test/model","object":"model","owned_by":"tester"}]}`))
+					return
+				}
+				singleHit = true
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			defer srv.Close()
+
+			p := &provider.EffectiveProvider{
+				BaseURL:      srv.URL,
+				Type:         types.ProviderOpenAI,
+				ProviderType: tc.providerType,
+			}
+			if err := runModelsDetail("test/model", p); err != nil {
+				t.Fatalf("runModelsDetail() error = %v", err)
+			}
+			if !listHit {
+				t.Errorf("provider %s: list endpoint was never called", tc.name)
+			}
+			if singleHit {
+				t.Errorf("provider %s: GET /models/{id} was probed, want list-only", tc.name)
+			}
+		})
+	}
+}
+
+func TestRunModelsDetailNotFoundInList(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			w.Write([]byte(`{"data":[{"id":"other/model"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{BaseURL: srv.URL, Type: types.ProviderOpenAI, ProviderType: provider.OpenAI}
+	err := runModelsDetail("missing/model", p)
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("runModelsDetail() error = %v, want not-found after listing", err)
 	}
 }

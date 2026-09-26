@@ -1,7 +1,9 @@
 package models
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -140,11 +142,17 @@ func runModelsOpenAI(p *provider.EffectiveProvider) error {
 	return nil
 }
 
-// runModelsDetail fetches and displays a single model via /v1/models/{model}.
+// runModelsDetail fetches and displays a single model by filtering the
+// provider's model list. OpenRouter is special-cased to its singular
+// /model/{author}/{slug} endpoint, which returns the full model record.
 func runModelsDetail(modelID string, p *provider.EffectiveProvider) error {
 	if err := options.RequireAPIKey("models", p, d.Providers); err != nil {
 		return err
 	}
+	if p.ProviderType == provider.OpenRouter {
+		return runModelsOpenRouterDetail(modelID, p)
+	}
+
 	base := p.BaseURL
 	if base == "" {
 		base = "https://api.openai.com"
@@ -153,18 +161,30 @@ func runModelsDetail(modelID string, p *provider.EffectiveProvider) error {
 	if !client.HasVersionSuffix(base) {
 		base += "/v1"
 	}
-	printAPIURL(base + "/models/" + modelID)
+	return runModelsDetailFromList(client.NewFromProvider(p), base, modelID)
+}
 
-	c := client.NewFromProvider(p)
-	model, err := c.GetModelOpenAI(modelID)
+// runModelsDetailFromList resolves a model by fetching the list and matching the
+// id. The list is the one endpoint every OpenAI-compatible provider serves;
+// many (ModelScope, Ollama, LM Studio, APIMart, DeepSeek, Groq, …) reject the
+// OpenAI-style GET /models/{id} with 404, so it is never probed.
+func runModelsDetailFromList(c *client.Client, base, modelID string) error {
+	printAPIURL(base + "/models")
+
+	models, err := c.ListModelsOpenAI()
 	if err != nil {
-		return fmt.Errorf("failed to get model: %w", err)
+		return fmt.Errorf("failed to list models: %w", err)
 	}
-
-	if model.ID == "" {
-		return fmt.Errorf("model %q not found", modelID)
+	for i := range models {
+		if models[i].ID == modelID {
+			printOpenAIModelDetail(&models[i])
+			return nil
+		}
 	}
+	return fmt.Errorf("model %q not found", modelID)
+}
 
+func printOpenAIModelDetail(model *types.OpenAIModel) {
 	fmt.Printf("  %s\n", model.ID)
 	if model.Object != "" {
 		fmt.Printf("    Object:   %s\n", model.Object)
@@ -176,5 +196,39 @@ func runModelsDetail(modelID string, p *provider.EffectiveProvider) error {
 		fmt.Printf("    Created:  %s\n", time.Unix(model.Created, 0).Format("2006-01-02 15:04:05"))
 	}
 	fmt.Println()
+}
+
+// runModelsOpenRouterDetail prints OpenRouter's single-model response verbatim.
+// It uses the singular /model/{author}/{slug} endpoint; the plural /models/{id}
+// path (used above for OpenAI) returns 404.
+func runModelsOpenRouterDetail(modelID string, p *provider.EffectiveProvider) error {
+	if p.BaseURL == "" {
+		return fmt.Errorf("OpenRouter base URL is not configured")
+	}
+	base := client.NormalizeBaseURL(p.BaseURL)
+	printAPIURL(base + "/model/" + modelID)
+
+	c := client.NewFromProvider(p)
+	raw, err := c.GetModelOpenRouter(modelID)
+	if err != nil {
+		if errors.Is(err, client.ErrNotSupported) {
+			return fmt.Errorf("model %q not found", modelID)
+		}
+		return fmt.Errorf("failed to get model: %w", err)
+	}
+
+	pretty, err := indentJSON(raw)
+	if err != nil {
+		return fmt.Errorf("failed to format response: %w", err)
+	}
+	fmt.Println(pretty)
 	return nil
+}
+
+func indentJSON(raw json.RawMessage) (string, error) {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, raw, "", "  "); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
