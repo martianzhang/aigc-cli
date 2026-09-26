@@ -18,7 +18,12 @@ aigc-cli models --type video
 
 # View model pricing
 aigc-cli models --price
+
+# Single model detail (context window, pricing, modalities, params)
+aigc-cli models --provider openrouter openai/gpt-4o
 ```
+
+> **Single-model lookup**: `aigc-cli models <model>` prints one model's details. For OpenRouter it calls the **singular** `GET /v1/model/{author}/{slug}` endpoint (not the plural `/models` used for listing) and **prints the response JSON verbatim** (pretty-printed, no field parsing). Other providers fetch the `GET /v1/models` list and filter by model id (the `GET /v1/models/{id}` endpoint is never probed — most providers do not serve it), with no extra configuration.
 
 > **API key**: calling with no arguments (or with a bare model name, e.g. `aigc-cli models gpt-4o`) hits `/v1/models` and requires an API key. Without `--provider` and a global `api_key` / `OPENAI_API_KEY`, the command fails fast with a clear error listing the configured providers; use `--provider <name>` to pick one, or supply `--api-key`. `--type` and `--price` (marketplace and pricing) are auth-free — no key needed.
 

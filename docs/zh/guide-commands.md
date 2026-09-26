@@ -55,9 +55,14 @@ aigc-cli models --price gpt-image-2-official
 aigc-cli models --type image   # 展示架构、参数、能力
 aigc-cli models --type video
 
+# 查询单个模型详情（展示上下文窗口、定价、模态、支持参数）
+aigc-cli models --provider openrouter openai/gpt-4o
+
 # OpenAI 标准模型列表
 aigc-cli models --api-base "https://api.openai.com/v1"
 ```
+
+> **单模型查询**：`aigc-cli models <模型名>` 展示单个模型的详情。OpenRouter 走其**单数端点** `GET /v1/model/{author}/{slug}`（与列表的复数 `/models` 不同），并**原样输出接口返回的 JSON（仅格式化缩进，不做字段解析）**；其他 Provider 直接拉取 `GET /v1/models` 列表并按模型名过滤（不再探测 `GET /v1/models/{id}`——多数 Provider 并不支持该端点），无需额外配置。
 
 > **API Key**：无参数调用（或查询单个模型，如 `aigc-cli models gpt-4o`）会请求 `/v1/models`，需要 API Key。未指定 `--provider` 且全局未配置 `api_key` / `OPENAI_API_KEY` 时，命令会直接报错并提示已配置密钥的 Provider；用 `--provider <name>` 指定 Provider，或通过 `--api-key` / 环境变量 `OPENAI_API_KEY` 提供密钥。`--type` / `--price`（市场与定价）免认证，无需 API Key。
 
@@ -189,5 +194,6 @@ aigc-cli --version
 | `GET /api/pricing/model` | 模型定价详情（免认证） | APIMart ✅ | [APIMart Docs](https://docs.apimart.ai/en) |
 | `GET /api/image2studio.com/public/prompts/search` | 提示词灵感搜索 | 通用 ✅ | [Image2Studio](https://image2studio.com/prompts) |
 | `GET /v1/models` | 模型列表 | OpenAI/OpenRouter ✅ | [OpenAI Models](https://platform.openai.com/docs/api-reference/models/list) / [OpenRouter Models](https://openrouter.ai/docs/api/api-reference/models/get-models) |
+| `GET /v1/model/{author}/{slug}` | 单个模型详情（上下文窗口、定价；注意为单数端点） | OpenRouter ✅ | [OpenRouter Get Model](https://openrouter.ai/docs/api/api-reference/models/get-a-model-by-its-slug) |
 
 各端口的接口规范详细参考来源、Provider 检测机制和策略路由说明见 [api-reference.md](api-reference.md)。
