@@ -59,6 +59,63 @@ defaults:
 	}
 }
 
+func TestLoad_zdr(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "zdr.yaml")
+	if err := os.WriteFile(cfgPath, []byte("zdr: true\n"), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if !cfg.ZDR {
+		t.Error("ZDR should be true")
+	}
+
+	offPath := filepath.Join(dir, "off.yaml")
+	if err := os.WriteFile(offPath, []byte("zdr: false\n"), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+	off, err := Load(offPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if off.ZDR {
+		t.Error("ZDR should be false")
+	}
+}
+
+func TestLoad_providerZDR(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "providers.yaml")
+	content := []byte(`
+providers:
+  openrouter:
+    base_url: "https://openrouter.ai/api/v1"
+    zdr: true
+  plain:
+    base_url: "https://api.openai.com/v1"
+`)
+	if err := os.WriteFile(cfgPath, content, 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	or := cfg.Providers["openrouter"]
+	if or == nil || or.ZDR == nil || !*or.ZDR {
+		t.Errorf("openrouter zdr = %v, want true", or)
+	}
+	plain := cfg.Providers["plain"]
+	if plain == nil || plain.ZDR != nil {
+		t.Errorf("plain zdr = %v, want unset", plain)
+	}
+}
+
 func TestLoad_missingFile(t *testing.T) {
 	// Use a random non-existent path that won't be found.
 	// Note: viper's ConfigFileNotFoundError detection works only with config search paths,

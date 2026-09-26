@@ -30,6 +30,10 @@ type EffectiveProvider struct {
 	Model string
 	// ProviderType is the cached provider type detection from BaseURL.
 	ProviderType Type
+	// ZDR requests zero data retention where the provider supports it. Set from
+	// the global --zdr flag; only OpenRouter's chat-completions-family endpoints
+	// honor it today, so other providers must ignore it.
+	ZDR bool
 }
 
 // CLIOverride holds values from CLI flags (--api-key, --api-base, --http-proxy).
@@ -103,6 +107,9 @@ func ResolveCmdProvider(
 			}
 			if ep.Type == "" {
 				ep.Type = types.ProviderOpenAI
+			}
+			if named.ZDR != nil {
+				ep.ZDR = *named.ZDR
 			}
 			// API key: named provider > global
 			if named.APIKey != "" {

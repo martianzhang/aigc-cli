@@ -6,6 +6,21 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
+func TestResolveCmdProvider_namedProviderZDR(t *testing.T) {
+	on := true
+	global := &GlobalConfig{BaseURL: "https://openrouter.ai/api/v1"}
+	named := map[string]*types.NamedProvider{
+		"on":  {BaseURL: "https://openrouter.ai/api/v1", ZDR: &on},
+		"off": {BaseURL: "https://openrouter.ai/api/v1"},
+	}
+	if ep := ResolveCmdProvider(nil, "on", named, global); !ep.ZDR {
+		t.Error("named provider zdr=true not applied")
+	}
+	if ep := ResolveCmdProvider(nil, "off", named, global); ep.ZDR {
+		t.Error("absent named zdr should default to false")
+	}
+}
+
 func TestResolveCmdProvider_CLIOverride(t *testing.T) {
 	named := map[string]*types.NamedProvider{
 		"my-provider": {BaseURL: "https://my-provider.com/v1", APIKey: "key-named"},

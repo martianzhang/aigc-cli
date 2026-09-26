@@ -55,6 +55,9 @@ type NamedProvider struct {
 	// Local model settings (used when type=local).
 	ModelsDir string `mapstructure:"models_dir" yaml:"models_dir,omitempty"`
 	Model     string `mapstructure:"model" yaml:"model,omitempty"`
+	// ZDR opts this provider into zero-data-retention requests. Nil inherits
+	// the global zdr; only OpenRouter chat/music honor it today.
+	ZDR *bool `mapstructure:"zdr" yaml:"zdr,omitempty"`
 }
 
 type Config struct {
@@ -66,6 +69,7 @@ type Config struct {
 	Providers map[string]*NamedProvider `mapstructure:"providers" yaml:"providers,omitempty"`
 
 	Verbose      bool                          `mapstructure:"verbose" yaml:"verbose"`
+	ZDR          bool                          `mapstructure:"zdr" yaml:"zdr"`
 	SavePrompt   bool                          `mapstructure:"save_prompt" yaml:"save_prompt"`
 	Mode         string                        `mapstructure:"mode" yaml:"mode,omitempty"`
 	OutputDir    string                        `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
