@@ -34,6 +34,61 @@ func TestResolveProvider_CLIOverride(t *testing.T) {
 	}
 }
 
+func TestResolveProvider_propagatesZDR(t *testing.T) {
+	for _, zdr := range []bool{true, false} {
+		func() {
+			defer setSharedForTest(&SharedConfig{
+				ZDR:    zdr,
+				ZDRSet: true,
+				Cfg:    &types.Config{BaseURL: "https://openrouter.ai/api/v1"},
+			})()
+			if ep := Shared.ResolveProvider("chat"); ep.ZDR != zdr {
+				t.Errorf("ZDR = %v, want %v", ep.ZDR, zdr)
+			}
+		}()
+	}
+}
+
+func TestResolveProvider_ZDRPrecedence(t *testing.T) {
+	on, off := true, false
+	cases := []struct {
+		name      string
+		flagVal   bool
+		flagSet   bool
+		globalZDR bool
+		provZDR   *bool
+		want      bool
+	}{
+		{name: "default off", want: false},
+		{name: "global on", globalZDR: true, want: true},
+		{name: "provider on", provZDR: &on, want: true},
+		{name: "provider off beats global on", globalZDR: true, provZDR: &off, want: false},
+		{name: "flag on beats provider off", flagVal: true, flagSet: true, provZDR: &off, want: true},
+		{name: "flag off beats provider on", flagSet: true, globalZDR: true, provZDR: &on, want: false},
+		{name: "flag off beats global on", flagSet: true, globalZDR: true, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer setSharedForTest(&SharedConfig{
+				ZDR:    tc.flagVal,
+				ZDRSet: tc.flagSet,
+				Cfg: &types.Config{
+					ZDR: tc.globalZDR,
+					Providers: map[string]*types.NamedProvider{
+						"orp": {BaseURL: "https://openrouter.ai/api/v1", ZDR: tc.provZDR},
+					},
+					Defaults: &types.ConfigDefaults{
+						Chat: &types.ChatDefaults{Provider: "orp"},
+					},
+				},
+			})()
+			if ep := Shared.ResolveProvider("chat"); ep.ZDR != tc.want {
+				t.Errorf("ZDR = %v, want %v", ep.ZDR, tc.want)
+			}
+		})
+	}
+}
+
 func TestResolveProvider_ProviderFlag(t *testing.T) {
 	defer setSharedForTest(&SharedConfig{
 		Provider:    "my-provider",

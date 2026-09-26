@@ -24,11 +24,13 @@ type SharedConfig struct {
 	Mode        string
 	PrintConfig bool
 	TimeoutFlag int
+	ZDR         bool
 	Cfg         *types.Config // full parsed config (may be nil)
 
 	APIKeySet   bool
 	APIBaseSet  bool
 	ProviderSet bool
+	ZDRSet      bool
 }
 
 // Shared is the process-wide shared configuration instance.
@@ -89,6 +91,7 @@ func (s *SharedConfig) ResolveProvider(cmdName string) *provider.EffectiveProvid
 	}
 
 	ep := provider.ResolveCmdProvider(cli, providerRef, providerMap(s.Cfg), global)
+	ep.ZDR = s.resolveZDR(ep)
 	if s.Model != "" {
 		ep.Model = s.Model
 	} else if defaultsModel != "" {
@@ -179,4 +182,28 @@ func providerMap(cfg *types.Config) map[string]*types.NamedProvider {
 		return nil
 	}
 	return cfg.Providers
+}
+
+// resolveZDR applies ZDR precedence: an explicit --zdr flag wins, then a
+// providers.{name}.zdr override, then the global config zdr, then false.
+func (s *SharedConfig) resolveZDR(ep *provider.EffectiveProvider) bool {
+	if s.ZDRSet {
+		return s.ZDR
+	}
+	if v, ok := providerZDR(s.Cfg, ep.Name); ok {
+		return v
+	}
+	return s.Cfg != nil && s.Cfg.ZDR
+}
+
+// providerZDR returns the per-provider zdr override and whether it is set.
+func providerZDR(cfg *types.Config, name string) (value, set bool) {
+	if cfg == nil || name == "" {
+		return false, false
+	}
+	np, ok := cfg.Providers[name]
+	if !ok || np == nil || np.ZDR == nil {
+		return false, false
+	}
+	return *np.ZDR, true
 }

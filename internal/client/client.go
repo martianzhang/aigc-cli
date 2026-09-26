@@ -60,6 +60,7 @@ type Client struct {
 	ctx            context.Context // optional, for cancellation (set by SetContext)
 	defaultHeaders map[string]string
 	providerType   types.ProviderType // API protocol variant (openai, anthropic, ollama)
+	zdr            bool               // request zero data retention (OpenRouter chat-completions only)
 }
 
 // SetContext sets an optional context for cancellation support.

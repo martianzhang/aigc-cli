@@ -84,7 +84,7 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 		return c.responsesChatCompletion(req)
 	}
 
-	body, err := json.Marshal(req)
+	body, err := ChatBody(req, c.zdr, c.baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}

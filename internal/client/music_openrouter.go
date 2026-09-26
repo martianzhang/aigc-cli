@@ -33,6 +33,10 @@ func (c *Client) OpenRouterMusicGenerate(req *types.OpenRouterMusicRequest) ([]b
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to marshal request: %w", err)
 	}
+	body, err = ApplyOpenRouterZDR(body, c.zdr, c.baseURL)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to apply zero-data-retention: %w", err)
+	}
 
 	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+ChatPath, bytes.NewReader(body))
 	if err != nil {
