@@ -130,7 +130,7 @@ func sendChatRequest(cmd *cobra.Command, req *types.ChatRequest) error {
 func buildChatCurl(req *types.ChatRequest, p *provider.EffectiveProvider) string {
 	base := client.NormalizeBaseURL(p.BaseURL)
 	url := base + client.ChatPath
-	body, _ := json.Marshal(req)
+	body, _ := client.ChatBody(req, p.ZDR, p.BaseURL)
 	auth := fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
 
 	switch p.Type {

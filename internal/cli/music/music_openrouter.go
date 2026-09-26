@@ -55,6 +55,7 @@ func buildOpenRouterMusicReq(req *types.MusicGenerateRequest) *types.OpenRouterM
 // buildOpenRouterMusicCurl renders the equivalent streaming curl command.
 func buildOpenRouterMusicCurl(baseURL, apiKey string, req *types.MusicGenerateRequest) string {
 	bodyJSON, _ := json.Marshal(buildOpenRouterMusicReq(req))
+	bodyJSON, _ = client.ApplyOpenRouterZDR(bodyJSON, options.Shared.ZDR, baseURL)
 	base := strings.TrimRight(baseURL, "/")
 	if base == "" {
 		base = types.DefaultAPIBaseURL

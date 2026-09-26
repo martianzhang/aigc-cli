@@ -69,6 +69,7 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 		shared.APIKeySet = hasFlagChanged(cmd, "api-key")
 		shared.APIBaseSet = hasFlagChanged(cmd, "api-base")
 		shared.ProviderSet = hasFlagChanged(cmd, "provider")
+		shared.ZDRSet = hasFlagChanged(cmd, "zdr")
 
 		// Load config (optional) to resolve defaults not set via flags
 		if cfg, err := config.Load(shared.CfgFile); err == nil {
@@ -127,6 +128,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&shared.Verbose, "verbose", "v", false, "verbose debug output")
 	rootCmd.PersistentFlags().IntVar(&shared.TimeoutFlag, "timeout", 0, "HTTP request timeout in seconds (overrides config)")
 	rootCmd.PersistentFlags().BoolVar(&shared.PrintConfig, "print-config", false, "show effective configuration and exit")
+	rootCmd.PersistentFlags().BoolVar(&shared.ZDR, "zdr", false, "request zero data retention where supported (OpenRouter chat/music)")
 }
 
 func hasFlagChanged(cmd *cobra.Command, name string) bool {

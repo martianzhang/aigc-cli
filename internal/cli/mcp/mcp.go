@@ -101,6 +101,7 @@ func init() {
 		options.Shared.APIKeySet = options.HasFlagChanged(cmd, "api-key")
 		options.Shared.APIBaseSet = options.HasFlagChanged(cmd, "api-base")
 		options.Shared.ProviderSet = options.HasFlagChanged(cmd, "provider")
+		options.Shared.ZDRSet = options.HasFlagChanged(cmd, "zdr")
 
 		// Load config to populate shared fields if not set via flags
 		if c, err := config.Load(options.Shared.CfgFile); err == nil {
