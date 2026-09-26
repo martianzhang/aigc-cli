@@ -25,6 +25,7 @@ const (
 	tokenBalancePath     = "/balance"
 	userBalancePath      = "/user/balance"
 	modelsPath           = "/models"
+	openRouterModelPath  = "/model/"
 	// OpenRouter-specific header names
 	headerReferer = "HTTP-Referer"
 	headerTitle   = "X-OpenRouter-Title"

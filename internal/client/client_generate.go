@@ -1,10 +1,12 @@
 package client
 
 import (
-	"github.com/martianzhang/aigc-cli/internal/provider"
-	"github.com/martianzhang/aigc-cli/internal/types"
+	"encoding/json"
 	"net/http"
 	"os"
+
+	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // GetTokenBalance queries the current token's balance.
@@ -98,6 +100,19 @@ func (c *Client) GetModelOpenAI(modelID string) (*types.OpenAIModel, error) {
 		return nil, err
 	}
 	return &result, nil
+}
+
+// GetModelOpenRouter fetches a single model from OpenRouter's
+// GET /api/v1/model/{author}/{slug} endpoint and returns the raw JSON. The
+// response schema varies (e.g. supported_parameters is an array), so it is left
+// unparsed for the caller to display as-is. Note the singular "model" segment:
+// OpenRouter has no OpenAI-style plural /models/{id} lookup.
+func (c *Client) GetModelOpenRouter(modelID string) (json.RawMessage, error) {
+	var result json.RawMessage
+	if err := c.doGet(openRouterModelPath+modelID, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // --- Helpers ---
