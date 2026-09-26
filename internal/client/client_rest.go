@@ -3,12 +3,18 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 )
+
+// ErrNotSupported marks HTTP 404/405/501 responses, meaning the provider has no
+// such endpoint, so callers can fall back to an alternative lookup such as
+// list-and-filter for a model detail.
+var ErrNotSupported = errors.New("endpoint not supported")
 
 // HasVersionSuffix reports whether urlStr ends with a version path segment like /v1, /v2, /v1beta.
 // Used to avoid duplicating the version when the user-supplied baseURL already includes it.
@@ -262,6 +268,11 @@ func (c *Client) doGetWithHeaders(path string, result interface{}, extraHeaders 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode == http.StatusNotFound ||
+		resp.StatusCode == http.StatusMethodNotAllowed ||
+		resp.StatusCode == http.StatusNotImplemented {
+		return fmt.Errorf("%w: API returned status %d: %s", ErrNotSupported, resp.StatusCode, string(respBody))
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
