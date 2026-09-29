@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -64,19 +65,29 @@ func PreviewFile(path string) error {
 		}
 	}
 
-	// Try in-process audio playback (no external app needed)
+	// Try in-process audio playback (no external app needed), falling back to
+	// the system player when this build has no audio backend or no device.
 	if isAudioFile(path) {
 		fmt.Fprintf(os.Stderr, "Playing...\n")
-		if err := audio.PlayAudioFile(path); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: audio playback failed: %v\n", err)
-		} else {
+		err := audio.PlayAudioFile(path)
+		if err == nil {
 			fmt.Fprintf(os.Stderr, "Done.\n")
+			return nil
 		}
+		if errors.Is(err, audio.ErrPlaybackUnavailable) {
+			fmt.Fprintf(os.Stderr, "In-process playback unavailable, opening system player...\n")
+			return openSystemDefault(path)
+		}
+		fmt.Fprintf(os.Stderr, "Warning: audio playback failed: %v\n", err)
 		return nil
 	}
 
 	return openSystemDefault(path)
 }
+
+// OpenWithSystemDefault opens path with the operating system's default
+// application. Exported for callers that need the fallback used by PreviewFile.
+func OpenWithSystemDefault(path string) error { return openSystemDefault(path) }
 
 // openSystemDefault opens the file with the operating system's default handler.
 func openSystemDefault(path string) error {

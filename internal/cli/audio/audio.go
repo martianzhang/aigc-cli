@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -8,6 +9,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -71,6 +73,10 @@ Examples:
 		}
 		fmt.Fprintf(os.Stderr, "Playing...\n")
 		if err := audio.PlayAudioFile(path); err != nil {
+			if errors.Is(err, audio.ErrPlaybackUnavailable) {
+				fmt.Fprintf(os.Stderr, "In-process playback unavailable, opening system player...\n")
+				return service.OpenWithSystemDefault(path)
+			}
 			return fmt.Errorf("playback failed: %w", err)
 		}
 		fmt.Fprintf(os.Stderr, "Done.\n")
