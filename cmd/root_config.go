@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,10 @@ import (
 // runPrintConfig prints the effective configuration with inline annotations.
 func runPrintConfig(cmd *cobra.Command) {
 	cfg, cfgErr := config.Load(shared.CfgFile)
+	if errors.Is(cfgErr, config.ErrDecrypt) {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", cfgErr)
+		os.Exit(1)
+	}
 	configFound := cfgErr == nil
 
 	// Track which persistent flags were explicitly set.
@@ -144,5 +149,12 @@ func runPrintConfig(cmd *cobra.Command) {
 		if n != "" {
 			fmt.Println(n)
 		}
+	}
+
+	// --print-config exits before the shared startup hook, so run the master
+	// secret + plaintext auto-encryption here as well.
+	if configFound {
+		ensureMasterSecret()
+		encryptPlaintextConfigSecrets()
 	}
 }

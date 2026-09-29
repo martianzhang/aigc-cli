@@ -17,12 +17,21 @@ import (
 // The config can hold API keys, so it and its backup are always written with
 // owner-only permissions (0600), even if the existing file was more permissive.
 func SaveNode(path string, doc *yaml.Node) error {
+	return saveNode(path, doc, true)
+}
+
+// saveNode is SaveNode with control over the plaintext backup. Secret
+// auto-encryption passes makeBackup=false: backing up a plaintext credential
+// would defeat the encryption it is about to perform.
+func saveNode(path string, doc *yaml.Node, makeBackup bool) error {
 	original, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read config: %w", err)
 	}
-	if err := fsutil.WritePrivate(path+".bak", original); err != nil {
-		return fmt.Errorf("write config backup: %w", err)
+	if makeBackup {
+		if err := fsutil.WritePrivate(path+".bak", original); err != nil {
+			return fmt.Errorf("write config backup: %w", err)
+		}
 	}
 
 	data, err := MarshalNode(doc, detectIndent(original))

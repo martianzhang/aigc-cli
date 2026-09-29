@@ -1,5 +1,6 @@
 // Package vault provides age-encrypted storage for sensitive documents.
-// Keys are stored in the system keychain via go-keyring.
+// The age identity is the aigc-cli master secret, resolved through
+// internal/secret (env override + system keyring).
 package vault
 
 import (
@@ -9,32 +10,39 @@ import (
 
 	"filippo.io/age"
 	"filippo.io/age/armor"
-	"github.com/zalando/go-keyring"
+
+	"github.com/martianzhang/aigc-cli/internal/secret"
 )
 
-const keyringService = "aigc-cli-vault"
-
-// InitIdentity generates a new age identity and stores it in the system keychain.
-// Returns the recipient (public key) for display.
-func InitIdentity() (string, error) {
+// generateIdentity creates a new age X25519 identity string.
+func generateIdentity() (string, error) {
 	identity, err := age.GenerateX25519Identity()
 	if err != nil {
 		return "", fmt.Errorf("generate identity: %w", err)
 	}
-
-	// Store private key in keychain
-	if err := keyring.Set(keyringService, "identity", identity.String()); err != nil {
-		return "", fmt.Errorf("store key in keychain: %w", err)
-	}
-
-	return identity.Recipient().String(), nil
+	return identity.String(), nil
 }
 
-// LoadIdentity loads the age identity from the system keychain.
-func LoadIdentity() (*age.X25519Identity, error) {
-	keyStr, err := keyring.Get(keyringService, "identity")
+// EnsureIdentity returns the age identity, generating and storing a new one on
+// first use when neither AIGC_CLI_MASTER_KEY nor the system keyring has it.
+// created reports whether a new identity was generated.
+func EnsureIdentity() (identity *age.X25519Identity, created bool, err error) {
+	keyStr, created, err := secret.Ensure(generateIdentity)
 	if err != nil {
-		return nil, fmt.Errorf("key not found in keychain (run 'kb init' first): %w", err)
+		return nil, false, err
+	}
+	identity, err = age.ParseX25519Identity(keyStr)
+	if err != nil {
+		return nil, false, fmt.Errorf("parse identity: %w", err)
+	}
+	return identity, created, nil
+}
+
+// LoadIdentity loads the age identity from the env override or system keyring.
+func LoadIdentity() (*age.X25519Identity, error) {
+	keyStr, err := secret.Load()
+	if err != nil {
+		return nil, fmt.Errorf("key not found (set %s or run 'aigc-cli kb init' first): %w", secret.EnvVar, err)
 	}
 
 	identity, err := age.ParseX25519Identity(keyStr)
@@ -45,9 +53,9 @@ func LoadIdentity() (*age.X25519Identity, error) {
 	return identity, nil
 }
 
-// IdentityExists checks whether a vault identity exists in the keychain.
+// IdentityExists reports whether a master identity is available.
 func IdentityExists() bool {
-	_, err := keyring.Get(keyringService, "identity")
+	_, err := secret.Load()
 	return err == nil
 }
 
@@ -100,16 +108,7 @@ func Decrypt(ciphertext []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-// ExportIdentity encrypts the private key with a passphrase and returns it.
-func ExportIdentity(passphrase string) (string, error) {
-	identity, err := LoadIdentity()
-	if err != nil {
-		return "", err
-	}
-	return identity.String(), nil
-}
-
-// ImportIdentity stores an identity string (private key) into the keychain.
+// ImportIdentity stores an identity string (private key) as the master secret.
 func ImportIdentity(keyStr string) error {
-	return keyring.Set(keyringService, "identity", keyStr)
+	return secret.Store(keyStr)
 }

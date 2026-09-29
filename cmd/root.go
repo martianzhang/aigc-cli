@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -11,7 +12,9 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/secret"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/vault"
 )
 
 // shared aliases the options package's shared config (same pointer), so existing
@@ -71,8 +74,15 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 		shared.ProviderSet = hasFlagChanged(cmd, "provider")
 		shared.ZDRSet = hasFlagChanged(cmd, "zdr")
 
-		// Load config (optional) to resolve defaults not set via flags
-		if cfg, err := config.Load(shared.CfgFile); err == nil {
+		// Load config (optional) to resolve defaults not set via flags. A
+		// decryption failure is fatal: the config holds credentials we cannot
+		// use without the master key.
+		cfg, cfgErr := config.Load(shared.CfgFile)
+		if cfgErr != nil {
+			if errors.Is(cfgErr, config.ErrDecrypt) {
+				return cfgErr
+			}
+		} else if cfg != nil {
 			shared.Cfg = cfg
 			if shared.APIKey == "" {
 				shared.APIKey = cfg.APIKey
@@ -101,6 +111,11 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 
 		// Configure global HTTP client with proxy for all requests
 		client.ConfigureDefaultClient(shared.HTTPProxy)
+
+		// Make sure a local encryption master secret exists, then encrypt any
+		// plaintext secrets still on disk.
+		ensureMasterSecret()
+		encryptPlaintextConfigSecrets()
 		return nil
 	},
 }
@@ -118,6 +133,11 @@ func init() {
 	client.Version = Version
 	provider.Version = Version
 
+	// Run parent PersistentPreRunE hooks as well, so the shared startup
+	// (master secret + plaintext auto-encryption) also runs for commands that
+	// define their own hook (mcp, knowledgebase).
+	cobra.EnableTraverseRunHooks = true
+
 	rootCmd.PersistentFlags().StringVar(&shared.CfgFile, "config", "", "path to config file (default ~/.config/aigc-cli/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&shared.APIKey, "api-key", "", "API key (env: OPENAI_API_KEY)")
 	rootCmd.PersistentFlags().StringVar(&shared.APIBase, "api-base", "", "API base URL (env: OPENAI_BASE_URL)")
@@ -133,6 +153,46 @@ func init() {
 
 func hasFlagChanged(cmd *cobra.Command, name string) bool {
 	return options.HasFlagChanged(cmd, name)
+}
+
+// ensureMasterSecret resolves (and on first use generates) the local
+// encryption master secret. It never fails the command: when the keyring is
+// unavailable it prints a one-line hint to set AIGC_CLI_MASTER_KEY.
+func ensureMasterSecret() {
+	// Env override or explicit opt-out: nothing to generate.
+	if os.Getenv(secret.EnvVar) != "" || os.Getenv(secret.DisableEnvVar) != "" {
+		return
+	}
+	_, created, err := vault.EnsureIdentity()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+		return
+	}
+	if created {
+		fmt.Fprintln(os.Stderr, "Generated local encryption key (stored in the system keyring).")
+	}
+}
+
+// encryptPlaintextConfigSecrets rewrites the config file so plaintext secrets
+// are stored encrypted. Best-effort: a failure only prints a warning, since
+// the command itself can still run with the in-memory plaintext.
+func encryptPlaintextConfigSecrets() {
+	path := shared.CfgFile
+	if path == "" {
+		var err error
+		path, err = config.DefaultPath()
+		if err != nil {
+			return
+		}
+	}
+	count, err := config.EncryptSecretsInFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not encrypt config secrets: %v\n", err)
+		return
+	}
+	if count > 0 {
+		fmt.Fprintf(os.Stderr, "Encrypted %d secret(s) in %s\n", count, path)
+	}
 }
 
 // configDisplay wraps types.Config to inline fields for clean YAML output.

@@ -83,6 +83,7 @@ Notes:
 - `set` replaces one leaf only. If a parent section of the dot path does not exist, the command fails (`set defaults.chat.allow_tool_override: section not found`) instead of creating sections.
 - The existing YAML type of a key is kept: an int/bool/float stays that type and a value that cannot be parsed as it is rejected; existing strings stay strings. New keys inside an existing section become plain strings unless the value is a plain integer or `true`/`false`.
 - Writing is atomic: the previous file is copied to `<path>.bak`, the new content goes to `<path>.tmp.<pid>`, then that file is renamed over the target. Comments, key order and scalar styles survive the round-trip; blank lines and unrelated spacing may be normalized.
+- `api_key` / `api_secret` (including under `providers.*` and `web_search.*`) are encrypted with the local master key before they are written (`enc:v1:...`). In addition, any `aigc-cli` command scans `config.yaml` at startup and encrypts any plaintext secret it finds. Encryption writes no plaintext `.bak`, and other fields are untouched.
 - Secrets are never printed in full: `api_key` shows only the last 4 chars (`...abcd`), and credentials inside `base_url` / `http_proxy` become `REDACTED` — the same masking as `--print-config`.
 - `api_key` and `base_url` (global or under `providers.*`) require `--force`, because they control where credentials are sent:
 

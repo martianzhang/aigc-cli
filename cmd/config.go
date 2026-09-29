@@ -8,6 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/secret"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -28,7 +29,8 @@ The file is resolved like everywhere else: --config <path> first, otherwise
 ~/.config/aigc-cli/config.yaml. get/set never create the file or missing
 sections. set keeps the existing YAML type of a key, backs the file up to
 <path>.bak and replaces it atomically, so comments, key order and formatting
-survive.`,
+survive. Sensitive values (api_key/api_secret) are encrypted with the local
+master key before they are written; get returns them masked.`,
 		Example: `  aigc-cli config get defaults.image.model
   aigc-cli config set defaults.image.model gpt-image-2
   aigc-cli config set api_key sk-xxx --force
@@ -107,16 +109,38 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := config.SetScalar(doc, key, value); err != nil {
+	stored, err := storedValue(key, value)
+	if err != nil {
+		return err
+	}
+	if err := config.SetScalar(doc, key, stored); err != nil {
 		return fmt.Errorf("set %s: %w", key, err)
 	}
 	if err := config.SaveNode(path, doc); err != nil {
 		return err
 	}
+	// Re-encrypt immediately so a written plaintext secret never lingers on
+	// disk until the next invocation. Best-effort: the value is already saved.
+	if _, err := config.EncryptSecretsInFile(path); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not encrypt config secrets: %v\n", err)
+	}
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "set %s = %s\n", key, maskConfigLeaf(key, value))
 	fmt.Fprintf(out, "backup: %s.bak\n", path)
 	return nil
+}
+
+// storedValue encrypts sensitive values before they reach the file, so a
+// plaintext credential is never written. Other keys are stored verbatim.
+func storedValue(key, value string) (string, error) {
+	if !isSensitiveConfigKey(key) || secret.IsEncrypted(value) {
+		return value, nil
+	}
+	encrypted, err := secret.EncryptString(value)
+	if err != nil {
+		return "", fmt.Errorf("encrypt %s: %w", key, err)
+	}
+	return encrypted, nil
 }
 
 // runConfigList prints the effective config (file + env + defaults) with the

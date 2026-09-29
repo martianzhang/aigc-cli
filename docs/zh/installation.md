@@ -148,6 +148,30 @@ export OPENAI_API_KEY="sk-xxx"
 # 方式三：配置文件
 ```
 
+## 本地加密主密钥
+
+首次运行任意 `aigc-cli` 命令时，会自动生成一把本地加密主密钥（age identity），存入系统钥匙串（macOS Keychain / Windows Credential Manager / Linux Secret Service），用于保险箱等本地加密功能。可通过环境变量覆盖：
+
+| 环境变量 | 说明 |
+|---|---|
+| `AIGC_CLI_MASTER_KEY` | 直接提供密钥值（`AGE-SECRET-KEY-1…`），优先于钥匙串。适合 CI、容器、无钥匙串的无头主机 |
+| `AIGC_CLI_NO_KEYRING` | 设为非空则完全不访问钥匙串（也不生成密钥） |
+
+> 钥匙串访问有 1 秒超时。若钥匙串不可用（无头 Linux、被锁定等），CLI 会提示设置 `AIGC_CLI_MASTER_KEY`，命令本身仍可正常执行。
+
+### 配置密钥自动加密
+
+`config.yaml` 中的敏感字段（`api_key`、`api_secret`，包括 `providers.*` 与 `web_search.*`）会在你运行任意 `aigc-cli` 命令时**自动加密**并写回文件，无需手工操作：
+
+```yaml
+api_key: enc:v1:8jjcyC8N4it1sd0ig-xLkmAY47HDqPuXZkWLOr-vuUNqx0Tkd8POFfdq5tl1
+```
+
+- 启动时扫描文件，发现明文密钥就加密（带 `enc:v1:` 前缀），下次运行自动跳过。
+- 加密不写明文 `.bak`，注释与键顺序保持不变。
+- 其余普通字段不受影响；`config get/list/--print-config` 始终以掩码显示。
+- 换机器或丢失钥匙串时，解密会失败并提示设置 `AIGC_CLI_MASTER_KEY`（值为原密钥），否则需重新填写 API Key。
+
 ## 配置文件
 
 默认位置 `~/.config/aigc-cli/config.yaml`：

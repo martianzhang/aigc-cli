@@ -51,6 +51,11 @@ func Load(customPath string) (*types.Config, error) {
 		return nil, fmt.Errorf("error unmarshalling config: %w", err)
 	}
 
+	// Decrypt enc:v1: secrets in place so callers always see plaintext.
+	if err := decryptConfigSecrets(cfg); err != nil {
+		return nil, err
+	}
+
 	// Set default API base if not configured
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = types.DefaultAPIBaseURL

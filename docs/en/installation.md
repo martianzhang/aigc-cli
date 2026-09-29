@@ -86,8 +86,40 @@ The file may contain API keys, so it is written with owner-only permissions (`06
 |---|---|
 | `OPENAI_API_KEY` | API Key (fallback when config is not set) |
 | `OPENAI_BASE_URL` | API base URL (fallback) |
+| `AIGC_CLI_MASTER_KEY` | Local encryption master key (`AGE-SECRET-KEY-1…`); overrides the system keyring |
+| `AIGC_CLI_NO_KEYRING` | Non-empty: never touch the system keyring (no read, no generate) |
 | `HTTP_PROXY` / `HTTPS_PROXY` | HTTP proxy |
 | `DOUBAO_API_KEY` | Doubao (Volcengine) search API Key |
+
+## Proxy
+
+The first run of any `aigc-cli` command generates a local encryption master key
+(an age identity) and stores it in the system keyring (macOS Keychain / Windows
+Credential Manager / Linux Secret Service). It backs local encryption features
+such as the vault. Override it with `AIGC_CLI_MASTER_KEY` (set to the
+`AGE-SECRET-KEY-1…` value) for CI, containers and headless hosts; set
+`AIGC_CLI_NO_KEYRING` to skip the keyring entirely. Keyring access has a 1s
+timeout, and an unavailable keyring only prints a hint — it never fails the
+command.
+
+### Secrets in config.yaml are encrypted automatically
+
+Sensitive fields in `config.yaml` (`api_key`, `api_secret`, including under
+`providers.*` and `web_search.*`) are **encrypted in place** the next time you
+run any `aigc-cli` command — no extra step:
+
+```yaml
+api_key: enc:v1:8jjcyC8N4it1sd0ig-xLkmAY47HDqPuXZkWLOr-vuUNqx0Tkd8POFfdq5tl1
+```
+
+- Startup scans the file and encrypts any plaintext secret (marked `enc:v1:`),
+  then skips them on later runs.
+- No plaintext `.bak` is written, and comments/key order are preserved.
+- Other fields are untouched, and `config get/list/--print-config` always mask
+  secrets.
+- On a different machine (or after losing the keyring) decryption fails loudly
+  and tells you to set `AIGC_CLI_MASTER_KEY` to the original value; otherwise
+  you must re-enter the API key.
 
 ## Proxy
 

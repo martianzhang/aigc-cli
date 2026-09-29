@@ -133,6 +133,8 @@ aigc-cli kb vault unlock   # Decrypt and read
 aigc-cli kb list --vault   # List vault documents
 ```
 
+> The vault uses the CLI's **local encryption master key** (an age identity). It is generated automatically on the first run of any `aigc-cli` command and stored in the system keyring — `kb init` no longer creates it. On headless/CI hosts, set `AIGC_CLI_MASTER_KEY` (see the installation guide).
+
 ## Configuration
 
 ```yaml

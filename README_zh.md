@@ -167,7 +167,7 @@ aigc-cli
 │   └── --price    查看模型定价
 ├── task       查询异步任务状态（兼容 APIMart 异步任务）
 ├── balance    查询余额（兼容 APIMart 余额查询）
-├── config     读写 config.yaml（get/set/list，密钥脱敏）                       →  docs/zh/guide-commands.md
+├── config     读写 config.yaml（get/set/list，密钥脱敏且自动加密）              →  docs/zh/guide-commands.md
 ├── preview / pr 看图 / --detail 元数据 / --describe 写说明                    →  docs/guide-preview.md
 ├── detect     检测 AIGC、元数据和篡改痕迹（多信号融合 + emoji）             →  docs/zh/guide-detect.md
 ├── completion 生成 shell 补全脚本（bash/zsh/fish/powershell）

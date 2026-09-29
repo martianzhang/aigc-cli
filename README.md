@@ -167,7 +167,7 @@ aigc-cli
 │   └── --price    View model pricing
 ├── task       Query async task status (APIMart compatible)
 ├── balance    Query balance (APIMart compatible)
-├── config     Read/edit config.yaml (get/set/list; secrets masked)                   →  docs/en/guide-commands.md
+├── config     Read/edit config.yaml (get/set/list; secrets masked & auto-encrypted)  →  docs/en/guide-commands.md
 ├── preview / pr View images / --detail metadata / --describe caption                 →  docs/en/guide-preview.md
 ├── detect     Detect AIGC, metadata and tampering (multi-signal fusion + emoji)     →  docs/en/guide-detect.md
 ├── completion Generate shell completion scripts (bash/zsh/fish/powershell)

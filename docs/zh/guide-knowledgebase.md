@@ -5,7 +5,7 @@
 ## 快速开始
 
 ```bash
-# 1. 初始化（建表、下载模型、生成加密密钥）
+# 1. 初始化（建表、下载模型）
 aigc-cli kb init
 
 # 2. 添加内容
@@ -79,6 +79,8 @@ aigc-cli kb show <id> --vault                # 解密查看
 aigc-cli kb vault export backup.tar.gz       # 导出（含私钥）
 aigc-cli kb vault import backup.tar.gz       # 导入
 ```
+
+> 保险箱使用 CLI 的**本地加密主密钥**（age identity）。它在首次运行任意 `aigc-cli` 命令时自动生成并存入系统钥匙串，**无需 `kb init`**。无头/CI 环境请设置 `AIGC_CLI_MASTER_KEY`（见安装文档）。
 
 ## 保险箱 vs 知识库
 

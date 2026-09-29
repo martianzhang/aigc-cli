@@ -7,7 +7,6 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
-	"github.com/martianzhang/aigc-cli/internal/vault"
 	"github.com/spf13/cobra"
 )
 
@@ -54,20 +53,6 @@ Use --force to re-download models.`,
 			fmt.Fprintf(os.Stderr, "  Retry with: aigc-cli kb init --force\n")
 		} else {
 			fmt.Fprintf(os.Stderr, "Embedding model ready.\n")
-		}
-
-		// Initialize vault keys
-		if !vault.IdentityExists() {
-			fmt.Fprintf(os.Stderr, "Generating vault key...\n")
-			pubKey, err := vault.InitIdentity()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: vault key generation failed: %v\n", err)
-				fmt.Fprintf(os.Stderr, "  Vault features (--vault) will not be available.\n")
-			} else {
-				fmt.Fprintf(os.Stderr, "Vault key generated. Public key: %s\n", pubKey)
-			}
-		} else {
-			fmt.Fprintf(os.Stderr, "Vault key already exists.\n")
 		}
 
 		return nil

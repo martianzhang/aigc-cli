@@ -123,6 +123,7 @@ aigc-cli config list
 - `set` 只替换叶子值。点号路径中缺少父级段落时会报错（`set defaults.chat.allow_tool_override: section not found`），**绝不自动创建段落**。
 - 保留已有键的 YAML 类型：原本是 int/bool/float 就继续保持该类型，无法解析的值会被拒绝；原本是字符串的仍是字符串。在已有段落中新建的键，除纯整数或 `true`/`false` 外都按字符串写入。
 - 写入是原子的：先把原文件复制为 `<path>.bak`，新内容写入 `<path>.tmp.<pid>`，再用 rename 覆盖目标文件。注释、键顺序、标量引号风格都会保留；空行与个别空格的排版可能被规范化。
+- `api_key` / `api_secret`（含 `providers.*`、`web_search.*`）在写入前会用本地主密钥加密（`enc:v1:...`）；此外，任意 `aigc-cli` 命令启动时都会扫描 `config.yaml`，发现明文密钥就自动加密。加密不写明文 `.bak`，其余字段不受影响。
 - 任何情况下都不会完整打印密钥：`api_key` 只显示后 4 位（`...abcd`），`base_url` / `http_proxy` 中的凭据显示为 `REDACTED`，与 `--print-config` 的脱敏规则一致。
 - 写入 `api_key` / `base_url`（全局或 `providers.*` 下）必须加 `--force`，因为它们决定密钥被发送到何处：
 

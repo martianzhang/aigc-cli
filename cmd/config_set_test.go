@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/secret"
 )
 
 func TestConfigSetPreservesCommentsAndOrder(t *testing.T) {
@@ -97,6 +98,11 @@ func TestConfigSetUnknownParent(t *testing.T) {
 func TestConfigSetAPIKeyRequiresForce(t *testing.T) {
 	path := writeCmdConfig(t, configTestFixture)
 	before := readConfigFile(t, path)
+	// Sensitive values are encrypted before they reach the file, so the test
+	// needs a master key available.
+	t.Setenv(secret.EnvVar, "test-master-key")
+	secret.Reset()
+	t.Cleanup(secret.Reset)
 
 	_, err := runConfigCmd(t, path, "set", "api_key", "sk-replaced")
 	if err == nil {
@@ -116,8 +122,54 @@ func TestConfigSetAPIKeyRequiresForce(t *testing.T) {
 	if strings.Contains(out, "sk-replaced") {
 		t.Errorf("set echoed the new api_key in full: %q", out)
 	}
-	if got := readConfigFile(t, path); !strings.Contains(got, "api_key: sk-replaced") {
-		t.Errorf("api_key not written with --force:\n%s", got)
+	got := readConfigFile(t, path)
+	if strings.Contains(got, "sk-replaced") {
+		t.Errorf("api_key written in plaintext:\n%s", got)
+	}
+	if !strings.Contains(got, "api_key: "+secret.EncryptedPrefix) {
+		t.Errorf("api_key not stored encrypted:\n%s", got)
+	}
+}
+
+func TestPrintConfigEncryptsPlaintextSecrets(t *testing.T) {
+	path := writeCmdConfig(t, configTestFixture)
+	t.Setenv(secret.EnvVar, "test-master-key")
+	secret.Reset()
+	t.Cleanup(secret.Reset)
+
+	prev := shared.CfgFile
+	shared.CfgFile = path
+	t.Cleanup(func() { shared.CfgFile = prev })
+
+	runPrintConfig(newConfigCmd())
+
+	got := readConfigFile(t, path)
+	if strings.Contains(got, "sk-1234567890abcd") || strings.Contains(got, "sk-provider-secret-1234") {
+		t.Errorf("plaintext secrets survived --print-config:\n%s", got)
+	}
+	if strings.Count(got, secret.EncryptedPrefix) != 2 {
+		t.Errorf("want 2 encrypted secrets after --print-config:\n%s", got)
+	}
+}
+
+func TestEncryptPlaintextConfigSecrets(t *testing.T) {
+	path := writeCmdConfig(t, configTestFixture)
+	t.Setenv(secret.EnvVar, "test-master-key")
+	secret.Reset()
+	t.Cleanup(secret.Reset)
+
+	prev := shared.CfgFile
+	shared.CfgFile = path
+	t.Cleanup(func() { shared.CfgFile = prev })
+
+	encryptPlaintextConfigSecrets()
+
+	got := readConfigFile(t, path)
+	if strings.Contains(got, "sk-1234567890abcd") || strings.Contains(got, "sk-provider-secret-1234") {
+		t.Errorf("plaintext secrets survived startup encryption:\n%s", got)
+	}
+	if strings.Count(got, secret.EncryptedPrefix) != 2 {
+		t.Errorf("want 2 encrypted secrets:\n%s", got)
 	}
 }
 
