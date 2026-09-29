@@ -139,7 +139,13 @@ func GenerateAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, 
 	}
 	for _, s := range imageStrategies {
 		if s.match(req, ictx) {
-			return s.run(c, req, ictx)
+			saved, err := s.run(c, req, ictx)
+			if err != nil {
+				if hint := imageFailureHint(p, req, err); hint != "" {
+					return nil, fmt.Errorf("%w%s", err, hint)
+				}
+			}
+			return saved, err
 		}
 	}
 	return nil, fmt.Errorf("no image strategy matched")

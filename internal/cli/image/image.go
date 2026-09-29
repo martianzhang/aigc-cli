@@ -191,14 +191,20 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	for _, s := range imageStrategies {
 		if s.match(req, ictx) {
 			saved, err := s.run(c, req, ictx)
-			if err == nil && genPreview {
+			if err != nil {
+				if hint := imageFailureHint(p, req, err); hint != "" {
+					return fmt.Errorf("%w%s", err, hint)
+				}
+				return err
+			}
+			if genPreview {
 				for _, f := range saved {
 					if e := service.PreviewFile(f); e != nil {
 						fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
 					}
 				}
 			}
-			return err
+			return nil
 		}
 	}
 	return nil

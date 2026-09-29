@@ -77,6 +77,22 @@ aigc-cli image --provider agnes --model agnes-image-2.0-flash \
   --size "1024x768" --prompt "一只猫"
 ```
 
+### `--size` 报错时自动给出建议
+
+不同厂商/模型接受的尺寸写法不同，写错时大多数 API 会返回 400。CLI 检测到「尺寸相关」的失败后，会**自动补一段该 Provider 的 `--size` 建议**，无需先查文档：
+
+```text
+Error: OpenRouter image generation failed: API returned status 400: {"error":{"message":"Novita cannot send size \"16:9\""}}
+
+  --size hint (OpenRouter):
+    model "inclusionai/ming-image-0.1-design" declares no size parameter — remove --size / --ratio.
+    inspect: aigc-cli models --api-base https://openrouter.ai/api/v1 --type image
+```
+
+- **OpenRouter**：读取 `GET /v1/images/models` 的 `supported_parameters`，列出该模型支持的 `aspect_ratio`（用 `--ratio`）与 `resolution`（用 `--size`）；若该模型不声明任何尺寸参数，则提示删除 `--size` / `--ratio`。
+- **其他 Provider**：给出该 Provider 文档化的 `--size` 写法速查（如 APIMart 的 `--resolution 1k/2k/4k`、Agnes 2.1 的 `2K@16:9`、ModelScope 的纯像素）。
+- 提示只在**失败时**触发，成功路径零额外请求；能力查询是 best-effort（5s 超时），查询失败会退化为静态建议。
+
 > ⚠️ **Agnes 没有图片上传端点**：本地 `--image-url` 文件（如 `-i photo.png`）会自动转为 base64 Data URI 内嵌，无需公网 URL。
 
 ```bash

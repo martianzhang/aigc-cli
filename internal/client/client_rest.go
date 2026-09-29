@@ -127,7 +127,7 @@ func (c *Client) doJSONWithHeaders(method, path string, body, result interface{}
 		return fmt.Errorf("failed to read response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return newAPIStatusError(resp, respBody)
 	}
 
 	if result != nil {
@@ -171,7 +171,7 @@ func (c *Client) doGetAbsolute(rawURL string, result interface{}) error {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return newAPIStatusError(resp, respBody)
 	}
 	if result != nil {
 		if err := json.Unmarshal(respBody, result); err != nil {
@@ -226,7 +226,7 @@ func (c *Client) doJSONAbsolute(method, rawURL string, body, result interface{},
 		return fmt.Errorf("failed to read response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return newAPIStatusError(resp, respBody)
 	}
 
 	if result != nil {
@@ -272,10 +272,10 @@ func (c *Client) doGetWithHeaders(path string, result interface{}, extraHeaders 
 	if resp.StatusCode == http.StatusNotFound ||
 		resp.StatusCode == http.StatusMethodNotAllowed ||
 		resp.StatusCode == http.StatusNotImplemented {
-		return fmt.Errorf("%w: API returned status %d: %s", ErrNotSupported, resp.StatusCode, string(respBody))
+		return fmt.Errorf("%w: %w", ErrNotSupported, newAPIStatusError(resp, respBody))
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return newAPIStatusError(resp, respBody)
 	}
 
 	if result != nil {

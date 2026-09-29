@@ -48,6 +48,22 @@ aigc-cli image --provider agnes --model agnes-image-2.0-flash \
   --size "1024x768" --prompt "a cat"
 ```
 
+### Automatic `--size` guidance on failure
+
+Accepted size syntax differs per vendor and per model, and a wrong value usually returns HTTP 400. When a failure looks size-related, the CLI **appends a provider-specific `--size` hint automatically**, so you do not have to look it up first:
+
+```text
+Error: OpenRouter image generation failed: API returned status 400: {"error":{"message":"Novita cannot send size \"16:9\""}}
+
+  --size hint (OpenRouter):
+    model "inclusionai/ming-image-0.1-design" declares no size parameter — remove --size / --ratio.
+    inspect: aigc-cli models --api-base https://openrouter.ai/api/v1 --type image
+```
+
+- **OpenRouter**: reads `supported_parameters` from `GET /v1/images/models` and lists the model's `aspect_ratio` (use `--ratio`) and `resolution` (use `--size`); if the model declares no size parameter at all, it tells you to drop `--size` / `--ratio`.
+- **Other providers**: prints that provider's documented `--size` cheat sheet (e.g. APIMart's `--resolution 1k/2k/4k`, Agnes 2.1's `2K@16:9`, ModelScope's pixels-only).
+- The hint only fires **on failure**, so the success path makes no extra request. Capability lookup is best-effort (5s timeout) and degrades to static guidance when unavailable.
+
 > **Note:** Agnes has no image upload endpoint; local `--image-url` files are automatically converted to base64 Data URIs and embedded directly — no public URL needed.
 
 ```bash
