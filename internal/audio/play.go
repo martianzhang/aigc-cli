@@ -2,7 +2,7 @@ package audio
 
 import "errors"
 
-// ErrPlaybackUnavailable is returned when there is no in-process audio backend:
-// a Linux/BSD build made without CGO + ALSA (see play_stub.go), or an audio
-// device that oto could not open. Callers may fall back to an external player.
-var ErrPlaybackUnavailable = errors.New("audio playback unavailable (Linux/BSD builds need CGO + libasound2-dev; no audio device?)")
+// ErrPlaybackUnavailable is returned when no audio backend could play the
+// sound: no in-process device (oto on macOS/Windows) and no external player
+// command (Linux/BSD). Callers may fall back to opening the system handler.
+var ErrPlaybackUnavailable = errors.New("audio playback unavailable (no audio device or external player found)")

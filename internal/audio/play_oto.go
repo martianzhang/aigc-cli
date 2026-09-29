@@ -1,9 +1,8 @@
-//go:build cgo || darwin || windows
+//go:build darwin || windows
 
-// oto provides in-process audio playback. Its unix driver needs CGO + ALSA, so
-// this file is only compiled when that backend is available (CGO on any OS) or
-// on darwin/windows, whose oto drivers are pure Go. A Linux/BSD build without
-// CGO falls back to play_stub.go instead of failing to compile.
+// oto provides in-process audio playback. Only the macOS and Windows drivers
+// are used: both are pure Go, so this file needs no CGO. Linux/BSD use
+// play_external.go instead, which avoids oto's CGO+ALSA dependency entirely.
 
 package audio
 
