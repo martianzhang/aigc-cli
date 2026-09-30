@@ -13,7 +13,7 @@ aigc-cli decision [flags]
 | 参数 | 说明 |
 |---|---|
 | `--json <path\|inline-json\|->` | 题库（question bank）：JSON 或 JSONC 文件。支持文件路径、内联 JSON 字符串、`-` 读 stdin。缺省回退到 `defaults.decision.bank` |
-| `--questions a,b,c` | 仅回答指定的问题（逗号分隔，可重复）。省略则回答题库中**所有**问题 |
+| `--questions a,b,c` | 仅回答指定的问题（ASCII 逗号分隔，可重复；题目名可用中文）。省略则回答题库中**所有**问题 |
 | `--state <text\|path\|->` | 待判定的素材。支持直接文本、文件路径、`-` 读 stdin。若内容是合法 JSON 对象/数组，按结构化 state 发送；否则按纯字符串发送 |
 | `--list` | 列出题库中所有问题的名称后退出 |
 | `--dry-run` | 打印等价的 curl 请求，不真正调用 API |
@@ -56,15 +56,16 @@ aigc-cli decision [flags]
 
 ```bash
 # 取某题选中的选项
-aigc-cli decision --json triage.json --state state.txt | jq -r '.answers.intent.choice'
+# 注意：题库用中文键时，jq 必须用方括号取值；.answers.意图.choice 会报语法错误
+aigc-cli decision --json triage.json --state state.txt | jq -r '.["answers"]["意图"].choice'
 
-# 每题一行
+# 每题一行（键无关，中英文题库通用；三个字段互斥，用 // 依次回退）
 aigc-cli decision --json triage.json --state state.txt \
-  | jq -r '.answers | to_entries[] | "\(.key): \(.value.choice // (.value.noul|tostring) // (.value.score|tostring))"'
+  | jq -r '.answers | to_entries[] | "\(.key): \(.value.choice // .value.noul // .value.score)"'
 
 # 只在模型确信时采用，否则升级人工
 aigc-cli decision --json triage.json --state state.txt \
-  | jq -r 'if .answers.intent.confidence > 0.85 then .answers.intent.choice else "ESCALATE" end'
+  | jq -r 'if .answers["意图"].confidence > 0.85 then .answers["意图"].choice else "ESCALATE" end'
 ```
 
 ## 支持的 Provider
@@ -96,22 +97,22 @@ CLI 参数 > JSON（题库） > defaults.decision YAML > 代码默认值
 
 ```bash
 # 本地 Ollama（免费、离线）
-aigc-cli decision --json triage.json --questions intent,refund --state state.txt
+aigc-cli decision --json triage.json --questions 意图,退款 --state state.txt
 
 # 切换到 OpenRouter 上的远程 Jev 模型
-aigc-cli decision -P openrouter -m typesafe/jev-latest --questions intent --state state.txt
+aigc-cli decision -P openrouter -m typesafe/jev-latest --questions 意图 --state state.txt
 
 # 更小的本地模型（用 config 里的默认题库）
 aigc-cli decision -m tev1:0.8b --state state.txt
 
 # 结构化 state（对象）—— 标注上下文段落
-aigc-cli decision --questions refund \
-  --state '{"policy":"Refunds within 30 days.","request":"Bought 12 days ago, want a refund."}'
+aigc-cli decision --questions 退款 \
+  --state '{"policy":"退款需在 30 天内提出。","request":"我 12 天前买的，想退款。"}'
 
 # stdin、列清单、dry-run
-cat ticket.txt | aigc-cli decision --questions intent
+cat ticket.txt | aigc-cli decision --questions 意图
 aigc-cli decision --list
-aigc-cli decision --questions intent --state state.txt --dry-run
+aigc-cli decision --questions 意图 --state state.txt --dry-run
 ```
 
 ## 注意事项
@@ -120,7 +121,8 @@ aigc-cli decision --questions intent --state state.txt --dry-run
 - 单次请求 1–64 个问题，请求体 ≤ 64 KiB
 - tev1 上下文约 **2000 tokens**，请保持 state 简短
 - 若没有合适选项，**务必**添加 `none` / `other` 选项——模型不会自动说"以上皆非"
-- tev1 以英文为主；非英文与 prompt injection 在厂商测试中覆盖有限
+- tev1 基模为 **Qwen3.5**（`ollama show tev1` → `arch qwen35`），中文题库 / 中文 state 实测可用（见 [examples/decision/triage.json](examples/decision/triage.json)）；但厂商评测以英文为主，非英文**无质量保证**——生产上请配合 `confidence` 阈值与人工兜底
+- prompt injection 在厂商测试中覆盖有限：state 要当**数据**看，不要让它左右下游动作
 - 决策模型可能出错——**不要**把它当作高风险决策的唯一依据
 - 本命令**尚未**接入 MCP
 

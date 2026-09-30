@@ -58,14 +58,16 @@ The response is JSON (`model` / `answers` / `usage`) and pipes straight into `jq
 # The chosen option for one question
 aigc-cli decision --json triage.json --state state.txt | jq -r '.answers.intent.choice'
 
-# One line per answer
+# One line per answer (key-agnostic; the three fields are mutually exclusive, so // falls back in turn)
 aigc-cli decision --json triage.json --state state.txt \
-  | jq -r '.answers | to_entries[] | "\(.key): \(.value.choice // (.value.noul|tostring) // (.value.score|tostring))"'
+  | jq -r '.answers | to_entries[] | "\(.key): \(.value.choice // .value.noul // .value.score)"'
 
 # Act only when the model is confident, otherwise escalate
 aigc-cli decision --json triage.json --state state.txt \
   | jq -r 'if .answers.intent.confidence > 0.85 then .answers.intent.choice else "ESCALATE" end'
 ```
+
+> 💡 Question names and `criteria` keys are free-form strings, so a bank may use non-ASCII names. Dot notation only works for ASCII identifiers: with a Chinese key, use brackets (`.["answers"]["意图"].choice`) — jq rejects `.answers.意图.choice` with a syntax error. The Chinese bank in `docs/zh/examples/decision/triage.json` shows a fully translated example.
 
 ## Supported providers
 
@@ -120,7 +122,8 @@ aigc-cli decision --questions intent --state state.txt --dry-run
 - 1–64 questions per request; request body ≤ 64 KiB.
 - tev1 runs at ~2000 tokens of context — keep the state short.
 - If none of the options might fit, **add a `none` / `other` option**. The model cannot say "none of the above" unless you give it one.
-- tev1 is English-first; non-English and prompt-injection scenarios were not fully tested by the model vendor.
+- tev1 is built on a **Qwen3.5** base (`ollama show tev1` → `arch qwen35`), and non-English works in our smoke tests (see the Chinese bank in `docs/zh/examples/decision/triage.json`). The vendor's evaluation is English-only, though, so treat non-English as **unsupported** — pair it with a `confidence` threshold and a human fallback.
+- Prompt-injection coverage is limited; treat the state as data, never as instructions.
 - Decision models can be wrong. Do **not** rely on them as the sole check for high-stakes decisions.
 - MCP exposure is **not** part of this command yet.
 

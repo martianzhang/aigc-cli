@@ -1,3 +1,2 @@
-Customer message: Hi, I checked my statement and your company charged my card twice
-for the October subscription. The amounts are both $19.99 on the same day.
-I have not changed my plan.
+客户留言：你好，我核对了账单，你们公司在同一天为 10 月的订阅重复扣了我两次款，
+两笔都是 19.99 美元。我没有改过套餐。

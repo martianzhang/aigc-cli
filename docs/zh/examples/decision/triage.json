@@ -1,26 +1,29 @@
-// 注：tev1 是英文优先的决策模型；题库 questions / criteria / instructions 与 state
-// 建议保持英文，仅在中文语料上用作评测时再翻译。文件仍为合法 JSONC。
+// 注：tev1 基模为 Qwen3.5（`ollama show tev1` → arch qwen35 / 4.2B），中文实测可用；
+// 但厂商评测以英文为主，非英文无质量保证——生产上请配合 confidence 阈值与人工兜底。
+// questions 的键是 --questions 与 .answers.<key> 使用的名字，criteria 的键即返回的 choice 值，
+// 两者都可以直接用中文；用 jq 取值时中文键必须走方括号：.["answers"]["意图"].choice。
+// 本文件为合法 JSONC。
 {
   "model": "tev1",
   "questions": {
-    "intent": {
+    "意图": {
       "type": "choice",
-      "instructions": "Which listed support intent best matches the customer message?",
+      "instructions": "下面哪一项客服意图最符合客户留言？",
       "criteria": {
-        "duplicate_charge":    "The customer reports being charged more than once.",
-        "cancel_subscription": "The customer wants to end or downgrade a subscription.",
-        "card_declined":       "The customer reports a payment that failed or was declined.",
-        "none":                "None of the listed intents matches."
+        "重复扣费": "客户反映被重复扣费。",
+        "取消订阅": "客户希望取消或降级订阅。",
+        "支付被拒": "客户反映支付失败或被拒付。",
+        "以上皆非": "以上列出的意图都不匹配。"
       }
     },
-    "refund": {
+    "退款": {
       "type": "noul",
-      "instructions": "Does the customer explicitly ask for a refund?"
+      "instructions": "客户是否明确要求退款？"
     },
-    "sentiment": {
+    "情感": {
       "type": "score",
-      "instructions": "How positive is the customer's message?",
-      "criteria": ["Negative", "Neutral", "Positive"]
+      "instructions": "客户留言的正面程度如何？",
+      "criteria": ["负面", "中性", "正面"]
     }
   }
 }
