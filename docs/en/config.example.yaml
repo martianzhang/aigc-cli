@@ -175,6 +175,11 @@ defaults:
     max_tokens: 4096            # Max response tokens
     context_size: 32768         # Max input context tokens; 0=model default. Auto-compacts at 80%
 
+  decision:
+    # provider: "ollama"        # named provider (ollama / openrouter / ...); unset uses global
+    # model: "tev1"             # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
+    # bank: "~/exams/triage.json"  # default question bank JSON (used when --json is omitted)
+
   # ── Optional: offline commands with online LLM ──
   # Setting a provider routes to online API; unset uses local ONNX.
   # ocr:

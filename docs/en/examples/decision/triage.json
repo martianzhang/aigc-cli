@@ -1,0 +1,24 @@
+{
+  "model": "tev1",
+  "questions": {
+    "intent": {
+      "type": "choice",
+      "instructions": "Which listed support intent best matches the customer message?",
+      "criteria": {
+        "duplicate_charge":    "The customer reports being charged more than once.",
+        "cancel_subscription": "The customer wants to end or downgrade a subscription.",
+        "card_declined":       "The customer reports a payment that failed or was declined.",
+        "none":                "None of the listed intents matches."
+      }
+    },
+    "refund": {
+      "type": "noul",
+      "instructions": "Does the customer explicitly ask for a refund?"
+    },
+    "sentiment": {
+      "type": "score",
+      "instructions": "How positive is the customer's message?",
+      "criteria": ["Negative", "Neutral", "Positive"]
+    }
+  }
+}

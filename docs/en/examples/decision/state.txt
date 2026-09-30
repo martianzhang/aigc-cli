@@ -1,0 +1,3 @@
+Customer message: Hi, I checked my statement and your company charged my card twice
+for the October subscription. The amounts are both $19.99 on the same day.
+I have not changed my plan.
