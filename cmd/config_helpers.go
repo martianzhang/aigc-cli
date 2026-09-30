@@ -38,7 +38,7 @@ func configFilePath() (string, error) {
 func loadExistingConfig(path string) (*yaml.Node, error) {
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("config file not found: %s (create it first; see docs/config.example.yaml)", path)
+			return nil, fmt.Errorf("config file not found: %s (create it first; see docs/zh/examples/config.yaml)", path)
 		}
 		return nil, fmt.Errorf("config file: %w", err)
 	}

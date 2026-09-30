@@ -210,7 +210,7 @@ defaults:
     # timeout: 600                 # HTTP 超时秒数（视频生成更慢）
 ```
 
-完整示例见 [config.example.yaml](config.example.yaml)。
+完整示例见 [examples/config.yaml](examples/config.yaml)。
 
 该文件可能包含 API Key，写入时使用仅属主可读写的权限（`0600`），请勿纳入版本控制。
 

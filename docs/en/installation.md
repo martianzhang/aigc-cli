@@ -76,7 +76,7 @@ defaults:
     model: "gpt-4o"
 ```
 
-See [config.example.yaml](config.example.yaml) for a complete reference.
+See [examples/config.yaml](examples/config.yaml) for a complete reference.
 
 The file may contain API keys, so it is written with owner-only permissions (`0600`) and should stay out of version control.
 

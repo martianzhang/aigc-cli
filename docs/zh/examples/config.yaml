@@ -1,6 +1,8 @@
-# aigc-cli Configuration
-# Place this file at ~/.config/aigc-cli/config.yaml
-# or pass --config /path/to/config.yaml at runtime
+# aigc-cli Configuration（示例文件，仓库内这份不会生效）
+# 复制到 ~/.config/aigc-cli/config.yaml 后再填自己的 key：
+#   mkdir -p ~/.config/aigc-cli && cp docs/zh/examples/config.yaml ~/.config/aigc-cli/config.yaml
+# 或在运行时指定 --config /path/to/config.yaml
+# ⚠️ 勿直接对本文件运行 `aigc-cli config ...`：CLI 会原地改写文件并加密其中的 key
 
 # ── 全局顶层配置 ──
 # 作为所有命令的兜底。当命令没有通过 defaults.{cmd}.provider 引用命名 Provider 时使用。

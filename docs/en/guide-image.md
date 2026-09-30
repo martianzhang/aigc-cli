@@ -353,11 +353,18 @@ For upload-based providers (APIMart), the preview also prints the multipart uplo
 Pass the full request as JSON:
 
 ```bash
+# The complete example shipped with the project
+aigc-cli image --json docs/en/examples/image.json
+
+# A JSON string (handy for debugging)
 aigc-cli image --json '{"prompt": "a cat", "model": "dall-e-3", "n": 1}'
 ```
 
 Or from a file:
 
 ```bash
+# @-prefixed value is read from disk; a plain path works too
 aigc-cli image --json @request.json
 ```
+
+`docs/en/examples/image.json` holds the complete example:

@@ -135,7 +135,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 > 本地模型 / 服务无需 API Key，aigc-cli 会自动豁免 API Key 检查并跳过 Authorization 头。详见 [docs/zh/installation.md](docs/zh/zh/installation.md)。
 
 检测逻辑：根据 `base_url` 自动识别，也可用 `--mode sync` / `--mode async` 手动指定。
-各命令可通过 `providers` 配置独立厂商，见 [docs/config.example.yaml](docs/zh/config.example.yaml)。
+各命令可通过 `providers` 配置独立厂商，见 [docs/zh/examples/config.yaml](docs/zh/examples/config.yaml)。
 
 ---
 
@@ -248,6 +248,7 @@ aigc-cli midjourney (或 mj)
 | [API 参考来源](docs/zh/api-reference.md) | 各 Provider 接口规范来源、检测机制、策略路由 |
 | [常见问题](docs/zh/faq.md) | 安装、使用、MCP、费用等常见问题解答 |
 | [MCP 集成](docs/zh/guide-mcp.md) | AI 代理（Claude/Cursor）集成指南 |
+| [配置示例](docs/zh/examples/config.yaml) | 完整配置文件参考 |
 
 ---
 

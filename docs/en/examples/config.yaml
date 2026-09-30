@@ -1,6 +1,8 @@
-# aigc-cli Configuration
-# Place this file at ~/.config/aigc-cli/config.yaml
+# aigc-cli Configuration (example file - the copy in the repo is not used)
+# Copy it to ~/.config/aigc-cli/config.yaml and fill in your own keys:
+#   mkdir -p ~/.config/aigc-cli && cp docs/en/examples/config.yaml ~/.config/aigc-cli/config.yaml
 # or pass --config /path/to/config.yaml at runtime
+# ⚠️ Do not run `aigc-cli config ...` against this file: the CLI rewrites it in place and encrypts its keys
 
 # ── Global Top-Level Config ──
 # Fallback for all commands. When a command doesn't reference a named provider

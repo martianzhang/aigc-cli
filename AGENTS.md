@@ -71,7 +71,7 @@
 | 修改 `image`/`video`/`chat`/`detect`/`midjourney`/`ideas`/`audio` 命令 | 对应 `docs/*/guide-*.md` |
 | 修改 `models`/`task`/`balance`/`dry-run` 等辅助命令 | `docs/*/guide-commands.md` |
 | 修改 MCP 工具定义 | `docs/*/guide-mcp.md` |
-| 新增/修改配置字段 | `docs/*/config.example.yaml` |
+| 新增/修改配置字段 | `docs/*/examples/config.yaml` |
 | 新增常见问题 | `docs/*/faq.md` |
 | 每次发版前 | `docs/release_notes/vX.Y.Z.md` |
 

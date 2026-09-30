@@ -28,7 +28,7 @@ aigc-cli image < prompt.txt
 |---|---|---|---|---|
 | `--prompt` | `-p` | 文本描述（自动识别文件/stdin） | 通用 |
 | `--model` | `-m` | 模型名（可通过 `defaults.image.model` 或 `providers.{name}.model` 设默认值） | 通用 |
-| `--provider` | `-P` | 命名 Provider 名称（覆盖 `defaults.image.provider`，见 `docs/config.example.yaml`） | 通用 |
+| `--provider` | `-P` | 命名 Provider 名称（覆盖 `defaults.image.provider`，见 `docs/zh/examples/config.yaml`） | 通用 |
 | `--size` | `-s` | 图片尺寸：宽高比（`16:9`）、像素（`1024x1024`）、档位（`2K`）或组合形式（`2K@16:9`） | 通用 |
 | `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` | 通用 |
 | `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp`、`avif`、`jxl` | 通用 |
@@ -340,7 +340,7 @@ aigc-cli image --base-url "https://openrouter.ai/api/v1" \
 
 ```bash
 # 使用项目提供的示例文件
-aigc-cli image --json docs/example.json
+aigc-cli image --json docs/zh/examples/image.json
 
 # 自定义 JSON 文件
 aigc-cli image --json request.json
@@ -352,7 +352,7 @@ aigc-cli image --json '{"prompt":"a red fox","n":4}'
 cat request.json | aigc-cli image --json -
 ```
 
-项目根目录 `docs/example.json` 提供了完整示例：
+`docs/zh/examples/image.json` 提供了完整示例：
 
 ```json
 {

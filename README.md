@@ -135,7 +135,7 @@ The same `image` / `video` / `audio` / `music` / `models` command automatically 
 > Local models/services don't need an API Key. aigc-cli auto-exempts API Key checks and skips the Authorization header. See [docs/en/installation.md#local-generation](docs/en/installation.md#local-generation).
 
 Detection logic: auto-identifies by `base_url`, or manually specify with `--mode sync` / `--mode async`.
-Each command can use a different provider via the `providers` config, see [docs/en/config.example.yaml](docs/en/config.example.yaml).
+Each command can use a different provider via the `providers` config, see [docs/en/examples/config.yaml](docs/en/examples/config.yaml).
 
 ---
 
@@ -248,7 +248,7 @@ aigc-cli midjourney (or mj)
 | [API Reference](docs/en/api-reference.md) | Provider API specification sources, detection, strategy routing |
 | [FAQ](docs/en/faq.md) | Install, usage, MCP, pricing FAQs |
 | [MCP Integration](docs/en/guide-mcp.md) | AI agent (Claude/Cursor) integration guide |
-| [Configuration Example](docs/en/config.example.yaml) | Full config file reference |
+| [Configuration Example](docs/en/examples/config.yaml) | Full config file reference |
 
 ---
 
