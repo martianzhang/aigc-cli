@@ -66,6 +66,8 @@ func apiKeyNote(cmdName string) string {
 		return "note: the no-argument form queries every configured provider that has an API key"
 	case "task":
 		return "note: use the provider whose account submitted the task"
+	case "decision":
+		return "note: Ollama runs decision models (tev1/nimble) locally with no API key"
 	default:
 		return "note: --type and --price listings need no API key"
 	}

@@ -17,6 +17,11 @@ func ImageDefaults() *types.ImageDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.ImageDefaults { return d.Image })
 }
 
+// DecisionDefaults returns defaults.decision, or nil.
+func DecisionDefaults() *types.DecisionDefaults {
+	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.DecisionDefaults { return d.Decision })
+}
+
 // VideoDefaults returns defaults.video, or nil.
 func VideoDefaults() *types.VideoDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.VideoDefaults { return d.Video })

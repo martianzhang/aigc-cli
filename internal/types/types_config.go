@@ -133,6 +133,7 @@ type ConfigDefaults struct {
 	OCR           *OCRDefaults        `mapstructure:"ocr" yaml:"ocr,omitempty"`
 	Vision        *VisionDefaults     `mapstructure:"vision" yaml:"vision,omitempty"`
 	Knowledgebase *KBDefaults         `mapstructure:"knowledgebase" yaml:"knowledgebase,omitempty"`
+	Decision      *DecisionDefaults   `mapstructure:"decision" yaml:"decision,omitempty"`
 }
 
 // KBDefaults holds default values for the knowledge base.
@@ -244,6 +245,13 @@ func (d *ImageDefaults) MergeIntoImage(req *GenerateRequest) {
 	if req.ResponseFormat == "" && d.ResponseFormat != "" {
 		req.ResponseFormat = d.ResponseFormat
 	}
+}
+
+// DecisionDefaults holds default values for the decision command.
+type DecisionDefaults struct {
+	Provider string `mapstructure:"provider" yaml:"provider,omitempty"`
+	Model    string `mapstructure:"model" yaml:"model,omitempty"`
+	Bank     string `mapstructure:"bank" yaml:"bank,omitempty"`
 }
 
 // VideoDefaults holds default values for video generation.

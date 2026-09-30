@@ -49,6 +49,7 @@ const (
 	ProviderNameVision     = "vision"
 	ProviderNameDetect     = "detect"
 	ProviderNameBackground = "background"
+	ProviderNameDecision   = "decision"
 	ProviderNameLocal      = "local"
 )
 
@@ -154,6 +155,12 @@ var CmdProviderMap = map[string]CmdProviderInfo{
 	ProviderNameVision: {func(d *types.ConfigDefaults) (string, string) {
 		if d.Vision != nil {
 			return d.Vision.Provider, d.Vision.Model
+		}
+		return "", ""
+	}},
+	ProviderNameDecision: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Decision != nil {
+			return d.Decision.Provider, d.Decision.Model
 		}
 		return "", ""
 	}},
