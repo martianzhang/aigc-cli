@@ -238,8 +238,9 @@ Job 文件保存在 `video_job_{jobId}.json`，内含 `polling_url`、`model`、
 | `google/veo-3.1` | Google Veo 3.1 |
 | `google/veo-3.0` | Google Veo 3.0 |
 | `minimax/video` | MiniMax 视频模型 |
+| `heygen/heygen-video-1` | HeyGen Video 1（文/图生视频，5–15 秒，480p/768p，约 $0.02/秒） |
 
-使用 `aigc-cli models --type video`（免认证）查看完整列表。
+使用 `aigc-cli models --provider openrouter --type video`（免认证）查看完整列表。
 
 ## Pollinations 视频（自动适配）
 

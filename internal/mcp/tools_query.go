@@ -214,13 +214,12 @@ func handleMCPGetOpenRouterJob(c client.APIClient, jobID, outputDir, apiKey stri
 	case "completed":
 		b.WriteString("\n视频:\n")
 		for i, u := range statusResp.UnsignedURLs {
-			fullpath, err := service.DownloadFile(u, outputDir, fmt.Sprintf("video_%s_%d", safeJobID, i))
+			fullpath, err := downloadOpenRouterVideo(u, apiKey, outputDir, safeJobID, i)
 			if err == nil {
 				fmt.Fprintf(&b, "  %s\n", fullpath)
 			} else {
-				// Unsigned URL failed; try authenticated fallback
 				fallback := fmt.Sprintf("https://openrouter.ai/api/v1/videos/%s/content?index=%d", jobID, i)
-				fullpath, err = service.DownloadFile(fallback, outputDir, fmt.Sprintf("video_%s_%d", safeJobID, i))
+				fullpath, err = downloadOpenRouterVideo(fallback, apiKey, outputDir, safeJobID, i)
 				if err == nil {
 					fmt.Fprintf(&b, "  %s\n", fullpath)
 				} else {
@@ -238,6 +237,14 @@ func handleMCPGetOpenRouterJob(c client.APIClient, jobID, outputDir, apiKey stri
 	}
 
 	return mcp.NewToolResultText(b.String()), nil
+}
+
+// downloadOpenRouterVideo saves one OpenRouter video result with the Bearer
+// token its /videos/{id}/content endpoint requires. ExtractExt defaults to .mp4,
+// avoiding DownloadFile's unauthenticated extension sniff (which 401s here).
+func downloadOpenRouterVideo(source, apiKey, outputDir, jobToken string, index int) (string, error) {
+	filename := filepath.Join(outputDir, fmt.Sprintf("video_%s_%d%s", jobToken, index, service.ExtractExt(source)))
+	return filename, service.SaveResourceWithAuth(source, apiKey, filename)
 }
 
 func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp.CallToolResult, error) {

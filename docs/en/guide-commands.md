@@ -16,6 +16,9 @@ aigc-cli models
 aigc-cli models --type image
 aigc-cli models --type video
 
+# OpenRouter model discovery (auth-free; GET /v1/images/models or /v1/videos/models)
+aigc-cli models --provider openrouter --type video
+
 # View model pricing
 aigc-cli models --price
 

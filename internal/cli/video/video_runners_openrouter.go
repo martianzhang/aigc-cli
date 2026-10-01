@@ -53,6 +53,12 @@ func openRouterVideoBody(req *types.VideoGenerateRequest) *types.OpenRouterVideo
 	return orReq
 }
 
+// openRouterAPIKey returns the API key of the resolved video provider, used to
+// authenticate OpenRouter media downloads.
+func openRouterAPIKey() string {
+	return options.Shared.ResolveProvider("video").APIKey
+}
+
 // runOpenRouterVideo handles video generation via OpenRouter's dedicated video API.
 // buildVideoPlan already embedded local images as data URIs in req.
 func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
@@ -113,12 +119,13 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
 		return nil, fmt.Errorf("video job completed but no download URLs returned")
 	}
 
+	apiKey := openRouterAPIKey()
 	var saved []string
 	for i, u := range pollResp.UnsignedURLs {
 		ext := service.ExtractExt(u)
 		filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("video_%s_%d%s", submitResp.ID, i, ext))
 		fmt.Printf("Downloading video %d/%d...\n", i+1, len(pollResp.UnsignedURLs))
-		if err := service.SaveResource(u, filename); err != nil {
+		if err := service.SaveResourceWithAuth(u, apiKey, filename); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to download video %d: %v\n", i, err)
 			continue
 		}
@@ -177,17 +184,23 @@ func runOpenRouterVideoResume(jobID string) error {
 		statusResp = pollResp
 	}
 
+	if options.Shared.Verbose {
+		prettyStatus, _ := json.MarshalIndent(statusResp, "", "  ")
+		fmt.Printf("Video status:\n%s\n\n", string(prettyStatus))
+	}
+
 	// Download
 	if len(statusResp.UnsignedURLs) == 0 {
 		return fmt.Errorf("job completed but no download URLs returned")
 	}
 
+	apiKey := openRouterAPIKey()
 	var saved []string
 	for i, u := range statusResp.UnsignedURLs {
 		ext := service.ExtractExt(u)
 		filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("video_%s_%d%s", info.JobID, i, ext))
 		fmt.Printf("Downloading video %d/%d...\n", i+1, len(statusResp.UnsignedURLs))
-		if err := service.SaveResource(u, filename); err != nil {
+		if err := service.SaveResourceWithAuth(u, apiKey, filename); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to download video %d: %v\n", i, err)
 			continue
 		}

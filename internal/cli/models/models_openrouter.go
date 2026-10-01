@@ -18,12 +18,11 @@ import (
 
 // runModelsOpenRouterDiscovery fetches models from OpenRouter's model discovery endpoints.
 // image → GET /api/v1/images/models, video → GET /api/v1/videos/models
-func runModelsOpenRouterDiscovery(mediaType string) error {
-	base := d.APIBase
-	if base == "" {
+func runModelsOpenRouterDiscovery(p *provider.EffectiveProvider, mediaType string) error {
+	if p.BaseURL == "" {
 		return fmt.Errorf("OpenRouter base URL is not configured")
 	}
-	base = strings.TrimRight(base, "/")
+	base := client.NormalizeBaseURL(p.BaseURL)
 
 	endpoint := base + "/" + mediaType + "s/models"
 	if mediaType == "chat" {

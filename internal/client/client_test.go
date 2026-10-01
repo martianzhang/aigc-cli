@@ -357,6 +357,46 @@ func TestClientVideoSubmit_success(t *testing.T) {
 	}
 }
 
+func TestClientVideoSubmit_accepted202(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte(`{
+			"id": "gen-vid-abc",
+			"polling_url": "https://openrouter.ai/api/v1/videos/gen-vid-abc",
+			"status": "pending"
+		}`))
+	}))
+	defer srv.Close()
+
+	c := New("test-key", srv.URL, "")
+	resp, err := c.OpenRouterVideoSubmit(&types.OpenRouterVideoRequest{Model: "heygen/heygen-video-1", Prompt: "a boat"})
+	if err != nil {
+		t.Fatalf("OpenRouterVideoSubmit() with 202 error = %v", err)
+	}
+	if resp.ID != "gen-vid-abc" {
+		t.Errorf("ID = %q, want gen-vid-abc", resp.ID)
+	}
+	if resp.PollingURL == "" {
+		t.Error("PollingURL should be parsed from the 202 response")
+	}
+}
+
+func TestDoJSON_emptySuccessBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := New("test-key", srv.URL, "")
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := c.doJSON(http.MethodPost, "/images", nil, &out); err != nil {
+		t.Fatalf("doJSON() with empty 2xx body error = %v", err)
+	}
+}
+
 func TestClientListModelsOpenAI(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

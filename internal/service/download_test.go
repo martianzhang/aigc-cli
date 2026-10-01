@@ -1,6 +1,11 @@
 package service
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -234,6 +239,49 @@ func TestDecodeBase64Any_whitespace(t *testing.T) {
 	}
 	if string(data) != "Hello" {
 		t.Errorf("decodeBase64Any = %q, want 'Hello'", string(data))
+	}
+}
+
+// rewriteTransport redirects every request to a test server, so tests can
+// exercise callers that hardcode a production host such as openrouter.ai.
+type rewriteTransport struct{ target string }
+
+func (rt rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	u, err := url.Parse(rt.target)
+	if err != nil {
+		return nil, err
+	}
+	clone := req.Clone(req.Context())
+	clone.URL.Scheme = u.Scheme
+	clone.URL.Host = u.Host
+	return http.DefaultTransport.RoundTrip(clone)
+}
+
+// TestSaveResourceWithAuth_openrouterAddsBearer locks the authenticated
+// download path OpenRouter video uses: its /videos/{id}/content URL returns 401
+// without the Authorization header.
+func TestSaveResourceWithAuth_openrouterAddsBearer(t *testing.T) {
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		_, _ = w.Write([]byte("video-bytes"))
+	}))
+	defer srv.Close()
+
+	oldClient := http.DefaultClient
+	http.DefaultClient = &http.Client{Transport: rewriteTransport{target: srv.URL}}
+	defer func() { http.DefaultClient = oldClient }()
+
+	dest := filepath.Join(t.TempDir(), "v.mp4")
+	if err := SaveResourceWithAuth("https://openrouter.ai/api/v1/videos/x/content?index=0", "sk-or-test", dest); err != nil {
+		t.Fatalf("SaveResourceWithAuth() error = %v", err)
+	}
+	if gotAuth != "Bearer sk-or-test" {
+		t.Errorf("Authorization = %q, want 'Bearer sk-or-test'", gotAuth)
+	}
+	data, err := os.ReadFile(dest)
+	if err != nil || string(data) != "video-bytes" {
+		t.Errorf("saved content = %q (err %v), want 'video-bytes'", data, err)
 	}
 }
 

@@ -52,8 +52,8 @@ aigc-cli models --price gpt-image-2-official
 
 # OpenRouter 模型发现（免认证，无需 API Key）
 # 自动调用 /v1/images/models 或 /v1/videos/models
-aigc-cli models --type image   # 展示架构、参数、能力
-aigc-cli models --type video
+aigc-cli models --provider openrouter --type image   # 展示架构、参数、能力
+aigc-cli models --provider openrouter --type video
 
 # 查询单个模型详情（展示上下文窗口、定价、模态、支持参数）
 aigc-cli models --provider openrouter openai/gpt-4o

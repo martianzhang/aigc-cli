@@ -147,6 +147,17 @@ export OPENAI_API_KEY="sk-or-xxx"
 aigc-cli video --model "google/veo-3.1" --prompt "a dog running"
 ```
 
+### Popular models
+
+| Model ID | Notes |
+|---|---|
+| `google/veo-3.1` | Google Veo 3.1 |
+| `google/veo-3.0` | Google Veo 3.0 |
+| `minimax/video` | MiniMax video |
+| `heygen/heygen-video-1` | HeyGen Video 1 (text/image-to-video, 5–15s, 480p/768p, ~$0.02/sec) |
+
+> List all video models (auth-free): `aigc-cli models --provider openrouter --type video`.
+
 ### Resume with --job-id
 
 If polling times out, you can resume with the job ID:

@@ -78,7 +78,7 @@ func runModels(cmd *cobra.Command, args []string) error {
 	if priceChanged || modelType != "" {
 		cmdPriceChanged = priceChanged
 		if isOpenRouter && knownMediaTypes[mediaType] {
-			return runModelsOpenRouterDiscovery(mediaType)
+			return runModelsOpenRouterDiscovery(p, mediaType)
 		}
 		return runModelsMarketplace(mediaType)
 	}
@@ -86,7 +86,7 @@ func runModels(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		if knownMediaTypes[args[0]] {
 			if isOpenRouter {
-				return runModelsOpenRouterDiscovery(args[0])
+				return runModelsOpenRouterDiscovery(p, args[0])
 			}
 			return runModelsMarketplace(args[0])
 		}

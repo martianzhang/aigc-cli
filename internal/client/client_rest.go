@@ -126,11 +126,13 @@ func (c *Client) doJSONWithHeaders(method, path string, body, result interface{}
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
-	if resp.StatusCode != http.StatusOK {
+	// Accept any 2xx as success. Async providers (e.g. OpenRouter video submit)
+	// return 202 Accepted with the job payload rather than 200.
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return newAPIStatusError(resp, respBody)
 	}
 
-	if result != nil {
+	if result != nil && len(bytes.TrimSpace(respBody)) > 0 {
 		if err := json.Unmarshal(respBody, result); err != nil {
 			return fmt.Errorf("failed to parse response: %w", err)
 		}

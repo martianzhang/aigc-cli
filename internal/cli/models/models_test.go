@@ -123,11 +123,8 @@ func TestOpenRouterModelsLocalServer(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	orig := d
-	d = Deps{APIBase: srv.URL}
-	defer func() { d = orig }()
-
-	if err := runModelsOpenRouterDiscovery("image"); err != nil {
+	p := &provider.EffectiveProvider{BaseURL: srv.URL, ProviderType: provider.OpenRouter}
+	if err := runModelsOpenRouterDiscovery(p, "image"); err != nil {
 		t.Fatalf("runModelsOpenRouterDiscovery() error = %v", err)
 	}
 }
