@@ -15,6 +15,8 @@ aigc-cli decision [flags]
 | `--json <path\|inline-json\|->` | 题库（question bank）：JSON 或 JSONC 文件。支持文件路径、内联 JSON 字符串、`-` 读 stdin。缺省回退到 `defaults.decision.bank` |
 | `--questions a,b,c` | 仅回答指定的问题（ASCII 逗号分隔，可重复；题目名可用中文）。省略则回答题库中**所有**问题 |
 | `--state <text\|path\|->` | 待判定的素材。支持直接文本、文件路径、`-` 读 stdin。若内容是合法 JSON 对象/数组，按结构化 state 发送；否则按纯字符串发送 |
+| `--image <path\|data-uri>` | 附加图片（PNG/JPEG/WebP），与 state 一起联合评分；可重复。支持本地文件或 base64 data URI。需要 Ollama >= 0.35.1 的 Clef / Clef-Flash |
+| `--image-resize <px>` | 发送前把附加图片的最长边缩放到不超过 N 像素。默认 `1024`；`0` 保留原图。真正降低耗时的是它——见[多模态图片](#多模态图片) |
 | `--list` | 列出题库中所有问题的名称后退出 |
 | `--dry-run` | 打印等价的 curl 请求，不真正调用 API |
 | `-P, --provider` | （全局）切换命名 provider，例如 `ollama` 或 `openrouter` |
@@ -28,6 +30,7 @@ aigc-cli decision [flags]
 |---|---|---|---|
 | `model` | string | 否 | 覆盖默认模型 |
 | `state` | string / object / array | 否 | 默认 state，可被 `--state` 覆盖 |
+| `images` | 字符串数组 | 否 | 默认图片（本地路径或 base64 data URI），可被 `--image` 覆盖 |
 | `questions` | object | 是 | 命名问题字典，1–64 个问题 |
 
 每个问题字段：
@@ -49,6 +52,36 @@ aigc-cli decision [flags]
 | `score` | `score`（按概率求和得到的分档，可能为小数）、`legend`（索引→标签）、`probabilities`、`confidence` |
 
 > `confidence` 衡量概率分布的集中程度，**不是**答案正确的概率。
+
+### 多模态图片
+
+决策模型（Clef / Clef-Flash，Ollama >= 0.35.1）还可以判定图片。用 `--image` 附加（可重复）；所有图片由请求中**全部**问题共享，与文本 `state` 一起联合评分：
+
+```bash
+aigc-cli decision -m clef-flash --image form.png --questions complete,type --state "The agent wants to submit the attached form."
+```
+
+图片按请求顺序发送。本地 PNG/JPEG/WebP 文件自动编码；base64 `data:` URI 会剥离为 raw base64。
+
+#### 耗时与 `--image-resize`
+
+决策模型的耗时由**像素尺寸决定，而非文件大小**——图片会被转成视觉 token，模型在一次前向里对全部内容打分。**重新压缩（降质量 / 减体积）没有用**，只有缩放像素才有效：
+
+| 输入 | input_tokens | 耗时 |
+|---|---|---|
+| 纯文本 | 164 | ~1s |
+| 2848×1600 PNG（2.4 MB） | ~4100 | ~47s |
+| 同尺寸重编码 q75/q40（像素不变） | ~4100 | ~47s |
+| **2848×1600 缩到 1024px** | ~800 | ~6s |
+| 缩到 768px | ~570 | ~4s |
+
+`--image-resize`（默认 `1024`）在发送前按最长边缩放，保持宽高比与格式，且**永不放大**。传 `--image-resize 0` 发送原图；需要更多细节时传更大的值（如 `1600`）。
+
+```bash
+# 大截图会自动缩到 1024px → 明显更快
+aigc-cli decision -m clef-flash --image screenshot.png --state "请判定所附截图。"
+aigc-cli decision -m clef-flash --image screenshot.png --image-resize 768 --state "请判定所附截图。"
+```
 
 ## 输出
 
@@ -76,7 +109,7 @@ aigc-cli decision --json triage.json --state state.txt \
 |---|---|---|---|
 | TypeSafe AI | https://docs.typesafe.ai/api | https://api.typesafe.ai | POST https://api.typesafe.ai/v1/systemone |
 | OpenRouter | https://openrouter.ai/docs/guides/community/typesafe-sdk | https://openrouter.ai/api/v1 | POST https://openrouter.ai/api/v1/systemone |
-| Ollama (>= 0.35.0) | https://ollama.com/library/tev1 | http://localhost:11434 | POST http://localhost:11434/v1/systemone |
+| Ollama (>= 0.35.0；图片需 >= 0.35.1) | https://ollama.com/library/tev1 | http://localhost:11434 | POST http://localhost:11434/v1/systemone |
 | LLM Gateway | https://docs.llmgateway.io/features/system-one | https://api.llmgateway.io/v1 | POST https://api.llmgateway.io/v1/systemone |
 | LiteLLM 代理 | https://docs.litellm.ai/docs/pass_through/typesafe | `{proxy}/typesafe` | POST `{proxy}/typesafe/v1/systemone` |
 
@@ -89,7 +122,7 @@ aigc-cli decision --json triage.json --state state.txt \
 CLI 参数 > JSON（题库） > defaults.decision YAML > 代码默认值
 ```
 
-`--json` 与其他 flag 同时出现时：每个**显式设置**的 flag 覆盖题库对应字段；未触及的字段保持题库原值。仅传 `--json` 不带任何 flag 时，题库**整体发送**。
+`--json` 与其他 flag 同时出现时：每个**显式设置**的 flag 覆盖题库对应字段；未触及的字段保持题库原值。仅传 `--json` 不带任何 flag 时，题库**整体发送**。`--image` 覆盖题库的 `images` 数组。
 
 ## 示例
 
@@ -120,6 +153,8 @@ aigc-cli decision --questions 意图 --state state.txt --dry-run
 - `choice` / `score` 接受 2–26 个选项；tev1 训练时覆盖 2–24，**请保持在 2–24**
 - 单次请求 1–64 个问题，请求体 ≤ 64 KiB
 - tev1 上下文约 **2000 tokens**，请保持 state 简短
+- 图片需要 **Clef / Clef-Flash**（Ollama >= 0.35.1）；纯文本模型会拒绝图片。API 只接受 **raw base64**：本地文件会自动编码，`data:` URI 会剥离/转换，`http(s)` URL **直接拒绝**——请先下载。坏图片文件（损坏、非图片、超过 32 MiB）在请求发出前即被拒绝。
+- 图片耗时由**像素尺寸决定，而非文件字节**——只有 `--image-resize`（默认 1024px）能提速。重新压缩（降质量 / 减体积）**不会**减少 token。传 `--image-resize 0` 发送原图。
 - 若没有合适选项，**务必**添加 `none` / `other` 选项——模型不会自动说"以上皆非"
 - tev1 基模为 **Qwen3.5**（`ollama show tev1` → `arch qwen35`），中文题库 / 中文 state 实测可用（见 [examples/decision/triage.json](examples/decision/triage.json)）；但厂商评测以英文为主，非英文**无质量保证**——生产上请配合 `confidence` 阈值与人工兜底
 - prompt injection 在厂商测试中覆盖有限：state 要当**数据**看，不要让它左右下游动作

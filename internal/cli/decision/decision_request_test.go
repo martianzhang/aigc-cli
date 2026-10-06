@@ -1,8 +1,14 @@
 package decision
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -126,18 +132,170 @@ func TestResolveModel(t *testing.T) {
 	}
 }
 
+func TestResolveImages(t *testing.T) {
+	dir := t.TempDir()
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+	pngBytes := buf.Bytes()
+	pngPath := filepath.Join(dir, "form.png")
+	if err := os.WriteFile(pngPath, pngBytes, 0o644); err != nil {
+		t.Fatalf("write png fixture: %v", err)
+	}
+	rawB64 := base64.StdEncoding.EncodeToString(pngBytes)
+	dataURI := "data:image/png;base64," + rawB64
+	otherURI := "data:image/png;base64,Zm9v"
+
+	t.Run("nil and empty inputs", func(t *testing.T) {
+		got, err := resolveImages(nil, nil, 0)
+		if err != nil || got != nil {
+			t.Errorf("resolveImages(nil,nil) = (%v,%v), want (nil,nil)", got, err)
+		}
+		got, err = resolveImages([]string{}, []string{}, 0)
+		if err != nil || got != nil {
+			t.Errorf("resolveImages(empty,empty) = (%v,%v), want (nil,nil)", got, err)
+		}
+	})
+
+	t.Run("data URI stripped to raw base64", func(t *testing.T) {
+		got, err := resolveImages([]string{dataURI}, nil, 0)
+		if err != nil {
+			t.Fatalf("resolveImages(dataURI) = %v, want nil", err)
+		}
+		if len(got) != 1 || got[0] != rawB64 {
+			t.Errorf("resolveImages(dataURI) = %v, want [%s]", got, rawB64)
+		}
+	})
+
+	t.Run("local file encoded to raw base64", func(t *testing.T) {
+		got, err := resolveImages([]string{pngPath}, nil, 0)
+		if err != nil {
+			t.Fatalf("resolveImages(file) = %v, want nil", err)
+		}
+		if len(got) != 1 || got[0] != rawB64 {
+			t.Errorf("resolveImages(file) = %v, want raw base64 of file bytes", got)
+		}
+	})
+
+	t.Run("blank entries skipped", func(t *testing.T) {
+		got, err := resolveImages([]string{"", "   ", dataURI}, nil, 0)
+		if err != nil {
+			t.Fatalf("resolveImages(blank) = %v, want nil", err)
+		}
+		if len(got) != 1 || got[0] != rawB64 {
+			t.Errorf("resolveImages(blank) = %v, want 1 image", got)
+		}
+	})
+
+	t.Run("non-file non-dataURI rejected", func(t *testing.T) {
+		_, err := resolveImages([]string{"https://example.com/form.png"}, nil, 0)
+		if err == nil || !strings.Contains(err.Error(), "does not accept URLs") {
+			t.Errorf("resolveImages(url) error = %v, want URL rejection", err)
+		}
+	})
+
+	t.Run("CLI overrides bank", func(t *testing.T) {
+		got, err := resolveImages([]string{dataURI}, []string{otherURI}, 0)
+		if err != nil {
+			t.Fatalf("resolveImages(cli+bank) = %v, want nil", err)
+		}
+		if len(got) != 1 || got[0] != rawB64 {
+			t.Errorf("resolveImages(cli+bank) = %v, want only the CLI image %s", got, rawB64)
+		}
+	})
+
+	t.Run("bank used when CLI empty", func(t *testing.T) {
+		got, err := resolveImages(nil, []string{pngPath}, 0)
+		if err != nil {
+			t.Fatalf("resolveImages(bank) = %v, want nil", err)
+		}
+		if len(got) != 1 || got[0] != rawB64 {
+			t.Errorf("resolveImages(bank) = %v, want the bank image", got)
+		}
+	})
+
+	t.Run("maxEdge downscales before encoding", func(t *testing.T) {
+		var big bytes.Buffer
+		if err := png.Encode(&big, image.NewRGBA(image.Rect(0, 0, 200, 100))); err != nil {
+			t.Fatalf("encode big png: %v", err)
+		}
+		bigPath := filepath.Join(dir, "big.png")
+		if err := os.WriteFile(bigPath, big.Bytes(), 0o644); err != nil {
+			t.Fatalf("write big png: %v", err)
+		}
+		got, err := resolveImages([]string{bigPath}, nil, 50)
+		if err != nil {
+			t.Fatalf("resolveImages(resize) = %v, want nil", err)
+		}
+		raw, err := base64.StdEncoding.DecodeString(got[0])
+		if err != nil {
+			t.Fatalf("decode resized base64: %v", err)
+		}
+		cfg, _, err := image.DecodeConfig(bytes.NewReader(raw))
+		if err != nil {
+			t.Fatalf("decode resized image: %v", err)
+		}
+		if cfg.Width != 50 || cfg.Height != 25 {
+			t.Errorf("resized dims = %dx%d, want 50x25", cfg.Width, cfg.Height)
+		}
+	})
+
+	t.Run("maxEdge 0 keeps original bytes", func(t *testing.T) {
+		got, err := resolveImages([]string{pngPath}, nil, 0)
+		if err != nil {
+			t.Fatalf("resolveImages(no resize) = %v, want nil", err)
+		}
+		if len(got) != 1 || got[0] != rawB64 {
+			t.Errorf("resolveImages(no resize) = %v, want unchanged %s", got, rawB64)
+		}
+	})
+}
+
+func TestStripDataURIBase64(t *testing.T) {
+	tests := []struct {
+		name    string
+		uri     string
+		want    string
+		wantErr string
+	}{
+		{name: "valid data URI", uri: "data:image/png;base64,aGVsbG8=", want: "aGVsbG8="},
+		{name: "missing comma", uri: "data:image/png;base64", wantErr: "missing comma"},
+		{name: "non-base64 data URI", uri: "data:image/png;hex,0a0b", wantErr: "must be base64-encoded"},
+		{name: "empty payload", uri: "data:image/png;base64,", wantErr: "contains no data"},
+	}
+	for _, tc := range tests {
+		got, err := stripDataURIBase64(tc.uri)
+		if tc.wantErr != "" {
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("%s: stripDataURIBase64(%q) error = %v, want %q", tc.name, tc.uri, err, tc.wantErr)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("%s: stripDataURIBase64(%q) = %v, want nil", tc.name, tc.uri, err)
+		}
+		if got != tc.want {
+			t.Errorf("%s: stripDataURIBase64(%q) = %q, want %q", tc.name, tc.uri, got, tc.want)
+		}
+	}
+}
+
 func TestLoadBank(t *testing.T) {
 	origJSON, origCfg := options.Shared.JSONInput, options.Shared.Cfg
 	defer func() { options.Shared.JSONInput, options.Shared.Cfg = origJSON, origCfg }()
 
 	options.Shared.Cfg = nil
-	options.Shared.JSONInput = `{"model":"tev1","state":"from bank","questions":{"intent":{"type":"choice","instructions":"which?","criteria":{"a":"A","b":"B"}}}}`
+	options.Shared.JSONInput = `{"model":"tev1","state":"from bank","images":["a.png"],"questions":{"intent":{"type":"choice","instructions":"which?","criteria":{"a":"A","b":"B"}}}}`
 	b, err := loadBank()
 	if err != nil {
 		t.Fatalf("loadBank(inline) = %v, want nil", err)
 	}
 	if b.Model != "tev1" || string(b.State) != `"from bank"` || len(b.Questions) != 1 {
 		t.Errorf("loadBank(inline) = %+v, want model tev1, bank state, 1 question", b)
+	}
+	if len(b.Images) != 1 || b.Images[0] != "a.png" {
+		t.Errorf("loadBank(inline) images = %v, want [a.png]", b.Images)
 	}
 
 	options.Shared.JSONInput = `{

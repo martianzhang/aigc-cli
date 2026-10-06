@@ -31,8 +31,12 @@ func SystemOneEndpoint(baseURL string) string {
 // DecisionRequest is the wire body for POST /v1/systemone (TypeSafe Jev
 // protocol): a state to evaluate plus named typed questions.
 type DecisionRequest struct {
-	Model     string                     `json:"model,omitempty"`
-	State     json.RawMessage            `json:"state"`
+	Model string          `json:"model,omitempty"`
+	State json.RawMessage `json:"state"`
+	// Images are raw base64 images (no data: prefix), shared by all
+	// questions and scored jointly with the text state. PNG/JPEG/WebP;
+	// Clef / Clef-Flash only (Ollama >= 0.35.1).
+	Images    []string                   `json:"images,omitempty"`
 	Questions map[string]json.RawMessage `json:"questions"`
 	KeepAlive string                     `json:"keep_alive,omitempty"`
 }

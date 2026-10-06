@@ -108,7 +108,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 | 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
 | ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台 |
 | 📚 | **本地知识库** | FTS5 + ONNX 语义搜索，age 加密保险箱，web search 自动入库，MCP/Chat 工具集成 |
-| 🧮 | **强类型决策** | 本地 Ollama（tev1/nimble）或在线 OpenRouter Jev 跑强类型决策（选择 / 是非 / 评分），支持题库与概率校准，离线零成本 |
+| 🧮 | **强类型决策** | 本地 Ollama（tev1/nimble）或在线 OpenRouter Jev 跑强类型决策（选择 / 是非 / 评分），支持题库、概率校准与多模态图片决策（Clef / Clef-Flash，自动缩放），离线零成本 |
 
 ---
 

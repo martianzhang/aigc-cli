@@ -1,8 +1,10 @@
 package decision
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -17,6 +19,7 @@ const maxQuestions = 64
 type bank struct {
 	Model     string                     `json:"model"`
 	State     json.RawMessage            `json:"state"`
+	Images    []string                   `json:"images"`
 	Questions map[string]json.RawMessage `json:"questions"`
 }
 
@@ -127,4 +130,83 @@ func resolveModel(cliModel, bankModel, epModel string) string {
 		}
 	}
 	return "tev1"
+}
+
+// resolveImages normalizes attached images to raw base64: each entry must be a
+// local PNG/JPEG/WebP file or a base64 data: URI. CLI --image wins over
+// bank.images; blank entries are skipped. When maxEdge > 0 every image is
+// downscaled so its longest edge is at most maxEdge pixels before encoding,
+// which cuts vision tokens and decision latency.
+func resolveImages(cliImages, bankImages []string, maxEdge int) ([]string, error) {
+	inputs := cliImages
+	if len(inputs) == 0 {
+		inputs = bankImages
+	}
+	if len(inputs) == 0 {
+		return nil, nil
+	}
+	images := make([]string, 0, len(inputs))
+	for _, in := range inputs {
+		in = strings.TrimSpace(in)
+		if in == "" {
+			continue
+		}
+		data, label, err := imageInputBytes(in)
+		if err != nil {
+			return nil, err
+		}
+		if maxEdge > 0 {
+			resized, ok, resizeErr := service.ResizeImageBytes(data, maxEdge)
+			switch {
+			case resizeErr != nil:
+				fmt.Fprintf(os.Stderr, "Warning: resize %s: %v (sending original)\n", label, resizeErr)
+			case ok:
+				if options.Shared.Verbose {
+					fmt.Fprintf(os.Stderr, "Resized %s to longest edge %dpx\n", label, maxEdge)
+				}
+				data = resized
+			}
+		}
+		images = append(images, base64.StdEncoding.EncodeToString(data))
+	}
+	return images, nil
+}
+
+// imageInputBytes resolves one --image entry to raw image bytes plus a label
+// for diagnostics: a validated local file or a base64 data: URI.
+func imageInputBytes(in string) ([]byte, string, error) {
+	switch {
+	case service.IsFile(in):
+		data, err := service.ReadImageFile(in)
+		return data, in, err
+	case strings.HasPrefix(in, "data:"):
+		b64, err := stripDataURIBase64(in)
+		if err != nil {
+			return nil, "data URI", err
+		}
+		data, err := base64.StdEncoding.DecodeString(b64)
+		if err != nil {
+			return nil, "data URI", fmt.Errorf("decode data URI: %w", err)
+		}
+		return data, "data URI", nil
+	default:
+		return nil, in, fmt.Errorf("image %q is not a local PNG/JPEG/WebP file or data URI (the decision API does not accept URLs; download the image first)", in)
+	}
+}
+
+// stripDataURIBase64 extracts the raw base64 payload from a data: URI.
+// The bytes themselves are not re-validated; the provider decodes them.
+func stripDataURIBase64(uri string) (string, error) {
+	comma := strings.Index(uri, ",")
+	if comma < 0 {
+		return "", fmt.Errorf("invalid data URI: missing comma")
+	}
+	if !strings.Contains(uri[:comma], ";base64") {
+		return "", fmt.Errorf("data URI must be base64-encoded")
+	}
+	payload := uri[comma+1:]
+	if payload == "" {
+		return "", fmt.Errorf("data URI contains no data")
+	}
+	return payload, nil
 }

@@ -15,6 +15,8 @@ aigc-cli decision [flags]
 | `--json <path\|inline-json\|->` | Question bank (JSON or JSONC). Accepts a file path, an inline JSON string, or `-` for stdin. Falls back to `defaults.decision.bank` when omitted |
 | `--questions a,b,c` | Filter which named questions to answer (comma-separated, repeatable). Omit to answer **all** questions in the bank |
 | `--state <text\|path\|->` | Material to judge. Accepts literal text, a file path, or `-` for stdin. If the content is a valid JSON object or array, it is sent as structured state; otherwise as a plain string |
+| `--image <path\|data-uri>` | Attach an image (PNG/JPEG/WebP) scored jointly with the state; repeatable. Accepts a local file or a base64 data URI. Requires Clef / Clef-Flash on Ollama >= 0.35.1 |
+| `--image-resize <px>` | Downscale attached images so the longest edge is at most N px before sending. Default `1024`; `0` keeps the original. This is what actually cuts latency — see [Images](#images-multimodal) |
 | `--list` | List the question names available in the bank, then exit |
 | `--dry-run` | Print the equivalent curl request without calling the API |
 | `-P, --provider` | (global) Switch named provider, e.g. `ollama` or `openrouter` |
@@ -28,6 +30,7 @@ The bank file is JSON or JSONC (`//` comments and trailing commas allowed). Top-
 |---|---|---|---|
 | `model` | string | no | Overrides the default model |
 | `state` | string / object / array | no | Default state; overridden by `--state` |
+| `images` | array of strings | no | Default images (local paths or base64 data URIs); overridden by `--image` |
 | `questions` | object | yes | Named question map, 1–64 entries |
 
 Each question has:
@@ -49,6 +52,36 @@ A full example is in [examples/decision/triage.json](examples/decision/triage.js
 | `score` | `score` (probability-weighted level, may be fractional), `legend` (index → label), `probabilities`, `confidence` |
 
 > `confidence` measures how concentrated the probability distribution is, **not** the chance the answer is correct.
+
+### Images (multimodal)
+
+Decision models (Clef / Clef-Flash, Ollama >= 0.35.1) can also judge images. Attach them with `--image` (repeatable); every image is shared by **all** questions in the request and scored jointly with the text `state`:
+
+```bash
+aigc-cli decision -m clef-flash --image form.png --questions complete,type --state "The agent wants to submit the attached form."
+```
+
+Images are sent in request order. Local PNG/JPEG/WebP files are encoded automatically; base64 `data:` URIs are stripped to raw base64.
+
+#### Latency and `--image-resize`
+
+A decision model's cost is driven by **pixel dimensions, not file size** — the image becomes vision tokens, and the model scores everything in one forward pass. Re-compressing an image (lower quality or smaller file) does **not** help; only downscaling does:
+
+| Input | input_tokens | Latency |
+|---|---|---|
+| text only | 164 | ~1s |
+| 2848×1600 PNG (2.4 MB) | ~4100 | ~47s |
+| same image re-encoded q75/q40 (same pixels) | ~4100 | ~47s |
+| **2848×1600 downscaled to 1024px** | ~800 | ~6s |
+| downscaled to 768px | ~570 | ~4s |
+
+`--image-resize` (default `1024`) downscales the longest edge before sending, preserving aspect ratio and format, and never upscaling. Pass `--image-resize 0` to send originals, or a larger value (e.g. `1600`) when fine detail matters.
+
+```bash
+# A large screenshot is auto-downscaled to 1024px → much faster
+aigc-cli decision -m clef-flash --image screenshot.png --state "Judge the attached screenshot."
+aigc-cli decision -m clef-flash --image screenshot.png --image-resize 768 --state "Judge the attached screenshot."
+```
 
 ## Output
 
@@ -77,7 +110,7 @@ Endpoint paths **differ per provider**. This project has only end-to-end-verifie
 |---|---|---|---|
 | TypeSafe AI | https://docs.typesafe.ai/api | https://api.typesafe.ai | POST https://api.typesafe.ai/v1/systemone |
 | OpenRouter | https://openrouter.ai/docs/guides/community/typesafe-sdk | https://openrouter.ai/api/v1 | POST https://openrouter.ai/api/v1/systemone |
-| Ollama (>= 0.35.0) | https://ollama.com/library/tev1 | http://localhost:11434 | POST http://localhost:11434/v1/systemone |
+| Ollama (>= 0.35.0; images need >= 0.35.1) | https://ollama.com/library/tev1 | http://localhost:11434 | POST http://localhost:11434/v1/systemone |
 | LLM Gateway | https://docs.llmgateway.io/features/system-one | https://api.llmgateway.io/v1 | POST https://api.llmgateway.io/v1/systemone |
 | LiteLLM proxy | https://docs.litellm.ai/docs/pass_through/typesafe | `{proxy}/typesafe` | POST `{proxy}/typesafe/v1/systemone` |
 
@@ -90,7 +123,7 @@ Endpoint paths **differ per provider**. This project has only end-to-end-verifie
 CLI flags > JSON (bank) > defaults.decision YAML > code defaults
 ```
 
-When `--json` ships alongside other flags, every flag you **explicitly set** overrides the matching key in the bank; untouched fields are kept as written. With `--json` alone, the bank is sent verbatim.
+When `--json` ships alongside other flags, every flag you **explicitly set** overrides the matching key in the bank; untouched fields are kept as written. With `--json` alone, the bank is sent verbatim. `--image` overrides the bank's `images` array.
 
 ## Examples
 
@@ -121,6 +154,8 @@ aigc-cli decision --questions intent --state state.txt --dry-run
 - `choice` and `score` accept 2–26 options; tev1 was trained on 2–24, so **stay in 2–24**.
 - 1–64 questions per request; request body ≤ 64 KiB.
 - tev1 runs at ~2000 tokens of context — keep the state short.
+- Images require **Clef / Clef-Flash** (Ollama >= 0.35.1); text-only models reject them. The API accepts only **raw base64**: local files are encoded for you, `data:` URIs are stripped/converted, and `http(s)` URLs are **rejected** — download the image first. A bad image file (corrupt, non-image, > 32 MiB) is rejected before the request is sent.
+- Image latency is driven by **pixel dimensions, not file bytes** — only `--image-resize` (default 1024px) speeds things up. Re-compressing (lower quality / smaller file) does **not** reduce tokens. Set `--image-resize 0` to send originals.
 - If none of the options might fit, **add a `none` / `other` option**. The model cannot say "none of the above" unless you give it one.
 - tev1 is built on a **Qwen3.5** base (`ollama show tev1` → `arch qwen35`), and non-English works in our smoke tests (see the Chinese bank in `docs/zh/examples/decision/triage.json`). The vendor's evaluation is English-only, though, so treat non-English as **unsupported** — pair it with a `confidence` threshold and a human fallback.
 - Prompt-injection coverage is limited; treat the state as data, never as instructions.
