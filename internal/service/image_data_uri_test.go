@@ -109,6 +109,18 @@ func TestImageToDataURI(t *testing.T) {
 	})
 }
 
+// sample.jpg is a valid progressive JPEG that the jpegli wasm decoder panics
+// on; validation must not crash the process (see validateLocalImage).
+func TestValidateLocalImageRecoversFromDecoderPanic(t *testing.T) {
+	path := filepath.Join("..", "face", "testdata", "sample.jpg")
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("fixture unavailable: %v", err)
+	}
+	if err := validateLocalImage(path); err != nil {
+		t.Errorf("validateLocalImage(%s) = %v, want nil for a valid JPEG", path, err)
+	}
+}
+
 func TestLocalFilesToDataURI(t *testing.T) {
 	dir := t.TempDir()
 	pngBytes := testPNG(t)
