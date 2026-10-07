@@ -37,6 +37,11 @@ func KnowledgeDefaults() *types.KBDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.KBDefaults { return d.Knowledgebase })
 }
 
+// IdeasDefaults returns defaults.ideas, or nil.
+func IdeasDefaults() *types.IdeasConfig {
+	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.IdeasConfig { return d.Ideas })
+}
+
 // MidjourneyDefaults returns defaults.midjourney, or nil.
 func MidjourneyDefaults() *types.MidjourneyDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.MidjourneyDefaults { return d.Midjourney })

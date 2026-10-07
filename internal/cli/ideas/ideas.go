@@ -130,7 +130,7 @@ func run(d Deps, args []string, f *cmdFlags) error {
 	default:
 		var lists [][]ideas.IdeaEntry
 		if ideas.HasLocal(sources) {
-			embedder, embErr := options.BuildIdeasEmbedder(d.Cfg)
+			embedder, embErr := options.BuildIdeasEmbedder(ideasConfig(d.Cfg))
 			if embErr != nil {
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", embErr)
 			}

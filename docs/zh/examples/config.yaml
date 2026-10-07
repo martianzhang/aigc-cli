@@ -195,6 +195,14 @@ defaults:
   #   embedding_provider: ollama                  # 留空 / local / onnx / hash，或 config.providers 里的名字
   #   embedding_model: embeddinggemma-2:270m     # embedding 模型 id（命名 provider 必填；纯文本用 :270m/:570m 即可）
 
+  # ── 可选：灵感检索（ideas）──
+  # 配置 embedding_provider 才启用语义检索（BM25 + 向量 RRF 融合）；留空则纯关键词。
+  # 文本 embedding 用纯文本小模型即可：embeddinggemma-2:270m（378MB）/ :570m（990MB）。
+  # ideas:
+  #   data_path: "~/.config/aigc-cli/ideas/ideas.json"  # 提示词数据集路径
+  #   embedding_provider: ollama                         # 留空 / local / onnx / hash，或 config.providers 里的名字
+  #   embedding_model: embeddinggemma-2:270m
+
   # ── 可选：Web 搜索引擎 ──
   # 声明多个 provider 供 kb search 自动 fallback。
   # 也可通过 --provider 参数临时切换。
@@ -216,15 +224,6 @@ defaults:
 
   # ── 可选：强制走本地 ONNX（无需配 provider）──
   # 命令行 aigc-cli ocr scan x.png --provider local 即可
-
-# ── 可选：灵感检索（ideas，顶层配置，不在 defaults 下）──
-# 配置 embedding_provider 才启用语义检索（BM25 + 向量 RRF 融合）；留空则纯关键词。
-# 文本 embedding 用纯文本小模型即可：embeddinggemma-2:270m（378MB）/ :570m（990MB）；
-# :latest / :740m 是多模态大模型，纯文本场景用不上。
-# ideas:
-#   data_path: "~/.config/aigc-cli/ideas/ideas.json"  # 提示词数据集路径
-#   embedding_provider: ollama                         # 留空 / local / onnx / hash，或 config.providers 里的名字
-#   embedding_model: embeddinggemma-2:270m
 
 # ── 典型配置场景 ──
 

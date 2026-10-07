@@ -45,9 +45,17 @@ func ideasDir() (string, error) {
 	return filepath.Join(home, ".config", "aigc-cli"), nil
 }
 
+// ideasConfig returns defaults.ideas, or nil.
+func ideasConfig(cfg *types.Config) *types.IdeasConfig {
+	if cfg == nil || cfg.Defaults == nil {
+		return nil
+	}
+	return cfg.Defaults.Ideas
+}
+
 func resolveDataPath(cfg *types.Config) string {
-	if cfg != nil && cfg.Ideas != nil && cfg.Ideas.DataPath != "" {
-		return cfg.Ideas.DataPath
+	if ic := ideasConfig(cfg); ic != nil && ic.DataPath != "" {
+		return ic.DataPath
 	}
 	dir, err := ideasDir()
 	if err != nil {
@@ -61,8 +69,8 @@ func resolveDataPath(cfg *types.Config) string {
 }
 
 func dataSavePath(cfg *types.Config) string {
-	if cfg != nil && cfg.Ideas != nil && cfg.Ideas.DataPath != "" {
-		return cfg.Ideas.DataPath
+	if ic := ideasConfig(cfg); ic != nil && ic.DataPath != "" {
+		return ic.DataPath
 	}
 	dir, err := ideasDir()
 	if err != nil {

@@ -75,7 +75,6 @@ type Config struct {
 	OutputDir    string                        `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
 	Timeout      *int                          `mapstructure:"timeout" yaml:"timeout,omitempty"`
 	Defaults     *ConfigDefaults               `mapstructure:"defaults" yaml:"defaults,omitempty"`
-	Ideas        *IdeasConfig                  `mapstructure:"ideas" yaml:"ideas,omitempty"`
 	Detect       *DetectConfig                 `mapstructure:"detect" yaml:"detect,omitempty"`
 	Background   *BackgroundConfig             `mapstructure:"background" yaml:"background,omitempty"`
 	WebSearch    map[string]*WebSearchProvider `mapstructure:"web_search" yaml:"web_search,omitempty"`
@@ -135,6 +134,7 @@ type ConfigDefaults struct {
 	OCR           *OCRDefaults        `mapstructure:"ocr" yaml:"ocr,omitempty"`
 	Vision        *VisionDefaults     `mapstructure:"vision" yaml:"vision,omitempty"`
 	Knowledgebase *KBDefaults         `mapstructure:"knowledgebase" yaml:"knowledgebase,omitempty"`
+	Ideas         *IdeasConfig        `mapstructure:"ideas" yaml:"ideas,omitempty"`
 	Decision      *DecisionDefaults   `mapstructure:"decision" yaml:"decision,omitempty"`
 }
 

@@ -134,9 +134,10 @@ aigc-cli ideas "cat" > my-ideas.md
 默认是 BM25 关键词检索。在顶层 `ideas` 配置里指定 `embedding_provider` + `embedding_model` 后，会额外用向量做语义召回，并与关键词结果用 RRF 融合——**用词不同也能命中**（例如搜「清晨宁静的自然风景」命中 `serene mountain lake at sunrise`）。
 
 ```yaml
-ideas:
-  embedding_provider: ollama            # 留空 / local / onnx / hash，或 config.providers 里的名字
-  embedding_model: embeddinggemma-2:270m
+defaults:
+  ideas:
+    embedding_provider: ollama            # 留空 / local / onnx / hash，或 config.providers 里的名字
+    embedding_model: embeddinggemma-2:270m
 ```
 
 - 文本 embedding 用**纯文本小模型**即可：`embeddinggemma-2:270m`（378MB）或 `:570m`（990MB）；`:latest` / `:740m` 是多模态大模型，纯文本场景用不上。

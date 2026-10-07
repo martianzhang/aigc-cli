@@ -28,7 +28,7 @@ func writeIdeasFixture(t *testing.T, entries []ideas.IdeaEntry) string {
 }
 
 func localDeps(dataPath string) Deps {
-	return Deps{Cfg: &types.Config{Ideas: &types.IdeasConfig{DataPath: dataPath}}, OutputDir: filepath.Join(os.TempDir(), "aigc-ideas-test")}
+	return Deps{Cfg: &types.Config{Defaults: &types.ConfigDefaults{Ideas: &types.IdeasConfig{DataPath: dataPath}}}, OutputDir: filepath.Join(os.TempDir(), "aigc-ideas-test")}
 }
 
 func fixtureEntries() []ideas.IdeaEntry {

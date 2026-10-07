@@ -54,9 +54,10 @@ Notes:
 By default search is BM25 keyword-only. Set `embedding_provider` + `embedding_model` in the top-level `ideas` config to add semantic recall fused with the keyword results via RRF — matches surface even when the wording differs (e.g. "calm nature scenery in the early morning" finds `serene mountain lake at sunrise`).
 
 ```yaml
-ideas:
-  embedding_provider: ollama            # "" / local / onnx / hash, or a name in config.providers
-  embedding_model: embeddinggemma-2:270m
+defaults:
+  ideas:
+    embedding_provider: ollama            # "" / local / onnx / hash, or a name in config.providers
+    embedding_model: embeddinggemma-2:270m
 ```
 
 - Text embeddings need only a small **text-only** model: `embeddinggemma-2:270m` (378MB) or `:570m` (990MB); `:latest` / `:740m` are multimodal and unnecessary for text.

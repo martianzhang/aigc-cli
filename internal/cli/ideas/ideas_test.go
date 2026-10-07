@@ -208,7 +208,7 @@ func createDefaultIdeasFile(t *testing.T, home string) string {
 
 func TestResolveDataPath_configOverride(t *testing.T) {
 	withTempHome(t)
-	cfg := &types.Config{Ideas: &types.IdeasConfig{DataPath: "/custom/ideas.json"}}
+	cfg := &types.Config{Defaults: &types.ConfigDefaults{Ideas: &types.IdeasConfig{DataPath: "/custom/ideas.json"}}}
 	if got := resolveDataPath(cfg); got != "/custom/ideas.json" {
 		t.Errorf("resolveDataPath() = %q, want %q", got, "/custom/ideas.json")
 	}
@@ -224,7 +224,7 @@ func TestResolveDataPath_nilConfigMissingFile(t *testing.T) {
 func TestResolveDataPath_nilIdeasMissingFile(t *testing.T) {
 	withTempHome(t)
 	if got := resolveDataPath(&types.Config{}); got != "" {
-		t.Errorf("resolveDataPath(cfg) = %q, want empty when cfg.Ideas is nil and default file is missing", got)
+		t.Errorf("resolveDataPath(cfg) = %q, want empty when defaults.ideas is nil and default file is missing", got)
 	}
 }
 
@@ -241,7 +241,7 @@ func TestResolveDataPath_defaultFileExists(t *testing.T) {
 
 func TestDataSavePath_configOverride(t *testing.T) {
 	withTempHome(t)
-	cfg := &types.Config{Ideas: &types.IdeasConfig{DataPath: "/custom/ideas.json"}}
+	cfg := &types.Config{Defaults: &types.ConfigDefaults{Ideas: &types.IdeasConfig{DataPath: "/custom/ideas.json"}}}
 	if got := dataSavePath(cfg); got != "/custom/ideas.json" {
 		t.Errorf("dataSavePath() = %q, want %q", got, "/custom/ideas.json")
 	}
