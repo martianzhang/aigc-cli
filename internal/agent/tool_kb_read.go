@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/martianzhang/aigc-cli/internal/knowledge"
 )
 
 func KbList(kbDir, argsJSON string) string {
@@ -15,7 +13,7 @@ func KbList(kbDir, argsJSON string) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 
-	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	store, err := openAgentKBStore(kbDir)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
@@ -58,7 +56,7 @@ func KbShow(kbDir, argsJSON string) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 
-	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	store, err := openAgentKBStore(kbDir)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}

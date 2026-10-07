@@ -23,7 +23,11 @@ func knowledgeBaseDir() string {
 }
 
 func openKBStore() (*knowledge.Store, error) {
-	return knowledge.OpenStore(kbDir(), 384, nil)
+	embedder, err := options.BuildKBEmbedder()
+	if err != nil {
+		return nil, err
+	}
+	return knowledge.OpenStore(kbDir(), 384, embedder)
 }
 
 // ----- Tool definitions -----
@@ -251,7 +255,10 @@ func kbSearchHandler() server.ToolHandlerFunc {
 		}
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-		embedder := knowledge.NewHashEmbedder(384)
+		embedder, err := options.BuildKBEmbedder()
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("embedder: %v", err)), nil
+		}
 		out := fmt.Sprintf("Searched for %q, found and saved %d result(s):\n\n", query, len(urls))
 
 		for _, rawURL := range urls {
@@ -283,13 +290,14 @@ func kbSearchHandler() server.ToolHandlerFunc {
 			knowledge.SaveDocFile(kbDir(), "", docID, result.Title, result.Content)
 
 			rawChunks := chunker.Chunk(result.Content)
-			embeddings := make([]knowledge.Embedding, len(rawChunks))
+			contents := make([]string, len(rawChunks))
 			for i, c := range rawChunks {
-				emb, err := embedder.Embed(c.Content)
-				if err != nil {
-					continue
-				}
-				embeddings[i] = emb
+				contents[i] = c.Content
+			}
+			embeddings, err := knowledge.EmbedAll(embedder, contents)
+			if err != nil {
+				out += fmt.Sprintf("  \u274c %s: embed error: %v\n", result.Title, err)
+				continue
 			}
 			if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 				out += fmt.Sprintf("  \u274c %s: chunk save error: %v\n", result.Title, err)
@@ -350,16 +358,19 @@ func kbAddHandler() server.ToolHandlerFunc {
 		knowledge.SaveDocFile(kbDir(), "", docID, title, content)
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-		embedder := knowledge.NewHashEmbedder(384)
+		embedder, err := options.BuildKBEmbedder()
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("embedder: %v", err)), nil
+		}
 
 		rawChunks := chunker.Chunk(content)
-		embeddings := make([]knowledge.Embedding, len(rawChunks))
+		contents := make([]string, len(rawChunks))
 		for i, c := range rawChunks {
-			emb, err := embedder.Embed(c.Content)
-			if err != nil {
-				continue
-			}
-			embeddings[i] = emb
+			contents[i] = c.Content
+		}
+		embeddings, err := knowledge.EmbedAll(embedder, contents)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("embed: %v", err)), nil
 		}
 		if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("save chunks: %v", err)), nil
@@ -411,16 +422,19 @@ func kbFetchHandler() server.ToolHandlerFunc {
 		knowledge.SaveDocFile(kbDir(), "", docID, result.Title, result.Content)
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-		embedder := knowledge.NewHashEmbedder(384)
+		embedder, err := options.BuildKBEmbedder()
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("embedder: %v", err)), nil
+		}
 
 		rawChunks := chunker.Chunk(result.Content)
-		embeddings := make([]knowledge.Embedding, len(rawChunks))
+		contents := make([]string, len(rawChunks))
 		for i, c := range rawChunks {
-			emb, err := embedder.Embed(c.Content)
-			if err != nil {
-				continue
-			}
-			embeddings[i] = emb
+			contents[i] = c.Content
+		}
+		embeddings, err := knowledge.EmbedAll(embedder, contents)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("embed: %v", err)), nil
 		}
 		if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("save chunks: %v", err)), nil

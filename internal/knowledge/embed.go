@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"fmt"
 	"hash/fnv"
 	"math"
 	"strings"
@@ -37,6 +38,9 @@ func NewHashEmbedder(dim int) *HashEmbedder {
 // Dim returns the embedding dimension.
 func (h *HashEmbedder) Dim() int { return h.dim }
 
+// Name identifies this backend for the stored embedder fingerprint.
+func (h *HashEmbedder) Name() string { return fmt.Sprintf("hash:%d", h.dim) }
+
 // Embed generates a 384-d embedding for the given text.
 func (h *HashEmbedder) Embed(text string) (Embedding, error) {
 	ngrams := h.extractNGrams(text)
@@ -62,7 +66,7 @@ func (h *HashEmbedder) Embed(text string) (Embedding, error) {
 		}
 	}
 
-	var emb Embedding
+	var emb = make(Embedding, h.dim)
 	for i := 0; i < h.dim && i < len(vec); i++ {
 		emb[i] = float32(vec[i])
 	}
@@ -189,8 +193,8 @@ func tokenizeWords(text string) []string {
 	return words
 }
 
-// NormalizeEmbedding normalizes an embedding vector to unit length.
-func NormalizeEmbedding(e *Embedding) {
+// NormalizeEmbedding normalizes an embedding vector to unit length in place.
+func NormalizeEmbedding(e Embedding) {
 	var norm float64
 	for _, v := range e {
 		norm += float64(v) * float64(v)
@@ -204,15 +208,17 @@ func NormalizeEmbedding(e *Embedding) {
 	}
 }
 
-// MeanEmbedding computes the mean of multiple embeddings.
+// MeanEmbedding computes the element-wise mean of embeddings.
 func MeanEmbedding(embeddings []Embedding) Embedding {
 	if len(embeddings) == 0 {
 		return Embedding{}
 	}
-	var sum Embedding
+	sum := make(Embedding, len(embeddings[0]))
 	for _, e := range embeddings {
 		for i := range sum {
-			sum[i] += e[i]
+			if i < len(e) {
+				sum[i] += e[i]
+			}
 		}
 	}
 	n := float32(len(embeddings))

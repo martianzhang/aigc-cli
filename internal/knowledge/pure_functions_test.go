@@ -81,7 +81,7 @@ func TestCoreStructRoundtrips(t *testing.T) {
 		t.Errorf("Chunk roundtrip mismatch: %+v", chunk)
 	}
 
-	var emb Embedding
+	emb := make(Embedding, 384)
 	emb[0] = 1.5
 	emb[383] = -2.5
 	if emb[0] != 1.5 || emb[383] != -2.5 {

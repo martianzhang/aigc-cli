@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 )
 
@@ -23,7 +24,7 @@ func KbAdd(kbDir, argsJSON string) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 
-	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	store, err := openAgentKBStore(kbDir)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
@@ -54,15 +55,18 @@ func KbAdd(kbDir, argsJSON string) string {
 	}
 
 	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-	embedder := knowledge.NewHashEmbedder(384)
+	embedder, err := options.BuildKBEmbedder()
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
 	rawChunks := chunker.Chunk(content)
-	embeddings := make([]knowledge.Embedding, len(rawChunks))
+	contents := make([]string, len(rawChunks))
 	for i, c := range rawChunks {
-		emb, err := embedder.Embed(c.Content)
-		if err != nil {
-			continue
-		}
-		embeddings[i] = emb
+		contents[i] = c.Content
+	}
+	embeddings, err := knowledge.EmbedAll(embedder, contents)
+	if err != nil {
+		return fmt.Sprintf("Error embedding: %v", err)
 	}
 	if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 		return fmt.Sprintf("Error saving chunks: %v", err)
@@ -86,7 +90,7 @@ func KbFetch(kbDir, argsJSON string) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 
-	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	store, err := openAgentKBStore(kbDir)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
@@ -115,15 +119,18 @@ func KbFetch(kbDir, argsJSON string) string {
 	}
 
 	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-	embedder := knowledge.NewHashEmbedder(384)
+	embedder, err := options.BuildKBEmbedder()
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
 	rawChunks := chunker.Chunk(result.Content)
-	embeddings := make([]knowledge.Embedding, len(rawChunks))
+	contents := make([]string, len(rawChunks))
 	for i, c := range rawChunks {
-		emb, err := embedder.Embed(c.Content)
-		if err != nil {
-			continue
-		}
-		embeddings[i] = emb
+		contents[i] = c.Content
+	}
+	embeddings, err := knowledge.EmbedAll(embedder, contents)
+	if err != nil {
+		return fmt.Sprintf("Error embedding: %v", err)
 	}
 	if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 		return fmt.Sprintf("Error saving chunks: %v", err)

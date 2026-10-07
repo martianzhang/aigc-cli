@@ -10,13 +10,17 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/search"
 )
 
 func fetchSearchResults(store *knowledge.Store, cmd *cobra.Command, results []search.Result, query, project string, verbose bool) error {
 	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-	embedder := knowledge.NewHashEmbedder(384)
+	embedder, err := options.BuildKBEmbedder()
+	if err != nil {
+		return fmt.Errorf("embedder: %w", err)
+	}
 
 	for _, sr := range results {
 		if verbose {
@@ -59,13 +63,16 @@ func fetchSearchResults(store *knowledge.Store, cmd *cobra.Command, results []se
 				knowledge.SaveDocFile(kbBaseDir, project, docID, fetchResult.Title, fetchResult.Content)
 
 				rawChunks := chunker.Chunk(fetchResult.Content)
-				embeddings := make([]knowledge.Embedding, len(rawChunks))
+				contents := make([]string, len(rawChunks))
 				for i, c := range rawChunks {
-					emb, err := embedder.Embed(c.Content)
-					if err != nil {
-						continue
+					contents[i] = c.Content
+				}
+				embeddings, err := knowledge.EmbedAll(embedder, contents)
+				if err != nil {
+					if verbose {
+						fmt.Fprintf(os.Stderr, "    Error embedding: %v\n", err)
 					}
-					embeddings[i] = emb
+					continue
 				}
 				if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 					if verbose {

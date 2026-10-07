@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/vault"
 	"github.com/spf13/cobra"
@@ -36,7 +37,10 @@ func fetchToKB(cmd *cobra.Command, args []string) error {
 	defer store.Close()
 
 	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-	embedder := knowledge.NewHashEmbedder(384)
+	embedder, err := options.BuildKBEmbedder()
+	if err != nil {
+		return fmt.Errorf("embedder: %w", err)
+	}
 	project := detectProject(cmd)
 
 	for _, url := range args {
@@ -72,13 +76,14 @@ func fetchToKB(cmd *cobra.Command, args []string) error {
 		knowledge.SaveDocFile(kbBaseDir, project, docID, result.Title, result.Content)
 
 		rawChunks := chunker.Chunk(result.Content)
-		embeddings := make([]knowledge.Embedding, len(rawChunks))
+		contents := make([]string, len(rawChunks))
 		for i, c := range rawChunks {
-			emb, err := embedder.Embed(c.Content)
-			if err != nil {
-				continue
-			}
-			embeddings[i] = emb
+			contents[i] = c.Content
+		}
+		embeddings, err := knowledge.EmbedAll(embedder, contents)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  Error embedding: %v\n", err)
+			continue
 		}
 		if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 			fmt.Fprintf(os.Stderr, "  Error saving chunks: %v\n", err)
@@ -105,7 +110,10 @@ func fetchToVault(args []string) error {
 	}
 
 	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-	embedder := knowledge.NewHashEmbedder(384)
+	embedder, err := options.BuildKBEmbedder()
+	if err != nil {
+		return fmt.Errorf("embedder: %w", err)
+	}
 
 	for _, url := range args {
 		fmt.Fprintf(os.Stderr, "  Fetching: %s\n", url)
@@ -135,13 +143,14 @@ func fetchToVault(args []string) error {
 
 		// Store vectors for search
 		rawChunks := chunker.Chunk(result.Content)
-		embeddings := make([]knowledge.Embedding, len(rawChunks))
+		contents := make([]string, len(rawChunks))
 		for i, c := range rawChunks {
-			emb, err := embedder.Embed(c.Content)
-			if err != nil {
-				continue
-			}
-			embeddings[i] = emb
+			contents[i] = c.Content
+		}
+		embeddings, err := knowledge.EmbedAll(embedder, contents)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  Error embedding: %v\n", err)
+			continue
 		}
 		if err := store.SaveVaultEmbeddings(docID, embeddings); err != nil {
 			fmt.Fprintf(os.Stderr, "  Error saving vectors: %v\n", err)

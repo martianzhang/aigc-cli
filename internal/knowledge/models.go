@@ -29,8 +29,10 @@ type Chunk struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// Embedding is a 384-dimensional vector.
-type Embedding [384]float32
+// Embedding is a vector whose length is the embedder's dimension. It is
+// variable because the backend is pluggable (hash=384, ONNX=384, API models
+// vary, e.g. embeddinggemma-2=768).
+type Embedding []float32
 
 // SearchResult holds one hit from a search.
 type SearchResult struct {
@@ -50,6 +52,35 @@ func (s SearchResults) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 type Embedder interface {
 	Embed(text string) (Embedding, error)
 	Dim() int
+}
+
+// BatchEmbedder is implemented by embedders that can embed several texts in a
+// single round trip. EmbedAll uses it when available.
+type BatchEmbedder interface {
+	EmbedBatch(texts []string) ([]Embedding, error)
+}
+
+// NamedEmbedder reports a stable identifier (type + model + dim) used to detect
+// a changed backend so a stale index can be flagged for re-indexing.
+type NamedEmbedder interface {
+	Name() string
+}
+
+// EmbedAll embeds texts in one batch call when the embedder supports it, and
+// falls back to per-text calls otherwise.
+func EmbedAll(e Embedder, texts []string) ([]Embedding, error) {
+	if b, ok := e.(BatchEmbedder); ok {
+		return b.EmbedBatch(texts)
+	}
+	out := make([]Embedding, len(texts))
+	for i, t := range texts {
+		emb, err := e.Embed(t)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = emb
+	}
+	return out, nil
 }
 
 // ChunkOptions configures the chunking strategy.

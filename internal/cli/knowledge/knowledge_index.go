@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/spf13/cobra"
 )
@@ -28,7 +29,10 @@ embedding model, or after manually copying files into docs/.`,
 		defer store.Close()
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-		embedder := knowledge.NewHashEmbedder(384)
+		embedder, err := options.BuildKBEmbedder()
+		if err != nil {
+			return fmt.Errorf("embedder: %w", err)
+		}
 
 		docsDir := filepath.Join(kbBaseDir, "docs")
 		info, err := os.Stat(docsDir)
@@ -104,13 +108,13 @@ embedding model, or after manually copying files into docs/.`,
 			}
 
 			rawChunks := chunker.Chunk(content)
-			embeddings := make([]knowledge.Embedding, len(rawChunks))
+			contents := make([]string, len(rawChunks))
 			for i, c := range rawChunks {
-				emb, err := embedder.Embed(c.Content)
-				if err != nil {
-					return fmt.Errorf("embed: %w", err)
-				}
-				embeddings[i] = emb
+				contents[i] = c.Content
+			}
+			embeddings, err := knowledge.EmbedAll(embedder, contents)
+			if err != nil {
+				return fmt.Errorf("embed: %w", err)
 			}
 			if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 				return fmt.Errorf("save chunks: %w", err)

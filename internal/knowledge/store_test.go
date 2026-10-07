@@ -217,49 +217,41 @@ func TestSortResults(t *testing.T) {
 	})
 }
 
+func emb(vals ...float32) Embedding { return Embedding(vals) }
+
 func TestEmbeddingBlobEdgeCases(t *testing.T) {
-	t.Run("nil blob yields zero embedding", func(t *testing.T) {
-		got := blobToEmbedding(nil)
-		if got != (Embedding{}) {
-			t.Error("blobToEmbedding(nil) should be the zero embedding")
+	t.Run("nil blob yields empty embedding", func(t *testing.T) {
+		if got := blobToEmbedding(nil); len(got) != 0 {
+			t.Errorf("blobToEmbedding(nil) = %v, want empty", got)
 		}
 	})
 
 	t.Run("blob length matches embedding dimension", func(t *testing.T) {
-		var e Embedding
+		e := make(Embedding, 384)
 		e[0] = 1.5
 		e[383] = -2.25
 		blob := embeddingToBlob(e)
 		if len(blob) != 384*4 {
 			t.Fatalf("embeddingToBlob length = %d, want %d", len(blob), 384*4)
 		}
-		if back := blobToEmbedding(blob); back != e {
+		if !reflect.DeepEqual(blobToEmbedding(blob), e) {
 			t.Error("roundtrip through blob changed embedding values")
 		}
 	})
 
 	t.Run("partial blob fills leading elements", func(t *testing.T) {
-		var e Embedding
-		e[0] = 3
-		e[1] = 4
-		blob := embeddingToBlob(e)[:8]
+		blob := embeddingToBlob(emb(3, 4))
 		got := blobToEmbedding(blob)
-		if got[0] != 3 || got[1] != 4 {
-			t.Errorf("leading elements = (%v, %v), want (3, 4)", got[0], got[1])
-		}
-		if got[2] != 0 {
-			t.Errorf("got[2] = %v, want 0 for bytes not present in blob", got[2])
+		if len(got) != 2 || got[0] != 3 || got[1] != 4 {
+			t.Errorf("blobToEmbedding = %v, want (3, 4)", got)
 		}
 	})
 
-	t.Run("oversized blob ignores extra bytes", func(t *testing.T) {
-		var e Embedding
-		e[0] = 1
-		blob := embeddingToBlob(e)
-		oversized := append(blob, blob[:16]...)
-		got := blobToEmbedding(oversized)
-		if got[0] != 1 {
-			t.Errorf("got[0] = %v, want 1", got[0])
+	t.Run("blob decodes every float it holds", func(t *testing.T) {
+		blob := append(embeddingToBlob(emb(1, 2)), embeddingToBlob(emb(3, 4))...)
+		got := blobToEmbedding(blob)
+		if len(got) != 4 || !reflect.DeepEqual(got, emb(1, 2, 3, 4)) {
+			t.Errorf("blobToEmbedding = %v, want (1, 2, 3, 4)", got)
 		}
 	})
 }
@@ -272,10 +264,11 @@ func TestCosineSimilarityEdgeCases(t *testing.T) {
 		want float64
 	}{
 		{"zero vs zero", Embedding{}, Embedding{}, 0},
-		{"zero vs unit", Embedding{}, func() Embedding { var e Embedding; e[0] = 1; return e }(), 0},
-		{"identical", func() Embedding { var e Embedding; e[0] = 1; return e }(), func() Embedding { var e Embedding; e[0] = 1; return e }(), 1},
-		{"opposite", func() Embedding { var e Embedding; e[0] = 1; return e }(), func() Embedding { var e Embedding; e[0] = -1; return e }(), -1},
-		{"orthogonal", func() Embedding { var e Embedding; e[0] = 1; return e }(), func() Embedding { var e Embedding; e[1] = 1; return e }(), 0},
+		{"zero vs unit", Embedding{}, emb(1), 0},
+		{"identical", emb(1), emb(1), 1},
+		{"opposite", emb(1), emb(-1), -1},
+		{"orthogonal", emb(1, 0), emb(0, 1), 0},
+		{"mismatched dimensions", emb(1, 2, 3), emb(1, 2), 0},
 	}
 
 	for _, tt := range tests {

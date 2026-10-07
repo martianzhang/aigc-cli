@@ -111,18 +111,33 @@ aigc-cli kb list                     # 默认只列当前项目
 搜索分两种模式：
 
 1. **FTS5 关键词搜索**——精确匹配，任何语言都能搜
-2. **ONNX 向量搜索**——基于 `multilingual-e5-small` 模型（384 维），理解语义
+2. **向量搜索**——语义理解；embedding 后端可插拔：内置 ONNX（multilingual-e5-small，384 维）、本地 Ollama，或任意 OpenAI 兼容的 `/v1/embeddings` 厂商
 
 两者并行执行，结果融合排序。向量结果默认最低相似度 0.8，低于此的自动过滤。可在配置中调整：
 
 ```yaml
 defaults:
   knowledgebase:
-    min_score: 0.5    # 降低阈值，召回更多结果
-    # min_score: 0    # 关闭过滤
+    min_score: 0.5    # 阈值越低召回越多（默认 0.8）
+    embedding_provider: ollama        # 留空 / local / onnx / hash，或 config.providers 里的名字
+    embedding_model: embeddinggemma-2 # 模型 id（命名 provider 必填）
 ```
 
-首次 `kb init` 会自动下载 embedding 模型（~130MB）。有 CGO 时启用 ONNX 推理，无 CGO 时自动降级为 HashEmbedder。
+首次 `kb init` 会自动下载内置 embedding 模型（~130MB）。有 CGO 时启用 ONNX 推理，无 CGO 时降级为 HashEmbedder；配置了 `embedding_provider` 时改用该后端（见下）。
+
+## Embedding 后端
+
+语义检索的**入库与查询必须用同一个后端**，由 `defaults.knowledgebase.embedding_provider` + `embedding_model` 选择：
+
+| `embedding_provider` | 后端 |
+|---|---|
+| 留空 / `local` / `onnx` | 内置 ONNX E5；ONNX 不可用时降级为纯 Go Hash embedder |
+| `hash` | 纯 Go n-gram 哈希（无需模型，质量低） |
+| `config.providers` 里的任意名字 | OpenAI 兼容的 `/v1/embeddings`——本地 Ollama 或在线厂商 |
+
+命名 provider 提供 `base_url` / `api_key` / `http_proxy`；`embedding_model` 填厂商模型 id（Ollama 用 `embeddinggemma-2`，OpenAI 用 `text-embedding-3-small`）。一篇文档的所有 chunk 在一次批量请求里完成 embedding。
+
+> 更换后端会改变向量维度，旧向量不再匹配。`kb` 检测到不一致会告警——执行 `aigc-cli kb reset` 并重新添加文档以重建索引。
 
 ## 外部加载器
 

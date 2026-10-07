@@ -83,9 +83,11 @@ type Config struct {
 	ToolsDisable []string                      `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
 }
 
-// IdeasConfig controls the ideas prompt data path.
+// IdeasConfig controls the ideas prompt data path and embedding backend.
 type IdeasConfig struct {
-	DataPath string `mapstructure:"data_path" yaml:"data_path,omitempty"`
+	DataPath          string `mapstructure:"data_path" yaml:"data_path,omitempty"`
+	EmbeddingProvider string `mapstructure:"embedding_provider" yaml:"embedding_provider,omitempty"`
+	EmbeddingModel    string `mapstructure:"embedding_model" yaml:"embedding_model,omitempty"`
 }
 
 // DetectConfig controls the AIGC detection behavior.
@@ -138,11 +140,13 @@ type ConfigDefaults struct {
 
 // KBDefaults holds default values for the knowledge base.
 type KBDefaults struct {
-	BaseDir        string            `mapstructure:"base_dir" yaml:"base_dir,omitempty"`
-	SearchProvider string            `mapstructure:"search_provider" yaml:"search_provider,omitempty"`
-	MinScore       float64           `mapstructure:"min_score" yaml:"min_score,omitempty"`
-	AutoSave       *bool             `mapstructure:"auto_save" yaml:"auto_save,omitempty"` // nil=true (save to KB)
-	Loaders        map[string]string `mapstructure:"loaders" yaml:"loaders,omitempty"`
+	BaseDir           string            `mapstructure:"base_dir" yaml:"base_dir,omitempty"`
+	SearchProvider    string            `mapstructure:"search_provider" yaml:"search_provider,omitempty"`
+	MinScore          float64           `mapstructure:"min_score" yaml:"min_score,omitempty"`
+	AutoSave          *bool             `mapstructure:"auto_save" yaml:"auto_save,omitempty"` // nil=true (save to KB)
+	Loaders           map[string]string `mapstructure:"loaders" yaml:"loaders,omitempty"`
+	EmbeddingProvider string            `mapstructure:"embedding_provider" yaml:"embedding_provider,omitempty"`
+	EmbeddingModel    string            `mapstructure:"embedding_model" yaml:"embedding_model,omitempty"`
 }
 
 // WebSearchProvider defines a web search engine configuration.

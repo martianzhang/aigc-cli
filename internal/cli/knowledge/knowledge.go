@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
@@ -101,33 +100,15 @@ func ensureKBDir() error {
 	return nil
 }
 
-// onnxLibPath returns the path to the ONNX Runtime shared library.
-func onnxLibPath() string {
-	var name string
-	switch runtime.GOOS {
-	case "darwin":
-		name = "libonnxruntime.dylib"
-	case "linux":
-		name = "libonnxruntime.so"
-	default:
-		name = "onnxruntime.dll"
-	}
-	modelsDir := filepath.Join(options.ConfigDir(), "models")
-	path := filepath.Join(modelsDir, name)
-	if _, err := os.Stat(path); err == nil {
-		return path
-	}
-	return ""
-}
-
-// openKBStore opens the knowledge base store with the best available embedder.
+// openKBStore opens the knowledge base store with the configured embedder.
 func openKBStore() (*knowledge.Store, error) {
 	if err := ensureKBDir(); err != nil {
 		return nil, err
 	}
-	modelsDir := filepath.Join(options.ConfigDir(), "models")
-	libPath := onnxLibPath()
-	embedder := knowledge.BestEmbedder(modelsDir, libPath)
+	embedder, err := options.BuildKBEmbedder()
+	if err != nil {
+		return nil, err
+	}
 	store, err := knowledge.OpenStore(kbBaseDir, 384, embedder)
 	if err != nil {
 		return nil, err

@@ -200,6 +200,14 @@ defaults:
   #   search_provider: duckduckgo                 # kb search 引擎：duckduckgo / firecrawl / brave / doubao
   #   auto_save: true                             # kb search 结果是否自动存入 KB（默认 true）
   #   min_score: 0.8                              # 向量搜索结果最低相似度（默认0.8，设0关闭）
+  #   embedding_provider: ollama                  # 留空 / local / onnx / hash，或 config.providers 里的名字
+  #   embedding_model: embeddinggemma-2           # embedding 模型 id（命名 provider 必填）
+
+  # ── 可选：灵感检索（ideas）──
+  # ideas:
+  #   data_path: "~/.config/aigc-cli/ideas/ideas.json"  # 提示词数据集路径
+  #   embedding_provider: ollama                         # 语义检索的 embedding 后端（取值同 knowledgebase）
+  #   embedding_model: embeddinggemma-2
 
   # ── 可选：Web 搜索引擎 ──
   # 声明多个 provider 供 kb search 自动 fallback。

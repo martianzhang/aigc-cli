@@ -28,7 +28,7 @@
 | 🔄 | **视频任务持久化** | OpenRouter 提交→轮询→下载全流程，`--job-id` 超时后一键恢复。 |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，零成本学习和调试。 |
 | ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台。 |
-| 📚 | **本地知识库** | FTS5 + ONNX 语义搜索，age 加密保险箱，web search 自动入库，MCP/Chat 工具集成。 |
+| 📚 | **本地知识库** | FTS5 + 可插拔语义搜索（ONNX / Ollama / OpenAI 兼容 embedding），age 加密保险箱，web search 自动入库，MCP/Chat 工具集成。 |
 | 👁️ | **OCR & 视觉** | 离线 DBNet+CRNN 文字识别。图片描述支持本地 EXIF 或在线视觉 LLM。 |
 | 🖼️ | **背景去除** | RMBG 2.0 语义分割，纯离线 ONNX，无需 API Key。 |
 | 📏 | **深度图** | `depth`：本地 Depth Anything V2 ONNX 转灰度深度图（图片/视频），用于深度引导图生视频。 |
@@ -107,7 +107,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 | 🔄 | **视频任务持久化** | OpenRouter 提交→轮询→下载全流程，超时后 `--job-id` 一键恢复 |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
 | ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台 |
-| 📚 | **本地知识库** | FTS5 + ONNX 语义搜索，age 加密保险箱，web search 自动入库，MCP/Chat 工具集成 |
+| 📚 | **本地知识库** | FTS5 + 可插拔语义搜索（ONNX / Ollama / OpenAI 兼容 embedding），age 加密保险箱，web search 自动入库，MCP/Chat 工具集成 |
 | 🧮 | **强类型决策** | 本地 Ollama（tev1/nimble）或在线 OpenRouter Jev 跑强类型决策（选择 / 是非 / 评分），支持题库、概率校准与多模态图片决策（Clef / Clef-Flash，自动缩放），离线零成本 |
 
 ---
@@ -163,7 +163,7 @@ aigc-cli
 │   └── mj     别名，同上
 ├── chat       AI 对话 / 交互式 REPL / Agent Loop（工具调用）              →  docs/guide-chat.md
 ├── ideas / idea 提示词灵感搜索（本地数据集 + 在线提示词库）              →  docs/zh/guide-ideas.md
-├── knowledgebase / kb  本地知识库（FTS5 + 语义搜索 + ONNX embedding）    →  docs/guide-knowledgebase.md
+├── knowledgebase / kb  本地知识库（FTS5 + 语义搜索，embedding 可插拔）    →  docs/guide-knowledgebase.md
 ├── models / model                                                          →  docs/guide-model.md
 │   └── --price    查看模型定价
 ├── task       查询异步任务状态（兼容 APIMart 异步任务）

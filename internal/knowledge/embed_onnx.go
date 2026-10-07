@@ -181,6 +181,9 @@ func (e *ONNXEmbedder) Embed(text string) (Embedding, error) {
 
 func (e *ONNXEmbedder) Dim() int { return e.dim }
 
+// Name identifies this backend for the stored embedder fingerprint.
+func (e *ONNXEmbedder) Name() string { return "onnx:" + EmbedModelID }
+
 func (e *ONNXEmbedder) Close() {
 	if e.session != nil {
 		e.session.Destroy()

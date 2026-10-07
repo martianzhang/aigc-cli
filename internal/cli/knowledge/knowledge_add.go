@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/vault"
 	"github.com/spf13/cobra"
@@ -39,7 +40,10 @@ Use --recursive/-r to add all supported files in a directory.`,
 		defer store.Close()
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-		embedder := knowledge.NewHashEmbedder(384)
+		embedder, err := options.BuildKBEmbedder()
+		if err != nil {
+			return fmt.Errorf("embedder: %w", err)
+		}
 
 		var files []string
 		for _, arg := range args {
@@ -86,7 +90,7 @@ func init() {
 
 // processAndStoreFile reads a file, chunks it, embeds it, and stores it.
 // loaders is an optional map of extension→command for external loaders.
-func processAndStoreFile(store *knowledge.Store, chunker *knowledge.Chunker, embedder *knowledge.HashEmbedder, filePath, project string, loaders map[string]string) error {
+func processAndStoreFile(store *knowledge.Store, chunker *knowledge.Chunker, embedder knowledge.Embedder, filePath, project string, loaders map[string]string) error {
 	title, content, err := knowledge.LoadFile(filePath)
 	if err != nil {
 		// Try external loader for unsupported file types
@@ -131,13 +135,13 @@ func processAndStoreFile(store *knowledge.Store, chunker *knowledge.Chunker, emb
 	rawChunks := chunker.Chunk(content)
 
 	// Embed each chunk
-	embeddings := make([]knowledge.Embedding, len(rawChunks))
+	contents := make([]string, len(rawChunks))
 	for i, c := range rawChunks {
-		emb, err := embedder.Embed(c.Content)
-		if err != nil {
-			return fmt.Errorf("embed chunk %d: %w", i, err)
-		}
-		embeddings[i] = emb
+		contents[i] = c.Content
+	}
+	embeddings, err := knowledge.EmbedAll(embedder, contents)
+	if err != nil {
+		return fmt.Errorf("embed chunks: %w", err)
 	}
 
 	// Store
@@ -163,7 +167,10 @@ func addToVault(args []string) error {
 	}
 
 	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-	embedder := knowledge.NewHashEmbedder(384)
+	embedder, err := options.BuildKBEmbedder()
+	if err != nil {
+		return fmt.Errorf("embedder: %w", err)
+	}
 
 	for _, arg := range args {
 		data, err := os.ReadFile(arg)
@@ -191,13 +198,14 @@ func addToVault(args []string) error {
 
 		// Chunk, embed, and store vectors only (no plaintext for vault)
 		rawChunks := chunker.Chunk(content)
-		embeddings := make([]knowledge.Embedding, len(rawChunks))
+		contents := make([]string, len(rawChunks))
 		for i, c := range rawChunks {
-			emb, err := embedder.Embed(c.Content)
-			if err != nil {
-				continue
-			}
-			embeddings[i] = emb
+			contents[i] = c.Content
+		}
+		embeddings, err := knowledge.EmbedAll(embedder, contents)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error embedding: %s: %v\n", arg, err)
+			continue
 		}
 		if err := store.SaveVaultEmbeddings(docID, embeddings); err != nil {
 			fmt.Fprintf(os.Stderr, "Error saving vectors: %s: %v\n", arg, err)

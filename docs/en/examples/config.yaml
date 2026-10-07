@@ -201,6 +201,14 @@ defaults:
   #   search_provider: duckduckgo                 # kb search engine: duckduckgo / firecrawl / brave / doubao
   #   auto_save: true                             # Auto-save kb search results to KB (default: true)
   #   min_score: 0.8                              # Minimum similarity for vector search (default 0.8, 0 to disable)
+  #   embedding_provider: ollama                  # "" / local / onnx / hash, or a name in config.providers
+  #   embedding_model: embeddinggemma-2           # embedding model id (required for a named provider)
+
+  # ── Optional: Idea search (ideas) ──
+  # ideas:
+  #   data_path: "~/.config/aigc-cli/ideas/ideas.json"  # prompt dataset path
+  #   embedding_provider: ollama                         # semantic-search embedding backend (same values as knowledgebase)
+  #   embedding_model: embeddinggemma-2
 
   # ── Optional: Web Search Providers ──
   # Declare multiple providers for kb search auto-fallback.

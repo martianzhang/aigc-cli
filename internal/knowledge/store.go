@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -15,13 +16,19 @@ import (
 type Store struct {
 	db       *sql.DB
 	dim      int
-	embedder Embedder // optional ONNX embedder; nil = use HashEmbedder
+	embedder Embedder // nil = HashEmbedder fallback
 	minScore float64  // minimum score threshold for vector results (default 0.8)
 }
 
-// OpenStore opens (or creates) the knowledge base database.
-// If embedder is nil, HashEmbedder is used for vector search.
+// OpenStore opens (or creates) the knowledge base database. When embedder is
+// non-nil its dimension wins; otherwise dim is used (0 → 384, the hash default).
 func OpenStore(baseDir string, dim int, embedder Embedder) (*Store, error) {
+	if embedder != nil && embedder.Dim() > 0 {
+		dim = embedder.Dim()
+	}
+	if dim <= 0 {
+		dim = 384
+	}
 	dbPath := filepath.Join(baseDir, "knowledge.db")
 	db, err := sql.Open("sqlite", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
@@ -32,7 +39,51 @@ func OpenStore(baseDir string, dim int, embedder Embedder) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migrate store: %w", err)
 	}
+	if err := s.checkEmbedder(dim, embedder); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return s, nil
+}
+
+// checkEmbedder records the embedder fingerprint and warns when a non-empty
+// index was built with a different backend, so stale vectors are not silently
+// compared against a new embedding space.
+func (s *Store) checkEmbedder(dim int, embedder Embedder) error {
+	fp := embedderFingerprint(embedder, dim)
+	var stored string
+	err := s.db.QueryRow("SELECT value FROM meta WHERE key='embedder'").Scan(&stored)
+	if err == sql.ErrNoRows {
+		_, err = s.db.Exec("INSERT INTO meta(key,value) VALUES('embedder',?)", fp)
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	if stored != fp && s.hasEmbeddings() {
+		fmt.Fprintf(os.Stderr, "Warning: knowledge base indexed with %s but queried with %s; run \"aigc-cli kb reset\" and re-add documents to rebuild the index\n", stored, fp)
+	}
+	return nil
+}
+
+// embedderFingerprint identifies the embedding backend for change detection.
+func embedderFingerprint(embedder Embedder, dim int) string {
+	if embedder == nil {
+		return fmt.Sprintf("hash:%d", dim)
+	}
+	if n, ok := embedder.(NamedEmbedder); ok {
+		return n.Name()
+	}
+	return fmt.Sprintf("unknown:%d", dim)
+}
+
+// hasEmbeddings reports whether any vectors are stored.
+func (s *Store) hasEmbeddings() bool {
+	var n int
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM embeddings").Scan(&n); err != nil {
+		return false
+	}
+	return n > 0
 }
 
 // Close closes the database.
@@ -87,6 +138,11 @@ CREATE TABLE IF NOT EXISTS search_quota (
     total       INTEGER,
     period      TEXT,
     period_start TEXT
+);
+
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
 );
 `
 
@@ -389,55 +445,31 @@ func (s *Store) SearchFTS(query string, limit int, project string) ([]SearchResu
 // SearchVector performs brute-force cosine similarity search over all embeddings,
 // optionally filtered by project.
 func (s *Store) SearchVector(target Embedding, limit int, project string) ([]SearchResult, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	var rows *sql.Rows
-	var err error
-	if project == "" {
-		rows, err = s.db.Query(`
-			SELECT c.id, c.doc_id, c.chunk_index, c.content, c.heading, c.created_at,
-			       d.id, COALESCE(d.url,''), COALESCE(d.filepath,''),
-			       COALESCE(d.title,''), COALESCE(d.project,''), d.size, d.created_at, d.updated_at,
-			       0.0
-			FROM embeddings e
-			JOIN chunks c ON e.chunk_id = c.id
-			JOIN documents d ON e.doc_id = d.id
-			ORDER BY cosine_similarity(e.vector, ?) DESC
-			LIMIT ?`, embeddingToBlob(target), limit)
-	} else {
-		projectVal := project
-		if projectVal == "global" {
-			projectVal = ""
-		}
-		rows, err = s.db.Query(`
-			SELECT c.id, c.doc_id, c.chunk_index, c.content, c.heading, c.created_at,
-			       d.id, COALESCE(d.url,''), COALESCE(d.filepath,''),
-			       COALESCE(d.title,''), COALESCE(d.project,''), d.size, d.created_at, d.updated_at,
-			       0.0
-			FROM embeddings e
-			JOIN chunks c ON e.chunk_id = c.id
-			JOIN documents d ON e.doc_id = d.id
-			WHERE d.project = ?
-			ORDER BY cosine_similarity(e.vector, ?) DESC
-			LIMIT ?`, projectVal, embeddingToBlob(target), limit)
-	}
-	if err != nil {
-		return s.searchVectorGo(target, limit, project)
-	}
-	defer rows.Close()
-	return scanResults(rows)
+	return s.searchVectorGo(target, limit, project)
 }
 
 // searchVectorGo performs brute-force cosine similarity in Go.
 func (s *Store) searchVectorGo(target Embedding, limit int, project string) ([]SearchResult, error) {
-	rows, err := s.db.Query(`
+	if limit <= 0 {
+		limit = 20
+	}
+	query := `
 		SELECT e.vector, c.id, c.doc_id, c.chunk_index, c.content, c.heading, c.created_at,
 		       d.id, COALESCE(d.url,''), COALESCE(d.filepath,''),
 		       COALESCE(d.title,''), COALESCE(d.project,''), d.size, d.created_at, d.updated_at
 		FROM embeddings e
 		JOIN chunks c ON e.chunk_id = c.id
-		JOIN documents d ON e.doc_id = d.id`)
+		JOIN documents d ON e.doc_id = d.id`
+	var args []any
+	if project != "" {
+		projectVal := project
+		if projectVal == "global" {
+			projectVal = ""
+		}
+		query += " WHERE d.project = ?"
+		args = append(args, projectVal)
+	}
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -504,11 +536,8 @@ func embeddingToBlob(e Embedding) []byte {
 }
 
 func blobToEmbedding(b []byte) Embedding {
-	var e Embedding
 	n := len(b) / 4
-	if n > len(e) {
-		n = len(e)
-	}
+	e := make(Embedding, n)
 	for i := 0; i < n; i++ {
 		e[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
 	}
@@ -516,8 +545,11 @@ func blobToEmbedding(b []byte) Embedding {
 }
 
 func cosineSimilarity(a, b Embedding) float64 {
+	if len(a) != len(b) || len(a) == 0 {
+		return 0
+	}
 	var dot, na, nb float64
-	for i := 0; i < 384; i++ {
+	for i := range a {
 		dot += float64(a[i]) * float64(b[i])
 		na += float64(a[i]) * float64(a[i])
 		nb += float64(b[i]) * float64(b[i])

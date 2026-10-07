@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -17,7 +18,7 @@ func TestHashEmbedder_Deterministic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("embed: %v", err)
 	}
-	if v1 != v2 {
+	if !reflect.DeepEqual(v1, v2) {
 		t.Error("embeddings not deterministic for same input")
 	}
 }
@@ -33,7 +34,7 @@ func TestHashEmbedder_DifferentInputs(t *testing.T) {
 	e := NewHashEmbedder(384)
 	v1, _ := e.Embed("cat")
 	v2, _ := e.Embed("dog")
-	if v1 == v2 {
+	if reflect.DeepEqual(v1, v2) {
 		t.Error("different inputs should produce different embeddings")
 	}
 }
@@ -130,7 +131,8 @@ func TestParseSearchQuery(t *testing.T) {
 }
 
 func TestCosineSimilarity(t *testing.T) {
-	var a, b Embedding
+	a := make(Embedding, 384)
+	b := make(Embedding, 384)
 	a[0] = 1
 	b[1] = 1
 	s := cosineSimilarity(a, b)
@@ -140,6 +142,9 @@ func TestCosineSimilarity(t *testing.T) {
 	s = cosineSimilarity(a, a)
 	if s < 0.99 {
 		t.Errorf("same vector should have near-1 similarity, got %f", s)
+	}
+	if cosineSimilarity(a, make(Embedding, 2)) != 0 {
+		t.Error("mismatched dimensions should score 0")
 	}
 }
 
@@ -255,13 +260,13 @@ func TestStore_ListDocuments(t *testing.T) {
 }
 
 func TestEmbeddingBlobRoundtrip(t *testing.T) {
-	var orig Embedding
+	orig := make(Embedding, 384)
 	for i := 0; i < 384; i++ {
 		orig[i] = float32(i) / 384.0
 	}
 	blob := embeddingToBlob(orig)
 	restored := blobToEmbedding(blob)
-	if orig != restored {
+	if !reflect.DeepEqual(orig, restored) {
 		t.Error("embedding roundtrip produced different result")
 	}
 }
@@ -289,10 +294,10 @@ func TestCountTokens(t *testing.T) {
 }
 
 func TestNormalizeEmbedding(t *testing.T) {
-	var e Embedding
+	e := make(Embedding, 2)
 	e[0] = 3
 	e[1] = 4
-	NormalizeEmbedding(&e)
+	NormalizeEmbedding(e)
 	var norm float64
 	for _, v := range e {
 		norm += float64(v) * float64(v)
@@ -303,7 +308,8 @@ func TestNormalizeEmbedding(t *testing.T) {
 }
 
 func TestMeanEmbedding(t *testing.T) {
-	var e1, e2 Embedding
+	e1 := make(Embedding, 5)
+	e2 := make(Embedding, 5)
 	e1[1] = 1
 	e1[2] = 2
 	e2[1] = 3

@@ -28,7 +28,7 @@ Generate, detect, and manage AI content from the terminal. Supports OpenAI, Open
 | 🔄 | **Video Job Persistence** | OpenRouter submit → poll → download pipeline. `--job-id` resume after timeout. |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` prints the equivalent curl command for any API call. Learn and debug without cost. |
 | ⚡ | **Go Binary** | `go install` one command. No runtime deps. Cross-platform. |
-| 📚 | **Knowledge Base** | FTS5 + ONNX semantic search, age-encrypted vault, web search auto-import, MCP/Chat tools. |
+| 📚 | **Knowledge Base** | FTS5 + pluggable semantic search (ONNX / Ollama / OpenAI-compatible embeddings), age-encrypted vault, web search auto-import, MCP/Chat tools. |
 | 👁️ | **OCR & Vision** | Offline DBNet+CRNN text recognition. Image captioning via local EXIF or online vision LLM. |
 | 🖼️ | **Background Removal** | RMBG 2.0 semantic segmentation. Pure local ONNX, no API key. |
 | 📏 | **Depth Map** | `depth`: local Depth Anything V2 ONNX → grayscale depth map (image or video) for depth-guided image-to-video. |
@@ -107,7 +107,7 @@ AI agents can generate images/videos/music, run Midjourney, OCR, search the idea
 | 🔄 | **Video Job Persistence** | OpenRouter submit → poll → download full pipeline, `--job-id` one-key resume after timeout |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` prints equivalent curl commands, zero-friction API learning and debugging |
 | ⚡ | **Go Single Binary** | `go install` one-command install, no runtime dependencies, cross-platform |
-| 📚 | **Local Knowledge Base** | FTS5 + ONNX semantic search, age-encrypted vault, web search auto-import, MCP/Chat tool integration |
+| 📚 | **Local Knowledge Base** | FTS5 + pluggable semantic search (ONNX / Ollama / OpenAI-compatible embeddings), age-encrypted vault, web search auto-import, MCP/Chat tool integration |
 | 🧮 | **Decision Models** | Run typed decisions (choice / yes-no / rating) locally with Ollama (tev1/nimble) or remotely via OpenRouter Jev — question banks, calibrated probabilities, multimodal image decisions (Clef / Clef-Flash, auto-resized), zero cost offline |
 
 ---
@@ -163,7 +163,7 @@ aigc-cli
 │   └── mj     Alias for midjourney
 ├── chat      AI chat / Interactive REPL / Agent Loop (tool calling)                  →  docs/en/guide-chat.md
 ├── ideas / idea  Prompt idea search (local dataset + online libraries)                →  docs/en/guide-ideas.md
-├── knowledgebase / kb  Local knowledge base (FTS5 + semantic search + ONNX embedding) →  docs/en/guide-knowledgebase.md
+├── knowledgebase / kb  Local knowledge base (FTS5 + semantic search, pluggable embeddings) →  docs/en/guide-knowledgebase.md
 ├── models / model                                                                    →  docs/en/guide-commands.md
 │   └── --price    View model pricing
 ├── task       Query async task status (APIMart compatible)

@@ -31,7 +31,7 @@ aigc-cli kb find "machine learning"
 aigc-cli kb search "latest AI news"
 ```
 
-Uses FTS5 full-text search and ONNX semantic search (E5 multilingual embedding).
+Uses FTS5 full-text search plus semantic vector search. The embedding backend is pluggable — the built-in ONNX model (E5 multilingual), a local Ollama model, or any OpenAI-compatible `/v1/embeddings` vendor — see [Embedding backend](#embedding-backend).
 
 ## Web Search
 
@@ -135,6 +135,27 @@ aigc-cli kb list --vault   # List vault documents
 
 > The vault uses the CLI's **local encryption master key** (an age identity). It is generated automatically on the first run of any `aigc-cli` command and stored in the system keyring — `kb init` no longer creates it. On headless/CI hosts, set `AIGC_CLI_MASTER_KEY` (see the installation guide).
 
+## Embedding backend
+
+Semantic search embeds documents and queries with the **same** backend, chosen by `defaults.knowledgebase.embedding_provider` + `embedding_model`:
+
+```yaml
+defaults:
+  knowledgebase:
+    embedding_provider: ollama        # "" / local / onnx / hash, or a named provider
+    embedding_model: embeddinggemma-2
+```
+
+| `embedding_provider` | Backend |
+|---|---|
+| *(unset)* / `local` / `onnx` | Built-in ONNX E5; falls back to the pure-Go hash embedder when ONNX is unavailable |
+| `hash` | Pure-Go n-gram hash embedder (no model, low quality) |
+| any name in `config.providers` | OpenAI-compatible `/v1/embeddings` — local Ollama or an online vendor |
+
+A named provider supplies its `base_url` / `api_key` / `http_proxy`; set `embedding_model` to the vendor's model id (e.g. `embeddinggemma-2` for Ollama, `text-embedding-3-small` for OpenAI). All chunks of a document are embedded in one batched request.
+
+> Changing the backend changes the embedding dimension, so existing vectors no longer match. `kb` prints a warning on a mismatch — run `aigc-cli kb reset` and re-add documents to rebuild the index.
+
 ## Configuration
 
 ```yaml
@@ -144,6 +165,8 @@ defaults:
     search_provider: duckduckgo
     auto_save: true          # Auto-save web search results to KB
     min_score: 0.8           # Minimum similarity for vector search
+    embedding_provider: ollama        # "" / local / onnx / hash, or a named provider
+    embedding_model: embeddinggemma-2 # embedding model id (required for a named provider)
 ```
 
 ## MCP / Chat Tools

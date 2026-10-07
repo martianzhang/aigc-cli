@@ -7,8 +7,19 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 )
+
+// openAgentKBStore opens the KB store with the configured embedder, so agent
+// retrieval uses the same embedding space the documents were indexed with.
+func openAgentKBStore(kbDir string) (*knowledge.Store, error) {
+	embedder, err := options.BuildKBEmbedder()
+	if err != nil {
+		return nil, err
+	}
+	return knowledge.OpenStore(kbDir, 384, embedder)
+}
 
 func KbFind(kbDir, argsJSON string) string {
 	var args struct {
@@ -30,7 +41,7 @@ func KbFind(kbDir, argsJSON string) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 
-	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	store, err := openAgentKBStore(kbDir)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
@@ -107,7 +118,7 @@ func KbSearch(kbDir, argsJSON string) string {
 		return fmt.Sprintf("Error: %v", err)
 	}
 
-	store, err := knowledge.OpenStore(kbDir, 384, nil)
+	store, err := openAgentKBStore(kbDir)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
@@ -124,7 +135,10 @@ func KbSearch(kbDir, argsJSON string) string {
 	}
 
 	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-	embedder := knowledge.NewHashEmbedder(384)
+	embedder, err := options.BuildKBEmbedder()
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
 	var out strings.Builder
 	fmt.Fprintf(&out, "Searched for %q, saved %d result(s):\n", args.Query, len(urls))
 
@@ -155,13 +169,14 @@ func KbSearch(kbDir, argsJSON string) string {
 		}
 
 		rawChunks := chunker.Chunk(result.Content)
-		embeddings := make([]knowledge.Embedding, len(rawChunks))
+		contents := make([]string, len(rawChunks))
 		for i, c := range rawChunks {
-			emb, err := embedder.Embed(c.Content)
-			if err != nil {
-				continue
-			}
-			embeddings[i] = emb
+			contents[i] = c.Content
+		}
+		embeddings, err := knowledge.EmbedAll(embedder, contents)
+		if err != nil {
+			fmt.Fprintf(&out, "\n  \u274c %s: %v", result.Title, err)
+			continue
 		}
 		if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 			fmt.Fprintf(&out, "\n  \u274c %s: %v", result.Title, err)

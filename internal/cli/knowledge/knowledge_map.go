@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/html"
@@ -129,7 +130,10 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 		defer store.Close()
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-		embedder := knowledge.NewHashEmbedder(384)
+		embedder, err := options.BuildKBEmbedder()
+		if err != nil {
+			return fmt.Errorf("embedder: %w", err)
+		}
 		project := detectProject(cmd)
 
 		for _, link := range links {
@@ -177,13 +181,14 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 			knowledge.SaveDocFile(kbBaseDir, project, docID, result.Title, result.Content)
 
 			rawChunks := chunker.Chunk(result.Content)
-			embeddings := make([]knowledge.Embedding, len(rawChunks))
+			contents := make([]string, len(rawChunks))
 			for i, c := range rawChunks {
-				emb, err := embedder.Embed(c.Content)
-				if err != nil {
-					continue
-				}
-				embeddings[i] = emb
+				contents[i] = c.Content
+			}
+			embeddings, err := knowledge.EmbedAll(embedder, contents)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "    Error embedding: %v\n", err)
+				continue
 			}
 			if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 				fmt.Fprintf(os.Stderr, "    Error saving chunks: %v\n", err)
