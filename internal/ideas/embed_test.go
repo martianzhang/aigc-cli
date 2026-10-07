@@ -30,7 +30,7 @@ func TestEmbeddingCacheRoundtrip(t *testing.T) {
 	dataPath := filepath.Join(t.TempDir(), "ideas.json")
 	entries := []IdeaEntry{{Prompt: "a cat"}, {Prompt: "a dog"}}
 
-	vectors, err := LoadOrBuildEmbeddings(entries, fakeEmbedder{}, dataPath, nil)
+	vectors, err := LoadOrBuildEmbeddings(entries, fakeEmbedder{}, dataPath, DefaultEmbedTextMaxRunes, nil)
 	if err != nil {
 		t.Fatalf("LoadOrBuildEmbeddings: %v", err)
 	}
@@ -46,13 +46,13 @@ func TestEmbeddingCacheRoundtrip(t *testing.T) {
 		t.Fatalf("cache file not written: %v", err)
 	}
 
-	if _, ok := loadEmbeddingCache(path, "fake:test", 2, 2, datasetHash(entries)); !ok {
+	if _, ok := loadEmbeddingCache(path, "fake:test", 2, 2, datasetHash(entries, DefaultEmbedTextMaxRunes)); !ok {
 		t.Error("loadEmbeddingCache() = miss, want hit for matching dataset")
 	}
-	if _, ok := loadEmbeddingCache(path, "fake:test", 2, 2, datasetHash(entries[:1])); ok {
+	if _, ok := loadEmbeddingCache(path, "fake:test", 2, 2, datasetHash(entries[:1], DefaultEmbedTextMaxRunes)); ok {
 		t.Error("loadEmbeddingCache() = hit, want miss after the dataset changes")
 	}
-	if _, ok := loadEmbeddingCache(path, "other:model", 2, 2, datasetHash(entries)); ok {
+	if _, ok := loadEmbeddingCache(path, "other:model", 2, 2, datasetHash(entries, DefaultEmbedTextMaxRunes)); ok {
 		t.Error("loadEmbeddingCache() = hit, want miss for a different model")
 	}
 }
@@ -60,7 +60,7 @@ func TestEmbeddingCacheRoundtrip(t *testing.T) {
 func TestSemanticEntriesRanksByCosine(t *testing.T) {
 	dataPath := filepath.Join(t.TempDir(), "ideas.json")
 	entries := []IdeaEntry{{Prompt: "a cat"}, {Prompt: "a dog"}}
-	vectors, err := LoadOrBuildEmbeddings(entries, fakeEmbedder{}, dataPath, nil)
+	vectors, err := LoadOrBuildEmbeddings(entries, fakeEmbedder{}, dataPath, DefaultEmbedTextMaxRunes, nil)
 	if err != nil {
 		t.Fatalf("LoadOrBuildEmbeddings: %v", err)
 	}

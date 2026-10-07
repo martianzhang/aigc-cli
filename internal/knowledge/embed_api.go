@@ -17,7 +17,13 @@ type EmbedConfig struct {
 	BaseURL string
 	APIKey  string
 	Model   string
+	// Timeout is the per-request timeout; 0 uses defaultEmbedTimeout.
+	Timeout time.Duration
 }
+
+// defaultEmbedTimeout bounds one embedding request. A large batch can take a
+// while on a slow local model, so the default is generous.
+const defaultEmbedTimeout = 180 * time.Second
 
 // APIEmbedder calls an OpenAI-compatible /v1/embeddings endpoint.
 type APIEmbedder struct {
@@ -29,7 +35,11 @@ type APIEmbedder struct {
 
 // NewAPIEmbedder builds an HTTP embedder for cfg.BaseURL + cfg.Model.
 func NewAPIEmbedder(cfg EmbedConfig) *APIEmbedder {
-	client := &http.Client{Timeout: 180 * time.Second}
+	timeout := cfg.Timeout
+	if timeout <= 0 {
+		timeout = defaultEmbedTimeout
+	}
+	client := &http.Client{Timeout: timeout}
 	if t := http.DefaultClient.Transport; t != nil {
 		client.Transport = t
 	}

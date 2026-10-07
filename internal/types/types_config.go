@@ -87,6 +87,14 @@ type IdeasConfig struct {
 	DataPath          string `mapstructure:"data_path" yaml:"data_path,omitempty"`
 	EmbeddingProvider string `mapstructure:"embedding_provider" yaml:"embedding_provider,omitempty"`
 	EmbeddingModel    string `mapstructure:"embedding_model" yaml:"embedding_model,omitempty"`
+	// EmbeddingTimeout is the per-request timeout in seconds (default 180).
+	EmbeddingTimeout *int `mapstructure:"embedding_timeout" yaml:"embedding_timeout,omitempty"`
+	// EmbeddingMaxRunes truncates the text sent to the embedder (default 256;
+	// <=0 disables truncation). Shorter text builds the cache faster.
+	EmbeddingMaxRunes *int `mapstructure:"embedding_max_runes" yaml:"embedding_max_runes,omitempty"`
+	// SemanticTopK is how many entries the semantic list contributes to RRF
+	// (default 200; <=0 uses all).
+	SemanticTopK *int `mapstructure:"semantic_top_k" yaml:"semantic_top_k,omitempty"`
 }
 
 // DetectConfig controls the AIGC detection behavior.
@@ -147,6 +155,8 @@ type KBDefaults struct {
 	Loaders           map[string]string `mapstructure:"loaders" yaml:"loaders,omitempty"`
 	EmbeddingProvider string            `mapstructure:"embedding_provider" yaml:"embedding_provider,omitempty"`
 	EmbeddingModel    string            `mapstructure:"embedding_model" yaml:"embedding_model,omitempty"`
+	// EmbeddingTimeout is the per-request timeout in seconds (default 180).
+	EmbeddingTimeout *int `mapstructure:"embedding_timeout" yaml:"embedding_timeout,omitempty"`
 }
 
 // WebSearchProvider defines a web search engine configuration.

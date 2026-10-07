@@ -8,6 +8,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // onlineSearchTimeout bounds the concurrent online source queries. It must
@@ -18,7 +19,7 @@ const onlineSearchTimeout = 12 * time.Second
 // localResults builds the ranked local list, fusing keyword (BM25) and semantic
 // (embedding) ranks when an embedder is configured. The empty flag reports a
 // present-but-empty dataset so the caller can keep the historical message.
-func localResults(dataPath, keywords string, embedder knowledge.Embedder) ([]ideas.IdeaEntry, bool, error) {
+func localResults(dataPath, keywords string, embedder knowledge.Embedder, ic *types.IdeasConfig) ([]ideas.IdeaEntry, bool, error) {
 	entries, err := ideas.LoadIdeas(dataPath)
 	if err != nil {
 		return nil, false, err
@@ -36,12 +37,21 @@ func localResults(dataPath, keywords string, embedder knowledge.Embedder) ([]ide
 	if embedder == nil {
 		return bm25List, false, nil
 	}
-	vectors, err := ideas.LoadOrBuildEmbeddings(entries, embedder, dataPath, ideasProgress)
+	maxRunes, topK := ideas.DefaultEmbedTextMaxRunes, ideas.DefaultSemanticTopK
+	if ic != nil {
+		if ic.EmbeddingMaxRunes != nil {
+			maxRunes = *ic.EmbeddingMaxRunes
+		}
+		if ic.SemanticTopK != nil {
+			topK = *ic.SemanticTopK
+		}
+	}
+	vectors, err := ideas.LoadOrBuildEmbeddings(entries, embedder, dataPath, maxRunes, ideasProgress)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: ideas semantic search disabled: %v\n", err)
 		return bm25List, false, nil
 	}
-	semanticList, err := ideas.SemanticEntries(entries, vectors, embedder, keywords, ideas.SemanticTopK)
+	semanticList, err := ideas.SemanticEntries(entries, vectors, embedder, keywords, topK)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: ideas semantic search disabled: %v\n", err)
 		return bm25List, false, nil

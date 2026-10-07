@@ -203,6 +203,7 @@ defaults:
   #   min_score: 0.8                              # Minimum similarity for vector search (default 0.8, 0 to disable)
   #   embedding_provider: ollama                  # "" / local / onnx / hash, or a name in config.providers
   #   embedding_model: embeddinggemma-2:270m     # embedding model id (required for a named provider; text-only :270m/:570m suffice)
+  #   embedding_timeout: 180                      # per-request embedding timeout in seconds (default 180)
 
   # ── Optional: Idea search (ideas) ──
   # Semantic search (BM25 + vector RRF) turns on only when embedding_provider is set;
@@ -213,6 +214,9 @@ defaults:
   #   data_path: "~/.config/aigc-cli/ideas/ideas.json"  # prompt dataset path
   #   embedding_provider: ollama                         # "" / local / onnx / hash, or a name in config.providers
   #   embedding_model: embeddinggemma-2:270m
+  #   embedding_timeout: 180                             # per-request embedding timeout in seconds (default 180)
+  #   embedding_max_runes: 256                           # truncate embedded text (default 256; <=0 = no truncation, slower)
+  #   semantic_top_k: 200                                # entries the semantic list contributes to RRF (default 200; <=0 = all)
 
   # ── Optional: Web Search Providers ──
   # Declare multiple providers for kb search auto-fallback.

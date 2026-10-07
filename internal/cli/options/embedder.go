@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -22,10 +23,12 @@ const (
 // BuildKBEmbedder builds the knowledge-base embedder from defaults.knowledgebase.
 func BuildKBEmbedder() (knowledge.Embedder, error) {
 	var ref, model string
+	var timeout time.Duration
 	if cfg := KnowledgeDefaults(); cfg != nil {
 		ref, model = cfg.EmbeddingProvider, cfg.EmbeddingModel
+		timeout = secondsOrZero(cfg.EmbeddingTimeout)
 	}
-	return BuildEmbedder(ref, model)
+	return BuildEmbedder(ref, model, timeout)
 }
 
 // BuildIdeasEmbedder builds the ideas embedder from defaults.ideas. It returns a
@@ -33,13 +36,15 @@ func BuildKBEmbedder() (knowledge.Embedder, error) {
 // keyword-only unless semantic retrieval is explicitly enabled.
 func BuildIdeasEmbedder(ic *types.IdeasConfig) (knowledge.Embedder, error) {
 	var ref, model string
+	var timeout time.Duration
 	if ic != nil {
 		ref, model = ic.EmbeddingProvider, ic.EmbeddingModel
+		timeout = secondsOrZero(ic.EmbeddingTimeout)
 	}
 	if ref == "" {
 		return nil, nil
 	}
-	return BuildEmbedder(ref, model)
+	return BuildEmbedder(ref, model, timeout)
 }
 
 // BuildEmbedder constructs the configured embedding backend.
@@ -52,7 +57,8 @@ func BuildIdeasEmbedder(ic *types.IdeasConfig) (knowledge.Embedder, error) {
 //     OpenAI-compatible /v1/embeddings endpoint (Ollama or an online vendor)
 //
 // model is the embedding model id; it is required for a named provider.
-func BuildEmbedder(providerRef, model string) (knowledge.Embedder, error) {
+// timeout is the per-request timeout (0 = the backend default).
+func BuildEmbedder(providerRef, model string, timeout time.Duration) (knowledge.Embedder, error) {
 	modelsDir := filepath.Join(ConfigDir(), "models")
 	switch providerRef {
 	case "":
@@ -70,8 +76,16 @@ func BuildEmbedder(providerRef, model string) (knowledge.Embedder, error) {
 		return nil, err
 	}
 	ep := resolveNamedProvider(providerRef)
-	cfg := &knowledge.EmbedConfig{BaseURL: ep.BaseURL, APIKey: ep.APIKey, Model: model}
+	cfg := &knowledge.EmbedConfig{BaseURL: ep.BaseURL, APIKey: ep.APIKey, Model: model, Timeout: timeout}
 	return knowledge.NewEmbedder(cfg, modelsDir, ONNXLibPath())
+}
+
+// secondsOrZero converts an optional seconds value to a duration (nil → 0).
+func secondsOrZero(secs *int) time.Duration {
+	if secs == nil {
+		return 0
+	}
+	return time.Duration(*secs) * time.Second
 }
 
 // resolveNamedProvider resolves a named provider reference to its effective

@@ -17,12 +17,12 @@ const (
 	// embedCacheMagic carries a format version; bump it to invalidate old caches.
 	embedCacheMagic = "IDEAEMB2"
 	embedBatchSize  = 128
-	// embedTextMaxRunes bounds the text sent to the embedder. Full entries
+	// DefaultEmbedTextMaxRunes bounds the text sent to the embedder. Full entries
 	// average ~1000 runes and embedding cost scales with length, so 256 runes
 	// makes the one-time build ~3x faster with negligible ranking loss.
-	embedTextMaxRunes = 256
-	// SemanticTopK bounds how many entries the semantic list contributes to RRF.
-	SemanticTopK = 200
+	DefaultEmbedTextMaxRunes = 256
+	// DefaultSemanticTopK bounds how many entries the semantic list contributes to RRF.
+	DefaultSemanticTopK = 200
 )
 
 // EmbeddingCachePath returns the cache file for a dataset + model + dim. The
@@ -56,9 +56,10 @@ func sanitizeModel(model string) string {
 }
 
 // LoadOrBuildEmbeddings returns one vector per entry, reusing the on-disk cache
-// when it matches the dataset and model, and (re)building it otherwise. progress,
-// when non-nil, is called after each batch with (done, total).
-func LoadOrBuildEmbeddings(entries []IdeaEntry, embedder knowledge.Embedder, dataPath string, progress func(done, total int)) ([][]float32, error) {
+// when it matches the dataset and model, and (re)building it otherwise. maxRunes
+// truncates the embedded text (<=0 keeps it whole). progress, when non-nil, is
+// called after each batch with (done, total).
+func LoadOrBuildEmbeddings(entries []IdeaEntry, embedder knowledge.Embedder, dataPath string, maxRunes int, progress func(done, total int)) ([][]float32, error) {
 	if len(entries) == 0 {
 		return nil, nil
 	}
@@ -69,7 +70,7 @@ func LoadOrBuildEmbeddings(entries []IdeaEntry, embedder knowledge.Embedder, dat
 	}
 	dim := embedder.Dim()
 	model := embedderName(embedder)
-	hash := datasetHash(entries)
+	hash := datasetHash(entries, maxRunes)
 
 	path, err := EmbeddingCachePath(dataPath, model, dim)
 	if err != nil {
@@ -81,7 +82,7 @@ func LoadOrBuildEmbeddings(entries []IdeaEntry, embedder knowledge.Embedder, dat
 
 	texts := make([]string, len(entries))
 	for i, e := range entries {
-		texts[i] = truncateRunes(searchableText(e), embedTextMaxRunes)
+		texts[i] = truncateRunes(searchableText(e), maxRunes)
 	}
 	vectors := make([][]float32, len(texts))
 	for i := 0; i < len(texts); i += embedBatchSize {
@@ -107,6 +108,9 @@ func LoadOrBuildEmbeddings(entries []IdeaEntry, embedder knowledge.Embedder, dat
 }
 
 func truncateRunes(s string, max int) string {
+	if max <= 0 {
+		return s
+	}
 	r := []rune(s)
 	if len(r) <= max {
 		return s
@@ -147,10 +151,11 @@ func embedderName(e knowledge.Embedder) string {
 	return fmt.Sprintf("%T", e)
 }
 
-func datasetHash(entries []IdeaEntry) uint64 {
+func datasetHash(entries []IdeaEntry, maxRunes int) uint64 {
 	h := fnv.New64a()
+	fmt.Fprintf(h, "maxrunes=%d\x00", maxRunes)
 	for _, e := range entries {
-		h.Write([]byte(searchableText(e)))
+		h.Write([]byte(truncateRunes(searchableText(e), maxRunes)))
 		h.Write([]byte{0})
 	}
 	return h.Sum64()

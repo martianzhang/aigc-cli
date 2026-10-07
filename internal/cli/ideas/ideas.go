@@ -134,7 +134,7 @@ func run(d Deps, args []string, f *cmdFlags) error {
 			if embErr != nil {
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", embErr)
 			}
-			local, empty, err := localResults(dataPath, keywords, embedder)
+			local, empty, err := localResults(dataPath, keywords, embedder, ideasConfig(d.Cfg))
 			if err != nil {
 				return err
 			}

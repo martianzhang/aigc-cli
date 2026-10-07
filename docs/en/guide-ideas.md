@@ -58,6 +58,9 @@ defaults:
   ideas:
     embedding_provider: ollama            # "" / local / onnx / hash, or a name in config.providers
     embedding_model: embeddinggemma-2:270m
+    embedding_timeout: 180                # per-request embedding timeout in seconds (default 180)
+    embedding_max_runes: 256              # truncate embedded text (default 256; smaller = faster; <=0 = no truncation)
+    semantic_top_k: 200                   # entries the semantic list contributes to RRF (default 200; <=0 = all)
 ```
 
 - Text embeddings need only a small **text-only** model: `embeddinggemma-2:270m` (378MB) or `:570m` (990MB); `:latest` / `:740m` are multimodal and unnecessary for text.

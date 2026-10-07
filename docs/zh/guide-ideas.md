@@ -138,6 +138,9 @@ defaults:
   ideas:
     embedding_provider: ollama            # 留空 / local / onnx / hash，或 config.providers 里的名字
     embedding_model: embeddinggemma-2:270m
+    embedding_timeout: 180                # 单次 embedding 请求超时秒数（默认 180）
+    embedding_max_runes: 256              # 入库文本截断长度（默认 256；越小越快，<=0 不截断）
+    semantic_top_k: 200                   # 语义召回参与 RRF 的条数（默认 200；<=0 全部）
 ```
 
 - 文本 embedding 用**纯文本小模型**即可：`embeddinggemma-2:270m`（378MB）或 `:570m`（990MB）；`:latest` / `:740m` 是多模态大模型，纯文本场景用不上。
