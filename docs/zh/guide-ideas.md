@@ -129,6 +129,20 @@ aigc-cli ideas "cat" > my-ideas.md
 
 也可以通过 AI 编程工具（如 OpenCode、Cursor、GitHub Copilot、Claude Code 等）辅助添加 — 本格式说明即为明确的 schema 参考，AI 可据此生成合规的数据条目。
 
+## 语义检索（embedding）
+
+默认是 BM25 关键词检索。在顶层 `ideas` 配置里指定 `embedding_provider` + `embedding_model` 后，会额外用向量做语义召回，并与关键词结果用 RRF 融合——**用词不同也能命中**（例如搜「清晨宁静的自然风景」命中 `serene mountain lake at sunrise`）。
+
+```yaml
+ideas:
+  embedding_provider: ollama            # 留空 / local / onnx / hash，或 config.providers 里的名字
+  embedding_model: embeddinggemma-2:270m
+```
+
+- 文本 embedding 用**纯文本小模型**即可：`embeddinggemma-2:270m`（378MB）或 `:570m`（990MB）；`:latest` / `:740m` 是多模态大模型，纯文本场景用不上。
+- 首次检索会为整个数据集预计算向量，缓存到 `ideas.json` 同级目录（`ideas_emb_<model>_<dim>.bin`），之后秒回；换模型或改数据集会自动重建。
+- 未配置 `embedding_provider` → 保持纯关键词检索（完全向后兼容）。
+
 ## 参数
 
 | 参数 | 短参 | 说明 |

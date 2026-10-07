@@ -4,9 +4,11 @@ package ideas
 import (
 	"fmt"
 	"math/rand"
+	"os"
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -128,7 +130,11 @@ func run(d Deps, args []string, f *cmdFlags) error {
 	default:
 		var lists [][]ideas.IdeaEntry
 		if ideas.HasLocal(sources) {
-			local, empty, err := localResults(dataPath, keywords)
+			embedder, embErr := options.BuildIdeasEmbedder(d.Cfg)
+			if embErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", embErr)
+			}
+			local, empty, err := localResults(dataPath, keywords, embedder)
 			if err != nil {
 				return err
 			}

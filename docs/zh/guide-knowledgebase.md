@@ -121,7 +121,7 @@ defaults:
     min_score: 0.5    # 阈值越低召回越多（默认 0.8）
     # min_score: 0    # 0 = 关闭相似度过滤
     embedding_provider: ollama        # 留空 / local / onnx / hash，或 config.providers 里的名字
-    embedding_model: embeddinggemma-2 # 模型 id（命名 provider 必填）
+    embedding_model: embeddinggemma-2:270m # 模型 id（命名 provider 必填）
 ```
 
 首次 `kb init` 会自动下载内置 embedding 模型（~130MB）。有 CGO 时启用 ONNX 推理，无 CGO 时降级为 HashEmbedder；配置了 `embedding_provider` 时改用该后端（见下）。
@@ -136,7 +136,7 @@ defaults:
 | `hash` | 纯 Go n-gram 哈希（无需模型，质量低） |
 | `config.providers` 里的任意名字 | OpenAI 兼容的 `/v1/embeddings`——本地 Ollama 或在线厂商 |
 
-命名 provider 提供 `base_url` / `api_key` / `http_proxy`；`embedding_model` 填厂商模型 id（Ollama 用 `embeddinggemma-2`，OpenAI 用 `text-embedding-3-small`）。一篇文档的所有 chunk 在一次批量请求里完成 embedding。
+命名 provider 提供 `base_url` / `api_key` / `http_proxy`；`embedding_model` 填厂商模型 id（Ollama 用 `embeddinggemma-2:270m` / `:570m` 等**纯文本小模型**——`:latest` / `:740m` 是多模态大模型，纯文本用不上；OpenAI 用 `text-embedding-3-small`）。一篇文档的所有 chunk 在一次批量请求里完成 embedding。
 
 > 更换后端会改变向量维度，旧向量不再匹配。`kb` 检测到不一致会告警——执行 `aigc-cli kb reset` 并重新添加文档以重建索引。
 

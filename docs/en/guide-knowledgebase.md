@@ -143,7 +143,7 @@ Semantic search embeds documents and queries with the **same** backend, chosen b
 defaults:
   knowledgebase:
     embedding_provider: ollama        # "" / local / onnx / hash, or a named provider
-    embedding_model: embeddinggemma-2
+    embedding_model: embeddinggemma-2:270m
 ```
 
 | `embedding_provider` | Backend |
@@ -152,7 +152,7 @@ defaults:
 | `hash` | Pure-Go n-gram hash embedder (no model, low quality) |
 | any name in `config.providers` | OpenAI-compatible `/v1/embeddings` — local Ollama or an online vendor |
 
-A named provider supplies its `base_url` / `api_key` / `http_proxy`; set `embedding_model` to the vendor's model id (e.g. `embeddinggemma-2` for Ollama, `text-embedding-3-small` for OpenAI). All chunks of a document are embedded in one batched request.
+A named provider supplies its `base_url` / `api_key` / `http_proxy`; set `embedding_model` to the vendor's model id (e.g. the **text-only** `embeddinggemma-2:270m` / `:570m` for Ollama — `:latest` / `:740m` are multimodal and unnecessary for text; `text-embedding-3-small` for OpenAI). All chunks of a document are embedded in one batched request.
 
 > Changing the backend changes the embedding dimension, so existing vectors no longer match. `kb` prints a warning on a mismatch — run `aigc-cli kb reset` and re-add documents to rebuild the index.
 
@@ -166,7 +166,7 @@ defaults:
     auto_save: true          # Auto-save web search results to KB
     min_score: 0.8           # Minimum similarity for vector search (default 0.8; 0 disables filtering)
     embedding_provider: ollama        # "" / local / onnx / hash, or a named provider
-    embedding_model: embeddinggemma-2 # embedding model id (required for a named provider)
+    embedding_model: embeddinggemma-2:270m # embedding model id (required for a named provider)
 ```
 
 ## MCP / Chat Tools

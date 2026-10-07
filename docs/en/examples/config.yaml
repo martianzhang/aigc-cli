@@ -202,13 +202,7 @@ defaults:
   #   auto_save: true                             # Auto-save kb search results to KB (default: true)
   #   min_score: 0.8                              # Minimum similarity for vector search (default 0.8, 0 to disable)
   #   embedding_provider: ollama                  # "" / local / onnx / hash, or a name in config.providers
-  #   embedding_model: embeddinggemma-2           # embedding model id (required for a named provider)
-
-  # ── Optional: Idea search (ideas) ──
-  # ideas:
-  #   data_path: "~/.config/aigc-cli/ideas/ideas.json"  # prompt dataset path
-  #   embedding_provider: ollama                         # semantic-search embedding backend (same values as knowledgebase)
-  #   embedding_model: embeddinggemma-2
+  #   embedding_model: embeddinggemma-2:270m     # embedding model id (required for a named provider; text-only :270m/:570m suffice)
 
   # ── Optional: Web Search Providers ──
   # Declare multiple providers for kb search auto-fallback.
@@ -231,6 +225,16 @@ defaults:
 
   # ── Optional: Force local ONNX (no provider config needed) ──
   # Just run: aigc-cli ocr scan x.png --provider local
+
+# ── Optional: Idea search (ideas, top-level, not under defaults) ──
+# Semantic search (BM25 + vector RRF) turns on only when embedding_provider is set;
+# leave it empty for keyword-only search.
+# Text embeddings need only a small text-only model: embeddinggemma-2:270m (378MB)
+# or :570m (990MB). :latest / :740m are multimodal and unnecessary for text.
+# ideas:
+#   data_path: "~/.config/aigc-cli/ideas/ideas.json"  # prompt dataset path
+#   embedding_provider: ollama                         # "" / local / onnx / hash, or a name in config.providers
+#   embedding_model: embeddinggemma-2:270m
 
 # ── Typical Configuration Scenarios ──
 

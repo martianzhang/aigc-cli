@@ -10,8 +10,7 @@
 
 # API key (can also be set via OPENAI_API_KEY env var)
 # 使用本地模型（Ollama / LM Studio / localhost）时可不填
-api_key: "your-api-key-here"
-
+api_key: enc:v1:xTvA5Luio1XZRZZOdCye7wfFfsMKCYgQGvTdFjBPxzFlHdxCwxZJKL1BCR9Q
 # API base URL (can also be set via OPENAI_BASE_URL env var)
 # ── 按 Provider 取消注释 ──
 # OpenAI:    https://api.openai.com/v1
@@ -20,7 +19,6 @@ api_key: "your-api-key-here"
 # Ollama:    http://localhost:11434 （无需 API Key）
 # 任意中转:   https://your-relay.com/v1
 base_url: "https://api.apimart.ai"
-
 # HTTP proxy (can also be set via HTTP_PROXY / HTTPS_PROXY env vars, or --http-proxy CLI flag)
 # http_proxy: "http://127.0.0.1:7890"
 
@@ -87,39 +85,39 @@ base_url: "https://api.apimart.ai"
 #
 # 未配置的字段继承全局顶层值（api_key / base_url / http_proxy）。
 providers:
-  # 示例：OpenRouter 专用账号
-  # openrouter:
-  #   type: openai
-  #   api_key: "sk-or-xxx"
-  #   base_url: "https://openrouter.ai/api/v1"
-  #   zdr: true
+# 示例：OpenRouter 专用账号
+# openrouter:
+#   type: openai
+#   api_key: "sk-or-xxx"
+#   base_url: "https://openrouter.ai/api/v1"
+#   zdr: true
 
-  # 示例：阿里云百炼（音乐用 Fun-Music 时配置；chat 走 compatible-mode，音乐会自动改走原生 services 路径）
-  # dashscope:
-  #   api_key: "sk-xxx"
-  #   base_url: "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+# 示例：阿里云百炼（音乐用 Fun-Music 时配置；chat 走 compatible-mode，音乐会自动改走原生 services 路径）
+# dashscope:
+#   api_key: "sk-xxx"
+#   base_url: "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
 
-  # 示例：Ollama 本地模型
-  # ollama:
-  #   type: ollama
-  #   base_url: "http://localhost:11434/v1"
+# 示例：Ollama 本地模型
+# ollama:
+#   type: ollama
+#   base_url: "http://localhost:11434/v1"
 
-  # 示例：通过 OpenRouter 使用 Anthropic 协议
-  # openrouter-anthropic:
-  #   type: anthropic
-  #   api_key: "sk-or-xxx"
-  #   base_url: "https://openrouter.ai/api/v1"
+# 示例：通过 OpenRouter 使用 Anthropic 协议
+# openrouter-anthropic:
+#   type: anthropic
+#   api_key: "sk-or-xxx"
+#   base_url: "https://openrouter.ai/api/v1"
 
-  # 示例：OpenAI Responses API（用于支持 reasoning + tools 的模型）
-  # openlux:
-  #   type: openai_responses
-  #   api_key: "sk-xxx"
-  #   base_url: "https://api.openlux.ai"
+# 示例：OpenAI Responses API（用于支持 reasoning + tools 的模型）
+# openlux:
+#   type: openai_responses
+#   api_key: "sk-xxx"
+#   base_url: "https://api.openlux.ai"
 
-  # 示例：本地 ONNX 模型目录
-  # local:
-  #   type: local
-  #   models_dir: "~/.config/aigc-cli/models"
+# 示例：本地 ONNX 模型目录
+# local:
+#   type: local
+#   models_dir: "~/.config/aigc-cli/models"
 
 # ── 各命令默认值 ──
 # Commented-out values use built-in defaults.
@@ -152,34 +150,28 @@ defaults:
     quality: "low"
     output_format: "png"
     # background: "auto"   # auto | opaque | transparent（透明背景需 output_format=png/webp）
-
   video:
     model: "doubao-seedance-2.0"
-
   audio:
     speak_model: "gpt-4o-mini-tts"
     transcribe_model: "whisper-tiny"
-
   midjourney:
     speed: "fast"
     version: "6.1"
-
   music:
     # provider: "apimart"        # apimart（默认）或 openrouter / dashscope（Fun-Music）
-    model: "suno"                # suno | flowmusic（名称含 flowmusic 走 flowmusic 后端）；OpenRouter 填 google/lyria-3-*；dashscope 填 fun-music-v1 / fun-music-preview
+    model: "suno" # suno | flowmusic（名称含 flowmusic 走 flowmusic 后端）；OpenRouter 填 google/lyria-3-*；dashscope 填 fun-music-v1 / fun-music-preview
     # instrumental: false        # 纯音乐（无人声）
     # duration: 120              # 时长（秒），suno 用 duration，flowmusic 用 length；百炼 Fun-Music 不支持
     # format: "mp3"              # 音频格式（suno / OpenRouter / 百炼；flowmusic 不支持）
-
   chat:
     model: "deepseek-v4-flash"
-    max_tokens: 4096            # 最大生成 token 数
-    context_size: 32768         # 输入上下文窗口大小（token），0=使用模型默认值。超过 80% 自动压缩
-
+    max_tokens: 4096 # 最大生成 token 数
+    context_size: 32768 # 输入上下文窗口大小（token），0=使用模型默认值。超过 80% 自动压缩
   decision:
-    # provider: "ollama"        # 命名 provider（ollama / openrouter / ...）；不填则用全局
-    # model: "tev1"             # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
-    # bank: "~/exams/triage.json"  # 默认题库 JSON（未指定 --json 时使用）
+  # provider: "ollama"        # 命名 provider（ollama / openrouter / ...）；不填则用全局
+  # model: "tev1"             # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
+  # bank: "~/exams/triage.json"  # 默认题库 JSON（未指定 --json 时使用）
 
   # ── 可选：离线命令对接在线 LLM ──
   # 配置了 provider 则走在线，不配则走本地 ONNX
@@ -201,13 +193,7 @@ defaults:
   #   auto_save: true                             # kb search 结果是否自动存入 KB（默认 true）
   #   min_score: 0.8                              # 向量搜索结果最低相似度（默认0.8，设0关闭）
   #   embedding_provider: ollama                  # 留空 / local / onnx / hash，或 config.providers 里的名字
-  #   embedding_model: embeddinggemma-2           # embedding 模型 id（命名 provider 必填）
-
-  # ── 可选：灵感检索（ideas）──
-  # ideas:
-  #   data_path: "~/.config/aigc-cli/ideas/ideas.json"  # 提示词数据集路径
-  #   embedding_provider: ollama                         # 语义检索的 embedding 后端（取值同 knowledgebase）
-  #   embedding_model: embeddinggemma-2
+  #   embedding_model: embeddinggemma-2:270m     # embedding 模型 id（命名 provider 必填；纯文本用 :270m/:570m 即可）
 
   # ── 可选：Web 搜索引擎 ──
   # 声明多个 provider 供 kb search 自动 fallback。
@@ -230,6 +216,15 @@ defaults:
 
   # ── 可选：强制走本地 ONNX（无需配 provider）──
   # 命令行 aigc-cli ocr scan x.png --provider local 即可
+
+# ── 可选：灵感检索（ideas，顶层配置，不在 defaults 下）──
+# 配置 embedding_provider 才启用语义检索（BM25 + 向量 RRF 融合）；留空则纯关键词。
+# 文本 embedding 用纯文本小模型即可：embeddinggemma-2:270m（378MB）/ :570m（990MB）；
+# :latest / :740m 是多模态大模型，纯文本场景用不上。
+# ideas:
+#   data_path: "~/.config/aigc-cli/ideas/ideas.json"  # 提示词数据集路径
+#   embedding_provider: ollama                         # 留空 / local / onnx / hash，或 config.providers 里的名字
+#   embedding_model: embeddinggemma-2:270m
 
 # ── 典型配置场景 ──
 

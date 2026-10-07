@@ -28,6 +28,20 @@ func BuildKBEmbedder() (knowledge.Embedder, error) {
 	return BuildEmbedder(ref, model)
 }
 
+// BuildIdeasEmbedder builds the ideas embedder from cfg.Ideas. It returns a nil
+// embedder when no embedding_provider is configured, so ideas search stays
+// keyword-only unless semantic retrieval is explicitly enabled.
+func BuildIdeasEmbedder(cfg *types.Config) (knowledge.Embedder, error) {
+	var ref, model string
+	if cfg != nil && cfg.Ideas != nil {
+		ref, model = cfg.Ideas.EmbeddingProvider, cfg.Ideas.EmbeddingModel
+	}
+	if ref == "" {
+		return nil, nil
+	}
+	return BuildEmbedder(ref, model)
+}
+
 // BuildEmbedder constructs the configured embedding backend.
 //
 // providerRef selects the backend:

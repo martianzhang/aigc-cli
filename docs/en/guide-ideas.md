@@ -49,6 +49,20 @@ Notes:
 - If an online source fails, a warning is printed to stderr and results from the other sources are still returned. If every source comes back empty, the command prints `没有找到匹配的提示词。` (no matching prompts found).
 - Results from every source are fused with reciprocal rank fusion, so local and online hits are interleaved by relevance.
 
+## Semantic search (embedding)
+
+By default search is BM25 keyword-only. Set `embedding_provider` + `embedding_model` in the top-level `ideas` config to add semantic recall fused with the keyword results via RRF — matches surface even when the wording differs (e.g. "calm nature scenery in the early morning" finds `serene mountain lake at sunrise`).
+
+```yaml
+ideas:
+  embedding_provider: ollama            # "" / local / onnx / hash, or a name in config.providers
+  embedding_model: embeddinggemma-2:270m
+```
+
+- Text embeddings need only a small **text-only** model: `embeddinggemma-2:270m` (378MB) or `:570m` (990MB); `:latest` / `:740m` are multimodal and unnecessary for text.
+- The first search precomputes vectors for the whole dataset and caches them next to `ideas.json` (`ideas_emb_<model>_<dim>.bin`); later searches are instant. Changing the model or dataset rebuilds it.
+- With no `embedding_provider`, search stays keyword-only (fully backward compatible).
+
 ## Parameters
 
 | Flag | Description |
