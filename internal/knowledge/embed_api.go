@@ -29,7 +29,7 @@ type APIEmbedder struct {
 
 // NewAPIEmbedder builds an HTTP embedder for cfg.BaseURL + cfg.Model.
 func NewAPIEmbedder(cfg EmbedConfig) *APIEmbedder {
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: 180 * time.Second}
 	if t := http.DefaultClient.Transport; t != nil {
 		client.Transport = t
 	}

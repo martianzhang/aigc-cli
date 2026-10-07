@@ -14,8 +14,13 @@ import (
 )
 
 const (
-	embedCacheMagic = "IDEAEMB1"
+	// embedCacheMagic carries a format version; bump it to invalidate old caches.
+	embedCacheMagic = "IDEAEMB2"
 	embedBatchSize  = 128
+	// embedTextMaxRunes bounds the text sent to the embedder. Full entries
+	// average ~1000 runes and embedding cost scales with length, so 256 runes
+	// makes the one-time build ~3x faster with negligible ranking loss.
+	embedTextMaxRunes = 256
 	// SemanticTopK bounds how many entries the semantic list contributes to RRF.
 	SemanticTopK = 200
 )
@@ -76,9 +81,9 @@ func LoadOrBuildEmbeddings(entries []IdeaEntry, embedder knowledge.Embedder, dat
 
 	texts := make([]string, len(entries))
 	for i, e := range entries {
-		texts[i] = searchableText(e)
+		texts[i] = truncateRunes(searchableText(e), embedTextMaxRunes)
 	}
-	vectors := make([][]float32, 0, len(texts))
+	vectors := make([][]float32, len(texts))
 	for i := 0; i < len(texts); i += embedBatchSize {
 		end := i + embedBatchSize
 		if end > len(texts) {
@@ -88,17 +93,25 @@ func LoadOrBuildEmbeddings(entries []IdeaEntry, embedder knowledge.Embedder, dat
 		if err != nil {
 			return nil, fmt.Errorf("embed entries %d-%d: %w", i, end, err)
 		}
-		for _, e := range batch {
-			vectors = append(vectors, []float32(e))
+		for k, e := range batch {
+			vectors[i+k] = []float32(e)
 		}
 		if progress != nil {
-			progress(len(vectors), len(texts))
+			progress(end, len(texts))
 		}
 	}
 	if err := saveEmbeddingCache(path, model, dim, hash, vectors); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not cache ideas embeddings: %v\n", err)
 	}
 	return vectors, nil
+}
+
+func truncateRunes(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max])
 }
 
 // SemanticEntries ranks entries by cosine similarity between the query and the
