@@ -102,7 +102,13 @@ func run(d Deps, args []string, f *cmdFlags) error {
 		return err
 	}
 
-	var results []ideas.SearchResult
+	var (
+		results      []ideas.SearchResult
+		usedSemantic bool
+		embProvider  string
+		embModel     string
+		meta         string
+	)
 	switch {
 	case f.findImage != "":
 		entries, err := ideas.LoadIdeas(dataPath)
@@ -110,7 +116,7 @@ func run(d Deps, args []string, f *cmdFlags) error {
 			return err
 		}
 		results = ideas.SearchByImage(entries, f.findImage)
-		keywords = "图片: " + f.findImage
+		keywords = "image: " + f.findImage
 	case keywords == "":
 		// No query: keep the random local behaviour; online sources need a query.
 		entries, err := ideas.LoadIdeas(dataPath)
@@ -126,15 +132,22 @@ func run(d Deps, args []string, f *cmdFlags) error {
 		for i := range entries {
 			results = append(results, ideas.SearchResult{Entry: entries[i]})
 		}
-		keywords = "随机灵感"
+		keywords = "random ideas"
 	default:
 		var lists [][]ideas.IdeaEntry
 		if ideas.HasLocal(sources) {
-			embedder, embErr := options.BuildIdeasEmbedder(ideasConfig(d.Cfg))
+			ic := ideasConfig(d.Cfg)
+			embedder, embErr := options.BuildIdeasEmbedder(ic)
 			if embErr != nil {
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", embErr)
 			}
-			local, empty, err := localResults(dataPath, keywords, embedder, ideasConfig(d.Cfg))
+			if embedder != nil {
+				usedSemantic = true
+				if ic != nil {
+					embProvider, embModel = ic.EmbeddingProvider, ic.EmbeddingModel
+				}
+			}
+			local, empty, err := localResults(dataPath, keywords, embedder, ic)
 			if err != nil {
 				return err
 			}
@@ -150,9 +163,10 @@ func run(d Deps, args []string, f *cmdFlags) error {
 			lists = append(lists, merged)
 		}
 		results = ideas.FuseRRF(lists, 0)
+		meta = retrievalMeta(sources, usedSemantic, embProvider, embModel)
 	}
 	if len(results) == 0 {
-		fmt.Println("没有找到匹配的提示词。")
+		fmt.Println("No matching prompts found.")
 		return nil
 	}
 
@@ -180,8 +194,8 @@ func run(d Deps, args []string, f *cmdFlags) error {
 			imgEntries = append(imgEntries, r.Entry)
 		}
 		saved, _ := saveIdeaImages(imgEntries, d.OutputDir)
-		return outputMarkdown(results, keywords, total, saved, f.preview)
+		return outputMarkdown(results, keywords, total, saved, f.preview, meta)
 	}
 
-	return outputMarkdown(results, keywords, total, nil, f.preview)
+	return outputMarkdown(results, keywords, total, nil, f.preview, meta)
 }

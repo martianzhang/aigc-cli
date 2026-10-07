@@ -72,7 +72,7 @@ func TestOutputMarkdown_multipleResults(t *testing.T) {
 	}
 
 	output := captureStdout(func() {
-		if err := outputMarkdown(results, "test", 2, nil, false); err != nil {
+		if err := outputMarkdown(results, "test", 2, nil, false, ""); err != nil {
 			t.Errorf("outputMarkdown() returned error: %v", err)
 		}
 	})
@@ -105,7 +105,7 @@ func TestOutputMarkdown_singleResultNoSeparator(t *testing.T) {
 		{Entry: ideas.IdeaEntry{Title: "Only One", Prompt: "single"}, Score: 1},
 	}
 	output := captureStdout(func() {
-		if err := outputMarkdown(results, "test", 1, nil, false); err != nil {
+		if err := outputMarkdown(results, "test", 1, nil, false, ""); err != nil {
 			t.Errorf("outputMarkdown() returned error: %v", err)
 		}
 	})
@@ -122,7 +122,7 @@ func TestOutputMarkdown_zhPrompt(t *testing.T) {
 		{Entry: ideas.IdeaEntry{Title: "ZH Test", Prompt: "english prompt", PromptZh: "中文提示词", Lang: "zh"}, Score: 1},
 	}
 	output := captureStdout(func() {
-		if err := outputMarkdown(results, "test", 1, nil, false); err != nil {
+		if err := outputMarkdown(results, "test", 1, nil, false, ""); err != nil {
 			t.Errorf("outputMarkdown() returned error: %v", err)
 		}
 	})
@@ -136,7 +136,7 @@ func TestOutputMarkdown_images(t *testing.T) {
 		{Entry: ideas.IdeaEntry{Title: "With Img", Prompt: "test", ImageURLs: []string{"https://example.com/img.jpg"}}, Score: 1},
 	}
 	output := captureStdout(func() {
-		if err := outputMarkdown(results, "test", 1, nil, false); err != nil {
+		if err := outputMarkdown(results, "test", 1, nil, false, ""); err != nil {
 			t.Errorf("outputMarkdown() returned error: %v", err)
 		}
 	})
@@ -150,7 +150,7 @@ func TestOutputMarkdown_emptyTitle(t *testing.T) {
 		{Entry: ideas.IdeaEntry{Prompt: "just a prompt"}, Score: 1},
 	}
 	output := captureStdout(func() {
-		if err := outputMarkdown(results, "test", 1, nil, false); err != nil {
+		if err := outputMarkdown(results, "test", 1, nil, false, ""); err != nil {
 			t.Errorf("outputMarkdown() returned error: %v", err)
 		}
 	})

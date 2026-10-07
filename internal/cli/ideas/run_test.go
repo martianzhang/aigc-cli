@@ -68,7 +68,7 @@ func TestRunLocalRandomWithoutKeywords(t *testing.T) {
 	if runErr != nil {
 		t.Fatalf("run() unexpected error: %v", runErr)
 	}
-	if !strings.Contains(output, "随机灵感") || !strings.Contains(output, "(showing 1/2)") {
+	if !strings.Contains(output, "random ideas") || !strings.Contains(output, "(showing 1/2)") {
 		t.Errorf("random output = %q, want one random local entry", output)
 	}
 }
@@ -84,7 +84,7 @@ func TestRunLocalFindImage(t *testing.T) {
 	if runErr != nil {
 		t.Fatalf("run() unexpected error: %v", runErr)
 	}
-	if !strings.Contains(output, "## cat photo") || !strings.Contains(output, "图片: kitty.jpg") {
+	if !strings.Contains(output, "## cat photo") || !strings.Contains(output, "image: kitty.jpg") {
 		t.Errorf("find-image output = %q, want the cat entry", output)
 	}
 }

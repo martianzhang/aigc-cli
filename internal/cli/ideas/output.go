@@ -58,6 +58,29 @@ func saveIdeaImages(entries []ideas.IdeaEntry, outputDir string) ([]string, erro
 	return saved, nil
 }
 
+// retrievalMeta renders the source / retrieval-method / model header line shown
+// above the results, so the user can see how the list was produced.
+func retrievalMeta(sources []ideas.Source, semantic bool, provider, model string) string {
+	names := make([]string, len(sources))
+	for i, s := range sources {
+		names[i] = s.Name()
+	}
+	parts := []string{"Source: " + strings.Join(names, ", ")}
+	if semantic {
+		parts = append(parts, "Retrieval: BM25 + semantic")
+		m := model
+		if m == "" {
+			m = provider
+		}
+		if m != "" {
+			parts = append(parts, "Model: "+m)
+		}
+	} else {
+		parts = append(parts, "Retrieval: BM25 keywords")
+	}
+	return strings.Join(parts, " · ")
+}
+
 func localImagePath(remoteURL, outputDir string) string {
 	if remoteURL == "" {
 		return ""
@@ -65,7 +88,11 @@ func localImagePath(remoteURL, outputDir string) string {
 	return filepath.Join(outputDir, filepath.Base(remoteURL))
 }
 
-func outputMarkdown(results []ideas.SearchResult, keywords string, total int, savedFiles []string, preview bool) error {
+func outputMarkdown(results []ideas.SearchResult, keywords string, total int, savedFiles []string, preview bool, meta string) error {
+	if meta != "" {
+		fmt.Println(meta)
+		fmt.Println()
+	}
 	md := ideas.FormatResultsMarkdown(results, keywords, total)
 	fmt.Println(md)
 

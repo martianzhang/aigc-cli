@@ -3,7 +3,10 @@
 // vault encryption.
 package knowledge
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Document represents a source document in the knowledge base.
 type Document struct {
@@ -64,6 +67,14 @@ type BatchEmbedder interface {
 // a changed backend so a stale index can be flagged for re-indexing.
 type NamedEmbedder interface {
 	Name() string
+}
+
+// EmbedderName returns the embedder's stable name, or its type when unnamed.
+func EmbedderName(e Embedder) string {
+	if n, ok := e.(NamedEmbedder); ok {
+		return n.Name()
+	}
+	return fmt.Sprintf("%T", e)
 }
 
 // EmbedAll embeds texts in one batch call when the embedder supports it, and

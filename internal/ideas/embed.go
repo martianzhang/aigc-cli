@@ -69,7 +69,7 @@ func LoadOrBuildEmbeddings(entries []IdeaEntry, embedder knowledge.Embedder, dat
 		}
 	}
 	dim := embedder.Dim()
-	model := embedderName(embedder)
+	model := knowledge.EmbedderName(embedder)
 	hash := datasetHash(entries, maxRunes)
 
 	path, err := EmbeddingCachePath(dataPath, model, dim)
@@ -142,13 +142,6 @@ func SemanticEntries(entries []IdeaEntry, vectors [][]float32, embedder knowledg
 		out[i] = entries[s.idx]
 	}
 	return out, nil
-}
-
-func embedderName(e knowledge.Embedder) string {
-	if n, ok := e.(knowledge.NamedEmbedder); ok {
-		return n.Name()
-	}
-	return fmt.Sprintf("%T", e)
 }
 
 func datasetHash(entries []IdeaEntry, maxRunes int) uint64 {
