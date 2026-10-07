@@ -113,9 +113,9 @@ func openKBStore() (*knowledge.Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Set min score threshold from config
-	if cfg := options.KnowledgeDefaults(); cfg != nil && cfg.MinScore > 0 {
-		store.SetMinScore(cfg.MinScore)
+	// Set min score threshold from config (nil = keep the 0.8 default; 0 = no filter)
+	if cfg := options.KnowledgeDefaults(); cfg != nil && cfg.MinScore != nil {
+		store.SetMinScore(*cfg.MinScore)
 	}
 	return store, nil
 }

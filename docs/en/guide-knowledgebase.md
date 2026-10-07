@@ -164,7 +164,7 @@ defaults:
     base_dir: "~/.config/aigc-cli/knowledge"
     search_provider: duckduckgo
     auto_save: true          # Auto-save web search results to KB
-    min_score: 0.8           # Minimum similarity for vector search
+    min_score: 0.8           # Minimum similarity for vector search (default 0.8; 0 disables filtering)
     embedding_provider: ollama        # "" / local / onnx / hash, or a named provider
     embedding_model: embeddinggemma-2 # embedding model id (required for a named provider)
 ```

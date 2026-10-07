@@ -119,6 +119,7 @@ aigc-cli kb list                     # 默认只列当前项目
 defaults:
   knowledgebase:
     min_score: 0.5    # 阈值越低召回越多（默认 0.8）
+    # min_score: 0    # 0 = 关闭相似度过滤
     embedding_provider: ollama        # 留空 / local / onnx / hash，或 config.providers 里的名字
     embedding_model: embeddinggemma-2 # 模型 id（命名 provider 必填）
 ```
