@@ -133,6 +133,13 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
 		saved = append(saved, filename)
 	}
 
+	// The job file only exists to resume a download that has not happened yet,
+	// so drop it once every video has been saved. Partial failures keep it for
+	// a --job-id retry.
+	if len(saved) == len(pollResp.UnsignedURLs) {
+		removeJobInfo(submitResp.ID)
+	}
+
 	if pollResp.Usage != nil {
 		fmt.Printf("Tokens: %d in / %d out", pollResp.Usage.InputTokens, pollResp.Usage.OutputTokens)
 		if pollResp.Usage.TotalCost > 0 {
@@ -206,6 +213,10 @@ func runOpenRouterVideoResume(jobID string) error {
 		}
 		fmt.Printf("Saved: %s\n", filename)
 		saved = append(saved, filename)
+	}
+	// Fully downloaded: the job file is no longer needed for a retry.
+	if len(saved) == len(statusResp.UnsignedURLs) {
+		removeJobInfo(info.JobID)
 	}
 	if vidCropMargin != "" {
 		if cropped, cerr := cropSavedVideos(saved); cerr != nil {

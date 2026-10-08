@@ -231,6 +231,11 @@ aigc-cli video --job-id vid_xxx
 
 Job 文件保存在 `video_job_{jobId}.json`，内含 `polling_url`、`model`、`prompt`、`created_at` 信息。
 
+**自动清理**：当任务完成且**所有**视频都下载成功后，CLI 会自动删除该 job 文件——此时它已无用途（平台侧的 job 过一段时间也会失效）。以下情况会保留文件，便于用 `--job-id` 重试：
+
+- 轮询超时 / 中断（尚未下载）
+- 部分视频下载失败
+
 ### 常用 OpenRouter 视频模型
 
 | 模型 ID | 说明 |
@@ -423,6 +428,7 @@ aigc-cli video --first-frame start.jpg --last-frame end.jpg --prompt "从首帧�
   ```bash
   aigc-cli video --job-id <job-id>
   ```
+- 成功下载后该文件会自动删除（下载失败或未完成则保留）
 
 **Pollinations 视频**
 - 同步生成，默认超时 600 秒

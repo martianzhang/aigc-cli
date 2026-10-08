@@ -172,6 +172,10 @@ The job ID is printed when the job is submitted:
 Submitted job: abc123
 ```
 
+The job details are persisted to `video_job_{jobId}.json` (`polling_url`, `model`, `prompt`, `created_at`).
+
+**Automatic cleanup**: once the job completes and **all** videos download successfully, the CLI removes that file — it has no further use (and the platform-side job expires after a while anyway). It is kept for a `--job-id` retry when polling times out / is interrupted, or when some videos fail to download.
+
 ## APIMart Video
 
 APIMart uses async task submission:

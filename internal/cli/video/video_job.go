@@ -43,3 +43,18 @@ func loadJobInfo(jobID string) (*openRouterJobInfo, error) {
 	}
 	return &info, nil
 }
+
+// removeJobInfo deletes the persisted job file once its video has been fully
+// downloaded. The file only exists to resume a job that has not been fetched
+// yet, so it is redundant after a successful download (and the platform-side
+// job expires after a while anyway). A missing file is not an error.
+func removeJobInfo(jobID string) {
+	path := jobFilePath(jobID)
+	if err := os.Remove(path); err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Warning: failed to remove job file %s: %v\n", path, err)
+		}
+		return
+	}
+	fmt.Printf("Job file removed: %s\n", path)
+}
