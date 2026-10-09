@@ -59,19 +59,36 @@ global `--output` / `-o`, default current directory).
 
 ## Models
 
-| Model | Scale | Size | License | Source / notes |
+| Model | Scale | Size | License | Best for |
 |---|---|---|---|---|
-| `realesr-general-x4v3` | 4x | 4.9MB | BSD-3-Clause | **Default.** Real-ESRGAN compact general 4x; balanced speed/quality |
-| `real-esrgan-x4plus` | 4x | 67MB | BSD-3-Clause | Real-ESRGAN high-quality general 4x; best on real photos/textures, slower |
-| `real-esrgan-x4plus-anime-6b` | 4x | 18MB | BSD-3-Clause | Real-ESRGAN 6-block anime model; clean edges, flat colors |
-| `real-esrgan-animevideov3` | 4x | 2.5MB | BSD-3-Clause | Lightest anime/video model; fastest option |
-| `real-cugan-2x` | 2x | 5.2MB | MIT | Real-CUGAN 2x (HFA2k); strong line preservation/denoising for anime |
-| `swin2sr-lightweight-x2` | 2x | 8.1MB | Apache-2.0 | Swin2SR lightweight 2x; general, low resource use |
-| `swin2sr-realworld-x4` | 4x | 53MB | Apache-2.0 | Swin2SR 4x for real-world/compressed degradation |
+| `realesr-general-x4v3` | 4x | 4.9MB | BSD-3-Clause | **Default.** General 4x: balanced speed and quality; the everyday choice |
+| `real-esrgan-x4plus` | 4x | 67MB | BSD-3-Clause | High-quality general 4x: best on real-world photos and textures (slower) |
+| `real-esrgan-x4plus-anime-6b` | 4x | 18MB | BSD-3-Clause | Anime/illustration 4x (6-block): clean edges and flat colors, ideal for line art |
+| `real-esrgan-x4plus-anime-4b32f` | 4x | 5.2MB | BSD-3-Clause | Very small 4-block anime 4x: smaller/faster than 6B, slightly weaker on fine detail |
+| `real-esrgan-animevideov3` | 4x | 2.5MB | BSD-3-Clause | Lightest anime/video 4x: fastest; good for animation frames, weaker on fine detail |
+| `real-cugan-2x` | 2x | 5.2MB | MIT | Anime 2x: strong line preservation and denoising for illustrations |
+| `swin2sr-lightweight-x2` | 2x | 8.1MB | Apache-2.0 | Lightweight general 2x: fast, low resource use |
+| `swin2sr-realworld-x4` | 4x | 53MB | Apache-2.0 | Real-world/compressed 4x: noisy or JPEG-compressed photos |
+| `swin2sr-classical-x4` | 4x | 55MB | Apache-2.0 | Classical-degradation 4x: high fidelity on clean images |
+| `swin2sr-compressed-x4` | 4x | 55MB | Apache-2.0 | Heavily compressed JPEG 4x: recovers detail, suppresses blocking artifacts |
 
 > **Licensing**: model weights keep their upstream license — Real-ESRGAN
 > (BSD-3-Clause), Real-CUGAN (MIT), Swin2SR (Apache-2.0). `aigc-cli upscale init
 > --list` shows each model's license.
+
+### Choosing a model
+
+| Your input | Recommended model |
+|---|---|
+| Everyday photos (default, fast) | `realesr-general-x4v3` |
+| Photos, maximum quality (slower) | `real-esrgan-x4plus` |
+| Anime / illustration / line art | `real-cugan-2x` (2x) or `real-esrgan-x4plus-anime-6b` |
+| Anime, smaller/faster than 6B | `real-esrgan-x4plus-anime-4b32f` |
+| Animation / video frames (speed) | `real-esrgan-animevideov3` |
+| Noisy or JPEG-compressed photos | `swin2sr-realworld-x4` |
+| Heavily compressed JPEGs (blocking) | `swin2sr-compressed-x4` |
+| Clean images, 4x classical fidelity | `swin2sr-classical-x4` |
+| 2x only, lightweight general | `swin2sr-lightweight-x2` |
 
 ```bash
 aigc-cli upscale init --model real-cugan-2x --model swin2sr-lightweight-x2

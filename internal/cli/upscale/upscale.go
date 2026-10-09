@@ -53,8 +53,13 @@ Fully offline — no API key needed. The model runs on the shared ONNX Runtime
 used by the other local commands (background, depth, ocr, ...). Large images are
 processed in feathered tiles, so memory stays bounded.
 
-Models are downloaded on demand (see 'aigc-cli upscale init --list' for the full
-list and each model's license).
+Models are downloaded on demand; see 'aigc-cli upscale init --list' for the full
+list, use cases and licenses. Quick pick:
+  general photos:          realesr-general-x4v3 (default) | real-esrgan-x4plus (photo HQ, slow)
+  anime / illustration:    real-cugan-2x | real-esrgan-x4plus-anime-6b | real-esrgan-animevideov3 (fastest)
+  noisy / compressed:      swin2sr-realworld-x4 | swin2sr-compressed-x4
+  clean / classical:       swin2sr-classical-x4
+  lightweight 2x:          swin2sr-lightweight-x2
 
 Examples:
   aigc-cli upscale init                      # download ONNX Runtime + default model

@@ -54,17 +54,34 @@ aigc-cli upscale -i photo.jpg --dry-run
 
 ## 模型
 
-| 模型 | 倍率 | 大小 | 许可证 | 来源 / 说明 |
+| 模型 | 倍率 | 大小 | 许可证 | 适用场景 |
 |---|---|---|---|---|
-| `realesr-general-x4v3` | 4x | 4.9MB | BSD-3-Clause | **默认。** Real-ESRGAN 通用小模型，速度质量均衡 |
-| `real-esrgan-x4plus` | 4x | 67MB | BSD-3-Clause | Real-ESRGAN 高清通用，真实照片/纹理最佳，较慢 |
-| `real-esrgan-x4plus-anime-6b` | 4x | 18MB | BSD-3-Clause | Real-ESRGAN 6-block 二次元模型，边缘干净、色块平整 |
-| `real-esrgan-animevideov3` | 4x | 2.5MB | BSD-3-Clause | 最轻量的二次元/视频模型，追求速度时用 |
-| `real-cugan-2x` | 2x | 5.2MB | MIT | Real-CUGAN 2x（HFA2k），二次元线条保留与去噪强 |
-| `swin2sr-lightweight-x2` | 2x | 8.1MB | Apache-2.0 | Swin2SR 轻量 2x，通用、资源占用小 |
-| `swin2sr-realworld-x4` | 4x | 53MB | Apache-2.0 | Swin2SR 4x，针对真实/压缩降质，噪点与压缩痕迹照片 |
+| `realesr-general-x4v3` | 4x | 4.9MB | BSD-3-Clause | **默认。** 通用 4x：速度与质量均衡，日常首选 |
+| `real-esrgan-x4plus` | 4x | 67MB | BSD-3-Clause | 高清通用 4x：真实照片/纹理效果最佳，较慢 |
+| `real-esrgan-x4plus-anime-6b` | 4x | 18MB | BSD-3-Clause | 二次元/插画 4x（6-block）：边缘干净、色块平整，适合线稿 |
+| `real-esrgan-x4plus-anime-4b32f` | 4x | 5.2MB | BSD-3-Clause | 极小 4-block 二次元 4x：比 6B 更小更快，细节略弱 |
+| `real-esrgan-animevideov3` | 4x | 2.5MB | BSD-3-Clause | 最轻量二次元/视频 4x：最快，适合动画帧/干净线稿，细节较弱 |
+| `real-cugan-2x` | 2x | 5.2MB | MIT | 二次元 2x：线条保留与去噪强，适合插画 |
+| `swin2sr-lightweight-x2` | 2x | 8.1MB | Apache-2.0 | 轻量通用 2x：快、资源占用小 |
+| `swin2sr-realworld-x4` | 4x | 53MB | Apache-2.0 | 真实/压缩降质 4x：适合有噪点或 JPEG 压缩痕迹的照片 |
+| `swin2sr-classical-x4` | 4x | 55MB | Apache-2.0 | 经典降质 4x：干净图像上保真度高 |
+| `swin2sr-compressed-x4` | 4x | 55MB | Apache-2.0 | 重度 JPEG 压缩 4x：恢复细节并抑制块状伪影 |
 
 > **许可证**：模型权重保留各自上游许可证——Real-ESRGAN（BSD-3-Clause）、Real-CUGAN（MIT）、Swin2SR（Apache-2.0）。`aigc-cli upscale init --list` 会显示每个模型的许可证。
+
+### 如何选择模型
+
+| 你的素材 | 建议模型 |
+|---|---|
+| 普通照片（默认、快） | `realesr-general-x4v3` |
+| 照片追求更高清晰度（更慢） | `real-esrgan-x4plus` |
+| 二次元 / 插画 / 线稿 | `real-cugan-2x`（2x）或 `real-esrgan-x4plus-anime-6b` |
+| 二次元（比 6B 更小更快） | `real-esrgan-x4plus-anime-4b32f` |
+| 动画帧 / 视频帧（求快） | `real-esrgan-animevideov3` |
+| 噪点多 / 有 JPEG 压缩痕迹的实拍 | `swin2sr-realworld-x4` |
+| 重度 JPEG 压缩（块状伪影重） | `swin2sr-compressed-x4` |
+| 干净图像、要 4x 经典保真 | `swin2sr-classical-x4` |
+| 只要 2x、轻量通用 | `swin2sr-lightweight-x2` |
 
 ```bash
 aigc-cli upscale init --model real-cugan-2x --model swin2sr-lightweight-x2

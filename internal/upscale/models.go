@@ -11,7 +11,8 @@ const modelsBaseURL = "https://github.com/martianzhang/aigc-cli-models/releases/
 
 // ModelInfo describes one downloadable super-resolution model. File is the
 // local filename (the release asset is "upscale-"+File); License is the SPDX id
-// of the upstream weights; Source is the upstream project, for attribution.
+// of the upstream weights; Source is the upstream project (for attribution);
+// Use is a one-line "best for" hint shown by `upscale init --list`.
 type ModelInfo struct {
 	ID      string
 	Name    string
@@ -20,6 +21,7 @@ type ModelInfo struct {
 	SizeMB  float32
 	License string
 	Source  string
+	Use     string
 	InName  string
 	OutName string
 }
@@ -33,13 +35,16 @@ type ModelInfo struct {
 //   - Real-CUGAN  (bilibili/ailab)       → MIT
 //   - Swin2SR     (mv-lab/swin2sr)       → Apache-2.0
 var Models = []ModelInfo{
-	{ID: "realesr-general-x4v3", Name: "Real-ESRGAN General x4v3", File: "realesr-general-x4v3.onnx", Scale: 4, SizeMB: 4.9, License: "BSD-3-Clause", Source: "xinntao/Real-ESRGAN"},
-	{ID: "real-esrgan-x4plus", Name: "Real-ESRGAN x4plus", File: "real-esrgan-x4plus.onnx", Scale: 4, SizeMB: 67, License: "BSD-3-Clause", Source: "xinntao/Real-ESRGAN"},
-	{ID: "real-esrgan-x4plus-anime-6b", Name: "Real-ESRGAN x4plus Anime 6B", File: "real-esrgan-x4plus-anime-6b.onnx", Scale: 4, SizeMB: 18, License: "BSD-3-Clause", Source: "xinntao/Real-ESRGAN", InName: "image.1", OutName: "image"},
-	{ID: "real-esrgan-animevideov3", Name: "Real-ESRGAN AnimeVideo v3", File: "real-esrgan-animevideov3.onnx", Scale: 4, SizeMB: 2.5, License: "BSD-3-Clause", Source: "xinntao/Real-ESRGAN"},
-	{ID: "real-cugan-2x", Name: "Real-CUGAN 2x (HFA2k)", File: "real-cugan-2x.onnx", Scale: 2, SizeMB: 5.2, License: "MIT", Source: "bilibili/ailab (Real-CUGAN)"},
-	{ID: "swin2sr-lightweight-x2", Name: "Swin2SR Lightweight x2", File: "swin2sr-lightweight-x2.onnx", Scale: 2, SizeMB: 8.1, License: "Apache-2.0", Source: "mv-lab/swin2sr", InName: "pixel_values", OutName: "reconstruction"},
-	{ID: "swin2sr-realworld-x4", Name: "Swin2SR RealWorld x4", File: "swin2sr-realworld-x4.onnx", Scale: 4, SizeMB: 53, License: "Apache-2.0", Source: "mv-lab/swin2sr", InName: "pixel_values", OutName: "reconstruction"},
+	{ID: "realesr-general-x4v3", Name: "Real-ESRGAN General x4v3", File: "realesr-general-x4v3.onnx", Scale: 4, SizeMB: 4.9, License: "BSD-3-Clause", Source: "xinntao/Real-ESRGAN", Use: "General 4x: balanced speed and quality; the everyday default"},
+	{ID: "real-esrgan-x4plus", Name: "Real-ESRGAN x4plus", File: "real-esrgan-x4plus.onnx", Scale: 4, SizeMB: 67, License: "BSD-3-Clause", Source: "xinntao/Real-ESRGAN", Use: "High-quality general 4x; best on real-world photos and textures (slower)"},
+	{ID: "real-esrgan-x4plus-anime-6b", Name: "Real-ESRGAN x4plus Anime 6B", File: "real-esrgan-x4plus-anime-6b.onnx", Scale: 4, SizeMB: 18, License: "BSD-3-Clause", Source: "xinntao/Real-ESRGAN", Use: "Anime/illustration 4x (6-block); clean edges, flat colors, ideal for line art", InName: "image.1", OutName: "image"},
+	{ID: "real-esrgan-x4plus-anime-4b32f", Name: "Real-ESRGAN x4plus Anime 4B32F", File: "real-esrgan-x4plus-anime-4b32f.onnx", Scale: 4, SizeMB: 5.2, License: "BSD-3-Clause", Source: "xinntao/Real-ESRGAN", Use: "Very small 4-block anime 4x; fast and light when speed matters (below 6B quality)", InName: "image.1", OutName: "image"},
+	{ID: "real-esrgan-animevideov3", Name: "Real-ESRGAN AnimeVideo v3", File: "real-esrgan-animevideov3.onnx", Scale: 4, SizeMB: 2.5, License: "BSD-3-Clause", Source: "xinntao/Real-ESRGAN", Use: "Lightest anime/video 4x; fastest, best for animation frames and clean line art (weaker on fine detail)"},
+	{ID: "real-cugan-2x", Name: "Real-CUGAN 2x (HFA2k)", File: "real-cugan-2x.onnx", Scale: 2, SizeMB: 5.2, License: "MIT", Source: "bilibili/ailab (Real-CUGAN)", Use: "Anime 2x; strong line preservation and denoising for illustrations"},
+	{ID: "swin2sr-lightweight-x2", Name: "Swin2SR Lightweight x2", File: "swin2sr-lightweight-x2.onnx", Scale: 2, SizeMB: 8.1, License: "Apache-2.0", Source: "mv-lab/swin2sr", Use: "Lightweight general 2x; fast with modest resource use", InName: "pixel_values", OutName: "reconstruction"},
+	{ID: "swin2sr-realworld-x4", Name: "Swin2SR RealWorld x4", File: "swin2sr-realworld-x4.onnx", Scale: 4, SizeMB: 53, License: "Apache-2.0", Source: "mv-lab/swin2sr", Use: "Real-world/compressed 4x; good for noisy or JPEG-compressed photos", InName: "pixel_values", OutName: "reconstruction"},
+	{ID: "swin2sr-classical-x4", Name: "Swin2SR Classical x4", File: "swin2sr-classical-x4.onnx", Scale: 4, SizeMB: 55, License: "Apache-2.0", Source: "mv-lab/swin2sr", Use: "Swin2SR 4x for classical degradation; high fidelity on clean images", InName: "pixel_values", OutName: "reconstruction"},
+	{ID: "swin2sr-compressed-x4", Name: "Swin2SR Compressed x4", File: "swin2sr-compressed-x4.onnx", Scale: 4, SizeMB: 55, License: "Apache-2.0", Source: "mv-lab/swin2sr", Use: "Swin2SR 4x for heavily compressed JPEGs; recovers detail, suppresses blocking", InName: "pixel_values", OutName: "reconstruction"},
 }
 
 // DefaultModelID is the model used when --model is not given.

@@ -27,7 +27,14 @@ func newInitCommand(deps func() Deps) *cobra.Command {
 
 Models are saved to <models_dir>/upscale/. The ONNX Runtime is shared with the
 other local commands. Proxy settings are respected. Each model keeps its upstream
-license (Real-ESRGAN BSD-3-Clause, Real-CUGAN MIT, Swin2SR Apache-2.0).`,
+license (Real-ESRGAN BSD-3-Clause, Real-CUGAN MIT, Swin2SR Apache-2.0).
+
+Which model? (run 'aigc-cli upscale init --list' for the full list and use cases)
+  General photos:        realesr-general-x4v3 (default, fast) | real-esrgan-x4plus (higher quality, slow)
+  Anime / illustration:  real-cugan-2x (2x) | real-esrgan-x4plus-anime-6b | real-esrgan-x4plus-anime-4b32f (fast) | real-esrgan-animevideov3 (fastest)
+  Lightweight 2x:        swin2sr-lightweight-x2
+  Noisy / compressed:    swin2sr-realworld-x4 | swin2sr-compressed-x4
+  Clean / classical:     swin2sr-classical-x4`,
 		Example: `  aigc-cli upscale init                          # ONNX Runtime + default model
   aigc-cli upscale init --list                   # list models and licenses
   aigc-cli upscale init --list-installed         # show what is already installed
@@ -100,9 +107,15 @@ func printModelList() {
 		if m.ID == up.DefaultModelID {
 			marker = "* "
 		}
-		fmt.Printf("  %s%-30s x%d  %6.1fMB  %-14s %s\n", marker, m.ID, m.Scale, m.SizeMB, m.License, m.Name)
+		fmt.Printf("  %s%-30s  x%d  %6.1fMB  %-14s %s\n", marker, m.ID, m.Scale, m.SizeMB, m.License, m.Name)
+		fmt.Printf("      %s\n", m.Use)
 	}
-	fmt.Println("\n  * = default. Upstream weights: Real-ESRGAN (BSD-3-Clause), Real-CUGAN (MIT), Swin2SR (Apache-2.0).")
+	fmt.Println("\n  * = default.")
+	fmt.Println("  Licenses (upstream weights): Real-ESRGAN BSD-3-Clause, Real-CUGAN MIT, Swin2SR Apache-2.0.")
+	fmt.Println("  Quick pick: general → realesr-general-x4v3; photo HQ → real-esrgan-x4plus;")
+	fmt.Println("              anime → real-cugan-2x / real-esrgan-x4plus-anime-6b / anime-4b32f (faster);")
+	fmt.Println("              fastest anime/video → real-esrgan-animevideov3;")
+	fmt.Println("              noisy/compressed → swin2sr-realworld-x4 | swin2sr-compressed-x4; classical → swin2sr-classical-x4.")
 }
 
 func printInstalled(modelsDir string) {
