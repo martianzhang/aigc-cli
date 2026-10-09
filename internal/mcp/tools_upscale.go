@@ -31,10 +31,12 @@ Output is opaque PNG (the models do not produce an alpha channel).
 
 Prerequisite: Run "aigc-cli upscale init" to download the ONNX Runtime + model.
 
-Models (see "aigc-cli upscale init --list" for licenses): realesr-general-x4v3
-(default, general 4x), real-esrgan-x4plus, real-esrgan-x4plus-anime-6b,
-real-esrgan-animevideov3, real-cugan-2x (anime 2x), swin2sr-lightweight-x2,
-swin2sr-realworld-x4.
+Which model? (default realesr-general-x4v3; run "aigc-cli upscale init --list" for licenses/use cases)
+  general photos:       realesr-general-x4v3 (default) | real-esrgan-x4plus (photo HQ, slower)
+  anime / illustration: real-cugan-2x (2x) | real-esrgan-x4plus-anime-6b | real-esrgan-x4plus-anime-4b32f (faster) | real-esrgan-animevideov3 (fastest)
+  noisy / compressed:   swin2sr-realworld-x4 | swin2sr-compressed-x4
+  clean / classical:    swin2sr-classical-x4
+  lightweight 2x:       swin2sr-lightweight-x2
 
 Examples:
   upscale input_path="/path/to/photo.jpg"
@@ -48,7 +50,7 @@ Examples:
 			mcp.Description("Optional output path (default: <input>_upscaled.png)"),
 		),
 		mcp.WithString("model",
-			mcp.Description("Model id (default: realesr-general-x4v3)"),
+			mcp.Description("realesr-general-x4v3 (default) | real-esrgan-x4plus | real-cugan-2x | real-esrgan-x4plus-anime-6b | real-esrgan-x4plus-anime-4b32f | real-esrgan-animevideov3 | swin2sr-lightweight-x2 | swin2sr-realworld-x4 | swin2sr-classical-x4 | swin2sr-compressed-x4"),
 		),
 		mcp.WithNumber("scale",
 			mcp.Description("Output scale factor (default: the model's native scale; other values resample the result)"),

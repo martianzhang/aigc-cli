@@ -180,13 +180,13 @@ var ToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "upscale",
-			Description: "Upscale an image 2x/4x with a local Real-ESRGAN / Real-CUGAN / Swin2SR ONNX model. Completely offline, no API key needed. Large images are processed in feathered tiles; output is opaque PNG. Use default for general photos; real-cugan-2x for anime. Requires model downloaded via 'aigc-cli upscale init'.",
+			Description: "Upscale an image 2x/4x with a local Real-ESRGAN / Real-CUGAN / Swin2SR ONNX model. Completely offline, no API key needed; large images use feathered tiles; output is opaque PNG. Model pick: general photos → realesr-general-x4v3 (default) or real-esrgan-x4plus (photo HQ, slower); anime → real-cugan-2x (2x) / real-esrgan-x4plus-anime-6b / real-esrgan-x4plus-anime-4b32f (faster) / real-esrgan-animevideov3 (fastest); noisy or compressed photos → swin2sr-realworld-x4 or swin2sr-compressed-x4; clean images → swin2sr-classical-x4. Requires model via 'aigc-cli upscale init'.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"input_path": {"type": "string", "description": "Path to the input image file"},
 					"output_path": {"type": "string", "description": "Optional output path (default: <input>_upscaled.png)"},
-					"model": {"type": "string", "description": "Model id (default: realesr-general-x4v3; also real-cugan-2x, swin2sr-realworld-x4, ...)"},
+					"model": {"type": "string", "description": "realesr-general-x4v3 (default) | real-esrgan-x4plus | real-cugan-2x | real-esrgan-x4plus-anime-6b | real-esrgan-x4plus-anime-4b32f | real-esrgan-animevideov3 | swin2sr-lightweight-x2 | swin2sr-realworld-x4 | swin2sr-classical-x4 | swin2sr-compressed-x4"},
 					"scale": {"type": "integer", "description": "Output scale factor (default: model's native scale)"}
 				},
 				"required": ["input_path"]
