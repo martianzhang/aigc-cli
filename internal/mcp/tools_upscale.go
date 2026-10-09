@@ -13,6 +13,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"golang.org/x/image/draw"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	up "github.com/martianzhang/aigc-cli/internal/upscale"
 )
@@ -77,6 +78,9 @@ func upscaleHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		sharedDir := filepath.Join(configDir(), "models")
+		if d := options.UpscaleModelsDir(); d != "" {
+			sharedDir = d
+		}
 		os.MkdirAll(sharedDir, 0755)
 		libPath, err := onnxrt.LibPath(sharedDir)
 		if err != nil || libPath == "" {
@@ -87,6 +91,9 @@ func upscaleHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		modelID := req.GetString("model", "")
+		if modelID == "" {
+			modelID = options.UpscaleModel()
+		}
 		info, ok := up.ResolveModel(modelID)
 		if !ok {
 			return mcp.NewToolResultError(fmt.Sprintf("unknown model %q", modelID)), nil

@@ -102,6 +102,24 @@ func (s *SharedConfig) ResolveProvider(cmdName string) *provider.EffectiveProvid
 	return ep
 }
 
+// UpscaleModelsDir returns the models directory configured for the upscale
+// command via providers.<name>.models_dir (through defaults.upscale.provider),
+// or "" when not configured.
+func UpscaleModelsDir() string {
+	if p := Shared.ResolveProvider(ProviderNameUpscale); p != nil {
+		return p.ModelsDir
+	}
+	return ""
+}
+
+// UpscaleModel returns the configured default upscale model (defaults.upscale.model), or "".
+func UpscaleModel() string {
+	if p := Shared.ResolveProvider(ProviderNameUpscale); p != nil {
+		return p.Model
+	}
+	return ""
+}
+
 // CmdProviderInfo describes how to extract provider/model for a single command
 // from the ConfigDefaults struct.
 type CmdProviderInfo struct {

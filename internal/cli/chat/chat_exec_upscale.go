@@ -34,12 +34,18 @@ func executeUpscale(argsJSON string) string {
 		return fmt.Sprintf("Error: input file not found: %v", err)
 	}
 
+	if a.Model == "" {
+		a.Model = options.UpscaleModel()
+	}
 	info, ok := up.ResolveModel(a.Model)
 	if !ok {
 		return fmt.Sprintf("Error: unknown model %q", a.Model)
 	}
 
 	modelsDir := filepath.Join(options.ConfigDir(), "models")
+	if d := options.UpscaleModelsDir(); d != "" {
+		modelsDir = d
+	}
 	libPath, err := onnxrt.LibPath(modelsDir)
 	if err != nil {
 		return fmt.Sprintf("Error: ONNX Runtime not found — run 'aigc-cli upscale init' first: %v", err)

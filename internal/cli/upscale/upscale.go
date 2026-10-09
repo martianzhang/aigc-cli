@@ -176,8 +176,8 @@ func scaleLabel(requested, native int) string {
 // resolveModelsDir returns the provider's models_dir when configured (via
 // defaults.upscale.provider → providers.{name}.models_dir), else the fallback.
 func resolveModelsDir(fallback string) string {
-	if p := options.Shared.ResolveProvider(options.ProviderNameUpscale); p != nil && p.ModelsDir != "" {
-		return p.ModelsDir
+	if d := options.UpscaleModelsDir(); d != "" {
+		return d
 	}
 	return fallback
 }
@@ -187,8 +187,8 @@ func resolveModelID(flag string) string {
 	if flag != "" {
 		return flag
 	}
-	if p := options.Shared.ResolveProvider(options.ProviderNameUpscale); p != nil && p.Model != "" {
-		return p.Model
+	if m := options.UpscaleModel(); m != "" {
+		return m
 	}
 	return up.DefaultModelID
 }
