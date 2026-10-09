@@ -56,7 +56,7 @@ func ImageToDataURI(path string) (string, error) {
 
 // validateLocalImage rejects any local file that is not a decodable image
 // (e.g. ~/.ssh/id_rsa), so it can never be embedded as an "image". A decoder
-// that panics (the jpegli wasm decoder panics on some valid progressive JPEGs)
+// that panics (the gen2brain wasm decoders can panic on some input)
 // is recovered and falls back to a magic-byte signature check, so a valid
 // image is never rejected and the process never crashes.
 func validateLocalImage(path string) error {

@@ -128,3 +128,7 @@ require (
 )
 
 replace github.com/amikos-tech/pure-onnx => github.com/martianzhang/pure-onnx v0.0.2
+
+// Forked only to drop the JPEG decoder registration (image.RegisterFormat) that
+// overrides the stdlib decoder and panics on malformed input. Encoder identical.
+replace github.com/gen2brain/jpegli => github.com/martianzhang/jpegli v0.4.2-aigc.1

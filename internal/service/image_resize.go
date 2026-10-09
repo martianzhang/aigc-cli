@@ -61,7 +61,7 @@ func ResizeImageBytes(data []byte, maxEdge int) (out []byte, resized bool, err e
 }
 
 // decodeImageSafe decodes image bytes, converting a decoder panic into an
-// error. The jpegli wasm decoder panics on some valid progressive JPEGs.
+// error. The gen2brain wasm decoders (webp/avif/jpegxl) can panic on some input.
 func decodeImageSafe(data []byte) (img image.Image, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
