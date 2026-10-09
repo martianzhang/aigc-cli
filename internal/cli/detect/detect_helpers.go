@@ -2,7 +2,6 @@ package detect
 
 import (
 	"fmt"
-	"image"
 	_ "image/gif"
 	"image/jpeg"
 	_ "image/jpeg"
@@ -16,6 +15,7 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/onnx"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
@@ -142,7 +142,7 @@ func stripMetadata(path string) error {
 		return err
 	}
 	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return fmt.Errorf("decode: %w", err)
 	}

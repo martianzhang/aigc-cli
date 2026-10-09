@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
@@ -151,7 +152,7 @@ func (d *Detector) DetectFile(path string) (*Result, error) {
 	}
 	defer f.Close()
 
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return nil, fmt.Errorf("decode image: %w", err)
 	}

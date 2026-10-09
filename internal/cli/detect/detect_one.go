@@ -2,7 +2,6 @@ package detect
 
 import (
 	"fmt"
-	"image"
 	"os"
 
 	_ "golang.org/x/image/bmp"
@@ -14,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/detect"
 	"github.com/martianzhang/aigc-cli/internal/forensic"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/onnx"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -67,7 +67,7 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	if (!opts.C2PAPresent || opts.C2PASource != "AI Generated") && !opts.TC260Present {
 		f, fErr := os.Open(path)
 		if fErr == nil {
-			img, _, decErr := image.Decode(f)
+			img, _, decErr := imgcodec.Decode(f)
 			f.Close()
 			if decErr == nil {
 				if dets := watermark.DetectWatermark(img); len(dets) > 0 {
@@ -106,7 +106,7 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	if opts.WatermarkPresent {
 		f, fErr := os.Open(path)
 		if fErr == nil {
-			img, _, decErr := image.Decode(f)
+			img, _, decErr := imgcodec.Decode(f)
 			f.Close()
 			if decErr == nil {
 				b := img.Bounds()

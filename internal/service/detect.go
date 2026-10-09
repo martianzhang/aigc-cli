@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -15,6 +14,8 @@ import (
 	"time"
 
 	"github.com/richardwooding/c2pa"
+
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
 // TC260 field keys.
@@ -108,7 +109,7 @@ func DetectImage(path string) (*DetectResult, error) {
 	}
 	defer f.Close()
 
-	config, format, err := image.DecodeConfig(f)
+	config, format, err := imgcodec.DecodeConfig(f)
 	if err != nil {
 		result.Format = "unknown"
 		return result, nil

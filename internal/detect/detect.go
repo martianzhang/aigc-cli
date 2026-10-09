@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/forensic"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
@@ -21,7 +22,7 @@ func AnalyzeFFTFile(path string) float64 {
 		return -1
 	}
 	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return -1
 	}
@@ -36,7 +37,7 @@ func AnalyzeNoiseFile(path string) float64 {
 		return -1
 	}
 	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return -1
 	}

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/detect"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
@@ -21,7 +22,7 @@ func handleCropWatermark(path string) error {
 	}
 	defer f.Close()
 
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return fmt.Errorf("decode: %w", err)
 	}

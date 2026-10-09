@@ -11,6 +11,8 @@ import (
 
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
+
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
 // findSeedPairs finds all numbered seed pairs for a given name.
@@ -53,7 +55,7 @@ func loadImage(path string) (image.Image, error) {
 		return nil, err
 	}
 	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}

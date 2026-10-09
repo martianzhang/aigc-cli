@@ -15,6 +15,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/detect"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
@@ -43,7 +44,7 @@ func applyWatermarkActions(path string, result *service.DetectResult) {
 		var dets []watermark.Detection
 		var decodedImg image.Image
 		if fErr == nil {
-			decodedImg, _, _ = image.Decode(f)
+			decodedImg, _, _ = imgcodec.Decode(f)
 			f.Close()
 			// When producer is known from metadata (C2PA/TC260), skip
 			// DetectWatermark — it scans ALL registered configs and can
