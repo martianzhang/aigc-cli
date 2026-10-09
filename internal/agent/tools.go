@@ -175,6 +175,24 @@ var ToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
+	// --- Upscale tool ---
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "upscale",
+			Description: "Upscale an image 2x/4x with a local Real-ESRGAN / Real-CUGAN / Swin2SR ONNX model. Completely offline, no API key needed. Large images are processed in feathered tiles; output is opaque PNG. Use default for general photos; real-cugan-2x for anime. Requires model downloaded via 'aigc-cli upscale init'.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"input_path": {"type": "string", "description": "Path to the input image file"},
+					"output_path": {"type": "string", "description": "Optional output path (default: <input>_upscaled.png)"},
+					"model": {"type": "string", "description": "Model id (default: realesr-general-x4v3; also real-cugan-2x, swin2sr-realworld-x4, ...)"},
+					"scale": {"type": "integer", "description": "Output scale factor (default: model's native scale)"}
+				},
+				"required": ["input_path"]
+			}`),
+		},
+	},
 	// --- Watermark tools ---
 	{
 		Type: "function",

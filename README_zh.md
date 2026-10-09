@@ -17,7 +17,7 @@
 
 | | | |
 |---|---|---|
-| 🤖 | **MCP Server** | 内置 MCP Server，对接 Claude Desktop、Cursor、Windsurf：29 个工具、4 个工作流 Prompt、4 个只读 Resource，全部工具带 MCP annotations。AI 代理可直接在对话中生成图片/视频/音乐、运行 Midjourney、OCR、搜索知识库、检测 AIGC、查询定价。工具的 `provider` 参数仅接受 `config.yaml` 白名单中的名称，永远无法远程传入 `base_url`/`api_key`。 |
+| 🤖 | **MCP Server** | 内置 MCP Server，对接 Claude Desktop、Cursor、Windsurf：30 个工具、4 个工作流 Prompt、4 个只读 Resource，全部工具带 MCP annotations。AI 代理可直接在对话中生成图片/视频/音乐、运行 Midjourney、OCR、搜索知识库、检测 AIGC、查询定价。工具的 `provider` 参数仅接受 `config.yaml` 白名单中的名称，永远无法远程传入 `base_url`/`api_key`。 |
 | 🔬 | **AIGC 取证** | 离线多信号融合：C2PA、TC260（国标 GB 45438-2025）、SynthID、ONNX 分类器、FFT 频谱、SRM 噪声、JPEG 量化。全部本地，无需 API Key。 |
 | 🔌 | **多协议支持** | 不止 OpenAI——同时支持 Anthropic Messages API、Ollama、本地 ONNX 模型和任意 OpenAI 兼容端点。 |
 | 🧠 | **Provider 自动适配** | 每个厂商自动走正确的 API 路由（OpenRouter 专用图片/视频 API、APIMart 异步任务等） |
@@ -32,6 +32,7 @@
 | 👁️ | **OCR & 视觉** | 离线 DBNet+CRNN 文字识别。图片描述支持本地 EXIF 或在线视觉 LLM。 |
 | 🖼️ | **背景去除** | RMBG 2.0 语义分割，纯离线 ONNX，无需 API Key。 |
 | 📏 | **深度图** | `depth`：本地 Depth Anything V2 ONNX 转灰度深度图（图片/视频），用于深度引导图生视频。 |
+| 🔎 | **图像放大** | `upscale`：本地 Real-ESRGAN / Real-CUGAN / Swin2SR ONNX 超分放大（2x/4x），离线、分块推理。 |
 
 
 ---
@@ -86,7 +87,7 @@ aigc-cli chat --message "Hello"
 }
 ```
 
-AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney、OCR、搜索灵感库与知识库、查询模型定价、检测 AIGC——共 29 个工具、4 个工作流 Prompt、4 个只读 Resource（全部工具带 MCP annotations）。工具的 `provider` 参数仅接受 `config.providers` 白名单中的名称，任何工具都不接受 `base_url` 或 `api_key`。详见 [docs/zh/guide-mcp.md](docs/zh/guide-mcp.md)。
+AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney、OCR、搜索灵感库与知识库、查询模型定价、检测 AIGC——共 30 个工具、4 个工作流 Prompt、4 个只读 Resource（全部工具带 MCP annotations）。工具的 `provider` 参数仅接受 `config.providers` 白名单中的名称，任何工具都不接受 `base_url` 或 `api_key`。详见 [docs/zh/guide-mcp.md](docs/zh/guide-mcp.md)。
 
 ---
 
@@ -94,7 +95,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 
 | | 能力 | 说明 |
 |---|---|---|
-| 🤖 | **MCP Server** | 内置 MCP 协议支持，含 29 个工具、4 个工作流 Prompt、4 个只读 Resource 与 MCP annotations；Claude Desktop / Cursor / Windsurf / VS Code 开箱即用 |
+| 🤖 | **MCP Server** | 内置 MCP 协议支持，含 30 个工具、4 个工作流 Prompt、4 个只读 Resource 与 MCP annotations；Claude Desktop / Cursor / Windsurf / VS Code 开箱即用 |
 | 🔬 | **AIGC 检测引擎** | C2PA / TC260 / SynthID / ONNX / FFT / SRM 噪声 / JPEG 量化，离线运行，emoji 输出 |
 | 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 切换 Provider，命令不变 |
 | 🧠 | **Provider 自动适配** | OpenRouter 自动走专用图片/视频 API，零配置 |
@@ -104,6 +105,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 | 🔍 | **提示词灵感库** | 离线 BM25 搜索引擎（CJK 感知 + n-gram + RRF），万级提示词数据集；`--source` 可叠加 aipromptslibrary / prompts.chat / openart / civitai 在线源 |
 | 🔊 | **本地 TTS / ASR** | sherpa-onnx 离线语音合成（kokoro 53 种音色，中英日韩法）和语音识别（SenseVoice 中文最佳），无需联网 |
 | 📏 | **深度图** | `depth`：本地 Depth Anything V2 ONNX 转灰度深度图（图片/视频），用于深度引导图生视频 |
+| 🔎 | **图像放大** | `upscale`：本地 Real-ESRGAN / Real-CUGAN / Swin2SR ONNX 超分放大（2x/4x），离线、分块羽化 |
 | 🔄 | **视频任务持久化** | OpenRouter 提交→轮询→下载全流程，超时后 `--job-id` 一键恢复 |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
 | ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台 |
@@ -145,7 +147,8 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 aigc-cli
 ├── image / img   图片生成（同步/异步/OpenRouter 专用 API / Grok Edit）    →  docs/guide-image.md
 ├── video / vid   视频生成（Agnes / OpenRouter / OpenLux + VEO3 Remix）                   →  docs/zh/guide-video.md
-├── depth         图片/视频 → 灰度深度图（离线 ONNX，支持 V2 模型）                 →  docs/guide-depth.md
+├── depth         图片/视频 → 灰度深度图（离线 ONNX，支持 V2 模型）                 →  docs/zh/guide-depth.md
+├── upscale / sr  图像超分放大 2x/4x（离线 ONNX：Real-ESRGAN/Real-CUGAN/Swin2SR）  →  docs/zh/guide-upscale.md
 ├── audio / voice 音频：文字转语音（TTS）和语音转文字（STT）              →  docs/guide-audio.md
 │   ├── tts / speak  文字→语音（云端 API 或本地 sherpa-onnx 离线合成）
 │   ├── asr / stt    语音→文字（云端 API 或本地 sherpa-onnx 离线识别）
@@ -239,6 +242,7 @@ aigc-cli midjourney (或 mj)
 | [视频生成](docs/zh/guide-video.md) | 全部参数、首尾帧、参考视频（APIMart） |
 | [音乐生成](docs/zh/guide-music.md) | 自然语言生成音乐：APIMart 异步（suno/flowmusic）、OpenRouter Lyria 同步流式、阿里云百炼 Fun-Music 同步 |
 | [深度转换](docs/zh/guide-depth.md) | 图片/视频 → 深度图，Depth Anything V2 模型，参数说明 |
+| [图像放大](docs/zh/guide-upscale.md) | 本地 2x/4x 超分辨率放大，Real-ESRGAN/Real-CUGAN/Swin2SR 模型与参数 |
 | [Midjourney 生成](docs/zh/guide-midjourney.md) | 17 个子命令完整说明：imagine、blend、upscale 等 |
 | [AI 对话](docs/zh/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
 | [AIGC 检测](docs/zh/guide-detect.md) | 多信号融合、ONNX 模型、FFT 频谱、emoji 输出 |

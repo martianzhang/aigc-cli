@@ -51,6 +51,7 @@ var annotationTable = []annotationWant{
 	{"kb_search", false, false, false, true},
 	{"remove_background", false, false, false, true},
 	{"convert_depth", false, false, false, true},
+	{"upscale", false, false, false, true},
 	{"remove_watermark", false, false, false, true},
 	{"crop_watermark", false, false, false, true},
 	{"add_watermark", false, false, false, true},

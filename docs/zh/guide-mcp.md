@@ -91,6 +91,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `search_ideas` | 搜索本地灵感库（关键词，或 `random=true` 随机返回） | ❌ |
 | `remove_background` | 离线抠图（RMBG 2.0 语义分割），可选 `replace_color` / `replace_image` / `autocrop` | ❌ |
 | `convert_depth` | 图片/视频 → 灰度深度图（Depth Anything V2，本地 ONNX）；`annotate` 可叠加骨架（人体姿态）或人脸（关键点+眼睛）标注 | ❌ |
+| `upscale` | 图片超分放大 2x/4x（本地 ONNX：Real-ESRGAN/Real-CUGAN/Swin2SR）；`model` 选模型，`scale` 指定倍率 | ❌ |
 | `detect_image` | 检测 C2PA / SynthID / TC260 / EXIF 等 AIGC 信号（完全离线） | ❌ |
 | `remove_watermark` | 检测并移除可见 AI 水印（内置 gemini，其他厂商需 `learn-watermark` 学习），输出 `<原图>_clean<ext>` | ❌ |
 | `add_watermark` | 添加可见 AI 水印（仅用于构造去水印测试样本；内置 gemini alpha map，未知名称按文字渲染） | ❌ |
@@ -115,7 +116,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 >
 > 图片参数以配置为准：`defaults.image.*` 会覆盖 Agent 传入的同名参数，除非设置 `defaults.chat.allow_tool_override: true`。
 >
-> 产出媒体文件的工具（`generate_image`、`generate_speech`、`convert_depth`、`remove_background`、`remove_watermark`、`add_watermark`、`crop_watermark`）会在原有文本结果之外附加**内联的图片/音频内容块**（MCP image/audio content），Claude Desktop 等宿主可直接在对话中渲染生成结果；视频等 MCP 尚不支持的媒体仍只返回文件路径。单次结果最多内联 4 个文件、每个不超过 4 MiB，超出部分仅在文本中提示；设置环境变量 `AIGC_MCP_EMBED_MEDIA=0`（或 `false`/`off`）可关闭内联，只返回文本路径。
+> 产出媒体文件的工具（`generate_image`、`generate_speech`、`convert_depth`、`upscale`、`remove_background`、`remove_watermark`、`add_watermark`、`crop_watermark`）会在原有文本结果之外附加**内联的图片/音频内容块**（MCP image/audio content），Claude Desktop 等宿主可直接在对话中渲染生成结果；视频等 MCP 尚不支持的媒体仍只返回文件路径。单次结果最多内联 4 个文件、每个不超过 4 MiB，超出部分仅在文本中提示；设置环境变量 `AIGC_MCP_EMBED_MEDIA=0`（或 `false`/`off`）可关闭内联，只返回文本路径。
 >
 > 异步任务工具 `generate_video` / `generate_music` 在宿主传入 `progressToken` 时（如 Cursor）会发送**粗粒度进度通知**（0.05 提交前、0.40 进入提交→轮询阶段），便于宿主显示进度指示；目前只发送这两个里程碑，逐次轮询的百分比更新暂未提供。未传 `progressToken` 时完全静默。
 

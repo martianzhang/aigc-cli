@@ -17,7 +17,7 @@ Generate, detect, and manage AI content from the terminal. Supports OpenAI, Open
 
 | | | |
 |---|---|---|
-| 🤖 | **MCP Server** | Built-in MCP Server for Claude Desktop, Cursor, Windsurf: 29 tools, 4 workflow prompts, 4 read-only resources, full MCP annotations. AI agents can generate images/videos/music, run Midjourney, OCR, search KB, detect AIGC, query pricing — all in conversation. The `provider` argument only accepts names from your `config.yaml` whitelist; no `base_url`/`api_key` can ever be passed remotely. |
+| 🤖 | **MCP Server** | Built-in MCP Server for Claude Desktop, Cursor, Windsurf: 30 tools, 4 workflow prompts, 4 read-only resources, full MCP annotations. AI agents can generate images/videos/music, run Midjourney, OCR, search KB, detect AIGC, query pricing — all in conversation. The `provider` argument only accepts names from your `config.yaml` whitelist; no `base_url`/`api_key` can ever be passed remotely. |
 | 🔬 | **AIGC Forensics** | Offline multi-signal fusion: C2PA, TC260 (GB 45438-2025), SynthID, ONNX classifier, FFT spectrum, SRM noise, JPEG quantization. Zero API key needed. |
 | 🔌 | **Multi-Protocol** | Not just OpenAI — supports Anthropic Messages API, Ollama, local ONNX models alongside OpenAI-compatible endpoints. |
 | 🧠 | **Provider Auto-Adapt** | Each provider gets the correct API routing automatically (OpenRouter dedicated image/video API, APIMart async tasks, etc.) |
@@ -32,6 +32,7 @@ Generate, detect, and manage AI content from the terminal. Supports OpenAI, Open
 | 👁️ | **OCR & Vision** | Offline DBNet+CRNN text recognition. Image captioning via local EXIF or online vision LLM. |
 | 🖼️ | **Background Removal** | RMBG 2.0 semantic segmentation. Pure local ONNX, no API key. |
 | 📏 | **Depth Map** | `depth`: local Depth Anything V2 ONNX → grayscale depth map (image or video) for depth-guided image-to-video. |
+| 🔎 | **Image Upscale** | `upscale`: local Real-ESRGAN / Real-CUGAN / Swin2SR ONNX super-resolution (2x/4x), offline, tiled. |
 
 
 ---
@@ -86,7 +87,7 @@ Add to your MCP config in Claude Desktop / Cursor / Windsurf:
 }
 ```
 
-AI agents can generate images/videos/music, run Midjourney, OCR, search the idea library or knowledge base, query model pricing, and detect AIGC directly in conversation — via 29 tools, 4 workflow prompts, and 4 read-only resources (all tools carry MCP annotations). The per-call `provider` argument is restricted to a whitelist of names from `config.providers`; no tool accepts `base_url` or `api_key`. See [docs/en/guide-mcp.md](docs/en/guide-mcp.md).
+AI agents can generate images/videos/music, run Midjourney, OCR, search the idea library or knowledge base, query model pricing, and detect AIGC directly in conversation — via 30 tools, 4 workflow prompts, and 4 read-only resources (all tools carry MCP annotations). The per-call `provider` argument is restricted to a whitelist of names from `config.providers`; no tool accepts `base_url` or `api_key`. See [docs/en/guide-mcp.md](docs/en/guide-mcp.md).
 
 ---
 
@@ -94,7 +95,7 @@ AI agents can generate images/videos/music, run Midjourney, OCR, search the idea
 
 | | Capability | Description |
 |---|---|---|
-| 🤖 | **MCP Server** | Built-in MCP protocol support with 29 tools, 4 workflow prompts, 4 read-only resources and MCP annotations; works out of the box with Claude Desktop / Cursor / Windsurf / VS Code |
+| 🤖 | **MCP Server** | Built-in MCP protocol support with 30 tools, 4 workflow prompts, 4 read-only resources and MCP annotations; works out of the box with Claude Desktop / Cursor / Windsurf / VS Code |
 | 🔬 | **AIGC Detection Engine** | C2PA / TC260 / SynthID / ONNX / FFT / SRM noise / JPEG quantization, offline, emoji output |
 | 🔌 | **Multi-Provider Unified Entry** | Change one `base_url` to switch providers, commands unchanged |
 | 🧠 | **Provider Auto-Adapt** | OpenRouter automatically routes to dedicated image/video APIs, zero config |
@@ -104,6 +105,7 @@ AI agents can generate images/videos/music, run Midjourney, OCR, search the idea
 | 🔍 | **Prompt Idea Library** | Offline BM25 search engine (CJK-aware + n-gram + RRF), 10K+ prompt dataset, plus aipromptslibrary / prompts.chat / openart / civitai via `--source` |
 | 🔊 | **Local TTS / ASR** | sherpa-onnx offline speech synthesis (kokoro, 53 voices, EN/ZH/JA/KR/FR) and speech recognition (SenseVoice, best for Chinese), no internet needed |
 | 📏 | **Depth Map** | `depth`: local Depth Anything V2 ONNX → grayscale depth map (image or video) for depth-guided image-to-video |
+| 🔎 | **Image Upscale** | `upscale`: local Real-ESRGAN / Real-CUGAN / Swin2SR ONNX super-resolution (2x/4x), offline, feathered tiles |
 | 🔄 | **Video Job Persistence** | OpenRouter submit → poll → download full pipeline, `--job-id` one-key resume after timeout |
 | 🧪 | **Dry-Run & Curl** | `--dry-run` prints equivalent curl commands, zero-friction API learning and debugging |
 | ⚡ | **Go Single Binary** | `go install` one-command install, no runtime dependencies, cross-platform |
@@ -146,6 +148,7 @@ aigc-cli
 ├── image / img   Image generation (sync/async/OpenRouter dedicated API/Grok Edit)  →  docs/en/guide-image.md
 ├── video / vid   Video generation (Agnes / OpenRouter / OpenLux + VEO3 Remix)          →  docs/en/guide-video.md
 ├── depth         Image/video → grayscale depth map (offline ONNX, V2 models)   →  docs/en/guide-depth.md
+├── upscale / sr  Image super-resolution 2x/4x (offline ONNX: Real-ESRGAN/Real-CUGAN/Swin2SR)  →  docs/en/guide-upscale.md
 ├── audio / voice Audio: TTS and STT                                                →  docs/en/guide-audio.md
 │   ├── tts / speak  Text-to-speech (cloud API or local sherpa-onnx offline)
 │   ├── asr / stt    Speech-to-text (cloud API or local sherpa-onnx offline)
@@ -239,6 +242,7 @@ aigc-cli midjourney (or mj)
 | [Video Generation](docs/en/guide-video.md) | All parameters, first/last frame, reference video (APIMart) |
 | [Music Generation](docs/en/guide-music.md) | Prompt-to-music: APIMart async (suno/flowmusic), OpenRouter Lyria sync streaming, Alibaba Cloud Bailian Fun-Music sync |
 | [Depth Conversion](docs/en/guide-depth.md) | Image/video → depth map, Depth Anything V2 models, parameters |
+| [Image Upscaling](docs/en/guide-upscale.md) | Local 2x/4x super-resolution, Real-ESRGAN/Real-CUGAN/Swin2SR models, parameters |
 | [Midjourney](docs/en/guide-midjourney.md) | 17 subcommands complete guide: imagine, blend, upscale etc. |
 | [AI Chat](docs/en/guide-chat.md) | Interactive multi-turn REPL, streaming, verbose stats |
 | [AIGC Detection](docs/en/guide-detect.md) | Multi-signal fusion, ONNX models, FFT spectrum, emoji output |

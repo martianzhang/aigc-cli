@@ -98,6 +98,8 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 		return executeRemoveBackground(args)
 	case "convert_depth":
 		return executeConvertDepth(args)
+	case "upscale":
+		return executeUpscale(args)
 	case "remove_watermark":
 		return executeRemoveWatermark(args)
 	case "add_watermark":

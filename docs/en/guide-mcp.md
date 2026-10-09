@@ -42,6 +42,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `search_ideas` | Search the local prompt idea library (keywords, or `random=true`) | Free (local) |
 | `remove_background` | Offline background removal (RMBG 2.0); optional `replace_color` / `replace_image` / `autocrop` | Free (local) |
 | `convert_depth` | Image/video → grayscale depth map (Depth Anything V2, local ONNX); `annotate` overlays skeleton/face landmarks | Free (local) |
+| `upscale` | Image 2x/4x super-resolution (Real-ESRGAN/Real-CUGAN/Swin2SR, local ONNX); `model`/`scale` options | Free (local) |
 | `detect_image` | Detect C2PA / SynthID / TC260 / EXIF AIGC signals (fully offline) | Free (local) |
 | `remove_watermark` | Detect and remove a visible AI watermark (built-in gemini; others via `learn-watermark`), output `<input>_clean<ext>` | Free (local) |
 | `add_watermark` | Add a visible AI watermark (test fixtures only; built-in gemini alpha map, unknown names rendered as text) | Free (local) |
@@ -66,7 +67,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 >
 > Image parameters are pinned by config: `defaults.image.*` overrides the same parameter passed by the agent unless `defaults.chat.allow_tool_override: true` is set.
 >
-> Media-producing tools (`generate_image`, `generate_speech`, `convert_depth`, `remove_background`, `remove_watermark`, `add_watermark`, `crop_watermark`) additionally return **inline image/audio content blocks** next to the text result, so hosts such as Claude Desktop can render generated media directly in the conversation; video and other media MCP cannot represent stay text-only with the file path. At most 4 files (each ≤ 4 MiB) are inlined per result, with an extra text note when files are skipped. Set `AIGC_MCP_EMBED_MEDIA=0` (or `false`/`off`) to disable inlining and return text paths only.
+> Media-producing tools (`generate_image`, `generate_speech`, `convert_depth`, `upscale`, `remove_background`, `remove_watermark`, `add_watermark`, `crop_watermark`) additionally return **inline image/audio content blocks** next to the text result, so hosts such as Claude Desktop can render generated media directly in the conversation; video and other media MCP cannot represent stay text-only with the file path. At most 4 files (each ≤ 4 MiB) are inlined per result, with an extra text note when files are skipped. Set `AIGC_MCP_EMBED_MEDIA=0` (or `false`/`off`) to disable inlining and return text paths only.
 >
 > When the host passes a `progressToken` (e.g. Cursor), the async `generate_video` / `generate_music` tools emit **coarse-phase progress notifications** (0.05 before dispatch, 0.40 entering the submit → poll phase) so the host can render a progress indicator. Only these two milestones are emitted today — per-poll percentages are not yet available. Without a `progressToken` the tools stay fully silent.
 
@@ -114,8 +115,9 @@ tools_enable:
   - "detect_image"
   - "remove_watermark"
   - "crop_watermark"
-  - "remove_background"
-  - "convert_depth"
+- "remove_background"
+- "convert_depth"
+- "upscale"
   - "recognize_text"
 
 # Blocklist — disable paid tools

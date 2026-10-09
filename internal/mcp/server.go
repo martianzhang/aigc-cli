@@ -166,6 +166,7 @@ var toolRegistry = []toolInfo{
 	{"search_ideas", "Search AI prompt ideas", func(desc string) mcp.Tool { return newSearchIdeasTool() }, func(cfg *Config) server.ToolHandlerFunc { return searchIdeasHandler() }},
 	{"remove_background", "Remove image background (offline)", func(desc string) mcp.Tool { return newRemoveBackgroundTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeBackgroundHandler(cfg) }},
 	{"convert_depth", "Convert image/video to grayscale depth map (offline)", func(desc string) mcp.Tool { return newConvertDepthTool() }, func(cfg *Config) server.ToolHandlerFunc { return convertDepthHandler(cfg) }},
+	{"upscale", "Upscale image resolution 2x/4x (offline)", func(desc string) mcp.Tool { return newUpscaleTool() }, func(cfg *Config) server.ToolHandlerFunc { return upscaleHandler(cfg) }},
 	{"detect_image", "Detect AIGC/watermark in images (offline)", func(desc string) mcp.Tool { return newDetectTool() }, func(cfg *Config) server.ToolHandlerFunc { return detectHandler() }},
 	{"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler(cfg) }},
 	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler(cfg) }},

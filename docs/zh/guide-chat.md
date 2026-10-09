@@ -144,6 +144,7 @@ aigc-cli chat --message "生成一段日落海滩的视频"
 | `remove_watermark` | 检测并移除图片中的可见 AI 水印（豆包/即梦/百度/智谱清言等） | `internal/watermark: RemoveFileHinted` |
 | `add_watermark` | 向图片添加可见 AI 水印（测试去水印用） | `internal/watermark: AddWatermarkFile` |
 | `convert_depth` | 图片/视频转灰度深度图（本地 ONNX，深度引导图生视频的输入，自动识别输入类型） | `internal/depth: ConvertImage / Convert` |
+| `upscale` | 图片超分放大 2x/4x（本地 ONNX：Real-ESRGAN/Real-CUGAN/Swin2SR） | `internal/upscale: Upscale` |
 
 所有工具通过共享函数实现，`chat` 和对应的 CLI 命令走同一份代码，无重复逻辑。
 

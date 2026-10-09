@@ -45,6 +45,7 @@ var expectedToolNames = []string{
 	"search_ideas",
 	"task",
 	"transcribe_audio",
+	"upscale",
 	"web_fetch",
 }
 

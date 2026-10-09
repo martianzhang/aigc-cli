@@ -44,6 +44,7 @@ In REPL mode, the AI can use built-in tools:
 | `detect_image` | AIGC detection |
 | `remove_watermark` | Watermark removal |
 | `convert_depth` | Image/video → grayscale depth map (offline, V2 models) |
+| `upscale` | Image 2x/4x super-resolution (offline, Real-ESRGAN/Real-CUGAN/Swin2SR) |
 
 Tools can be enabled/disabled via config:
 
