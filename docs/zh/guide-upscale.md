@@ -98,6 +98,24 @@ aigc-cli upscale init --model real-cugan-2x --model swin2sr-lightweight-x2
 
 模型下载到 `<models_dir>/upscale/`（默认 `~/.config/aigc-cli/models/upscale/`）。ONNX Runtime 与其它本地命令**共用**（`<models_dir>/libonnxruntime.*`），只下载一次。`init` 会遵循配置里的 `http_proxy`。
 
+## 配置
+
+`upscale` 是**纯本地**命令，通过命名 provider 指定（`type: local`），与 `ocr` 一致——`models_dir` 由 provider 提供，不在 `upscale` 段里单独配置：
+
+```yaml
+defaults:
+  upscale:
+    provider: "my-local"          # providers 里 type: local 的条目（不填则用默认模型目录）
+    model: "realesr-general-x4v3" # 默认模型；--model 可覆盖
+providers:
+  my-local:
+    type: local
+    models_dir: "/data/aigc-models"   # 可选；默认 ~/.config/aigc-cli/models
+```
+
+- 模型优先级：`--model` > `defaults.upscale.model` > 内置默认（`realesr-general-x4v3`）。
+- 模型目录：`providers.<name>.models_dir` > 默认目录（`~/.config/aigc-cli/models`）。
+
 ## 技巧
 
 - 通用照片优先 `realesr-general-x4v3`（快）或 `real-esrgan-x4plus`（更清晰，慢）；二次元优先 `real-cugan-2x`。

@@ -140,6 +140,7 @@ type ConfigDefaults struct {
 	Chat          *ChatDefaults       `mapstructure:"chat" yaml:"chat"`
 	Audio         *AudioDefaults      `mapstructure:"audio" yaml:"audio"`
 	OCR           *OCRDefaults        `mapstructure:"ocr" yaml:"ocr,omitempty"`
+	Upscale       *UpscaleDefaults    `mapstructure:"upscale" yaml:"upscale,omitempty"`
 	Vision        *VisionDefaults     `mapstructure:"vision" yaml:"vision,omitempty"`
 	Knowledgebase *KBDefaults         `mapstructure:"knowledgebase" yaml:"knowledgebase,omitempty"`
 	Ideas         *IdeasConfig        `mapstructure:"ideas" yaml:"ideas,omitempty"`
@@ -171,6 +172,12 @@ type WebSearchProvider struct {
 
 // OCRDefaults holds default values for OCR scanning.
 type OCRDefaults struct {
+	Provider string `mapstructure:"provider" yaml:"provider,omitempty"`
+	Model    string `mapstructure:"model" yaml:"model,omitempty"`
+}
+
+// UpscaleDefaults holds default values for image upscaling.
+type UpscaleDefaults struct {
 	Provider string `mapstructure:"provider" yaml:"provider,omitempty"`
 	Model    string `mapstructure:"model" yaml:"model,omitempty"`
 }

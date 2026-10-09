@@ -22,6 +22,11 @@ func DecisionDefaults() *types.DecisionDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.DecisionDefaults { return d.Decision })
 }
 
+// UpscaleDefaults returns defaults.upscale, or nil.
+func UpscaleDefaults() *types.UpscaleDefaults {
+	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.UpscaleDefaults { return d.Upscale })
+}
+
 // VideoDefaults returns defaults.video, or nil.
 func VideoDefaults() *types.VideoDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.VideoDefaults { return d.Video })

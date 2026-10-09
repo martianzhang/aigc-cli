@@ -16,6 +16,7 @@ import (
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -91,11 +92,13 @@ func runUpscale(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --scale %d: must be >= 1, or omit for native scale", upScale)
 	}
 
-	info, ok := up.ResolveModel(upModel)
+	modelID := resolveModelID(upModel)
+	info, ok := up.ResolveModel(modelID)
 	if !ok {
-		return fmt.Errorf("unknown model %q; available: %s", upModel, strings.Join(up.ModelIDs(), ", "))
+		return fmt.Errorf("unknown model %q; available: %s", modelID, strings.Join(up.ModelIDs(), ", "))
 	}
-	modelPath := up.ModelPath(d.ModelsDir, upModel)
+	modelsDir := resolveModelsDir(d.ModelsDir)
+	modelPath := up.ModelPath(modelsDir, modelID)
 
 	outPath := upOutput
 	if outPath == "" {
@@ -123,7 +126,7 @@ func runUpscale(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("decode input: %w", err)
 	}
 
-	libPath, err := onnxrt.LibPath(d.ModelsDir)
+	libPath, err := onnxrt.LibPath(modelsDir)
 	if err != nil {
 		return fmt.Errorf("onnxruntime not found: %w\n  run 'aigc-cli upscale init' first", err)
 	}
@@ -168,4 +171,24 @@ func scaleLabel(requested, native int) string {
 		return fmt.Sprintf("native (x%d)", native)
 	}
 	return fmt.Sprintf("%d", requested)
+}
+
+// resolveModelsDir returns the provider's models_dir when configured (via
+// defaults.upscale.provider → providers.{name}.models_dir), else the fallback.
+func resolveModelsDir(fallback string) string {
+	if p := options.Shared.ResolveProvider(options.ProviderNameUpscale); p != nil && p.ModelsDir != "" {
+		return p.ModelsDir
+	}
+	return fallback
+}
+
+// resolveModelID resolves the model: --model flag > provider/defaults model > built-in default.
+func resolveModelID(flag string) string {
+	if flag != "" {
+		return flag
+	}
+	if p := options.Shared.ResolveProvider(options.ProviderNameUpscale); p != nil && p.Model != "" {
+		return p.Model
+	}
+	return up.DefaultModelID
 }

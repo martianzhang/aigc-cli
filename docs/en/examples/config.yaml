@@ -195,6 +195,13 @@ defaults:
   # background:
   #   provider: "my-apimart"
 
+  # ── Optional: Image upscaling (upscale, local ONNX) ──
+  # Fully local super-resolution. To customize the models directory, point it at
+  # a named provider with type: local (see providers); there is no online path.
+  # upscale:
+  #   provider: "my-local"              # a providers entry with type: local
+  #   model: "realesr-general-x4v3"     # default model (see 'aigc-cli upscale init --list')
+
   # ── Optional: Knowledge Base (knowledgebase) ──
   # knowledgebase:
   #   base_dir: "~/.config/aigc-cli/knowledge"   # KB storage path

@@ -47,7 +47,7 @@ Which model? (run 'aigc-cli upscale init --list' for the full list and use cases
 				return nil
 			}
 			if listInst {
-				printInstalled(d.ModelsDir)
+				printInstalled(resolveModelsDir(d.ModelsDir))
 				return nil
 			}
 			return runInit(d, models, force)
@@ -61,7 +61,7 @@ Which model? (run 'aigc-cli upscale init --list' for the full list and use cases
 }
 
 func runInit(d Deps, models []string, force bool) error {
-	sharedDir := d.ModelsDir
+	sharedDir := resolveModelsDir(d.ModelsDir)
 	if err := os.MkdirAll(sharedDir, 0755); err != nil {
 		return fmt.Errorf("create models dir: %w", err)
 	}
@@ -75,7 +75,7 @@ func runInit(d Deps, models []string, force bool) error {
 		fmt.Printf("No model specified; downloading default: %s\n", up.DefaultModelID)
 	}
 
-	dir := up.Dir(d.ModelsDir)
+	dir := up.Dir(sharedDir)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create upscale dir: %w", err)
 	}

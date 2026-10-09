@@ -113,6 +113,26 @@ Models are downloaded to `<models_dir>/upscale/` (default
 other local commands (`<models_dir>/libonnxruntime.*`) and downloaded once.
 `init` respects the configured `http_proxy`.
 
+## Configuration
+
+`upscale` is fully local and is configured through a named provider (`type: local`),
+just like `ocr` — the models directory comes from the provider, not from a
+`models_dir` field in the `upscale` section:
+
+```yaml
+defaults:
+  upscale:
+    provider: "my-local"          # a providers entry with type: local (unset = default models dir)
+    model: "realesr-general-x4v3" # default model; --model overrides
+providers:
+  my-local:
+    type: local
+    models_dir: "/data/aigc-models"   # optional; default ~/.config/aigc-cli/models
+```
+
+- Model priority: `--model` > `defaults.upscale.model` > built-in default (`realesr-general-x4v3`).
+- Models dir: `providers.<name>.models_dir` > default dir (`~/.config/aigc-cli/models`).
+
 ## Tips
 
 - General photos: `realesr-general-x4v3` (fast) or `real-esrgan-x4plus` (sharper,

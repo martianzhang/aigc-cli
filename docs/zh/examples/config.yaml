@@ -186,6 +186,13 @@ defaults:
   # background:
   #   provider: "my-apimart"
 
+  # ── 可选：图像放大（upscale，本地 ONNX）──
+  # 纯本地超分。如需自定义模型目录，指向一个 type: local 的命名 provider（见下方 providers）；
+  # 没有在线路径。
+  # upscale:
+  #   provider: "my-local"              # providers 里 type: local 的条目
+  #   model: "realesr-general-x4v3"     # 默认模型（见 'aigc-cli upscale init --list'）
+
   # ── 可选：知识库（knowledgebase）──
   # knowledgebase:
   #   base_dir: "~/.config/aigc-cli/knowledge"   # 知识库存放路径

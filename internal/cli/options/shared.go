@@ -46,6 +46,7 @@ const (
 	ProviderNameMusic      = "music"
 	ProviderNameModels     = "models"
 	ProviderNameOCR        = "ocr"
+	ProviderNameUpscale    = "upscale"
 	ProviderNameVision     = "vision"
 	ProviderNameDetect     = "detect"
 	ProviderNameBackground = "background"
@@ -149,6 +150,12 @@ var CmdProviderMap = map[string]CmdProviderInfo{
 	ProviderNameOCR: {func(d *types.ConfigDefaults) (string, string) {
 		if d.OCR != nil {
 			return d.OCR.Provider, d.OCR.Model
+		}
+		return "", ""
+	}},
+	ProviderNameUpscale: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Upscale != nil {
+			return d.Upscale.Provider, d.Upscale.Model
 		}
 		return "", ""
 	}},
