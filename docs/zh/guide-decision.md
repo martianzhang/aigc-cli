@@ -16,6 +16,8 @@ aigc-cli decision [flags]
 | `--questions a,b,c` | 仅回答指定的问题（ASCII 逗号分隔，可重复；题目名可用中文）。省略则回答题库中**所有**问题 |
 | `--state <text\|path\|->` | 待判定的素材。支持直接文本、文件路径、`-` 读 stdin。若内容是合法 JSON 对象/数组，按结构化 state 发送；否则按纯字符串发送 |
 | `--image <path\|data-uri>` | 附加图片（PNG/JPEG/WebP），与 state 一起联合评分；可重复。支持本地文件或 base64 data URI。需要 Ollama >= 0.35.1 的 Clef / Clef-Flash |
+| `--audio <path\|data-uri>` | 附加音频（WAV/MP3/M4A/AAC/OGG/OPUS/FLAC），与 state 一起联合评分；可重复。支持本地文件或 base64 data URI。需要 Clef-Omni / 支持音频的服务端 |
+| `--video <path\|data-uri>` | 附加视频（MP4/MOV/WebM/MKV/AVI），服务端按 2 fps 抽帧并附带音轨；可重复。支持本地文件或 base64 data URI。需要 Clef-Omni / 支持视频的服务端 |
 | `--image-resize <px>` | 发送前把附加图片的最长边缩放到不超过 N 像素。默认 `1024`；`0` 保留原图。真正降低耗时的是它——见[多模态图片](#多模态图片) |
 | `--list` | 列出题库中所有问题的名称后退出 |
 | `--dry-run` | 打印等价的 curl 请求，不真正调用 API |
@@ -31,6 +33,8 @@ aigc-cli decision [flags]
 | `model` | string | 否 | 覆盖默认模型 |
 | `state` | string / object / array | 否 | 默认 state，可被 `--state` 覆盖 |
 | `images` | 字符串数组 | 否 | 默认图片（本地路径或 base64 data URI），可被 `--image` 覆盖 |
+| `audio` | 字符串数组 | 否 | 默认音频（本地路径或 base64 data URI），可被 `--audio` 覆盖 |
+| `videos` | 字符串数组 | 否 | 默认视频（本地路径或 base64 data URI），可被 `--video` 覆盖 |
 | `questions` | object | 是 | 命名问题字典，1–64 个问题 |
 
 每个问题字段：
@@ -83,6 +87,19 @@ aigc-cli decision -m clef-flash --image screenshot.png --state "请判定所附�
 aigc-cli decision -m clef-flash --image screenshot.png --image-resize 768 --state "请判定所附截图。"
 ```
 
+### 音频与视频（多模态）
+
+Clef-Omni / Clef 家族还可以判定音频与视频。用 `--audio` 和 `--video` 附加（均可重复）；每个片段由请求中**全部**问题共享，与文本 `state` 及图片一起联合评分：
+
+```bash
+aigc-cli decision -m clef-omni --audio call.wav --questions escalation --state "请审核所附通话录音。"
+aigc-cli decision -m clef-omni --video dashcam.mp4 --questions collision --state "片段里是否发生了碰撞？"
+```
+
+与图片（发 raw base64）不同，音频和视频以 **base64 data URL** 发送（`data:audio/wav;base64,...`、`data:video/mp4;base64,...`），让 MIME 类型随字节一起传递。本地文件按扩展名判定类型：音频支持 `.wav .mp3 .m4a .aac .ogg .oga .opus .flac .webm`，视频支持 `.mp4 .m4v .mov .webm .mkv .avi`（每个不超过 64 MiB）。`data:` URI 原样透传；`http(s)` URL **直接拒绝**——请先下载。视频在服务端按 **2 fps** 抽帧；当请求中每个视频都带音轨时，音轨会被一并识别。
+
+> 音频/视频需要支持它们的模型服务端。在 OpenRouter 上，`cloudflare/clef-omni` **目前只接受文本与图片**——音频/视频输入标注为 "coming soon"；HuggingFace 上发布的 `Cloudflare/clef-omni` 自托管时才三者全支持。
+
 ## 输出
 
 响应为 JSON（`model` / `answers` / `usage`），可直接管道给 `jq`：
@@ -122,7 +139,7 @@ aigc-cli decision --json triage.json --state state.txt \
 CLI 参数 > JSON（题库） > defaults.decision YAML > 代码默认值
 ```
 
-`--json` 与其他 flag 同时出现时：每个**显式设置**的 flag 覆盖题库对应字段；未触及的字段保持题库原值。仅传 `--json` 不带任何 flag 时，题库**整体发送**。`--image` 覆盖题库的 `images` 数组。
+`--json` 与其他 flag 同时出现时：每个**显式设置**的 flag 覆盖题库对应字段；未触及的字段保持题库原值。仅传 `--json` 不带任何 flag 时，题库**整体发送**。`--image` / `--audio` / `--video` 覆盖题库的 `images` / `audio` / `videos` 数组。
 
 ## 示例
 
@@ -155,6 +172,7 @@ aigc-cli decision --questions 意图 --state state.txt --dry-run
 - tev1 上下文约 **2000 tokens**，请保持 state 简短
 - 图片需要 **Clef / Clef-Flash**（Ollama >= 0.35.1）；纯文本模型会拒绝图片。API 只接受 **raw base64**：本地文件会自动编码，`data:` URI 会剥离/转换，`http(s)` URL **直接拒绝**——请先下载。坏图片文件（损坏、非图片、超过 32 MiB）在请求发出前即被拒绝。
 - 图片耗时由**像素尺寸决定，而非文件字节**——只有 `--image-resize`（默认 1024px）能提速。重新压缩（降质量 / 减体积）**不会**减少 token。传 `--image-resize 0` 发送原图。
+- 音频/视频需要 **Clef-Omni / Clef** 且服务端支持。OpenRouter 上的 `cloudflare/clef-omni` **目前只有文本 + 图片**（音频/视频 "coming soon"），因此 `--audio` / `--video` 只在自托管服务端、或 provider 开放后才可用。片段以 base64 **data URL** 发送（按扩展名判定类型，每个 ≤ 64 MiB）；`http(s)` URL 直接拒绝。
 - 若没有合适选项，**务必**添加 `none` / `other` 选项——模型不会自动说"以上皆非"
 - tev1 基模为 **Qwen3.5**（`ollama show tev1` → `arch qwen35`），中文题库 / 中文 state 实测可用（见 [examples/decision/triage.json](examples/decision/triage.json)）；但厂商评测以英文为主，非英文**无质量保证**——生产上请配合 `confidence` 阈值与人工兜底
 - prompt injection 在厂商测试中覆盖有限：state 要当**数据**看，不要让它左右下游动作
@@ -167,6 +185,6 @@ aigc-cli decision --questions 意图 --state state.txt --dry-run
 defaults:
   decision:
     provider: ollama            # config.providers 里定义的命名 provider（ollama / openrouter / ...）
-    model: tev1                 # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
+    model: tev1                 # tev1 | tev1:0.8b | nimble | typesafe/jev-latest | cloudflare/clef-omni
     bank: ~/exams/triage.json   # 默认题库（--json 缺省时使用）
 ```

@@ -20,6 +20,8 @@ type bank struct {
 	Model     string                     `json:"model"`
 	State     json.RawMessage            `json:"state"`
 	Images    []string                   `json:"images"`
+	Audio     []string                   `json:"audio"`
+	Videos    []string                   `json:"videos"`
 	Questions map[string]json.RawMessage `json:"questions"`
 }
 

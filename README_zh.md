@@ -110,7 +110,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 | 🧪 | **Dry-Run & Curl** | `--dry-run` 输出等价 curl 命令，学习和调试 API 零门槛 |
 | ⚡ | **Go 单二进制** | `go install` 一键安装，无 runtime 依赖，跨平台 |
 | 📚 | **本地知识库** | FTS5 + 可插拔语义搜索（ONNX / Ollama / OpenAI 兼容 embedding），age 加密保险箱，web search 自动入库，MCP/Chat 工具集成 |
-| 🧮 | **强类型决策** | 本地 Ollama（tev1/nimble）或在线 OpenRouter Jev 跑强类型决策（选择 / 是非 / 评分），支持题库、概率校准与多模态图片决策（Clef / Clef-Flash，自动缩放），离线零成本 |
+| 🧮 | **强类型决策** | 本地 Ollama（tev1/nimble）或在线 OpenRouter Jev 跑强类型决策（选择 / 是非 / 评分），支持题库、概率校准与多模态图片/音频/视频决策（Clef / Clef-Flash / Clef-Omni），离线零成本 |
 
 ---
 
@@ -174,7 +174,7 @@ aigc-cli
 ├── config     读写 config.yaml（get/set/list，密钥脱敏且自动加密）              →  docs/zh/guide-commands.md
 ├── preview / pr 看图 / --detail 元数据 / --describe 写说明                    →  docs/guide-preview.md
 ├── detect     检测 AIGC、元数据和篡改痕迹（多信号融合 + emoji）             →  docs/zh/guide-detect.md
-├── decision / decide  强类型决策模型（System One / Jev）：状态 + 题库 → 答案   →  docs/zh/guide-decision.md
+├── decision / decide  强类型决策模型（System One / Jev）：状态 + 题库 + 图片/音频/视频 → 答案   →  docs/zh/guide-decision.md
 ├── completion 生成 shell 补全脚本（bash/zsh/fish/powershell）
 ├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/guide-mcp.md
 │

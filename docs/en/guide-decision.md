@@ -16,6 +16,8 @@ aigc-cli decision [flags]
 | `--questions a,b,c` | Filter which named questions to answer (comma-separated, repeatable). Omit to answer **all** questions in the bank |
 | `--state <text\|path\|->` | Material to judge. Accepts literal text, a file path, or `-` for stdin. If the content is a valid JSON object or array, it is sent as structured state; otherwise as a plain string |
 | `--image <path\|data-uri>` | Attach an image (PNG/JPEG/WebP) scored jointly with the state; repeatable. Accepts a local file or a base64 data URI. Requires Clef / Clef-Flash on Ollama >= 0.35.1 |
+| `--audio <path\|data-uri>` | Attach an audio clip (WAV/MP3/M4A/AAC/OGG/OPUS/FLAC) scored jointly with the state; repeatable. Accepts a local file or a base64 data URI. Requires Clef-Omni / a server that supports audio |
+| `--video <path\|data-uri>` | Attach a video clip (MP4/MOV/WebM/MKV/AVI), sampled at 2 fps with its soundtrack; repeatable. Accepts a local file or a base64 data URI. Requires Clef-Omni / a server that supports video |
 | `--image-resize <px>` | Downscale attached images so the longest edge is at most N px before sending. Default `1024`; `0` keeps the original. This is what actually cuts latency — see [Images](#images-multimodal) |
 | `--list` | List the question names available in the bank, then exit |
 | `--dry-run` | Print the equivalent curl request without calling the API |
@@ -31,6 +33,8 @@ The bank file is JSON or JSONC (`//` comments and trailing commas allowed). Top-
 | `model` | string | no | Overrides the default model |
 | `state` | string / object / array | no | Default state; overridden by `--state` |
 | `images` | array of strings | no | Default images (local paths or base64 data URIs); overridden by `--image` |
+| `audio` | array of strings | no | Default audio clips (local paths or base64 data URIs); overridden by `--audio` |
+| `videos` | array of strings | no | Default video clips (local paths or base64 data URIs); overridden by `--video` |
 | `questions` | object | yes | Named question map, 1–64 entries |
 
 Each question has:
@@ -83,6 +87,19 @@ aigc-cli decision -m clef-flash --image screenshot.png --state "Judge the attach
 aigc-cli decision -m clef-flash --image screenshot.png --image-resize 768 --state "Judge the attached screenshot."
 ```
 
+### Audio and video (multimodal)
+
+Clef-Omni / the Clef family can also judge audio and video. Attach clips with `--audio` and `--video` (both repeatable); every clip is shared by **all** questions and scored jointly with the text `state` and any images:
+
+```bash
+aigc-cli decision -m clef-omni --audio call.wav --questions escalation --state "Review the attached call recording."
+aigc-cli decision -m clef-omni --video dashcam.mp4 --questions collision --state "Does the clip show a collision?"
+```
+
+Unlike images (sent as raw base64), audio and video are sent as **base64 data URLs** (`data:audio/wav;base64,...`, `data:video/mp4;base64,...`) so the MIME type travels with the bytes. Local files are typed from their extension: `.wav .mp3 .m4a .aac .ogg .oga .opus .flac .webm` for audio and `.mp4 .m4v .mov .webm .mkv .avi` for video (up to 64 MiB each). A `data:` URI passes through unchanged; `http(s)` URLs are rejected — download the file first. Video is sampled at **2 frames per second** server-side, and a clip's soundtrack is heard when every video in the request has one.
+
+> Audio/video needs a model server that supports it. On OpenRouter, `cloudflare/clef-omni` currently accepts **text and images only** — audio/video input is "coming soon". The HuggingFace release (`Cloudflare/clef-omni`) itself supports all three when self-hosted.
+
 ## Output
 
 The response is JSON (`model` / `answers` / `usage`) and pipes straight into `jq`:
@@ -123,7 +140,7 @@ Endpoint paths **differ per provider**. This project has only end-to-end-verifie
 CLI flags > JSON (bank) > defaults.decision YAML > code defaults
 ```
 
-When `--json` ships alongside other flags, every flag you **explicitly set** overrides the matching key in the bank; untouched fields are kept as written. With `--json` alone, the bank is sent verbatim. `--image` overrides the bank's `images` array.
+When `--json` ships alongside other flags, every flag you **explicitly set** overrides the matching key in the bank; untouched fields are kept as written. With `--json` alone, the bank is sent verbatim. `--image` / `--audio` / `--video` override the bank's `images` / `audio` / `videos` arrays.
 
 ## Examples
 
@@ -156,6 +173,7 @@ aigc-cli decision --questions intent --state state.txt --dry-run
 - tev1 runs at ~2000 tokens of context — keep the state short.
 - Images require **Clef / Clef-Flash** (Ollama >= 0.35.1); text-only models reject them. The API accepts only **raw base64**: local files are encoded for you, `data:` URIs are stripped/converted, and `http(s)` URLs are **rejected** — download the image first. A bad image file (corrupt, non-image, > 32 MiB) is rejected before the request is sent.
 - Image latency is driven by **pixel dimensions, not file bytes** — only `--image-resize` (default 1024px) speeds things up. Re-compressing (lower quality / smaller file) does **not** reduce tokens. Set `--image-resize 0` to send originals.
+- Audio/video need **Clef-Omni / Clef** and a server that supports them. On OpenRouter `cloudflare/clef-omni` is **text + image only** today (audio/video "coming soon"), so `--audio` / `--video` work only against a self-hosted model or once the provider enables them. Clips are sent as base64 **data URLs** (extension-typed, ≤ 64 MiB each); `http(s)` URLs are rejected.
 - If none of the options might fit, **add a `none` / `other` option**. The model cannot say "none of the above" unless you give it one.
 - tev1 is built on a **Qwen3.5** base (`ollama show tev1` → `arch qwen35`), and non-English works in our smoke tests (see the Chinese bank in `docs/zh/examples/decision/triage.json`). The vendor's evaluation is English-only, though, so treat non-English as **unsupported** — pair it with a `confidence` threshold and a human fallback.
 - Prompt-injection coverage is limited; treat the state as data, never as instructions.
@@ -168,6 +186,6 @@ aigc-cli decision --questions intent --state state.txt --dry-run
 defaults:
   decision:
     provider: ollama            # named provider from config.providers (ollama / openrouter / ...)
-    model: tev1                 # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
+    model: tev1                 # tev1 | tev1:0.8b | nimble | typesafe/jev-latest | cloudflare/clef-omni
     bank: ~/exams/triage.json   # default question bank (used when --json is omitted)
 ```

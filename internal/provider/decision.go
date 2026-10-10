@@ -36,7 +36,13 @@ type DecisionRequest struct {
 	// Images are raw base64 images (no data: prefix), shared by all
 	// questions and scored jointly with the text state. PNG/JPEG/WebP;
 	// Clef / Clef-Flash only (Ollama >= 0.35.1).
-	Images    []string                   `json:"images,omitempty"`
+	Images []string `json:"images,omitempty"`
+	// Audio and Videos are base64 data URLs (e.g.
+	// data:audio/wav;base64,...), shared by all questions and scored jointly
+	// with the text state. Footage is sampled at 2 fps server-side, with its
+	// soundtrack when present. Clef-Omni / Clef family only.
+	Audio     []string                   `json:"audio,omitempty"`
+	Videos    []string                   `json:"videos,omitempty"`
 	Questions map[string]json.RawMessage `json:"questions"`
 	KeepAlive string                     `json:"keep_alive,omitempty"`
 }

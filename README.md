@@ -110,7 +110,7 @@ AI agents can generate images/videos/music, run Midjourney, OCR, search the idea
 | 🧪 | **Dry-Run & Curl** | `--dry-run` prints equivalent curl commands, zero-friction API learning and debugging |
 | ⚡ | **Go Single Binary** | `go install` one-command install, no runtime dependencies, cross-platform |
 | 📚 | **Local Knowledge Base** | FTS5 + pluggable semantic search (ONNX / Ollama / OpenAI-compatible embeddings), age-encrypted vault, web search auto-import, MCP/Chat tool integration |
-| 🧮 | **Decision Models** | Run typed decisions (choice / yes-no / rating) locally with Ollama (tev1/nimble) or remotely via OpenRouter Jev — question banks, calibrated probabilities, multimodal image decisions (Clef / Clef-Flash, auto-resized), zero cost offline |
+| 🧮 | **Decision Models** | Run typed decisions (choice / yes-no / rating) locally with Ollama (tev1/nimble) or remotely via OpenRouter Jev — question banks, calibrated probabilities, multimodal image / audio / video decisions (Clef / Clef-Flash / Clef-Omni), zero cost offline |
 
 ---
 
@@ -174,7 +174,7 @@ aigc-cli
 ├── config     Read/edit config.yaml (get/set/list; secrets masked & auto-encrypted)  →  docs/en/guide-commands.md
 ├── preview / pr View images / --detail metadata / --describe caption                 →  docs/en/guide-preview.md
 ├── detect     Detect AIGC, metadata and tampering (multi-signal fusion + emoji)     →  docs/en/guide-detect.md
-├── decision / decide  Typed decision models (System One / Jev): state + question bank → answers   →  docs/en/guide-decision.md
+├── decision / decide  Typed decision models (System One / Jev): state + question bank + images/audio/video → answers   →  docs/en/guide-decision.md
 ├── completion Generate shell completion scripts (bash/zsh/fish/powershell)
 ├── mcp        Start MCP Server (AI agent integration)                                →  docs/en/guide-mcp.md
 │

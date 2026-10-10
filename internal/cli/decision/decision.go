@@ -19,6 +19,8 @@ var (
 	decisionQuestions   []string
 	decisionState       string
 	decisionImages      []string
+	decisionAudio       []string
+	decisionVideos      []string
 	decisionImageResize int
 	decisionList        bool
 	decisionDryRun      bool
@@ -43,13 +45,21 @@ with the text state. Images are downscaled to --image-resize (default 1024px
 longest edge) because pixel dimensions, not file size, drive vision-token cost
 and decision latency.
 
+Multimodal models (Clef-Omni / Clef) can also judge audio and video supplied
+with --audio and --video: each clip is sent as a base64 data URL alongside the
+images and text state. Video is sampled at 2 frames per second, with its
+soundtrack when present.
+
 Supported providers: Ollama (local, tev1/nimble, no API key), OpenRouter
-(typesafe/jev-latest), TypeSafe AI, LLM Gateway and LiteLLM proxies. Endpoint
-paths differ per provider and are normalized automatically.`,
+(typesafe/jev-latest, cloudflare/clef-omni), TypeSafe AI, LLM Gateway and
+LiteLLM proxies. Endpoint paths differ per provider and are normalized
+automatically.`,
 	Example: `  aigc-cli decision --json docs/en/examples/decision/triage.json --questions intent --state docs/en/examples/decision/state.txt
   aigc-cli decision -P openrouter -m typesafe/jev-latest --questions intent --state state.txt
   aigc-cli decision -m clef-flash --image form.png --questions complete --state "The agent wants to submit the attached form."
   aigc-cli decision -m clef-flash --image big.png --image-resize 768 --state "Judge the attached screenshot."
+  aigc-cli decision -m clef-omni --audio call.wav --questions escalation --state "Review the attached call recording."
+  aigc-cli decision -m clef-omni --video dashcam.mp4 --questions collision --state "Does the clip show a collision?"
   aigc-cli decision --list
   aigc-cli decision --questions intent --state state.txt --dry-run`,
 	RunE: runDecision,
@@ -61,6 +71,8 @@ func init() {
 	f.StringSliceVar(&decisionQuestions, "questions", nil, "Answer only these named questions (comma-separated, repeatable; default: all)")
 	f.StringVar(&decisionState, "state", "", `Material to judge: literal text, a file path, or "-" for stdin (a valid JSON object/array is sent as structured state)`)
 	f.StringArrayVar(&decisionImages, "image", nil, "Attach an image (PNG/JPEG/WebP) scored jointly with the state; repeatable. Local file or base64 data URI (Clef/Clef-Flash, Ollama >= 0.35.1)")
+	f.StringArrayVar(&decisionAudio, "audio", nil, "Attach an audio clip (WAV/MP3/M4A/OGG/FLAC) scored jointly with the state; repeatable. Local file or base64 data URI (Clef-Omni)")
+	f.StringArrayVar(&decisionVideos, "video", nil, "Attach a video clip (MP4/MOV/WebM), sampled at 2 fps with its soundtrack; repeatable. Local file or base64 data URI (Clef-Omni)")
 	f.IntVar(&decisionImageResize, "image-resize", 1024, "Downscale attached images so the longest edge is at most N px before sending (0 = keep original). Larger images cost far more vision tokens and are much slower")
 	f.BoolVar(&decisionList, "list", false, "List the question names available in the bank, then exit")
 	f.BoolVar(&decisionDryRun, "dry-run", false, "Print the equivalent curl request without calling the API")
@@ -96,6 +108,14 @@ func runDecision(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	audio, err := resolveAudio(decisionAudio, b.Audio)
+	if err != nil {
+		return err
+	}
+	videos, err := resolveVideos(decisionVideos, b.Videos)
+	if err != nil {
+		return err
+	}
 
 	cliModel := ""
 	if options.HasFlagChanged(cmd, "model") {
@@ -105,6 +125,8 @@ func runDecision(cmd *cobra.Command, args []string) error {
 		Model:     resolveModel(cliModel, b.Model, ep.Model),
 		State:     state,
 		Images:    images,
+		Audio:     audio,
+		Videos:    videos,
 		Questions: questions,
 	}
 
