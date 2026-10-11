@@ -3,6 +3,8 @@ package image
 import (
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
@@ -97,6 +99,14 @@ func buildImagePlan(req *types.GenerateRequest, p *provider.EffectiveProvider) (
 	// Default: OpenAI-compatible synchronous generation. OpenAI has no image
 	// field, but compatible relays may accept image_urls, and a self-contained
 	// data URI is strictly better than a local path that never worked.
+	//
+	// OpenAI-family endpoints (native OpenAI, Azure, OfoxAI) are the exception:
+	// their /images/generations path has no reference-image field at all, so an
+	// input image must go to POST /images/edits as multipart/form-data. A
+	// verbatim --json body keeps the JSON sync path untouched.
+	if useMultipartImageEdits(p, req) {
+		return buildMultipartImageEditsPlan(req, base), nil
+	}
 	if err := encodeLocalImages(req); err != nil {
 		return nil, err
 	}
@@ -106,6 +116,40 @@ func buildImagePlan(req *types.GenerateRequest, p *provider.EffectiveProvider) (
 // newImagePlan builds a POST plan with no uploads.
 func newImagePlan(rawURL string, body any) *imagePlan {
 	return &imagePlan{Plan: reqbuild.Plan{Method: http.MethodPost, URL: rawURL, Body: body}}
+}
+
+// imageMultipartEditsNote is the plain-text note reqbuild renders as
+// "# note: <text>" for the OpenAI-family multipart /images/edits plan.
+const imageMultipartEditsNote = "each reference image is uploaded as a multipart/form-data file part (image=@<file>)"
+
+// buildMultipartImageEditsPlan builds the multipart/form-data plan for
+// POST /images/edits used by OpenAI-family endpoints. Local files become file
+// parts; a remote URL or data URI is resolved at send time. The non-file fields
+// come from client.ImageEditsFormFields, the same builder the real request uses.
+func buildMultipartImageEditsPlan(req *types.GenerateRequest, base string) *imagePlan {
+	pl := &imagePlan{Plan: reqbuild.Plan{
+		Method:     http.MethodPost,
+		URL:        base + client.ImageEditsPath,
+		Multipart:  true,
+		FormFields: client.ImageEditsFormFields(req),
+		Note:       imageMultipartEditsNote,
+	}}
+	headers := provider.ImageEditsHeaders(base)
+	names := make([]string, 0, len(headers))
+	for name := range headers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		pl.Headers = append(pl.Headers, reqbuild.Header{Name: name, Value: headers[name]})
+	}
+	for _, src := range req.ImageURLs {
+		pl.FormFiles = append(pl.FormFiles, reqbuild.FormFile{Field: "image", Path: src})
+	}
+	if strings.TrimSpace(req.MaskURL) != "" {
+		pl.FormFiles = append(pl.FormFiles, reqbuild.FormFile{Field: "mask", Path: req.MaskURL})
+	}
+	return pl
 }
 
 // encodeLocalImages converts local image paths to data URIs in place, across

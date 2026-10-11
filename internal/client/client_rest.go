@@ -140,13 +140,58 @@ func (c *Client) doJSONWithHeaders(method, path string, body, result interface{}
 	return nil
 }
 
+// doBytes sends a pre-serialized request body with an explicit Content-Type and
+// unmarshals a JSON response. It is the escape hatch for multipart/form-data
+// bodies that doJSON (JSON-only) cannot express. extraHeaders are applied on top
+// of the client's default headers.
+func (c *Client) doBytes(method, path, contentType string, body []byte, result interface{}, extraHeaders map[string]string) error {
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), method, c.baseURL+path, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", contentType)
+	if c.apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+	for k, v := range c.defaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
+	for k, v := range extraHeaders {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		if isTimeoutError(err) {
+			return fmt.Errorf("API request timed out: %w\n%s", err, timeoutHint())
+		}
+		return fmt.Errorf("API request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return newAPIStatusError(resp, respBody)
+	}
+	if result != nil && len(bytes.TrimSpace(respBody)) > 0 {
+		if err := json.Unmarshal(respBody, result); err != nil {
+			return fmt.Errorf("failed to parse response: %w", err)
+		}
+	}
+	return nil
+}
+
 // doGet sends a GET request and unmarshals the JSON response into result.
 func (c *Client) doGet(path string, result interface{}) error {
 	return c.doGetWithHeaders(path, result, nil)
 }
 
-// doGetAbsolute sends a GET request to a fully-qualified URL (not joined to baseURL),
-// for endpoints that live outside the API version prefix (e.g. agnes /agnesapi).
+// doGetAbsolute sends a GET request to a fully-qualified URL (not joined to
+// baseURL), for endpoints that live outside the API version prefix (e.g. agnes
+// /agnesapi).
 func (c *Client) doGetAbsolute(rawURL string, result interface{}) error {
 	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, rawURL, nil)
 	if err != nil {

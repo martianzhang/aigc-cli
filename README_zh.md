@@ -120,7 +120,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 
 | Provider | Image | Video | Audio | Music | Models |
 |---|---|---|---|---|---|
-| **OpenAI** | `POST /v1/images/generations`（同步） | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | — | `GET /v1/models` |
+| **OpenAI** | 文生图 `POST /v1/images/generations`（同步）；图生图 `POST /v1/images/edits`（multipart 上传，按域名自动识别；含 Azure OpenAI / OfoxAI） | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | — | `GET /v1/models` |
 | **OpenRouter** | `POST /api/v1/images`（专用图片 API） | `POST /api/v1/videos` 异步→轮询→下载 + `--job-id` 恢复 | `POST /api/v1/audio/speech` + `POST /api/v1/audio/transcriptions`（10+ TTS 模型聚合） | `POST /api/v1/chat/completions`（`modalities: text+audio`）同步流式 — Lyria-3 | `GET /api/v1/images/models` / `GET /api/v1/videos/models`（免认证） |
 | **APIMart** | 异步 Task 提交→轮询→下载 | 异步 Task + VEO3 Remix（延长视频） | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `POST /v1/music/generations` 异步→轮询（`GET /v1/music/tasks/{id}`）— suno / flowmusic | 市场 API + 模型定价查询 |
 | **阿里云百炼** | — | — | — | `POST /api/v1/services/audio/music/generation` 同步（DashScope 原生）— fun-music-v1 / fun-music-preview | — |

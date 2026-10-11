@@ -48,6 +48,30 @@ func TestZeekaiStrategyRouting(t *testing.T) {
 	}
 }
 
+func TestMultipartEditsStrategyRouting(t *testing.T) {
+	withImage := &types.GenerateRequest{Model: "m", Prompt: "p", ImageURLs: []string{"a.png"}}
+	noImage := &types.GenerateRequest{Model: "m", Prompt: "p"}
+
+	tests := []struct {
+		name string
+		req  *types.GenerateRequest
+		ctx  *imageDispatchCtx
+		want bool
+	}{
+		{"multipart with image routes to multipart edits", withImage, &imageDispatchCtx{isMultipart: true}, true},
+		{"multipart text-only falls through to sync", noImage, &imageDispatchCtx{isMultipart: true}, false},
+		{"non-multipart with image stays sync", withImage, &imageDispatchCtx{}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := strings.HasSuffix(firstMatchRunName(tc.req, tc.ctx), "runImageEditsMultipart")
+			if got != tc.want {
+				t.Errorf("matched runImageEditsMultipart = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestUsesImageEditsJSON(t *testing.T) {
 	withImage := &types.GenerateRequest{Model: "m", Prompt: "p", ImageURLs: []string{"a.png"}}
 	noImage := &types.GenerateRequest{Model: "m", Prompt: "p"}

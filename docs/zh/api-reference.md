@@ -178,6 +178,8 @@ APIMart:    域名包含 apimart.ai / apib.ai / aiuxu.com / aishuch.com
 OpenRouter: 域名包含 openrouter.ai
 OpenLux:    域名包含 openlux.ai
 Zeekai:     域名包含 zeekai.cc（图生图自动改走 POST /images/edits）
+OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io
+            （带参考图时自动改走 POST /images/edits 的 multipart/form-data 上传）
 默认:       OpenAI 兼容（任何未匹配的 URL）
 ```
 

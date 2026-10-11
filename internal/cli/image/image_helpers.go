@@ -111,6 +111,7 @@ func GenerateAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, 
 	isModelScope := p.ProviderType == provider.ModelScope
 	isGemini := p.ProviderType == provider.Gemini
 	isZeekai := p.ProviderType == provider.Zeekai
+	isMultipart := useMultipartImageEdits(p, req)
 
 	// Strip APIMart-only fields for non-APIMart providers.
 	if !isAPIMart {
@@ -133,6 +134,7 @@ func GenerateAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, 
 		isAgnes:       isAgnes,
 		isGemini:      isGemini,
 		isZeekai:      isZeekai,
+		isMultipart:   isMultipart,
 		genEdit:       false,
 		isOllama:      isOllama,
 		modelScopeKey: p.APIKey,

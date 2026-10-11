@@ -166,6 +166,51 @@ func TestRenderCurlsFieldOverride(t *testing.T) {
 	}
 }
 
+func TestRenderCurlsMultipartWithHeaders(t *testing.T) {
+	p := &Plan{
+		Method:     http.MethodPost,
+		URL:        "https://api.ofox.ai/v1/images/edits",
+		Multipart:  true,
+		FormFields: []FormField{{Name: "model", Value: "m"}, {Name: "prompt", Value: "p"}},
+		FormFiles:  []FormFile{{Field: "image", Path: "photo.png"}},
+		Headers:    []Header{{Name: "X-OfoxAI-Provider-Type", Value: "openai"}},
+		Note:       "multipart note",
+	}
+	got := p.RenderCurls(testAPIKey)
+
+	for _, want := range []string{
+		"https://api.ofox.ai/v1/images/edits",
+		`-H "X-OfoxAI-Provider-Type: openai"`,
+		`-F "model=m"`,
+		`-F "prompt=p"`,
+		`-F "image=@photo.png"`,
+		"# note: multipart note",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("multipart curl missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "Content-Type: application/json") || strings.Contains(got, "  -d '") {
+		t.Errorf("multipart curl must not carry a JSON body:\n%s", got)
+	}
+}
+
+func TestRenderCurlsJSONWithHeaders(t *testing.T) {
+	p := &Plan{
+		Method:  http.MethodPost,
+		URL:     testGenURL,
+		Body:    map[string]any{"model": "m"},
+		Headers: []Header{{Name: "X-Custom", Value: "1"}},
+	}
+	got := p.RenderCurls(testAPIKey)
+	if !strings.Contains(got, `-H "X-Custom: 1"`) {
+		t.Errorf("JSON curl missing custom header:\n%s", got)
+	}
+	if !strings.Contains(got, `  -d '{"model":"m"}'`) {
+		t.Errorf("JSON body missing:\n%s", got)
+	}
+}
+
 type fakeUploader struct {
 	calls int
 	got   []string

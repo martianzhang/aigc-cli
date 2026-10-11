@@ -366,3 +366,51 @@ func TestDetect_IsBailian(t *testing.T) {
 		t.Error("IsBailian should be false for a lookalike host")
 	}
 }
+
+func TestNeedsMultipartImageEdits(t *testing.T) {
+	yes := []string{
+		"https://api.openai.com/v1",
+		"https://api.openai.com",
+		"https://my-resource.openai.azure.com",
+		"https://api.ofox.ai/v1",
+		"https://api.ofox.run/v1",
+		"https://api.ofox.io/v1",
+	}
+	for _, base := range yes {
+		if !NeedsMultipartImageEdits(base) {
+			t.Errorf("NeedsMultipartImageEdits(%q) = false, want true", base)
+		}
+	}
+	no := []string{
+		"https://api.siliconflow.cn/v1",
+		"https://api.zeekai.cc",
+		"https://openrouter.ai/api/v1",
+		"https://api.openai.com.evil.com",
+		"",
+	}
+	for _, base := range no {
+		if NeedsMultipartImageEdits(base) {
+			t.Errorf("NeedsMultipartImageEdits(%q) = true, want false", base)
+		}
+	}
+}
+
+func TestImageEditsHeaders(t *testing.T) {
+	for _, base := range []string{"https://api.ofox.ai/v1", "https://api.ofox.run/v1", "https://api.ofox.io/v1"} {
+		headers := ImageEditsHeaders(base)
+		if got := headers[ImageEditsProviderPinHeader]; got != "openai" {
+			t.Errorf("ImageEditsHeaders(%q)[%s] = %q, want openai", base, ImageEditsProviderPinHeader, got)
+		}
+	}
+	for _, base := range []string{"https://api.openai.com/v1", "https://api.siliconflow.cn/v1", ""} {
+		if headers := ImageEditsHeaders(base); headers != nil {
+			t.Errorf("ImageEditsHeaders(%q) = %v, want nil", base, headers)
+		}
+	}
+	if !IsOfox("https://api.ofox.ai/v1") {
+		t.Error("IsOfox should be true for api.ofox.ai")
+	}
+	if IsOfox("https://api.openai.com/v1") {
+		t.Error("IsOfox should be false for api.openai.com")
+	}
+}

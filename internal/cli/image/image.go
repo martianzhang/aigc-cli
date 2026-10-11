@@ -30,9 +30,16 @@ You can specify parameters via flags, or pass a complete JSON request
 via the --json flag (file path, JSON string, or "-" for stdin).
 
 Edit mode (--edit):
-  Grok Imagine 1.5 Edit edits images based on a source image + prompt.
-  Requires --edit + --image-url + --prompt, forces async mode.
-  Model defaults to grok-imagine-1.5-edit-apimart.
+  Forces the provider's image-edit protocol using --image-url as the source.
+  Requires --edit + --image-url + --prompt.
+    - APIMart: Grok Imagine 1.5 Edit (async); model defaults to
+      grok-imagine-1.5-edit-apimart.
+    - OpenAI-family (native OpenAI / Azure / OfoxAI): multipart
+      POST /images/edits. This is also auto-detected from the base URL, so
+      --edit is only needed to force it on a custom relay.
+    - ZeekAI: JSON POST /images/edits.
+  With --edit, a --json object's keys become multipart form fields (files
+  still come from -i); a standalone --json is verbatim passthrough.
 
 Decode mode (--decode):
   --image-url also accepts base64 text files (data URI or raw base64) and
@@ -79,9 +86,21 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		cfg.Defaults.Image.MergeIntoImage(req)
 	}
 
+	// ----- Resolve provider (named provider > global > builtin) -----
+	// Resolved before defaults so edit-mode defaults can depend on the provider.
+	p := options.Shared.ResolveProvider(options.ProviderNameImage)
+	isAPIMart := options.IsAPIMartProvider(p)
+	isOpenRouter := p.ProviderType == provider.OpenRouter
+	isAgnes := p.ProviderType == provider.Agnes
+	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
+	isModelScope := p.ProviderType == provider.ModelScope
+	isGemini := p.ProviderType == provider.Gemini
+	isZeekai := p.ProviderType == provider.Zeekai
+	isMultipart := useMultipartImageEdits(p, req)
+
 	// ----- Step 3: Apply defaults for remaining empty fields -----
 	if req.Model == "" {
-		if genEdit {
+		if genEdit && isAPIMart {
 			req.Model = "grok-imagine-1.5-edit-apimart"
 		} else {
 			return fmt.Errorf("model is required: set via --model flag or defaults.image.model in config.yaml")
@@ -99,16 +118,6 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	if err := req.ValidateBackground(); err != nil {
 		return err
 	}
-
-	// ----- Resolve provider (named provider > global > builtin) -----
-	p := options.Shared.ResolveProvider(options.ProviderNameImage)
-	isAPIMart := options.IsAPIMartProvider(p)
-	isOpenRouter := p.ProviderType == provider.OpenRouter
-	isAgnes := p.ProviderType == provider.Agnes
-	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
-	isModelScope := p.ProviderType == provider.ModelScope
-	isGemini := p.ProviderType == provider.Gemini
-	isZeekai := p.ProviderType == provider.Zeekai
 
 	// Strip APIMart-only fields for non-APIMart providers (e.g., OpenLux, OpenAI, Generic Relay).
 	// `resolution` is an APIMart proprietary field not part of the OpenAI image API;
@@ -138,6 +147,16 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// ----- Edit mode checks -----
+	if genEdit {
+		if len(req.ImageURLs) == 0 {
+			return fmt.Errorf("--image-url is required in edit mode")
+		}
+		if !isAPIMart && !isMultipart && !isZeekai {
+			return fmt.Errorf("edit mode is not supported by this provider (%s): use APIMart (Grok edit), an OpenAI-family endpoint (multipart /images/edits), or ZeekAI", p.ProviderType)
+		}
+	}
+
 	// ----- Step 4: Build the single request plan used by preview and execution -----
 	// The plan is pure (no network), so --dry-run returns before any client exists.
 	plan, err := buildImagePlan(req, p)
@@ -148,16 +167,6 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	if genDryRun {
 		fmt.Println(plan.RenderCurls(p.APIKey))
 		return nil
-	}
-
-	// ----- Edit mode checks -----
-	if genEdit {
-		if len(req.ImageURLs) == 0 {
-			return fmt.Errorf("--image-url is required in edit mode")
-		}
-		if !isAPIMart {
-			return fmt.Errorf("edit mode requires an APIMart provider (apimart.ai / apib.ai / aiuxu.com / aishuch.com)")
-		}
 	}
 
 	// ----- Step 5: Resolve local image files (upload if needed) -----
@@ -172,8 +181,19 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	// Printed after image resolution so the dump matches what is actually sent
 	// (uploaded URLs for APIMart, data URIs elsewhere) rather than raw local paths.
 	if options.Shared.Verbose {
-		prettyReq, _ := json.MarshalIndent(plan.Body, "", "  ")
-		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+		if plan.Multipart {
+			fmt.Printf("Request (multipart/form-data):\n")
+			for _, f := range plan.FormFields {
+				fmt.Printf("  %s=%s\n", f.Name, f.Value)
+			}
+			for _, f := range plan.FormFiles {
+				fmt.Printf("  %s=@%s\n", f.Field, f.Path)
+			}
+			fmt.Println()
+		} else {
+			prettyReq, _ := json.MarshalIndent(plan.Body, "", "  ")
+			fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+		}
 	}
 
 	// Strategy table: first match wins, last entry is the default.
@@ -184,6 +204,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		isAgnes:       isAgnes,
 		isGemini:      isGemini,
 		isZeekai:      isZeekai,
+		isMultipart:   isMultipart,
 		genEdit:       genEdit,
 		isOllama:      isOllama,
 		modelScopeKey: p.APIKey,

@@ -48,7 +48,7 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVar(&genStyle, "style", "", "Image style: vivid, natural (OpenAI only)")
 	f.StringVar(&genResponseFmt, "response-format", "", "Response format: url, b64_json (OpenAI/OpenRouter/Agnes)")
 	f.BoolVar(&genDryRun, "dry-run", false, "Print request parameters without calling API")
-	f.BoolVar(&genEdit, "edit", false, "Grok Imagine 1.5 Edit mode (requires --image-url)")
+	f.BoolVar(&genEdit, "edit", false, "Edit mode: force the provider's image-edit protocol (APIMart Grok / OpenAI-family multipart /images/edits / ZeekAI); requires --image-url")
 	f.BoolVar(&genPreview, "preview", false, "Open generated image with system default viewer")
 	f.StringVar(&options.Shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&options.Shared.Mode, "mode", "", "Generation mode: auto (detect), sync, async (default: auto)")

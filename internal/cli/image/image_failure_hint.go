@@ -26,6 +26,15 @@ var sizeErrorKeywords = []string{
 	"width", "height", "像素", "尺寸", "宽高比",
 }
 
+// nonSizeErrorKeywords mark failures that are clearly NOT about size, so the
+// generic "any 400 with a size set" fallback does not append a misleading
+// --size hint. A content-safety / moderation rejection is the motivating case:
+// it must never suggest the user change --size. Matching is case-insensitive.
+var nonSizeErrorKeywords = []string{
+	"content safety", "safety policy", "moderation", "content policy",
+	"content_policy", "flagged", "内容安全", "安全策略", "违规",
+}
+
 // imageFailureHint returns an actionable, provider-specific --size hint for an
 // image generation failure, or "" when the error does not look size-related.
 // It is best-effort: capability lookups that fail degrade to a static hint.
@@ -43,6 +52,11 @@ func imageFailureHint(p *provider.EffectiveProvider, req *types.GenerateRequest,
 // points at a --size/--ratio/--resolution problem worth advising on.
 func looksLikeSizeError(err error, req *types.GenerateRequest) bool {
 	msg := strings.ToLower(err.Error())
+	for _, kw := range nonSizeErrorKeywords {
+		if strings.Contains(msg, kw) {
+			return false
+		}
+	}
 	for _, kw := range sizeErrorKeywords {
 		if strings.Contains(msg, kw) {
 			return true

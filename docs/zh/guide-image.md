@@ -92,6 +92,7 @@ Error: OpenRouter image generation failed: API returned status 400: {"error":{"m
 - **OpenRouter**：读取 `GET /v1/images/models` 的 `supported_parameters`，列出该模型支持的 `aspect_ratio`（用 `--ratio`）与 `resolution`（用 `--size`）；若该模型不声明任何尺寸参数，则提示删除 `--size` / `--ratio`。
 - **其他 Provider**：给出该 Provider 文档化的 `--size` 写法速查（如 APIMart 的 `--resolution 1k/2k/4k`、Agnes 2.1 的 `2K@16:9`、ModelScope 的纯像素）。
 - 提示只在**失败时**触发，成功路径零额外请求；能力查询是 best-effort（5s 超时），查询失败会退化为静态建议。
+- **明确非尺寸类的报错不会触发提示**（如内容安全 / 审核拒绝）：只有消息本身看起来与尺寸相关的错误才提示，因此 `content safety policy` 这类报错不会再误导你改 `--size`。
 
 > ⚠️ **Agnes 没有图片上传端点**：本地 `--image-url` 文件（如 `-i photo.png`）会自动转为 base64 Data URI 内嵌，无需公网 URL。
 
@@ -143,7 +144,8 @@ aigc-cli image --provider modelscope --json downloads/prompt.json --prompt "低�
 | Gemini | `POST {base}/interactions` | 用 `input` / `response_format` |
 | Ollama | `POST {ollama 原生 base}/api/generate` | `/api/generate` 形状 |
 | ZeekAI（图生图） | `POST {base}/images/edits` | 图片用 `images[].image_url` |
-| 通用 OpenAI 兼容（OpenAI / OpenLux / SiliconFlow / AIBaseCamp / Pollinations）与 Agnes | `POST {base}/images/generations` | OpenAI 图像接口形状 |
+| 通用 OpenAI 兼容（OpenLux / SiliconFlow / AIBaseCamp / Pollinations）与 Agnes | `POST {base}/images/generations` | OpenAI 图像接口形状 |
+| OpenAI 原生 / Azure / OfoxAI | `POST {base}/images/generations`（`--json` 逐字转发时不做 multipart 切换） | 传图请用 `-i` flag；`--json` 需自行书写目标形状 |
 
 > 💡 用 `--flag`（`--model` / `--prompt` / `--image-url` 等）时行为不变，CLI 仍按各 provider 做字段映射与适配；JSON 原样保留只针对 `--json` 未涉及的那些键。
 
@@ -205,7 +207,8 @@ aigc-cli image --provider modelscope --json '{
 |---|---|---|
 | 上传（先传文件，再引用 URL） | APIMart | `<UPLOAD_URL_0>`、`<UPLOAD_URL_1>` … |
 | 内嵌 data URI（无上传端点） | OpenRouter、Gemini、ModelScope、Zeekai（图生图）、Agnes | `data:image/png;base64,...` |
-| 内嵌 data URI（默认 OpenAI 兼容） | OpenAI / OpenLux / SiliconFlow 等通用兼容端点 | `image_urls` 数组里的 `data:image/png;base64,...` |
+| 内嵌 data URI（默认 OpenAI 兼容） | OpenLux / SiliconFlow 等通用兼容端点 | `image_urls` 数组里的 `data:image/png;base64,...` |
+| multipart 文件上传（`/images/edits`） | OpenAI 原生 / Azure OpenAI / OfoxAI（`ofox.ai`、`ofox.run`、`ofox.io`） | `-F "image=@<本地文件>"`（正文里不出现图片值） |
 
 ### 上传型（APIMart）：`--dry-run` 打印上传 curl + 生成 curl
 
@@ -244,10 +247,11 @@ curl -X POST https://api.apimart.ai/v1/images/generations \
 | Zeekai（图生图） | `images[].image_url` | `"images":[{"image_url":"data:image/png;base64,..."}]`，正文末尾附一行 `# note:` |
 | Agnes | `extra_body.image` | `"extra_body":{"image":["data:image/png;base64,..."]}` |
 | 默认 OpenAI 兼容 | `image_urls[]` | `"image_urls":["data:image/png;base64,..."]` |
+| OpenAI 原生 / Azure / OfoxAI | `POST /images/edits`（multipart） | `-F "image=@photo.png"` + `-F "model=..."` + `-F "prompt=..."` 等表单字段 |
 
 > 💡 **Gemini 图生图现已可用**：本地或远程参考图都会作为 `input` 里的 image 项发送（本地文件为 `{"type":"image","data":...,"mime_type":...}`，远程 URL 为 `{"type":"image","uri":...}`），不再被丢弃。
 
-> ⚠️ **原生 OpenAI `/images/generations` 没有图片字段**：CLI 会把本地参考图编码进 `image_urls` 再发送，这对接受该字段的兼容中转有效（自包含的 data URI 也严格优于发一个本地路径），但原生 OpenAI 的图编辑走 `POST /v1/images/edits`，请使用 `/images/edits` 型中转（如 Zeekai）或对应 provider 的编辑协议。
+> ⚠️ **OpenAI 原生 `/images/generations` 没有图片字段**：普通兼容中转仍把本地参考图编码进 `image_urls` 发送（自包含的 data URI 严格优于发一个本地路径）。但 OpenAI 原生、Azure OpenAI 与 OfoxAI（`ofox.ai` / `ofox.run` / `ofox.io`）的 generations 端点完全不认参考图，CLI 会**按域名自动改走 `POST /images/edits` 的 multipart/form-data 上传**（`-F "image=@file"`），无需任何开关。注意：`--json` 逐字透传时仍走 `/images/generations` 的 JSON 路径（原样转发优先），此时请自行书写 edits 形状或改用 flag 方式传图。
 
 ### 模式自动检测规则
 
@@ -258,6 +262,8 @@ curl -X POST https://api.apimart.ai/v1/images/generations \
 | `localhost` / `127.0.0.1` / `::1` | sync | 本地模型（自动豁免 API Key 检查） |
 
 可通过 `aigc-cli image --mode sync|async` 强制指定。
+
+> 💡 带 `--image-url` 且 provider 是 OpenAI 家族域名（`openai.com` / `openai.azure.com` / `ofox.ai` / `ofox.run` / `ofox.io`）时，仍属 sync 模式，但会改走 `POST /images/edits` 的 multipart 上传，见下文。
 
 ```bash
 # 强制异步（即使连的是 OpenAI 兼容中转）
@@ -399,6 +405,38 @@ aigc-cli image --provider zeekai -i photo.png -p "把背景换成星空"
 
 该协议目前不支持 `--mask-url`（会明确报错）。未检测到 ZeekAI 时行为不变，仍走默认的顶层 `image_urls` + `/images/generations`。
 
+## 在 OpenAI 家族端点上做图生图（自动走 `/images/edits` multipart）
+
+OpenAI 原生、Azure OpenAI 以及 OfoxAI（`api.ofox.ai` / `api.ofox.run` / `api.ofox.io`）的 `POST /images/generations` **没有参考图字段**——把 `image_urls` 发过去会被静默忽略，只按 prompt 出图（这正是「输入一张图、输出却完全无关」的原因）。这些端点只支持 `POST /images/edits`，且必须是 **multipart/form-data**（`-F "image=@file"`，不是 JSON）。
+
+aigc-cli **按域名自动识别并切换到 multipart edits，无需任何配置或开关**：
+
+```bash
+# OfoxAI：本地文件作为 image 文件部件上传，model/prompt/size/quality 作为表单字段
+aigc-cli image -P ofox -m openai/gpt-image-2.5-sunburst \
+  -i photo.png -p "像3岁小朋友的思考方式用蜡笔重新绘制" --dry-run
+```
+
+```bash
+# 输出（API Key 已脱敏）：注意是 /images/edits + -F 文件上传，而非 JSON 的 image_urls
+curl -X POST https://api.ofox.ai/v1/images/edits \
+  -H "Authorization: Bearer ...xxxx" \
+  -F "model=openai/gpt-image-2.5-sunburst" \
+  -F "prompt=像3岁小朋友的思考方式用蜡笔重新绘制" \
+  -F "size=1024x768" \
+  -F "quality=auto" \
+  -F "output_format=png" \
+  -F "image=@photo.png"
+```
+
+远程 URL、data URI 或裸 base64 也会在发送前被下载/解码为文件部件，因此 `-i https://.../a.png` 同样可用。该路径同样支持 `--mask-url`（作为 `mask` 文件部件）。纯文生图（不带 `--image-url`）仍走 `/images/generations` 同步路径。
+
+> 💡 **OfoxAI 会自动附带 `X-OfoxAI-Provider-Type: openai`**：ofox 的 `openai/gpt-image-*` 由 `azure_foundry`（审核更严）与 `openai`（更宽松）两家承载，不 pin 时按权重分流，可能落到 azure_foundry，把正常 prompt 误判成「content safety policy」拒绝。edits 是 multipart、无法用 `extra_body`，只能用请求头 pin，CLI 已自动加上（`--dry-run` 可见）。
+
+> 💡 **`--edit` 强制编辑协议**：不想依赖域名自动识别时，用 `--edit -i ... -p ...` 强制走编辑协议——OpenAI 家族 → multipart `/images/edits`；ZeekAI → JSON edits；APIMart → Grok 异步。**配合 `--edit` 时，`--json` 对象的键值会被映射为 multipart 表单字段**（文件仍用 `-i`），可用来传厂商私有字段（如 `input_fidelity`）；单独的 `--json`（不带 `--edit`）仍是逐字透传、走 `/images/generations`。
+
+> ⚠️ 判定按域名进行：只有上述 OpenAI 家族域名会自动切换。若你用的是其它同样只认 multipart edits 的中转，请提 issue 补充域名；接受顶层 `image_urls` 的兼容中转行为不变。
+
 ## 解码模式（--decode）
 
 `--decode` 把 base64 文本文件（data URI 或裸 base64）解码为内联 data URI 后再发送请求——**provider 无关**，适用于任意 OpenAI 兼容 API（真实图片文件与远程 URL 原样透传，走既有上传路径）。不带 `--prompt` 时**纯本地运行**——解码/转换文件并保存到输出目录，不调用 API：
@@ -434,11 +472,17 @@ aigc-cli image --decode --output-format datauri --image-url photo.jpg
 
 纯解码模式（不带 `--output-format`）保留 data URI MIME 或魔数检测出的原始格式。
 
-## Grok Imagine 1.5 Edit（图片编辑，APIMart）
+## 图片编辑（--edit）
 
-> ⚠️ 仅 **Grok Imagine 1.5 Edit** 模型支持此模式，不是所有图片模型都有 `--edit` 功能。
+`--edit` 强制使用 provider 的图片编辑协议：基于已有图片 + 文本描述做编辑替换（背景替换、风格迁移等）。协议按 provider 选择：
 
-基于已有图片 + 文本描述进行编辑替换，支持背景替换、风格迁移等：
+| Provider | `--edit` 走的协议 |
+|---|---|
+| APIMart | Grok Imagine 1.5 Edit（异步任务），默认模型 `grok-imagine-1.5-edit-apimart` |
+| OpenAI 家族（原生 OpenAI / Azure / OfoxAI） | multipart `POST /images/edits`（同样按域名自动识别，`--edit` 用于在不依赖域名识别时强制） |
+| ZeekAI | JSON `POST /images/edits` |
+
+下面以 APIMart 的 Grok Imagine 1.5 Edit 为例：
 
 ```bash
 # 背景替换
@@ -463,12 +507,13 @@ aigc-cli image --edit \
 
 | 规则 | 说明 |
 |---|---|
-| `--edit` 开关 | 不带则走普通文生图/图生图流程 |
+| `--edit` 开关 | 不带则走普通文生图/图生图流程（OpenAI 家族仍会按域名自动走 multipart edits） |
 | `--image-url` | **必填**，至少 1 张源图 |
-| `--model` | 不指定则默认 `grok-imagine-1.5-edit-apimart` |
+| `--model` | APIMart 下不指定则默认 `grok-imagine-1.5-edit-apimart` |
 | `--n` | 1-10（普通模式 1-4） |
-| 模式 | **强制异步**，仅 APIMart 可用 |
-| size/quality 等 | 编辑模式下不适用，自动跳过 |
+| 模式 | APIMart：**强制异步**；OpenAI 家族：multipart 同步 |
+| size/quality 等 | APIMart 编辑模式下不适用，自动跳过 |
+| `--json` | 单独用=逐字透传走 generations；配合 `--edit` 时键值映射为 multipart 表单字段（文件用 `-i`） |
 
 ## Inpainting（蒙版替换，APIMart）
 

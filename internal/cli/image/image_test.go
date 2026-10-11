@@ -113,13 +113,28 @@ func TestBuildImageCurlLocalFile(t *testing.T) {
 
 	t.Run("default sync embeds a data uri", func(t *testing.T) {
 		req := &types.GenerateRequest{Model: "gpt-image-2", Prompt: "a cat", ImageURLs: []string{path}}
-		p := &provider.EffectiveProvider{BaseURL: "https://api.openai.com", APIKey: "test-key", ProviderType: provider.OpenAI}
+		p := &provider.EffectiveProvider{BaseURL: "https://api.siliconflow.cn", APIKey: "test-key", ProviderType: provider.OpenAI}
 		curl := buildImageCurl(req, p)
 		if !strings.Contains(curl, `"image_urls":["data:image/png;base64,`) {
 			t.Errorf("expected a data: URI body, got:\n%s", curl)
 		}
 		if strings.Contains(curl, path) {
 			t.Errorf("local path should be encoded, got:\n%s", curl)
+		}
+	})
+
+	t.Run("openai family renders a multipart edits curl", func(t *testing.T) {
+		req := &types.GenerateRequest{Model: "gpt-image-2.5-sunburst", Prompt: "a cat", ImageURLs: []string{path}}
+		p := &provider.EffectiveProvider{BaseURL: "https://api.ofox.ai/v1", APIKey: "test-key", ProviderType: provider.OpenAI}
+		curl := buildImageCurl(req, p)
+		if !strings.Contains(curl, "https://api.ofox.ai/v1/images/edits") {
+			t.Errorf("expected the /images/edits endpoint, got:\n%s", curl)
+		}
+		if !strings.Contains(curl, `-F "image=@`+path+`"`) {
+			t.Errorf("expected an image file part, got:\n%s", curl)
+		}
+		if !strings.Contains(curl, `-F "model=gpt-image-2.5-sunburst"`) {
+			t.Errorf("expected a model field, got:\n%s", curl)
 		}
 	})
 }

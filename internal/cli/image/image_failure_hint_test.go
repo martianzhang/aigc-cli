@@ -53,6 +53,24 @@ func TestLooksLikeSizeError(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "content safety error is not a size error",
+			err:  errors.New(`image edits (multipart) failed: API returned status 400: {"error":{"message":"The request was rejected by the content safety policy. Please revise the input and try again."}}`),
+			req:  &types.GenerateRequest{Size: "1024x768"},
+			want: false,
+		},
+		{
+			name: "chinese moderation error is not a size error",
+			err:  errors.New("API returned status 400: 请求被内容安全策略拒绝"),
+			req:  &types.GenerateRequest{Size: "1024x768"},
+			want: false,
+		},
+		{
+			name: "explicit invalid size still hints",
+			err:  errors.New(`API returned status 400: {"error":{"message":"Invalid size '16:16'. Expected WIDTHxHEIGHT, for example '1824x1024'."}}`),
+			req:  &types.GenerateRequest{Size: "16:16"},
+			want: true,
+		},
+		{
 			name: "auth error is ignored",
 			err:  errors.New("API returned status 401: unauthorized"),
 			req:  &types.GenerateRequest{Size: "1024x1024"},
@@ -149,5 +167,9 @@ func TestImageFailureHintDispatch(t *testing.T) {
 	}
 	if got := imageFailureHint(p, &types.GenerateRequest{Size: "16:9"}, err); !strings.Contains(got, "Gemini") {
 		t.Errorf("expected Gemini hint, got %q", got)
+	}
+	safetyErr := errors.New(`API returned status 400: {"error":{"message":"The request was rejected by the content safety policy."}}`)
+	if got := imageFailureHint(p, &types.GenerateRequest{Size: "1024x768"}, safetyErr); got != "" {
+		t.Errorf("content-safety error must not append a size hint, got %q", got)
 	}
 }

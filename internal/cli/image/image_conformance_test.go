@@ -235,7 +235,7 @@ func imageConformanceCases() []imageConformanceCase {
 	return []imageConformanceCase{
 		{
 			name:         "openai-compatible sync embeds the local file as a data uri",
-			providerBase: "https://api.openai.com",
+			providerBase: "https://api.siliconflow.cn",
 			providerType: provider.OpenAI,
 			wantSuffix:   client.ImageSubmitPath,
 			req:          imageInput,
@@ -441,7 +441,7 @@ func TestImageConformanceComparisonIsSensitive(t *testing.T) {
 	local := writeLocalPNG(t, t.TempDir())
 	cs := newConformanceServer(t)
 	c := client.NewWithProvider("conformance-key", cs.URL, "", types.ProviderOpenAI)
-	p := &provider.EffectiveProvider{BaseURL: "https://api.openai.com", APIKey: "conformance-key", ProviderType: provider.OpenAI}
+	p := &provider.EffectiveProvider{BaseURL: "https://api.siliconflow.cn", APIKey: "conformance-key", ProviderType: provider.OpenAI}
 
 	req := conformanceRequest(local)
 	pl := mustBuildPlan(t, req, p)

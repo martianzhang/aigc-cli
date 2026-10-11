@@ -15,6 +15,7 @@ type imageDispatchCtx struct {
 	isAgnes       bool
 	isGemini      bool
 	isZeekai      bool
+	isMultipart   bool // OpenAI-family /images/edits (multipart/form-data)
 	genEdit       bool
 	isOllama      bool
 	modelScopeKey string // API key for ModelScope async submission
@@ -33,6 +34,25 @@ func zeekaiImageEdits(isZeekai bool, imageCount int) bool {
 // GenerateAndSave path.
 func usesImageEditsJSON(p *provider.EffectiveProvider, req *types.GenerateRequest) bool {
 	return p != nil && req != nil && zeekaiImageEdits(p.ProviderType == provider.Zeekai, len(req.ImageURLs))
+}
+
+// useMultipartImageEdits reports whether p+req must use the OpenAI-family
+// multipart /images/edits protocol.
+//
+//   - --edit forces it for any OpenAI-compatible provider (manual override for
+//     relays whose domain is not auto-detected), and also unlocks a --json body
+//     by mapping its keys to form fields.
+//   - Auto-detection applies only to OpenAI-family domains, and only when no
+//     verbatim --json body is set: --json passthrough wins, so it keeps the
+//     JSON /images/generations path.
+func useMultipartImageEdits(p *provider.EffectiveProvider, req *types.GenerateRequest) bool {
+	if p == nil || req == nil || len(req.ImageURLs) == 0 {
+		return false
+	}
+	if genEdit {
+		return p.ProviderType == provider.OpenAI || provider.NeedsMultipartImageEdits(p.BaseURL)
+	}
+	return len(req.RawJSON) == 0 && provider.NeedsMultipartImageEdits(p.BaseURL)
 }
 
 // imageStrategy defines a dispatch rule for image generation.
@@ -94,6 +114,15 @@ var imageStrategies = []imageStrategy{
 			return zeekaiImageEdits(ctx.isZeekai, len(req.ImageURLs))
 		},
 		run: runImageEditsJSON,
+	},
+	{
+		// OpenAI-family (native OpenAI, Azure, OfoxAI): reference images go to
+		// POST /images/edits as multipart/form-data, because /images/generations
+		// has no image field. Text-only generation falls through to sync.
+		match: func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool {
+			return ctx.isMultipart && len(req.ImageURLs) > 0
+		},
+		run: runImageEditsMultipart,
 	},
 	// Default: OpenAI-compatible synchronous generation
 	{

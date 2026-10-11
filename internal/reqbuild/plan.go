@@ -25,6 +25,25 @@ type Upload struct {
 	Label       string // preview comment, e.g. "image_urls[0]"
 }
 
+// FormField is one non-file field of a multipart/form-data request body.
+type FormField struct {
+	Name  string
+	Value string
+}
+
+// FormFile is one file part of a multipart/form-data request body. Path is a
+// local file read at send time; Field is the form field name (e.g. "image").
+type FormFile struct {
+	Field string
+	Path  string
+}
+
+// Header is one extra HTTP header rendered on the request (not on uploads).
+type Header struct {
+	Name  string
+	Value string
+}
+
 // Plan is a provider-agnostic request: what to send and which local files to
 // upload first. It is render-only until RunUploads is called.
 type Plan struct {
@@ -34,6 +53,17 @@ type Plan struct {
 	Uploads   []Upload // ordered
 	UploadURL string   // absolute upload endpoint (render-only)
 	Note      string   // optional trailing preview comment
+
+	// Multipart marks the request body itself as multipart/form-data (used by
+	// POST /images/edits). When true, the request is rendered from FormFields +
+	// FormFiles instead of Body.
+	Multipart  bool
+	FormFields []FormField // ordered non-file fields (used when Multipart)
+	FormFiles  []FormFile  // ordered file parts (used when Multipart)
+
+	// Headers are extra HTTP headers rendered on the request curl (e.g. a
+	// provider pin). They are not applied to upload curls.
+	Headers []Header
 }
 
 // Uploader resolves local image paths to public URLs. *client.Client satisfies it.
@@ -54,8 +84,32 @@ func (p *Plan) RenderCurls(apiKey string) string {
 	for _, u := range p.Uploads {
 		blocks = append(blocks, renderUploadCurl(u, p.UploadURL, apiKey))
 	}
-	blocks = append(blocks, p.renderRequestCurl(apiKey))
+	if p.Multipart {
+		blocks = append(blocks, p.renderMultipartCurl(apiKey))
+	} else {
+		blocks = append(blocks, p.renderRequestCurl(apiKey))
+	}
 	return strings.Join(blocks, "\n")
+}
+
+// renderMultipartCurl renders a multipart/form-data request: one -F per text
+// field followed by one -F per file part. Content-Type is omitted because curl
+// derives the multipart boundary itself.
+func (p *Plan) renderMultipartCurl(apiKey string) string {
+	lines := []string{fmt.Sprintf("curl -X %s %s", p.Method, p.URL)}
+	lines = appendAuthLine(lines, apiKey)
+	lines = appendHeaderLines(lines, p.Headers)
+	for _, f := range p.FormFields {
+		lines = append(lines, fmt.Sprintf("  -F \"%s=%s\"", f.Name, f.Value))
+	}
+	for _, f := range p.FormFiles {
+		lines = append(lines, fmt.Sprintf("  -F \"%s=@%s\"", f.Field, f.Path))
+	}
+	cmd := joinCurlLines(lines)
+	if p.Note != "" {
+		cmd += "\n# note: " + p.Note
+	}
+	return cmd
 }
 
 // renderUploadCurl renders one multipart upload. It deliberately omits a
@@ -75,6 +129,7 @@ func renderUploadCurl(u Upload, uploadURL, apiKey string) string {
 func (p *Plan) renderRequestCurl(apiKey string) string {
 	lines := []string{fmt.Sprintf("curl -X %s %s", p.Method, p.URL)}
 	lines = appendAuthLine(lines, apiKey)
+	lines = appendHeaderLines(lines, p.Headers)
 	if p.Method != http.MethodGet {
 		lines = append(lines, "  -H \"Content-Type: application/json\"")
 		data, _ := marshalBody(p.Body)
@@ -85,6 +140,14 @@ func (p *Plan) renderRequestCurl(apiKey string) string {
 		cmd += "\n# note: " + p.Note
 	}
 	return cmd
+}
+
+// appendHeaderLines appends extra headers as curl -H lines.
+func appendHeaderLines(lines []string, headers []Header) []string {
+	for _, h := range headers {
+		lines = append(lines, fmt.Sprintf("  -H \"%s: %s\"", h.Name, h.Value))
+	}
+	return lines
 }
 
 // appendAuthLine appends the masked Authorization header when a key is present.

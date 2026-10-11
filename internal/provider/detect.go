@@ -104,6 +104,67 @@ var zeekaiDomains = []string{
 	"zeekai.cc",
 }
 
+// ofoxDomains lists hosts where the OfoxAI aggregator serves its API.
+var ofoxDomains = []string{
+	"ofox.ai",
+	"ofox.run",
+	"ofox.io",
+}
+
+// openAIMultipartEditsDomains lists OpenAI-family hosts whose reference-image
+// editing lives only on POST /images/edits with a multipart/form-data body.
+// Their /images/generations endpoint defines no reference-image field, so
+// sending a top-level image_urls array there yields a text-to-image result with
+// the input image silently dropped. Covers native OpenAI and Azure OpenAI;
+// OfoxAI is handled via ofoxDomains.
+var openAIMultipartEditsDomains = []string{
+	"openai.com",
+	"openai.azure.com",
+}
+
+// IsOfox reports whether baseURL is an OfoxAI aggregator host.
+func IsOfox(baseURL string) bool {
+	for _, d := range ofoxDomains {
+		if matchDomain(baseURL, d) {
+			return true
+		}
+	}
+	return false
+}
+
+// NeedsMultipartImageEdits reports whether baseURL is an OpenAI-family endpoint
+// whose reference images must be uploaded as multipart/form-data to
+// POST /images/edits rather than passed as image_urls on /images/generations.
+func NeedsMultipartImageEdits(baseURL string) bool {
+	if IsOfox(baseURL) {
+		return true
+	}
+	for _, d := range openAIMultipartEditsDomains {
+		if matchDomain(baseURL, d) {
+			return true
+		}
+	}
+	return false
+}
+
+// ImageEditsProviderPinHeader is the header OfoxAI uses to pin a multipart
+// /images/edits request to one upstream provider. OfoxAI serves gpt-image
+// models from both azure_foundry (stricter moderation) and openai (more
+// permissive); without pinning, the weighted split may land on azure_foundry
+// and reject a valid prompt with a content-safety error. /images/edits is
+// multipart, so extra_body cannot be nested and only the header works.
+const ImageEditsProviderPinHeader = "X-OfoxAI-Provider-Type"
+
+// ImageEditsHeaders returns provider-specific HTTP headers for the multipart
+// /images/edits request. OfoxAI gets the "openai" provider pin (see
+// ImageEditsProviderPinHeader); every other provider returns nil.
+func ImageEditsHeaders(baseURL string) map[string]string {
+	if IsOfox(baseURL) {
+		return map[string]string{ImageEditsProviderPinHeader: "openai"}
+	}
+	return nil
+}
+
 // pollinationsDomains lists domains where pollinations.ai APIs are served.
 // Its media generation endpoints (/image/{prompt}, /video/{prompt}) live at
 // the API root rather than under the /v1 version prefix used by its

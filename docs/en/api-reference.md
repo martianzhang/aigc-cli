@@ -6,7 +6,7 @@ This document lists the API specification sources used by aigc-cli's provider de
 
 | Provider | Base URL | Image API | Video API | Music API |
 |---|---|---|---|---|
-| OpenAI | `https://api.openai.com/v1` | `POST /v1/images/generations` | — | — |
+| OpenAI | `https://api.openai.com/v1` | `POST /v1/images/generations` (text) / `POST /v1/images/edits` (image-to-image, multipart) | — | — |
 | OpenRouter | `https://openrouter.ai/api/v1` | `POST /api/v1/images` | `POST /api/v1/videos` | `POST /api/v1/chat/completions` (Lyria-3, sync streaming) |
 | APIMart | `https://api.apimart.ai` | Async task | Async task + VEO3 Remix | `POST /v1/music/generations` (async, suno/flowmusic via `model`) |
 | ZeekAI | detector | `POST /v1/images/generations` (text) / `POST /v1/images/edits` (image-to-image) | — | — |
@@ -21,6 +21,7 @@ Provider detection uses `base_url` pattern matching:
 | `openrouter.ai` | OpenRouter |
 | `apimart.ai` | APIMart |
 | `zeekai.cc` | ZeekAI (image-to-image auto-routes to `/images/edits`) |
+| `openai.com`, `openai.azure.com`, `ofox.ai`, `ofox.run`, `ofox.io` | OpenAI-family (image input auto-routes to multipart `POST /images/edits`) |
 | `openlux.ai` (in URL) | OpenLux |
 | `localhost` or `127.0.0.1` | Local (no API Key) |
 

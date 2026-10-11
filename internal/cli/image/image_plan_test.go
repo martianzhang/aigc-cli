@@ -124,10 +124,17 @@ func TestBuildImagePlanRouting(t *testing.T) {
 		},
 		{
 			name:         "default sync keeps image_urls with data uri",
-			p:            &provider.EffectiveProvider{BaseURL: "https://api.openai.com", APIKey: "k", ProviderType: provider.OpenAI},
-			wantURL:      "https://api.openai.com/v1/images/generations",
+			p:            &provider.EffectiveProvider{BaseURL: "https://api.siliconflow.cn", APIKey: "k", ProviderType: provider.OpenAI},
+			wantURL:      "https://api.siliconflow.cn/v1/images/generations",
 			wantUploads:  0,
 			wantBodyFrag: []string{`"image_urls":["data:image/png;base64,`},
+		},
+		{
+			name:         "openai family routes image input to multipart edits",
+			p:            &provider.EffectiveProvider{BaseURL: "https://api.ofox.ai/v1", APIKey: "k", ProviderType: provider.OpenAI},
+			wantURL:      "https://api.ofox.ai/v1/images/edits",
+			wantUploads:  0,
+			wantBodyFrag: []string{},
 		},
 	}
 
@@ -205,6 +212,28 @@ func TestBuildImagePlanRouting(t *testing.T) {
 		}
 		if strings.Contains(curl, "# note: # note:") {
 			t.Errorf("note prefix should not be doubled, got:\n%s", curl)
+		}
+	})
+
+	t.Run("openai family multipart plan carries file parts", func(t *testing.T) {
+		req := &types.GenerateRequest{Model: "m", Prompt: "p", ImageURLs: []string{local}, MaskURL: "mask.png"}
+		p := &provider.EffectiveProvider{BaseURL: "https://api.ofox.ai/v1", APIKey: "k", ProviderType: provider.OpenAI}
+		pl := mustBuildPlan(t, req, p)
+		if !pl.Multipart {
+			t.Fatal("plan should be multipart")
+		}
+		if len(pl.FormFiles) != 2 || pl.FormFiles[0].Field != "image" || pl.FormFiles[1].Field != "mask" {
+			t.Errorf("FormFiles = %+v, want image then mask", pl.FormFiles)
+		}
+		if pl.FormFiles[0].Path != local {
+			t.Errorf("image path = %q, want %q", pl.FormFiles[0].Path, local)
+		}
+		curl := pl.RenderCurls("k")
+		if !strings.Contains(curl, `-F "image=@`+local+`"`) {
+			t.Errorf("curl should attach the image file:\n%s", curl)
+		}
+		if !strings.Contains(curl, "# note: each reference image is uploaded") {
+			t.Errorf("curl should carry the multipart note:\n%s", curl)
 		}
 	})
 
@@ -307,5 +336,98 @@ func TestApplyUploadsNoopForEncodingProviders(t *testing.T) {
 	}
 	if !strings.HasPrefix(req.ImageURLs[0], "data:image/png;base64,") {
 		t.Errorf("request should already hold the encoded data URI, got %q", req.ImageURLs[0])
+	}
+}
+
+func TestBuildMultipartImageEditsPlanOfoxPin(t *testing.T) {
+	dir := t.TempDir()
+	local := writeLocalPNG(t, dir)
+	p := &provider.EffectiveProvider{BaseURL: "https://api.ofox.ai/v1", APIKey: "k", ProviderType: provider.OpenAI}
+	req := &types.GenerateRequest{Model: "m", Prompt: "p", ImageURLs: []string{local}}
+
+	pl := mustBuildPlan(t, req, p)
+	if !pl.Multipart {
+		t.Fatal("plan should be multipart")
+	}
+	if len(pl.Headers) != 1 || pl.Headers[0].Name != provider.ImageEditsProviderPinHeader || pl.Headers[0].Value != "openai" {
+		t.Fatalf("Headers = %+v, want the ofox provider pin", pl.Headers)
+	}
+	if !strings.Contains(pl.RenderCurls("k"), `-H "X-OfoxAI-Provider-Type: openai"`) {
+		t.Errorf("dry-run curl should show the pin header:\n%s", pl.RenderCurls("k"))
+	}
+}
+
+func TestBuildImagePlanEditForcesMultipart(t *testing.T) {
+	oldEdit := genEdit
+	genEdit = true
+	defer func() { genEdit = oldEdit }()
+
+	dir := t.TempDir()
+	local := writeLocalPNG(t, dir)
+	// A generic relay domain that is NOT auto-detected as OpenAI-family; --edit
+	// must force the multipart edits protocol anyway.
+	p := &provider.EffectiveProvider{BaseURL: "https://api.siliconflow.cn/v1", APIKey: "k", ProviderType: provider.OpenAI}
+	req := &types.GenerateRequest{Model: "m", Prompt: "p", ImageURLs: []string{local}}
+
+	pl := mustBuildPlan(t, req, p)
+	if !pl.Multipart {
+		t.Fatal("--edit should force a multipart edits plan")
+	}
+	if pl.URL != "https://api.siliconflow.cn/v1/images/edits" {
+		t.Errorf("URL = %q, want /images/edits", pl.URL)
+	}
+	if len(pl.Headers) != 0 {
+		t.Errorf("Headers = %+v, want none for a non-ofox provider", pl.Headers)
+	}
+}
+
+func TestBuildImagePlanEditJSONMapsFormFields(t *testing.T) {
+	oldEdit := genEdit
+	genEdit = true
+	defer func() { genEdit = oldEdit }()
+
+	dir := t.TempDir()
+	local := writeLocalPNG(t, dir)
+	raw, _ := json.Marshal(map[string]any{
+		"model":      "m",
+		"prompt":     "p",
+		"quality":    "high",
+		"image_urls": []string{local},
+	})
+	p := &provider.EffectiveProvider{BaseURL: "https://api.ofox.ai/v1", APIKey: "k", ProviderType: provider.OpenAI}
+	req := &types.GenerateRequest{RawJSON: raw, ImageURLs: []string{local}, Model: "m", Prompt: "p"}
+
+	pl := mustBuildPlan(t, req, p)
+	if !pl.Multipart {
+		t.Fatal("--edit --json should build a multipart plan")
+	}
+	curl := pl.RenderCurls("k")
+	for _, want := range []string{`-F "quality=high"`, `-F "model=m"`, `-F "image=@` + local + `"`} {
+		if !strings.Contains(curl, want) {
+			t.Errorf("multipart curl missing %q:\n%s", want, curl)
+		}
+	}
+	if strings.Contains(curl, "image_urls") {
+		t.Errorf("image_urls must be sent as a file part, not a form field:\n%s", curl)
+	}
+}
+
+func TestBuildImagePlanJSONWithoutEditStaysGenerations(t *testing.T) {
+	oldEdit := genEdit
+	genEdit = false
+	defer func() { genEdit = oldEdit }()
+
+	dir := t.TempDir()
+	local := writeLocalPNG(t, dir)
+	raw, _ := json.Marshal(map[string]any{"model": "m", "prompt": "p", "image_urls": []string{local}})
+	p := &provider.EffectiveProvider{BaseURL: "https://api.ofox.ai/v1", APIKey: "k", ProviderType: provider.OpenAI}
+	req := &types.GenerateRequest{RawJSON: raw, ImageURLs: []string{local}, Model: "m", Prompt: "p"}
+
+	pl := mustBuildPlan(t, req, p)
+	if pl.Multipart {
+		t.Fatal("verbatim --json without --edit must keep the JSON sync path")
+	}
+	if pl.URL != "https://api.ofox.ai/v1/images/generations" {
+		t.Errorf("URL = %q, want /images/generations", pl.URL)
 	}
 }

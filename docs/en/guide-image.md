@@ -63,6 +63,7 @@ Error: OpenRouter image generation failed: API returned status 400: {"error":{"m
 - **OpenRouter**: reads `supported_parameters` from `GET /v1/images/models` and lists the model's `aspect_ratio` (use `--ratio`) and `resolution` (use `--size`); if the model declares no size parameter at all, it tells you to drop `--size` / `--ratio`.
 - **Other providers**: prints that provider's documented `--size` cheat sheet (e.g. APIMart's `--resolution 1k/2k/4k`, Agnes 2.1's `2K@16:9`, ModelScope's pixels-only).
 - The hint only fires **on failure**, so the success path makes no extra request. Capability lookup is best-effort (5s timeout) and degrades to static guidance when unavailable.
+- The hint is **suppressed for clearly non-size failures** (e.g. a content-safety / moderation rejection). Only errors whose message actually looks size-related trigger it, so a `content safety policy` error never suggests changing `--size`.
 
 > **Note:** Agnes has no image upload endpoint; local `--image-url` files are automatically converted to base64 Data URIs and embedded directly — no public URL needed.
 
@@ -105,7 +106,8 @@ Each provider's wire shape differs, so a verbatim `--json` body must match that 
 | Gemini | `POST {base}/interactions` | uses `input` / `response_format` |
 | Ollama | `POST {ollama-native-base}/api/generate` | `/api/generate` body |
 | ZeekAI (image-to-image) | `POST {base}/images/edits` | images use `images[].image_url` |
-| Generic OpenAI-compatible (OpenAI / OpenLux / SiliconFlow / AIBaseCamp / Pollinations) and Agnes | `POST {base}/images/generations` | OpenAI images shape |
+| Generic OpenAI-compatible (OpenLux / SiliconFlow / AIBaseCamp / Pollinations) and Agnes | `POST {base}/images/generations` | OpenAI images shape |
+| Native OpenAI / Azure / OfoxAI | `POST {base}/images/generations` (`--json` verbatim passthrough does not switch to multipart) | Pass images with `-i`; write the target shape yourself under `--json` |
 
 > 💡 The flag path (`--model` / `--prompt` / `--image-url` …) is unchanged — the CLI still maps and adapts fields per provider. Verbatim passthrough applies to `--json` only.
 
@@ -178,7 +180,8 @@ How a local reference image (`--image-url`, `--mask-url`, or an image field poin
 |---|---|---|
 | Upload (send file, then reference its URL) | APIMart | `<UPLOAD_URL_0>`, `<UPLOAD_URL_1>`, … |
 | Inline data URI (no upload endpoint) | OpenRouter, Gemini, ModelScope, Zeekai (image-to-image), Agnes | `data:image/png;base64,...` |
-| Inline data URI (default OpenAI-compatible) | OpenAI / OpenLux / SiliconFlow and other generic relays | `data:image/png;base64,...` inside the `image_urls` array |
+| Inline data URI (default OpenAI-compatible) | OpenLux / SiliconFlow and other generic relays | `data:image/png;base64,...` inside the `image_urls` array |
+| Multipart file upload (`/images/edits`) | Native OpenAI / Azure OpenAI / OfoxAI (`ofox.ai`, `ofox.run`, `ofox.io`) | `-F "image=@<local file>"` (no image value appears in a JSON body) |
 
 ### Upload-based (APIMart): `--dry-run` prints upload curls + the generation curl
 
@@ -217,10 +220,11 @@ These providers encode local files as data URIs inline in the body; `--dry-run` 
 | Zeekai (image-to-image) | `images[].image_url` | `"images":[{"image_url":"data:image/png;base64,..."}]`, with a trailing `# note:` line |
 | Agnes | `extra_body.image` | `"extra_body":{"image":["data:image/png;base64,..."]}` |
 | Default OpenAI-compatible | `image_urls[]` | `"image_urls":["data:image/png;base64,..."]` |
+| Native OpenAI / Azure / OfoxAI | `POST /images/edits` (multipart) | `-F "image=@photo.png"` + `-F "model=..."` + `-F "prompt=..."` and other form fields |
 
 > 💡 **Gemini image-to-image now works:** local and remote reference images are both sent as image items in `input` (a local file becomes `{"type":"image","data":...,"mime_type":...}`, a remote URL becomes `{"type":"image","uri":...}`), instead of being dropped.
 
-> ⚠️ **Native OpenAI `/images/generations` has no image field:** the CLI encodes local reference images into `image_urls` before sending, which works for compatible relays that accept that field (a self-contained data URI is strictly better than sending a local path that never worked). Native OpenAI image editing uses `POST /v1/images/edits`, so use an `/images/edits` relay (such as Zeekai) or the provider's own edit protocol.
+> ⚠️ **Native OpenAI `/images/generations` has no image field:** generic compatible relays still receive local reference images encoded into `image_urls` (a self-contained data URI is strictly better than sending a local path that never worked). But native OpenAI, Azure OpenAI and OfoxAI (`ofox.ai` / `ofox.run` / `ofox.io`) do not accept a reference image on generations at all, so the CLI **auto-routes to `POST /images/edits` as a multipart/form-data upload** (`-F "image=@file"`) by domain, with no flag or config. Note: a verbatim `--json` body keeps the JSON `/images/generations` path (verbatim passthrough wins), so pass images with the `-i` flag there, or write the edits shape yourself.
 
 ## Sync Mode
 
@@ -278,6 +282,38 @@ aigc-cli image --provider zeekai -i photo.png -p "replace the background with a 
 
 This protocol does not support `--mask-url` (it fails with a clear error). When ZeekAI is not detected, behavior is unchanged: top-level `image_urls` to `/images/generations`.
 
+### Image-to-Image on OpenAI-family Endpoints (auto `/images/edits` multipart)
+
+Native OpenAI, Azure OpenAI, and OfoxAI (`api.ofox.ai` / `api.ofox.run` / `api.ofox.io`) have **no reference-image field** on `POST /images/generations` — sending `image_urls` there is silently ignored, so the model returns a text-to-image result unrelated to your input. These endpoints only support `POST /images/edits`, and only as **multipart/form-data** (`-F "image=@file"`, not JSON).
+
+aigc-cli **detects the domain and switches to multipart edits automatically — no configuration or flag needed**:
+
+```bash
+# OfoxAI: the local file is uploaded as an "image" file part; model/prompt/size/quality are form fields
+aigc-cli image -P ofox -m openai/gpt-image-2.5-sunburst \
+  -i photo.png -p "redraw it like a 3-year-old would, in crayon" --dry-run
+```
+
+```bash
+# Output (API key masked): note /images/edits + -F file upload, not JSON image_urls
+curl -X POST https://api.ofox.ai/v1/images/edits \
+  -H "Authorization: Bearer ...xxxx" \
+  -F "model=openai/gpt-image-2.5-sunburst" \
+  -F "prompt=redraw it like a 3-year-old would, in crayon" \
+  -F "size=1024x768" \
+  -F "quality=auto" \
+  -F "output_format=png" \
+  -F "image=@photo.png"
+```
+
+Remote URLs, data URIs, and raw base64 are downloaded/decoded into file parts before sending, so `-i https://.../a.png` works too. `--mask-url` is supported (as a `mask` file part). Text-only generation (no `--image-url`) still uses the `/images/generations` sync path.
+
+> 💡 **OfoxAI automatically sends `X-OfoxAI-Provider-Type: openai`:** OfoxAI serves `openai/gpt-image-*` from both `azure_foundry` (stricter moderation) and `openai` (more permissive). Without pinning, the weighted split may land on azure_foundry and reject a valid prompt as a "content safety policy" violation. `/images/edits` is multipart, so `extra_body` cannot be used — only the header works. The CLI adds it automatically (visible in `--dry-run`).
+
+> 💡 **`--edit` forces the edit protocol:** when you don't want to rely on domain auto-detection, `--edit -i ... -p ...` forces the edit path — OpenAI-family → multipart `/images/edits`; ZeekAI → JSON edits; APIMart → Grok async. **With `--edit`, a `--json` object's keys are mapped to multipart form fields** (files still come from `-i`), so you can pass vendor-specific fields (e.g. `input_fidelity`). A standalone `--json` (without `--edit`) is still verbatim passthrough to `/images/generations`.
+
+> ⚠️ Detection is domain-based: only the OpenAI-family domains above switch automatically. If you use another relay that also only accepts multipart edits, please file an issue to add its domain; relays that accept top-level `image_urls` are unchanged.
+
 ## Decode Mode (--decode)
 
 `--decode` converts base64 text files (data URI or raw base64) into inline
@@ -319,6 +355,32 @@ aigc-cli image --decode --output-format datauri --image-url photo.jpg
 
 Decode-only mode (no `--output-format`) keeps the detected
 format from the data URI MIME type or magic bytes.
+
+## Edit Mode (--edit)
+
+`--edit` forces the provider's image-edit protocol using `--image-url` as the
+source. The protocol is chosen by provider:
+
+| Provider | Protocol used by `--edit` |
+|---|---|
+| APIMart | Grok Imagine 1.5 Edit (async task); model defaults to `grok-imagine-1.5-edit-apimart` |
+| OpenAI-family (native OpenAI / Azure / OfoxAI) | multipart `POST /images/edits` (also auto-detected by domain; `--edit` forces it on a custom relay) |
+| ZeekAI | JSON `POST /images/edits` |
+
+```bash
+# APIMart Grok edit (background replacement)
+aigc-cli image --edit --prompt "replace the background with a starry sky" --image-url ./photo.jpg
+
+# Force multipart edits on any OpenAI-compatible relay
+aigc-cli image --edit --model openai/gpt-image-2.5-sunburst -i ./photo.jpg -p "make it crayon"
+```
+
+| Rule | Notes |
+|---|---|
+| `--image-url` | **required** (at least one source image) |
+| `--model` | APIMart defaults to `grok-imagine-1.5-edit-apimart`; other providers require an explicit model |
+| Mode | APIMart: forced async; OpenAI-family: multipart sync |
+| `--json` | standalone = verbatim passthrough to generations; with `--edit` its keys become multipart form fields (files from `-i`) |
 
 ## Inpainting
 
