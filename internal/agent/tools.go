@@ -130,13 +130,13 @@ var ToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "web_fetch",
-			Description: "Fetch a URL and return its text content. Use this when you need to read web pages, check current information, or access online resources. If the content is large, use offset to paginate through it. Requires `tools_enable` to list \"web_fetch\".",
+			Description: "Fetch a URL and return its content. HTML pages are converted to markdown (main content only) so the result is clean and token-efficient; non-HTML content (JSON, plain text) is returned as-is. Use this when you need to read web pages, check current information, or access online resources. Large results are paginated by character offset. Requires `tools_enable` to list \"web_fetch\".",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"url": {"type": "string", "description": "URL to fetch (http:// or https://)"},
 					"max_length": {"type": "integer", "description": "Max characters to return (default 5000, max 50000)"},
-					"offset": {"type": "integer", "description": "Byte offset to start reading from (default 0). Use this to paginate through large pages — the response tells you how many bytes remain and what offset to use next."}
+					"offset": {"type": "integer", "description": "Character offset to start reading from (default 0). Use this to paginate through large results — the response tells you how many characters remain and what offset to use next."}
 				},
 				"required": ["url"]
 			}`),

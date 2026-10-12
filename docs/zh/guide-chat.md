@@ -136,7 +136,7 @@ Chat 只内置少量**原语**（命名对齐 pi coding agent）；生成 / 检�
 | `write` | ⛔ | 写入 / 覆盖文件，自动建父目录 |
 | `edit` | ⛔ | 精确文本替换（`old_string` 必须唯一匹配） |
 | `bash` | ⛔ | 在当前目录执行 shell 命令 |
-| `web_fetch` | ⛔ | 抓取 URL 文本（走代理，15s 超时） |
+| `web_fetch` | ⛔ | 抓取 URL：HTML 自动转 Markdown（正文提取，省 token），非 HTML 原样返回（走代理） |
 | `web_search` | ⛔ | 联网搜索，返回标题 + URL 列表（用 `web_fetch` 深入阅读） |
 
 **只读原语**（`read`/`grep`/`find`/`ls`）默认开启；**特权原语**（`write`/`edit`/`bash`/`web_fetch`/`web_search`）默认关闭，需在 `tools_enable` 中**显式列出**才启用——这是把写文件 / 执行命令 / 联网交给模型的安全闸门。
@@ -146,6 +146,8 @@ Chat 只内置少量**原语**（命名对齐 pi coding agent）；生成 / 检�
 > `read` 默认可以读取**任意文件**。如需禁止读取敏感文件，用 `defaults.chat.read_deny` 配置**文件名/路径正则黑名单**（Go regexp，匹配路径或文件名即拒绝），例如 `read_deny: ["\\.pem$", "^id_rsa$", "\\.env$"]`；留空则全部放行。
 >
 > **二进制防护**：`read` 会嗅探内容，含 NUL 字节或大量非法 UTF-8 的文件（图片、可执行文件等）不会作为文本返回，而是提示 `[binary file — not displayed as text]`，避免把乱码灌进上下文。
+>
+> **web_fetch 的正文提取**：`web_fetch` 抓到的 HTML 会先用 readability 提取正文、再转成 Markdown（丢弃导航/页脚等样板，显著省 token）；提取不到正文时回退为整页转 Markdown。非 HTML（JSON、纯文本等）原样返回。结果按**字符**（非字节）分页：`max_length` 默认 5000、最大 50000，超大结果用返回里给出的 `offset` 继续读。
 
 ### 联网搜索（web_search）
 

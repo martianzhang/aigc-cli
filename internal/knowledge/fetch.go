@@ -84,21 +84,9 @@ func FetchURL(rawURL string) (*FetchResult, error) {
 
 	htmlStr := string(htmlBytes)
 
-	// Extract main content via readability
-	article, err := readability.FromReader(strings.NewReader(htmlStr), u)
+	title, markdown, err := HTMLToMarkdown(htmlStr, u)
 	if err != nil {
-		return nil, fmt.Errorf("readability extract: %w", err)
-	}
-	title := article.Title()
-
-	// Render article HTML and convert to markdown
-	var htmlBuf strings.Builder
-	if err := article.RenderHTML(&htmlBuf); err != nil {
-		return nil, fmt.Errorf("render article HTML: %w", err)
-	}
-	markdown, err := md.ConvertString(htmlBuf.String())
-	if err != nil {
-		return nil, fmt.Errorf("html-to-markdown: %w", err)
+		return nil, err
 	}
 
 	return &FetchResult{
@@ -109,6 +97,32 @@ func FetchURL(rawURL string) (*FetchResult, error) {
 		ContentType: contentType,
 		Size:        size,
 	}, nil
+}
+
+// HTMLToMarkdown extracts the main readable content of an HTML document and
+// converts it to markdown, returning the page title (may be empty) alongside.
+// pageURL is used to resolve relative links and may be nil.
+//
+// It first tries readability (main-article extraction, which drops nav/boilerplate
+// and saves tokens). When readability cannot segment an article — short pages,
+// documentation, single-element pages — it falls back to converting the whole
+// document so callers never lose content.
+func HTMLToMarkdown(htmlStr string, pageURL *url.URL) (title, markdown string, err error) {
+	if article, aerr := readability.FromReader(strings.NewReader(htmlStr), pageURL); aerr == nil {
+		title = article.Title()
+		var htmlBuf strings.Builder
+		if article.RenderHTML(&htmlBuf) == nil {
+			if converted, cerr := md.ConvertString(htmlBuf.String()); cerr == nil && strings.TrimSpace(converted) != "" {
+				return title, converted, nil
+			}
+		}
+	}
+
+	converted, cerr := md.ConvertString(htmlStr)
+	if cerr != nil {
+		return title, "", fmt.Errorf("html-to-markdown: %w", cerr)
+	}
+	return title, converted, nil
 }
 
 // Checksum computes the SHA256 hex digest of content.

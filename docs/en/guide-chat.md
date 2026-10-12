@@ -42,7 +42,7 @@ Chat ships a small set of **primitives** (names aligned with pi coding agent). D
 | `write` | ⛔ | Write/overwrite a file, creating parent dirs |
 | `edit` | ⛔ | Exact-text replace (`old_string` must be unique) |
 | `bash` | ⛔ | Execute a shell command in the current directory |
-| `web_fetch` | ⛔ | Fetch a URL as text (via proxy, 15s timeout) |
+| `web_fetch` | ⛔ | Fetch a URL: HTML is converted to Markdown (main content, token-efficient); non-HTML returned as-is (via proxy) |
 | `web_search` | ⛔ | Web search; returns a list of titles + URLs (read one with `web_fetch`) |
 
 **Read-only primitives** (`read`/`grep`/`find`/`ls`) are on by default. **Privileged primitives** (`write`/`edit`/`bash`/`web_fetch`/`web_search`) are off by default and require an explicit `tools_enable` entry — the safety gate for handing file-writes/command execution/network access to the model.
@@ -52,6 +52,8 @@ Domain tools (`generate_image`, `recognize_text`, `kb_find`, …) are no longer 
 > `read` can read **any file** by default. To block sensitive files, set `defaults.chat.read_deny` to a list of **filename/path regexes** (Go regexp, matched against the path or base name); leave it empty to allow everything. Example: `read_deny: ["\\.pem$", "^id_rsa$", "\\.env$"]`.
 >
 > **Binary protection**: `read` sniffs content — files with NUL bytes or many invalid UTF-8 sequences (images, executables, …) are not returned as text; they report `[binary file — not displayed as text]` so garbled bytes never enter the context.
+>
+> **web_fetch main-content extraction**: HTML fetched by `web_fetch` is first run through readability to extract the main article, then converted to Markdown (nav/footer boilerplate dropped — a big token saving); when no article can be extracted it falls back to converting the whole page. Non-HTML (JSON, plain text, …) is returned as-is. Results are paginated by **character** (not byte): `max_length` defaults to 5000 and caps at 50000; read further with the `offset` given in the response.
 
 ### Web search (`web_search`)
 
