@@ -121,6 +121,7 @@ type chatModel struct {
 	agentTools []types.ToolDefinition
 	maxIters   int
 	model      string
+	provider   string
 	system     string
 	cmd        *cobra.Command
 	verbose    bool

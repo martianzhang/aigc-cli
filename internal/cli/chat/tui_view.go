@@ -119,13 +119,13 @@ func (m *chatModel) renderOneMessage(msg message) string {
 
 // renderStatus builds the status bar text.
 func (m *chatModel) renderStatus() string {
-	modelInfo := m.modelDisplay()
+	info := m.providerModelDisplay()
 	switch m.state {
 	case tuiIdle:
 		if m.err != nil {
-			return fmt.Sprintf("⚠️  Error: %v  |  Model: %s  |  F1: Help  |  Ctrl+C: Quit", m.err, modelInfo)
+			return fmt.Sprintf("⚠️  Error: %v  |  %s  |  F1: Help  |  Ctrl+C: Quit", m.err, info)
 		}
-		return fmt.Sprintf("● Ready  |  Model: %s  |  F1: Help  |  Ctrl+C: Quit", modelInfo)
+		return fmt.Sprintf("● Ready  |  %s  |  F1: Help  |  Ctrl+C: Quit", info)
 	case tuiProcessing:
 		if m.compacting {
 			return m.spinner.View() + " Compacting…  |  Esc: Cancel"

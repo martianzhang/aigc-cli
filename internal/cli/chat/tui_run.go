@@ -54,11 +54,24 @@ func runChatTUI(cmd *cobra.Command) error {
 		model = chatCfg.Model
 	}
 
+	// Resolve the effective chat provider for the status bar (named key, else
+	// the detected provider type).
+	providerName := ""
+	if p := options.Shared.ResolveProvider(options.ProviderNameChat); p != nil {
+		providerName = p.Name
+		if providerName == "" {
+			if s := p.ProviderType.String(); s != "" && s != "unknown" {
+				providerName = s
+			}
+		}
+	}
+
 	// Build the TUI model
 	tuiModel := newChatModel(c, agentTools, maxIterations, model, chatSystem, cmd, options.Shared.Verbose,
 		chatTemperature, chatMaxTokens, chatContextSize)
 	tuiModel.history = history
 	tuiModel.rt = rt
+	tuiModel.provider = providerName
 
 	// Create the Bubble Tea program with alt screen
 	// (No mouse capture — lets native text selection work)

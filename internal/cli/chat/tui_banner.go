@@ -53,6 +53,15 @@ func (m *chatModel) modelDisplay() string {
 	return "<API default>"
 }
 
+// providerModelDisplay renders the "Provider | Model" segment for the status bar.
+func (m *chatModel) providerModelDisplay() string {
+	model := "Model: " + m.modelDisplay()
+	if m.provider != "" {
+		return "Provider: " + m.provider + "  |  " + model
+	}
+	return model
+}
+
 // ---------------------------------------------------------------------------
 // Render helpers
 // ---------------------------------------------------------------------------

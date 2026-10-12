@@ -34,6 +34,17 @@ func TestFormatShellOutput(t *testing.T) {
 	}
 }
 
+func TestProviderModelDisplay(t *testing.T) {
+	withProvider := &chatModel{model: "deepseek-v4-flash", provider: "apimart"}
+	if got := withProvider.providerModelDisplay(); got != "Provider: apimart  |  Model: deepseek-v4-flash" {
+		t.Errorf("with provider = %q", got)
+	}
+	noProvider := &chatModel{model: "m"}
+	if got := noProvider.providerModelDisplay(); got != "Model: m" {
+		t.Errorf("no provider = %q", got)
+	}
+}
+
 func TestExecuteToolCall_unknown(t *testing.T) {
 	tc := types.ToolCall{
 		ID:   "call_1",
