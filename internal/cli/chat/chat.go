@@ -10,6 +10,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -96,12 +97,18 @@ func runChat(cmd *cobra.Command, args []string) error {
 	if chatCfg != nil && chatCfg.MaxIterations > 0 {
 		maxIterations = chatCfg.MaxIterations
 	}
-	agentTools := buildAgentTools(chatCfg)
+	ctx := context.Background()
+	mcpMgr, mcpErr := mcpcli.NewManager(ctx, options.MCPConfig())
+	if mcpErr != nil {
+		fmt.Fprintf(options.Stderr(), "mcp: %v\n", mcpErr)
+	}
+	defer mcpMgr.Close()
+	rt := newToolRuntime(chatCfg, mcpMgr)
 
 	p := options.Shared.ResolveProvider(options.ProviderNameChat)
 	c := client.NewFromProvider(p)
 	history := req.Messages
-	_, err = runAgentLoop(context.Background(), c, &history, agentTools, maxIterations, cmd)
+	_, err = runAgentLoop(ctx, c, rt, &history, maxIterations, cmd)
 	if err != nil {
 		return err
 	}
@@ -124,36 +131,6 @@ func applyChatConfigDefaults(cmd *cobra.Command, cfg *types.ChatDefaults) {
 	if !cmd.Flags().Changed("max-output") && cfg.MaxTokens > 0 {
 		chatMaxTokens = cfg.MaxTokens
 	}
-}
-
-// generateImageArgs is the JSON structure for generate_image tool arguments.
-type generateImageArgs struct {
-	Prompt  string `json:"prompt"`
-	Size    string `json:"size,omitempty"`
-	N       int    `json:"n,omitempty"`
-	Quality string `json:"quality,omitempty"`
-}
-
-// generateVideoArgs is the JSON structure for generate_video tool arguments.
-type generateVideoArgs struct {
-	Prompt     string `json:"prompt"`
-	Duration   int    `json:"duration,omitempty"`
-	Resolution string `json:"resolution,omitempty"`
-}
-
-// generateMusicArgs is the JSON structure for generate_music tool arguments.
-type generateMusicArgs struct {
-	Prompt       string `json:"prompt"`
-	Model        string `json:"model,omitempty"`
-	Duration     int    `json:"duration,omitempty"`
-	Instrumental bool   `json:"instrumental,omitempty"`
-}
-
-// watermarkArgs is the JSON structure for watermark tools.
-type watermarkArgs struct {
-	FilePath   string `json:"file_path"`
-	OutputPath string `json:"output_path"`
-	Producer   string `json:"producer"`
 }
 
 func init() {

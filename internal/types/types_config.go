@@ -80,7 +80,37 @@ type Config struct {
 	WebSearch    map[string]*WebSearchProvider `mapstructure:"web_search" yaml:"web_search,omitempty"`
 	ToolsEnable  []string                      `mapstructure:"tools_enable" yaml:"tools_enable,omitempty"`
 	ToolsDisable []string                      `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
+	MCP          *MCPConfig                    `mapstructure:"mcp" yaml:"mcp,omitempty"`
 }
+
+// MCPConfig holds external MCP (Model Context Protocol) servers that the chat
+// agent connects to as a client. There is deliberately no built-in server: to
+// use aigc-cli's own tools from chat, add an entry pointing at `aigc-cli mcp`.
+type MCPConfig struct {
+	Servers []MCPServer `mapstructure:"servers" yaml:"servers,omitempty"`
+}
+
+// MCPServer describes one MCP server the chat agent launches over stdio.
+type MCPServer struct {
+	// Name identifies the server in logs and error messages.
+	Name string `mapstructure:"name" yaml:"name,omitempty"`
+	// Command is the executable to launch (e.g. "aigc-cli" or "npx").
+	Command string `mapstructure:"command" yaml:"command,omitempty"`
+	// Args are the command arguments (e.g. ["mcp"]).
+	Args []string `mapstructure:"args" yaml:"args,omitempty"`
+	// Env adds or overrides environment variables ("KEY=VALUE"); the parent
+	// process environment is always inherited.
+	Env []string `mapstructure:"env" yaml:"env,omitempty"`
+	// ToolsEnable is a glob allowlist of tools exposed to the agent. Empty=all.
+	ToolsEnable []string `mapstructure:"tools_enable" yaml:"tools_enable,omitempty"`
+	// ToolsDisable is a glob denylist; it wins over ToolsEnable.
+	ToolsDisable []string `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
+	// Enabled defaults to true when nil.
+	Enabled *bool `mapstructure:"enabled" yaml:"enabled,omitempty"`
+}
+
+// IsEnabled reports whether the server should be connected (default true).
+func (s MCPServer) IsEnabled() bool { return s.Enabled == nil || *s.Enabled }
 
 // IdeasConfig controls the ideas prompt data path and embedding backend.
 type IdeasConfig struct {
@@ -200,6 +230,8 @@ type ChatDefaults struct {
 	Tools             []string `mapstructure:"tools" yaml:"tools,omitempty"`                             // 允许的工具白名单（glob 模式），空或["*"]=全部允许
 	DisableTools      []string `mapstructure:"disable_tools" yaml:"disable_tools,omitempty"`             // 禁用的工具黑名单（glob 模式），覆盖 tools
 	AllowToolOverride bool     `mapstructure:"allow_tool_override" yaml:"allow_tool_override,omitempty"` // true=LLM参数可覆盖配置, false=配置强制覆盖LLM（默认false,省钱）
+	ToolsOnDemand     bool     `mapstructure:"tools_on_demand" yaml:"tools_on_demand,omitempty"`         // true=MCP 工具按需加载（search_tools/load_tools），减少上下文占用
+	ReadDeny          []string `mapstructure:"read_deny" yaml:"read_deny,omitempty"`                     // read 原语的拒绝正则（匹配文件路径或文件名）；空=全部放行
 }
 
 // ImageDefaults holds default values for image generation.

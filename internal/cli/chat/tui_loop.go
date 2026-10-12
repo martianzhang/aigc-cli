@@ -43,8 +43,8 @@ func (m *chatModel) runTUIAgentLoop() {
 			Messages: localHistory,
 			Stream:   true,
 		}
-		if len(m.agentTools) > 0 {
-			req.Tools = m.agentTools
+		if tools := m.rt.RequestTools(); len(tools) > 0 {
+			req.Tools = tools
 		}
 		if m.temperature > 0 {
 			t := m.temperature
@@ -83,7 +83,7 @@ func (m *chatModel) runTUIAgentLoop() {
 
 				// Redirect stderr during tool execution
 				restoreStderr := options.SetStderr(&logWriter{prog: prog})
-				toolResult := executeToolCall(m.client, tc)
+				toolResult := m.rt.Execute(m.client, tc)
 				restoreStderr()
 
 				summary := summarizeToolResult(tc.Function.Name, toolResult)

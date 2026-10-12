@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -27,9 +29,15 @@ func runChatTUI(cmd *cobra.Command) error {
 		maxIterations = chatCfg.MaxIterations
 	}
 
-	agentTools := buildAgentTools(chatCfg)
-	c := options.NewClient("chat")
+	mcpMgr, mcpErr := mcpcli.NewManager(context.Background(), options.MCPConfig())
+	if mcpErr != nil {
+		fmt.Fprintf(options.Stderr(), "mcp: %v\n", mcpErr)
+	}
+	defer mcpMgr.Close()
 
+	rt := newToolRuntime(chatCfg, mcpMgr)
+	agentTools := rt.RequestTools()
+	c := options.NewClient("chat")
 	// Initialize history with system prompt + current date context
 	history := []types.ChatMessage{}
 	sysContent := fmt.Sprintf("今天是 %s。你只需要在用户明确询问日期时才回答日期，其他时候不要主动提及。", time.Now().Format("2006年1月2日"))
@@ -47,6 +55,7 @@ func runChatTUI(cmd *cobra.Command) error {
 	tuiModel := newChatModel(c, agentTools, maxIterations, model, chatSystem, cmd, options.Shared.Verbose,
 		chatTemperature, chatMaxTokens, chatContextSize)
 	tuiModel.history = history
+	tuiModel.rt = rt
 
 	// Create the Bubble Tea program with alt screen
 	// (No mouse capture — lets native text selection work)

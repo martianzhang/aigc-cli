@@ -6,339 +6,78 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// allow: SIZE_OK — pure data table (agent tool definitions), no logic to split.
+// ToolDefs is the built-in primitive tool surface exposed to the chat agent.
+//
+// Domain capabilities (image/video/music generation, OCR, watermark, KB, …) are
+// deliberately NOT defined here: they are provided by MCP servers configured in
+// `mcp.servers` (see docs/guide-chat.md). This keeps a single source of truth
+// for domain tools.
+//
+// Read-only primitives (read/grep/find/ls) are enabled by default; privileged
+// primitives (write/edit/bash/web_fetch) require an explicit `tools_enable`
+// entry. See IsReadOnlyPrimitive / IsPrivilegedPrimitive.
 var ToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "generate_image",
-			Description: "Generate images via AI (cost-effective, recommended default). Images are saved to local files — do NOT invent URLs, use /preview to show them. Use this for most image generation tasks. For highly artistic/stylized results, consider midjourney_imagine instead.",
+			Name:        "read",
+			Description: "Read the contents of a local text file (e.g. .txt, .md, .yaml, .json, .go). Use when the user asks about or references a local file. Supports pagination via offset/limit for large files.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"prompt": {"type": "string", "description": "Detailed text description of the image to generate"},
-					"size": {"type": "string", "description": "Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4", "enum": ["1:1", "16:9", "9:16", "4:3", "3:4"]},
-					"n": {"type": "integer", "description": "Number of images to generate (1-4)", "minimum": 1, "maximum": 4},
-					"quality": {"type": "string", "description": "Image quality (low=cheapest default, high=best quality but costs more)", "enum": ["auto", "low", "medium", "high"]}
+					"filepath": {"type": "string", "description": "Path to the local file to read (relative to current directory or absolute)"},
+					"offset": {"type": "integer", "description": "Byte offset to start reading from (default 0). Use this to read the next chunk — the response tells you the file size and what offset to use next."},
+					"limit": {"type": "integer", "description": "Max bytes to return (default 10000, max 100000)"}
 				},
-				"required": ["prompt"]
+				"required": ["filepath"]
 			}`),
 		},
 	},
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "generate_video",
-			Description: "Generate a video based on a text description. Videos are saved to local files — do NOT invent URLs, use /preview to show them. Use this when the user asks you to create, generate, or make a video.",
+			Name:        "write",
+			Description: "Write content to a local file, creating parent directories and overwriting the file if it exists. Use only for new files or full rewrites; for surgical changes prefer edit. Requires `tools_enable` to list \"write\".",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"prompt": {"type": "string", "description": "Detailed text description of the video to generate"},
-					"duration": {"type": "integer", "description": "Video duration in seconds (4-15)", "minimum": 4, "maximum": 15},
-					"resolution": {"type": "string", "description": "Video resolution", "enum": ["480p", "720p", "1080p"]}
+					"filepath": {"type": "string", "description": "Path to the file to write (relative to current directory or absolute)"},
+					"content": {"type": "string", "description": "Full content to write to the file"}
 				},
-				"required": ["prompt"]
+				"required": ["filepath", "content"]
 			}`),
 		},
 	},
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "generate_music",
-			Description: "Generate music based on a text description. Audio is saved to local files — do NOT invent URLs. Use this when the user asks you to create, generate, or make music or a song.",
+			Name:        "edit",
+			Description: "Edit a local file by replacing exact text. old_string must match exactly (including whitespace) and occur exactly once. Use for precise, surgical edits. Requires `tools_enable` to list \"edit\".",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"prompt": {"type": "string", "description": "Detailed text description of the music to generate (genre, mood, instruments, etc.)"},
-					"model": {"type": "string", "description": "Override the config default model (e.g. suno, flowmusic, google/lyria-3-clip-preview)"},
-					"duration": {"type": "integer", "description": "Target duration in seconds"},
-					"instrumental": {"type": "boolean", "description": "Generate instrumental music only (no vocals)"}
+					"filepath": {"type": "string", "description": "Path to the file to edit"},
+					"old_string": {"type": "string", "description": "Exact text to find (must match exactly and be unique)"},
+					"new_string": {"type": "string", "description": "Replacement text"}
 				},
-				"required": ["prompt"]
+				"required": ["filepath", "old_string", "new_string"]
 			}`),
 		},
 	},
-	// --- Midjourney tools ---
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "midjourney_imagine",
-			Description: "Midjourney image generation (costs 5-10x more than generate_image and produces 4 variants). Only use when the user explicitly asks for Midjourney, or needs highly artistic/stylized/painted results. For most use cases, prefer generate_image instead.",
+			Name:        "bash",
+			Description: "Execute a shell command in the current working directory and return its combined stdout/stderr. Use for ls/grep/find/curl and other CLI operations. Requires `tools_enable` to list \"bash\".",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"prompt": {"type": "string", "description": "Text description of the image"},
-					"image_url": {"type": "string", "description": "Reference image URL for image-guided generation"},
-					"aspect_ratio": {"type": "string", "enum": ["1:1","16:9","9:16","4:3","3:4","21:9"]},
-					"style": {"type": "string", "enum": ["raw","expressive"]},
-					"version": {"type": "string", "enum": ["6.1","7","8","8.1"]},
-					"speed": {"type": "string", "enum": ["relax","fast","turbo"]}
+					"command": {"type": "string", "description": "Shell command to execute"}
 				},
-				"required": ["prompt"]
+				"required": ["command"]
 			}`),
 		},
 	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "midjourney_describe",
-			Description: "Get a text description of an image (reverse prompt). Upload an image URL and get back a prompt that MJ would use to generate it.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"image_url": {"type": "string", "description": "URL of the image to describe"}
-				},
-				"required": ["image_url"]
-			}`),
-		},
-	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "midjourney_reroll",
-			Description: "Regenerate a Midjourney generation (same prompt, new results). Requires a previous MJ task ID.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"task_id": {"type": "string", "description": "Previous MJ task ID to reroll"}
-				},
-				"required": ["task_id"]
-			}`),
-		},
-	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "midjourney_video",
-			Description: "Turn an image into a short video via Midjourney.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"image_url": {"type": "string", "description": "URL of the image to animate"},
-					"prompt": {"type": "string", "description": "Optional text description"}
-				},
-				"required": ["image_url"]
-			}`),
-		},
-	},
-	// --- Prompt ideas ---
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "search_ideas",
-			Description: "Search AI image prompt ideas from the local ideas database. Supports cross-language keyword search — if the user's query is in Chinese, Japanese, etc., also translate to English and search both languages for broader results. Use random=true for a random surprise idea.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"keywords": {"type": "string", "description": "Search keywords (ignored when random=true). Supports Chinese, Japanese, English etc. — translate to English and search both for better cross-language results."},
-					"limit": {"type": "integer", "description": "Max results to return (default 5)"},
-					"random": {"type": "boolean", "description": "Get random ideas instead of keyword search"}
-				}
-			}`),
-		},
-	},
-	// --- Image tools ---
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "remove_background",
-			Description: "Remove image background using RMBG 2.0 AI semantic segmentation. Completely offline, no API key needed. Supports optional background replacement with color (e.g. #FF0000) or another image, and cropping to subject (autocrop). Requires model downloaded via 'aigc-cli background init'.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"file_path": {"type": "string", "description": "Path to the image file"},
-					"output_path": {"type": "string", "description": "Optional output path (default: <input>_removebg.png)"},
-					"replace_color": {"type": "string", "description": "Replace background with hex color (e.g. #FF0000)"},
-					"autocrop": {"type": "boolean", "description": "Crop to foreground bounding box"}
-				},
-				"required": ["file_path"]
-			}`),
-		},
-	},
-	// --- Depth tools ---
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "convert_depth",
-			Description: "Convert an image or video into a grayscale depth map (near = white) using a local Depth Anything V2 ONNX model. Completely offline, no API key needed. The output is the standard input for depth-guided image-to-video (upload depth map + a reference photo to keep the original structure with new appearance). Input type auto-detected by extension (image → PNG, video → MP4, requires ffmpeg). Requires model downloaded via 'aigc-cli depth init'.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"input_path": {"type": "string", "description": "Path to the input image or video file"},
-					"output_path": {"type": "string", "description": "Optional output path (default: <input>_depth.png/.mp4)"},
-					"start_time": {"type": "string", "description": "Video: start time (SS, MM:SS, or HH:MM:SS)"},
-					"end_time": {"type": "string", "description": "Video: end time; alone = convert the first N seconds"},
-					"model": {"type": "string", "description": "Depth model (default: depth-anything-v2-small)"},
-					"invert": {"type": "boolean", "description": "Invert depth (near = black)"}
-				},
-				"required": ["input_path"]
-			}`),
-		},
-	},
-	// --- Upscale tool ---
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "upscale",
-			Description: "Upscale an image 2x/4x with a local Real-ESRGAN / Real-CUGAN / Swin2SR ONNX model. Completely offline, no API key needed; large images use feathered tiles; output is opaque PNG. Model pick: general photos → realesr-general-x4v3 (default) or real-esrgan-x4plus (photo HQ, slower); anime → real-cugan-2x (2x) / real-esrgan-x4plus-anime-6b / real-esrgan-x4plus-anime-4b32f (faster) / real-esrgan-animevideov3 (fastest); noisy or compressed photos → swin2sr-realworld-x4 or swin2sr-compressed-x4; clean images → swin2sr-classical-x4. Requires model via 'aigc-cli upscale init'.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"input_path": {"type": "string", "description": "Path to the input image file"},
-					"output_path": {"type": "string", "description": "Optional output path (default: <input>_upscaled.png)"},
-					"model": {"type": "string", "description": "realesr-general-x4v3 (default) | real-esrgan-x4plus | real-cugan-2x | real-esrgan-x4plus-anime-6b | real-esrgan-x4plus-anime-4b32f | real-esrgan-animevideov3 | swin2sr-lightweight-x2 | swin2sr-realworld-x4 | swin2sr-classical-x4 | swin2sr-compressed-x4"},
-					"scale": {"type": "integer", "description": "Output scale factor (default: model's native scale)"}
-				},
-				"required": ["input_path"]
-			}`),
-		},
-	},
-	// --- Watermark tools ---
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "remove_watermark",
-			Description: "⚠️ 检测并移除图片中的可见 AI 水印（内置 gemini，其他需通过 learn-watermark 学习）。仅限合法用途（如修复个人旧照片），禁止去除他人版权水印。完全离线运行，无需 API Key。",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"file_path": {"type": "string", "description": "待去水印图片的本地路径"},
-					"producer": {"type": "string", "description": "水印厂商提示（内置 gemini，其他需 learn-watermark 学习）。可留空，留空时自动检测"},
-					"output_path": {"type": "string", "description": "输出路径（可选，默认 <原图>_clean<ext>）"}
-				},
-				"required": ["file_path"]
-			}`),
-		},
-	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "add_watermark",
-			Description: "向图片添加可见 AI 水印（仅用于创建去水印算法的测试样本，不注入任何元数据）。gemini 使用注册水印样式；未知名称按文字渲染。完全离线运行，无需 API Key。",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"file_path": {"type": "string", "description": "待加水印图片的本地路径"},
-					"producer": {"type": "string", "description": "水印厂商名（内置 gemini，其他需 learn-watermark 学习）或自定义文字"},
-					"output_path": {"type": "string", "description": "输出路径（可选，默认 <原图>_watermarked.png）"}
-				},
-				"required": ["file_path", "producer"]
-			}`),
-		},
-	},
-	// --- OCR tool ---
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "recognize_text",
-			Description: "Recognize text in a local image or PDF file using offline OCR (no API key needed). Supports JPEG, PNG, PDF. Run 'aigc-cli ocr init' to download models first. For PDFs: text-based PDFs extract directly; scanned PDFs render + OCR each page.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"file_path": {"type": "string", "description": "Path to the image or PDF file to recognize"},
-					"lang": {"type": "string", "description": "Language: auto (default), zh, en", "enum": ["auto", "zh", "en"]},
-					"format": {"type": "string", "description": "Output format: text (default) or json", "enum": ["text", "json"]}
-				},
-				"required": ["file_path"]
-			}`),
-		},
-	},
-	// --- Image tools ---
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "caption_image",
-			Description: "Read or write the caption/description of a local image file (JPEG/PNG). Provide file_path and caption to write. Omit caption to read current caption. Use caption=\"\" to clear.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"file_path": {"type": "string", "description": "Path to the local image file"},
-					"caption": {"type": "string", "description": "Caption text to write. Omit to just read. Empty string to clear."}
-				},
-				"required": ["file_path"]
-			}`),
-		},
-	},
-	// --- Account tools ---
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "balance",
-			Description: "Query your API key balance or user account balance.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"scope": {"type": "string", "enum": ["token","user"], "description": "token=API key balance, user=account balance"}
-				}
-			}`),
-		},
-	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "task",
-			Description: "Query the status and result of an async task (image, video, MJ, etc.) by task ID.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"task_id": {"type": "string", "description": "Task ID to query"}
-				},
-				"required": ["task_id"]
-			}`),
-		},
-	},
-	// --- Audio tools ---
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "generate_speech",
-			Description: "Convert text to spoken audio (TTS). The audio is saved to a local file — provide the filename to the user.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"input": {"type": "string", "description": "Text to convert to speech"},
-					"model": {"type": "string", "description": "TTS model (default: gpt-4o-mini-tts)"},
-					"voice": {"type": "string", "description": "Voice name: alloy, nova, echo, fable, onyx, shimmer, coral, verse, ballad, ash, sage, marin, cedar"},
-					"format": {"type": "string", "description": "Audio format: mp3, wav, opus, aac, flac, pcm (default: mp3)", "enum": ["mp3", "wav", "opus", "aac", "flac", "pcm"]}
-				},
-				"required": ["input", "voice"]
-			}`),
-		},
-	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "transcribe_audio",
-			Description: "Transcribe an audio file to text (STT). Provide a local file path to the audio file.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"file_path": {"type": "string", "description": "Path to the local audio file to transcribe"},
-					"model": {"type": "string", "description": "STT model (default: whisper-1)"},
-					"language": {"type": "string", "description": "Language hint (ISO-639-1, e.g. en, ja, zh)"}
-				},
-				"required": ["file_path"]
-			}`),
-		},
-	},
-	// --- Web tools ---
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "web_fetch",
-			Description: "Fetch a URL and return its text content. Use this when you need to read web pages, check current information, or access online resources. If the content is large, use offset to paginate through it.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"url": {"type": "string", "description": "URL to fetch (http:// or https://)"},
-					"max_length": {"type": "integer", "description": "Max characters to return (default 5000, max 50000)"},
-					"offset": {"type": "integer", "description": "Byte offset to start reading from (default 0). Use this to paginate through large pages — the response tells you how many bytes remain and what offset to use next."}
-				},
-				"required": ["url"]
-			}`),
-		},
-	},
-	// --- Local file tools ---
 	{
 		Type: "function",
 		Function: types.ToolFunction{
@@ -361,22 +100,6 @@ var ToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "read_file",
-			Description: "Read the contents of a local text file (e.g. .txt, .md, .yaml, .json, .go). Use when the user asks about or references a local file. Supports pagination via offset/limit for large files.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"filepath": {"type": "string", "description": "Path to the local file to read (relative to current directory or absolute)"},
-					"offset": {"type": "integer", "description": "Byte offset to start reading from (default 0). Use this to read the next chunk — the response tells you the file size and what offset to use next."},
-					"limit": {"type": "integer", "description": "Max bytes to return (default 10000, max 100000)"}
-				},
-				"required": ["filepath"]
-			}`),
-		},
-	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
 			Name:        "find",
 			Description: "Recursively find files by name/pattern under a directory (like fd/find). Supports glob patterns. Use this when the user asks to find files, list images in a folder, search for documents, or explore the project structure.",
 			Parameters: json.RawMessage(`{
@@ -390,88 +113,60 @@ var ToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
-	// --- Knowledge Base tools ---
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "kb_find",
-			Description: "Search the local knowledge base by keyword or semantic query. Use this to recall saved information and documents.",
+			Name:        "ls",
+			Description: "List the entries of a directory (non-recursive). Directories are shown with a trailing slash. Use this to explore a folder before deciding what to read.",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"query": {"type": "string", "description": "Search query"},
-					"limit": {"type": "integer", "description": "Max results (default 10)"}
-				},
-				"required": ["query"]
+					"path": {"type": "string", "description": "Directory to list (default: current directory \".\")"}
+				}
 			}`),
 		},
 	},
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "kb_search",
-			Description: "Search the web using DuckDuckGo, fetch the results, and save them to the local knowledge base for later recall.",
+			Name:        "web_fetch",
+			Description: "Fetch a URL and return its text content. Use this when you need to read web pages, check current information, or access online resources. If the content is large, use offset to paginate through it. Requires `tools_enable` to list \"web_fetch\".",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"query": {"type": "string", "description": "Search query"},
-					"provider": {"type": "string", "description": "Search provider: duckduckgo (default) or firecrawl (requires FIRECRAWL_API_KEY)", "enum": ["duckduckgo", "firecrawl"]}
-				},
-				"required": ["query"]
-			}`),
-		},
-	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "kb_add",
-			Description: "Add a local file to the knowledge base. Supports .md, .txt, .go, .py, .json, .yaml, .html.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"file_path": {"type": "string", "description": "Path to the local file to add"}
-				},
-				"required": ["file_path"]
-			}`),
-		},
-	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "kb_fetch",
-			Description: "Fetch a URL, extract its main content, convert to markdown, and save to the knowledge base.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"url": {"type": "string", "description": "URL to fetch and save"}
+					"url": {"type": "string", "description": "URL to fetch (http:// or https://)"},
+					"max_length": {"type": "integer", "description": "Max characters to return (default 5000, max 50000)"},
+					"offset": {"type": "integer", "description": "Byte offset to start reading from (default 0). Use this to paginate through large pages — the response tells you how many bytes remain and what offset to use next."}
 				},
 				"required": ["url"]
 			}`),
 		},
 	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "kb_show",
-			Description: "Show the full content of a knowledge base document by its ID. Use the ID returned by kb_find.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"doc_id": {"type": "string", "description": "Document ID (first 12 chars, as shown in kb_find)"}
-				},
-				"required": ["doc_id"]
-			}`),
-		},
-	},
-	{
-		Type: "function",
-		Function: types.ToolFunction{
-			Name:        "kb_list",
-			Description: "List all documents in the knowledge base with their IDs, titles, and sizes.",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {}
-			}`),
-		},
-	},
 }
+
+// readOnlyPrimitives are enabled by default (safe, no side effects).
+var readOnlyPrimitives = map[string]bool{
+	"read": true,
+	"grep": true,
+	"find": true,
+	"ls":   true,
+}
+
+// privilegedPrimitives require an explicit `tools_enable` entry.
+var privilegedPrimitives = map[string]bool{
+	"write":     true,
+	"edit":      true,
+	"bash":      true,
+	"web_fetch": true,
+}
+
+// IsPrimitive reports whether name is one of the built-in primitives.
+func IsPrimitive(name string) bool {
+	return readOnlyPrimitives[name] || privilegedPrimitives[name]
+}
+
+// IsReadOnlyPrimitive reports whether name is a default-on, side-effect-free primitive.
+func IsReadOnlyPrimitive(name string) bool { return readOnlyPrimitives[name] }
+
+// IsPrivilegedPrimitive reports whether name requires explicit opt-in.
+func IsPrivilegedPrimitive(name string) bool { return privilegedPrimitives[name] }

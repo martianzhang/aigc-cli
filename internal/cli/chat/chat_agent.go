@@ -19,7 +19,7 @@ import (
 // history is modified in-place (appended with assistant + tool messages).
 // Returns the final ChatResponse (text response) or error.
 // If ctx is cancelled (Ctrl+C), returns immediately with context.Canceled.
-func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMessage, agentTools []types.ToolDefinition, maxIterations int, cmd *cobra.Command) (*types.ChatResponse, error) {
+func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command) (*types.ChatResponse, error) {
 	// Merge defaults.chat.model into options.Shared.Model if empty
 	if options.Shared.Model == "" {
 		if cfg := options.ChatDefaults(); cfg != nil && cfg.Model != "" {
@@ -47,8 +47,8 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 			Stream:       !chatNoStream,
 			OutputWriter: options.Stdout(),
 		}
-		if len(agentTools) > 0 {
-			req.Tools = agentTools
+		if tools := rt.RequestTools(); len(tools) > 0 {
+			req.Tools = tools
 		}
 		options.SetFloatFlag(cmd, "temperature", &req.Temperature, chatTemperature)
 		options.SetIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
@@ -76,7 +76,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 				printToolArgs(tc.Function.Arguments)
 
 				toolStart := time.Now()
-				toolResult := executeToolCall(c, tc)
+				toolResult := rt.Execute(c, tc)
 				elapsed := time.Since(toolStart).Round(time.Millisecond)
 
 				resultSummary := summarizeToolResult(tc.Function.Name, toolResult)
@@ -111,89 +111,118 @@ func runAgentLoop(ctx context.Context, c *client.Client, history *[]types.ChatMe
 	return nil, nil
 }
 
-// buildAgentTools returns the list of tool definitions based on config.
-// Applies global tools_enable/tools_disable first, then chat-specific tools/disable_tools.
+// buildAgentTools returns the built-in tool definitions after filtering.
 func buildAgentTools(cfg *types.ChatDefaults) []types.ToolDefinition {
+	return filterTools(agent.ToolDefs, cfg)
+}
+
+// filterTools applies the primitive gating, the global tools_enable/tools_disable,
+// the chat-specific tools/disable_tools, and the provider filter to a merged tool
+// list (built-in primitives plus any tools contributed by MCP servers).
+//
+// Primitive gating:
+//   - read-only primitives (read/grep/find/ls) are on by default;
+//   - privileged primitives (write/edit/bash/web_fetch) require an explicit
+//     tools_enable entry;
+//   - tools_disable always wins.
+func filterTools(allTools []types.ToolDefinition, cfg *types.ChatDefaults) []types.ToolDefinition {
 	// Chat-specific disable all (e.g. disable_tools: ["*"])
-	if cfg != nil && len(cfg.DisableTools) > 0 {
-		for _, pattern := range cfg.DisableTools {
-			if matched, _ := path.Match(pattern, "*"); matched {
-				return nil
-			}
-		}
+	if hashWildcard(chatDisable(cfg)) {
+		return nil
 	}
 
-	allTools := agent.ToolDefs
-
-	// Apply global tools_enable/tools_disable (from top-level config)
+	var globalEnable, globalDisable []string
 	if options.Shared.Cfg != nil {
-		globalEnable := options.Shared.Cfg.ToolsEnable
-		globalDisable := options.Shared.Cfg.ToolsDisable
-		if len(globalEnable) > 0 || len(globalDisable) > 0 {
-			filtered := make([]types.ToolDefinition, 0)
-			for _, t := range allTools {
-				if options.IsToolAllowed(t.Function.Name, globalEnable, globalDisable) {
-					filtered = append(filtered, t)
-				}
-			}
-			allTools = filtered
-		}
+		globalEnable = options.Shared.Cfg.ToolsEnable
+		globalDisable = options.Shared.Cfg.ToolsDisable
 	}
+	chatEnable := chatTools(cfg)
+	chatRestrict := len(chatEnable) > 0 && !hashWildcard(chatEnable)
 
-	// Apply chat-specific whitelist (tools) — can only further restrict
-	if cfg != nil && len(cfg.Tools) > 0 {
-		hasWildcard := false
-		for _, pattern := range cfg.Tools {
-			if matched, _ := path.Match(pattern, "*"); matched {
-				hasWildcard = true
-				break
-			}
-		}
-		if !hasWildcard {
-			filtered := make([]types.ToolDefinition, 0)
-			for _, t := range allTools {
-				for _, pattern := range cfg.Tools {
-					if matched, _ := path.Match(pattern, t.Function.Name); matched {
-						filtered = append(filtered, t)
-						break
-					}
-				}
-			}
-			allTools = filtered
-		}
-	}
+	out := make([]types.ToolDefinition, 0, len(allTools))
+	for _, t := range allTools {
+		name := t.Function.Name
 
-	// Apply chat-specific blacklist (disable_tools) — can only further restrict
-	if cfg != nil && len(cfg.DisableTools) > 0 {
-		filtered := make([]types.ToolDefinition, 0)
-		for _, t := range allTools {
-			disabled := false
-			for _, pattern := range cfg.DisableTools {
-				if matched, _ := path.Match(pattern, t.Function.Name); matched {
-					disabled = true
-					break
-				}
+		if matchTool(name, globalDisable) || matchTool(name, chatDisable(cfg)) {
+			continue
+		}
+
+		switch {
+		case agent.IsReadOnlyPrimitive(name):
+			// On by default; only the chat whitelist can exclude it.
+			if chatRestrict && !matchTool(name, chatEnable) {
+				continue
 			}
-			if !disabled {
-				filtered = append(filtered, t)
+		case agent.IsPrivilegedPrimitive(name):
+			// Requires explicit tools_enable opt-in.
+			if !matchTool(name, globalEnable) {
+				continue
+			}
+			if chatRestrict && !matchTool(name, chatEnable) {
+				continue
+			}
+		default:
+			// Non-primitive (MCP) tools: global allowlist if set, then chat whitelist.
+			if len(globalEnable) > 0 && !matchTool(name, globalEnable) {
+				continue
+			}
+			if chatRestrict && !matchTool(name, chatEnable) {
+				continue
 			}
 		}
-		allTools = filtered
+		out = append(out, t)
 	}
 
 	// Filter by provider — use the resolved chat provider, not global state.
 	isAPIMart := options.IsAPIMartProvider(options.Shared.ResolveProvider(options.ProviderNameChat))
 
-	providerFiltered := make([]types.ToolDefinition, 0)
-	for _, t := range allTools {
+	providerFiltered := make([]types.ToolDefinition, 0, len(out))
+	for _, t := range out {
 		if strings.HasPrefix(t.Function.Name, "midjourney") && !isAPIMart {
 			continue
 		}
-		if (t.Function.Name == "balance" || t.Function.Name == "task") && !isAPIMart {
-			continue
+		switch t.Function.Name {
+		case "balance", "task", "get_balance", "get_task":
+			if !isAPIMart {
+				continue
+			}
 		}
 		providerFiltered = append(providerFiltered, t)
 	}
 
 	return providerFiltered
+}
+
+func chatTools(cfg *types.ChatDefaults) []string {
+	if cfg == nil {
+		return nil
+	}
+	return cfg.Tools
+}
+
+func chatDisable(cfg *types.ChatDefaults) []string {
+	if cfg == nil {
+		return nil
+	}
+	return cfg.DisableTools
+}
+
+// matchTool reports whether name matches any glob pattern.
+func matchTool(name string, patterns []string) bool {
+	for _, p := range patterns {
+		if ok, _ := path.Match(p, name); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// hashWildcard reports whether any pattern matches every name ("*").
+func hashWildcard(patterns []string) bool {
+	for _, p := range patterns {
+		if ok, _ := path.Match(p, "*"); ok {
+			return true
+		}
+	}
+	return false
 }

@@ -9,76 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/balance"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
-	"github.com/martianzhang/aigc-cli/internal/cli/task"
-	"github.com/martianzhang/aigc-cli/internal/ideas"
 )
 
 type webFetchArgs struct {
 	URL       string `json:"url"`
 	MaxLength int    `json:"max_length"`
 	Offset    int    `json:"offset"`
-}
-
-func executeIdeasSearch(argsJSON string) string {
-	var args struct {
-		Keywords string `json:"keywords"`
-		Limit    int    `json:"limit"`
-		Random   bool   `json:"random"`
-	}
-	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
-		return fmt.Sprintf("Error: invalid arguments: %v", err)
-	}
-	if args.Limit <= 0 {
-		args.Limit = 5
-	}
-	if args.Random {
-		text, err := ideas.SearchRandom(args.Limit)
-		if err != nil {
-			return fmt.Sprintf("Error: %v", err)
-		}
-		return text
-	}
-	if args.Keywords == "" {
-		return "Error: keywords is required (or set random=true for random ideas)"
-	}
-	text, err := ideas.SearchText(args.Keywords, args.Limit)
-	if err != nil {
-		return fmt.Sprintf("Error: %v", err)
-	}
-	return text
-}
-
-func executeBalanceQuery(argsJSON string) string {
-	var args struct {
-		Scope string `json:"scope"`
-	}
-	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
-		return fmt.Sprintf("Error: invalid arguments: %v", err)
-	}
-	if args.Scope == "" {
-		args.Scope = "token"
-	}
-	text, err := balance.GetTextDefault(args.Scope)
-	if err != nil {
-		return fmt.Sprintf("Error: %v", err)
-	}
-	return text
-}
-
-func executeTaskQuery(argsJSON string) string {
-	var args struct {
-		TaskID string `json:"task_id"`
-	}
-	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
-		return fmt.Sprintf("Error: invalid arguments: %v", err)
-	}
-	text, err := task.QueryTextDefault(args.TaskID)
-	if err != nil {
-		return fmt.Sprintf("Error: %v", err)
-	}
-	return text
 }
 
 func executeWebFetch(argsJSON string) string {

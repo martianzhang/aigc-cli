@@ -56,7 +56,7 @@ func TestRunAgentLoop_noStreamPrintsOnce(t *testing.T) {
 	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
 	history := []types.ChatMessage{{Role: "user", Content: "hi"}}
 
-	if _, err := runAgentLoop(context.Background(), c, &history, nil, 3, newAgentLoopTestCmd()); err != nil {
+	if _, err := runAgentLoop(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd()); err != nil {
 		t.Fatalf("runAgentLoop() error = %v", err)
 	}
 
@@ -94,7 +94,7 @@ func TestRunAgentLoop_noLeadingBlankLine(t *testing.T) {
 	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
 	history := []types.ChatMessage{{Role: "user", Content: "hi"}}
 
-	if _, err := runAgentLoop(context.Background(), c, &history, nil, 3, newAgentLoopTestCmd()); err != nil {
+	if _, err := runAgentLoop(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd()); err != nil {
 		t.Fatalf("runAgentLoop() error = %v", err)
 	}
 

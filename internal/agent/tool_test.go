@@ -28,13 +28,43 @@ func TestReadFile(t *testing.T) {
 		t.Errorf("ReadFile = %q, want it to contain file content", got)
 	}
 
+	// Default policy allows any file (e.g. .bin, .mod, extensionless).
 	bin := filepath.Join(dir, "a.bin")
 	if err := os.WriteFile(bin, []byte("xx"), 0644); err != nil {
 		t.Fatalf("write fixture: %v", err)
 	}
 	args2, _ := json.Marshal(map[string]any{"filepath": bin})
-	if got := ReadFile(string(args2)); !strings.Contains(got, "security reasons") {
-		t.Errorf("ReadFile(.bin) = %q, want a security error", got)
+	if got := ReadFile(string(args2)); !strings.Contains(got, "xx") {
+		t.Errorf("ReadFile(.bin) = %q, want content (allow-all default)", got)
+	}
+}
+
+func TestReadFileWithPolicy(t *testing.T) {
+	dir := t.TempDir()
+	secret := filepath.Join(dir, "id_rsa")
+	if err := os.WriteFile(secret, []byte("PRIVATE"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	args, _ := json.Marshal(map[string]any{"filepath": secret})
+
+	// Deny by base name.
+	got := ReadFileWithPolicy(string(args), []string{`^id_rsa$`})
+	if !strings.Contains(got, "blocked by defaults.chat.read_deny") {
+		t.Errorf("ReadFileWithPolicy(deny) = %q, want blocked", got)
+	}
+
+	// Deny by extension; unrelated files still readable.
+	tmp := filepath.Join(dir, "note.md")
+	_ = os.WriteFile(tmp, []byte("ok"), 0644)
+	argsMD, _ := json.Marshal(map[string]any{"filepath": tmp})
+	gotMD := ReadFileWithPolicy(string(argsMD), []string{`\.pem$`, `^id_rsa$`})
+	if !strings.Contains(gotMD, "ok") {
+		t.Errorf("ReadFileWithPolicy(allow) = %q, want content", gotMD)
+	}
+
+	// Non-matching pattern allows everything.
+	if got := ReadFileWithPolicy(string(args), []string{`\.pem$`}); !strings.Contains(got, "PRIVATE") {
+		t.Errorf("ReadFileWithPolicy(non-match) = %q, want content", got)
 	}
 }
 

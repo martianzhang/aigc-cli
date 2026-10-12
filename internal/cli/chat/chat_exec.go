@@ -1,21 +1,18 @@
 package chat
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
-
-func chatKbDir() string {
-	return filepath.Join(options.ConfigDir(), "knowledge")
-}
 
 func resolveFileRefs(argsJSON string) string {
 	var raw interface{}
@@ -56,12 +53,27 @@ func resolveFileRef(v interface{}) interface{} {
 	}
 }
 
-// executeToolCall executes a single tool call and returns a text result for the LLM.
+// executeToolCall executes a single built-in primitive tool call.
 func executeToolCall(c *client.Client, tc types.ToolCall) string {
+	return executeToolCallMCP(c, nil, tc)
+}
+
+// executeToolCallMCP executes a tool call, preferring a connected MCP server
+// when it provides the tool, and falling back to the built-in primitive
+// dispatcher otherwise. mcp may be nil.
+func executeToolCallMCP(c *client.Client, mcp *mcpcli.Manager, tc types.ToolCall) string {
+	if mcp.Has(tc.Function.Name) {
+		out, err := mcp.Call(context.Background(), tc.Function.Name, tc.Function.Arguments)
+		if err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
+		return out
+	}
+
 	// Expand @filename references in arguments before dispatching.
-	// Skip read_file — it handles its own file access.
+	// Skip read — it handles its own file access.
 	args := tc.Function.Arguments
-	if tc.Function.Name != "read_file" && strings.Contains(args, `"@`) {
+	if tc.Function.Name != "read" && strings.Contains(args, `"@`) {
 		resolved := resolveFileRefs(args)
 		if resolved != args {
 			if options.Shared.Verbose {
@@ -72,65 +84,37 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 	}
 
 	switch tc.Function.Name {
-	case "generate_image":
-		return executeGenerateImage(args)
-	case "generate_video":
-		return executeGenerateVideo(args)
-	case "generate_music":
-		return executeGenerateMusic(args)
-	case "midjourney_imagine", "midjourney_describe", "midjourney_reroll", "midjourney_video":
-		return executeMidjourney(c, tc.Function.Name, args)
-	case "search_ideas":
-		return executeIdeasSearch(args)
-	case "balance":
-		return executeBalanceQuery(args)
-	case "task":
-		return executeTaskQuery(args)
-	case "web_fetch":
-		return executeWebFetch(args)
+	case "read":
+		return agent.ReadFileWithPolicy(args, readDenyPatterns())
+	case "write":
+		return agent.WriteFile(args)
+	case "edit":
+		return agent.EditFile(args)
+	case "bash":
+		return agent.Bash(args)
 	case "grep":
 		return agent.Grep(args)
-	case "read_file":
-		return agent.ReadFile(args)
 	case "find":
 		return agent.FindFiles(args)
-	case "remove_background":
-		return executeRemoveBackground(args)
-	case "convert_depth":
-		return executeConvertDepth(args)
-	case "upscale":
-		return executeUpscale(args)
-	case "remove_watermark":
-		return executeRemoveWatermark(args)
-	case "add_watermark":
-		return executeAddWatermark(args)
-	case "generate_speech":
-		return executeGenerateSpeech(args)
-	case "transcribe_audio":
-		return executeTranscribeAudio(args)
-	case "caption_image":
-		return executeCaptionImage(args)
-	case "recognize_text":
-		return executeRecognizeText(args)
-	case "kb_find":
-		return agent.KbFind(chatKbDir(), args)
-	case "kb_search":
-		return agent.KbSearch(chatKbDir(), args)
-	case "kb_add":
-		return agent.KbAdd(chatKbDir(), args)
-	case "kb_fetch":
-		return agent.KbFetch(chatKbDir(), args)
-	case "kb_list":
-		return agent.KbList(chatKbDir(), args)
-	case "kb_show":
-		return agent.KbShow(chatKbDir(), args)
+	case "ls":
+		return agent.ListDir(args)
+	case "web_fetch":
+		return executeWebFetch(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}
 }
 
-// summarizeToolResult returns a one-line summary of a tool's result for user display.
+// readDenyPatterns returns the configured regex denylist for the read primitive
+// (defaults.chat.read_deny). Empty means every file is readable.
+func readDenyPatterns() []string {
+	if cfg := options.ChatDefaults(); cfg != nil {
+		return cfg.ReadDeny
+	}
+	return nil
+}
 
+// summarizeToolResult returns a one-line summary of a tool's result for user display.
 func summarizeToolResult(toolName, result string) string {
 	// Truncate long results to first meaningful line
 	firstLine := result

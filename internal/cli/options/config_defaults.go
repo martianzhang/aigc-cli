@@ -71,3 +71,8 @@ func BackgroundConfig() *types.BackgroundConfig {
 func WebSearchConfig() map[string]*types.WebSearchProvider {
 	return Field(Shared.Cfg, func(c *types.Config) map[string]*types.WebSearchProvider { return c.WebSearch })
 }
+
+// MCPConfig returns the top-level mcp section, or nil.
+func MCPConfig() *types.MCPConfig {
+	return Field(Shared.Cfg, func(c *types.Config) *types.MCPConfig { return c.MCP })
+}

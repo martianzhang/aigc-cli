@@ -117,6 +117,7 @@ type chatModel struct {
 
 	// Dependencies
 	client     *client.Client
+	rt         *toolRuntime
 	agentTools []types.ToolDefinition
 	maxIters   int
 	model      string

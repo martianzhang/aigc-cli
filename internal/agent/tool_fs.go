@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -71,7 +72,15 @@ func FindFiles(argsJSON string) string {
 	return header + strings.Join(results, "\n")
 }
 
+// ReadFile reads a local file with no additional access policy (all files allowed).
 func ReadFile(argsJSON string) string {
+	return ReadFileWithPolicy(argsJSON, nil)
+}
+
+// ReadFileWithPolicy reads a local file, rejecting any path that matches one of
+// the deny regular expressions (matched against both the full path and the base
+// name). An empty deny list allows every file.
+func ReadFileWithPolicy(argsJSON string, deny []string) string {
 	var args struct {
 		Filepath string `json:"filepath"`
 		Offset   int    `json:"offset"`
@@ -94,13 +103,8 @@ func ReadFile(argsJSON string) string {
 	}
 
 	fpath := strings.TrimPrefix(args.Filepath, "@")
-	ext := strings.ToLower(filepath.Ext(fpath))
-	switch ext {
-	case ".txt", ".md", ".yaml", ".yml", ".json", ".go", ".py", ".js", ".ts",
-		".css", ".html", ".sh", ".bash", ".toml", ".ini", ".cfg", ".conf",
-		".xml", ".svg", ".env", ".example":
-	default:
-		return fmt.Sprintf("Error: cannot read %s files for security reasons", ext)
+	if deniedByReadPolicy(fpath, deny) {
+		return fmt.Sprintf("Error: reading %q is blocked by defaults.chat.read_deny", fpath)
 	}
 
 	content, err := os.ReadFile(fpath)
@@ -136,8 +140,27 @@ func ReadFile(argsJSON string) string {
 	b.WriteString("\n```")
 
 	if remaining > 0 {
-		fmt.Fprintf(&b, "\n\nFile has more content. Use read_file(filepath=%q, offset=%d) to read the next %d bytes.", fpath, end, args.Limit)
+		fmt.Fprintf(&b, "\n\nFile has more content. Use read(filepath=%q, offset=%d) to read the next %d bytes.", fpath, end, args.Limit)
 	}
 
 	return b.String()
+}
+
+// deniedByReadPolicy reports whether path matches any of the deny regular
+// expressions (checked against both the full path and the base name).
+func deniedByReadPolicy(path string, deny []string) bool {
+	if len(deny) == 0 {
+		return false
+	}
+	base := filepath.Base(path)
+	for _, pattern := range deny {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			continue
+		}
+		if re.MatchString(path) || re.MatchString(base) {
+			return true
+		}
+	}
+	return false
 }

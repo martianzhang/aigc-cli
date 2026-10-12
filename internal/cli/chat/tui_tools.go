@@ -68,7 +68,7 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 
 				// Redirect stderr during tool execution
 				restoreStderr := options.SetStderr(&logWriter{prog: prog})
-				result := executeToolCall(m.client, tc)
+				result := m.rt.Execute(m.client, tc)
 				restoreStderr()
 				summary := summarizeToolResult(cmdName, result)
 				prog.Send(toolDone{name: cmdName, summary: summary, content: result})
@@ -96,6 +96,12 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 	m.viewport.SetContent(rendered)
 	m.viewport.GotoBottom()
 	return m, nil
+}
+
+// formatShellOutput renders a shell command and its output for the message area.
+// The command line is shown (prefixed with "$") so the user can see what ran.
+func formatShellOutput(cmdLine, result string) string {
+	return fmt.Sprintf("$ %s\n%s", cmdLine, result)
 }
 
 // handleShellCommand executes a !command synchronously.
@@ -132,10 +138,10 @@ func (m *chatModel) handleShellCommand(input string) (tea.Model, tea.Cmd) {
 		Content: fmt.Sprintf("(I ran the shell command `%s` and got:\n%s)", cmdLine, result),
 	})
 
-	// Update the tool message with the result
+	// Update the tool message with the command and its result
 	for i := len(m.messages) - 1; i >= 0; i-- {
 		if m.messages[i].role == "tool" && m.messages[i].tool == "shell" {
-			m.messages[i].content = result
+			m.messages[i].content = formatShellOutput(cmdLine, result)
 			break
 		}
 	}

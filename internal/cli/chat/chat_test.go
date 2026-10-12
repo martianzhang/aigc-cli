@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -23,6 +24,16 @@ func TestToURLs_single(t *testing.T) {
 	}
 }
 
+func TestFormatShellOutput(t *testing.T) {
+	got := formatShellOutput("ls -la", "total 0\nfile.txt")
+	if !strings.HasPrefix(got, "$ ls -la\n") {
+		t.Errorf("command line missing: %q", got)
+	}
+	if !strings.Contains(got, "file.txt") {
+		t.Errorf("shell output missing: %q", got)
+	}
+}
+
 func TestExecuteToolCall_unknown(t *testing.T) {
 	tc := types.ToolCall{
 		ID:   "call_1",
@@ -39,9 +50,7 @@ func TestExecuteToolCall_unknown(t *testing.T) {
 }
 
 func TestExecuteToolCall_invalidJSON(t *testing.T) {
-	tools := []string{"generate_image", "generate_video", "midjourney_imagine",
-		"midjourney_describe", "midjourney_reroll", "midjourney_video",
-		"search_ideas", "balance", "task"}
+	tools := []string{"read", "write", "edit", "bash", "grep", "find", "ls", "web_fetch"}
 	for _, name := range tools {
 		tc := types.ToolCall{
 			ID:   "call_1",
@@ -78,12 +87,12 @@ func TestBuildAgentTools_disabledAll(t *testing.T) {
 	}
 }
 
-func TestBuildAgentTools_filterImageOnly(t *testing.T) {
+func TestBuildAgentTools_filterSinglePrimitive(t *testing.T) {
 	cfg := &types.ChatDefaults{
-		Tools: []string{"generate_image"},
+		Tools: []string{"read"},
 	}
 	tools := buildAgentTools(cfg)
-	if len(tools) != 1 || tools[0].Function.Name != "generate_image" {
+	if len(tools) != 1 || tools[0].Function.Name != "read" {
 		t.Errorf("buildAgentTools filter = got %d tools", len(tools))
 	}
 }
@@ -140,14 +149,112 @@ func TestSummarizeToolResult_justNewline(t *testing.T) {
 	}
 }
 
-func TestBuildAgentTools_disableVideo(t *testing.T) {
+func TestBuildAgentTools_disablePrimitive(t *testing.T) {
 	cfg := &types.ChatDefaults{
-		DisableTools: []string{"generate_video"},
+		DisableTools: []string{"read"},
 	}
 	tools := buildAgentTools(cfg)
 	for _, t2 := range tools {
-		if t2.Function.Name == "generate_video" {
-			t.Error("buildAgentTools should have disabled generate_video")
+		if t2.Function.Name == "read" {
+			t.Error("buildAgentTools should have disabled read")
 		}
+	}
+}
+
+func TestBuildAgentTools_defaultReadOnly(t *testing.T) {
+	prev := options.Shared.Cfg
+	options.Shared.Cfg = nil
+	t.Cleanup(func() { options.Shared.Cfg = prev })
+
+	tools := buildAgentTools(&types.ChatDefaults{})
+	names := make(map[string]bool, len(tools))
+	for _, t2 := range tools {
+		names[t2.Function.Name] = true
+	}
+	for _, want := range []string{"read", "grep", "find", "ls"} {
+		if !names[want] {
+			t.Errorf("read-only primitive %q should be enabled by default", want)
+		}
+	}
+	for _, priv := range []string{"write", "edit", "bash", "web_fetch"} {
+		if names[priv] {
+			t.Errorf("privileged primitive %q must be off by default", priv)
+		}
+	}
+}
+
+func TestBuildAgentTools_privilegedRequiresEnable(t *testing.T) {
+	prev := options.Shared.Cfg
+	options.Shared.Cfg = &types.Config{ToolsEnable: []string{"bash"}}
+	t.Cleanup(func() { options.Shared.Cfg = prev })
+
+	tools := buildAgentTools(&types.ChatDefaults{})
+	names := make(map[string]bool, len(tools))
+	for _, t2 := range tools {
+		names[t2.Function.Name] = true
+	}
+	if !names["bash"] {
+		t.Error("bash should be enabled when listed in tools_enable")
+	}
+	if names["write"] {
+		t.Error("write should stay disabled when not listed")
+	}
+	if !names["read"] {
+		t.Error("read-only primitive should remain enabled")
+	}
+}
+
+func toolNames(tools []types.ToolDefinition) map[string]bool {
+	names := make(map[string]bool, len(tools))
+	for _, t := range tools {
+		names[t.Function.Name] = true
+	}
+	return names
+}
+
+func TestToolRuntime_includesMCPByDefault(t *testing.T) {
+	prev := options.Shared.Cfg
+	options.Shared.Cfg = nil
+	t.Cleanup(func() { options.Shared.Cfg = prev })
+
+	rt := newToolRuntime(&types.ChatDefaults{}, nil)
+	names := toolNames(rt.RequestTools())
+	if !names["read"] {
+		t.Error("read primitive missing")
+	}
+}
+
+func TestToolRuntime_onDemandHidesMCPUntilLoaded(t *testing.T) {
+	prev := options.Shared.Cfg
+	options.Shared.Cfg = nil
+	t.Cleanup(func() { options.Shared.Cfg = prev })
+
+	rt := newToolRuntime(&types.ChatDefaults{ToolsOnDemand: true}, nil)
+	// Inject a fake MCP tool directly (no server needed).
+	rt.mcpTools = []types.ToolDefinition{{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "generate_image",
+			Description: "Generate images via AI",
+		},
+	}}
+
+	names := toolNames(rt.RequestTools())
+	if names["generate_image"] {
+		t.Fatal("MCP tool should be hidden before load_tools")
+	}
+	if !names[searchToolsName] || !names[loadToolsName] {
+		t.Fatal("meta-tools should be exposed in on-demand mode")
+	}
+
+	if got := rt.Execute(nil, types.ToolCall{Function: types.ToolCallFunction{Name: loadToolsName, Arguments: `{"names":["generate_image"]}`}}); !strings.Contains(got, "Loaded") {
+		t.Fatalf("load_tools = %q", got)
+	}
+	if !toolNames(rt.RequestTools())["generate_image"] {
+		t.Error("MCP tool should be visible after load_tools")
+	}
+
+	if got := rt.Execute(nil, types.ToolCall{Function: types.ToolCallFunction{Name: searchToolsName, Arguments: `{"query":"image"}`}}); !strings.Contains(got, "generate_image") {
+		t.Errorf("search_tools = %q", got)
 	}
 }

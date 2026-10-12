@@ -18,35 +18,14 @@ var toolNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 // expectedToolNames is the golden set of tool names exposed to the LLM.
 // Adding or removing a tool in ToolDefs requires updating this list (and docs).
 var expectedToolNames = []string{
-	"add_watermark",
-	"balance",
-	"caption_image",
-	"convert_depth",
+	"bash",
+	"edit",
 	"find",
-	"generate_image",
-	"generate_music",
-	"generate_speech",
-	"generate_video",
 	"grep",
-	"kb_add",
-	"kb_fetch",
-	"kb_find",
-	"kb_list",
-	"kb_search",
-	"kb_show",
-	"midjourney_describe",
-	"midjourney_imagine",
-	"midjourney_reroll",
-	"midjourney_video",
-	"read_file",
-	"recognize_text",
-	"remove_background",
-	"remove_watermark",
-	"search_ideas",
-	"task",
-	"transcribe_audio",
-	"upscale",
+	"ls",
+	"read",
 	"web_fetch",
+	"write",
 }
 
 // decodeToolSchema parses a tool definition's Parameters into a generic schema map.
@@ -276,22 +255,22 @@ func TestToolCallFunctionArgumentsRoundTrip(t *testing.T) {
 		call types.ToolCall
 	}{
 		{
-			name: "generate_image",
+			name: "read",
 			call: types.ToolCall{
 				ID:   "call_1",
 				Type: "function",
 				Function: types.ToolCallFunction{
-					Name:      "generate_image",
-					Arguments: `{"prompt":"a cat under the stars","n":2}`,
+					Name:      "read",
+					Arguments: `{"filepath":"main.go","limit":2000}`,
 				},
 			},
 		},
 		{
-			name: "kb_list_no_args",
+			name: "ls_no_args",
 			call: types.ToolCall{
 				ID:       "call_2",
 				Type:     "function",
-				Function: types.ToolCallFunction{Name: "kb_list", Arguments: "{}"},
+				Function: types.ToolCallFunction{Name: "ls", Arguments: "{}"},
 			},
 		},
 	}
