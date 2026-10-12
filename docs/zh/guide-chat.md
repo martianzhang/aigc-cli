@@ -143,6 +143,17 @@ Chat 只内置少量**原语**（命名对齐 pi coding agent）；生成 / 检�
 领域工具（`generate_image`、`generate_video`、`recognize_text`、`kb_find` 等）不再定义在 Chat 内，而由 MCP 服务器提供：想用 aigc-cli 自己的能力，配置 `mcp.servers` 指向 `aigc-cli mcp` 即可（见下）。
 
 > `read` 默认可以读取**任意文件**。如需禁止读取敏感文件，用 `defaults.chat.read_deny` 配置**文件名/路径正则黑名单**（Go regexp，匹配路径或文件名即拒绝），例如 `read_deny: ["\\.pem$", "^id_rsa$", "\\.env$"]`；留空则全部放行。
+>
+> **二进制防护**：`read` 会嗅探内容，含 NUL 字节或大量非法 UTF-8 的文件（图片、可执行文件等）不会作为文本返回，而是提示 `[binary file — not displayed as text]`，避免把乱码灌进上下文。
+
+### 项目上下文（AGENTS.md）
+
+启动时 Chat 会自动加载 `AGENTS.md` 作为**项目上下文**，追加到 system prompt：
+
+- 全局：`~/.config/aigc-cli/AGENTS.md`（对所有会话生效）；
+- 项目：从当前目录**逐级向上**查找 `AGENTS.md`，直到仓库根（首个含 `.git` 的目录）；多个文件按「最外层 → 最内层」拼接，越靠内越具体。
+
+没有则跳过。适合放项目约定、构建/测试命令、代码风格等。
 
 ### 交互式快捷键
 

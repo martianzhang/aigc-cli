@@ -49,6 +49,17 @@ Chat ships a small set of **primitives** (names aligned with pi coding agent). D
 Domain tools (`generate_image`, `recognize_text`, `kb_find`, …) are no longer defined in chat; they come from MCP servers. To use aigc-cli's own tools, point `mcp.servers` at `aigc-cli mcp` (see below).
 
 > `read` can read **any file** by default. To block sensitive files, set `defaults.chat.read_deny` to a list of **filename/path regexes** (Go regexp, matched against the path or base name); leave it empty to allow everything. Example: `read_deny: ["\\.pem$", "^id_rsa$", "\\.env$"]`.
+>
+> **Binary protection**: `read` sniffs content — files with NUL bytes or many invalid UTF-8 sequences (images, executables, …) are not returned as text; they report `[binary file — not displayed as text]` so garbled bytes never enter the context.
+
+### Project context (AGENTS.md)
+
+On startup, Chat loads `AGENTS.md` as **project context** and appends it to the system prompt:
+
+- Global: `~/.config/aigc-cli/AGENTS.md` (applies to every session);
+- Project: it searches `AGENTS.md` **upward** from the current directory to the repository root (the first ancestor containing `.git`); multiple files are concatenated outermost → innermost (innermost is most specific).
+
+Nothing is added when no file exists. Put project conventions, build/test commands, and style notes here.
 
 Tools can be enabled/disabled via config:
 
