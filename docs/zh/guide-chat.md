@@ -137,14 +137,52 @@ Chat 只内置少量**原语**（命名对齐 pi coding agent）；生成 / 检�
 | `edit` | ⛔ | 精确文本替换（`old_string` 必须唯一匹配） |
 | `bash` | ⛔ | 在当前目录执行 shell 命令 |
 | `web_fetch` | ⛔ | 抓取 URL 文本（走代理，15s 超时） |
+| `web_search` | ⛔ | 联网搜索，返回标题 + URL 列表（用 `web_fetch` 深入阅读） |
 
-**只读原语**（`read`/`grep`/`find`/`ls`）默认开启；**特权原语**（`write`/`edit`/`bash`/`web_fetch`）默认关闭，需在 `tools_enable` 中**显式列出**才启用——这是把写文件 / 执行命令交给模型的安全闸门。
+**只读原语**（`read`/`grep`/`find`/`ls`）默认开启；**特权原语**（`write`/`edit`/`bash`/`web_fetch`/`web_search`）默认关闭，需在 `tools_enable` 中**显式列出**才启用——这是把写文件 / 执行命令 / 联网交给模型的安全闸门。
 
 领域工具（`generate_image`、`generate_video`、`recognize_text`、`kb_find` 等）不再定义在 Chat 内，而由 MCP 服务器提供：想用 aigc-cli 自己的能力，配置 `mcp.servers` 指向 `aigc-cli mcp` 即可（见下）。
 
 > `read` 默认可以读取**任意文件**。如需禁止读取敏感文件，用 `defaults.chat.read_deny` 配置**文件名/路径正则黑名单**（Go regexp，匹配路径或文件名即拒绝），例如 `read_deny: ["\\.pem$", "^id_rsa$", "\\.env$"]`；留空则全部放行。
 >
 > **二进制防护**：`read` 会嗅探内容，含 NUL 字节或大量非法 UTF-8 的文件（图片、可执行文件等）不会作为文本返回，而是提示 `[binary file — not displayed as text]`，避免把乱码灌进上下文。
+
+### 联网搜索（web_search）
+
+`web_search` 原语让模型按关键词联网搜索，返回**标题 + URL** 列表（不抓正文）；模型可再用 `web_fetch` 打开其中某个链接精读。它是**特权原语**，需在 `tools_enable` 中显式开启：
+
+```yaml
+tools_enable:
+  - "web_search"
+```
+
+搜索结果由顶层 `web_search.*` 中声明的引擎提供（与 `kb search` 共用同一套配置），用 `defaults.chat.search_provider` 选择用哪个引擎：
+
+```yaml
+web_search:
+  duckduckgo:
+    type: duckduckgo          # 免费、免 Key，默认兜底
+  firecrawl:
+    type: firecrawl
+    api_key: "fc-xxx"
+    tags: [free, quality]
+  brave:
+    type: brave
+    api_key: "brave-xxx"
+  doubao:
+    type: doubao
+    api_key: "your-doubao-api-key"
+
+defaults:
+  chat:
+    search_provider: duckduckgo   # duckduckgo/firecrawl/brave/doubao，或 auto/free/quality（默认 auto）
+```
+
+- `search_provider` 取值：引擎名（`duckduckgo`/`firecrawl`/`brave`/`doubao`）指定该引擎；`auto`（默认）按 `free`/`quality` 标签自动选择并回退；`free`/`cheap` 只用免费引擎；`quality` 只用高质量引擎。
+- 也可用 `--search-provider` 命令行参数临时覆盖配置（优先级：`--search-provider` > `defaults.chat.search_provider` > `auto`）。
+- 未声明任何 `web_search.*` 时自动使用免费的 DuckDuckGo；付费引擎需填 `api_key`，缺失会被跳过。
+- 单次调用默认返回 5 条、最多 10 条。
+- 与 `kb search` 不同，chat 的 `web_search` **只搜索、不入库**。
 
 ### 项目上下文（AGENTS.md）
 
@@ -177,8 +215,9 @@ tools_enable:
   - "read"
   - "grep"
   - "find"
-  - "bash"     # 显式开启 shell
-  - "write"    # 显式开启写文件
+  - "bash"        # 显式开启 shell
+  - "write"       # 显式开启写文件
+  - "web_search"  # 显式开启联网搜索
 
 # 顶层黑名单，永远优先
 tools_disable:
@@ -193,7 +232,7 @@ defaults:
 规则要点：
 
 - **只读原语**（`read`/`grep`/`find`/`ls`）默认可用，`tools_disable` 可关掉。
-- **特权原语**（`write`/`edit`/`bash`/`web_fetch`）只有在 `tools_enable` 里**显式列出**才启用。
+- **特权原语**（`write`/`edit`/`bash`/`web_fetch`/`web_search`）只有在 `tools_enable` 里**显式列出**才启用。
 - 领域工具（MCP 来源）在有 `tools_enable` 时按白名单过滤，为空时全部允许。
 - `tools_disable` 永远优先于 `tools_enable`。
 
@@ -255,6 +294,7 @@ defaults:
 | `defaults.chat.allow_tool_override` | `true`=LLM参数优先，`false`=配置强制覆盖LLM（默认`false`，省钱） |
 | `defaults.chat.tools_on_demand` | `true`=MCP 工具按需加载（`search_tools`/`load_tools`），降低上下文占用（默认 `false`） |
 | `defaults.chat.read_deny` | `read` 原语的拒绝正则列表（匹配文件路径或文件名）；空 = 全部放行 |
+| `defaults.chat.search_provider` | `web_search` 原语使用的搜索引擎（`duckduckgo`/`firecrawl`/`brave`/`doubao`，或 `auto`/`free`/`quality`）；空 = `auto` |
 
 ---
 
@@ -324,6 +364,7 @@ aigc-cli chat --message "Hello"
 | `--interactive`, `-i` | 强制进入交互式多轮模式 |
 | `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
 | `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |
+| `--search-provider` | `web_search` 原语使用的搜索引擎（`duckduckgo`/`firecrawl`/`brave`/`doubao`，或 `auto`/`free`/`quality`），覆盖 `defaults.chat.search_provider` |
 | `--verbose`, `-v` | 显示 token 消耗、费用和耗时统计（全局 flag） |
 
 ### `--json` 与参数合并
@@ -348,7 +389,7 @@ aigc-cli chat --json request.json --max-output 1024 --no-stream
 }
 ```
 
-> 💡 行为类参数永远不写进 body：`--dry-run`、`--provider`、`--api-key`、`--api-base`、`--http-proxy`、`--output`、`--verbose`、`--timeout`、`--config`、`--print-config`，以及 chat 专有的 `--context-size`、`--interactive`。
+> 💡 行为类参数永远不写进 body：`--dry-run`、`--provider`、`--api-key`、`--api-base`、`--http-proxy`、`--output`、`--verbose`、`--timeout`、`--config`、`--print-config`，以及 chat 专有的 `--context-size`、`--interactive`、`--search-provider`。
 
 ### Provider 协议类型
 

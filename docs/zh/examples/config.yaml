@@ -46,7 +46,7 @@ base_url: "https://api.apimart.ai"
 #   tools_enable  — 白名单模式，启用列表内的工具（空列表 = 全部允许）
 #   tools_disable — 黑名单模式，禁用列表内的工具（在黑名单上附加限制）
 # 两者同时设置时，先通过 enable 过滤，再执行 disable 排除。
-# Chat 原语：read/grep/find/ls 默认可用（只读）；write/edit/bash/web_fetch 为特权原语，
+# Chat 原语：read/grep/find/ls 默认可用（只读）；write/edit/bash/web_fetch/web_search 为特权原语，
 # 必须显式列进 tools_enable 才启用。领域工具（generate_* 等）由 MCP 提供。
 
 # 场景 A：白名单 — 只允许免费/离线工具（本地 ONNX / BM25）
@@ -69,13 +69,14 @@ base_url: "https://api.apimart.ai"
 #   - "transcribe_audio"   # STT 语音识别
 #   - "midjourney_*"       # Midjourney 全套（含 imagine/describe/reroll/video 等）
 
-# 场景 C：开启 Chat 特权原语（write/edit/bash/web_fetch 默认关闭，需显式列出）
+# 场景 C：开启 Chat 特权原语（write/edit/bash/web_fetch/web_search 默认关闭，需显式列出）
 # tools_enable:
 #   - "read"        # 只读原语（read/grep/find/ls）默认即可用，列不列都行
 #   - "bash"        # 允许模型执行 shell 命令
 #   - "write"       # 允许模型写文件
 #   - "edit"        # 允许模型精确改文件
 #   - "web_fetch"   # 允许模型抓取网页
+#   - "web_search"  # 允许模型联网搜索（引擎见 defaults.chat.search_provider）
 
 # ── MCP 客户端（Chat 连接 MCP 服务器）──
 # Chat 可作为 MCP 客户端，接入任意 stdio MCP 服务器，把它们的工具并入 Agent。
@@ -197,6 +198,7 @@ defaults:
     context_size: 32768 # 输入上下文窗口大小（token），0=使用模型默认值。超过 80% 自动压缩
     # tools_on_demand: true # MCP 工具按需加载（search_tools/load_tools），降低上下文占用
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$'] # read 原语拒绝正则（匹配路径或文件名，默认空=全部放行）
+    # search_provider: duckduckgo # web_search 原语使用的引擎（duckduckgo/firecrawl/brave/doubao，或 auto/free/quality；默认 auto）
   decision:
   # provider: "ollama"        # 命名 provider（ollama / openrouter / ...）；不填则用全局
   # model: "tev1"             # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
@@ -244,8 +246,8 @@ defaults:
   #   semantic_top_k: 200                                # 语义列表参与 RRF 的条数（默认 200；<=0 全部）
 
   # ── 可选：Web 搜索引擎 ──
-  # 声明多个 provider 供 kb search 自动 fallback。
-  # 也可通过 --provider 参数临时切换。
+  # 声明多个 provider 供 kb search 与 chat 的 web_search 原语自动 fallback。
+  # kb search 也可通过 --provider 参数临时切换；chat 用 defaults.chat.search_provider 选择。
   # web_search:
   #   duckduckgo:
   #     type: duckduckgo

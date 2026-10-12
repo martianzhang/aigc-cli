@@ -131,7 +131,7 @@ tools_disable:
 
 ### Tool surface decision (design note)
 
-`read`, `grep`, `find`, `ls`, `write`, `edit`, `bash`, and `web_fetch` exist as **chat-only** primitive tools (they live in `internal/agent`, used by the interactive REPL / agent loop) and are **deliberately not exposed over MCP**: they hand an agent arbitrary file, web and command access, so a prompt-injection payload in a model-visible page or file could turn into local file disclosure. The MCP surface is intentionally scoped to AIGC capability (generation, detection, OCR, knowledge base, provider/config inspection). Among them `write`/`edit`/`bash`/`web_fetch` are off by default and require an explicit `tools_enable` entry. This is a deliberate boundary, not an oversight.
+`read`, `grep`, `find`, `ls`, `write`, `edit`, `bash`, `web_fetch`, and `web_search` exist as **chat-only** primitive tools (they live in `internal/agent`, used by the interactive REPL / agent loop) and are **deliberately not exposed over MCP**: they hand an agent arbitrary file, web and command access, so a prompt-injection payload in a model-visible page or file could turn into local file disclosure. The MCP surface is intentionally scoped to AIGC capability (generation, detection, OCR, knowledge base, provider/config inspection). Among them `write`/`edit`/`bash`/`web_fetch`/`web_search` are off by default and require an explicit `tools_enable` entry. This is a deliberate boundary, not an oversight.
 
 ### Security hardening (v3.3.0)
 

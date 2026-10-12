@@ -43,14 +43,52 @@ Chat ships a small set of **primitives** (names aligned with pi coding agent). D
 | `edit` | ⛔ | Exact-text replace (`old_string` must be unique) |
 | `bash` | ⛔ | Execute a shell command in the current directory |
 | `web_fetch` | ⛔ | Fetch a URL as text (via proxy, 15s timeout) |
+| `web_search` | ⛔ | Web search; returns a list of titles + URLs (read one with `web_fetch`) |
 
-**Read-only primitives** (`read`/`grep`/`find`/`ls`) are on by default. **Privileged primitives** (`write`/`edit`/`bash`/`web_fetch`) are off by default and require an explicit `tools_enable` entry — the safety gate for handing file-writes/command execution to the model.
+**Read-only primitives** (`read`/`grep`/`find`/`ls`) are on by default. **Privileged primitives** (`write`/`edit`/`bash`/`web_fetch`/`web_search`) are off by default and require an explicit `tools_enable` entry — the safety gate for handing file-writes/command execution/network access to the model.
 
 Domain tools (`generate_image`, `recognize_text`, `kb_find`, …) are no longer defined in chat; they come from MCP servers. To use aigc-cli's own tools, point `mcp.servers` at `aigc-cli mcp` (see below).
 
 > `read` can read **any file** by default. To block sensitive files, set `defaults.chat.read_deny` to a list of **filename/path regexes** (Go regexp, matched against the path or base name); leave it empty to allow everything. Example: `read_deny: ["\\.pem$", "^id_rsa$", "\\.env$"]`.
 >
 > **Binary protection**: `read` sniffs content — files with NUL bytes or many invalid UTF-8 sequences (images, executables, …) are not returned as text; they report `[binary file — not displayed as text]` so garbled bytes never enter the context.
+
+### Web search (`web_search`)
+
+The `web_search` primitive lets the model search the web by keyword and returns a list of **titles + URLs** (it does not fetch page bodies); the model can then use `web_fetch` to read a specific result. It is a **privileged primitive** and must be listed in `tools_enable`:
+
+```yaml
+tools_enable:
+  - "web_search"
+```
+
+Results come from the engines declared under the top-level `web_search.*` (the same config `kb search` uses), selected by `defaults.chat.search_provider`:
+
+```yaml
+web_search:
+  duckduckgo:
+    type: duckduckgo          # free, no key needed — the built-in fallback
+  firecrawl:
+    type: firecrawl
+    api_key: "fc-xxx"
+    tags: [free, quality]
+  brave:
+    type: brave
+    api_key: "brave-xxx"
+  doubao:
+    type: doubao
+    api_key: "your-doubao-api-key"
+
+defaults:
+  chat:
+    search_provider: duckduckgo   # duckduckgo/firecrawl/brave/doubao, or auto/free/quality (default auto)
+```
+
+- `search_provider`: an engine name (`duckduckgo`/`firecrawl`/`brave`/`doubao`) forces that engine; `auto` (default) picks by `free`/`quality` tags with fallback; `free`/`cheap` uses only free engines; `quality` uses only quality engines.
+- The `--search-provider` flag overrides the config for one run (precedence: `--search-provider` > `defaults.chat.search_provider` > `auto`).
+- With no `web_search.*` declared, the free DuckDuckGo fallback is used automatically; paid engines require an `api_key` and are skipped when it is missing.
+- One call returns 5 results by default, at most 10.
+- Unlike `kb search`, chat's `web_search` **searches only — it does not save to the knowledge base**.
 
 ### Project context (AGENTS.md)
 
@@ -69,8 +107,9 @@ tools_enable:
   - "read"
   - "grep"
   - "find"
-  - "bash"     # enable shell
-  - "write"    # enable file writes
+  - "bash"        # enable shell
+  - "write"       # enable file writes
+  - "web_search"  # enable web search
 
 # Top-level blocklist always wins
 tools_disable:
@@ -144,6 +183,7 @@ With it on, a request carries only the **primitives** plus two meta-tools: the m
 | `--system` | System prompt | — |
 | `--json` | Pass messages as JSON; forwarded **verbatim** when no flags are set, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API. Explicitly-set flags override the matching key | — |
 | `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
+| `--search-provider` | Engine for the `web_search` primitive (`duckduckgo`/`firecrawl`/`brave`/`doubao`, or `auto`/`free`/`quality`); overrides `defaults.chat.search_provider` | — |
 
 ### Context Management
 
@@ -166,7 +206,7 @@ With `--json` and no flags, the body is sent byte-for-byte unchanged. When you a
 aigc-cli chat --json '{"messages": [{"role": "user", "content": "Hello"}]}' --model deepseek-v4-flash --max-output 2048
 ```
 
-Here `messages` stays as written while `model` and `max_tokens` come from the flags. Behavioral flags (`--dry-run`, `--provider`, `--api-key`, `--api-base`, `--output`, `--verbose`, `--timeout`, `--context-size`, `--interactive`) never enter the body.
+Here `messages` stays as written while `model` and `max_tokens` come from the flags. Behavioral flags (`--dry-run`, `--provider`, `--api-key`, `--api-base`, `--output`, `--verbose`, `--timeout`, `--context-size`, `--interactive`, `--search-provider`) never enter the body.
 
 When using `--json` with an `openai_responses` provider, the JSON body must be in Responses shape (`input` / `instructions`), not chat-completions shape (`messages`).
 

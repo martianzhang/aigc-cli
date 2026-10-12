@@ -5,6 +5,17 @@ import (
 	"time"
 )
 
+// NoopQuotaStore is a QuotaStore that tracks nothing: every provider is always
+// available and RecordUse is a no-op. Use it when a caller wants the router's
+// provider selection and fallback without a SQLite-backed quota database (e.g.
+// the chat web_search primitive, which has no knowledge base open).
+type NoopQuotaStore struct{}
+
+func (NoopQuotaStore) CanUse(string) bool      { return true }
+func (NoopQuotaStore) RecordUse(string)        {}
+func (NoopQuotaStore) ResetIfNeeded(string)    {}
+func (NoopQuotaStore) Usage(string) (int, int) { return 0, 0 }
+
 // SQLiteQuotaStore tracks search provider usage via SQLite.
 type SQLiteQuotaStore struct {
 	db *sql.DB

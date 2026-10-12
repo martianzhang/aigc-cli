@@ -100,6 +100,8 @@ func executeToolCallMCP(c *client.Client, mcp *mcpcli.Manager, tc types.ToolCall
 		return agent.ListDir(args)
 	case "web_fetch":
 		return executeWebFetch(args)
+	case "web_search":
+		return executeWebSearch(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}

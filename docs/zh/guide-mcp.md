@@ -173,7 +173,7 @@ Glob patterns are supported (`*` matches any tool name). Empty or absent lists =
 
 ### 工具面决策（设计说明）
 
-`read`、`grep`、`find`、`ls`、`write`、`edit`、`bash`、`web_fetch` 是**仅限 Chat** 的原语工具（实现在 `internal/agent`，供交互式 REPL / Agent Loop 使用），**刻意不通过 MCP 暴露**：它们会赋予 Agent 任意文件、网页与命令访问能力，一旦模型读到的页面或文件里藏有提示词注入（prompt injection），就可能被诱导读取并外泄本地文件；MCP 工具面被有意限定在 AIGC 能力范围内（生成、检测、OCR、知识库、Provider/配置查看）。其中 `write`/`edit`/`bash`/`web_fetch` 默认关闭，需在 `tools_enable` 显式启用。这是刻意的边界，不是遗漏。
+`read`、`grep`、`find`、`ls`、`write`、`edit`、`bash`、`web_fetch`、`web_search` 是**仅限 Chat** 的原语工具（实现在 `internal/agent`，供交互式 REPL / Agent Loop 使用），**刻意不通过 MCP 暴露**：它们会赋予 Agent 任意文件、网页与命令访问能力，一旦模型读到的页面或文件里藏有提示词注入（prompt injection），就可能被诱导读取并外泄本地文件；MCP 工具面被有意限定在 AIGC 能力范围内（生成、检测、OCR、知识库、Provider/配置查看）。其中 `write`/`edit`/`bash`/`web_fetch`/`web_search` 默认关闭，需在 `tools_enable` 显式启用。这是刻意的边界，不是遗漏。
 
 ### 安全加固（v3.3.0）
 

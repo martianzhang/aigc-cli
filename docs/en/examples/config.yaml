@@ -50,7 +50,7 @@ base_url: "https://api.apimart.ai"
 #   tools_enable  — Allowlist mode, only listed tools are enabled (empty = all allowed)
 #   tools_disable — Blocklist mode, disable listed tools (applied on top of allowlist)
 # When both are set, enable filter runs first, then disable exclusion.
-# Chat primitives: read/grep/find/ls are on by default (read-only); write/edit/bash/web_fetch
+# Chat primitives: read/grep/find/ls are on by default (read-only); write/edit/bash/web_fetch/web_search
 # are privileged and require an explicit tools_enable entry. Domain tools (generate_*, …) come from MCP.
 
 # Scenario A: Allowlist — only free/offline tools (local ONNX / BM25)
@@ -73,13 +73,14 @@ base_url: "https://api.apimart.ai"
 #   - "transcribe_audio"   # STT speech recognition
 #   - "midjourney_*"       # Midjourney suite (imagine/describe/reroll/video etc.)
 
-# Scenario C: enable chat privileged primitives (write/edit/bash/web_fetch are off by default)
+# Scenario C: enable chat privileged primitives (write/edit/bash/web_fetch/web_search are off by default)
 # tools_enable:
 #   - "read"        # read-only primitives (read/grep/find/ls) are on by default anyway
 #   - "bash"        # let the model run shell commands
 #   - "write"       # let the model write files
 #   - "edit"        # let the model edit files precisely
 #   - "web_fetch"   # let the model fetch web pages
+#   - "web_search"  # let the model search the web (engine: defaults.chat.search_provider)
 
 # ── MCP Client (Chat connects to MCP servers) ──
 # Chat acts as an MCP client: it connects to arbitrary stdio MCP servers and
@@ -206,6 +207,7 @@ defaults:
     context_size: 32768         # Max input context tokens; 0=model default. Auto-compacts at 80%
     # tools_on_demand: true     # Load MCP tools on demand (search_tools/load_tools) to save context
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$']  # read primitive denylist regexes (path or basename; empty = allow all)
+    # search_provider: duckduckgo # engine for the web_search primitive (duckduckgo/firecrawl/brave/doubao, or auto/free/quality; default auto)
 
   decision:
     # provider: "ollama"        # named provider (ollama / openrouter / ...); unset uses global
@@ -256,8 +258,9 @@ defaults:
   #   semantic_top_k: 200                                # entries the semantic list contributes to RRF (default 200; <=0 = all)
 
   # ── Optional: Web Search Providers ──
-  # Declare multiple providers for kb search auto-fallback.
-  # Also supports --provider flag for temporary switching.
+  # Declare multiple providers for auto-fallback, shared by `kb search` and
+  # chat's web_search primitive.
+  # kb search also supports a --provider flag; chat selects via defaults.chat.search_provider.
   # web_search:
   #   duckduckgo:
   #     type: duckduckgo

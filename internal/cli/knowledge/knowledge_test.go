@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/martianzhang/aigc-cli/internal/search"
 )
 
 func TestExtractHost(t *testing.T) {
@@ -82,7 +84,7 @@ func TestResolveSearchStrategy(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.provider, func(t *testing.T) {
-			strat, manual := resolveSearchStrategy(tc.provider)
+			strat, manual := search.ResolveStrategy(tc.provider)
 			if strat != tc.wantStrat {
 				t.Errorf("strategy = %q, want %q", strat, tc.wantStrat)
 			}

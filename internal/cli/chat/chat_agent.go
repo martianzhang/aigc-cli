@@ -122,8 +122,8 @@ func buildAgentTools(cfg *types.ChatDefaults) []types.ToolDefinition {
 //
 // Primitive gating:
 //   - read-only primitives (read/grep/find/ls) are on by default;
-//   - privileged primitives (write/edit/bash/web_fetch) require an explicit
-//     tools_enable entry;
+//   - privileged primitives (write/edit/bash/web_fetch/web_search) require an
+//     explicit tools_enable entry;
 //   - tools_disable always wins.
 func filterTools(allTools []types.ToolDefinition, cfg *types.ChatDefaults) []types.ToolDefinition {
 	// Chat-specific disable all (e.g. disable_tools: ["*"])

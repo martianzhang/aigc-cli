@@ -14,8 +14,8 @@ import (
 // for domain tools.
 //
 // Read-only primitives (read/grep/find/ls) are enabled by default; privileged
-// primitives (write/edit/bash/web_fetch) require an explicit `tools_enable`
-// entry. See IsReadOnlyPrimitive / IsPrivilegedPrimitive.
+// primitives (write/edit/bash/web_fetch/web_search) require an explicit
+// `tools_enable` entry. See IsReadOnlyPrimitive / IsPrivilegedPrimitive.
 var ToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
@@ -142,6 +142,21 @@ var ToolDefs = []types.ToolDefinition{
 			}`),
 		},
 	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "web_search",
+			Description: "Search the web and return a ranked list of result titles and URLs. Use this when you need current information or a set of candidate pages; follow up with web_fetch to read a specific result. The search provider is chosen by the user's config. Requires `tools_enable` to list \"web_search\".",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"query": {"type": "string", "description": "Search query"},
+					"limit": {"type": "integer", "description": "Max results to return (default 5, max 10)"}
+				},
+				"required": ["query"]
+			}`),
+		},
+	},
 }
 
 // readOnlyPrimitives are enabled by default (safe, no side effects).
@@ -154,10 +169,11 @@ var readOnlyPrimitives = map[string]bool{
 
 // privilegedPrimitives require an explicit `tools_enable` entry.
 var privilegedPrimitives = map[string]bool{
-	"write":     true,
-	"edit":      true,
-	"bash":      true,
-	"web_fetch": true,
+	"write":      true,
+	"edit":       true,
+	"bash":       true,
+	"web_fetch":  true,
+	"web_search": true,
 }
 
 // IsPrimitive reports whether name is one of the built-in primitives.

@@ -3,14 +3,12 @@ package knowledge
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/search"
-	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 var (
@@ -63,28 +61,6 @@ By default, only searches the web. Use --local to also include local KB results.
 	},
 }
 
-func registerSearchProviders(router *search.Router) error {
-	if providers := options.WebSearchConfig(); providers != nil {
-		for name, cfg := range providers {
-			info := search.ConfigFromTypes(map[string]*types.WebSearchProvider{name: cfg})[name]
-			p, err := search.NewProviderFromConfig(cfg)
-			if err != nil {
-				continue
-			}
-			router.Register(name, p, info)
-		}
-	}
-
-	if _, exists := router.GetProvider("duckduckgo"); !exists {
-		router.Register("duckduckgo", search.NewDDGProvider(), &search.ProviderInfo{
-			Type:   "duckduckgo",
-			Tags:   []string{"free"},
-			Weight: 1,
-		})
-	}
-	return nil
-}
-
 func init() {
 	kbSearchCmd.Flags().StringVar(&kbSearchProviderFlag, "provider", "", "Search provider: duckduckgo, firecrawl (overrides config defaults)")
 	kbSearchCmd.Flags().BoolVar(&kbSearchSaveFlag, "auto-save", true, "Save web results to knowledge base")
@@ -111,11 +87,9 @@ func searchWithProvider(store *knowledge.Store, cmd *cobra.Command, query, proje
 
 	router := search.NewRouter(qStore)
 
-	if err := registerSearchProviders(router); err != nil {
-		return err
-	}
+	search.RegisterAll(router, options.WebSearchConfig())
 
-	strategy, preferred := resolveSearchStrategy(provider)
+	strategy, preferred := search.ResolveStrategy(provider)
 
 	searchResult, err := router.Search(query, 3, strategy, preferred)
 	if err != nil {
@@ -140,17 +114,4 @@ func resolveSearchProvider(cmd *cobra.Command) string {
 		return cfg.SearchProvider
 	}
 	return "auto"
-}
-
-func resolveSearchStrategy(provider string) (string, []string) {
-	switch strings.ToLower(provider) {
-	case "auto", "":
-		return "auto", nil
-	case "free", "cheap":
-		return "cheap", nil
-	case "quality":
-		return "quality", nil
-	default:
-		return "manual", []string{provider}
-	}
 }

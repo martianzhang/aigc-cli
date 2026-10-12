@@ -25,6 +25,9 @@ var (
 	chatJSONFlag    string
 	chatInteractive bool
 	chatDryRun      bool
+	// chatSearchProvider overrides defaults.chat.search_provider for the
+	// web_search primitive when set on the CLI.
+	chatSearchProvider string
 )
 
 // chatCmd represents the `aigc-cli chat` command.
@@ -147,7 +150,7 @@ func init() {
 	f.StringVar(&chatJSONFlag, "json", "", "JSON file, string, or \"-\" for stdin")
 	f.BoolVarP(&chatInteractive, "interactive", "i", false, "Enter interactive multi-turn chat mode")
 	f.BoolVar(&chatDryRun, "dry-run", false, "Print the equivalent curl without calling the API")
-
+	f.StringVar(&chatSearchProvider, "search-provider", "", "Web search engine for the web_search tool: duckduckgo/firecrawl/brave/doubao, or auto/free/quality (overrides defaults.chat.search_provider)")
 }
 
 // Cmd returns the chat command.

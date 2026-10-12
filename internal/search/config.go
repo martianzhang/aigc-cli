@@ -17,6 +17,7 @@ func ConfigFromTypes(providers map[string]*types.WebSearchProvider) map[string]*
 			Tags:   p.Tags,
 			Quota:  p.Quota,
 			Period: p.Period,
+			Weight: p.Weight,
 		}
 	}
 	return info

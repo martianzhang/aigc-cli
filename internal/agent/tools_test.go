@@ -25,6 +25,7 @@ var expectedToolNames = []string{
 	"ls",
 	"read",
 	"web_fetch",
+	"web_search",
 	"write",
 }
 
