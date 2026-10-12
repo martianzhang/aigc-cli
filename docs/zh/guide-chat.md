@@ -63,7 +63,7 @@ aigc-cli chat -v
 | `/tools` | 列出可用工具 |
 | `/<tool> <json>` | 直接调用工具 |
 | `/preview <file>` | 预览图片/视频 |
-| `!<command>` | 执行 Shell 命令 |
+| `!<command>` | 执行 Shell 命令（输出区会带 `$ 命令` 前缀，便于看清执行了什么） |
 
 > **多行输入：** 按 `Alt+Enter` 或 `Ctrl+J` 换行，`Enter` 提交消息。
 > 输入框最高支持 5 行，超出会自动滚动。
@@ -123,30 +123,26 @@ aigc-cli chat --message "生成一段日落海滩的视频"
 - 每个工具执行后显示耗时和结果摘要（如 `[tool] done in 3.2s: Successfully generated 1 image(s)`）
 - 长耗时操作（图片/视频/MJ 生成）支持 `Ctrl+C` 中断，立即返回 prompt
 
-### 可用工具
+### 可用工具（原语）
 
-默认注册以下工具，LLM 会根据对话内容自动调用：
+Chat 只内置少量**原语**（命名对齐 pi coding agent）；生成 / 检测 / 知识库等**领域能力改由 MCP 服务器提供**（见下文「连接外部 MCP 服务器」）。
 
-| 工具 | 说明 | 共享函数 |
+| 原语 | 默认 | 说明 |
 |---|---|---|
-| `generate_image` | AI 图片生成 | `cmd/image.go: generateImageAndSave` |
-| `generate_video` | AI 视频生成 | `cmd/video.go: generateVideoAndSave` |
-| `generate_music` | AI 音乐生成 | `cmd/music_shared.go: generateMusicAndSave` |
-| `midjourney_imagine` | Midjourney 艺术生图 | `cmd/midjourney.go: midjourneySubmitAndGetText` |
-| `midjourney_describe` | 图片反推提示词 | 同上 |
-| `midjourney_reroll` | 重新生成 MJ 结果 | 同上 |
-| `midjourney_video` | MJ 图片转视频 | 同上 |
-| `web_fetch` | 抓取网页内容（走代理，15s 超时） | `cmd/chat.go: executeWebFetch` |
-| `ideas` | 搜索本地提示词灵感 | `cmd/ideas.go: searchIdeasText` |
-| `balance` | 查询 API 余额 | `cmd/balance.go: getBalanceText` |
-| `task` | 查询异步任务状态 | `cmd/task.go: queryTaskText` |
-| `read_file` | 读取本地文本文件 | `cmd/chat.go: executeReadFile` |
-| `remove_watermark` | 检测并移除图片中的可见 AI 水印（豆包/即梦/百度/智谱清言等） | `internal/watermark: RemoveFileHinted` |
-| `add_watermark` | 向图片添加可见 AI 水印（测试去水印用） | `internal/watermark: AddWatermarkFile` |
-| `convert_depth` | 图片/视频转灰度深度图（本地 ONNX，深度引导图生视频的输入，自动识别输入类型） | `internal/depth: ConvertImage / Convert` |
-| `upscale` | 图片超分放大 2x/4x（本地 ONNX：Real-ESRGAN/Real-CUGAN/Swin2SR） | `internal/upscale: Upscale` |
+| `read` | ✅ | 读取本地文本文件（支持 `offset`/`limit` 分页） |
+| `grep` | ✅ | 按正则搜索文件内容 |
+| `find` | ✅ | 按文件名 / glob 递归查找 |
+| `ls` | ✅ | 列出目录条目（非递归） |
+| `write` | ⛔ | 写入 / 覆盖文件，自动建父目录 |
+| `edit` | ⛔ | 精确文本替换（`old_string` 必须唯一匹配） |
+| `bash` | ⛔ | 在当前目录执行 shell 命令 |
+| `web_fetch` | ⛔ | 抓取 URL 文本（走代理，15s 超时） |
 
-所有工具通过共享函数实现，`chat` 和对应的 CLI 命令走同一份代码，无重复逻辑。
+**只读原语**（`read`/`grep`/`find`/`ls`）默认开启；**特权原语**（`write`/`edit`/`bash`/`web_fetch`）默认关闭，需在 `tools_enable` 中**显式列出**才启用——这是把写文件 / 执行命令交给模型的安全闸门。
+
+领域工具（`generate_image`、`generate_video`、`recognize_text`、`kb_find` 等）不再定义在 Chat 内，而由 MCP 服务器提供：想用 aigc-cli 自己的能力，配置 `mcp.servers` 指向 `aigc-cli mcp` 即可（见下）。
+
+> `read` 默认可以读取**任意文件**。如需禁止读取敏感文件，用 `defaults.chat.read_deny` 配置**文件名/路径正则黑名单**（Go regexp，匹配路径或文件名即拒绝），例如 `read_deny: ["\\.pem$", "^id_rsa$", "\\.env$"]`；留空则全部放行。
 
 ### 交互式快捷键
 
@@ -155,22 +151,88 @@ aigc-cli chat --message "生成一段日落海滩的视频"
 | 操作 | 说明 |
 |---|---|---|
 | `/<tool_name> <json>` | 直接调用工具，如 `/generate_image {"prompt":"a cat"}` |
-| `!<shell_cmd>` | 执行系统命令，如 `!ls -la`（30s 超时） |
+| `!<shell_cmd>` | 执行系统命令，如 `!ls -la`（30s 超时）；结果区会回显 `$ 命令` 再附输出 |
 | `/preview <file>` | 用系统默认程序打开图片/视频 |
 | `/tools` | 列出所有可用工具 |
 | `/help` | 显示帮助 |
 
 ### 配置工具白名单/黑名单
 
+顶层 `tools_enable` / `tools_disable` 控制**特权原语**的开启，以及 MCP 服务器对外暴露的工具面；`defaults.chat.tools` / `disable_tools` 在「原语 ∪ MCP」并集上再收窄：
+
+```yaml
+# 顶层：显式启用特权原语（只读原语 read/grep/find/ls 默认即可用）
+tools_enable:
+  - "read"
+  - "grep"
+  - "find"
+  - "bash"     # 显式开启 shell
+  - "write"    # 显式开启写文件
+
+# 顶层黑名单，永远优先
+tools_disable:
+  - "remove_watermark"
+
+defaults:
+  chat:
+    tools: ["*"]                 # 并集上再收窄（glob；空或 ["*"] = 全部）
+    # disable_tools: ["grep"]    # 禁用某个原语
+```
+
+规则要点：
+
+- **只读原语**（`read`/`grep`/`find`/`ls`）默认可用，`tools_disable` 可关掉。
+- **特权原语**（`write`/`edit`/`bash`/`web_fetch`）只有在 `tools_enable` 里**显式列出**才启用。
+- 领域工具（MCP 来源）在有 `tools_enable` 时按白名单过滤，为空时全部允许。
+- `tools_disable` 永远优先于 `tools_enable`。
+
+### 连接外部 MCP 服务器（Chat 作为 MCP 客户端）
+
+Chat 可以作为 **MCP 客户端**，连接任意 stdio MCP 服务器，把它们提供的工具并入 Agent 的工具集。**默认没有任何内置服务器**——想用 `aigc-cli` 自己的 AIGC 工具，就把 `aigc-cli mcp` 配成一个普通 server：
+
+```yaml
+mcp:
+  servers:
+    # 用 aigc-cli 自己的 AIGC 工具
+    - name: aigc
+      command: aigc-cli                    # 不在 $PATH 时用绝对路径
+      args: ["mcp"]
+      # tools_enable: ["generate_*"]        # 仅暴露匹配工具（glob，空=全部）
+      # tools_disable: ["remove_watermark"] # 排除工具（优先于 enable）
+      # enabled: true                       # 默认 true
+      # env: ["KEY=VALUE"]                  # 追加/覆盖子进程环境变量
+    # 第三方示例
+    - name: playwright
+      command: npx
+      args: ["-y", "@playwright/mcp"]
+      tools_enable: ["browser_*"]
+```
+
+| 字段 | 说明 |
+|---|---|
+| `name` | server 标识（日志/报错用）；留空回退到 `command` |
+| `command` / `args` | 启动命令（目前仅支持 **stdio**） |
+| `env` | 追加/覆盖子进程环境变量（`KEY=VALUE`），父进程环境自动继承 |
+| `tools_enable` / `tools_disable` | **仅 Chat 端**过滤该 server 暴露给模型的工具（glob；disable 优先） |
+| `enabled` | 是否连接（默认 `true`） |
+
+- server 级的 `tools_enable`/`tools_disable` **只影响 Chat 看到哪些工具**，不影响该 MCP 服务器自身对外暴露的工具面（那由顶层 `tools_enable`/`tools_disable` 控制）。
+- 合并后的工具集仍受顶层 `tools_enable`/`tools_disable` 和 `defaults.chat.tools`/`disable_tools` 约束。
+- 某个 server 连接失败（命令不存在、初始化超时等）会被**跳过**并在 stderr 提示，不影响其它 server 与正常对话。
+- 连接在启动时建立、退出时关闭；`/tools` 会列出所有可用工具（含 MCP 来源的）。
+- 工具返回的图片/音频以**本地文件路径**呈现给模型（不内联图像）；生成的媒体已落盘，模型据此告知用户文件位置。
+
+### 工具按需加载（可选）
+
+默认情况下，所有已连接 MCP 服务器的工具都会随每次请求一起发送（schema 常驻上下文）。工具很多、上下文吃紧时，可开启按需加载：
+
 ```yaml
 defaults:
   chat:
-    tools: ["*"]                    # 全部允许（默认）
-    # tools: ["generate_image"]     # 只允许生成图片
-    # disable_tools: ["generate_video"]  # 禁用视频生成
+    tools_on_demand: true
 ```
 
-`tools` 和 `disable_tools` 支持 glob 模式匹配。
+开启后，请求里只发送**原语**加两个元工具；模型先用 `search_tools`（按关键词返回工具名 + 一行简介）找到需要的工具，再调用 `load_tools` 加载——被加载工具的完整 schema 才会在**后续轮次**进入上下文。原语始终可用，不受影响。
 
 ### 参数
 
@@ -180,6 +242,8 @@ defaults:
 | `defaults.chat.tools` | 允许的工具白名单（glob 模式），空或 `["*"]` = 全部允许 |
 | `defaults.chat.disable_tools` | 禁用的工具黑名单（glob 模式），覆盖 `tools` |
 | `defaults.chat.allow_tool_override` | `true`=LLM参数优先，`false`=配置强制覆盖LLM（默认`false`，省钱） |
+| `defaults.chat.tools_on_demand` | `true`=MCP 工具按需加载（`search_tools`/`load_tools`），降低上下文占用（默认 `false`） |
+| `defaults.chat.read_deny` | `read` 原语的拒绝正则列表（匹配文件路径或文件名）；空 = 全部放行 |
 
 ---
 

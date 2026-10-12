@@ -50,6 +50,8 @@ base_url: "https://api.apimart.ai"
 #   tools_enable  — Allowlist mode, only listed tools are enabled (empty = all allowed)
 #   tools_disable — Blocklist mode, disable listed tools (applied on top of allowlist)
 # When both are set, enable filter runs first, then disable exclusion.
+# Chat primitives: read/grep/find/ls are on by default (read-only); write/edit/bash/web_fetch
+# are privileged and require an explicit tools_enable entry. Domain tools (generate_*, …) come from MCP.
 
 # Scenario A: Allowlist — only free/offline tools (local ONNX / BM25)
 # tools_enable:
@@ -70,6 +72,32 @@ base_url: "https://api.apimart.ai"
 #   - "generate_music"     # AI music generation
 #   - "transcribe_audio"   # STT speech recognition
 #   - "midjourney_*"       # Midjourney suite (imagine/describe/reroll/video etc.)
+
+# Scenario C: enable chat privileged primitives (write/edit/bash/web_fetch are off by default)
+# tools_enable:
+#   - "read"        # read-only primitives (read/grep/find/ls) are on by default anyway
+#   - "bash"        # let the model run shell commands
+#   - "write"       # let the model write files
+#   - "edit"        # let the model edit files precisely
+#   - "web_fetch"   # let the model fetch web pages
+
+# ── MCP Client (Chat connects to MCP servers) ──
+# Chat acts as an MCP client: it connects to arbitrary stdio MCP servers and
+# merges their tools into the agent's toolset. There is NO built-in server — to
+# use aigc-cli's own AIGC tools from chat, add an entry pointing at `aigc-cli mcp`.
+# mcp:
+#   servers:
+#     - name: aigc
+#       command: aigc-cli          # use an absolute path if not on $PATH
+#       args: ["mcp"]
+#       # tools_enable: ["generate_*"]        # expose only matching tools (glob, empty = all)
+#       # tools_disable: ["remove_watermark"] # exclude tools (wins over enable)
+#       # enabled: true                       # default true
+#       # env: ["KEY=VALUE"]                  # extra env for the child process
+#     - name: playwright
+#       command: npx
+#       args: ["-y", "@playwright/mcp"]
+#       tools_enable: ["browser_*"]
 
 # ── Named Providers ──
 # Define reusable API accounts/endpoints. Names are user-defined.
@@ -176,6 +204,8 @@ defaults:
     model: "deepseek-v4-flash"
     max_tokens: 4096            # Max response tokens
     context_size: 32768         # Max input context tokens; 0=model default. Auto-compacts at 80%
+    # tools_on_demand: true     # Load MCP tools on demand (search_tools/load_tools) to save context
+    # read_deny: ['\.pem$', '^id_rsa$', '\.env$']  # read primitive denylist regexes (path or basename; empty = allow all)
 
   decision:
     # provider: "ollama"        # named provider (ollama / openrouter / ...); unset uses global

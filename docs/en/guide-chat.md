@@ -24,42 +24,102 @@ aigc-cli chat
 
 The REPL supports:
 - Multi-turn conversation
-- Tool calling (image generation, video, Midjourney, ideas, knowledge base)
+- Tool calling (built-in primitives + tools from configured MCP servers)
 - Streaming output
 - Command history
+- Slash commands, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
 
 ## Tool Calling
 
-In REPL mode, the AI can use built-in tools:
+Chat ships a small set of **primitives** (names aligned with pi coding agent). Domain capabilities (generation, detection, knowledge base, …) are provided by **MCP servers** instead (see [MCP servers](#mcp-servers-chat-as-an-mcp-client)).
 
-| Tool | Description |
-|---|---|
-| `generate_image` | Generate images |
-| `generate_video` | Generate videos |
-| `generate_music` | Generate music |
-| `midjourney_imagine` | Midjourney text-to-image |
-| `search_ideas` | Search prompt ideas |
-| `kb_find` | Search knowledge base |
-| `kb_search` | Web search + save to KB |
-| `detect_image` | AIGC detection |
-| `remove_watermark` | Watermark removal |
-| `convert_depth` | Image/video → grayscale depth map (offline, V2 models) |
-| `upscale` | Image 2x/4x super-resolution (offline, Real-ESRGAN/Real-CUGAN/Swin2SR) |
+| Primitive | Default | Description |
+|---|---|---|
+| `read` | ✅ | Read a local text file (paginated via offset/limit) |
+| `grep` | ✅ | Regex search file contents |
+| `find` | ✅ | Find files by name/glob (recursive) |
+| `ls` | ✅ | List a directory (non-recursive) |
+| `write` | ⛔ | Write/overwrite a file, creating parent dirs |
+| `edit` | ⛔ | Exact-text replace (`old_string` must be unique) |
+| `bash` | ⛔ | Execute a shell command in the current directory |
+| `web_fetch` | ⛔ | Fetch a URL as text (via proxy, 15s timeout) |
+
+**Read-only primitives** (`read`/`grep`/`find`/`ls`) are on by default. **Privileged primitives** (`write`/`edit`/`bash`/`web_fetch`) are off by default and require an explicit `tools_enable` entry — the safety gate for handing file-writes/command execution to the model.
+
+Domain tools (`generate_image`, `recognize_text`, `kb_find`, …) are no longer defined in chat; they come from MCP servers. To use aigc-cli's own tools, point `mcp.servers` at `aigc-cli mcp` (see below).
+
+> `read` can read **any file** by default. To block sensitive files, set `defaults.chat.read_deny` to a list of **filename/path regexes** (Go regexp, matched against the path or base name); leave it empty to allow everything. Example: `read_deny: ["\\.pem$", "^id_rsa$", "\\.env$"]`.
 
 Tools can be enabled/disabled via config:
 
 ```yaml
-# Only allow free/offline tools
+# Top-level: opt into privileged primitives (read-only ones are on by default)
 tools_enable:
-  - "search_ideas"
-  - "detect_image"
-  - "recognize_text"
+  - "read"
+  - "grep"
+  - "find"
+  - "bash"     # enable shell
+  - "write"    # enable file writes
 
-# Block paid generation tools
+# Top-level blocklist always wins
 tools_disable:
-  - "generate_image"
-  - "generate_video"
+  - "remove_watermark"
+
+defaults:
+  chat:
+    tools: ["*"]              # narrow the (primitives ∪ MCP) union; empty or ["*"] = all
+    # disable_tools: ["grep"]
 ```
+
+### MCP servers (chat as an MCP client)
+
+Chat can act as an **MCP client**: it connects to arbitrary stdio MCP servers and
+merges their tools into the agent's toolset. There is **no built-in server** — to
+use aigc-cli's own AIGC tools from chat, add an entry pointing at `aigc-cli mcp`:
+
+```yaml
+mcp:
+  servers:
+    # aigc-cli's own AIGC tools
+    - name: aigc
+      command: aigc-cli                    # use an absolute path if not on $PATH
+      args: ["mcp"]
+      # tools_enable: ["generate_*"]        # expose only matching tools (glob, empty = all)
+      # tools_disable: ["remove_watermark"] # exclude tools (wins over enable)
+      # enabled: true                       # default true
+      # env: ["KEY=VALUE"]                  # extra env for the child process
+    # third-party example
+    - name: playwright
+      command: npx
+      args: ["-y", "@playwright/mcp"]
+      tools_enable: ["browser_*"]
+```
+
+| Field | Description |
+|---|---|
+| `name` | Server id (logs/errors); falls back to `command` when empty |
+| `command` / `args` | Launch command (currently **stdio** only) |
+| `env` | Extra/overriding child env vars (`KEY=VALUE`); parent env is inherited |
+| `tools_enable` / `tools_disable` | Filter tools exposed to the model from this server (glob; disable wins) — **chat-side only** |
+| `enabled` | Whether to connect (default `true`) |
+
+- Per-server `tools_enable`/`tools_disable` only affect **what chat sees**; they do not change the MCP server's own exposed tool surface (controlled by the top-level `tools_enable`/`tools_disable`).
+- The merged toolset is still subject to the top-level `tools_enable`/`tools_disable` and `defaults.chat.tools`/`disable_tools`.
+- A server that fails to connect (missing command, init timeout, …) is **skipped** with a stderr notice; other servers and the chat keep working.
+- Connections open at startup and close on exit; `/tools` lists every tool, including MCP-provided ones.
+- Image/audio tool results are surfaced to the model as **local file paths** (no inlined media); generated files are already on disk, so the model reports their locations.
+
+### On-demand tool loading (optional)
+
+By default every tool from every connected MCP server is sent with each request (its schema stays in context). When you have many tools and context is tight, enable on-demand loading:
+
+```yaml
+defaults:
+  chat:
+    tools_on_demand: true
+```
+
+With it on, a request carries only the **primitives** plus two meta-tools: the model calls `search_tools` (keyword → tool names + one-line descriptions) to find what it needs, then `load_tools` to enable them — the full schemas enter context on **subsequent** turns. Primitives are always available and unaffected.
 
 ## Parameters
 
