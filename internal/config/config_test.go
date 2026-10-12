@@ -7,6 +7,12 @@ import (
 )
 
 func TestLoad_customFile(t *testing.T) {
+	// Load binds http_proxy to HTTP_PROXY/HTTPS_PROXY, and viper env wins over
+	// the config file. Clear them so the file value is observed regardless of
+	// the environment the test runs in (viper ignores empty env vars).
+	t.Setenv("HTTP_PROXY", "")
+	t.Setenv("HTTPS_PROXY", "")
+
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "test.yaml")
 	content := []byte(`
