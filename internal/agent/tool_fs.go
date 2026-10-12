@@ -1,12 +1,14 @@
 package agent
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // FindFiles finds files by name/pattern under a directory (safe, pure Go).
@@ -113,6 +115,9 @@ func ReadFileWithPolicy(argsJSON string, deny []string) string {
 	}
 
 	totalSize := len(content)
+	if looksBinary(content) {
+		return fmt.Sprintf("File: %s\nSize: %d bytes\n\n[binary file — not displayed as text]", fpath, totalSize)
+	}
 	if args.Offset >= totalSize {
 		return fmt.Sprintf("File %s has %d bytes, but offset %d is past the end. Use offset=0 to read from the beginning.", fpath, totalSize, args.Offset)
 	}
@@ -163,4 +168,32 @@ func deniedByReadPolicy(path string, deny []string) bool {
 		}
 	}
 	return false
+}
+
+// looksBinary reports whether data is likely a binary file (so it should not be
+// dumped into the model's context as text). It samples the first 8 KiB: a NUL
+// byte, or more than ~1% invalid UTF-8 sequences, marks the file as binary.
+func looksBinary(data []byte) bool {
+	const sampleMax = 8000
+	sample := data
+	if len(sample) > sampleMax {
+		sample = sample[:sampleMax]
+	}
+	n := len(sample)
+	if n == 0 {
+		return false
+	}
+	if bytes.IndexByte(sample, 0) >= 0 {
+		return true
+	}
+
+	invalid := 0
+	for len(sample) > 0 {
+		r, size := utf8.DecodeRune(sample)
+		if r == utf8.RuneError && size == 1 {
+			invalid++
+		}
+		sample = sample[size:]
+	}
+	return invalid*100 > n // >1% invalid runes
 }

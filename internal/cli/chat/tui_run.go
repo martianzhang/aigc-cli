@@ -44,6 +44,9 @@ func runChatTUI(cmd *cobra.Command) error {
 	if chatSystem != "" {
 		sysContent += "\n" + chatSystem
 	}
+	if ctx := loadAgentsContext(); ctx != "" {
+		sysContent += "\n\n" + ctx
+	}
 	history = append(history, types.ChatMessage{Role: "system", Content: sysContent})
 
 	model := options.Shared.Model

@@ -68,6 +68,20 @@ func TestReadFileWithPolicy(t *testing.T) {
 	}
 }
 
+func TestReadFile_binary(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "image.png")
+	data := []byte{0x89, 'P', 'N', 'G', 0x00, 0x1a, 0x00, 0x00, 0xff, 0xfe}
+	if err := os.WriteFile(bin, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	args, _ := json.Marshal(map[string]any{"filepath": bin})
+	got := ReadFile(string(args))
+	if !strings.Contains(got, "binary file") {
+		t.Errorf("ReadFile(binary) = %q, want binary notice", got)
+	}
+}
+
 func TestFindFiles(t *testing.T) {
 	dir := t.TempDir()
 	for name, body := range map[string]string{"one.txt": "1", "two.txt": "2", "three.md": "3"} {

@@ -108,6 +108,9 @@ func runChat(cmd *cobra.Command, args []string) error {
 	p := options.Shared.ResolveProvider(options.ProviderNameChat)
 	c := client.NewFromProvider(p)
 	history := req.Messages
+	if ctx := loadAgentsContext(); ctx != "" && (len(history) == 0 || history[0].Role != "system") {
+		history = append([]types.ChatMessage{{Role: "system", Content: ctx}}, history...)
+	}
 	_, err = runAgentLoop(ctx, c, rt, &history, maxIterations, cmd)
 	if err != nil {
 		return err
