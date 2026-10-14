@@ -2,7 +2,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -38,10 +40,14 @@ func Load(customPath string) (*types.Config, error) {
 		v.SetConfigName(configFile)
 	}
 
-	// Ignore "not found" — config is optional
+	// A missing file is optional: continue with env-var (and default) values.
+	// This covers both the default search path (ConfigFileNotFoundError) and an
+	// explicitly passed --config path (fs.ErrNotExist), so OPENAI_API_KEY /
+	// OPENAI_BASE_URL are never silently dropped. Other read errors (permission,
+	// parse) are real and surface to the caller.
 	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			// Real error (permission, parse), not just missing
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFound) && !errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("error reading config: %w", err)
 		}
 	}

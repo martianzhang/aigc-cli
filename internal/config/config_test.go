@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 func TestLoad_customFile(t *testing.T) {
@@ -123,17 +125,46 @@ providers:
 }
 
 func TestLoad_missingFile(t *testing.T) {
-	// Use a random non-existent path that won't be found.
-	// Note: viper's ConfigFileNotFoundError detection works only with config search paths,
-	// not with explicit SetConfigFile paths. This test verifies the function handles it gracefully.
+	// A missing config file must not be an error: Load falls back to env vars and
+	// code defaults, so OPENAI_API_KEY / OPENAI_BASE_URL are never dropped when an
+	// explicitly passed --config path does not exist.
+	t.Setenv("OPENAI_API_KEY", "sk-from-env")
+	t.Setenv("OPENAI_BASE_URL", "https://env.example/v1")
+	t.Setenv("HTTP_PROXY", "")
+	t.Setenv("HTTPS_PROXY", "")
+
 	cfg, err := Load(filepath.Join(t.TempDir(), "nonexistent.yaml"))
 	if err != nil {
-		// Accept either nil error (missing file ignored) or a path error (viper behavior varies by OS)
-		t.Logf("Load() returned expected error for missing file: %v", err)
-		return
+		t.Fatalf("Load(missing) error = %v, want nil", err)
 	}
 	if cfg == nil {
 		t.Fatal("cfg should not be nil")
+	}
+	if cfg.APIKey != "sk-from-env" {
+		t.Errorf("APIKey = %q, want env value", cfg.APIKey)
+	}
+	if cfg.BaseURL != "https://env.example/v1" {
+		t.Errorf("BaseURL = %q, want env value", cfg.BaseURL)
+	}
+}
+
+func TestLoad_missingDefaultFileUsesDefaults(t *testing.T) {
+	// Point HOME at an empty dir so the default config lookup finds nothing.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENAI_API_KEY", "")
+	t.Setenv("OPENAI_BASE_URL", "")
+	t.Setenv("HTTP_PROXY", "")
+	t.Setenv("HTTPS_PROXY", "")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load(\"\") error = %v, want nil", err)
+	}
+	if cfg == nil {
+		t.Fatal("cfg should not be nil")
+	}
+	if cfg.BaseURL != types.DefaultAPIBaseURL {
+		t.Errorf("BaseURL = %q, want %q", cfg.BaseURL, types.DefaultAPIBaseURL)
 	}
 }
 

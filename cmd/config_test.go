@@ -198,3 +198,30 @@ func TestConfigParentHelp(t *testing.T) {
 		}
 	}
 }
+
+func TestRequireExplicitConfigPath(t *testing.T) {
+	existing := writeCmdConfig(t, configTestFixture)
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{"empty path is allowed", "", false},
+		{"existing file is allowed", existing, false},
+		{"missing explicit file fails", filepath.Join(t.TempDir(), "nope.yaml"), true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := requireExplicitConfigPath(tc.path)
+			if tc.wantErr && err == nil {
+				t.Fatal("requireExplicitConfigPath() = nil, want error")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("requireExplicitConfigPath() = %v, want nil", err)
+			}
+			if tc.wantErr && !strings.Contains(err.Error(), "config file not found") {
+				t.Errorf("error = %q, want config file not found", err)
+			}
+		})
+	}
+}

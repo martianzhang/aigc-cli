@@ -82,7 +82,7 @@ aigc-cli config list
 
 Notes:
 
-- The file is resolved like every other command: `--config <path>` first, otherwise `~/.config/aigc-cli/config.yaml`. `get`/`set` fail with a clear error when the file is missing — they never create it.
+- The file is resolved like every other command: `--config <path>` first, otherwise `~/.config/aigc-cli/config.yaml`. An explicit `--config` path must exist: any command fails with `config file not found` instead of silently ignoring it. When `--config` is omitted, a missing file is fine and the CLI falls back to env vars (`OPENAI_API_KEY` / `OPENAI_BASE_URL`) and code defaults. `get`/`set` fail with a clear error and never create the file.
 - `set` replaces one leaf only. If a parent section of the dot path does not exist, the command fails (`set defaults.chat.allow_tool_override: section not found`) instead of creating sections.
 - The existing YAML type of a key is kept: an int/bool/float stays that type and a value that cannot be parsed as it is rejected; existing strings stay strings. New keys inside an existing section become plain strings unless the value is a plain integer or `true`/`false`.
 - Writing is atomic: the previous file is copied to `<path>.bak`, the new content goes to `<path>.tmp.<pid>`, then that file is renamed over the target. Comments, key order and scalar styles survive the round-trip; blank lines and unrelated spacing may be normalized.
@@ -139,7 +139,7 @@ aigc-cli completion powershell > aigc-cli.ps1
 | `--save-prompt` | Save prompt as .md file |
 | `--http-proxy` | Specify HTTP proxy |
 | `--zdr` | Request zero data retention where supported. OpenRouter chat-completions endpoints (`chat`, `music`) honor it via `provider.zdr` + `data_collection: deny`; every other provider/endpoint is a silent no-op |
-| `--config` | Path to config file |
+| `--config` | Path to config file (must exist; a missing explicit path is an error. Omit it to fall back to env vars and defaults) |
 | `--api-key` | API key (overrides config/env) |
 | `--api-base` | API base URL (overrides config/env) |
 | `--model` / `-m` | Model name |

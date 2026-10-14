@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,11 +17,18 @@ import (
 // runPrintConfig prints the effective configuration with inline annotations.
 func runPrintConfig(cmd *cobra.Command) {
 	cfg, cfgErr := config.Load(shared.CfgFile)
-	if errors.Is(cfgErr, config.ErrDecrypt) {
+	if cfgErr != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", cfgErr)
 		os.Exit(1)
 	}
-	configFound := cfgErr == nil
+	// config.Load treats a missing file as optional, so detect existence here to
+	// annotate the output (and decide whether to auto-encrypt secrets).
+	configFound := false
+	if path, err := configFilePath(); err == nil {
+		if _, statErr := os.Stat(path); statErr == nil {
+			configFound = true
+		}
+	}
 
 	// Track which persistent flags were explicitly set.
 	shared.APIKeySet = hasFlagChanged(cmd, "api-key")
@@ -78,7 +84,11 @@ func runPrintConfig(cmd *cobra.Command) {
 
 	// Config file path
 	if shared.CfgFile != "" {
-		configNote = fmt.Sprintf("# config: %s (explicit)", shared.CfgFile)
+		if configFound {
+			configNote = fmt.Sprintf("# config: %s (explicit)", shared.CfgFile)
+		} else {
+			configNote = fmt.Sprintf("# config: %s (explicit, not found)", shared.CfgFile)
+		}
 	} else if configFound {
 		if cfg != nil {
 			home, _ := os.UserHomeDir()

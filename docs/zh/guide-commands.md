@@ -119,7 +119,7 @@ aigc-cli config list
 
 说明：
 
-- 配置文件解析规则与其他命令一致：优先 `--config <path>`，否则 `~/.config/aigc-cli/config.yaml`。文件不存在时 `get`/`set` 直接报错，**绝不自动创建文件**。
+- 配置文件解析规则与其他命令一致：优先 `--config <path>`，否则 `~/.config/aigc-cli/config.yaml`。显式传入的 `--config` 文件必须存在，否则任何命令都会报 `config file not found` 而不是静默忽略；未指定 `--config` 时文件缺失是允许的，此时回退到 `OPENAI_API_KEY` / `OPENAI_BASE_URL` 等环境变量与代码默认值。`get`/`set` 同样直接报错，**绝不自动创建文件**。
 - `set` 只替换叶子值。点号路径中缺少父级段落时会报错（`set defaults.chat.allow_tool_override: section not found`），**绝不自动创建段落**。
 - 保留已有键的 YAML 类型：原本是 int/bool/float 就继续保持该类型，无法解析的值会被拒绝；原本是字符串的仍是字符串。在已有段落中新建的键，除纯整数或 `true`/`false` 外都按字符串写入。
 - 写入是原子的：先把原文件复制为 `<path>.bak`，新内容写入 `<path>.tmp.<pid>`，再用 rename 覆盖目标文件。注释、键顺序、标量引号风格都会保留；空行与个别空格的排版可能被规范化。
