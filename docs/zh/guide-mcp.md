@@ -76,7 +76,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | Tool | Description | API Key Required |
 |---|---|---|
 | `generate_image` | 文生图 / 图生图 / Inpainting；支持可选白名单参数 `provider` | ✅ |
-| `generate_video` | 视频生成（异步提交 → 轮询）；固定使用 `defaults.video.provider`，不接受 `provider` 参数 | ✅ |
+| `generate_video` | 视频生成（异步提交 → 轮询）；固定使用 `defaults.video.provider`，不接受 `provider` 参数；支持 `return_last_frame` 保存尾帧图用于续拍 | ✅ |
 | `generate_music` | 音乐生成（APIMart suno/flowmusic 异步、OpenRouter Lyria、阿里云百炼 Fun-Music）；支持可选 `provider` | ✅ |
 | `generate_speech` | 文字转语音 TTS；支持可选 `provider` / `model` / `voice` / `format` | ✅ |
 | `transcribe_audio` | 语音转文字 STT（本地音频文件）；支持可选 `provider` / `model` / `language` | ✅ |

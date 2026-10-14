@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -21,6 +22,31 @@ func DownloadVideos(videos []types.VideoResult, outputDir, taskID string) ([]str
 			fmt.Printf("Saved: %s\n", filename)
 			saved = append(saved, filename)
 		}
+	}
+	return saved, nil
+}
+
+// DownloadLastFrames downloads provider-returned last-frame images (a video
+// task's result.images) into outputDir. Returns paths to saved files.
+// Naming: <taskID>_lastframe.<ext>, or <taskID>_lastframe_<i>.<ext> when the
+// provider returned more than one.
+func DownloadLastFrames(urls []string, outputDir, taskID string) ([]string, error) {
+	var saved []string
+	for i, u := range urls {
+		if strings.TrimSpace(u) == "" {
+			continue
+		}
+		name := taskID + "_lastframe"
+		if len(urls) > 1 {
+			name = fmt.Sprintf("%s_lastframe_%d", taskID, i)
+		}
+		filename, err := DownloadFile(u, outputDir, name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to download last frame %d: %v\n", i, err)
+			continue
+		}
+		fmt.Printf("Saved: %s\n", filename)
+		saved = append(saved, filename)
 	}
 	return saved, nil
 }

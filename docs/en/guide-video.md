@@ -20,6 +20,7 @@ aigc-cli video --model "google/veo-3.1" --prompt "a dog running"
 | `--model` / `-m` | Model name | `grok-imagine-1.5-video-apimart` (APIMart) |
 | `--size` | Aspect ratio (`16:9`, `9:16`, `1:1`) | `16:9` |
 | `--duration` | Duration in seconds | model default |
+| `--return-last-frame` | Save the video's last frame as an image for continuation: prefers the provider-returned frame, falls back to local ffmpeg extraction | `false` |
 | `--image-url` / `-i` | Reference image URL or local file (repeatable); with `--gif`/`--mp4` and no `--prompt`, converts a local file | — |
 | `--video-url` | Reference video (APIMart VEO3 Remix) | — |
 | `--audio-url` | Reference audio | — |
@@ -189,6 +190,33 @@ aigc-cli video --prompt "a dog running"
 ```bash
 aigc-cli video --prompt "a dog" --image-url /path/to/first_frame.png
 ```
+
+### Last-Frame Capture (`--return-last-frame`)
+
+When chaining multiple video segments, the next segment often needs the previous
+segment's last frame as its first frame. `--return-last-frame` saves that frame
+as an image after generation:
+
+1. the request carries `return_last_frame: true`, so providers that support it
+   (APIMart / Seedance) return the last-frame image in `result.images`;
+2. when the provider returns it, the image is downloaded directly
+   (`<task_id>_lastframe.<ext>`, with `_<i>` when several are returned);
+3. when the provider does not return one (OpenRouter / Agnes / OpenLux /
+   Pollinations carry no such field), the CLI falls back to extracting the last
+   frame from the local video with ffmpeg (`<video>_lastframe.png`).
+
+```bash
+# Segment 1: generate and keep the last frame
+aigc-cli video -p "Segment 1: a kitten walks into the room" --return-last-frame
+
+# Segment 2: continue from the previous last frame
+aigc-cli video -p "Segment 2: the kitten keeps walking" \
+  --first-frame video_task_xxx_0_0_lastframe.png --return-last-frame
+```
+
+> Local extraction requires ffmpeg (same as `--gif` / `--crop-margin`); no ffmpeg
+> is needed when the provider returns the frame. The frame is saved **before**
+> GIF conversion / cropping, so it composes with `--gif` / `--crop-margin`.
 
 ### Reference Video (VEO3 Remix)
 

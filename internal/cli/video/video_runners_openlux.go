@@ -13,7 +13,7 @@ import (
 // runOpenLuxVideo handles video generation via api.openlux.ai's unified API (submit -> poll -> download).
 // Uses POST /v1/video/create for submission and GET /v1/video/query?id= for polling.
 // Local images are uploaded by videoPlan.applyUploads before dispatch.
-func runOpenLuxVideo(req *types.VideoGenerateRequest) ([]string, error) {
+func runOpenLuxVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	c := options.NewClient("video")
 	options.ApplyTimeout(c, "video", client.VideoTimeout)
 
@@ -80,5 +80,5 @@ func runOpenLuxVideo(req *types.VideoGenerateRequest) ([]string, error) {
 
 	elapsed := time.Since(start).Seconds()
 	fmt.Printf("Completed in %.0fs\n", elapsed)
-	return []string{filename}, nil
+	return &RunResult{Videos: []string{filename}}, nil
 }

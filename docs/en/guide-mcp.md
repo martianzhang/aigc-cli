@@ -27,7 +27,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | Tool | Description | Cost |
 |---|---|---|
 | `generate_image` | Generate images (text-to-image, image-to-image, inpainting); optional whitelisted `provider` | Paid (API key) |
-| `generate_video` | Generate videos (async submit → poll); always uses `defaults.video.provider`, no `provider` argument | Paid (API key) |
+| `generate_video` | Generate videos (async submit → poll); always uses `defaults.video.provider`, no `provider` argument; supports `return_last_frame` to save the last frame as an image | Paid (API key) |
 | `generate_music` | Generate music (APIMart suno/flowmusic async, OpenRouter Lyria, Alibaba Cloud Bailian Fun-Music); optional `provider` | Paid (API key) |
 | `generate_speech` | Text-to-speech; optional `provider` / `model` / `voice` / `format` | Paid (API key) |
 | `transcribe_audio` | Speech-to-text for a local audio file; optional `provider` / `model` / `language` | Paid (API key) |

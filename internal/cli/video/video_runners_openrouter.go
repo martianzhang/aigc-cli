@@ -61,7 +61,7 @@ func openRouterAPIKey() string {
 
 // runOpenRouterVideo handles video generation via OpenRouter's dedicated video API.
 // buildVideoPlan already embedded local images as data URIs in req.
-func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
+func runOpenRouterVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	orReq := openRouterVideoBody(req)
 
 	if options.Shared.Verbose {
@@ -148,7 +148,7 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) ([]string, error) {
 		fmt.Println()
 	}
 
-	return saved, nil
+	return &RunResult{Videos: saved}, nil
 }
 
 // runOpenRouterVideoResume resumes a previously-submitted OpenRouter video job.

@@ -13,7 +13,7 @@ import (
 // runAgnesVideo handles video generation via agnes.ai's async task API.
 // Uses POST /v1/videos for submission and GET /agnesapi?video_id= for polling.
 // agnes has no upload endpoint, so buildVideoPlan embeds local files as data URIs.
-func runAgnesVideo(req *types.VideoGenerateRequest) ([]string, error) {
+func runAgnesVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	c := options.NewClient("video")
 	options.ApplyTimeout(c, "video", client.VideoTimeout)
 
@@ -90,5 +90,5 @@ func runAgnesVideo(req *types.VideoGenerateRequest) ([]string, error) {
 
 	elapsed := time.Since(start).Seconds()
 	fmt.Printf("Completed in %.0fs\n", elapsed)
-	return []string{filename}, nil
+	return &RunResult{Videos: []string{filename}}, nil
 }

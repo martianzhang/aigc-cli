@@ -132,6 +132,10 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 			v := true
 			req.GenerateAudio = &v
 		}
+		if request.GetBool("return_last_frame", false) {
+			v := true
+			req.ReturnLastFrame = &v
+		}
 
 		// Merge config defaults
 		if videoCfg := cfg.Defaults.Video; videoCfg != nil {
@@ -167,16 +171,23 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 		reporter.report(progressDispatch, progressDispatchMessage(p.ProviderType.String()))
 		reporter.report(progressGenerating, progressGeneratingMessage)
 
-		saved, err := video.GenerateAndSave(req)
+		res, err := video.GenerateAndSave(req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		saved := res.Videos
 
 		lines := []string{"视频生成完成。"}
 		lines = append(lines, "")
 		lines = append(lines, "已保存的视频:")
 		for _, f := range saved {
 			lines = append(lines, fmt.Sprintf("  %s", f))
+		}
+		if len(res.LastFrames) > 0 {
+			lines = append(lines, "", "已保存的尾帧图片:")
+			for _, f := range res.LastFrames {
+				lines = append(lines, fmt.Sprintf("  %s", f))
+			}
 		}
 
 		if gifOpts.Enabled {

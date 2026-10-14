@@ -14,10 +14,11 @@ type videoDispatchCtx struct {
 }
 
 // videoStrategy defines a dispatch rule for video generation.
-// run returns the paths to saved video files, or an error.
+// run returns the saved videos (plus any provider-returned last-frame images),
+// or an error.
 type videoStrategy struct {
 	match func(req *types.VideoGenerateRequest, ctx *videoDispatchCtx) bool
-	run   func(*types.VideoGenerateRequest) ([]string, error)
+	run   func(*types.VideoGenerateRequest) (*RunResult, error)
 }
 
 // videoStrategies is the ordered dispatch table for video generation.

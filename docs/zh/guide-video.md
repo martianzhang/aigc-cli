@@ -366,7 +366,7 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 | `--generate-audio` | `-a` | 生成 AI 音频 |
 | `--dry-run` | | 打印等价 curl（上传型 provider 会先打印每个本地参考图的上传 curl），不调用 API |
 | `--seed` | | 随机种子，用于复现 |
-| `--return-last-frame` | | 返回最后一帧用于续拍 |
+| `--return-last-frame` | | 保存最后一帧图片用于续拍：优先下载 provider 返回的尾帧图，未返回时回退 ffmpeg 本地抽帧 |
 | `--image-url` | `-i` | 参考图片 URL 或本地文件（可重复）；配合 `--gif`/`--mp4` 且无 `--prompt` 时转换本地文件 |
 | `--first-frame` | | 首帧图片 |
 | `--last-frame` | | 尾帧图片 |
@@ -384,6 +384,25 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 | `--verbose` | `-v` | 显示请求 JSON 和完整响应（全局 flag） |
 
 > ⚠️ **agnès 视频 `--resolution` 格式不同**：agnès（`agnes-video-2.5-flash` 等）要求 `720P`/`960P`/`2K`（大写 P），不能用 `480p`/`720p`（小写 p）。CLI 默认 `480p` 会被映射为 `720P`。详见 [agnès 视频文档](https://agnes-ai.com/zh-Hans/docs/agnes-video-v20)。
+
+### 尾帧保留（`--return-last-frame`）
+
+多段视频续拍时，后一段常需要用前一段的尾帧作为首帧。`--return-last-frame` 会在生成后自动把尾帧保存成图片：
+
+1. 请求体带 `return_last_frame: true`，让支持的 provider（如 APIMart / Seedance）在 `result.images` 里回传尾帧图；
+2. provider 返回了尾帧图时，直接下载保存（命名 `<task_id>_lastframe.<ext>`，多张时加 `_<i>` 序号）；
+3. provider 未返回时（如 OpenRouter / Agnes / OpenLux / Pollinations 的请求体没有该字段），回退用 ffmpeg 从本地视频抽取尾帧，保存为 `<视频名>_lastframe.png`。
+
+```bash
+# 第一段：生成并保留尾帧
+aigc-cli video -p "第一段：小猫走进房间" --return-last-frame
+
+# 第二段：用上一段的尾帧作为首帧续拍
+aigc-cli video -p "第二段：小猫继续往前走" \
+  --first-frame video_task_xxx_0_0_lastframe.png --return-last-frame
+```
+
+> 本地抽帧依赖 ffmpeg（与 `--gif` / `--crop-margin` 相同）；provider 已返回尾帧时无需 ffmpeg。尾帧在 GIF 转换 / 裁边**之前**保存，因此可与 `--gif` / `--crop-margin` 同时使用。
 
 ### agnès 图生视频
 

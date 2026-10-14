@@ -61,6 +61,7 @@ Examples:
   aigc-cli video --prompt "City nightscape" --resolution 720p --duration 8
   aigc-cli video --prompt "..." --image-url ./cat.jpg
   aigc-cli video --prompt "Transition day to night" --first-frame day.jpg --last-frame night.jpg
+  aigc-cli video -p "segment 2" --first-frame prev_lastframe.png --return-last-frame  # chain segments via the last frame
   aigc-cli video --json request.json
   aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "continue running"
   aigc-cli video --remix --task-id task_xxx --model veo3.1-fast --prompt "keep going" --raw --resolution 1080p
@@ -185,7 +186,16 @@ func runVideo(cmd *cobra.Command, args []string) error {
 	}
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {
-			saved, err := s.run(req)
+			out, err := s.run(req)
+			// return_last_frame：优先使用 provider 返回的尾帧图；未返回则本地抽帧。
+			// 在 GIF/裁边之前处理，因为 GIF 转换会替换掉原始 mp4。
+			if err == nil && wantsLastFrame(req) {
+				saveLastFrames(out)
+			}
+			saved := []string(nil)
+			if out != nil {
+				saved = out.Videos
+			}
 			if err == nil && vidGIF {
 				if conv, cerr := convertSavedToGIF(saved); cerr != nil {
 					fmt.Fprintf(os.Stderr, "Warning: GIF conversion failed: %v\n", cerr)
@@ -221,7 +231,7 @@ func init() {
 	f.StringVarP(&vidResolution, "resolution", "r", "", "Resolution: 480p, 720p, 1080p (remix: 4k)")
 	f.IntVar(&vidSeed, "seed", 0, "Random seed for reproducibility")
 	f.BoolVarP(&vidGenerateAudio, "generate-audio", "a", false, "Generate AI audio for the video")
-	f.BoolVar(&vidReturnLastFrame, "return-last-frame", false, "Return the last frame image URL for continuation")
+	f.BoolVar(&vidReturnLastFrame, "return-last-frame", false, "Save the video's last frame as an image for continuation (provider-returned when available, else extracted locally with ffmpeg)")
 	f.StringArrayVarP(&vidImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable); with --gif/--mp4 and no --prompt, also accepts a local video file")
 	f.StringVar(&vidFirstFrame, "first-frame", "", "First frame image URL or local path")
 	f.StringVar(&vidLastFrame, "last-frame", "", "Last frame image URL or local path")

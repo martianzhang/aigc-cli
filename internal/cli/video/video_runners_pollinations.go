@@ -18,7 +18,7 @@ import (
 // Billing follows the model's advertised price: official models are paidOnly
 // and need paid Pollen, while community models can also be priced (a model is
 // free only when its price is zero).
-func runPollinationsVideo(req *types.VideoGenerateRequest) ([]string, error) {
+func runPollinationsVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	if req.Prompt == "" {
 		return nil, fmt.Errorf("prompt is required for pollinations video generation")
 	}
@@ -53,5 +53,5 @@ func runPollinationsVideo(req *types.VideoGenerateRequest) ([]string, error) {
 	fmt.Printf("Size: %d bytes\n", len(data))
 	fmt.Printf("Saved: %s\n", filename)
 	fmt.Printf("Completed in %.0fs\n", elapsed)
-	return []string{filename}, nil
+	return &RunResult{Videos: []string{filename}}, nil
 }

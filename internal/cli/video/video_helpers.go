@@ -22,10 +22,11 @@ func loadVideoDefaults() *types.VideoDefaults {
 }
 
 // GenerateAndSave generates videos via the configured provider and saves them to disk.
-// Handles config merge and API dispatch. Returns paths to saved files.
-// Shared by CLI (video command) and agent loop (chat) — single source of truth.
+// Handles config merge, API dispatch, and return_last_frame last-frame capture.
+// Returns the saved videos (plus any last-frame images). Shared by CLI (video
+// command) and agent loop (chat) — single source of truth.
 // Supports APIMart async and OpenRouter video providers.
-func GenerateAndSave(req *types.VideoGenerateRequest) ([]string, error) {
+func GenerateAndSave(req *types.VideoGenerateRequest) (*RunResult, error) {
 	// Always load the user's config — options.Shared.Cfg may be nil if PersistentPreRunE hasn't run.
 	vidCfg := loadVideoDefaults()
 
@@ -85,7 +86,17 @@ func GenerateAndSave(req *types.VideoGenerateRequest) ([]string, error) {
 	}
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {
-			return s.run(req)
+			out, err := s.run(req)
+			if err != nil {
+				return nil, err
+			}
+			if out == nil {
+				out = &RunResult{}
+			}
+			if wantsLastFrame(req) {
+				saveLastFrames(out)
+			}
+			return out, nil
 		}
 	}
 	return nil, fmt.Errorf("no video strategy matched")
