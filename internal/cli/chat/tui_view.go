@@ -143,7 +143,12 @@ func (m *chatModel) renderStatus() string {
 // ---------------------------------------------------------------------------
 
 func (m *chatModel) refreshViewport() {
+	// Preserve the scroll position when the user has scrolled up to read, and
+	// follow new content only when they are already at the bottom.
+	atBottom := m.viewport.AtBottom()
 	rendered := m.renderMessages()
 	m.viewport.SetContent(rendered)
-	m.viewport.GotoBottom()
+	if atBottom {
+		m.viewport.GotoBottom()
+	}
 }

@@ -55,12 +55,26 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 
+	// ---- mouse wheel scrolls the message viewport ------------------------
+	case tea.MouseMsg:
+		// Without this the wheel falls through to the terminal, which scrolls the
+		// main-screen scrollback and reveals the shell history behind the alt
+		// screen. Forwarding to the viewport keeps scrolling inside the chat.
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
+
 	// ---- streaming -------------------------------------------------------
 	case streamChunk:
 		m.streamBuf.WriteString(strings.ReplaceAll(string(msg), "\r", ""))
 		rendered := m.renderMessagesWithStream()
+		// Only stick to the bottom when the user is already there, so scrolling
+		// up to read during streaming is not immediately yanked back down.
+		atBottom := m.viewport.AtBottom()
 		m.viewport.SetContent(rendered)
-		m.viewport.GotoBottom()
+		if atBottom {
+			m.viewport.GotoBottom()
+		}
 		return m, nil
 
 	// ---- log messages (stderr redirect from tool execution) --------------

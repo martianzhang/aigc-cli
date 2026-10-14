@@ -77,7 +77,8 @@ func (m *chatModel) showHelp() {
   /<tool> <args>       Call a tool directly (e.g. /generate_image {"prompt":"a cat"})
   /preview <file>      Preview an image/video with system viewer
   !<command>           Run a shell command
-  PgUp/PgDn            Scroll conversation output
+  PgUp/PgDn or wheel  Scroll conversation output
+  Shift+drag           Select text (mouse capture is on for wheel scrolling)
   Ctrl+C/D             Quit
   Esc                  Cancel current operation
   F1                   Show this help`
