@@ -19,31 +19,21 @@ func buildWelcomeBanner() string {
 	g := lipgloss.NewStyle().Foreground(lipgloss.Color("#DDCC44"))
 	c := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF8866"))
 
-	b := strings.Builder{}
-	b.WriteByte('\n')
-	b.WriteString(a.Render("      █████") + "  " + i.Render(" ██") + "  " + g.Render(" ██████   ") + "  " + c.Render("   ██████ "))
-	b.WriteString("\n")
-	b.WriteString(a.Render("    ██   ██") + "  " + i.Render(" ██") + "  " + g.Render("██        ") + "  " + c.Render(" ██       "))
-	b.WriteString("\n")
-	b.WriteString(a.Render("   ████████") + "  " + i.Render(" ██") + "  " + g.Render("██     ███") + "  " + c.Render("██        "))
-	b.WriteString("\n")
-	b.WriteString(a.Render("  ██     ██") + "  " + i.Render(" ██") + "  " + g.Render("██      ██") + "  " + c.Render(" ██       "))
-	b.WriteString("\n")
-	b.WriteString(a.Render(" ██      ██") + "  " + i.Render(" ██") + "  " + g.Render("  ██████  ") + "  " + c.Render("   ██████ "))
-	b.WriteString("\n")
+	lines := []string{
+		"",
+		a.Render("    ___ ") + "  " + i.Render("    ____") + "  " + g.Render("    ______") + "  " + c.Render("    _____"),
+		a.Render("   /   |") + "  " + i.Render("   /  _/") + "  " + g.Render("  / _____/") + "  " + c.Render("   / ___/"),
+		a.Render("  / /| |") + "  " + i.Render("   / /  ") + "  " + g.Render(" / /  ____") + "  " + c.Render(" / /     "),
+		a.Render(" / ___ |") + "  " + i.Render(" _/ /   ") + "  " + g.Render("/ /___/ / ") + "  " + c.Render("/ /____  "),
+		a.Render("/_/  |_|") + "  " + i.Render("/___/   ") + "  " + g.Render("\\_____/  ") + "  " + c.Render(" \\____/ "),
+		gray.Render("  ──────────────────────────────────────"),
+		green.Render("  💬  Type a message to start chatting"),
+		yellow.Render("  ⌨️  /help  —  commands & shortcuts"),
+		gray.Render("  🚀  Tab complete  ·  Ctrl+C quit"),
+		gray.Render("  ──────────────────────────────────────"),
+	}
 
-	b.WriteString(gray.Render("  ──────────────────────────────────────"))
-	b.WriteString("\n")
-	b.WriteString(green.Render("  💬  Type a message to start chatting"))
-	b.WriteString("\n")
-	b.WriteString(yellow.Render("  ⌨️  /help  —  commands & shortcuts"))
-	b.WriteString("\n")
-	b.WriteString(gray.Render("  🚀  Tab complete  ·  Ctrl+C quit"))
-	b.WriteString("\n")
-	b.WriteString(gray.Render("  ──────────────────────────────────────"))
-	b.WriteString("\n")
-
-	return b.String()
+	return strings.Join(lines, "\n") + "\n"
 }
 
 func (m *chatModel) modelDisplay() string {
