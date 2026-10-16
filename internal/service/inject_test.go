@@ -50,6 +50,12 @@ func TestReadInjectJSON(t *testing.T) {
 		}
 	})
 
+	t.Run("stdin is rejected", func(t *testing.T) {
+		if _, err := ReadInjectJSON("-"); err == nil {
+			t.Error(`ReadInjectJSON("-") = nil error, want error (stdin not supported)`)
+		}
+	})
+
 	t.Run("missing file is reported", func(t *testing.T) {
 		if _, err := ReadInjectJSON("does-not-exist.json"); err == nil {
 			t.Error("ReadInjectJSON(missing) = nil error, want error")

@@ -251,7 +251,7 @@ Without a prompt: crops the local video (-i file), the original is kept. With a 
 CSS margin shorthand, comma-separated: 40 (all sides) | 40,0 (top/bottom, left/right) | 40,30,20,10 (top,right,bottom,left)`)
 	f.StringVar(&vidFFmpegFlags, "ffmpeg-flags", "", `Extra ffmpeg flags appended after the GIF filter (expert escape hatch)`)
 	f.StringVar(&options.Shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	f.StringVar(&options.Shared.InjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); file path, JSON string, or \"-\" for stdin")
+	f.StringVar(&options.Shared.InjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")
 	f.StringVar(&vidJobID, "job-id", "", "Resume an OpenRouter video job by ID (loads saved job info and downloads the result)")
 
 }

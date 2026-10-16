@@ -75,7 +75,7 @@ Examples:
 func init() {
 	// --- shared persistent flags ---
 	midjourneyCmd.PersistentFlags().BoolVar(&mjDryRun, "dry-run", false, "Print request parameters without calling API")
-	midjourneyCmd.PersistentFlags().StringVar(&mjInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); file path, JSON string, or \"-\" for stdin")
+	midjourneyCmd.PersistentFlags().StringVar(&mjInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")
 
 	// --- imagine ---
 	registerSharedFlags(mjImagineCmd)

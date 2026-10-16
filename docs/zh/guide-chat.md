@@ -401,7 +401,7 @@ aigc-cli chat --json request.json --max-output 1024 --no-stream
 
 - **合并语义**：对象递归合并；**数组拼接**（CLI 的在前，你的在后）；标量/其它值覆盖。
 - **优先级**：typed 字段/CLI 参数 < `--json` < `--inject-json`——`--inject-json` 永远最后生效。
-- 输入与 `--json` 一致：文件路径、内联 JSON 或 `-`（stdin）；值必须是 JSON **对象**，否则直接报错。
+- 输入：文件路径或内联 JSON（**不支持 stdin**——避免和 `--json` / `--prompt` 抢 stdin）；值必须是 JSON **对象**，否则直接报错。
 - **已知限制**：数组只能追加、无法清空或替换；值必须是对象，不接受数组或标量。
 
 > 💡 `--inject-json` 的内容是 **provider 相关**的，CLI 不做转换：`{"enable_search":true}` 只对百炼 OpenAI 兼容协议有效；Anthropic 原生用 `{"tools":[{"type":"web_search_20250305","name":"web_search"}]}`；OpenAI Responses 用 `{"tools":[{"type":"web_search_preview"}]}`；OpenRouter 用 `{"plugins":[{"id":"web"}]}`（或模型名后缀 `:online`）。担心写错时先用 `--dry-run` 看待发 curl。

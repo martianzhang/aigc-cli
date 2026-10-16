@@ -157,7 +157,7 @@ func init() {
 	f.BoolVarP(&chatInteractive, "interactive", "i", false, "Enter interactive multi-turn chat mode")
 	f.BoolVar(&chatDryRun, "dry-run", false, "Print the equivalent curl without calling the API")
 	f.StringVar(&chatSearchProvider, "search-provider", "", "Web search engine for the web_search tool: duckduckgo/firecrawl/brave/doubao, or auto/free/quality (overrides defaults.chat.search_provider)")
-	f.StringVar(&chatInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); file path, JSON string, or \"-\" for stdin")
+	f.StringVar(&chatInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")
 }
 
 // Cmd returns the chat command.

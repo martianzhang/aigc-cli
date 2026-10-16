@@ -220,7 +220,7 @@ When using `--json` with an `openai_responses` provider, the JSON body must be i
 
 - **Merge semantics**: objects recurse; **arrays append** (the CLI's elements first, then yours); every other value overwrites.
 - **Precedence**: typed fields/CLI flags < `--json` < `--inject-json` — the injected snippet always wins.
-- Input matches `--json`: a file path, inline JSON, or `-` (stdin). The value must be a JSON **object**, or the command errors out.
+- Input: a file path or inline JSON (**stdin is not supported** — this avoids competing with other stdin consumers such as `--json` / `--prompt`). The value must be a JSON **object**, or the command errors out.
 - **Known limitation**: arrays can only be appended, never cleared or replaced; only objects are accepted.
 
 > 💡 The snippet is **provider-specific** — the CLI does not translate it. `{"enable_search":true}` only works on Bailian's OpenAI-compatible protocol; Anthropic-native uses `{"tools":[{"type":"web_search_20250305","name":"web_search"}]}`; OpenAI Responses needs `{"tools":[{"type":"web_search_preview"}]}`; OpenRouter uses `{"plugins":[{"id":"web"}]}` (or the model-name suffix `:online`). Run with `--dry-run` first to see the exact curl.

@@ -49,17 +49,28 @@ func ReadJSONInput(input string) ([]byte, error) {
 	return nil, fmt.Errorf("file not found: %s (pass a file path, inline JSON, or \"-\" for stdin)", input)
 }
 
-// ReadInjectJSON resolves a --inject-json value (file path, inline JSON, or
-// "-" for stdin) and validates that it is a JSON object. An empty input yields
-// nil so callers can treat "not provided" and "empty object" the same way.
+// ReadInjectJSON resolves a --inject-json value (a file path or inline JSON) and
+// validates that it is a JSON object. An empty input yields nil so callers can
+// treat "not provided" and "empty object" the same way.
+//
+// Unlike --json, --inject-json deliberately does not read stdin ("-"): the
+// snippet is small, and stdin is a single-consumer resource that other inputs
+// (--json, --prompt) may already own.
 func ReadInjectJSON(input string) (json.RawMessage, error) {
 	if input == "" {
 		return nil, nil
 	}
-	data, err := ReadJSONInput(input)
+	if input == "-" {
+		return nil, fmt.Errorf("--inject-json does not read stdin; pass a file path or an inline JSON object")
+	}
+	if !IsFile(input) && !isInlineJSON(input) {
+		return nil, fmt.Errorf("file not found: %s (pass a file path or an inline JSON object)", input)
+	}
+	data, err := ReadInput(input)
 	if err != nil {
 		return nil, err
 	}
+	data = NormalizeJSONC(data)
 	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, fmt.Errorf("invalid --inject-json: %w", err)
