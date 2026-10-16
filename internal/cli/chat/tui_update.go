@@ -36,10 +36,7 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input.SetWidth(msg.Width - 6)
 		// Reserve at least 6 lines for chrome (header + input box + status bar + padding)
 		chromeHeight := 6
-		vpHeight := msg.Height - chromeHeight
-		if vpHeight < 3 {
-			vpHeight = 3
-		}
+		vpHeight := max(msg.Height-chromeHeight, 3)
 		if !m.ready {
 			m.viewport = viewport.New(msg.Width-2, vpHeight)
 			m.viewport.YPosition = 1

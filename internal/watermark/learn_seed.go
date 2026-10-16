@@ -67,7 +67,7 @@ func meanEdges(img image.Image, w, h int) edgeMeans {
 	const stripW = 6
 
 	top := make([][3]float64, w)
-	for x := 0; x < w; x++ {
+	for x := range w {
 		var sr, sg, sb float64
 		for y := 0; y < stripH && y < h; y++ {
 			r, g, b, _ := img.At(x, y).RGBA()
@@ -80,7 +80,7 @@ func meanEdges(img image.Image, w, h int) edgeMeans {
 	}
 
 	left := make([][3]float64, h)
-	for y := 0; y < h; y++ {
+	for y := range h {
 		var sr, sg, sb float64
 		for x := 0; x < stripW && x < w; x++ {
 			r, g, b, _ := img.At(x, y).RGBA()
@@ -116,7 +116,7 @@ func fitLinear(top, left [][3]float64, _, _ int) bgModel {
 	nx := minInt(nAvg, len(top)/2)
 	if nx > 1 {
 		var sR, sG, sB, eR, eG, eB float64
-		for i := 0; i < nx; i++ {
+		for i := range nx {
 			sR += top[i][0]
 			sG += top[i][1]
 			sB += top[i][2]
@@ -135,7 +135,7 @@ func fitLinear(top, left [][3]float64, _, _ int) bgModel {
 	ny := minInt(nAvg, len(left)/2)
 	if ny > 1 {
 		var sR, sG, sB, eR, eG, eB float64
-		for i := 0; i < ny; i++ {
+		for i := range ny {
 			sR += left[i][0]
 			sG += left[i][1]
 			sB += left[i][2]
@@ -162,7 +162,7 @@ func edgeNoise(img image.Image, w, h int, m bgModel) float64 {
 	var sumSq float64
 	var n float64
 	for y := 0; y < strip && y < h; y++ {
-		for x := 0; x < w; x++ {
+		for x := range w {
 			r, g, b, _ := img.At(x, y).RGBA()
 			lum := (float64(r>>8) + float64(g>>8) + float64(b>>8)) / 3.0
 			mr, mg, mb := m.bgAt(x, y)
@@ -172,7 +172,7 @@ func edgeNoise(img image.Image, w, h int, m bgModel) float64 {
 			n++
 		}
 	}
-	for y := 0; y < h; y++ {
+	for y := range h {
 		for x := 0; x < strip && x < w; x++ {
 			r, g, b, _ := img.At(x, y).RGBA()
 			lum := (float64(r>>8) + float64(g>>8) + float64(b>>8)) / 3.0
@@ -195,8 +195,8 @@ func cornerStd(img image.Image, w, h int) float64 {
 	sampleH := minInt(40, h)
 	var sum, sumSq float64
 	var n float64
-	for y := 0; y < sampleH; y++ {
-		for x := 0; x < sampleW; x++ {
+	for y := range sampleH {
+		for x := range sampleW {
 			r, g, b, _ := img.At(x, y).RGBA()
 			lum := (float64(r>>8) + float64(g>>8) + float64(b>>8)) / 3.0
 			sum += lum

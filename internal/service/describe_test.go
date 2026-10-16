@@ -13,7 +13,7 @@ import (
 )
 
 // createTestJPG builds and writes a small JPEG at path for testing.
-func createTestJPG(t *testing.T, path string, w, h int) {
+func createTestJPG(t *testing.T, path string) {
 	t.Helper()
 	f, err := os.Create(path)
 	if err != nil {
@@ -21,7 +21,7 @@ func createTestJPG(t *testing.T, path string, w, h int) {
 	}
 	defer f.Close()
 
-	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
 	if err := jpeg.Encode(f, img, nil); err != nil {
 		t.Fatalf("failed to encode test JPEG: %v", err)
 	}
@@ -43,7 +43,7 @@ func newTestIfdBuilder(t *testing.T) *exif.IfdBuilder {
 func TestReadDescription_pngWithDescription(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.png")
-	createTestPNG(t, path, 10, 10)
+	createTestPNG(t, path)
 
 	want := "a test description"
 	if err := WriteDescription(path, want); err != nil {
@@ -62,7 +62,7 @@ func TestReadDescription_pngWithDescription(t *testing.T) {
 func TestReadDescription_pngNoDescription(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.png")
-	createTestPNG(t, path, 10, 10)
+	createTestPNG(t, path)
 
 	got, err := ReadDescription(path)
 	if err != nil {
@@ -76,7 +76,7 @@ func TestReadDescription_pngNoDescription(t *testing.T) {
 func TestReadDescription_jpegWithDescription(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.jpg")
-	createTestJPG(t, path, 10, 10)
+	createTestJPG(t, path)
 
 	want := "jpeg description"
 	if err := WriteDescription(path, want); err != nil {
@@ -180,7 +180,7 @@ func TestSetDesc_emptyDescription(t *testing.T) {
 func TestWriteDescription_png(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.png")
-	createTestPNG(t, path, 10, 10)
+	createTestPNG(t, path)
 
 	want := "png write test"
 	if err := WriteDescription(path, want); err != nil {
@@ -199,7 +199,7 @@ func TestWriteDescription_png(t *testing.T) {
 func TestWriteDescription_pngOverwrite(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.png")
-	createTestPNG(t, path, 10, 10)
+	createTestPNG(t, path)
 
 	if err := WriteDescription(path, "original"); err != nil {
 		t.Fatalf("WriteDescription first failed: %v", err)
@@ -220,7 +220,7 @@ func TestWriteDescription_pngOverwrite(t *testing.T) {
 func TestWriteDescription_jpeg(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.jpg")
-	createTestJPG(t, path, 10, 10)
+	createTestJPG(t, path)
 
 	want := "jpeg write test"
 	if err := WriteDescription(path, want); err != nil {
@@ -239,7 +239,7 @@ func TestWriteDescription_jpeg(t *testing.T) {
 func TestWriteDescription_jpegOverwrite(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.jpg")
-	createTestJPG(t, path, 10, 10)
+	createTestJPG(t, path)
 
 	if err := WriteDescription(path, "original"); err != nil {
 		t.Fatalf("WriteDescription first failed: %v", err)
@@ -267,7 +267,7 @@ func TestWriteDescription_nonexistentParentDir(t *testing.T) {
 func TestWriteDescription_emptyDescription(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.png")
-	createTestPNG(t, path, 10, 10)
+	createTestPNG(t, path)
 
 	if err := WriteDescription(path, "before"); err != nil {
 		t.Fatalf("WriteDescription first failed: %v", err)
@@ -302,7 +302,7 @@ func TestWriteDescription_unsupportedFormat(t *testing.T) {
 func TestWritePngDescription_newFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.png")
-	createTestPNG(t, path, 10, 10)
+	createTestPNG(t, path)
 
 	want := "png desc"
 	if err := writePngDescription(path, want); err != nil {
@@ -321,7 +321,7 @@ func TestWritePngDescription_newFile(t *testing.T) {
 func TestWritePngDescription_overwrite(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.png")
-	createTestPNG(t, path, 10, 10)
+	createTestPNG(t, path)
 
 	if err := writePngDescription(path, "first"); err != nil {
 		t.Fatalf("writePngDescription first failed: %v", err)
@@ -351,7 +351,7 @@ func TestWritePngDescription_nonexistentFile(t *testing.T) {
 func TestWriteJpegDescription_newFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.jpg")
-	createTestJPG(t, path, 10, 10)
+	createTestJPG(t, path)
 
 	want := "jpeg desc"
 	if err := writeJpegDescription(path, want); err != nil {
@@ -370,7 +370,7 @@ func TestWriteJpegDescription_newFile(t *testing.T) {
 func TestWriteJpegDescription_overwrite(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.jpg")
-	createTestJPG(t, path, 10, 10)
+	createTestJPG(t, path)
 
 	if err := writeJpegDescription(path, "first"); err != nil {
 		t.Fatalf("writeJpegDescription first failed: %v", err)
@@ -400,7 +400,7 @@ func TestWriteJpegDescription_nonexistentFile(t *testing.T) {
 func TestReadJpegDescription_noExif(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.jpg")
-	createTestJPG(t, path, 10, 10)
+	createTestJPG(t, path)
 
 	got, err := readJpegDescription(path)
 	if err != nil {
@@ -416,7 +416,7 @@ func TestReadJpegDescription_noExif(t *testing.T) {
 func TestReadPngDescription_noExif(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.png")
-	createTestPNG(t, path, 10, 10)
+	createTestPNG(t, path)
 
 	got, err := readPngDescription(path)
 	if err != nil {

@@ -25,9 +25,9 @@ defaults:
     allow_tool_override: false
 `
 
-func writeFixture(t *testing.T, name, content string) string {
+func writeFixture(t *testing.T, content string) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), name)
+	path := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write fixture: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestLoadNodeMissingFile(t *testing.T) {
 }
 
 func TestNodeAt(t *testing.T) {
-	path := writeFixture(t, "config.yaml", nodeFixture)
+	path := writeFixture(t, nodeFixture)
 	doc, err := LoadNode(path)
 	if err != nil {
 		t.Fatalf("LoadNode() error = %v", err)

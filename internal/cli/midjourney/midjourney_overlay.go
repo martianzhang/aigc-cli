@@ -30,10 +30,10 @@ func (o *mjOverlay) str(flag, key, val string) *mjOverlay {
 	return o
 }
 
-// strs records a string-slice flag (e.g. repeated --image-url) when set.
-func (o *mjOverlay) strs(flag, key string, val []string) *mjOverlay {
-	if o.cmd.Flags().Changed(flag) {
-		o.set[key] = val
+// imageURLs records the repeated --image-url flag into "image_urls" when set.
+func (o *mjOverlay) imageURLs(val []string) *mjOverlay {
+	if o.cmd.Flags().Changed("image-url") {
+		o.set["image_urls"] = val
 	}
 	return o
 }
@@ -91,7 +91,7 @@ func mjImagineOverlay(cmd *cobra.Command) (*mjOverlay, error) {
 		o.set["prompt"] = prompt
 	}
 	return o.
-		strs("image-url", "image_urls", mjImageURLs).
+		imageURLs(mjImageURLs).
 		str("speed", "speed", mjSpeed).
 		str("size", "size", mjSize).
 		str("quality", "quality", mjQuality).
@@ -122,7 +122,7 @@ func mjImagineOverlay(cmd *cobra.Command) (*mjOverlay, error) {
 // mjBlendOverlay maps blend flags onto types.MJBlendRequest.
 func mjBlendOverlay(cmd *cobra.Command) *mjOverlay {
 	return newMJOverlay(cmd).
-		strs("image-url", "image_urls", mjImageURLs).
+		imageURLs(mjImageURLs).
 		str("dimensions", "dimensions", mjDimensions).
 		str("size", "size", mjSize).
 		str("speed", "speed", mjSpeed)
@@ -131,7 +131,7 @@ func mjBlendOverlay(cmd *cobra.Command) *mjOverlay {
 // mjDescribeOverlay maps describe flags onto types.MJDescribeRequest.
 func mjDescribeOverlay(cmd *cobra.Command) *mjOverlay {
 	return newMJOverlay(cmd).
-		strs("image-url", "image_urls", mjImageURLs).
+		imageURLs(mjImageURLs).
 		str("speed", "speed", mjSpeed)
 }
 
@@ -185,7 +185,7 @@ func mjModalOverlay(cmd *cobra.Command) *mjOverlay {
 func mjVideoOverlay(cmd *cobra.Command) *mjOverlay {
 	return newMJOverlay(cmd).
 		str("prompt", "prompt", mjPrompt).
-		strs("image-url", "image_urls", mjImageURLs).
+		imageURLs(mjImageURLs).
 		str("task-id", "task_id", mjTaskID).
 		intFlag("index", "index", mjIndex).
 		str("video-type", "video_type", mjVideoType).

@@ -19,8 +19,8 @@ func scoreCandidate(gray, grad []float64, imgW, imgH int,
 	// Use the square size for detection (alpha and alphaGrad are also size×size)
 	grayRegion := make([]float64, size*size)
 	gradRegion := make([]float64, size*size)
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
+	for y := range size {
+		for x := range size {
 			gi := (cy+y)*imgW + cx + x
 			li := y*size + x
 			grayRegion[li] = gray[gi]
@@ -88,8 +88,8 @@ func scoreCandidateRect(gray, grad []float64, imgW, imgH int,
 	// Extract rectangular region from grayscale and gradient
 	grayRegion := make([]float64, aw*ah)
 	gradRegion := make([]float64, aw*ah)
-	for y := 0; y < ah; y++ {
-		for x := 0; x < aw; x++ {
+	for y := range ah {
+		for x := range aw {
 			gi := (cy+y)*imgW + cx + x
 			li := y*aw + x
 			grayRegion[li] = gray[gi]
@@ -132,10 +132,7 @@ func scoreCandidateRect(gray, grad []float64, imgW, imgH int,
 	confidence := spatial*0.5 + gradientScore*0.3 + varianceScore*0.2
 
 	// Use min dimension as size for compatibility
-	sz := aw
-	if ah < sz {
-		sz = ah
-	}
+	sz := min(ah, aw)
 	return &candidate{
 		x: cx, y: cy, size: sz, w: aw, h: ah,
 		spatial:    spatial,
@@ -148,8 +145,8 @@ func scoreCandidateRect(gray, grad []float64, imgW, imgH int,
 // toGrayscale converts an image to normalized [0,1] float64 grayscale.
 func toGrayscale(img image.Image, w, h int) []float64 {
 	gray := make([]float64, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			r, g, b, _ := img.At(x, y).RGBA()
 			lum := 0.2126*float64(r>>8) + 0.7152*float64(g>>8) + 0.0722*float64(b>>8)
 			gray[y*w+x] = lum / 255.0
@@ -181,14 +178,14 @@ func ncc(a, b []float64) float64 {
 		return 0
 	}
 	var sumA, sumB float64
-	for i := 0; i < n; i++ {
+	for i := range n {
 		sumA += a[i]
 		sumB += b[i]
 	}
 	meanA := sumA / float64(n)
 	meanB := sumB / float64(n)
 	var num, denA, denB float64
-	for i := 0; i < n; i++ {
+	for i := range n {
 		da := a[i] - meanA
 		db := b[i] - meanB
 		num += da * db
@@ -205,8 +202,8 @@ func ncc(a, b []float64) float64 {
 // regionVariance computes the variance of a rectangular region in grayscale.
 func regionVariance(gray []float64, stride int, x, y, w, h int) float64 {
 	var sum, sumSq, n float64
-	for dy := 0; dy < h; dy++ {
-		for dx := 0; dx < w; dx++ {
+	for dy := range h {
+		for dx := range w {
 			v := gray[(y+dy)*stride+x+dx]
 			sum += v
 			sumSq += v * v
@@ -228,12 +225,12 @@ func resizeAlpha(src []float64, sw, sh, dw, dh int) []float64 {
 		return dst
 	}
 	dst := make([]float64, dw*dh)
-	for dy := 0; dy < dh; dy++ {
+	for dy := range dh {
 		sy := float64(dy) * float64(sh-1) / float64(maxInt(dh-1, 1))
 		iy0 := int(sy)
 		iy1 := minInt(iy0+1, sh-1)
 		fy := sy - float64(iy0)
-		for dx := 0; dx < dw; dx++ {
+		for dx := range dw {
 			sx := float64(dx) * float64(sw-1) / float64(maxInt(dw-1, 1))
 			ix0 := int(sx)
 			ix1 := minInt(ix0+1, sw-1)

@@ -191,10 +191,7 @@ func readExifSoftware(exifData []byte) string {
 			}
 			// Otherwise read at value offset if reasonable
 			if int(valueOffset)+64 <= len(exifData) {
-				end := int(valueOffset) + 64
-				if end > len(exifData) {
-					end = len(exifData)
-				}
+				end := min(int(valueOffset)+64, len(exifData))
 				sw = strings.TrimRight(string(exifData[valueOffset:end]), "\000")
 				if !hasControlChars(sw) && sw != "" {
 					return sw

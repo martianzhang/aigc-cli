@@ -54,7 +54,7 @@ func (c *Client) AudioSpeech(req *types.AudioSpeechRequest) ([]byte, string, err
 // audio and returns the transcribed text with usage statistics.
 func (c *Client) AudioTranscribe(req *types.AudioTranscribeRequest) (*types.AudioTranscribeResponse, error) {
 	var result types.AudioTranscribeResponse
-	if err := c.doJSON(http.MethodPost, audioTranscribePath, req, &result); err != nil {
+	if err := c.doJSON(audioTranscribePath, req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

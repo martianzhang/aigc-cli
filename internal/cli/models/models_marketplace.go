@@ -200,11 +200,11 @@ func mainDomain(baseURL string) string {
 	baseURL = strings.TrimRight(baseURL, "/")
 	baseURL = strings.TrimSuffix(baseURL, "/v1")
 
-	if strings.HasPrefix(baseURL, "https://api.") {
-		return "https://" + strings.TrimPrefix(baseURL, "https://api.")
+	if after, ok := strings.CutPrefix(baseURL, "https://api."); ok {
+		return "https://" + after
 	}
-	if strings.HasPrefix(baseURL, "http://api.") {
-		return "http://" + strings.TrimPrefix(baseURL, "http://api.")
+	if after, ok := strings.CutPrefix(baseURL, "http://api."); ok {
+		return "http://" + after
 	}
 	return baseURL
 }

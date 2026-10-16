@@ -98,11 +98,11 @@ func resolveImageBytes(content []byte) ([]byte, error) {
 
 	// data: URI
 	if strings.HasPrefix(s, "data:") {
-		commaIdx := strings.Index(s, ",")
-		if commaIdx < 0 {
+		_, after, ok := strings.Cut(s, ",")
+		if !ok {
 			return nil, fmt.Errorf("malformed data URI (missing comma)")
 		}
-		data, err := decodeBase64Any(s[commaIdx+1:])
+		data, err := decodeBase64Any(after)
 		if err != nil {
 			return nil, fmt.Errorf("decode data URI base64: %w", err)
 		}

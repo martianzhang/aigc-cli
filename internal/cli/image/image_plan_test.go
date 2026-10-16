@@ -56,9 +56,9 @@ func planBodyJSON(t *testing.T, body any) string {
 
 func uploadServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	var count int32
+	var count atomic.Int32
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		n := atomic.AddInt32(&count, 1) - 1
+		n := count.Add(1) - 1
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = fmt.Fprintf(w, `{"url":"https://cdn.example.com/up%d.png"}`, n)
 	}))
@@ -247,9 +247,9 @@ func TestBuildImagePlanRouting(t *testing.T) {
 }
 
 func TestBuildImagePlanDryRunNoNetwork(t *testing.T) {
-	var requests int32
+	var requests atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddInt32(&requests, 1)
+		requests.Add(1)
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
@@ -264,7 +264,7 @@ func TestBuildImagePlanDryRunNoNetwork(t *testing.T) {
 	if !strings.Contains(curl, "/uploads/images") {
 		t.Errorf("preview should render the upload curl, got:\n%s", curl)
 	}
-	if got := atomic.LoadInt32(&requests); got != 0 {
+	if got := requests.Load(); got != 0 {
 		t.Fatalf("dry-run preview made %d network request(s), want 0", got)
 	}
 	if req.ImageURLs[0] != local {

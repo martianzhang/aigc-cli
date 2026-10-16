@@ -129,7 +129,7 @@ func convertDepthHandler(cfg *Config) server.ToolHandlerFunc {
 // parseAnnotate 解析 annotate 参数为标注选项。
 func parseAnnotate(s string) annotate.Options {
 	var opts annotate.Options
-	for _, part := range strings.Split(s, ",") {
+	for part := range strings.SplitSeq(s, ",") {
 		switch strings.TrimSpace(strings.ToLower(part)) {
 		case "skeleton":
 			opts.Skeleton = true

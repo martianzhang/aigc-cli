@@ -101,7 +101,8 @@ func TestIsScanned(t *testing.T) {
 // span constructs a TextSpan with X and EndX explicitly set, where EndX
 // is computed as X + (runeCount * fontSize * 0.5) to mimic the gopdf
 // default for proportional fonts.
-func span(x, fontSize float64, text string) gopdf.TextSpan {
+func span(x float64, text string) gopdf.TextSpan {
+	const fontSize = 11.8
 	endX := x + float64(len([]rune(text)))*fontSize*0.5
 	return gopdf.TextSpan{X: x, EndX: endX, FontSize: fontSize, Text: text}
 }
@@ -119,7 +120,7 @@ func TestJoinSpansWithSpacing(t *testing.T) {
 		},
 		{
 			name:  "single span",
-			spans: []gopdf.TextSpan{span(100, 11.8, "hello")},
+			spans: []gopdf.TextSpan{span(100, "hello")},
 			want:  "hello ",
 		},
 		{
@@ -127,7 +128,7 @@ func TestJoinSpansWithSpacing(t *testing.T) {
 			// gap between "1" end (~293) and "199.6" start (300) = 7px
 			// 7 < 11.8*2=23.6, so no space.
 			spans: []gopdf.TextSpan{
-				span(287, 11.8, "1"),
+				span(287, "1"),
 				{X: 300, EndX: 370, FontSize: 11.8, Text: "199.6"},
 			},
 			want: "1199.6 ",
@@ -139,9 +140,9 @@ func TestJoinSpansWithSpacing(t *testing.T) {
 			// - "199.6" at X=340, end ~370 (gap 47 > 23.6 → space)
 			// - "199.60" at X=407, end ~437 (gap 37 > 23.6 → space)
 			spans: []gopdf.TextSpan{
-				span(287, 11.8, "1"),
-				span(340, 11.8, "199.6"),
-				span(407, 11.8, "199.60"),
+				span(287, "1"),
+				span(340, "199.6"),
+				span(407, "199.60"),
 			},
 			want: "1 199.6 199.60 ",
 		},

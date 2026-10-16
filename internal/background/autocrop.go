@@ -11,8 +11,8 @@ func findBounds(alpha []uint8, w, h int) (x0, y0, x1, y1 int, ok bool) {
 	x0, y0 = w, h
 	x1, y1 = -1, -1
 
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			if alpha[y*w+x] > 0 {
 				if x < x0 {
 					x0 = x
@@ -125,9 +125,9 @@ func cropImage(rgba []uint8, srcW, _ int, x0, y0, x1, y1 int) ([]uint8, int, int
 	dstH := y1 - y0 + 1
 	dst := make([]uint8, dstW*dstH*4)
 
-	for dy := 0; dy < dstH; dy++ {
+	for dy := range dstH {
 		sy := y0 + dy
-		for dx := 0; dx < dstW; dx++ {
+		for dx := range dstW {
 			sx := x0 + dx
 			srcIdx := sy*srcW*4 + sx*4
 			dstIdx := dy*dstW*4 + dx*4

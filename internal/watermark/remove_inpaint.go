@@ -24,8 +24,8 @@ func checkOversubtraction(img image.Image, alpha []float64, ax, ay, aw, ah int, 
 	// Build body mask (alpha > 0.15 = glyph strokes)
 	bodyMask := make([]bool, aw*ah)
 	hasBody := false
-	for row := 0; row < ah; row++ {
-		for col := 0; col < aw; col++ {
+	for row := range ah {
+		for col := range aw {
 			if alpha[row*aw+col] > 0.15 {
 				bodyMask[row*aw+col] = true
 				hasBody = true
@@ -93,8 +93,8 @@ func inpaintResidual(src *image.RGBA, alpha []float64, ax, ay, aw, ah int, floor
 
 	// Build flat binary mask: dilate the alpha footprint
 	mask := make([]bool, imgW*imgH)
-	for row := 0; row < ah; row++ {
-		for col := 0; col < aw; col++ {
+	for row := range ah {
+		for col := range aw {
 			if alpha[row*aw+col] > floor {
 				py, px := ay+row, ax+col
 				for dy := -dilate; dy <= dilate; dy++ {
@@ -116,8 +116,8 @@ func inpaintResidual(src *image.RGBA, alpha []float64, ax, ay, aw, ah int, floor
 		// Find boundary pixels: masked pixels with at least one non-masked neighbor
 		type bp struct{ x, y int }
 		var boundary []bp
-		for y := 0; y < imgH; y++ {
-			for x := 0; x < imgW; x++ {
+		for y := range imgH {
+			for x := range imgW {
 				if !mask[y*imgW+x] {
 					continue
 				}
@@ -210,8 +210,8 @@ func inpaintRect(src *image.RGBA, ax, ay, aw, ah int) *image.RGBA {
 	for {
 		type bp struct{ x, y int }
 		var boundary []bp
-		for y := 0; y < imgH; y++ {
-			for x := 0; x < imgW; x++ {
+		for y := range imgH {
+			for x := range imgW {
 				if !mask[y*imgW+x] {
 					continue
 				}
@@ -356,7 +356,7 @@ func inpaintBadgeMedian(src *image.RGBA, srcAlpha []float64, srcW, srcH, ax, ay,
 	sampleHeight := maxInt(60, ah*2)
 	sampleY1 := maxInt(0, ay-sampleHeight)
 
-	for col := 0; col < aw; col++ {
+	for col := range aw {
 		var samplesR, samplesG, samplesB []float64
 		px := ax + col
 		if px < 0 || px >= imgW {
@@ -377,7 +377,7 @@ func inpaintBadgeMedian(src *image.RGBA, srcAlpha []float64, srcW, srcH, ax, ay,
 		bgB := medianFloat(samplesB)
 
 		// Apply to badge pixels in this column where alpha > alphaFloor
-		for row := 0; row < ah; row++ {
+		for row := range ah {
 			if alpha[row*aw+col] > alphaFloor {
 				py := ay + row
 				if py < 0 || py >= imgH {
@@ -439,8 +439,8 @@ func textureCopyFill(src, dst *image.RGBA, alpha []float64, ax, ay, aw, ah int, 
 	ringHeight := minInt(8, bandHeight)
 	var ringR, ringG, ringB, ringN float64
 	var patchR, patchG, patchB, patchN float64
-	for row := 0; row < ah; row++ {
-		for col := 0; col < aw; col++ {
+	for row := range ah {
+		for col := range aw {
 			if alpha[row*aw+col] <= alphaFloor {
 				continue
 			}
@@ -478,12 +478,12 @@ func textureCopyFill(src, dst *image.RGBA, alpha []float64, ax, ay, aw, ah int, 
 	// Copy the patch with per-channel offset. Feather the top rows into the
 	// natural image content above so the horizontal seam is invisible.
 	featherRows := maxInt(2, minInt(4, ah/8))
-	for row := 0; row < ah; row++ {
+	for row := range ah {
 		py := ay + row
 		if py < 0 || py >= imgH {
 			continue
 		}
-		for col := 0; col < aw; col++ {
+		for col := range aw {
 			if alpha[row*aw+col] <= alphaFloor {
 				continue
 			}

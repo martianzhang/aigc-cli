@@ -199,7 +199,7 @@ func TestOutputResource_noOutputDirectory(t *testing.T) {
 
 func TestOutputResource_capsListing(t *testing.T) {
 	dir := t.TempDir()
-	for i := 0; i < maxResourceEntries+5; i++ {
+	for i := range maxResourceEntries + 5 {
 		writeFile(t, filepath.Join(dir, fmt.Sprintf("f%03d.txt", i)), "x")
 	}
 

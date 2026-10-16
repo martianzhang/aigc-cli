@@ -32,7 +32,7 @@ var providerTests = []providerTestCase{
 func findProjectRoot() string {
 	_, file, _, _ := runtime.Caller(0)
 	dir := filepath.Dir(file)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if _, err := os.Stat(filepath.Join(dir, ".testdata")); err == nil {
 			return dir
 		}

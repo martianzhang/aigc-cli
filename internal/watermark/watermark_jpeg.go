@@ -85,14 +85,14 @@ func qualityFromDQT(dqtData []byte) int {
 
 	var table [64]int
 	if precision == 0 {
-		for i := 0; i < 64; i++ {
+		for i := range 64 {
 			table[i] = int(dqtData[1+i])
 		}
 	} else {
 		if len(dqtData) < 129 {
 			return 0
 		}
-		for i := 0; i < 64; i++ {
+		for i := range 64 {
 			table[i] = int(binary.BigEndian.Uint16(dqtData[1+i*2:]))
 		}
 	}
@@ -103,7 +103,7 @@ func qualityFromDQT(dqtData []byte) int {
 	var qSum float64
 	var qCount float64
 
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		t := table[i]
 		s := standardLumTable[i]
 		if s == 0 || t == 0 {

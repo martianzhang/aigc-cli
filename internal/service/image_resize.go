@@ -34,10 +34,7 @@ func ResizeImageBytes(data []byte, maxEdge int) (out []byte, resized bool, err e
 	}
 	bounds := img.Bounds()
 	w, h := bounds.Dx(), bounds.Dy()
-	longest := w
-	if h > longest {
-		longest = h
-	}
+	longest := max(h, w)
 	if longest <= maxEdge {
 		return data, false, nil
 	}

@@ -280,13 +280,13 @@ func anthropicVisionChat(p *EffectiveProvider, b64Image, mimeType, textPrompt st
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return "", fmt.Errorf("parse response: %w", err)
 	}
-	var text string
+	var text strings.Builder
 	for _, block := range result.Content {
 		if block.Type == "text" {
-			text += block.Text
+			text.WriteString(block.Text)
 		}
 	}
-	return strings.TrimSpace(text), nil
+	return strings.TrimSpace(text.String()), nil
 }
 
 // hasVersionSuffix checks if a URL ends with a version path segment like /v1, /v2.

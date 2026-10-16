@@ -42,7 +42,7 @@ var testDictWords = []string{
 func newTestEngineWithDict(t *testing.T, extra ...string) *Engine {
 	t.Helper()
 	e := &Engine{wsWordSet: make(map[string]bool)}
-	for _, w := range strings.Fields(shortWords) {
+	for w := range strings.FieldsSeq(shortWords) {
 		e.wsWordSet[w] = true
 	}
 	for _, w := range testDictWords {

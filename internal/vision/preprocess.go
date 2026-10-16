@@ -44,9 +44,9 @@ func PreprocessImageFromImage(img image.Image, targetSize int) ([]float32, error
 	// Convert to CHW float32 and normalize with ImageNet stats
 	pixels := make([]float32, 3*targetSize*targetSize)
 	idx := 0
-	for c := 0; c < 3; c++ {
-		for y := 0; y < targetSize; y++ {
-			for x := 0; x < targetSize; x++ {
+	for c := range 3 {
+		for y := range targetSize {
+			for x := range targetSize {
 				r, g, b, _ := resized.At(x, y).RGBA()
 				var val float32
 				switch c {

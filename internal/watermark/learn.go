@@ -182,7 +182,7 @@ func crc32IEEE(data []byte) uint32 {
 	var crc uint32 = 0xFFFFFFFF
 	for _, b := range data {
 		crc ^= uint32(b)
-		for i := 0; i < 8; i++ {
+		for range 8 {
 			if crc&1 != 0 {
 				crc = (crc >> 1) ^ 0xEDB88320
 			} else {
@@ -207,8 +207,8 @@ func LoadWatermarkPNG(path string) (*LearnResult, error) {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
 	alphaData := make([]float64, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			r, _, _, _ := img.At(x, y).RGBA()
 			// RGBA() always returns 16-bit values [0, 65535].
 			// For 8-bit PNG: r = Y*257 (Go scales 8→16), so r/65535 = Y/255

@@ -86,10 +86,7 @@ func LoadOrBuildEmbeddings(entries []IdeaEntry, embedder knowledge.Embedder, dat
 	}
 	vectors := make([][]float32, len(texts))
 	for i := 0; i < len(texts); i += embedBatchSize {
-		end := i + embedBatchSize
-		if end > len(texts) {
-			end = len(texts)
-		}
+		end := min(i+embedBatchSize, len(texts))
 		batch, err := knowledge.EmbedAll(embedder, texts[i:end])
 		if err != nil {
 			return nil, fmt.Errorf("embed entries %d-%d: %w", i, end, err)
@@ -209,9 +206,9 @@ func loadEmbeddingCache(path, model string, dim, count int, hash uint64) ([][]fl
 		return nil, false
 	}
 	vectors := make([][]float32, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		v := make([]float32, dim)
-		for j := 0; j < dim; j++ {
+		for j := range dim {
 			v[j] = math.Float32frombits(binary.LittleEndian.Uint32(data[off:]))
 			off += 4
 		}

@@ -105,9 +105,9 @@ func FetchBytes(rawURL string) ([]byte, error) {
 
 	// data: URI
 	if strings.HasPrefix(cleaned, "data:") {
-		commaIdx := strings.Index(cleaned, ",")
-		if commaIdx >= 0 {
-			b64 := cleaned[commaIdx+1:]
+		_, after, ok := strings.Cut(cleaned, ",")
+		if ok {
+			b64 := after
 			if data, err := decodeBase64Any(b64); err == nil {
 				return data, nil
 			}
@@ -300,9 +300,9 @@ func SaveResource(source, dest string) error {
 
 	// data URI — strip header and decode
 	if strings.HasPrefix(cleaned, "data:") {
-		commaIdx := strings.Index(cleaned, ",")
-		if commaIdx >= 0 {
-			if data, err := decodeBase64Any(cleaned[commaIdx+1:]); err == nil {
+		_, after, ok := strings.Cut(cleaned, ",")
+		if ok {
+			if data, err := decodeBase64Any(after); err == nil {
 				return os.WriteFile(dest, data, 0644)
 			}
 		}

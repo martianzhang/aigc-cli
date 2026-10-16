@@ -25,7 +25,7 @@ func parseImageURLs(raw string) []string {
 		return nil
 	}
 	var urls []string
-	for _, u := range strings.Split(raw, ",") {
+	for u := range strings.SplitSeq(raw, ",") {
 		u = strings.TrimSpace(u)
 		if u != "" {
 			urls = append(urls, u)

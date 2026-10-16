@@ -19,7 +19,7 @@ func alignByNCC(mask []float64, maskW, maskH, maskX, maskY int,
 	// Scale search: 11 steps from AlignSearchMin to AlignSearchMax
 	nSteps := 11
 	scales := make([]float64, nSteps)
-	for i := 0; i < nSteps; i++ {
+	for i := range nSteps {
 		scales[i] = p.AlignSearchMin + (p.AlignSearchMax-p.AlignSearchMin)*float64(i)/float64(nSteps-1)
 	}
 
@@ -97,10 +97,10 @@ func nccRegionFast(mask []float64, maskW, mx, my, aw, ah int,
 
 	n := float64(aw * ah)
 	var mSum, mSumSq, dot float64
-	for y := 0; y < ah; y++ {
+	for y := range ah {
 		mi := (my+y)*maskW + mx
 		ti := y * aw
-		for x := 0; x < aw; x++ {
+		for x := range aw {
 			mv := mask[mi+x]
 			tv := template[ti+x]
 			mSum += mv

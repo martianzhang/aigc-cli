@@ -3,7 +3,6 @@ package client
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -18,7 +17,7 @@ const (
 func (c *Client) MidjourneySubmit(action string, reqBody any) (*types.MJSubmitResponse, error) {
 	path := mjSubmitPath + action
 	var result types.MJSubmitResponse
-	if err := c.doJSON(http.MethodPost, path, reqBody, &result); err != nil {
+	if err := c.doJSON(path, reqBody, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

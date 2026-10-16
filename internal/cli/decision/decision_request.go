@@ -199,14 +199,14 @@ func imageInputBytes(in string) ([]byte, string, error) {
 // stripDataURIBase64 extracts the raw base64 payload from a data: URI.
 // The bytes themselves are not re-validated; the provider decodes them.
 func stripDataURIBase64(uri string) (string, error) {
-	comma := strings.Index(uri, ",")
-	if comma < 0 {
+	before, after, ok := strings.Cut(uri, ",")
+	if !ok {
 		return "", fmt.Errorf("invalid data URI: missing comma")
 	}
-	if !strings.Contains(uri[:comma], ";base64") {
+	if !strings.Contains(before, ";base64") {
 		return "", fmt.Errorf("data URI must be base64-encoded")
 	}
-	payload := uri[comma+1:]
+	payload := after
 	if payload == "" {
 		return "", fmt.Errorf("data URI contains no data")
 	}

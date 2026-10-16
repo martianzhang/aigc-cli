@@ -30,10 +30,7 @@ func parseShadowConfig(opts *Options) shadowConfig {
 		return shadowConfig{}
 	}
 	dx, dy := opts.ShadowOffset[0], opts.ShadowOffset[1]
-	blur := opts.ShadowBlur
-	if blur < 0 {
-		blur = 0
-	}
+	blur := max(opts.ShadowBlur, 0)
 	opacity := opts.ShadowOpacity
 	if opacity <= 0 {
 		opacity = 40
@@ -70,8 +67,8 @@ func applyShadow(outPixels []uint8, w, h int, alpha []uint8, cfg shadowConfig) {
 	// The shadow is at offset (dx,dy) from the subject.
 	// Read original alpha at (sx,sy), write to shadow at (sx+dx, sy+dy).
 	shadowAlpha := make([]uint8, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			sx := x - cfg.offsetX
 			sy := y - cfg.offsetY
 			if sx >= 0 && sx < w && sy >= 0 && sy < h {

@@ -16,8 +16,8 @@ func createTestJPEG(t *testing.T, dir string, quality int) string {
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, 100, 100))
 	// Fill with gradient to make it non-trivial to compress
-	for y := 0; y < 100; y++ {
-		for x := 0; x < 100; x++ {
+	for y := range 100 {
+		for x := range 100 {
 			img.Set(x, y, color.RGBA{
 				R: uint8(x * 2),
 				G: uint8(y * 2),
@@ -266,8 +266,8 @@ func TestCompressImage_BinarySearch(t *testing.T) {
 	dir := t.TempDir()
 	// Create a larger image for binary search to be meaningful
 	img := image.NewRGBA(image.Rect(0, 0, 200, 200))
-	for y := 0; y < 200; y++ {
-		for x := 0; x < 200; x++ {
+	for y := range 200 {
+		for x := range 200 {
 			img.Set(x, y, color.RGBA{
 				R: uint8((x + y) * 3 % 256),
 				G: uint8((x * y) % 256),

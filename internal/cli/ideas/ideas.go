@@ -178,10 +178,7 @@ func run(d Deps, args []string, f *cmdFlags) error {
 		})
 	}
 
-	limit := f.limit
-	if limit > total {
-		limit = total
-	}
+	limit := min(f.limit, total)
 	results = results[:limit]
 
 	if f.preview && !f.save {

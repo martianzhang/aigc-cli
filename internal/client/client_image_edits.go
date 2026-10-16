@@ -1,8 +1,6 @@
 package client
 
 import (
-	"net/http"
-
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -47,7 +45,7 @@ func ImageEditsBody(req *types.GenerateRequest) any {
 // be usable strings (public URLs or data: URIs); this method never reads files.
 func (c *Client) ImageGenerateEdits(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
 	var result types.OpenAIImageResponse
-	if err := c.doJSON(http.MethodPost, ImageEditsPath, ImageEditsBody(req), &result); err != nil {
+	if err := c.doJSON(ImageEditsPath, ImageEditsBody(req), &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

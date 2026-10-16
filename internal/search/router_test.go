@@ -739,7 +739,7 @@ func TestRouterSortByWeight(t *testing.T) {
 			}
 
 			// Weighted selection is random; assert the invariants over many runs.
-			for i := 0; i < 20; i++ {
+			for i := range 20 {
 				got := r.sortByWeight(tc.candidates)
 				if !sameElements(got, tc.candidates) {
 					t.Fatalf("sortByWeight(%v) run %d = %v, want a permutation", tc.candidates, i, got)
@@ -761,7 +761,7 @@ func TestRouterSortByWeightPrefersHigherWeight(t *testing.T) {
 
 	const rounds = 200
 	heavyFirst := 0
-	for i := 0; i < rounds; i++ {
+	for range rounds {
 		got := r.sortByWeight([]string{"heavy", "light"})
 		if !sameElements(got, []string{"heavy", "light"}) {
 			t.Fatalf("sortByWeight returned %v, want both providers", got)
@@ -923,12 +923,12 @@ func TestRouterConcurrentAccess(t *testing.T) {
 	const workers = 8
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
 			name := fmt.Sprintf("dynamic-%d", id)
-			for j := 0; j < 25; j++ {
+			for range 25 {
 				r.Register(name, &mockProvider{name: name}, nil)
 				if _, ok := r.GetProvider(name); !ok {
 					t.Errorf("GetProvider(%q) = false after Register", name)
@@ -937,11 +937,9 @@ func TestRouterConcurrentAccess(t *testing.T) {
 			}
 		}(i)
 	}
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 25; j++ {
+	for range workers {
+		wg.Go(func() {
+			for range 25 {
 				got, err := r.Search("concurrent", 1, "manual", []string{"alpha"})
 				if err != nil {
 					t.Errorf("Search() error = %v", err)
@@ -952,7 +950,7 @@ func TestRouterConcurrentAccess(t *testing.T) {
 					return
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 

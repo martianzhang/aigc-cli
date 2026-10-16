@@ -246,7 +246,7 @@ func TestStore_ListDocuments(t *testing.T) {
 	if len(docs) != 0 {
 		t.Errorf("expected 0, got %d", len(docs))
 	}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		id := fmt.Sprintf("doc_%d", i)
 		s.SaveDocument(&Document{ID: id, Title: "Doc " + id, Size: 10, Checksum: id})
 	}
@@ -261,7 +261,7 @@ func TestStore_ListDocuments(t *testing.T) {
 
 func TestEmbeddingBlobRoundtrip(t *testing.T) {
 	orig := make(Embedding, 384)
-	for i := 0; i < 384; i++ {
+	for i := range 384 {
 		orig[i] = float32(i) / 384.0
 	}
 	blob := embeddingToBlob(orig)

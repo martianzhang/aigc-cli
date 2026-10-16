@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -10,7 +9,7 @@ import (
 // VideoSubmit sends a video generation request and returns the task submission.
 func (c *Client) VideoSubmit(req *types.VideoGenerateRequest) (*types.VideoGenerateResponse, error) {
 	var result types.VideoGenerateResponse
-	if err := c.doJSON(http.MethodPost, VideoSubmitPath, req, &result); err != nil {
+	if err := c.doJSON(VideoSubmitPath, req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -20,7 +19,7 @@ func (c *Client) VideoSubmit(req *types.VideoGenerateRequest) (*types.VideoGener
 func (c *Client) VideoRemixSubmit(taskID string, req *types.VideoRemixRequest) (*types.VideoRemixResponse, error) {
 	path := fmt.Sprintf("/videos/%s/remix", taskID)
 	var result types.VideoRemixResponse
-	if err := c.doJSON(http.MethodPost, path, req, &result); err != nil {
+	if err := c.doJSON(path, req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

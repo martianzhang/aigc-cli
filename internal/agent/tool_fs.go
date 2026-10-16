@@ -123,10 +123,7 @@ func ReadFileWithPolicy(argsJSON string, deny []string) string {
 	}
 
 	// Return the requested slice
-	end := args.Offset + args.Limit
-	if end > totalSize {
-		end = totalSize
-	}
+	end := min(args.Offset+args.Limit, totalSize)
 	chunk := string(content[args.Offset:end])
 	remaining := totalSize - end
 

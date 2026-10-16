@@ -36,10 +36,7 @@ func scanForC2PA(r io.Reader) []byte {
 	if start > 64 {
 		start -= 64
 	}
-	end := idx + 4096
-	if end > len(data) {
-		end = len(data)
-	}
+	end := min(idx+4096, len(data))
 	return data[start:end]
 }
 

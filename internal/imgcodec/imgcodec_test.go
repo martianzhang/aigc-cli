@@ -14,8 +14,8 @@ import (
 // testImage 生成一张 64x48 的渐变测试图（带 JPEG/PNG 真实感纹理）。
 func testImage() image.Image {
 	img := image.NewNRGBA(image.Rect(0, 0, 64, 48))
-	for y := 0; y < 48; y++ {
-		for x := 0; x < 64; x++ {
+	for y := range 48 {
+		for x := range 64 {
 			img.Set(x, y, color.NRGBA{
 				R: uint8(x * 4),
 				G: uint8(y * 5),

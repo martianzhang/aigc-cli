@@ -56,10 +56,10 @@ func analyzeNoiseSized(img image.Image, w, h int) float64 {
 	srcW := bounds.Dx()
 	srcH := bounds.Dy()
 
-	for y := 0; y < h; y++ {
+	for y := range h {
 		gray[y] = make([]float64, w)
 		srcY := y * srcH / h
-		for x := 0; x < w; x++ {
+		for x := range w {
 			srcX := x * srcW / w
 			r, g, b, _ := img.At(srcX, srcY).RGBA()
 			gray[y][x] = float64(r+g+b) / 3 / 65535.0

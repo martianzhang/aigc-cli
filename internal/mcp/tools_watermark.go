@@ -196,8 +196,8 @@ func cropWatermarkHandler(cfg *Config) server.ToolHandlerFunc {
 					Valid: true,
 				}
 			}
-		} else if strings.HasSuffix(target, "%") {
-			pctStr := strings.TrimSuffix(target, "%")
+		} else if before, ok := strings.CutSuffix(target, "%"); ok {
+			pctStr := before
 			pct, parseErr := strconv.ParseFloat(pctStr, 64)
 			if parseErr != nil || pct <= 0 || pct > 100 {
 				return mcp.NewToolResultError(fmt.Sprintf("invalid percentage: %s", target)), nil

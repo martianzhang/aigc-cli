@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -44,10 +45,8 @@ func MergeJSONOverlay(raw json.RawMessage, set map[string]any) (json.RawMessage,
 // setOverlayPath writes value at a dotted key, creating intermediate objects.
 func setOverlayPath(body map[string]any, key string, value any) error {
 	parts := strings.Split(key, ".")
-	for _, part := range parts {
-		if part == "" {
-			return fmt.Errorf("invalid overlay key %q", key)
-		}
+	if slices.Contains(parts, "") {
+		return fmt.Errorf("invalid overlay key %q", key)
 	}
 
 	cur := body

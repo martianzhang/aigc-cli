@@ -93,8 +93,8 @@ func extractBinaryMask(img image.Image, bx, by, bw, bh int, p TextMarkParams) []
 	gCh := make([]float64, bw*bh)
 	bCh := make([]float64, bw*bh)
 	luma := make([]float64, bw*bh)
-	for y := 0; y < bh; y++ {
-		for x := 0; x < bw; x++ {
+	for y := range bh {
+		for x := range bw {
 			cr, cg, cb, _ := img.At(bx+x, by+y).RGBA()
 			r8, g8, b8 := float64(cr>>8), float64(cg>>8), float64(cb>>8)
 			i := y*bw + x
@@ -138,8 +138,8 @@ func extractBinaryMask(img image.Image, bx, by, bw, bh int, p TextMarkParams) []
 func dilateBinary(data []float64, w, h, k int) []float64 {
 	out := make([]float64, w*h)
 	half := k / 2
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			mx := 0.0
 			for dy := -half; dy <= half; dy++ {
 				for dx := -half; dx <= half; dx++ {
@@ -163,8 +163,8 @@ func dilateBinary(data []float64, w, h, k int) []float64 {
 func erodeBinary(data []float64, w, h, k int) []float64 {
 	out := make([]float64, w*h)
 	half := k / 2
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			mn := 1.0
 			for dy := -half; dy <= half; dy++ {
 				for dx := -half; dx <= half; dx++ {

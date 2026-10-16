@@ -440,8 +440,8 @@ func equalIntSlices(a, b []int) bool {
 // rampMap builds a w*h probability map where value at (x,y) = y*w + x.
 func rampMap(w, h int) []float32 {
 	m := make([]float32, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			m[y*w+x] = float32(y*w + x)
 		}
 	}

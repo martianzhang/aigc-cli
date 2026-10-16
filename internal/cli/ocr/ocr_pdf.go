@@ -176,7 +176,7 @@ func parsePageRange(s string) []string {
 	// pdfcpu's RenderPagesForPDFFile accepts comma-separated page specs.
 	// Split by comma and return each token as-is (handles "1-3", "5", etc.)
 	var result []string
-	for _, part := range strings.Split(s, ",") {
+	for part := range strings.SplitSeq(s, ",") {
 		part = strings.TrimSpace(part)
 		if part != "" {
 			result = append(result, part)

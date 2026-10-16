@@ -18,7 +18,7 @@ import (
 
 func questionBank(n int) map[string]json.RawMessage {
 	questions := make(map[string]json.RawMessage, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		questions[fmt.Sprintf("q%02d", i)] = json.RawMessage(`{"type":"noul","instructions":"ok?"}`)
 	}
 	return questions

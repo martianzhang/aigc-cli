@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"html"
+	"maps"
 	"strings"
 )
 
@@ -72,16 +73,12 @@ func parseTC260Result(tc260data string) *TC260Result {
 
 	var parsed map[string]string
 	if json.Unmarshal([]byte(decoded), &parsed) == nil {
-		for k, v := range parsed {
-			result.Fields[k] = v
-		}
+		maps.Copy(result.Fields, parsed)
 	} else {
 		var nested map[string]map[string]string
 		if json.Unmarshal([]byte(decoded), &nested) == nil {
 			if aigc, ok := nested["AIGC"]; ok {
-				for k, v := range aigc {
-					result.Fields[k] = v
-				}
+				maps.Copy(result.Fields, aigc)
 			}
 		}
 	}

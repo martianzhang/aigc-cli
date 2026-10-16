@@ -139,12 +139,12 @@ func (d *Detector) Upscale(img image.Image) (*image.NRGBA, error) {
 
 	tileBuf := make([]float32, 3*tileSize*tileSize)
 	inData := d.input.GetData()
-	for ty := 0; ty < tilesY; ty++ {
+	for ty := range tilesY {
 		ay := full
 		if ty != 0 {
 			ay = ramp
 		}
-		for tx := 0; tx < tilesX; tx++ {
+		for tx := range tilesX {
 			ax := full
 			if tx != 0 {
 				ax = ramp

@@ -130,10 +130,7 @@ func Convert(opts ConvertOptions) (string, error) {
 	if parallel <= 0 {
 		parallel = parallelismCount()
 	}
-	threadsPer := optimalThreads() / parallel
-	if threadsPer < 1 {
-		threadsPer = 1
-	}
+	threadsPer := max(optimalThreads()/parallel, 1)
 	dets := make([]*Detector, parallel)
 	for i := range dets {
 		d, err := NewDetectorWithSizeThreads(libPath, modelPath, infSize, threadsPer)

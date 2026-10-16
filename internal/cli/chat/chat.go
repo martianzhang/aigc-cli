@@ -114,7 +114,7 @@ func runChat(cmd *cobra.Command, args []string) error {
 	if ctx := loadAgentsContext(); ctx != "" && (len(history) == 0 || history[0].Role != "system") {
 		history = append([]types.ChatMessage{{Role: "system", Content: ctx}}, history...)
 	}
-	_, err = runAgentLoop(ctx, c, rt, &history, maxIterations, cmd)
+	err = runAgentLoop(ctx, c, rt, &history, maxIterations, cmd)
 	if err != nil {
 		return err
 	}

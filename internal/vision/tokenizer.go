@@ -89,7 +89,7 @@ func (tk *Tokenizer) loadMerges(path string) error {
 func bytesToUnicode() map[byte]string {
 	m := make(map[byte]string)
 	n := 0
-	for b := 0; b < 256; b++ {
+	for b := range 256 {
 		if b < 33 || b == 127 || (b > 160 && b < 173) || (b > 173 && b < 256) {
 			// Control characters and DEL: map to unicode starting from 256
 			m[byte(b)] = string(rune(256 + n))

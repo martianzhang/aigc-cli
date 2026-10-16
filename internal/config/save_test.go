@@ -11,7 +11,7 @@ import (
 )
 
 func TestSaveNodeAtomicWithBackup(t *testing.T) {
-	path := writeFixture(t, "config.yaml", nodeFixture)
+	path := writeFixture(t, nodeFixture)
 	original, _ := os.ReadFile(path)
 	doc, err := LoadNode(path)
 	if err != nil {
@@ -50,7 +50,7 @@ func TestSaveNodeWritesOwnerOnlyPermissions(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("file permissions are not enforced on Windows")
 	}
-	path := writeFixture(t, "config.yaml", nodeFixture)
+	path := writeFixture(t, nodeFixture)
 	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatalf("chmod fixture: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestSaveNodeTightensExistingBackup(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("file permissions are not enforced on Windows")
 	}
-	path := writeFixture(t, "config.yaml", nodeFixture)
+	path := writeFixture(t, nodeFixture)
 	doc, err := LoadNode(path)
 	if err != nil {
 		t.Fatalf("LoadNode() error = %v", err)
@@ -100,7 +100,7 @@ func assertPrivateMode(t *testing.T, path string) {
 }
 
 func TestSaveNodePreservesIndent(t *testing.T) {
-	path := writeFixture(t, "config.yaml", nodeFixture)
+	path := writeFixture(t, nodeFixture)
 	doc, err := LoadNode(path)
 	if err != nil {
 		t.Fatalf("LoadNode() error = %v", err)
@@ -138,7 +138,7 @@ func TestDetectIndent(t *testing.T) {
 }
 
 func TestMarshalNodeSection(t *testing.T) {
-	path := writeFixture(t, "config.yaml", nodeFixture)
+	path := writeFixture(t, nodeFixture)
 	doc, err := LoadNode(path)
 	if err != nil {
 		t.Fatalf("LoadNode() error = %v", err)

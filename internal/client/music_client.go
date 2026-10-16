@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -16,7 +15,7 @@ const (
 // MusicSubmit sends a music generation request and returns the submission response.
 func (c *Client) MusicSubmit(reqBody any) (*types.MusicSubmitResponse, error) {
 	var result types.MusicSubmitResponse
-	if err := c.doJSON(http.MethodPost, musicSubmitPath, reqBody, &result); err != nil {
+	if err := c.doJSON(musicSubmitPath, reqBody, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -77,13 +76,7 @@ func (c *Client) MusicPollTask(taskID string) (*types.MusicTaskData, error) {
 			return nil, fmt.Errorf("failed to query task: %w", err)
 		}
 
-		progress := task.Progress
-		if progress < 0 {
-			progress = 0
-		}
-		if progress > 100 {
-			progress = 100
-		}
+		progress := min(max(task.Progress, 0), 100)
 
 		if isTTY {
 			bar := progressBar(progress, 20)

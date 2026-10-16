@@ -340,7 +340,7 @@ func TestDecodeWAV_8bit(t *testing.T) {
 	copy(buf[36:40], "data")
 	binaryLittleEndianPutUint32(buf[40:44], uint32(dataSize))
 	// 8-bit samples (unsigned, 128 = silence)
-	for i := 0; i < dataSize; i++ {
+	for i := range dataSize {
 		buf[44+i] = byte(128 + i/2)
 	}
 

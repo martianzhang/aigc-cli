@@ -132,10 +132,7 @@ func (c *Chunker) splitLargeSection(s section, idx *int) []Chunk {
 		// Try to break at a paragraph boundary
 		splitAt := maxSize
 		if c.opts.Overlap > 0 {
-			splitAt = maxSize - c.opts.Overlap
-			if splitAt < 1 {
-				splitAt = 1
-			}
+			splitAt = max(maxSize-c.opts.Overlap, 1)
 		}
 
 		// Search backward for paragraph break

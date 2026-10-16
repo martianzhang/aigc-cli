@@ -149,8 +149,8 @@ func ParseWatermarkBox(s string, imgW, imgH int) (x, y, w, h int, ok bool) {
 func ParseCropTarget(s string) (cropW, cropH int, keepRatio float64, err error) {
 	s = strings.TrimSpace(s)
 
-	if strings.HasSuffix(s, "%") {
-		pctStr := strings.TrimSuffix(s, "%")
+	if before, ok := strings.CutSuffix(s, "%"); ok {
+		pctStr := before
 		pct, parseErr := strconv.ParseFloat(pctStr, 64)
 		if parseErr != nil || pct <= 0 || pct > 100 {
 			return 0, 0, 0, fmt.Errorf("invalid percentage %q, expected 1-100%%", s)

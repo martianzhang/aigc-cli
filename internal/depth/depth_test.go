@@ -11,9 +11,9 @@ import (
 // and dark at the top (far), approximating a simple depth scene.
 func testGradient(w, h int) image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
+	for y := range h {
 		v := uint8(255 - y*255/h)
-		for x := 0; x < w; x++ {
+		for x := range w {
 			img.Set(x, y, color.RGBA{R: v, G: v, B: v, A: 255})
 		}
 	}

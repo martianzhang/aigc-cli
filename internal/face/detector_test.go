@@ -121,8 +121,8 @@ func TestDetectNoFace(t *testing.T) {
 		t.Fatalf("NewDetector: %v", err)
 	}
 	img := image.NewRGBA(image.Rect(0, 0, 320, 240))
-	for y := 0; y < 240; y++ {
-		for x := 0; x < 320; x++ {
+	for y := range 240 {
+		for x := range 320 {
 			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 128, A: 255})
 		}
 	}

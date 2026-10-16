@@ -250,8 +250,8 @@ func TestAnalyze_NilOptions(t *testing.T) {
 
 func newUniformGray(w, h int, grayVal uint8) image.Image {
 	img := image.NewGray(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			img.SetGray(x, y, color.Gray{Y: grayVal})
 		}
 	}
@@ -260,8 +260,8 @@ func newUniformGray(w, h int, grayVal uint8) image.Image {
 
 func newSyntheticImage(w, h int, fn func(x, y int) uint8) image.Image {
 	img := image.NewGray(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			img.SetGray(x, y, color.Gray{Y: fn(x, y)})
 		}
 	}
@@ -338,8 +338,8 @@ func TestAnalyzeFFT_ExactEdgeSize(t *testing.T) {
 func TestAnalyzeFFT_RGBAImage(t *testing.T) {
 	// Non-gray image (RGBA) should also work
 	img := image.NewRGBA(image.Rect(0, 0, 128, 128))
-	for y := 0; y < 128; y++ {
-		for x := 0; x < 128; x++ {
+	for y := range 128 {
+		for x := range 128 {
 			img.Set(x, y, color.RGBA{uint8(x), uint8(y), 128, 255})
 		}
 	}

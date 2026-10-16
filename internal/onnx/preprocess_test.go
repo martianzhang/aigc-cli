@@ -22,8 +22,8 @@ func TestPreprocess_OutputSize(t *testing.T) {
 func TestPreprocess_NormalizedRange(t *testing.T) {
 	// All-white image → all pixels should be 1.0
 	img := image.NewRGBA(image.Rect(0, 0, 224, 224))
-	for y := 0; y < 224; y++ {
-		for x := 0; x < 224; x++ {
+	for y := range 224 {
+		for x := range 224 {
 			img.Set(x, y, color.RGBA{255, 255, 255, 255})
 		}
 	}
@@ -69,8 +69,8 @@ func TestPreprocess_ResizeSmaller(t *testing.T) {
 func TestPreprocess_ExactSize(t *testing.T) {
 	// Already 224x224 → no resize needed
 	img := image.NewRGBA(image.Rect(0, 0, 224, 224))
-	for y := 0; y < 224; y++ {
-		for x := 0; x < 224; x++ {
+	for y := range 224 {
+		for x := range 224 {
 			img.Set(x, y, color.RGBA{uint8(x % 256), uint8(y % 256), 128, 255})
 		}
 	}
@@ -84,15 +84,15 @@ func TestPreprocess_ExactSize(t *testing.T) {
 func TestPreprocess_GrayscaleImage(t *testing.T) {
 	// Gray image → all channels should have same value
 	img := image.NewGray(image.Rect(0, 0, 224, 224))
-	for y := 0; y < 224; y++ {
-		for x := 0; x < 224; x++ {
+	for y := range 224 {
+		for x := range 224 {
 			img.SetGray(x, y, color.Gray{Y: 128})
 		}
 	}
 	pixels := Preprocess(img, 224)
 	stride := 224 * 224
 	// All channels should be ~0.5
-	for i := 0; i < stride; i++ {
+	for i := range stride {
 		if pixels[i] < 0.49 || pixels[i] > 0.51 {
 			t.Errorf("R channel pixel[%d] = %f, want ~0.5", i, pixels[i])
 		}
@@ -128,8 +128,8 @@ func TestPreprocess_DifferentTargetSize(t *testing.T) {
 func TestPreprocess_RedChannelOnly(t *testing.T) {
 	// Pure red image → R=1.0, G=0.0, B=0.0
 	img := image.NewRGBA(image.Rect(0, 0, 224, 224))
-	for y := 0; y < 224; y++ {
-		for x := 0; x < 224; x++ {
+	for y := range 224 {
+		for x := range 224 {
 			img.Set(x, y, color.RGBA{255, 0, 0, 255})
 		}
 	}

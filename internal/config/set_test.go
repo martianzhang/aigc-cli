@@ -8,7 +8,7 @@ import (
 )
 
 func TestSetScalarPreservesCommentsAndOrder(t *testing.T) {
-	path := writeFixture(t, "config.yaml", nodeFixture)
+	path := writeFixture(t, nodeFixture)
 	doc, err := LoadNode(path)
 	if err != nil {
 		t.Fatalf("LoadNode() error = %v", err)
@@ -65,7 +65,7 @@ func TestSetScalarKeepsTypes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			path := writeFixture(t, "config.yaml", nodeFixture)
+			path := writeFixture(t, nodeFixture)
 			doc, err := LoadNode(path)
 			if err != nil {
 				t.Fatalf("LoadNode() error = %v", err)
@@ -92,7 +92,7 @@ func TestSetScalarKeepsTypes(t *testing.T) {
 }
 
 func TestSetScalarRejectsWrongConversion(t *testing.T) {
-	path := writeFixture(t, "config.yaml", nodeFixture)
+	path := writeFixture(t, nodeFixture)
 	doc, err := LoadNode(path)
 	if err != nil {
 		t.Fatalf("LoadNode() error = %v", err)
@@ -104,7 +104,7 @@ func TestSetScalarRejectsWrongConversion(t *testing.T) {
 }
 
 func TestSetScalarMissingParent(t *testing.T) {
-	path := writeFixture(t, "config.yaml", nodeFixture)
+	path := writeFixture(t, nodeFixture)
 	doc, err := LoadNode(path)
 	if err != nil {
 		t.Fatalf("LoadNode() error = %v", err)
@@ -116,7 +116,7 @@ func TestSetScalarMissingParent(t *testing.T) {
 }
 
 func TestSetScalarCreatesLeafOnly(t *testing.T) {
-	path := writeFixture(t, "config.yaml", nodeFixture)
+	path := writeFixture(t, nodeFixture)
 	doc, err := LoadNode(path)
 	if err != nil {
 		t.Fatalf("LoadNode() error = %v", err)
@@ -145,7 +145,7 @@ func TestSetScalarCreatesLeafOnly(t *testing.T) {
 }
 
 func TestSetScalarEmptyDocument(t *testing.T) {
-	path := writeFixture(t, "config.yaml", "")
+	path := writeFixture(t, "")
 	doc, err := LoadNode(path)
 	if err != nil {
 		t.Fatalf("LoadNode() error = %v", err)

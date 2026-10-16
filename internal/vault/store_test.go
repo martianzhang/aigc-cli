@@ -306,7 +306,7 @@ func TestVaultDocJSONTags(t *testing.T) {
 		"CreatedAt": "created_at",
 	}
 
-	typ := reflect.TypeOf(VaultDoc{})
+	typ := reflect.TypeFor[VaultDoc]()
 	if typ.NumField() != len(want) {
 		t.Errorf("VaultDoc has %d fields, want %d", typ.NumField(), len(want))
 	}

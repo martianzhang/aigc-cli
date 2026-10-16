@@ -105,14 +105,14 @@ func compositeResult(img image.Image, mask *image.Gray, result []uint8, w, h int
 	b := img.Bounds()
 	out := image.NewNRGBA(b)
 	softMask := make([]float64, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			if mask.GrayAt(x, y).Y > 128 {
 				softMask[y*w+x] = 1.0
 			}
 		}
 	}
-	for iter := 0; iter < 3; iter++ {
+	for range 3 {
 		tmp := make([]float64, w*h)
 		for y := 1; y < h-1; y++ {
 			for x := 1; x < w-1; x++ {
@@ -125,8 +125,8 @@ func compositeResult(img image.Image, mask *image.Gray, result []uint8, w, h int
 		softMask = tmp
 	}
 
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			di := y*w*4 + x*4
 			f := softMask[y*w+x]
 			si := y*w + x

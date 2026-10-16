@@ -78,14 +78,14 @@ func isTimeoutError(err error) bool {
 
 // --- HTTP helpers ---
 
-// doJSON sends a JSON request and unmarshals the response into result.
+// doJSON sends a JSON POST request and unmarshals the response into result.
 // If body is nil, sends a request with no body.
-func (c *Client) doJSON(method, path string, body, result any) error {
-	return c.doJSONWithHeaders(method, path, body, result, nil)
+func (c *Client) doJSON(path string, body, result any) error {
+	return c.doJSONWithHeaders(path, body, result, nil)
 }
 
 // doJSONWithHeaders is like doJSON but with additional HTTP headers.
-func (c *Client) doJSONWithHeaders(method, path string, body, result any, extraHeaders map[string]string) error {
+func (c *Client) doJSONWithHeaders(path string, body, result any, extraHeaders map[string]string) error {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -95,7 +95,7 @@ func (c *Client) doJSONWithHeaders(method, path string, body, result any, extraH
 		bodyReader = bytes.NewReader(data)
 	}
 
-	httpReq, err := http.NewRequestWithContext(c.requestContext(), method, c.baseURL+path, bodyReader)
+	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+path, bodyReader)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

@@ -66,9 +66,9 @@ func TestGetTextExplicitKeylessProviderFailsFast(t *testing.T) {
 }
 
 func TestGetTextKeylessLoopbackQueries(t *testing.T) {
-	var hits int32
+	var hits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddInt32(&hits, 1)
+		hits.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"success":true,"remain_balance":1.5,"remain_credits":2.5,"used_balance":0.5,"used_credits":0.25}`))
 	}))
@@ -88,7 +88,7 @@ func TestGetTextKeylessLoopbackQueries(t *testing.T) {
 	if !strings.Contains(text, "Token Balance (loop)") {
 		t.Errorf("GetText() = %q, want loop provider report", text)
 	}
-	if got := atomic.LoadInt32(&hits); got < 1 {
+	if got := hits.Load(); got < 1 {
 		t.Errorf("server hits = %d, want >= 1", got)
 	}
 }

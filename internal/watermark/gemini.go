@@ -158,10 +158,7 @@ func resolveWatermarkConfigs(w, h int) []watermarkEntry {
 		}
 	}
 
-	short := w
-	if h < short {
-		short = h
-	}
+	short := min(h, w)
 
 	// Scale watermark size relative to a 2048px (2k) reference.
 	scale96 := float64(short) / 2048.0

@@ -10,10 +10,10 @@ func ExtractTile(img image.Image, x0, y0, tile int, buf []float32) {
 	w, h := b.Dx(), b.Dy()
 	plane := tile * tile
 	const inv = 1.0 / 65535.0
-	for ly := 0; ly < tile; ly++ {
+	for ly := range tile {
 		sy := clampInt(y0+ly, 0, h-1)
 		row := ly * tile
-		for lx := 0; lx < tile; lx++ {
+		for lx := range tile {
 			sx := clampInt(x0+lx, 0, w-1)
 			r, g, bl, _ := img.At(b.Min.X+sx, b.Min.Y+sy).RGBA()
 			di := row + lx
@@ -52,14 +52,14 @@ func BlendTile(dst *image.NRGBA, tile []float32, x0, y0, destW, destH, scale int
 	ow := len(ax)
 	plane := ow * ow
 	baseX, baseY := x0*scale, y0*scale
-	for oy := 0; oy < ow; oy++ {
+	for oy := range ow {
 		gy := baseY + oy
 		if gy >= destH {
 			break
 		}
 		aY := ay[oy]
 		row := oy * ow
-		for ox := 0; ox < ow; ox++ {
+		for ox := range ow {
 			gx := baseX + ox
 			if gx >= destW {
 				break

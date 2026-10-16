@@ -422,8 +422,8 @@ func ParseCompressOption(val string) (targetSize int64, quality int, err error) 
 	}
 
 	// Percentage → fixed quality
-	if strings.HasSuffix(val, "%") {
-		pctStr := strings.TrimSuffix(val, "%")
+	if before, ok := strings.CutSuffix(val, "%"); ok {
+		pctStr := before
 		q, err := strconv.Atoi(pctStr)
 		if err != nil {
 			return 0, 0, fmt.Errorf("invalid quality percentage %q", val)

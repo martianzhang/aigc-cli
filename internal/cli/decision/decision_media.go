@@ -114,14 +114,14 @@ func mediaDataURI(in, kind string) (string, error) {
 
 // validateMediaDataURI checks a caller-supplied entry is a base64 data: URI.
 func validateMediaDataURI(uri string) error {
-	comma := strings.Index(uri, ",")
-	if comma < 0 {
+	before, after, ok := strings.Cut(uri, ",")
+	if !ok {
 		return fmt.Errorf("invalid data URI: missing comma")
 	}
-	if !strings.Contains(uri[:comma], ";base64") {
+	if !strings.Contains(before, ";base64") {
 		return fmt.Errorf("data URI must be base64-encoded")
 	}
-	if uri[comma+1:] == "" {
+	if after == "" {
 		return fmt.Errorf("data URI contains no data")
 	}
 	return nil

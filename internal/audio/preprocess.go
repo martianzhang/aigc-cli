@@ -147,10 +147,10 @@ func decodePCM16(raw []byte, numChannels int) []int16 {
 	frameSize := 2 * numChannels
 	frameCount := len(raw) / frameSize
 	out := make([]int16, frameCount)
-	for i := 0; i < frameCount; i++ {
+	for i := range frameCount {
 		frame := raw[i*frameSize : i*frameSize+frameSize]
 		var sum int32
-		for ch := 0; ch < numChannels; ch++ {
+		for ch := range numChannels {
 			sum += int32(int16(binary.LittleEndian.Uint16(frame[2*ch : 2*ch+2])))
 		}
 		out[i] = int16(sum / int32(numChannels))
@@ -162,10 +162,10 @@ func decodePCM8(raw []byte, numChannels int) []int16 {
 	frameSize := 1 * numChannels
 	frameCount := len(raw) / frameSize
 	out := make([]int16, frameCount)
-	for i := 0; i < frameCount; i++ {
+	for i := range frameCount {
 		frame := raw[i*frameSize : i*frameSize+frameSize]
 		var sum int32
-		for ch := 0; ch < numChannels; ch++ {
+		for ch := range numChannels {
 			sum += int32(frame[ch]) - 128 // unsigned 8-bit to signed
 		}
 		out[i] = int16(sum / int32(numChannels))
@@ -177,10 +177,10 @@ func decodePCM24(raw []byte, numChannels int) []int16 {
 	frameSize := 3 * numChannels
 	frameCount := len(raw) / frameSize
 	out := make([]int16, frameCount)
-	for i := 0; i < frameCount; i++ {
+	for i := range frameCount {
 		frame := raw[i*frameSize : i*frameSize+frameSize]
 		var sum int32
-		for ch := 0; ch < numChannels; ch++ {
+		for ch := range numChannels {
 			// 24-bit signed, little-endian
 			s := int32(int8(frame[3*ch+2]))<<16 | int32(frame[3*ch+1])<<8 | int32(frame[3*ch])
 			sum += s
@@ -194,10 +194,10 @@ func decodePCM32(raw []byte, numChannels int) []int16 {
 	frameSize := 4 * numChannels
 	frameCount := len(raw) / frameSize
 	out := make([]int16, frameCount)
-	for i := 0; i < frameCount; i++ {
+	for i := range frameCount {
 		frame := raw[i*frameSize : i*frameSize+frameSize]
 		var sum int32
-		for ch := 0; ch < numChannels; ch++ {
+		for ch := range numChannels {
 			sum += int32(int32(binary.LittleEndian.Uint32(frame[4*ch:4*ch+4])) >> 16)
 		}
 		out[i] = int16(sum / int32(numChannels))
@@ -376,10 +376,9 @@ func (m *MelFilterBank) Compute(samples []int16) [][]float32 {
 	if m == nil || m.sampleRate <= 0 {
 		return nil
 	}
-	frameShift := int(0.010 * float64(m.sampleRate)) // 10ms
-	if frameShift < 1 {
-		frameShift = 1
-	}
+	frameShift := max(
+		// 10ms
+		int(0.010*float64(m.sampleRate)), 1)
 	numFrames := len(samples)/frameShift + 1
 
 	frames := make([][]float32, numFrames)
@@ -502,10 +501,10 @@ func decodeFLACSamples(raw []byte, ch, bps int) []int16 {
 	frameSize := (bps / 8) * ch
 	frameCount := len(raw) / frameSize
 	out := make([]int16, frameCount)
-	for i := 0; i < frameCount; i++ {
+	for i := range frameCount {
 		frame := raw[i*frameSize : i*frameSize+frameSize]
 		var sum int32
-		for c := 0; c < ch; c++ {
+		for c := range ch {
 			off := c * (bps / 8)
 			switch bps {
 			case 16:
@@ -543,7 +542,7 @@ func decodeOGG(path string) (*AudioData, error) {
 		if n > 0 {
 			for i := 0; i < n; i += ch {
 				var sum float32
-				for c := 0; c < ch; c++ {
+				for c := range ch {
 					sum += buf[i+c]
 				}
 				all = append(all, int16(sum/float32(ch)*32767))

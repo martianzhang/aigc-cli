@@ -86,14 +86,14 @@ func openRouterSizeHint(p *provider.EffectiveProvider, req *types.GenerateReques
 		fmt.Fprintf(&b, "\n    model %q declares no size parameter — remove --size / --ratio.", req.Model)
 	default:
 		if d, ok := params["aspect_ratio"]; ok && len(d.Values) > 0 {
-			b.WriteString("\n    aspect ratio (--ratio): " + strings.Join(d.Values, " | "))
+			fmt.Fprintf(&b, "\n    aspect ratio (--ratio): %s", strings.Join(d.Values, " | "))
 		}
 		if d, ok := params["resolution"]; ok && len(d.Values) > 0 {
-			b.WriteString("\n    resolution tier (--size): " + strings.Join(d.Values, " | "))
+			fmt.Fprintf(&b, "\n    resolution tier (--size): %s", strings.Join(d.Values, " | "))
 		}
 		b.WriteString("\n    combine with --size <tier>@<ratio> (e.g. 2K@16:9).")
 	}
-	b.WriteString("\n    inspect: aigc-cli models --api-base " + base + " --type image")
+	fmt.Fprintf(&b, "\n    inspect: aigc-cli models --api-base %s --type image", base)
 	return b.String()
 }
 
@@ -102,7 +102,7 @@ func openRouterSizeHint(p *provider.EffectiveProvider, req *types.GenerateReques
 func staticSizeHint(p *provider.EffectiveProvider) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "\n\n  --size hint (%s):", p.ProviderType.String())
-	b.WriteString("\n    accepted: " + staticSizeForms(p.ProviderType))
+	fmt.Fprintf(&b, "\n    accepted: %s", staticSizeForms(p.ProviderType))
 	b.WriteString("\n    see docs/*/guide-image.md")
 	return b.String()
 }

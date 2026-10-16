@@ -173,7 +173,7 @@ func isStandardTable(table []byte, precision int) bool {
 	// Compare with standard tables (allow slight variations for quality factor)
 	// Allow up to 15% deviation per entry
 	var lumMatch, chrMatch int
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		v := table[i]
 		if precision == 1 {
 			// 16-bit precision - just check general shape
@@ -198,13 +198,6 @@ func absDiff(a, b byte) byte {
 		return a - b
 	}
 	return b - a
-}
-
-func max(a, b byte) byte {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // Compile-time use of image package (for potential future use)

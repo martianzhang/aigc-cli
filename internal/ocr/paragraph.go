@@ -1,6 +1,7 @@
 package ocr
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -101,11 +102,11 @@ func paragraphParse(lines []OCRLine) string {
 	paras = append(paras, para{units: nowPara, lineSpace: paraLineSVal(paraLineS)})
 
 	// Step 2: Merge single-line paragraphs into adjacent paragraphs.
-	for i := len(paras) - 1; i >= 0; i-- {
-		if len(paras[i].units) != 1 {
+	for i, para := range slices.Backward(paras) {
+		if len(para.units) != 1 {
 			continue
 		}
-		u := paras[i].units[0]
+		u := para.units[0]
 		l, top, r, bottom := u.x0, u.y0, u.x2, u.y2
 		upFlag, downFlag := false, false
 

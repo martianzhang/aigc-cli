@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -17,15 +18,15 @@ func isTerminal() bool {
 
 func progressBar(pct, width int) string {
 	filled := pct * width / 100
-	var bar string
-	for i := 0; i < width; i++ {
+	var bar strings.Builder
+	for i := range width {
 		if i < filled {
-			bar += "█"
+			bar.WriteString("█")
 		} else {
-			bar += "░"
+			bar.WriteString("░")
 		}
 	}
-	return bar
+	return bar.String()
 }
 
 // GetTask retrieves a single task by ID.

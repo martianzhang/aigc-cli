@@ -13,14 +13,11 @@ func featherAlpha(alpha []uint8, w, h, radius int) []uint8 {
 	// 分离式 box blur (快速)
 	// Pass 1: 水平方向
 	tmp := make([]float64, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			var sum float64
 			var count int
-			x0 := x - radius
-			if x0 < 0 {
-				x0 = 0
-			}
+			x0 := max(x-radius, 0)
 			x1 := x + radius
 			if x1 >= w {
 				x1 = w - 1
@@ -35,14 +32,11 @@ func featherAlpha(alpha []uint8, w, h, radius int) []uint8 {
 
 	// Pass 2: 垂直方向
 	out := make([]uint8, w*h)
-	for x := 0; x < w; x++ {
-		for y := 0; y < h; y++ {
+	for x := range w {
+		for y := range h {
 			var sum float64
 			var count int
-			y0 := y - radius
-			if y0 < 0 {
-				y0 = 0
-			}
+			y0 := max(y-radius, 0)
 			y1 := y + radius
 			if y1 >= h {
 				y1 = h - 1

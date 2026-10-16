@@ -144,10 +144,7 @@ func evaluateSeeds(img image.Image, cfg Config) (gray, grad []float64, seeds []s
 			}
 
 			if bestScore > 0.05 {
-				sz := bestW
-				if bestH < sz {
-					sz = bestH
-				}
+				sz := min(bestH, bestW)
 				cand := &candidate{
 					x:          bestX,
 					y:          bestY,

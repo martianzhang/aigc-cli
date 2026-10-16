@@ -63,7 +63,7 @@ func removeWatermark(img image.Image, det *candidate, cfg Config) *image.RGBA {
 		}
 	}
 
-	for pass := 0; pass < 4; pass++ {
+	for pass := range 4 {
 		baseAlpha := resizeAlpha(srcAlpha, srcW, srcH, dw, dh)
 		best := trialResult{residual: math.MaxFloat64}
 

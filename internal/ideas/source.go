@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -48,10 +49,8 @@ func ResolveSources(specs []string, hasLocal bool) ([]Source, error) {
 	if len(names) == 0 {
 		names = []string{SourceAll}
 	}
-	for _, name := range names {
-		if name == SourceAll {
-			return allSources(hasLocal), nil
-		}
+	if slices.Contains(names, SourceAll) {
+		return allSources(hasLocal), nil
 	}
 
 	seen := make(map[string]bool, len(names))
@@ -101,7 +100,7 @@ func OnlineSources(sources []Source) []Source {
 func normalizeSpecs(specs []string) []string {
 	var names []string
 	for _, spec := range specs {
-		for _, part := range strings.Split(spec, ",") {
+		for part := range strings.SplitSeq(spec, ",") {
 			if name := strings.ToLower(strings.TrimSpace(part)); name != "" {
 				names = append(names, name)
 			}
@@ -140,12 +139,7 @@ func onlineSource(name string) Source {
 
 // isOnlineSourceName reports whether name is one of the online libraries.
 func isOnlineSourceName(name string) bool {
-	for _, candidate := range OnlineSourceNames() {
-		if candidate == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(OnlineSourceNames(), name)
 }
 
 // localSource searches the local ideas.json dataset at its default location.

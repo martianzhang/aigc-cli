@@ -5,6 +5,7 @@ package search
 import (
 	"fmt"
 	"math/rand"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -224,11 +225,8 @@ func (r *Router) allProviders() []string {
 func (r *Router) filterByTag(tag string) []string {
 	var result []string
 	for name, info := range r.configs {
-		for _, t := range info.Tags {
-			if t == tag {
-				result = append(result, name)
-				break
-			}
+		if slices.Contains(info.Tags, tag) {
+			result = append(result, name)
 		}
 	}
 	return result

@@ -284,17 +284,11 @@ func (e *Engine) reinitDet(size int) error {
 // It picks the smallest power-of-two ≥ 64 that fits the image's longest side
 // within maxSide, ensuring DBNet gets enough resolution for small text.
 func (e *Engine) detInputSizeFor(origW, origH int) int {
-	longest := origW
-	if origH > longest {
-		longest = origH
-	}
+	longest := max(origH, origW)
 	if longest <= e.maxSide {
 		// Use original resolution (don't downscale small images).
 		// Round up to next multiple of 32 for efficient ONNX inference.
-		s := ((longest + 31) / 32) * 32
-		if s < 64 {
-			s = 64
-		}
+		s := max(((longest+31)/32)*32, 64)
 		return s
 	}
 	// Image is larger than maxSide: use maxSide (downscale).

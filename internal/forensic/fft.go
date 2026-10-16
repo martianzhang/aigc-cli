@@ -49,9 +49,9 @@ func analyzeFFTSized(img image.Image, w, h int) float64 {
 	srcW := bounds.Dx()
 	srcH := bounds.Dy()
 
-	for y := 0; y < h; y++ {
+	for y := range h {
 		srcY := y * srcH / h
-		for x := 0; x < w; x++ {
+		for x := range w {
 			srcX := x * srcW / w
 			r, g, b, _ := img.At(srcX, srcY).RGBA()
 			// Convert to grayscale, normalize to [-0.5, 0.5] (zero-centered)
@@ -66,9 +66,9 @@ func analyzeFFTSized(img image.Image, w, h int) float64 {
 	// 2D FFT using row-column method
 	cFFT := fourier.NewCmplxFFT(w)
 	rows := make([][]complex128, h)
-	for y := 0; y < h; y++ {
+	for y := range h {
 		row := make([]complex128, w)
-		for x := 0; x < w; x++ {
+		for x := range w {
 			row[x] = complex(pixels[y*w+x], 0)
 		}
 		rows[y] = cFFT.Sequence(nil, row)
@@ -76,26 +76,23 @@ func analyzeFFTSized(img image.Image, w, h int) float64 {
 
 	cFFT2 := fourier.NewCmplxFFT(h)
 	spectrum := make([][]complex128, h)
-	for y := 0; y < h; y++ {
+	for y := range h {
 		spectrum[y] = make([]complex128, w)
 	}
-	for x := 0; x < w; x++ {
+	for x := range w {
 		col := make([]complex128, h)
-		for y := 0; y < h; y++ {
+		for y := range h {
 			col[y] = rows[y][x]
 		}
 		colC := cFFT2.Sequence(nil, col)
-		for y := 0; y < h; y++ {
+		for y := range h {
 			spectrum[y][x] = colC[y]
 		}
 	}
 
 	// Compute radial power spectrum (azimuthal average)
 	halfW, halfH := w/2, h/2
-	maxR := halfW
-	if halfH < maxR {
-		maxR = halfH
-	}
+	maxR := min(halfH, halfW)
 	if maxR < 2 {
 		return 0.5
 	}
@@ -104,8 +101,8 @@ func analyzeFFTSized(img image.Image, w, h int) float64 {
 	radialSum := make([]float64, nBins)
 	radialCount := make([]int, nBins)
 
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			// Shift DC to center
 			sx := (x + halfW) % w
 			sy := (y + halfH) % h
@@ -122,7 +119,7 @@ func analyzeFFTSized(img image.Image, w, h int) float64 {
 
 	// Normalize radial bins
 	profile := make([]float64, nBins)
-	for r := 0; r < nBins; r++ {
+	for r := range nBins {
 		if radialCount[r] > 0 {
 			profile[r] = radialSum[r] / float64(radialCount[r])
 		}
@@ -133,7 +130,7 @@ func analyzeFFTSized(img image.Image, w, h int) float64 {
 	// 1. High-frequency energy ratio (last 30% of bins)
 	hfThreshold := nBins * 7 / 10
 	var lfPower, hfPower float64
-	for r := 0; r < nBins; r++ {
+	for r := range nBins {
 		if r >= hfThreshold {
 			hfPower += profile[r]
 		} else {
@@ -204,9 +201,9 @@ func analyzeFFTSized(img image.Image, w, h int) float64 {
 
 // applyHanning2D applies a 2D Hanning window to the pixel data.
 func applyHanning2D(pixels []float64, w, h int) {
-	for y := 0; y < h; y++ {
+	for y := range h {
 		wy := 0.5 - 0.5*math.Cos(2*math.Pi*float64(y)/float64(h-1))
-		for x := 0; x < w; x++ {
+		for x := range w {
 			wx := 0.5 - 0.5*math.Cos(2*math.Pi*float64(x)/float64(w-1))
 			pixels[y*w+x] *= wy * wx
 		}

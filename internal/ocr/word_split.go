@@ -53,7 +53,7 @@ func (e *Engine) LoadDictionary(path string) (int, error) {
 
 	e.wsWordSet = make(map[string]bool)
 	// Short common words (manually curated to avoid over-splitting by DP).
-	for _, w := range strings.Fields(shortWords) {
+	for w := range strings.FieldsSeq(shortWords) {
 		e.wsWordSet[w] = true
 	}
 
@@ -314,10 +314,7 @@ func (e *Engine) dpWordSplit(text string) string {
 	}
 
 	for i := 1; i <= n; i++ {
-		start := i - maxWordLen
-		if start < 0 {
-			start = 0
-		}
+		start := max(i-maxWordLen, 0)
 		for j := start; j < i; j++ {
 			word := text[j:i]
 			score := dp[j] + wordPenalty

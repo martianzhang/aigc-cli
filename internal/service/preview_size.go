@@ -128,10 +128,7 @@ func previewInlineSize(srcW, srcH int) (w, h int, ok bool) {
 // scaledCells converts a terminal dimension in cells to the preview budget,
 // rounding down and never returning less than 1.
 func scaledCells(cells int) int {
-	n := int(float64(cells) * previewFillRatio)
-	if n < 1 {
-		n = 1
-	}
+	n := max(int(float64(cells)*previewFillRatio), 1)
 	return n
 }
 

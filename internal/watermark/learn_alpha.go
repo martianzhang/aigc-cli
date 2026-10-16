@@ -12,7 +12,7 @@ func computeAlphaWith(black, gray image.Image, w, h int,
 	gradient bool) *AlphaMap {
 
 	data := make([]float64, w*h)
-	for y := 0; y < h; y++ {
+	for y := range h {
 		var bgBR, bgBG, bgBB, bgGR, bgGG, bgGB float64
 		if gradient {
 			bgBR, bgBG, bgBB = bgB.bgAt(0, y)
@@ -22,7 +22,7 @@ func computeAlphaWith(black, gray image.Image, w, h int,
 			bgGR, bgGG, bgGB = bgG.baseR, bgG.baseG, bgG.baseB
 		}
 
-		for x := 0; x < w; x++ {
+		for x := range w {
 			if gradient && x > 0 {
 				bgBR += bgB.gxR
 				bgBG += bgB.gxG
@@ -123,8 +123,8 @@ func medianFilter3x3(img image.Image) *image.RGBA {
 	w, h := b.Dx(), b.Dy()
 	dst := image.NewRGBA(b)
 
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			var rVals, gVals, bVals [9]float64
 			count := 0
 			for dy := -1; dy <= 1; dy++ {
@@ -291,8 +291,8 @@ func combineSeeds(seeds []image.Image, bgBase float64) *image.RGBA {
 		shiftG := bgBase - bgG
 		shiftB := bgBase - bgB
 
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+		for y := range h {
+			for x := range w {
 				r, g, bv, _ := img.At(x, y).RGBA()
 				idx := y*w + x
 				accum[idx].r = append(accum[idx].r, float64(r>>8)+shiftR)
@@ -309,8 +309,8 @@ func combineSeeds(seeds []image.Image, bgBase float64) *image.RGBA {
 
 	// Build the median-aggregated image
 	dst := image.NewRGBA(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			idx := y*w + x
 			rSorted := accum[idx].r
 			gSorted := accum[idx].g
@@ -392,8 +392,8 @@ func TrimAlphaMap(am *AlphaMap, threshold float64) (*AlphaMap, int, int, int, in
 	cw := maxX - minX + 1
 	ch := maxY - minY + 1
 	data := make([]float64, cw*ch)
-	for y := 0; y < ch; y++ {
-		for x := 0; x < cw; x++ {
+	for y := range ch {
+		for x := range cw {
 			data[y*cw+x] = am.Data[(minY+y)*am.Width+(minX+x)]
 		}
 	}
@@ -478,8 +478,8 @@ func TrimAlphaMapMass(am *AlphaMap, fraction float64) (*AlphaMap, int, int, int,
 	cw := right - left + 1
 	ch := bot - top + 1
 	data := make([]float64, cw*ch)
-	for y := 0; y < ch; y++ {
-		for x := 0; x < cw; x++ {
+	for y := range ch {
+		for x := range cw {
 			data[y*cw+x] = am.Data[(top+y)*am.Width+(left+x)]
 		}
 	}

@@ -259,19 +259,20 @@ func kbSearchHandler() server.ToolHandlerFunc {
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("embedder: %v", err)), nil
 		}
-		out := fmt.Sprintf("Searched for %q, found and saved %d result(s):\n\n", query, len(urls))
+		var out strings.Builder
+		fmt.Fprintf(&out, "Searched for %q, found and saved %d result(s):\n\n", query, len(urls))
 
 		for _, rawURL := range urls {
 			result, err := knowledge.FetchURL(rawURL)
 			if err != nil {
-				out += fmt.Sprintf("  \u274c %s (%v)\n", rawURL, err)
+				fmt.Fprintf(&out, "  \u274c %s (%v)\n", rawURL, err)
 				continue
 			}
 
 			docID := knowledge.Checksum(result.Content)
 			existing, _ := store.GetDocument(docID)
 			if existing != nil {
-				out += fmt.Sprintf("  \u2713 %s (already saved)\n", result.Title)
+				fmt.Fprintf(&out, "  \u2713 %s (already saved)\n", result.Title)
 				continue
 			}
 
@@ -283,7 +284,7 @@ func kbSearchHandler() server.ToolHandlerFunc {
 				Checksum: docID,
 			}
 			if err := store.SaveDocument(doc); err != nil {
-				out += fmt.Sprintf("  \u274c %s: save error: %v\n", result.Title, err)
+				fmt.Fprintf(&out, "  \u274c %s: save error: %v\n", result.Title, err)
 				continue
 			}
 
@@ -296,11 +297,11 @@ func kbSearchHandler() server.ToolHandlerFunc {
 			}
 			embeddings, err := knowledge.EmbedAll(embedder, contents)
 			if err != nil {
-				out += fmt.Sprintf("  \u274c %s: embed error: %v\n", result.Title, err)
+				fmt.Fprintf(&out, "  \u274c %s: embed error: %v\n", result.Title, err)
 				continue
 			}
 			if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
-				out += fmt.Sprintf("  \u274c %s: chunk save error: %v\n", result.Title, err)
+				fmt.Fprintf(&out, "  \u274c %s: chunk save error: %v\n", result.Title, err)
 				continue
 			}
 
@@ -308,10 +309,10 @@ func kbSearchHandler() server.ToolHandlerFunc {
 			if len(snippet) > 500 {
 				snippet = snippet[:500] + "..."
 			}
-			out += fmt.Sprintf("  \u2713 %s\n     %s\n     %s\n\n", result.Title, result.URL, snippet)
+			fmt.Fprintf(&out, "  \u2713 %s\n     %s\n     %s\n\n", result.Title, result.URL, snippet)
 		}
 
-		return mcp.NewToolResultText(out), nil
+		return mcp.NewToolResultText(out.String()), nil
 	}
 }
 
@@ -464,16 +465,17 @@ func kbListHandler() server.ToolHandlerFunc {
 			return mcp.NewToolResultText("Knowledge base is empty. Use kb_search to save web pages or kb_add to add local files."), nil
 		}
 
-		out := fmt.Sprintf("Knowledge base: %d document(s)\n\n", len(docs))
+		var out strings.Builder
+		fmt.Fprintf(&out, "Knowledge base: %d document(s)\n\n", len(docs))
 		for i, d := range docs {
 			source := d.URL
 			if source == "" {
 				source = d.FilePath
 			}
-			out += fmt.Sprintf("%d. %s\n   ID: %s\n   Source: %s\n   Size: %.1f KB\n\n",
+			fmt.Fprintf(&out, "%d. %s\n   ID: %s\n   Source: %s\n   Size: %.1f KB\n\n",
 				i+1, d.Title, d.ID[:12], source, float64(d.Size)/1024)
 		}
-		return mcp.NewToolResultText(out), nil
+		return mcp.NewToolResultText(out.String()), nil
 	}
 }
 

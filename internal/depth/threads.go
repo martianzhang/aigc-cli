@@ -27,13 +27,7 @@ func optimalThreads() int {
 		perf = logical / 2
 	}
 
-	n := perf * 2
-	if n > logical {
-		n = logical
-	}
-	if n < 1 {
-		n = 1
-	}
+	n := max(min(perf*2, logical), 1)
 	return n
 }
 
@@ -48,13 +42,7 @@ func parallelismCount() int {
 	if perf <= 0 {
 		perf = runtime.NumCPU() / 2
 	}
-	n := perf
-	if n > 4 {
-		n = 4
-	}
-	if n < 1 {
-		n = 1
-	}
+	n := max(min(perf, 4), 1)
 	return n
 }
 

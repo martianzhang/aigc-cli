@@ -18,8 +18,8 @@ func TestLoadImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
-	for y := 0; y < 10; y++ {
-		for x := 0; x < 10; x++ {
+	for y := range 10 {
+		for x := range 10 {
 			img.Set(x, y, color.RGBA{R: uint8(x * 25), G: uint8(y * 25), B: 100, A: 255})
 		}
 	}

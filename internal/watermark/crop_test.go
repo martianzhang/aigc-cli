@@ -244,8 +244,8 @@ func TestDetectWatermarkRegions(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 400, 300))
 
 	// Fill with dark background
-	for y := 0; y < 300; y++ {
-		for x := 0; x < 400; x++ {
+	for y := range 300 {
+		for x := range 400 {
 			img.Set(x, y, color.RGBA{R: 30, G: 30, B: 30, A: 255})
 		}
 	}

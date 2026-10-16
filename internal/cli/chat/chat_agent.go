@@ -17,9 +17,8 @@ import (
 
 // runAgentLoop executes the tool-calling loop: send request -> check tool_calls -> execute -> repeat.
 // history is modified in-place (appended with assistant + tool messages).
-// Returns the final ChatResponse (text response) or error.
 // If ctx is cancelled (Ctrl+C), returns immediately with context.Canceled.
-func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command) (*types.ChatResponse, error) {
+func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command) error {
 	// Merge defaults.chat.model into options.Shared.Model if empty
 	if options.Shared.Model == "" {
 		if cfg := options.ChatDefaults(); cfg != nil && cfg.Model != "" {
@@ -33,7 +32,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 		// Check for Ctrl+C between turns
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return ctx.Err()
 		default:
 		}
 		turnCount++
@@ -59,7 +58,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 
 		result, err := c.ChatCompletion(req)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if len(result.Choices) == 0 {
@@ -105,10 +104,10 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 			fmt.Fprintf(options.Stderr(), "\r\nReached maximum iterations (%d). Start a new message to continue.\r\n", maxIterations)
 		}
 
-		return result, nil
+		return nil
 	}
 
-	return nil, nil
+	return nil
 }
 
 // buildAgentTools returns the built-in tool definitions after filtering.

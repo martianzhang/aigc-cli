@@ -47,7 +47,7 @@ func ExtractText(path string) ([]PageText, error) {
 	numPages := doc.NumPages()
 	pages := make([]PageText, 0, numPages)
 
-	for i := 0; i < numPages; i++ {
+	for i := range numPages {
 		text := extractPageText(doc.Page(i))
 		pages = append(pages, PageText{Page: i + 1, Text: text})
 	}
@@ -248,16 +248,16 @@ func detectVerticalLabels(spans []gopdf.TextSpan) []vertLabelInfo {
 			}
 			endRun := i >= len(entries) || step > 22 || step < 4
 			if endRun && i-runStart >= 2 {
-				text := ""
+				var text strings.Builder
 				topY := entries[runStart].y
 				bottom := entries[i-1].y
 				var spanIdx []int
 				for k := runStart; k < i; k++ {
-					text += entries[k].text
+					text.WriteString(entries[k].text)
 					spanIdx = append(spanIdx, entries[k].spanIdx)
 				}
 				labels = append(labels, vertLabelInfo{
-					text:    text,
+					text:    text.String(),
 					topY:    topY,
 					bottom:  bottom,
 					centerX: entries[0].y,
@@ -424,7 +424,7 @@ func ExtractTextWithLayout(path string) ([]DocumentBlock, error) {
 	numPages := doc.NumPages()
 	var allBlocks []DocumentBlock
 
-	for i := 0; i < numPages; i++ {
+	for i := range numPages {
 		page := doc.Page(i)
 		spans, err := page.TextSpans()
 		if err != nil || len(spans) == 0 {

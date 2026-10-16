@@ -79,8 +79,8 @@ func cropTextLine(img image.Image, box [4][2]int) *image.RGBA {
 	// Fast path: near-horizontal text, just do axis-aligned crop.
 	if math.Abs(angle) <= angleThresholdRad {
 		cropped := image.NewRGBA(image.Rect(0, 0, cropW, cropH))
-		for y := 0; y < cropH; y++ {
-			for x := 0; x < cropW; x++ {
+		for y := range cropH {
+			for x := range cropW {
 				cropped.Set(x, y, img.At(minX+x, minY+y))
 			}
 		}
@@ -129,8 +129,8 @@ func cropTextLine(img image.Image, box [4][2]int) *image.RGBA {
 	sinNA := math.Sin(angle)
 	offX := cx + float64(minX) - minDstX
 	offY := cy + float64(minY) - minDstY
-	for dy := 0; dy < dstH; dy++ {
-		for dx := 0; dx < dstW; dx++ {
+	for dy := range dstH {
+		for dx := range dstW {
 			// Inverse map: destination (dx,dy) → source (sx,sy)
 			sx := (float64(dx)+minDstX)*cosNA - (float64(dy)+minDstY)*sinNA + offX
 			sy := (float64(dx)+minDstX)*sinNA + (float64(dy)+minDstY)*cosNA + offY
@@ -157,22 +157,16 @@ func prepareRecInput(cropped *image.RGBA) (pixels []float32, regionWidth int) {
 	}
 
 	ratio := float64(RecHeight) / float64(cropH)
-	resizedW := int(math.Round(float64(cropW) * ratio))
-	if resizedW < 1 {
-		resizedW = 1
-	}
-	if resizedW > RecMaxWidth {
-		resizedW = RecMaxWidth
-	}
+	resizedW := min(max(int(math.Round(float64(cropW)*ratio)), 1), RecMaxWidth)
 
 	resized := image.NewRGBA(image.Rect(0, 0, resizedW, RecHeight))
 	draw.BiLinear.Scale(resized, resized.Bounds(), cropped, cropped.Bounds(), draw.Src, nil)
 
 	// Build CHW tensor with PP-OCR normalization (pixel/255 → mean 0.5 → std 0.5 → [-1, 1])
 	pixels = make([]float32, DetChannels*RecHeight*RecMaxWidth)
-	for c := 0; c < DetChannels; c++ {
-		for y := 0; y < RecHeight; y++ {
-			for x := 0; x < RecMaxWidth; x++ {
+	for c := range DetChannels {
+		for y := range RecHeight {
+			for x := range RecMaxWidth {
 				idx := c*RecHeight*RecMaxWidth + y*RecMaxWidth + x
 				if x >= resizedW {
 					pixels[idx] = (0.0 - 0.5) / 0.5

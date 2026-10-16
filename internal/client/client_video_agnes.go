@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -70,7 +69,7 @@ func AgnesVideoBody(req *types.VideoGenerateRequest) any {
 // See https://agnes-ai.com/zh-Hans/docs/agnes-video-25-flash for the official API spec.
 func (c *Client) AgnesVideoSubmit(req *types.VideoGenerateRequest) (*types.AgnesVideoCreateResponse, error) {
 	var result types.AgnesVideoCreateResponse
-	if err := c.doJSON(http.MethodPost, AgnesVideoSubmitPath, AgnesVideoBody(req), &result); err != nil {
+	if err := c.doJSON(AgnesVideoSubmitPath, AgnesVideoBody(req), &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

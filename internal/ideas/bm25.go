@@ -60,7 +60,7 @@ func BuildBM25Index(entries []IdeaEntry) *bm25Index {
 	var wg sync.WaitGroup
 	results := make([]workerResult, numWorkers)
 
-	for w := 0; w < numWorkers; w++ {
+	for w := range numWorkers {
 		wg.Add(1)
 		wr := &results[w]
 		wr.docFreq = make(map[string]int)
@@ -86,7 +86,7 @@ func BuildBM25Index(entries []IdeaEntry) *bm25Index {
 		}()
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		work <- i
 	}
 	close(work)
@@ -95,7 +95,7 @@ func BuildBM25Index(entries []IdeaEntry) *bm25Index {
 	// Merge per-worker results
 	totalTokens := 0
 	docFreq := make(map[string]int)
-	for w := 0; w < numWorkers; w++ {
+	for w := range numWorkers {
 		wr := results[w]
 		totalTokens += wr.totalTokens
 		for term, df := range wr.docFreq {

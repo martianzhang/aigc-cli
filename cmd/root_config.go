@@ -126,7 +126,7 @@ func runPrintConfig(cmd *cobra.Command) {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		indent := len(line) - len(strings.TrimLeft(line, " "))
-		key := strings.SplitN(trimmed, ":", 2)[0]
+		key, _, _ := strings.Cut(trimmed, ":")
 
 		// Track YAML section context for nested override annotations
 		if trimmed == "defaults:" {

@@ -116,10 +116,10 @@ func AnthropicChatBody(req *types.ChatRequest) ([]byte, error) {
 
 // anthropicToChatResponse converts an Anthropic response to the standard ChatResponse.
 func anthropicToChatResponse(ar *types.AnthropicMessageResponse) *types.ChatResponse {
-	var text string
+	var text strings.Builder
 	for _, block := range ar.Content {
 		if block.Type == "text" {
-			text += block.Text
+			text.WriteString(block.Text)
 		}
 	}
 
@@ -127,7 +127,7 @@ func anthropicToChatResponse(ar *types.AnthropicMessageResponse) *types.ChatResp
 		ID:      ar.ID,
 		Object:  "chat.completion",
 		Model:   ar.Model,
-		Choices: []types.ChatChoice{{Message: types.ChatMessage{Role: "assistant", Content: text}}},
+		Choices: []types.ChatChoice{{Message: types.ChatMessage{Role: "assistant", Content: text.String()}}},
 	}
 	if ar.Usage != nil {
 		cr.Usage = &types.ChatUsage{
@@ -160,13 +160,13 @@ func (c *Client) handleAnthropicSSE(resp *http.Response, w io.Writer) (*types.Ch
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if strings.HasPrefix(line, "event: ") {
-			currentEvent = strings.TrimPrefix(line, "event: ")
+		if after, ok := strings.CutPrefix(line, "event: "); ok {
+			currentEvent = after
 			continue
 		}
 
-		if strings.HasPrefix(line, "data: ") {
-			data := strings.TrimPrefix(line, "data: ")
+		if after, ok := strings.CutPrefix(line, "data: "); ok {
+			data := after
 
 			switch currentEvent {
 			case "message_start":

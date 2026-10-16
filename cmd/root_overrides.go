@@ -96,7 +96,7 @@ func overrideStruct(fs, inherited *pflag.FlagSet, structPtr any, section string,
 		if tag == "" || tag == "-" {
 			continue
 		}
-		yamlName := strings.Split(tag, ",")[0]
+		yamlName, _, _ := strings.Cut(tag, ",")
 		flagName := strings.ReplaceAll(yamlName, "_", "-")
 		fieldIdx[flagName] = i
 		yamlNameOf[i] = yamlName

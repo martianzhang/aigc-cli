@@ -35,9 +35,9 @@ func detPreprocess(img image.Image, inputSize int) (pixels []float32, scaleX, sc
 	std := [3]float32{0.5, 0.5, 0.5}
 
 	pixels = make([]float32, DetChannels*inputSize*inputSize)
-	for c := 0; c < DetChannels; c++ {
-		for y := 0; y < inputSize; y++ {
-			for x := 0; x < inputSize; x++ {
+	for c := range DetChannels {
+		for y := range inputSize {
+			for x := range inputSize {
 				ix := x - padLeft
 				iy := y - padTop
 				idx := c*inputSize*inputSize + y*inputSize + x

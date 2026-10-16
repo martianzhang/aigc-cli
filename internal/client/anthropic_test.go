@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"reflect"
@@ -344,7 +345,7 @@ func TestHandleAnthropicSSE_trailingNewline(t *testing.T) {
 			var body strings.Builder
 			body.WriteString("event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\",\"model\":\"x\"}}\n\n")
 			if tt.delta != "" {
-				body.WriteString("event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"" + tt.delta + "\"}}\n\n")
+				fmt.Fprintf(&body, "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":%q}}\n\n", tt.delta)
 			}
 			body.WriteString("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
 

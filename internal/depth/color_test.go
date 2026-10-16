@@ -22,7 +22,7 @@ func TestColorizeMonotonic(t *testing.T) {
 		r, g, b := colorize(uint8(i))
 		cur := [3]int{int(r), int(g), int(b)}
 		if i > 0 {
-			for c := 0; c < 3; c++ {
+			for c := range 3 {
 				diff := cur[c] - prev[c]
 				if diff < -30 || diff > 30 {
 					t.Errorf("colorize jump at %d: %v → %v", i, prev, cur)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"strings"
@@ -101,7 +102,7 @@ func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.Op
 
 	headers := c.openRouterHeaders()
 	var result types.OpenAIImageResponse
-	if err := c.doJSONWithHeaders(http.MethodPost, OpenRouterImagesPath, OpenRouterImageBody(req), &result, headers); err != nil {
+	if err := c.doJSONWithHeaders(OpenRouterImagesPath, OpenRouterImageBody(req), &result, headers); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -115,7 +116,7 @@ func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.Op
 func (c *Client) OpenRouterVideoSubmit(req *types.OpenRouterVideoRequest) (*types.OpenRouterVideoSubmitResponse, error) {
 	headers := c.openRouterHeaders()
 	var result types.OpenRouterVideoSubmitResponse
-	if err := c.doJSONWithHeaders(http.MethodPost, OpenRouterVideosPath, req, &result, headers); err != nil {
+	if err := c.doJSONWithHeaders(OpenRouterVideosPath, req, &result, headers); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -227,9 +228,7 @@ func extractJobID(pollingURL string) string {
 func (c *Client) openRouterHeaders() map[string]string {
 	h := make(map[string]string)
 	// Apply default headers first as fallback.
-	for k, v := range c.defaultHeaders {
-		h[k] = v
-	}
+	maps.Copy(h, c.defaultHeaders)
 	// Env vars override defaults (highest priority).
 	if ref := os.Getenv("OPENAI_REFERER"); ref != "" {
 		h[headerReferer] = ref

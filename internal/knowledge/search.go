@@ -333,7 +333,7 @@ func Rerank(query string, results SearchResults, topK int) SearchResults {
 	return results
 }
 func sortResults(results SearchResults) {
-	for i := 0; i < len(results); i++ {
+	for i := range results {
 		for j := i + 1; j < len(results); j++ {
 			if results[j].Score > results[i].Score {
 				results[i], results[j] = results[j], results[i]

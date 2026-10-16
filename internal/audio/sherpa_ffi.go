@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
@@ -71,14 +72,14 @@ func loadSherpa() error {
 			"darwin":  {"libsherpa-onnx-c-api.dylib", "libonnxruntime.1.27.0.dylib"},
 			"linux":   {"libsherpa-onnx-c-api.so", "libonnxruntime.so"},
 		}
-		depErr := ""
+		var depErr strings.Builder
 		for _, dep := range expectedLibs[runtime.GOOS] {
 			if _, statErr := os.Stat(filepath.Join(helperDir, dep)); statErr != nil {
-				depErr += fmt.Sprintf("    missing: %s\n", dep)
+				fmt.Fprintf(&depErr, "    missing: %s\n", dep)
 			}
 		}
-		if depErr != "" {
-			return fmt.Errorf("audio helper found in %s\nbut dependencies missing:\n%sExtract ALL files from the release ZIP into that directory", helperDir, depErr)
+		if depErr.String() != "" {
+			return fmt.Errorf("audio helper found in %s\nbut dependencies missing:\n%sExtract ALL files from the release ZIP into that directory", helperDir, depErr.String())
 		}
 		return fmt.Errorf("load audio helper (%s): %w", lib, err)
 	}

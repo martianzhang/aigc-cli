@@ -138,9 +138,9 @@ func preprocess(img image.Image) ([]float32, float32, int, int) {
 
 	pixels := make([]float32, ModelChannels*ModelInputSize*ModelInputSize)
 	idx := 0
-	for c := 0; c < ModelChannels; c++ {
-		for y := 0; y < ModelInputSize; y++ {
-			for x := 0; x < ModelInputSize; x++ {
+	for c := range ModelChannels {
+		for y := range ModelInputSize {
+			for x := range ModelInputSize {
 				off := canvas.PixOffset(x, y)
 				var v uint8
 				switch c {
@@ -168,7 +168,7 @@ func postprocess(out []float32, _, _ int, scale float32, padX, padY int, confThr
 	}
 	var dets []det
 
-	for a := 0; a < NumAnchors; a++ {
+	for a := range NumAnchors {
 		// 通道优先布局：channel c 的值在 out[c*8400 + a]
 		conf := out[4*NumAnchors+a]
 		if conf < confThresh {
@@ -184,7 +184,7 @@ func postprocess(out []float32, _, _ int, scale float32, padX, padY int, confThr
 			(cx - bw/2) / scale, (cy - bh/2) / scale,
 			(cx + bw/2) / scale, (cy + bh/2) / scale,
 		}
-		for k := 0; k < 17; k++ {
+		for k := range 17 {
 			p.Keypoints[k] = [3]float32{
 				(out[(5+k*3)*NumAnchors+a] - float32(padX)) / scale,
 				(out[(6+k*3)*NumAnchors+a] - float32(padY)) / scale,
@@ -236,12 +236,6 @@ func maxf(a, b float32) float32 {
 }
 func minf(a, b float32) float32 {
 	if a < b {
-		return a
-	}
-	return b
-}
-func max(a, b int) int {
-	if a > b {
 		return a
 	}
 	return b

@@ -153,10 +153,7 @@ func gapTreeGetCutsRows(units []gtUnit, order []int, pageL, pageR int) ([]gtCut,
 		row := []int{ui}
 		for j := i + 1; j < len(order); j++ {
 			nH := units[order[j]].y2 - units[order[j]].y0
-			minH := nH
-			if uH < minH {
-				minH = uH
-			}
+			minH := min(uH, nH)
 			overlap := uBottom - units[order[j]].y0
 			if overlap < 1 || overlap*4 < minH {
 				break
@@ -430,7 +427,7 @@ func normalizeBoxesRotation(boxes [][4][2]int, angleRad float64) {
 	rotated := make([][4]pt, len(boxes))
 	minX, minY := math.MaxFloat64, math.MaxFloat64
 	for i, b := range boxes {
-		for j := 0; j < 4; j++ {
+		for j := range 4 {
 			rx := float64(b[j][0])*cosA - float64(b[j][1])*sinA
 			ry := float64(b[j][0])*sinA + float64(b[j][1])*cosA
 			rotated[i][j] = pt{rx, ry}
@@ -443,7 +440,7 @@ func normalizeBoxesRotation(boxes [][4][2]int, angleRad float64) {
 		}
 	}
 	for i, b := range boxes {
-		for j := 0; j < 4; j++ {
+		for j := range 4 {
 			b[j][0] = int(math.Round(rotated[i][j].x - minX))
 			b[j][1] = int(math.Round(rotated[i][j].y - minY))
 		}

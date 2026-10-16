@@ -29,10 +29,7 @@ func (m chatModel) View() string {
 	if strings.HasPrefix(m.input.Value(), "!") {
 		inputStyle = m.styles.shellInputBox
 	}
-	inputWidth := m.width - 4
-	if inputWidth < 10 {
-		inputWidth = 10
-	}
+	inputWidth := max(m.width-4, 10)
 	inputView := inputStyle.Width(inputWidth).Render(m.input.View())
 	b.WriteString(inputView)
 	b.WriteByte('\n')

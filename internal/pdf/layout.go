@@ -103,7 +103,7 @@ func groupByY(spans []gopdf.TextSpan, tolerance float64) []lineGroup {
 	// Sort by Y descending (top to bottom in visual order)
 	sorted := make([]gopdf.TextSpan, len(spans))
 	copy(sorted, spans)
-	for i := 0; i < len(sorted); i++ {
+	for i := range sorted {
 		for j := i + 1; j < len(sorted); j++ {
 			if sorted[j].Y > sorted[i].Y {
 				sorted[i], sorted[j] = sorted[j], sorted[i]
@@ -137,7 +137,7 @@ func groupByY(spans []gopdf.TextSpan, tolerance float64) []lineGroup {
 
 // sortByX sorts TextSpans by X coordinate (left to right).
 func sortByX(spans []gopdf.TextSpan) {
-	for i := 0; i < len(spans); i++ {
+	for i := range spans {
 		for j := i + 1; j < len(spans); j++ {
 			if spans[j].X < spans[i].X {
 				spans[i], spans[j] = spans[j], spans[i]

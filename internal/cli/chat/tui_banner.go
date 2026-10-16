@@ -22,10 +22,10 @@ func buildWelcomeBanner() string {
 
 	lines := []string{
 		"",
-		a.Render("    ___ ") + "  " + i.Render("    ____") + "  " + g.Render("    ______") + "  " + c.Render("    _____"),
-		a.Render("   /   |") + "  " + i.Render("   /  _/") + "  " + g.Render("  / _____/") + "  " + c.Render("   / ___/"),
-		a.Render("  / /| |") + "  " + i.Render("   / /  ") + "  " + g.Render(" / /  ____") + "  " + c.Render(" / /     "),
-		a.Render(" / ___ |") + "  " + i.Render(" _/ /   ") + "  " + g.Render("/ /___/ / ") + "  " + c.Render("/ /____  "),
+		a.Render("    ___ ") + "  " + i.Render("    ____") + "  " + g.Render("    ______") + "  " + c.Render("   _____ "),
+		a.Render("   /   |") + "  " + i.Render("   /  _/") + "  " + g.Render("  / _____/") + "  " + c.Render("  / ___/ "),
+		a.Render("  / /| |") + "  " + i.Render("   / /  ") + "  " + g.Render(" / /  ___ ") + "  " + c.Render(" / /     "),
+		a.Render(" / ___ |") + "  " + i.Render(" _/ /   ") + "  " + g.Render("/ /___/ / ") + "  " + c.Render("/ /___  "),
 		a.Render("/_/  |_|") + "  " + i.Render("/___/   ") + "  " + g.Render("\\_____/  ") + "  " + c.Render(" \\____/ "),
 		gray.Render("  ──────────────────────────────────────"),
 		green.Render("  💬  Type a message to start chatting"),

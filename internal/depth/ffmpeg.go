@@ -238,7 +238,7 @@ func percentileRange(data []uint8, loPct, hiPct float64) (float32, float32) {
 
 	lo := 0
 	cum := 0
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		cum += hist[i]
 		if cum > loSkip {
 			lo = i

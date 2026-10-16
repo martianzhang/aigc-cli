@@ -22,7 +22,7 @@ func TestPreprocess(t *testing.T) {
 	// Check CHW layout: first 64*64 values are R channel
 	// For a black image (0,0,0), normalized = (0 - mean) / std
 	expectedR := -imagenetMean[0] / imagenetStd[0]
-	for i := 0; i < 64*64; i++ {
+	for i := range 64 * 64 {
 		if math.Abs(float64(pixels[i]-expectedR)) > 0.001 {
 			t.Errorf("R channel pixel %d: got %f, want %f", i, pixels[i], expectedR)
 			break
@@ -76,8 +76,8 @@ func TestResizeMask(t *testing.T) {
 	// Create a 4x4 mask with known values
 	srcW, srcH := 4, 4
 	mask := make([]float32, srcW*srcH)
-	for y := 0; y < srcH; y++ {
-		for x := 0; x < srcW; x++ {
+	for y := range srcH {
+		for x := range srcW {
 			mask[y*srcW+x] = float32(x+y) / 6.0 // values 0 to 1
 		}
 	}
@@ -151,8 +151,8 @@ func TestApplyAlpha(t *testing.T) {
 	}
 
 	// Set alpha: top-left half transparent, bottom-right half opaque
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			if x < w/2 && y < h/2 {
 				alpha[y*w+x] = 64 // semi-transparent
 			} else {

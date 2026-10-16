@@ -392,7 +392,7 @@ func TestDoJSON_emptySuccessBody(t *testing.T) {
 	var out struct {
 		ID string `json:"id"`
 	}
-	if err := c.doJSON(http.MethodPost, "/images", nil, &out); err != nil {
+	if err := c.doJSON("/images", nil, &out); err != nil {
 		t.Fatalf("doJSON() with empty 2xx body error = %v", err)
 	}
 }

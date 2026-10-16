@@ -58,11 +58,11 @@ func Preprocess(img image.Image, targetSize int) []float32 {
 	// CHW float32 + ImageNet 归一化
 	pixels := make([]float32, ModelChannels*targetSize*targetSize)
 	idx := 0
-	for c := 0; c < ModelChannels; c++ {
+	for c := range ModelChannels {
 		mean := imagenetMean[c]
 		std := imagenetStd[c]
-		for y := 0; y < targetSize; y++ {
-			for x := 0; x < targetSize; x++ {
+		for y := range targetSize {
+			for x := range targetSize {
 				r, g, b, _ := resized.At(x, y).RGBA()
 				var val float32
 				switch c {
@@ -111,12 +111,12 @@ func ResizeMask(mask []float32, srcW, srcH, dstW, dstH int) []uint8 {
 	}
 
 	out := make([]uint8, dstW*dstH)
-	for dy := 0; dy < dstH; dy++ {
+	for dy := range dstH {
 		sy := dy * srcH / dstH
 		if sy >= srcH {
 			sy = srcH - 1
 		}
-		for dx := 0; dx < dstW; dx++ {
+		for dx := range dstW {
 			sx := dx * srcW / dstW
 			if sx >= srcW {
 				sx = srcW - 1
@@ -134,8 +134,8 @@ func ResizeMask(mask []float32, srcW, srcH, dstW, dstH int) []uint8 {
 // 返回新的 NRGBA 像素数据 (w*h*4 bytes, pre-multiplied alpha)
 func ApplyAlpha(rgba []uint8, w, h int, alpha []uint8) []uint8 {
 	out := make([]uint8, w*h*4)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			idx := y*w*4 + x*4
 			a := alpha[y*w+x]
 			out[idx] = rgba[idx]

@@ -42,9 +42,9 @@ func wrapWAV(header, payload []byte) []byte {
 
 // setChunkAt36 rewrites the chunk tag/size stored at bytes 36:44 of a canonical
 // header — the slot normally occupied by the "data" chunk header.
-func setChunkAt36(hdr []byte, tag string, size uint32) {
-	copy(hdr[36:40], tag)
-	binary.LittleEndian.PutUint32(hdr[40:44], size)
+func setChunkAt36(hdr []byte) {
+	copy(hdr[36:40], "JUNK")
+	binary.LittleEndian.PutUint32(hdr[40:44], 0)
 }
 
 // riffChunkHeader builds an 8-byte RIFF chunk header (id + little-endian size).
@@ -191,7 +191,7 @@ func TestDecodeWAV_unsupportedAudioFormat(t *testing.T) {
 
 func TestDecodeWAV_missingDataChunk(t *testing.T) {
 	hdr := buildWAVHeader(1, 1, 16, 8000, 0)
-	setChunkAt36(hdr, "JUNK", 0) // no data chunk anywhere in the stream
+	setChunkAt36(hdr) // no data chunk anywhere in the stream
 
 	_, err := DecodeWAV(bytes.NewReader(hdr))
 	if err == nil {
@@ -234,7 +234,7 @@ func TestDecodeWAV_truncatedSampleData(t *testing.T) {
 func TestDecodeWAV_extraChunkBeforeData(t *testing.T) {
 	payload := samplesLE16(100, -100, 32767, -32768)
 	hdr := buildWAVHeader(1, 1, 16, 8000, uint32(len(payload)))
-	setChunkAt36(hdr, "JUNK", 0) // zero-length extra chunk pushes data to byte 52
+	setChunkAt36(hdr) // zero-length extra chunk pushes data to byte 52
 
 	stream := wrapWAV(hdr, riffChunkHeader("data", uint32(len(payload))))
 	stream = append(stream, payload...)
@@ -558,7 +558,7 @@ func TestFindDataChunk_nonStandardOffset(t *testing.T) {
 
 func TestFindDataChunk_skipsExtraChunksInStream(t *testing.T) {
 	hdr := buildWAVHeader(1, 1, 16, 8000, 0)
-	setChunkAt36(hdr, "JUNK", 0) // zero-length chunk; the scan resumes at byte 44
+	setChunkAt36(hdr) // zero-length chunk; the scan resumes at byte 44
 
 	var stream bytes.Buffer
 	stream.Write(riffChunk("LIST", []byte{1, 2, 3})) // odd size 3 → padded to 4 bytes
@@ -571,7 +571,7 @@ func TestFindDataChunk_skipsExtraChunksInStream(t *testing.T) {
 
 func TestFindDataChunk_notFound(t *testing.T) {
 	hdr := buildWAVHeader(1, 1, 16, 8000, 0)
-	setChunkAt36(hdr, "JUNK", 0)
+	setChunkAt36(hdr)
 
 	tests := []struct {
 		name   string

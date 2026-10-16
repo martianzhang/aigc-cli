@@ -20,8 +20,8 @@ func blendEdgeResidual(src *image.RGBA, alpha []float64, ax, ay, size int) *imag
 	strength := 0.7
 
 	dst := cloneToRGBA(src)
-	for row := 0; row < size; row++ {
-		for col := 0; col < size; col++ {
+	for row := range size {
+		for col := range size {
 			localIdx := row*size + col
 			a := alpha[localIdx]
 			if a < minAlpha || a > maxAlpha {
@@ -125,8 +125,8 @@ func alphaGradientMask(alpha []float64, w, h int) []float64 {
 
 	// Dilate: max filter radius 2
 	dil := make([]float64, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			mx := 0.0
 			for dy := -2; dy <= 2; dy++ {
 				for dx := -2; dx <= 2; dx++ {
@@ -153,10 +153,7 @@ func alphaGradientMask(alpha []float64, w, h int) []float64 {
 
 // gaussianBlur applies a separable Gaussian blur (sigma=2, radius=6).
 func gaussianBlur(data []float64, w, h int, sigma float64) []float64 {
-	radius := int(sigma * 3)
-	if radius < 1 {
-		radius = 1
-	}
+	radius := max(int(sigma*3), 1)
 	kernel := make([]float64, radius*2+1)
 	var sum float64
 	for i := -radius; i <= radius; i++ {
@@ -170,14 +167,11 @@ func gaussianBlur(data []float64, w, h int, sigma float64) []float64 {
 
 	// Horizontal blur
 	tmp := make([]float64, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			var s float64
 			for k := -radius; k <= radius; k++ {
-				sx := x + k
-				if sx < 0 {
-					sx = 0
-				}
+				sx := max(x+k, 0)
 				if sx >= w {
 					sx = w - 1
 				}
@@ -189,14 +183,11 @@ func gaussianBlur(data []float64, w, h int, sigma float64) []float64 {
 
 	// Vertical blur
 	out := make([]float64, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			var s float64
 			for k := -radius; k <= radius; k++ {
-				sy := y + k
-				if sy < 0 {
-					sy = 0
-				}
+				sy := max(y+k, 0)
 				if sy >= h {
 					sy = h - 1
 				}
@@ -251,8 +242,8 @@ func warpAlphaMap(srcAlpha []float64, srcW, srcH, dstSize int, dx, dy, scale flo
 		return top*(1-fsy) + bot*fsy
 	}
 
-	for y := 0; y < dstSize; y++ {
-		for x := 0; x < dstSize; x++ {
+	for y := range dstSize {
+		for x := range dstSize {
 			sx := (float64(x)-center)/scale + center + dx
 			sy := (float64(y)-center)/scale + center + dy
 			dst[y*dstSize+x] = sample(sx, sy)
@@ -281,8 +272,8 @@ func applyReverseAlphaRect(img image.Image, alpha []float64,
 	b := img.Bounds()
 	dst := cloneToRGBA(img)
 
-	for dy := 0; dy < dh; dy++ {
-		for dx := 0; dx < dw; dx++ {
+	for dy := range dh {
+		for dx := range dw {
 			rawAlpha := alpha[dy*dw+dx]
 			signalAlpha := (rawAlpha - 0.0118) * gain
 			if signalAlpha < 0.002 {
@@ -324,8 +315,8 @@ func computeResidualRect(dst *image.RGBA, alpha []float64, x, y, dw, dh int) flo
 	}
 
 	region := make([]float64, dw*dh)
-	for dy := 0; dy < dh; dy++ {
-		for dx := 0; dx < dw; dx++ {
+	for dy := range dh {
+		for dx := range dw {
 			off := dst.PixOffset(x+dx, y+dy)
 			r := float64(dst.Pix[off+0])
 			g := float64(dst.Pix[off+1])
@@ -353,8 +344,8 @@ func applyReverseAlpha(img image.Image, alpha []float64,
 	b := img.Bounds()
 	dst := cloneToRGBA(img)
 
-	for dy := 0; dy < size; dy++ {
-		for dx := 0; dx < size; dx++ {
+	for dy := range size {
+		for dx := range size {
 			rawAlpha := alpha[dy*size+dx]
 			// Noise floor subtraction (3/255): remove JPEG compression noise
 			// from the alpha map, matching the reference project's approach.
@@ -405,8 +396,8 @@ func computeResidual(dst *image.RGBA, alpha []float64, x, y, size int) float64 {
 
 	// Extract grayscale from the cleaned region
 	region := make([]float64, size*size)
-	for dy := 0; dy < size; dy++ {
-		for dx := 0; dx < size; dx++ {
+	for dy := range size {
+		for dx := range size {
 			off := dst.PixOffset(x+dx, y+dy)
 			r := float64(dst.Pix[off+0])
 			g := float64(dst.Pix[off+1])

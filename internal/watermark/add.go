@@ -95,10 +95,7 @@ func addKnownWatermark(img image.Image, w, h int, cfg Config) (*image.RGBA, *Res
 		}
 	}
 
-	sz := pos.W
-	if pos.H < sz {
-		sz = pos.H
-	}
+	sz := min(pos.H, pos.W)
 	return dst, &Result{
 		Removed:    true,
 		Name:       cfg.Name,
@@ -137,8 +134,8 @@ func addTextWatermark(img image.Image, w, h int, text string) (*image.RGBA, *Res
 
 	// Extract alpha map from the rendered text (white pixels = watermark)
 	alpha := make([]float64, tw*th)
-	for y := 0; y < th; y++ {
-		for x := 0; x < tw; x++ {
+	for y := range th {
+		for x := range tw {
 			off := tmp.PixOffset(x, y)
 			// Use the max RGB channel as alpha proxy
 			maxC := float64(tmp.Pix[off+0])

@@ -8,6 +8,7 @@ package audio
 import (
 	"fmt"
 	"os"
+	"slices"
 )
 
 // ModelType distinguishes ASR (speech-to-text) from TTS (text-to-speech).
@@ -347,12 +348,7 @@ func dirFor(id, baseDir string) string {
 }
 
 func contains(slice []string, s string) bool {
-	for _, v := range slice {
-		if v == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, s)
 }
 
 func dirExists(path string) (bool, error) {

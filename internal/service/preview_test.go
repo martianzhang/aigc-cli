@@ -133,7 +133,7 @@ func TestPreviewFile_inlineFallback(t *testing.T) {
 	// Create a small PNG and verify PreviewFile doesn't crash
 	// (inline display won't trigger since TERM_PROGRAM is not set)
 	tmpFile := filepath.Join(t.TempDir(), "test.png")
-	createTestPNG(t, tmpFile, 10, 10)
+	createTestPNG(t, tmpFile)
 
 	// Should fall through to openSystemDefault
 	// openSystemDefault will fail differently on different platforms,
@@ -261,7 +261,7 @@ func TestIsInlineCapableTerminal_kitty(t *testing.T) {
 // --- helpers ---
 
 // createTestPNG creates a small PNG file for testing.
-func createTestPNG(t *testing.T, path string, w, h int) {
+func createTestPNG(t *testing.T, path string) {
 	t.Helper()
 	f, err := os.Create(path)
 	if err != nil {
@@ -269,7 +269,7 @@ func createTestPNG(t *testing.T, path string, w, h int) {
 	}
 	defer f.Close()
 
-	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
 	if err := png.Encode(f, img); err != nil {
 		t.Fatalf("failed to encode test PNG: %v", err)
 	}

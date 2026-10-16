@@ -116,8 +116,8 @@ func TestPreprocessImageFromImage(t *testing.T) {
 	const size = 2
 	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
+	for y := range size {
+		for x := range size {
 			img.Set(x, y, white)
 		}
 	}
@@ -131,7 +131,7 @@ func TestPreprocessImageFromImage(t *testing.T) {
 	}
 
 	// White pixel: normalized (1-mean)/std for each channel in CHW order.
-	for c := 0; c < 3; c++ {
+	for c := range 3 {
 		want := float32(normalizedValue(65535, c))
 		if got := pixels[c*size*size]; math.Abs(float64(got-want)) > 1e-4 {
 			t.Errorf("channel %d white pixel = %v, want %v", c, got, want)
@@ -145,7 +145,7 @@ func TestPreprocessImageFromImage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("black preprocess error: %v", err)
 	}
-	for c := 0; c < 3; c++ {
+	for c := range 3 {
 		want := float32(normalizedValue(0, c))
 		if math.Abs(float64(bp[c]-want)) > 1e-4 {
 			t.Errorf("channel %d black pixel = %v, want %v", c, bp[c], want)
@@ -158,8 +158,8 @@ func TestPreprocessImage(t *testing.T) {
 	path := filepath.Join(dir, "img.png")
 
 	src := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	for y := 0; y < 4; y++ {
-		for x := 0; x < 4; x++ {
+	for y := range 4 {
+		for x := range 4 {
 			src.Set(x, y, color.RGBA{R: uint8(x * 60), G: uint8(y * 60), B: 128, A: 255})
 		}
 	}
@@ -242,7 +242,7 @@ func TestBuildByteEncoderInverse(t *testing.T) {
 		t.Fatalf("encoder/decoder sizes = %d/%d, want 256/256",
 			len(tk.byteEncoder), len(tk.byteDecoder))
 	}
-	for b := 0; b < 256; b++ {
+	for b := range 256 {
 		ch := tk.byteEncoder[byte(b)]
 		if got := tk.byteDecoder[ch]; got != byte(b) {
 			t.Errorf("roundtrip byte %d → %q → %d", b, ch, got)

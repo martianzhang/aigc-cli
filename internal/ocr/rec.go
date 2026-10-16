@@ -33,9 +33,9 @@ func (e *Engine) classifyDirection(cropped *image.RGBA) bool {
 	// Build normalized tensor: (pixel/255 - 0.5) / 0.5 → [-1, 1]
 	data := e.clsIn.GetData()
 	idx := 0
-	for c := 0; c < DetChannels; c++ {
-		for y := 0; y < clsInputH; y++ {
-			for x := 0; x < clsInputW; x++ {
+	for c := range DetChannels {
+		for y := range clsInputH {
+			for x := range clsInputW {
 				r, g, b_, _ := resized.At(x, y).RGBA()
 				var val float32
 				switch c {
@@ -194,7 +194,7 @@ func ctcGreedyDecode(logits []float32, timesteps, vocab int, dict []string) stri
 
 	var decoded []int
 	var prevLabel = blankLabel
-	for t := 0; t < timesteps; t++ {
+	for t := range timesteps {
 		offset := t * vocab
 		// Argmax
 		maxIdx := 0

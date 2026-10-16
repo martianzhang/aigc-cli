@@ -70,7 +70,7 @@ func MarshalNode(node *yaml.Node, indent int) ([]byte, error) {
 // detectIndent returns the first nested indentation width found in data,
 // falling back to two spaces (the project's config style).
 func detectIndent(data []byte) int {
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		trimmed := strings.TrimLeft(line, " ")
 		if trimmed == "" || trimmed == line || strings.HasPrefix(trimmed, "#") {
 			continue

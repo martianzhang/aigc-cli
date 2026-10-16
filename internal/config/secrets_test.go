@@ -34,7 +34,7 @@ web_search:
 
 func TestEncryptSecretsInFile(t *testing.T) {
 	withMasterKey(t, "master-key-1")
-	path := writeFixture(t, "config.yaml", secretsFixture)
+	path := writeFixture(t, secretsFixture)
 
 	count, err := EncryptSecretsInFile(path)
 	if err != nil {
@@ -84,7 +84,7 @@ func TestEncryptSecretsInFile(t *testing.T) {
 
 func TestEncryptSecretsInFileIdempotent(t *testing.T) {
 	withMasterKey(t, "master-key-1")
-	path := writeFixture(t, "config.yaml", secretsFixture)
+	path := writeFixture(t, secretsFixture)
 
 	if _, err := EncryptSecretsInFile(path); err != nil {
 		t.Fatalf("first encrypt: %v", err)
@@ -118,7 +118,7 @@ func TestLoadDecryptError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EncryptString: %v", err)
 	}
-	path := writeFixture(t, "config.yaml", "api_key: "+encrypted+"\n")
+	path := writeFixture(t, "api_key: "+encrypted+"\n")
 
 	// Switch to a different master secret: decryption must fail loudly.
 	t.Setenv(secret.EnvVar, "key-B")

@@ -383,7 +383,7 @@ func (e *Engine) generate(path, prompt string) (string, error) {
 	var generatedIDs []int64
 	const startTokenID = 2
 
-	for i := 0; i < MaxTokens; i++ {
+	for i := range MaxTokens {
 		decoderIDs := make([]int64, 0, 1+len(generatedIDs))
 		decoderIDs = append(decoderIDs, startTokenID)
 		decoderIDs = append(decoderIDs, generatedIDs...)
@@ -482,7 +482,7 @@ func (e *Engine) runEncoderModel(embeds []float32, seqLen int) ([]float32, error
 
 	// Set attention mask: active positions = 1, padding = 0
 	maskData := e.encAttentionMask.GetData()
-	for i := 0; i < len(maskData); i++ {
+	for i := range maskData {
 		if i < seqLen {
 			maskData[i] = 1
 		} else {

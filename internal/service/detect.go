@@ -5,6 +5,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"maps"
 
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
@@ -178,9 +179,7 @@ func DetectImage(path string) (*DetectResult, error) {
 
 		// PNG text chunks (skip internal XMP metadata)
 		delete(textChunks, "XML:com.adobe.xmp")
-		for k, v := range textChunks {
-			result.Metadata[k] = v
-		}
+		maps.Copy(result.Metadata, textChunks)
 
 	case "jpeg":
 		jf := readJPEGInfo(f)

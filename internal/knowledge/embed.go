@@ -98,7 +98,7 @@ func (h *HashEmbedder) extractNGrams(text string) []string {
 	if isCJK {
 		// Character bigrams and trigrams for CJK
 		runes := []rune(text)
-		for i := 0; i < len(runes); i++ {
+		for i := range runes {
 			if unicode.IsSpace(runes[i]) || unicode.IsPunct(runes[i]) {
 				continue
 			}

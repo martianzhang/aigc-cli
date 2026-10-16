@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -247,10 +248,8 @@ func mappingValue(mapping *yaml.Node, key string) *yaml.Node {
 // splitPath splits a dot path and rejects empty segments ("a..b", ".a").
 func splitPath(dotPath string) ([]string, error) {
 	segments := strings.Split(dotPath, ".")
-	for _, segment := range segments {
-		if segment == "" {
-			return nil, fmt.Errorf("invalid key %q", dotPath)
-		}
+	if slices.Contains(segments, "") {
+		return nil, fmt.Errorf("invalid key %q", dotPath)
 	}
 	return segments, nil
 }

@@ -93,12 +93,12 @@ func PreprocessCrop(img image.Image, targetSize int) ([]float32, Crop) {
 	// CHW float32 + ImageNet 归一化
 	pixels := make([]float32, ModelChannels*targetSize*targetSize)
 	idx := 0
-	for c := 0; c < ModelChannels; c++ {
+	for c := range ModelChannels {
 		mean := imagenetMean[c]
 		std := imagenetStd[c]
-		for y := 0; y < targetSize; y++ {
+		for y := range targetSize {
 			row := y * canvas.Stride
-			for x := 0; x < targetSize; x++ {
+			for x := range targetSize {
 				p := row + x*4
 				var val float32
 				switch c {
@@ -156,12 +156,12 @@ func DepthToGray(data []float32, srcW, srcH, dstW, dstH int) *image.Gray {
 		copy(dst.Pix, src)
 		return dst
 	}
-	for dy := 0; dy < dstH; dy++ {
+	for dy := range dstH {
 		sy := dy * srcH / dstH
 		if sy >= srcH {
 			sy = srcH - 1
 		}
-		for dx := 0; dx < dstW; dx++ {
+		for dx := range dstW {
 			sx := dx * srcW / dstW
 			if sx >= srcW {
 				sx = srcW - 1
@@ -209,12 +209,12 @@ func DepthToGrayCrop(data []float32, canvasSize int, crop Crop, dstW, dstH int) 
 	}
 	// 有效区域在画布中的起始像素索引
 	cropBase := crop.Y*canvasSize + crop.X
-	for dy := 0; dy < dstH; dy++ {
+	for dy := range dstH {
 		sy := dy * ch / dstH
 		if sy >= ch {
 			sy = ch - 1
 		}
-		for dx := 0; dx < dstW; dx++ {
+		for dx := range dstW {
 			sx := dx * cw / dstW
 			if sx >= cw {
 				sx = cw - 1
@@ -260,12 +260,12 @@ func DepthToColorCrop(data []float32, canvasSize int, crop Crop, dstW, dstH int)
 		ch = canvasSize
 	}
 	cropBase := crop.Y*canvasSize + crop.X
-	for dy := 0; dy < dstH; dy++ {
+	for dy := range dstH {
 		sy := dy * ch / dstH
 		if sy >= ch {
 			sy = ch - 1
 		}
-		for dx := 0; dx < dstW; dx++ {
+		for dx := range dstW {
 			sx := dx * cw / dstW
 			if sx >= cw {
 				sx = cw - 1

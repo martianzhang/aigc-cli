@@ -18,9 +18,9 @@ func detPostProcess(probMap []float32, h, w, inputSize int, scaleX, scaleY float
 
 	// Step 1: Threshold the probability map to binary mask
 	binary := make([][]bool, h)
-	for y := 0; y < h; y++ {
+	for y := range h {
 		binary[y] = make([]bool, w)
-		for x := 0; x < w; x++ {
+		for x := range w {
 			idx := y*w + x
 			binary[y][x] = probMap[idx] > threshold
 		}
@@ -28,9 +28,9 @@ func detPostProcess(probMap []float32, h, w, inputSize int, scaleX, scaleY float
 
 	// Step 1b: Morphological dilation (2x2 kernel) to merge nearby text pixels
 	dilated := make([][]bool, h)
-	for y := 0; y < h; y++ {
+	for y := range h {
 		dilated[y] = make([]bool, w)
-		for x := 0; x < w; x++ {
+		for x := range w {
 			if binary[y][x] {
 				dilated[y][x] = true
 				continue
@@ -49,13 +49,13 @@ func detPostProcess(probMap []float32, h, w, inputSize int, scaleX, scaleY float
 		points []ocrPoint
 	}
 	visited := make([][]bool, h)
-	for y := 0; y < h; y++ {
+	for y := range h {
 		visited[y] = make([]bool, w)
 	}
 
 	var components []component
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			if !dilated[y][x] || visited[y][x] {
 				continue
 			}
@@ -123,7 +123,7 @@ func detPostProcess(probMap []float32, h, w, inputSize int, scaleX, scaleY float
 	result := make([][4][2]int, 0, len(keep))
 	for _, idx := range keep {
 		box := boxes[idx]
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			x := int(math.Round(float64(box[i][0]-padLeft) * float64(origW) / (scaleX * float64(inputSize))))
 			y := int(math.Round(float64(box[i][1]-padTop) * float64(origH) / (scaleY * float64(inputSize))))
 			if x < 0 {
@@ -135,7 +135,7 @@ func detPostProcess(probMap []float32, h, w, inputSize int, scaleX, scaleY float
 			box[i][0] = x
 			box[i][1] = y
 		}
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			if box[i][0] < 0 {
 				box[i][0] = 0
 			}

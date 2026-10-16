@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -36,13 +37,7 @@ func TestGenerateSpeechTool_formatEnum(t *testing.T) {
 		t.Fatalf("format has no enum, got %#v", prop["enum"])
 	}
 	for _, want := range []string{"mp3", "wav", "opus", "aac", "flac", "pcm"} {
-		found := false
-		for _, got := range enum {
-			if got == want {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(enum, want)
 		if !found {
 			t.Errorf("format enum missing %q (enum: %v)", want, enum)
 		}

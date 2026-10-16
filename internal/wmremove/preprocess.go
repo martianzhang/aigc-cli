@@ -8,9 +8,9 @@ import (
 func preprocessImage(img image.Image, w, h int) []uint8 {
 	data := make([]uint8, 3*w*h)
 	idx := 0
-	for c := 0; c < 3; c++ {
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+	for c := range 3 {
+		for y := range h {
+			for x := range w {
 				r, g, b, _ := img.At(x, y).RGBA()
 				switch c {
 				case 0:
@@ -29,8 +29,8 @@ func preprocessImage(img image.Image, w, h int) []uint8 {
 
 func preprocessMask(mask *image.Gray, w, h int) []uint8 {
 	data := make([]uint8, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			if mask.GrayAt(x, y).Y > 128 {
 				data[y*w+x] = 0
 			} else {

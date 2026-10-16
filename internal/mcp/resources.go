@@ -166,10 +166,7 @@ func outputListing(dir string) (string, error) {
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "Output directory: %s\n", dir)
-	shown := len(files)
-	if shown > maxResourceEntries {
-		shown = maxResourceEntries
-	}
+	shown := min(len(files), maxResourceEntries)
 	for _, entry := range files[:shown] {
 		info, err := entry.Info()
 		if err != nil {
