@@ -66,13 +66,19 @@ func KbShow(kbDir, argsJSON string) string {
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
+	defer rows.Close()
+
 	var ids []string
 	for rows.Next() {
 		var id string
-		rows.Scan(&id)
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
 		ids = append(ids, id)
 	}
-	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
 	if len(ids) == 0 {
 		return fmt.Sprintf("Document %q not found.", args.DocID)
 	}

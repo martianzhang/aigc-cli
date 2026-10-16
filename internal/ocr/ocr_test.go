@@ -370,8 +370,8 @@ func TestRecPreprocess_zeroRegion(t *testing.T) {
 func TestRecPreprocess_validRegion(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 200, 200))
 	// Fill with a color
-	for y := 0; y < 200; y++ {
-		for x := 0; x < 200; x++ {
+	for y := range 200 {
+		for x := range 200 {
 			img.Set(x, y, color.RGBA{128, 64, 32, 255})
 		}
 	}
@@ -397,7 +397,7 @@ func TestCTCDecode_simple(t *testing.T) {
 	timesteps := 5
 	logits := make([]float32, timesteps*vocab)
 	// Set index 1 high at all timesteps
-	for t := 0; t < timesteps; t++ {
+	for t := range timesteps {
 		logits[t*vocab+1] = 1.0
 	}
 	text := ctcGreedyDecode(logits, timesteps, vocab, nil)
@@ -539,15 +539,6 @@ func TestOCRPage_Fields(t *testing.T) {
 
 func TestOCRResult_TextConcat(t *testing.T) {
 	result := &OCRResult{
-		Pages: []OCRPage{
-			{
-				Page: 0,
-				Lines: []OCRLine{
-					{Text: "第一行"},
-					{Text: "第二行"},
-				},
-			},
-		},
 		Text: "第一行\n第二行",
 	}
 	if result.Text != "第一行\n第二行" {
@@ -601,8 +592,8 @@ func TestDefaultLibPath_notFound(t *testing.T) {
 func TestDetPreprocess_whiteImage(t *testing.T) {
 	// All-white should produce consistent normalized values
 	img := image.NewRGBA(image.Rect(0, 0, 960, 960))
-	for y := 0; y < 960; y++ {
-		for x := 0; x < 960; x++ {
+	for y := range 960 {
+		for x := range 960 {
 			img.Set(x, y, color.RGBA{255, 255, 255, 255})
 		}
 	}

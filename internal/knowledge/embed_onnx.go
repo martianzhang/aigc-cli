@@ -125,7 +125,7 @@ func (e *ONNXEmbedder) Embed(text string) (Embedding, error) {
 	attn := e.attention.GetData()
 	ttype := e.tokenTypes.GetData()
 	pad := int64(e.tokenizer.padID)
-	for i := 0; i < seqLen; i++ {
+	for i := range seqLen {
 		if i < len(ids) {
 			in[i] = ids[i]
 			attn[i] = 1
@@ -141,7 +141,7 @@ func (e *ONNXEmbedder) Embed(text string) (Embedding, error) {
 	dim := e.dim
 	out := e.output.GetData()
 	actualLen := 0
-	for i := 0; i < seqLen; i++ {
+	for i := range seqLen {
 		if attn[i] != 0 {
 			actualLen++
 		}
@@ -150,16 +150,16 @@ func (e *ONNXEmbedder) Embed(text string) (Embedding, error) {
 		return Embedding{}, fmt.Errorf("no tokens")
 	}
 	pooled := make([]float64, dim)
-	for t := 0; t < seqLen; t++ {
+	for t := range seqLen {
 		if attn[t] == 0 {
 			continue
 		}
 		off := t * dim
-		for d := 0; d < dim; d++ {
+		for d := range dim {
 			pooled[d] += float64(out[off+d])
 		}
 	}
-	for d := 0; d < dim; d++ {
+	for d := range dim {
 		pooled[d] /= float64(actualLen)
 	}
 	var norm float64
@@ -172,8 +172,8 @@ func (e *ONNXEmbedder) Embed(text string) (Embedding, error) {
 			pooled[d] /= norm
 		}
 	}
-	var emb Embedding
-	for d := 0; d < dim && d < len(emb); d++ {
+	emb := make(Embedding, dim)
+	for d := range dim {
 		emb[d] = float32(pooled[d])
 	}
 	return emb, nil

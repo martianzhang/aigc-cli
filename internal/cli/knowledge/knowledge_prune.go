@@ -38,6 +38,7 @@ var kbPruneCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("find duplicates: %w", err)
 		}
+		defer rows.Close()
 
 		type dup struct {
 			checksum string
@@ -48,11 +49,13 @@ var kbPruneCmd = &cobra.Command{
 		for rows.Next() {
 			var d dup
 			if err := rows.Scan(&d.checksum, &d.count, &d.keepID); err != nil {
-				continue
+				return fmt.Errorf("scan duplicate: %w", err)
 			}
 			dups = append(dups, d)
 		}
-		rows.Close()
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("iterate duplicates: %w", err)
+		}
 
 		removed := 0
 		for _, d := range dups {

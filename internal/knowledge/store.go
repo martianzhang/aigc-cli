@@ -283,9 +283,15 @@ func (s *Store) SaveChunks(docID string, chunks []Chunk, embeddings []Embedding,
 	var oldChunkIDs []int64
 	for oldRows.Next() {
 		var id int64
-		if err := oldRows.Scan(&id); err == nil {
-			oldChunkIDs = append(oldChunkIDs, id)
+		if err := oldRows.Scan(&id); err != nil {
+			oldRows.Close()
+			return err
 		}
+		oldChunkIDs = append(oldChunkIDs, id)
+	}
+	if err := oldRows.Err(); err != nil {
+		oldRows.Close()
+		return err
 	}
 	oldRows.Close()
 
@@ -538,7 +544,7 @@ func embeddingToBlob(e Embedding) []byte {
 func blobToEmbedding(b []byte) Embedding {
 	n := len(b) / 4
 	e := make(Embedding, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		e[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[i*4:]))
 	}
 	return e
