@@ -172,7 +172,7 @@ func TestBuildModelScopeImageBodyVerbatimRawJSON(t *testing.T) {
 	if body["steps"] != float64(30) {
 		t.Errorf("steps = %#v, want 30", body["steps"])
 	}
-	loras, ok := body["loras"].(map[string]interface{})
+	loras, ok := body["loras"].(map[string]any)
 	if !ok {
 		t.Fatalf("loras type = %T, want map", body["loras"])
 	}

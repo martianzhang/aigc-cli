@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -101,8 +102,8 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case toolDone:
 		m.state = tuiProcessing
 		m.toolMsg = fmt.Sprintf("✓ %s: %s", msg.name, msg.summary)
-		for i := len(m.messages) - 1; i >= 0; i-- {
-			if m.messages[i].role == "tool" && m.messages[i].tool == msg.name {
+		for i, tm := range slices.Backward(m.messages) {
+			if tm.role == "tool" && tm.tool == msg.name {
 				content := msg.content
 				if content == "" {
 					content = fmt.Sprintf("✓ %s", msg.summary)

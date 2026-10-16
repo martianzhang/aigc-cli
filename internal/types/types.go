@@ -51,7 +51,7 @@ type GenerateRequest struct {
 	ResponseFormat string `json:"response_format,omitempty" yaml:"response_format,omitempty"`
 	// ExtraBody holds provider-specific fields that must be nested inside
 	// "extra_body" (e.g., Agnes API requires response_format in extra_body).
-	ExtraBody map[string]interface{} `json:"extra_body,omitempty" yaml:"extra_body,omitempty"`
+	ExtraBody map[string]any `json:"extra_body,omitempty" yaml:"extra_body,omitempty"`
 	// RawJSON is a verbatim --json body; when set it overrides MarshalJSON so
 	// provider-specific parameters reach the API unmodelled.
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
@@ -67,17 +67,17 @@ func (r GenerateRequest) MarshalJSON() ([]byte, error) {
 // caller-built body. Providers whose endpoint needs a different wire shape
 // (OpenRouter, Gemini, Ollama, /images/edits) build that shape and pass it
 // here, so --json passthrough cannot be silently dropped on those paths.
-func (r *GenerateRequest) BodyOrRaw(built interface{}) interface{} {
+func (r *GenerateRequest) BodyOrRaw(built any) any {
 	return RawOr(r.RawJSON, built)
 }
 
 // BodyOrRaw is the video twin of GenerateRequest.BodyOrRaw.
-func (r *VideoGenerateRequest) BodyOrRaw(built interface{}) interface{} {
+func (r *VideoGenerateRequest) BodyOrRaw(built any) any {
 	return RawOr(r.RawJSON, built)
 }
 
 // RawOr returns raw verbatim when set, otherwise built.
-func RawOr(raw json.RawMessage, built interface{}) interface{} {
+func RawOr(raw json.RawMessage, built any) any {
 	if len(raw) > 0 {
 		return raw
 	}
@@ -87,7 +87,7 @@ func RawOr(raw json.RawMessage, built interface{}) interface{} {
 // marshalVerbatim returns raw unchanged when set, otherwise the marshalled
 // typed view. Request types route MarshalJSON through it so a --json body
 // reaches the wire verbatim instead of being rebuilt from modeled fields.
-func marshalVerbatim(raw json.RawMessage, typed interface{}) ([]byte, error) {
+func marshalVerbatim(raw json.RawMessage, typed any) ([]byte, error) {
 	if len(raw) > 0 {
 		return raw, nil
 	}

@@ -374,7 +374,7 @@ func encodePalettedPNG(img image.Image, dstPath string, nColors int, beforeSize 
 // autoCompress auto-selects compression based on output format.
 // No format specified → Squoosh-style JPEG q75.
 // Format specified → auto quality for that format.
-func autoCompress(img image.Image, srcPath, outFmt string, opts *CompressOptions, beforeSize int64) (*CompressResult, error) {
+func autoCompress(img image.Image, srcPath, outFmt string, _ *CompressOptions, beforeSize int64) (*CompressResult, error) {
 	origBase := strings.TrimSuffix(srcPath, filepath.Ext(srcPath))
 	switch outFmt {
 	case "jpg", "jpeg":

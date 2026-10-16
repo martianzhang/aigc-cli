@@ -42,7 +42,7 @@ func DetectWatermarkRegions(img image.Image) []CropRegion {
 
 // detectEdgeDensityInCorners detects regions with high edge density in corners.
 // Watermarks typically have dense edges (text/graphic outlines).
-func detectEdgeDensityInCorners(gray, grad []float64, w, h int) []CropRegion {
+func detectEdgeDensityInCorners(_, grad []float64, w, h int) []CropRegion {
 	blockSize := 32
 	margin := float64(minInt(w, h)) * 0.15 // corners = 15% of image
 

@@ -55,7 +55,7 @@ func normalizeRawSizeTier(req *types.GenerateRequest) error {
 	}
 	dec := json.NewDecoder(bytes.NewReader(req.RawJSON))
 	dec.UseNumber()
-	var body map[string]interface{}
+	var body map[string]any
 	if err := dec.Decode(&body); err != nil {
 		return fmt.Errorf("failed to parse JSON body: %w", err)
 	}

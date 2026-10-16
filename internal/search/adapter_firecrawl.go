@@ -19,7 +19,7 @@ func NewFirecrawlProvider(apiKey string) *FirecrawlProvider {
 func (p *FirecrawlProvider) Name() string { return "firecrawl" }
 
 func (p *FirecrawlProvider) Search(query string, limit int) ([]Result, error) {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"query": query,
 		"limit": limit,
 	}

@@ -2,6 +2,7 @@ package ocr
 
 import (
 	"math"
+	"slices"
 	"sort"
 )
 
@@ -241,7 +242,7 @@ func gapTreeUpdateGaps(gaps, rowGaps []gtGap, cuts []gtCut, rowIdx int) ([]gtGap
 	return newGaps, cuts
 }
 
-func gapTreeBuildLayout(cuts []gtCut, rows [][]int, order []int) *gtNode {
+func gapTreeBuildLayout(cuts []gtCut, rows [][]int, _ []int) *gtNode {
 	// Build per-row gap lists.
 	rowsGaps := make([][]gtGap, len(rows))
 	for _, cut := range cuts {
@@ -368,8 +369,8 @@ func gapTreePreorder(root *gtNode) []*gtNode {
 		node := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 		result = append(result, node)
-		for i := len(node.children) - 1; i >= 0; i-- {
-			stack = append(stack, node.children[i])
+		for _, c := range slices.Backward(node.children) {
+			stack = append(stack, c)
 		}
 	}
 	return result

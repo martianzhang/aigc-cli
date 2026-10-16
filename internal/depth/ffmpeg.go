@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -67,8 +68,8 @@ func parseTimeToSeconds(s string) (float64, error) {
 	}
 	var total float64
 	mult := 1.0
-	for i := len(parts) - 1; i >= 0; i-- {
-		v, err := strconv.ParseFloat(parts[i], 64)
+	for _, p := range slices.Backward(parts) {
+		v, err := strconv.ParseFloat(p, 64)
 		if err != nil || v < 0 {
 			return 0, fmt.Errorf("invalid time %q (expected SS, MM:SS, or HH:MM:SS)", s)
 		}

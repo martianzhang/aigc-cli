@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -93,9 +94,9 @@ func (cs *conformanceServer) lastBodyFor(t *testing.T, path string) []byte {
 	t.Helper()
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
-	for i := len(cs.requests) - 1; i >= 0; i-- {
-		if cs.requests[i].path == path {
-			return cs.requests[i].body
+	for _, captured := range slices.Backward(cs.requests) {
+		if captured.path == path {
+			return captured.body
 		}
 	}
 	paths := make([]string, len(cs.requests))

@@ -149,7 +149,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 }
 
 // runLocalAudioTranscribe handles local ASR inference via sherpa-onnx.
-func runLocalAudioTranscribe(cmd *cobra.Command) error {
+func runLocalAudioTranscribe(_ *cobra.Command) error {
 	input := audioTranscribeInput
 	if input == "" {
 		return fmt.Errorf("audio file is required: specify with --input")

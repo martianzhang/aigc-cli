@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -87,7 +88,8 @@ func (m *chatModel) showTools() {
 	for _, t := range m.agentTools {
 		fmt.Fprintf(&b, "  /%s", t.Function.Name)
 		if desc := t.Function.Description; desc != "" {
-			b.WriteString(" — " + desc)
+			b.WriteString(" — ")
+			b.WriteString(desc)
 		}
 		b.WriteByte('\n')
 	}
@@ -98,9 +100,9 @@ func (m *chatModel) showTools() {
 
 // handleCopy copies the last assistant response to the system clipboard.
 func (m *chatModel) handleCopy() {
-	for i := len(m.messages) - 1; i >= 0; i-- {
-		if m.messages[i].role == "assistant" && m.messages[i].content != "" {
-			if err := clipboard.WriteAll(m.messages[i].content); err != nil {
+	for _, msg := range slices.Backward(m.messages) {
+		if msg.role == "assistant" && msg.content != "" {
+			if err := clipboard.WriteAll(msg.content); err != nil {
 				m.messages = append(m.messages, message{role: "system", content: fmt.Sprintf("Copy failed: %v", err)})
 			} else {
 				m.messages = append(m.messages, message{role: "system", content: "\u2713 Last response copied to clipboard"})

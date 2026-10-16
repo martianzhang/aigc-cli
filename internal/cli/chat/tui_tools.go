@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbletea"
@@ -48,7 +49,7 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 
 			// Run in goroutine
 			go func() {
-				prog := getProgram(m)
+				prog := getProgram()
 				prog.Send(toolStart{name: cmdName})
 
 				// Take snapshot of history (same principle as runTUIAgentLoop)
@@ -139,8 +140,8 @@ func (m *chatModel) handleShellCommand(input string) (tea.Model, tea.Cmd) {
 	})
 
 	// Update the tool message with the command and its result
-	for i := len(m.messages) - 1; i >= 0; i-- {
-		if m.messages[i].role == "tool" && m.messages[i].tool == "shell" {
+	for i, tm := range slices.Backward(m.messages) {
+		if tm.role == "tool" && tm.tool == "shell" {
 			m.messages[i].content = formatShellOutput(cmdLine, result)
 			break
 		}
@@ -177,7 +178,7 @@ func (m *chatModel) handlePreview(input string) (tea.Model, tea.Cmd) {
 
 	// Temporarily switch out of alt screen for the preview
 	go func() {
-		prog := getProgram(m)
+		prog := getProgram()
 		if err := service.PreviewFile(filePath); err != nil {
 			prog.Send(logMsg(fmt.Sprintf("Preview failed: %v", err)))
 		}

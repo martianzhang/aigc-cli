@@ -15,7 +15,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/search"
 )
 
-func fetchSearchResults(store *knowledge.Store, cmd *cobra.Command, results []search.Result, query, project string, verbose bool) error {
+func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []search.Result, _, project string, verbose bool) error {
 	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
 	embedder, err := options.BuildKBEmbedder()
 	if err != nil {

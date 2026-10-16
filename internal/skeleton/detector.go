@@ -161,7 +161,7 @@ func preprocess(img image.Image) ([]float32, float32, int, int) {
 
 // postprocess 解析输出、NMS、坐标映射回原图。
 // 输出 [1, 56, 8400] row-major 展平：idx = channel*8400 + anchor。
-func postprocess(out []float32, origW, origH int, scale float32, padX, padY int, confThresh float32) []Person {
+func postprocess(out []float32, _, _ int, scale float32, padX, padY int, confThresh float32) []Person {
 	type det struct {
 		person Person
 		score  float32

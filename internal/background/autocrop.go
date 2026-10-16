@@ -120,7 +120,7 @@ func applyAspectRatio(x0, y0, x1, y1, imgW, imgH int, aspectRatio string) (int, 
 }
 
 // cropImage extracts a rectangular region from RGBA pixel data.
-func cropImage(rgba []uint8, srcW, srcH, x0, y0, x1, y1 int) ([]uint8, int, int) {
+func cropImage(rgba []uint8, srcW, _ int, x0, y0, x1, y1 int) ([]uint8, int, int) {
 	dstW := x1 - x0 + 1
 	dstH := y1 - y0 + 1
 	dst := make([]uint8, dstW*dstH*4)

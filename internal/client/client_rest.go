@@ -80,12 +80,12 @@ func isTimeoutError(err error) bool {
 
 // doJSON sends a JSON request and unmarshals the response into result.
 // If body is nil, sends a request with no body.
-func (c *Client) doJSON(method, path string, body, result interface{}) error {
+func (c *Client) doJSON(method, path string, body, result any) error {
 	return c.doJSONWithHeaders(method, path, body, result, nil)
 }
 
 // doJSONWithHeaders is like doJSON but with additional HTTP headers.
-func (c *Client) doJSONWithHeaders(method, path string, body, result interface{}, extraHeaders map[string]string) error {
+func (c *Client) doJSONWithHeaders(method, path string, body, result any, extraHeaders map[string]string) error {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -144,7 +144,7 @@ func (c *Client) doJSONWithHeaders(method, path string, body, result interface{}
 // unmarshals a JSON response. It is the escape hatch for multipart/form-data
 // bodies that doJSON (JSON-only) cannot express. extraHeaders are applied on top
 // of the client's default headers.
-func (c *Client) doBytes(method, path, contentType string, body []byte, result interface{}, extraHeaders map[string]string) error {
+func (c *Client) doBytes(method, path, contentType string, body []byte, result any, extraHeaders map[string]string) error {
 	httpReq, err := http.NewRequestWithContext(c.requestContext(), method, c.baseURL+path, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -185,14 +185,14 @@ func (c *Client) doBytes(method, path, contentType string, body []byte, result i
 }
 
 // doGet sends a GET request and unmarshals the JSON response into result.
-func (c *Client) doGet(path string, result interface{}) error {
+func (c *Client) doGet(path string, result any) error {
 	return c.doGetWithHeaders(path, result, nil)
 }
 
 // doGetAbsolute sends a GET request to a fully-qualified URL (not joined to
 // baseURL), for endpoints that live outside the API version prefix (e.g. agnes
 // /agnesapi).
-func (c *Client) doGetAbsolute(rawURL string, result interface{}) error {
+func (c *Client) doGetAbsolute(rawURL string, result any) error {
 	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, rawURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -231,7 +231,7 @@ func (c *Client) doGetAbsolute(rawURL string, result interface{}) error {
 // doJSONAbsolute sends a JSON request to a fully-qualified URL (not joined to
 // baseURL). Needed for endpoints that live outside the API version prefix, such
 // as the DashScope-native /api/v1/services/audio/music/generation path.
-func (c *Client) doJSONAbsolute(method, rawURL string, body, result interface{}, extraHeaders map[string]string) error {
+func (c *Client) doJSONAbsolute(method, rawURL string, body, result any, extraHeaders map[string]string) error {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -285,7 +285,7 @@ func (c *Client) doJSONAbsolute(method, rawURL string, body, result interface{},
 }
 
 // doGetWithHeaders is like doGet but with additional HTTP headers.
-func (c *Client) doGetWithHeaders(path string, result interface{}, extraHeaders map[string]string) error {
+func (c *Client) doGetWithHeaders(path string, result any, extraHeaders map[string]string) error {
 	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)

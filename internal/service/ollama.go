@@ -35,8 +35,8 @@ func OllamaGenerateURL(baseURL string) string {
 
 // OllamaGenerateBody builds the /api/generate body. A verbatim --json body
 // wins; otherwise the typed fields are mapped.
-func OllamaGenerateBody(req *types.GenerateRequest) interface{} {
-	return req.BodyOrRaw(map[string]interface{}{
+func OllamaGenerateBody(req *types.GenerateRequest) any {
+	return req.BodyOrRaw(map[string]any{
 		"model":  req.Model,
 		"prompt": req.Prompt,
 		"stream": false,

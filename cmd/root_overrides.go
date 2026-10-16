@@ -64,7 +64,7 @@ func applyCLIOverrides(cmd *cobra.Command, defaults *types.ConfigDefaults) map[s
 	default:
 		// Root command: apply --model to all applicable sections
 		for _, s := range []struct {
-			ptr interface{}
+			ptr any
 			key string
 		}{
 			{defaults.Image, "image"},
@@ -83,7 +83,7 @@ func applyCLIOverrides(cmd *cobra.Command, defaults *types.ConfigDefaults) map[s
 //
 // Convention: yaml tag "foo_bar"  →  flag name "foo-bar".
 // Known mismatches (flag ≠ yaml) are handled via manualAliases.
-func overrideStruct(fs, inherited *pflag.FlagSet, structPtr interface{}, section string, overrides map[string]string) {
+func overrideStruct(fs, inherited *pflag.FlagSet, structPtr any, section string, overrides map[string]string) {
 	v := reflect.ValueOf(structPtr).Elem()
 	t := v.Type()
 

@@ -103,7 +103,7 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 }
 
 // runLocalAudioSpeak handles local TTS inference via sherpa-onnx.
-func runLocalAudioSpeak(cmd *cobra.Command) error {
+func runLocalAudioSpeak(_ *cobra.Command) error {
 	req, err := buildAudioSpeechRequest()
 	if err != nil {
 		return err

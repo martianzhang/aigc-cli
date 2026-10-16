@@ -17,7 +17,7 @@ const GeminiInteractionsPath = "/interactions"
 // geminiInteractionsRequest is the request body for Gemini Interactions API.
 type geminiInteractionsRequest struct {
 	Model          string                `json:"model"`
-	Input          interface{}           `json:"input"`
+	Input          any                   `json:"input"`
 	ResponseFormat *geminiResponseFormat `json:"response_format,omitempty"`
 }
 
@@ -67,7 +67,7 @@ type geminiErrorResponse struct {
 // verbatim --json body wins; otherwise the typed fields are mapped onto
 // input/response_format. Shared by the real request and --dry-run/--verbose so
 // the preview cannot drift from what is sent.
-func GeminiImageBody(req *types.GenerateRequest) interface{} {
+func GeminiImageBody(req *types.GenerateRequest) any {
 	input := []geminiInputItem{
 		{Type: "text", Text: req.Prompt},
 	}
@@ -116,7 +116,7 @@ func (c *Client) GeminiImageGenerate(req *types.GenerateRequest) (*types.OpenAII
 	return c.parseGeminiResponse(body)
 }
 
-func (c *Client) doGeminiRequest(method, path string, reqBody interface{}) ([]byte, error) {
+func (c *Client) doGeminiRequest(method, path string, reqBody any) ([]byte, error) {
 	var bodyReader io.Reader
 	if reqBody != nil {
 		data, err := json.Marshal(reqBody)

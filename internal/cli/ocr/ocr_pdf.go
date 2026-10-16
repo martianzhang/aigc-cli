@@ -185,7 +185,7 @@ func parsePageRange(s string) []string {
 	return result
 }
 
-func scanPDFWithLayout(cmd *cobra.Command, pdfPath string) error {
+func scanPDFWithLayout(_ *cobra.Command, pdfPath string) error {
 	blocks, err := pdf.ExtractTextWithLayout(pdfPath)
 	if err != nil {
 		return fmt.Errorf("extract PDF layout: %w", err)

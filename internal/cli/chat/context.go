@@ -3,6 +3,7 @@ package chat
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
@@ -56,8 +57,8 @@ func agentsContextFrom(startDir, globalPath string) string {
 		}
 		dir = parent
 	}
-	for i := len(chain) - 1; i >= 0; i-- {
-		parts = append(parts, chain[i])
+	for _, p := range slices.Backward(chain) {
+		parts = append(parts, p)
 	}
 
 	if len(parts) == 0 {

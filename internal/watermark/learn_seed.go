@@ -100,7 +100,7 @@ func meanEdges(img image.Image, w, h int) edgeMeans {
 // Uses a robust mean-of-differences estimator: compares the average of the
 // first and last N pixels to compute the gradient, which is far less sensitive
 // to noise than per-pixel division.
-func fitLinear(top, left [][3]float64, w, h int) bgModel {
+func fitLinear(top, left [][3]float64, _, _ int) bgModel {
 	var m bgModel
 	if len(top) == 0 || len(left) == 0 {
 		return m

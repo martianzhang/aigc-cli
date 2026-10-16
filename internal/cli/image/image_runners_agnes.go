@@ -22,7 +22,7 @@ func prepareAgnesImageRequest(req *types.GenerateRequest) error {
 			return fmt.Errorf("failed to resolve image-urls: %w", err)
 		}
 		if req.ExtraBody == nil {
-			req.ExtraBody = make(map[string]interface{})
+			req.ExtraBody = make(map[string]any)
 		}
 		req.ExtraBody["image"] = resolved
 		req.ImageURLs = nil // clear top-level, Agnes rejects it there
@@ -30,7 +30,7 @@ func prepareAgnesImageRequest(req *types.GenerateRequest) error {
 	// Move ratio into extra_body for consistency with Agnes API structure.
 	if req.Ratio != "" {
 		if req.ExtraBody == nil {
-			req.ExtraBody = make(map[string]interface{})
+			req.ExtraBody = make(map[string]any)
 		}
 		req.ExtraBody["ratio"] = req.Ratio
 		req.Ratio = "" // clear top-level, Agnes expects it nested only
@@ -38,7 +38,7 @@ func prepareAgnesImageRequest(req *types.GenerateRequest) error {
 	// Move response_format into extra_body (Agnes rejects it at top level).
 	if req.ResponseFormat != "" {
 		if req.ExtraBody == nil {
-			req.ExtraBody = make(map[string]interface{})
+			req.ExtraBody = make(map[string]any)
 		}
 		req.ExtraBody["response_format"] = req.ResponseFormat
 		req.ResponseFormat = ""

@@ -14,7 +14,7 @@ import (
 
 // runDepthAnnotateVideo computes the depth video, then overlays skeleton/face
 // marks per frame via Convert's Annotate callback.
-func runDepthAnnotateVideo(cmd *cobra.Command) error {
+func runDepthAnnotateVideo(_ *cobra.Command) error {
 	outPath := depthOutputPath(depthInput, "_depth.mp4")
 
 	annotate, closeDetectors, err := newAnnotateVideoCallback(annotateVideoOptions{
@@ -58,7 +58,7 @@ func runDepthAnnotateVideo(cmd *cobra.Command) error {
 }
 
 // runDepthVideo handles video input → grayscale depth video.
-func runDepthVideo(cmd *cobra.Command) error {
+func runDepthVideo(_ *cobra.Command) error {
 	modelInfo, ok := depth.ResolveModel(depthModel)
 	if !ok {
 		modelInfo, _ = depth.ResolveModel(depth.DefaultModelID)

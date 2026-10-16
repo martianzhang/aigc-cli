@@ -14,7 +14,7 @@ import (
 )
 
 func (m *chatModel) runTUIAgentLoop() {
-	prog := getProgram(m)
+	prog := getProgram()
 	turnCount := 0
 	agentStart := time.Now()
 
@@ -176,7 +176,7 @@ var (
 	programMu      sync.Mutex
 )
 
-func getProgram(m *chatModel) *tea.Program {
+func getProgram() *tea.Program {
 	programMu.Lock()
 	defer programMu.Unlock()
 	return currentProgram

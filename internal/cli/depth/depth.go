@@ -84,7 +84,7 @@ Examples:
 }
 
 // runDepth routes to depth conversion or annotation mode by input type.
-func runDepth(cmd *cobra.Command, args []string) error {
+func runDepth(cmd *cobra.Command, _ []string) error {
 	input := depthInput
 	if input == "" {
 		return fmt.Errorf("input required: use --input/-i <file>")
@@ -149,7 +149,7 @@ func isImageInput(path string) bool {
 }
 
 // runDepthImage handles image input → grayscale depth PNG.
-func runDepthImage(cmd *cobra.Command) error {
+func runDepthImage(_ *cobra.Command) error {
 	modelInfo, ok := depth.ResolveModel(depthModel)
 	if !ok {
 		modelInfo, _ = depth.ResolveModel(depth.DefaultModelID)

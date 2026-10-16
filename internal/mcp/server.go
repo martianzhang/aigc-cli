@@ -639,7 +639,7 @@ func newSearchIdeasTool() mcp.Tool {
 // searchIdeasHandler handles the search_ideas tool call.
 func searchIdeasHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args, ok := req.Params.Arguments.(map[string]interface{})
+		args, ok := req.Params.Arguments.(map[string]any)
 		if !ok {
 			return mcp.NewToolResultError("invalid arguments"), nil
 		}

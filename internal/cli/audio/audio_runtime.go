@@ -96,7 +96,7 @@ func copySherpaLib(sherpaDir, name, dst string) bool {
 	return false
 }
 
-func compileHelper(helperPath, modelsDir string) error {
+func compileHelper(helperPath, _ string) error {
 	src := "scripts/helper.c"
 	if _, err := os.Stat(src); err != nil {
 		return fmt.Errorf("helper source not found")

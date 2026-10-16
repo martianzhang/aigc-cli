@@ -171,17 +171,8 @@ func decodeCharset(body []byte, contentType string) ([]byte, error) {
 func takeChars(s string, offset, maxLen int) (chunk string, total, start, end, remaining int) {
 	runes := []rune(s)
 	total = len(runes)
-	start = offset
-	if start < 0 {
-		start = 0
-	}
-	if start > total {
-		start = total
-	}
-	end = start + maxLen
-	if end > total {
-		end = total
-	}
+	start = min(max(offset, 0), total)
+	end = min(start+maxLen, total)
 	return string(runes[start:end]), total, start, end, total - end
 }
 

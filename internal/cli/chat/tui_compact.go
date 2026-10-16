@@ -14,7 +14,7 @@ import (
 // compactConversation sends the full history to the API for summarisation
 // and sends a compactDone message back to the TUI with the result.
 func (m *chatModel) compactConversation(count int) {
-	prog := getProgram(m)
+	prog := getProgram()
 
 	m.mu.Lock()
 	history := make([]types.ChatMessage, len(m.history))

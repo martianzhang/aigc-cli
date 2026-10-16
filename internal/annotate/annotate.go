@@ -8,6 +8,7 @@ import (
 	"image"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/martianzhang/aigc-cli/internal/face"
 	"github.com/martianzhang/aigc-cli/internal/skeleton"
@@ -82,8 +83,8 @@ func load(opts Options) (*annotators, error) {
 
 // Close 释放检测器资源（face 为纯 Go pigo，无需释放）。
 func (a *annotators) Close() {
-	for i := len(a.close) - 1; i >= 0; i-- {
-		a.close[i]()
+	for _, closeFn := range slices.Backward(a.close) {
+		closeFn()
 	}
 }
 

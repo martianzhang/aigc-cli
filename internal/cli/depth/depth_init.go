@@ -49,7 +49,7 @@ func newInitCommand(deps func() Deps) *cobra.Command {
 	return cmd
 }
 
-func runDepthInit(cmd *cobra.Command, args []string) error {
+func runDepthInit(_ *cobra.Command, _ []string) error {
 	sharedDir := d.ModelsDir
 	os.MkdirAll(sharedDir, 0755)
 	if _, err := onnxrt.EnsureInstalled(sharedDir, videoInitForce); err != nil {

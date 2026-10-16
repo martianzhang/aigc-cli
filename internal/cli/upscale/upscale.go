@@ -84,7 +84,7 @@ Examples:
 	return cmd
 }
 
-func runUpscale(cmd *cobra.Command, args []string) error {
+func runUpscale(_ *cobra.Command, _ []string) error {
 	if upInput == "" {
 		return fmt.Errorf("input required: use --input/-i <file>")
 	}

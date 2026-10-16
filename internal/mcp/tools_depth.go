@@ -141,7 +141,7 @@ func parseAnnotate(s string) annotate.Options {
 }
 
 // convertDepthImage 处理图片输入 → 灰度深度图 PNG（可选叠加标注）。
-func convertDepthImage(ctx context.Context, cfg *Config, path, sharedDir, libPath string, req mcp.CallToolRequest, opts annotate.Options) (*mcp.CallToolResult, error) {
+func convertDepthImage(_ context.Context, cfg *Config, path, sharedDir, libPath string, req mcp.CallToolRequest, opts annotate.Options) (*mcp.CallToolResult, error) {
 	output, err := confinedOutputPath(cfg, req.GetString("output_path", ""), path)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -167,7 +167,7 @@ func convertDepthImage(ctx context.Context, cfg *Config, path, sharedDir, libPat
 }
 
 // convertDepthVideo 处理视频输入 → 灰度深度视频（H.264 MP4，可选逐帧标注）。
-func convertDepthVideo(ctx context.Context, cfg *Config, path, sharedDir, libPath string, req mcp.CallToolRequest, opts annotate.Options) (*mcp.CallToolResult, error) {
+func convertDepthVideo(_ context.Context, cfg *Config, path, sharedDir, libPath string, req mcp.CallToolRequest, opts annotate.Options) (*mcp.CallToolResult, error) {
 	// Progress output buffer (MCP returns one result at the end).
 	var progress strings.Builder
 	output, err := confinedOutputPath(cfg, req.GetString("output_path", ""), path)

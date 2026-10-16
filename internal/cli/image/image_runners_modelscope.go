@@ -53,15 +53,15 @@ func (r *modelScopeTaskResponse) errorMessage() string {
 
 // buildModelScopeImageBody forwards a verbatim --json body as-is, otherwise
 // builds from typed fields, embedding local images as data URIs (no upload endpoint).
-func buildModelScopeImageBody(req *types.GenerateRequest) (map[string]interface{}, error) {
+func buildModelScopeImageBody(req *types.GenerateRequest) (map[string]any, error) {
 	if len(req.RawJSON) > 0 {
-		body := map[string]interface{}{}
+		body := map[string]any{}
 		if err := json.Unmarshal(req.RawJSON, &body); err != nil {
 			return nil, fmt.Errorf("failed to parse json body: %w", err)
 		}
 		return body, nil
 	}
-	body := map[string]interface{}{
+	body := map[string]any{
 		"model":  req.Model,
 		"prompt": req.Prompt,
 	}

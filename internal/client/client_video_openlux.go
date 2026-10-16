@@ -14,8 +14,8 @@ import (
 // OpenLuxVideoBody builds the openlux video request body. A verbatim --json body
 // wins; otherwise the typed fields are mapped. Shared by the real request and
 // --dry-run/--verbose.
-func OpenLuxVideoBody(req *types.VideoGenerateRequest) interface{} {
-	bodyMap := map[string]interface{}{
+func OpenLuxVideoBody(req *types.VideoGenerateRequest) any {
+	bodyMap := map[string]any{
 		"model":  req.Model,
 		"prompt": req.Prompt,
 	}

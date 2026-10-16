@@ -87,12 +87,12 @@ func (t *Tokenizer) loadVocab(raw json.RawMessage, scores []float64) error {
 	}
 
 	// Try array format [[token, score], ...]
-	var arr []interface{}
+	var arr []any
 	if err := json.Unmarshal(raw, &arr); err != nil {
 		return fmt.Errorf("vocab: expected object or array")
 	}
 	for i, entry := range arr {
-		pair, ok := entry.([]interface{})
+		pair, ok := entry.([]any)
 		if !ok || len(pair) < 1 {
 			continue
 		}

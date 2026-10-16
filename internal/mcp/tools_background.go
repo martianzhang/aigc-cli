@@ -158,7 +158,7 @@ func removeBackgroundHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		// 返回结果
-		info := map[string]interface{}{
+		info := map[string]any{
 			"output_path": outputPath,
 			"width":       result.Width,
 			"height":      result.Height,

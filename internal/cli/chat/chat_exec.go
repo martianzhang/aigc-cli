@@ -15,7 +15,7 @@ import (
 )
 
 func resolveFileRefs(argsJSON string) string {
-	var raw interface{}
+	var raw any
 	if err := json.Unmarshal([]byte(argsJSON), &raw); err != nil {
 		return argsJSON // not valid JSON, return as-is
 	}
@@ -26,7 +26,7 @@ func resolveFileRefs(argsJSON string) string {
 
 // resolveFileRef recursively walks a parsed JSON value and replaces any
 // string starting with "@" by reading the referenced file.
-func resolveFileRef(v interface{}) interface{} {
+func resolveFileRef(v any) any {
 	switch val := v.(type) {
 	case string:
 		if strings.HasPrefix(val, "@") {
@@ -38,12 +38,12 @@ func resolveFileRef(v interface{}) interface{} {
 			return string(content)
 		}
 		return val
-	case map[string]interface{}:
+	case map[string]any:
 		for k, nested := range val {
 			val[k] = resolveFileRef(nested)
 		}
 		return val
-	case []interface{}:
+	case []any:
 		for i, item := range val {
 			val[i] = resolveFileRef(item)
 		}
@@ -61,7 +61,7 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 // executeToolCallMCP executes a tool call, preferring a connected MCP server
 // when it provides the tool, and falling back to the built-in primitive
 // dispatcher otherwise. mcp may be nil.
-func executeToolCallMCP(c *client.Client, mcp *mcpcli.Manager, tc types.ToolCall) string {
+func executeToolCallMCP(_ *client.Client, mcp *mcpcli.Manager, tc types.ToolCall) string {
 	if mcp.Has(tc.Function.Name) {
 		out, err := mcp.Call(context.Background(), tc.Function.Name, tc.Function.Arguments)
 		if err != nil {
@@ -117,7 +117,7 @@ func readDenyPatterns() []string {
 }
 
 // summarizeToolResult returns a one-line summary of a tool's result for user display.
-func summarizeToolResult(toolName, result string) string {
+func summarizeToolResult(_, result string) string {
 	// Truncate long results to first meaningful line
 	firstLine := result
 	if idx := strings.IndexAny(result, "\n\r"); idx > 0 {

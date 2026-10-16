@@ -203,7 +203,7 @@ var rawImageKeyPaths = [][]string{
 func resolveRawImagePaths(raw json.RawMessage, resolve func([]string) ([]string, error)) (json.RawMessage, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
-	var body map[string]interface{}
+	var body map[string]any
 	if err := dec.Decode(&body); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON body: %w", err)
 	}
@@ -211,7 +211,7 @@ func resolveRawImagePaths(raw json.RawMessage, resolve func([]string) ([]string,
 	for _, path := range rawImageKeyPaths {
 		owner := body
 		for _, part := range path[:len(path)-1] {
-			nested, ok := owner[part].(map[string]interface{})
+			nested, ok := owner[part].(map[string]any)
 			if !ok {
 				owner = nil
 				break
@@ -246,7 +246,7 @@ func resolveRawImagePaths(raw json.RawMessage, resolve func([]string) ([]string,
 
 // resolveRawImageValue resolves one image field; ok is false when no local file
 // is present and the value must be left untouched.
-func resolveRawImageValue(v interface{}, resolve func([]string) ([]string, error)) (interface{}, bool, error) {
+func resolveRawImageValue(v any, resolve func([]string) ([]string, error)) (any, bool, error) {
 	switch t := v.(type) {
 	case string:
 		if !service.IsFile(t) {
@@ -257,7 +257,7 @@ func resolveRawImageValue(v interface{}, resolve func([]string) ([]string, error
 			return nil, false, err
 		}
 		return resolved[0], true, nil
-	case []interface{}:
+	case []any:
 		paths := make([]string, len(t))
 		hasFile := false
 		for i, item := range t {
@@ -274,7 +274,7 @@ func resolveRawImageValue(v interface{}, resolve func([]string) ([]string, error
 		if err != nil {
 			return nil, false, err
 		}
-		out := make([]interface{}, len(resolved))
+		out := make([]any, len(resolved))
 		for i, s := range resolved {
 			out[i] = s
 		}

@@ -32,8 +32,8 @@ const OpenRouterVideosPath = "/videos"
 // API. A verbatim --json body wins; otherwise image_urls is mapped onto
 // input_references as OpenRouter requires. Shared by the real request and
 // --dry-run/--verbose so the preview cannot drift from what is sent.
-func OpenRouterImageBody(req *types.GenerateRequest) interface{} {
-	bodyMap := map[string]interface{}{
+func OpenRouterImageBody(req *types.GenerateRequest) any {
+	bodyMap := map[string]any{
 		"model":  req.Model,
 		"prompt": req.Prompt,
 	}
@@ -70,9 +70,9 @@ func OpenRouterImageBody(req *types.GenerateRequest) interface{} {
 
 	// Map image_urls → input_references (OpenRouter format)
 	if len(req.ImageURLs) > 0 {
-		refs := make([]map[string]interface{}, len(req.ImageURLs))
+		refs := make([]map[string]any, len(req.ImageURLs))
 		for i, u := range req.ImageURLs {
-			refs[i] = map[string]interface{}{
+			refs[i] = map[string]any{
 				"type": "image_url",
 				"image_url": map[string]string{
 					"url": u,

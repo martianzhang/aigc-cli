@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -82,9 +83,9 @@ func (ws *wireServer) generation(t *testing.T) wireRecord {
 	t.Helper()
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
-	for i := len(ws.records) - 1; i >= 0; i-- {
-		if !strings.HasSuffix(ws.records[i].Path, client.UploadPath) {
-			return ws.records[i]
+	for _, rec := range slices.Backward(ws.records) {
+		if !strings.HasSuffix(rec.Path, client.UploadPath) {
+			return rec
 		}
 	}
 	t.Fatal("no generation request recorded")

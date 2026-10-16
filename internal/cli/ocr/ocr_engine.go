@@ -73,7 +73,7 @@ func NewOCREngineWithLang(modelsDir, lang string) (*ocr.Engine, error) {
 }
 
 // saveOCRResult saves an OCR result to a Markdown file and optionally previews it.
-func saveOCRResult(cmd *cobra.Command, result *ocr.OCRResult, inputPath string) error {
+func saveOCRResult(_ *cobra.Command, result *ocr.OCRResult, inputPath string) error {
 	outPath := ""
 	outExt := ".md"
 	if inputPath != "" && inputPath != "stdin" {

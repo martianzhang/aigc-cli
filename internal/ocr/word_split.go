@@ -530,7 +530,7 @@ var charConfusionSets = []string{
 // fixCharConfusion tries replacing each character with alternatives from
 // the same confusion set. `word` is the original-case word; `lowerKey` is
 // the lowercase version used for dictionary lookups.
-func (e *Engine) fixCharConfusion(word, lowerKey string) string {
+func (e *Engine) fixCharConfusion(word, _ string) string {
 	if len(word) < 2 {
 		return word
 	}

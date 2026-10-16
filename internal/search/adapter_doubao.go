@@ -19,7 +19,7 @@ func NewDoubaoProvider(apiKey string) *DoubaoProvider {
 func (p *DoubaoProvider) Name() string { return "doubao" }
 
 func (p *DoubaoProvider) Search(query string, limit int) ([]Result, error) {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"Query":      query,
 		"SearchType": "web",
 		"Count":      limit,

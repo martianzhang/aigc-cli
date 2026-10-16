@@ -17,7 +17,7 @@ func rawImageReq() *types.GenerateRequest {
 	return &types.GenerateRequest{RawJSON: []byte(rawImageJSON)}
 }
 
-func marshalBody(t *testing.T, body interface{}) string {
+func marshalBody(t *testing.T, body any) string {
 	t.Helper()
 	data, err := json.Marshal(body)
 	if err != nil {
@@ -29,7 +29,7 @@ func marshalBody(t *testing.T, body interface{}) string {
 func TestImageBodyBuildersForwardRawJSON(t *testing.T) {
 	tests := []struct {
 		name string
-		body func(*types.GenerateRequest) interface{}
+		body func(*types.GenerateRequest) any
 	}{
 		{"openrouter", OpenRouterImageBody},
 		{"gemini", GeminiImageBody},

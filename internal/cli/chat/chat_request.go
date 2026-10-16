@@ -82,7 +82,7 @@ func flagMessages() []types.ChatMessage {
 }
 
 // sendChatRequest sends a single chat request and prints the response.
-func sendChatRequest(cmd *cobra.Command, req *types.ChatRequest) error {
+func sendChatRequest(_ *cobra.Command, req *types.ChatRequest) error {
 	// Streaming default: on, unless --no-stream was passed
 	if !chatNoStream {
 		req.Stream = true

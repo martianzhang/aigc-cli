@@ -118,8 +118,8 @@ func newKbListTool() mcp.Tool {
 	)
 }
 
-func argsMap(req mcp.CallToolRequest) (map[string]interface{}, error) {
-	args, ok := req.Params.Arguments.(map[string]interface{})
+func argsMap(req mcp.CallToolRequest) (map[string]any, error) {
+	args, ok := req.Params.Arguments.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("invalid arguments")
 	}
