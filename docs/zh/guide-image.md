@@ -44,6 +44,7 @@ aigc-cli image < prompt.txt
 | `--decode` | `-d` | 把 `--image-url` 中的 base64 文本文件（data URI / 裸 base64）解码为真实图片；配合 `--output-format` 可转换格式 | 通用 |
 | `--mask-url` | | 蒙版图片 URL（inpainting） | APIMart |
 | `--json` | | JSON 输入（文件、字符串或 `-` 表示 stdin） | 通用 |
+| `--inject-json` | | 在最终 body 上追加合并一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于厂商私有参数，优先级高于 `--json`（详见 chat 指南） | 通用 |
 | `--output` | | 下载目录（默认当前目录，支持相对/绝对路径） | 通用 |
 | `--save-prompt` | | 保存 prompt 到 `image_{task_id}.md` | 通用 |
 | `--verbose` | `-v` | 显示请求 JSON 和完整响应（全局 flag） | 通用 |

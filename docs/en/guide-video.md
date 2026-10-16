@@ -292,6 +292,8 @@ Each provider has its own endpoint and native shape (the CLI will not translate 
 
 > 💡 The flag path (`--prompt` / `--size` / `--duration` …) is unchanged — the CLI still maps fields per provider and fills defaults. Verbatim passthrough applies to `--json` only.
 
+> 💡 `--inject-json` layers a JSON object on top of the generated body (arrays append, scalars overwrite) — handy for a vendor-only field without rewriting the whole body. It takes precedence over `--json`.
+
 > 💡 `--dry-run` and `--verbose` print the **real endpoint and real request body** (including the provider endpoints above), so you can confirm a new parameter is wired through. Upload-based providers (APIMart, OpenLux) print one multipart upload curl per local reference image first, then the generation curl with `<UPLOAD_URL_n>` placeholders.
 
 ## How Reference Images Are Sent: Upload vs Inline Data URI

@@ -27,7 +27,11 @@ func TestOllamaGenerateURL(t *testing.T) {
 func TestOllamaGenerateBody(t *testing.T) {
 	const raw = `{"model":"m","prompt":"p","loras":"u/r","seed":1}`
 
-	got, err := json.Marshal(OllamaGenerateBody(&types.GenerateRequest{RawJSON: []byte(raw)}))
+	rawBody, err := OllamaGenerateBody(&types.GenerateRequest{RawJSON: []byte(raw)})
+	if err != nil {
+		t.Fatalf("build raw body: %v", err)
+	}
+	got, err := json.Marshal(rawBody)
 	if err != nil {
 		t.Fatalf("marshal raw body: %v", err)
 	}
@@ -35,7 +39,11 @@ func TestOllamaGenerateBody(t *testing.T) {
 		t.Errorf("raw --json body = %s, want %s", got, raw)
 	}
 
-	typed, err := json.Marshal(OllamaGenerateBody(&types.GenerateRequest{Model: "m", Prompt: "p"}))
+	typedBody, err := OllamaGenerateBody(&types.GenerateRequest{Model: "m", Prompt: "p"})
+	if err != nil {
+		t.Fatalf("build typed body: %v", err)
+	}
+	typed, err := json.Marshal(typedBody)
 	if err != nil {
 		t.Fatalf("marshal typed body: %v", err)
 	}

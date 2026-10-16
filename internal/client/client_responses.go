@@ -9,16 +9,27 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/jsonmerge"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // ResponsesBody returns the OpenAI Responses API request body, or the verbatim
-// --json body when set. Shared by the real request and --dry-run.
+// --json body when set, then layers --inject-json on top. Shared by the real
+// request and --dry-run.
 func ResponsesBody(req *types.ChatRequest) ([]byte, error) {
-	if len(req.RawJSON) > 0 {
-		return req.RawJSON, nil
+	base := req.RawJSON
+	if len(base) == 0 {
+		data, err := json.Marshal(buildResponsesRequest(req))
+		if err != nil {
+			return nil, err
+		}
+		base = data
 	}
-	return json.Marshal(buildResponsesRequest(req))
+	merged, err := jsonmerge.Inject(base, req.InjectJSON)
+	if err != nil {
+		return nil, err
+	}
+	return merged, nil
 }
 
 // buildResponsesRequest converts a standard ChatRequest to Responses API format.

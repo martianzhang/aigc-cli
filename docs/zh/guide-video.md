@@ -373,6 +373,7 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 | `--video-url` | | 参考视频 URL（可重复） |
 | `--audio-url` | | 参考音频 URL（可重复） |
 | `--json` | | JSON 输入（文件、字符串或 `-` 表示 stdin） |
+| `--inject-json` | | 在最终 body 上追加合并一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于厂商私有参数，优先级高于 `--json`（详见 chat 指南） |
 | `--tool` | | 工具（如 `web_search`，可重复） |
 | `--output` | | 下载目录（默认当前目录） |
 | `--save-prompt` | | 保存 prompt 到 `video_{task_id}.md` |

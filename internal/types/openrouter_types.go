@@ -27,12 +27,15 @@ type OpenRouterVideoRequest struct {
 	FrameImages   []OpenRouterFrameImage `json:"frame_images,omitempty"`
 	// RawJSON is a verbatim --json body carried over from the video command.
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet carried over from the video command.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
-// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields,
+// then layers InjectJSON on top.
 func (r OpenRouterVideoRequest) MarshalJSON() ([]byte, error) {
 	type typed OpenRouterVideoRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 // OpenRouterFrameImage represents an image used as first/last frame or reference.

@@ -100,8 +100,15 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	if err != nil {
 		return nil, fmt.Errorf("modelscope: %w", err)
 	}
+	injected, err := types.MaybeInject(body, req.InjectJSON)
+	if err != nil {
+		return nil, fmt.Errorf("modelscope: %w", err)
+	}
 
-	bodyBytes, _ := json.Marshal(body)
+	bodyBytes, err := json.Marshal(injected)
+	if err != nil {
+		return nil, fmt.Errorf("modelscope: failed to marshal request: %w", err)
+	}
 	httpReq, err := http.NewRequest("POST", submitURL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("modelscope: failed to create submit request: %w", err)

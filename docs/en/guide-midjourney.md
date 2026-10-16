@@ -57,6 +57,8 @@ aigc-cli mj imagine --json downloads/mj.json --prompt "a cat wearing a hat"
 
 Here the JSON's `prompt` is replaced by the flag value, while `size` and `version` from the JSON are preserved.
 
+`--inject-json` merges a JSON object on top of the generated body (objects recurse, arrays append, scalars overwrite). It takes precedence over `--json` and is the way to add a vendor-only field without rewriting the whole body.
+
 ## Blend
 
 Blend 2-4 images:

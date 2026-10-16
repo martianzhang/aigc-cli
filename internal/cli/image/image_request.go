@@ -16,6 +16,10 @@ import (
 // When both are given, explicitly set CLI flags override the matching JSON keys
 // (CLI flags > JSON input).
 func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
+	inject, err := service.ReadInjectJSON(options.Shared.InjectJSON)
+	if err != nil {
+		return nil, err
+	}
 	if options.Shared.JSONInput != "" {
 		data, err := service.ReadJSONInput(options.Shared.JSONInput)
 		if err != nil {
@@ -45,6 +49,7 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 		if req.Prompt == "" {
 			return nil, fmt.Errorf("prompt is required in JSON input")
 		}
+		req.InjectJSON = inject
 
 		return req, nil
 	}
@@ -82,6 +87,7 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 	if req.Prompt == "" {
 		return nil, fmt.Errorf("prompt is required (use --prompt or --json)")
 	}
+	req.InjectJSON = inject
 
 	return req, nil
 }

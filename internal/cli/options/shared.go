@@ -18,6 +18,7 @@ type SharedConfig struct {
 	Model       string
 	Provider    string // --provider flag: override named provider for all commands
 	JSONInput   string
+	InjectJSON  string
 	OutputDir   string
 	Verbose     bool
 	SavePrompt  bool

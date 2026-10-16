@@ -46,7 +46,7 @@ func funMusicPrompt(req *types.MusicGenerateRequest) string {
 // --duration/--title is reported and dropped.
 func BuildFunMusicBody(req *types.MusicGenerateRequest) (any, error) {
 	if len(req.RawJSON) > 0 {
-		return req.RawJSON, nil
+		return types.MaybeInject(req.RawJSON, req.InjectJSON)
 	}
 	if req.Duration != nil {
 		fmt.Fprintln(os.Stderr, "Warning: fun-music ignores --duration (length is derived from the lyrics)")
@@ -89,7 +89,7 @@ func BuildFunMusicBody(req *types.MusicGenerateRequest) (any, error) {
 		return nil, fmt.Errorf("fun-music prompt exceeds the 2000 character limit")
 	}
 
-	return body, nil
+	return types.MaybeInject(body, req.InjectJSON)
 }
 
 // buildFunMusicCurl renders the equivalent curl command for the native endpoint.

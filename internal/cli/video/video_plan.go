@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/jsonmerge"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -67,18 +68,26 @@ func buildVideoPlan(req *types.VideoGenerateRequest, p *provider.EffectiveProvid
 		if err := encodeVideoLocalImages(req); err != nil {
 			return nil, err
 		}
+		body, err := client.AgnesVideoBody(req)
+		if err != nil {
+			return nil, err
+		}
 		return &videoPlan{Plan: reqbuild.Plan{
 			Method: http.MethodPost,
 			URL:    base + client.AgnesVideoSubmitPath,
-			Body:   client.AgnesVideoBody(req),
+			Body:   body,
 		}}, nil
 	case provider.OpenLux:
 		preview, uploads, slots := collectVideoUploads(req)
+		body, err := client.OpenLuxVideoBody(preview)
+		if err != nil {
+			return nil, err
+		}
 		return &videoPlan{
 			Plan: reqbuild.Plan{
 				Method:    http.MethodPost,
 				URL:       base + client.OpenLuxVideoSubPath,
-				Body:      client.OpenLuxVideoBody(preview),
+				Body:      body,
 				Uploads:   uploads,
 				UploadURL: base + client.UploadPath,
 			},
@@ -86,11 +95,15 @@ func buildVideoPlan(req *types.VideoGenerateRequest, p *provider.EffectiveProvid
 		}, nil
 	default: // APIMart and any generic OpenAI-compatible relay
 		preview, uploads, slots := collectVideoUploads(req)
+		body, err := videoPreviewBody(preview)
+		if err != nil {
+			return nil, err
+		}
 		return &videoPlan{
 			Plan: reqbuild.Plan{
 				Method:    http.MethodPost,
 				URL:       base + client.VideoSubmitPath,
-				Body:      videoPreviewBody(preview),
+				Body:      body,
 				Uploads:   uploads,
 				UploadURL: base + client.UploadPath,
 			},
@@ -108,12 +121,22 @@ type videoPreviewRequest types.VideoGenerateRequest
 // videoPreviewBody selects the APIMart/generic preview body. A verbatim --json
 // body wins over the typed fields, exactly as VideoGenerateRequest.MarshalJSON
 // does when the real request is sent.
-func videoPreviewBody(preview *types.VideoGenerateRequest) any {
+func videoPreviewBody(preview *types.VideoGenerateRequest) (any, error) {
 	if len(preview.RawJSON) > 0 {
-		return json.RawMessage(preview.RawJSON)
+		base := json.RawMessage(preview.RawJSON)
+		return jsonmerge.Inject(base, preview.InjectJSON)
 	}
 	shadow := videoPreviewRequest(*preview)
-	return &shadow
+	if len(preview.InjectJSON) > 0 {
+		// The preview shadow type drops MarshalJSON, so layer inject and
+		// pre-marshal here to keep the preview matching the request.
+		data, err := json.Marshal(&shadow)
+		if err != nil {
+			return nil, err
+		}
+		return jsonmerge.Inject(data, preview.InjectJSON)
+	}
+	return &shadow, nil
 }
 
 // encodeVideoLocalImages rewrites local-file entries to data: URIs in place.

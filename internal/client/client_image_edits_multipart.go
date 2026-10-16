@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/jsonmerge"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -48,8 +49,17 @@ func (c *Client) ImageGenerateEditsMultipart(req *types.GenerateRequest) (*types
 // keys become one field each and arrays of scalars become repeated fields. File
 // keys are skipped because images are attached as file parts from -i.
 func ImageEditsFormFields(req *types.GenerateRequest) []reqbuild.FormField {
-	if len(req.RawJSON) > 0 {
-		return imageEditsFieldsFromJSON(req.RawJSON)
+	if len(req.RawJSON) > 0 || len(req.InjectJSON) > 0 {
+		raw := req.RawJSON
+		if len(raw) == 0 {
+			raw = imageEditsTypedJSON(req)
+		}
+		if len(req.InjectJSON) > 0 {
+			if merged, err := jsonmerge.Inject(raw, req.InjectJSON); err == nil {
+				raw = merged
+			}
+		}
+		return imageEditsFieldsFromJSON(raw)
 	}
 	fields := []reqbuild.FormField{
 		{Name: "model", Value: req.Model},
@@ -69,6 +79,35 @@ func ImageEditsFormFields(req *types.GenerateRequest) []reqbuild.FormField {
 		}
 	}
 	return out
+}
+
+// imageEditsTypedJSON renders the typed edits fields as JSON so --inject-json
+// can be layered on before the multipart field mapping.
+func imageEditsTypedJSON(req *types.GenerateRequest) json.RawMessage {
+	m := map[string]any{}
+	if req.Model != "" {
+		m["model"] = req.Model
+	}
+	if req.Prompt != "" {
+		m["prompt"] = req.Prompt
+	}
+	if req.Size != "" {
+		m["size"] = req.Size
+	}
+	if req.Quality != "" {
+		m["quality"] = req.Quality
+	}
+	if req.Background != "" {
+		m["background"] = req.Background
+	}
+	if req.OutputFormat != "" {
+		m["output_format"] = req.OutputFormat
+	}
+	if req.N != nil {
+		m["n"] = *req.N
+	}
+	data, _ := json.Marshal(m)
+	return data
 }
 
 // imageEditsFileKeys are JSON keys that carry image files (attached as parts,

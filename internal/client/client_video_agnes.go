@@ -26,7 +26,7 @@ func agnesSize(resolution string) string {
 // AgnesVideoBody builds the agnes video request body. A verbatim --json body
 // wins; otherwise the typed fields are mapped. Shared by the real request and
 // --dry-run/--verbose so the preview cannot drift from what is sent.
-func AgnesVideoBody(req *types.VideoGenerateRequest) any {
+func AgnesVideoBody(req *types.VideoGenerateRequest) (any, error) {
 	bodyMap := map[string]any{
 		"model":  req.Model,
 		"prompt": req.Prompt,
@@ -69,7 +69,11 @@ func AgnesVideoBody(req *types.VideoGenerateRequest) any {
 // See https://agnes-ai.com/zh-Hans/docs/agnes-video-25-flash for the official API spec.
 func (c *Client) AgnesVideoSubmit(req *types.VideoGenerateRequest) (*types.AgnesVideoCreateResponse, error) {
 	var result types.AgnesVideoCreateResponse
-	if err := c.doJSON(AgnesVideoSubmitPath, AgnesVideoBody(req), &result); err != nil {
+	body, err := AgnesVideoBody(req)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.doJSON(AgnesVideoSubmitPath, body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

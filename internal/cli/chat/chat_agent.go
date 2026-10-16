@@ -45,6 +45,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 			Messages:     *history,
 			Stream:       !chatNoStream,
 			OutputWriter: options.Stdout(),
+			InjectJSON:   chatInjectRaw,
 		}
 		if tools := rt.RequestTools(); len(tools) > 0 {
 			req.Tools = tools

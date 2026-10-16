@@ -6,6 +6,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/jsonmerge"
 )
 
 type ErrCode int
@@ -55,43 +57,84 @@ type GenerateRequest struct {
 	// RawJSON is a verbatim --json body; when set it overrides MarshalJSON so
 	// provider-specific parameters reach the API unmodelled.
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the
+	// final body (objects recurse, arrays concatenate, scalars overwrite).
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
-// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields,
+// then layers InjectJSON on top.
 func (r GenerateRequest) MarshalJSON() ([]byte, error) {
 	type typed GenerateRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 // BodyOrRaw returns the verbatim --json body when set, otherwise the
 // caller-built body. Providers whose endpoint needs a different wire shape
 // (OpenRouter, Gemini, Ollama, /images/edits) build that shape and pass it
 // here, so --json passthrough cannot be silently dropped on those paths.
-func (r *GenerateRequest) BodyOrRaw(built any) any {
-	return RawOr(r.RawJSON, built)
+func (r *GenerateRequest) BodyOrRaw(built any) (any, error) {
+	return RawOr(r.RawJSON, r.InjectJSON, built)
 }
 
 // BodyOrRaw is the video twin of GenerateRequest.BodyOrRaw.
-func (r *VideoGenerateRequest) BodyOrRaw(built any) any {
-	return RawOr(r.RawJSON, built)
+func (r *VideoGenerateRequest) BodyOrRaw(built any) (any, error) {
+	return RawOr(r.RawJSON, r.InjectJSON, built)
 }
 
-// RawOr returns raw verbatim when set, otherwise built.
-func RawOr(raw json.RawMessage, built any) any {
-	if len(raw) > 0 {
-		return raw
+// RawOr returns raw verbatim when set, otherwise built, then merges inject on
+// top. It returns an error instead of swallowing one, so a malformed
+// --inject-json surfaces rather than silently sending a wrong body.
+func RawOr(raw json.RawMessage, inject json.RawMessage, built any) (any, error) {
+	if len(inject) == 0 {
+		if len(raw) > 0 {
+			return raw, nil
+		}
+		return built, nil
 	}
-	return built
+	base := raw
+	if len(base) == 0 {
+		b, err := json.Marshal(built)
+		if err != nil {
+			return nil, err
+		}
+		base = b
+	}
+	return jsonmerge.Inject(base, inject)
+}
+
+// MaybeInject layers inject on top of an already-built body. It returns body
+// unchanged when inject is empty, so providers that build provider-native maps
+// (rather than a request type with MarshalJSON) still honor --inject-json.
+func MaybeInject(body any, inject json.RawMessage) (any, error) {
+	if len(inject) == 0 {
+		return body, nil
+	}
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	return jsonmerge.Inject(data, inject)
 }
 
 // marshalVerbatim returns raw unchanged when set, otherwise the marshalled
-// typed view. Request types route MarshalJSON through it so a --json body
-// reaches the wire verbatim instead of being rebuilt from modeled fields.
-func marshalVerbatim(raw json.RawMessage, typed any) ([]byte, error) {
-	if len(raw) > 0 {
-		return raw, nil
+// typed view, then layers inject on top. Request types route MarshalJSON
+// through it so a --json body reaches the wire verbatim and --inject-json is
+// added to the final body instead of being rebuilt from modeled fields.
+func marshalVerbatim(raw json.RawMessage, inject json.RawMessage, typed any) ([]byte, error) {
+	base := raw
+	if len(base) == 0 {
+		b, err := json.Marshal(typed)
+		if err != nil {
+			return nil, err
+		}
+		base = b
 	}
-	return json.Marshal(typed)
+	merged, err := jsonmerge.Inject(base, inject)
+	if err != nil {
+		return nil, err
+	}
+	return merged, nil
 }
 
 // ValidateBackground checks background/output_format compatibility.
@@ -244,12 +287,16 @@ type VideoGenerateRequest struct {
 	// RawJSON is a verbatim --json body; when set it overrides MarshalJSON so
 	// provider-specific parameters reach the API unmodelled.
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the
+	// final body (objects recurse, arrays concatenate, scalars overwrite).
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
-// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields,
+// then layers InjectJSON on top.
 func (r VideoGenerateRequest) MarshalJSON() ([]byte, error) {
 	type typed VideoGenerateRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 // VideoTool represents a tool for video generation (e.g. web_search).
@@ -405,12 +452,16 @@ type ChatRequest struct {
 	// RawJSON is a verbatim --json body; when set it overrides MarshalJSON so
 	// provider-specific parameters reach the API unmodelled.
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the
+	// final body (objects recurse, arrays concatenate, scalars overwrite).
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
-// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields,
+// then layers InjectJSON on top.
 func (r ChatRequest) MarshalJSON() ([]byte, error) {
 	type typed ChatRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 // ChatResponse is the non-streaming response from chat completion.

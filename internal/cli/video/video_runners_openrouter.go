@@ -26,6 +26,7 @@ func openRouterVideoBody(req *types.VideoGenerateRequest) *types.OpenRouterVideo
 		Seed:          req.Seed,
 		GenerateAudio: req.GenerateAudio,
 		RawJSON:       req.RawJSON,
+		InjectJSON:    req.InjectJSON,
 	}
 
 	// Map image_urls -> frame_images

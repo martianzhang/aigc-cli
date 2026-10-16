@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/jsonmerge"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -39,6 +40,12 @@ func buildAPIMartPlan(req *types.GenerateRequest, base string) (*imagePlan, erro
 		if err != nil {
 			return nil, err
 		}
+		if len(preview.InjectJSON) > 0 {
+			raw, err = jsonmerge.Inject(raw, preview.InjectJSON)
+			if err != nil {
+				return nil, err
+			}
+		}
 		pl.Body = json.RawMessage(raw)
 		return pl, nil
 	}
@@ -55,6 +62,19 @@ func buildAPIMartPlan(req *types.GenerateRequest, base string) (*imagePlan, erro
 	}
 
 	pl.Body = &preview
+	if len(preview.InjectJSON) > 0 {
+		// The preview shadow type drops MarshalJSON, so layer inject and
+		// pre-marshal here to keep the preview matching the request.
+		data, err := json.Marshal(preview)
+		if err != nil {
+			return nil, err
+		}
+		merged, err := jsonmerge.Inject(data, preview.InjectJSON)
+		if err != nil {
+			return nil, err
+		}
+		pl.Body = merged
+	}
 	return pl, nil
 }
 

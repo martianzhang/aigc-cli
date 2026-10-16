@@ -381,6 +381,7 @@ aigc-cli image --edit --model openai/gpt-image-2.5-sunburst -i ./photo.jpg -p "m
 | `--model` | APIMart defaults to `grok-imagine-1.5-edit-apimart`; other providers require an explicit model |
 | Mode | APIMart: forced async; OpenAI-family: multipart sync |
 | `--json` | standalone = verbatim passthrough to generations; with `--edit` its keys become multipart form fields (files from `-i`) |
+| `--inject-json` | Merge a JSON object on top of the generated body (objects recurse, arrays append, scalars overwrite); for vendor-only fields, takes precedence over `--json` |
 
 ## Inpainting
 

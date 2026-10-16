@@ -24,7 +24,7 @@ type imageEditsInput struct {
 // ImageEditsBody builds the JSON body for POST /images/edits. A verbatim
 // --json body wins; otherwise the typed fields are mapped. Shared by the real
 // request and --dry-run output so both describe the same payload.
-func ImageEditsBody(req *types.GenerateRequest) any {
+func ImageEditsBody(req *types.GenerateRequest) (any, error) {
 	images := make([]imageEditsInput, 0, len(req.ImageURLs))
 	for _, u := range req.ImageURLs {
 		images = append(images, imageEditsInput{ImageURL: u})
@@ -45,7 +45,11 @@ func ImageEditsBody(req *types.GenerateRequest) any {
 // be usable strings (public URLs or data: URIs); this method never reads files.
 func (c *Client) ImageGenerateEdits(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
 	var result types.OpenAIImageResponse
-	if err := c.doJSON(ImageEditsPath, ImageEditsBody(req), &result); err != nil {
+	body, err := ImageEditsBody(req)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.doJSON(ImageEditsPath, body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

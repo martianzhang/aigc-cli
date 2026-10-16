@@ -33,7 +33,7 @@ const OpenRouterVideosPath = "/videos"
 // API. A verbatim --json body wins; otherwise image_urls is mapped onto
 // input_references as OpenRouter requires. Shared by the real request and
 // --dry-run/--verbose so the preview cannot drift from what is sent.
-func OpenRouterImageBody(req *types.GenerateRequest) any {
+func OpenRouterImageBody(req *types.GenerateRequest) (any, error) {
 	bodyMap := map[string]any{
 		"model":  req.Model,
 		"prompt": req.Prompt,
@@ -102,7 +102,11 @@ func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.Op
 
 	headers := c.openRouterHeaders()
 	var result types.OpenAIImageResponse
-	if err := c.doJSONWithHeaders(OpenRouterImagesPath, OpenRouterImageBody(req), &result, headers); err != nil {
+	body, err := OpenRouterImageBody(req)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.doJSONWithHeaders(OpenRouterImagesPath, body, &result, headers); err != nil {
 		return nil, err
 	}
 	return &result, nil

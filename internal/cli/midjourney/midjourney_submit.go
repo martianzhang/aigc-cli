@@ -11,6 +11,27 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
+// mjInjector is implemented by every MJ request body (via SetInjectJSON) so a
+// --inject-json value can be attached without a per-type switch.
+type mjInjector interface {
+	SetInjectJSON(json.RawMessage)
+}
+
+// applyMJInject attaches the --inject-json value, if any, to an MJ request.
+func applyMJInject(req any) error {
+	inject, err := service.ReadInjectJSON(mjInjectJSON)
+	if err != nil {
+		return err
+	}
+	if len(inject) == 0 {
+		return nil
+	}
+	if s, ok := req.(mjInjector); ok {
+		s.SetInjectJSON(inject)
+	}
+	return nil
+}
+
 func buildMJCurl(action string, reqBody any) string {
 	p := options.Shared.ResolveProvider(options.ProviderNameMidjourney)
 	body, _ := json.Marshal(reqBody)
@@ -29,6 +50,9 @@ func buildMJCurl(action string, reqBody any) string {
 
 // runMJSubmitAndPoll submits an MJ action, polls, and displays results.
 func runMJSubmitAndPoll(c client.APIClient, action string, req any) error {
+	if err := applyMJInject(req); err != nil {
+		return err
+	}
 	if mjDryRun {
 		fmt.Println(buildMJCurl(action, req))
 		return nil
@@ -169,6 +193,9 @@ func midjourneyResultSummary(task *types.MJTaskData) string {
 // SubmitAndGetText submits an MJ action, polls for completion,
 // downloads results, and returns a text summary. Shared by CLI and agent loop.
 func SubmitAndGetText(c client.APIClient, action string, req any) (string, error) {
+	if err := applyMJInject(req); err != nil {
+		return "", err
+	}
 	resp, err := c.MidjourneySubmit(action, req)
 	if err != nil {
 		return "", fmt.Errorf("submission failed: %w", err)

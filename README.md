@@ -183,6 +183,7 @@ aigc-cli
 │   --print-config Print effective config with source annotations (secrets masked)
 │   -v/--verbose   Show detailed output: full JSON, token usage, timing, cost
 │   --json         Pass request as JSON (file, string, or stdin)
+│   --inject-json  Merge a JSON object on top of the generated request body
 │   --preview      Open system preview after generation
 │   --save-prompt  Save prompt as .md file
 │   --http-proxy   Specify HTTP proxy
@@ -261,6 +262,8 @@ aigc-cli midjourney (or mj)
 **CLI flags > JSON input > YAML config > Code defaults**
 
 For `--json` this precedence holds per key: when flags accompany `--json`, each flag you explicitly set overrides the matching key in the JSON body, while every key you did not touch is kept exactly as written. With `--json` and no flags, the body is sent verbatim.
+
+`--inject-json` merges a JSON object on top of the generated body (objects recurse, arrays append, scalars overwrite). It is the escape hatch for vendor-only fields such as provider-native web search, and takes precedence over `--json`.
 
 `--json` also accepts JSONC: `//` and `/* */` comments, trailing commas, and a leading UTF-8 BOM are stripped before parsing (string-literal aware, so the `//` in a URL is kept). Strict JSON with no comments passes through unchanged.
 

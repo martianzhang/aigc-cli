@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/jsonmerge"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -106,12 +107,22 @@ func buildAnthropicRequest(req *types.ChatRequest) *types.AnthropicMessageReques
 }
 
 // AnthropicChatBody returns the Anthropic-native chat body, or the verbatim
-// --json body when set. Shared by the real request and --dry-run.
+// --json body when set, then layers --inject-json on top. Shared by the real
+// request and --dry-run.
 func AnthropicChatBody(req *types.ChatRequest) ([]byte, error) {
-	if len(req.RawJSON) > 0 {
-		return req.RawJSON, nil
+	base := req.RawJSON
+	if len(base) == 0 {
+		data, err := json.Marshal(buildAnthropicRequest(req))
+		if err != nil {
+			return nil, err
+		}
+		base = data
 	}
-	return json.Marshal(buildAnthropicRequest(req))
+	merged, err := jsonmerge.Inject(base, req.InjectJSON)
+	if err != nil {
+		return nil, err
+	}
+	return merged, nil
 }
 
 // anthropicToChatResponse converts an Anthropic response to the standard ChatResponse.

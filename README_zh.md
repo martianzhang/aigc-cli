@@ -183,6 +183,7 @@ aigc-cli
 │   --print-config 打印当前生效的配置（含来源标注，密钥已脱敏）
 │   -v/--verbose   显示详细输出：完整 JSON、Token 用量、耗时、费用
 │   --json         以 JSON 格式传入请求（文件、字符串或 stdin）
+│   --inject-json  在生成的请求 body 上叠加一段 JSON
 │   --preview      生成完成后自动打开系统预览
 │   --save-prompt  将提示词保存为 .md 文件
 │   --http-proxy   指定 HTTP 代理
@@ -261,6 +262,8 @@ aigc-cli midjourney (或 mj)
 **CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值**
 
 `--json` 与 CLI 参数同时出现时，只有**显式指定**的参数会覆盖 JSON body 中对应的键；其余键（包括 CLI 未建模的厂商私有键）原样保留。只传 `--json`、不带任何参数时，body 逐字节原样发送。
+
+`--inject-json` 会在生成的 body 上叠加一段 JSON（对象递归合并、数组拼接、标量覆盖），是传入厂商私有关键字段（如厂商原生联网搜索）的逃生口，优先级高于 `--json`。
 
 `--json` 支持 JSONC（注释与尾随逗号会被剥离；严格 JSON 原样不变）。
 

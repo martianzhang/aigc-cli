@@ -366,6 +366,7 @@ aigc-cli chat --message "Hello"
 | `--no-stream` | 关闭流式输出，等待完整响应 |
 | `--interactive`, `-i` | 强制进入交互式多轮模式 |
 | `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
+| `--inject-json` | 在 CLI 生成的最终 body 上**追加合并**一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于联网搜索等厂商私有参数，优先级高于 `--json` |
 | `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |
 | `--search-provider` | `web_search` 原语使用的搜索引擎（`duckduckgo`/`firecrawl`/`brave`/`doubao`，或 `auto`/`free`/`quality`），覆盖 `defaults.chat.search_provider` |
 | `--verbose`, `-v` | 显示 token 消耗、费用和耗时统计（全局 flag） |
@@ -393,6 +394,35 @@ aigc-cli chat --json request.json --max-output 1024 --no-stream
 ```
 
 > 💡 行为类参数永远不写进 body：`--dry-run`、`--provider`、`--api-key`、`--api-base`、`--http-proxy`、`--output`、`--verbose`、`--timeout`、`--config`、`--print-config`，以及 chat 专有的 `--context-size`、`--interactive`、`--search-provider`。
+
+### `--inject-json`：在最终 body 上叠加一段 JSON
+
+`--inject-json` 与 `--json` 平级，是第二套 body 输入通道：把你给的一小段 JSON **合并进** CLI 生成的最终 body，用来传入 CLI 未建模的厂商参数（联网搜索、推理强度、路由偏好等）。
+
+- **合并语义**：对象递归合并；**数组拼接**（CLI 的在前，你的在后）；标量/其它值覆盖。
+- **优先级**：typed 字段/CLI 参数 < `--json` < `--inject-json`——`--inject-json` 永远最后生效。
+- 输入与 `--json` 一致：文件路径、内联 JSON 或 `-`（stdin）；值必须是 JSON **对象**，否则直接报错。
+- **已知限制**：数组只能追加、无法清空或替换；值必须是对象，不接受数组或标量。
+
+> 💡 `--inject-json` 的内容是 **provider 相关**的，CLI 不做转换：`{"enable_search":true}` 只对百炼 OpenAI 兼容协议有效；Anthropic 原生用 `{"tools":[{"type":"web_search_20250305","name":"web_search"}]}`；OpenAI Responses 用 `{"tools":[{"type":"web_search_preview"}]}`；OpenRouter 用 `{"plugins":[{"id":"web"}]}`（或模型名后缀 `:online`）。担心写错时先用 `--dry-run` 看待发 curl。
+
+**例：OpenRouter 联网搜索。** OpenRouter 的 `web` 插件对**任意模型**生效（非原生搜索模型走 Exa），它是 chat-completions 的 body 字段，所以 provider 要用 `openai` 类型（走 `/chat/completions`，**不能**用 `type: anthropic`）：
+
+```yaml
+providers:
+  openrouter:
+    type: openai
+    api_key: sk-or-xxx
+    base_url: https://openrouter.ai/api/v1
+```
+
+```bash
+aigc-cli chat -P openrouter --model anthropic/claude-sonnet-5.5 \
+  --message "明天纽约天气" --no-stream \
+  --inject-json '{"plugins":[{"id":"web","max_results":5}]}'
+```
+
+`plugins` 还能写 `engine`（`native`/`exa`/`firecrawl`/…）、`include_domains` / `exclude_domains`、`search_prompt`。不想调参时也可用模型名后缀 `:online`（等价于 `plugins:[{"id":"web"}]`）：`--model anthropic/claude-sonnet-5.5:online`。联网按次计费。
 
 ### Provider 协议类型
 

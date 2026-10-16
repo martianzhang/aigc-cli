@@ -3,6 +3,7 @@ package chat
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -68,6 +69,51 @@ func TestRunAgentLoop_noStreamPrintsOnce(t *testing.T) {
 	}
 	if n := strings.Count(out.String(), "hello"); n != 1 {
 		t.Errorf("answer printed %d times, want 1 (stdout=%q)", n, out.String())
+	}
+}
+
+// TestRunAgentLoopAppliesInjectJSON guards that the per-turn request rebuilt by
+// the agent loop carries --inject-json. It used to be dropped, so --inject-json
+// only worked on the single-turn/dry-run path.
+func TestRunAgentLoopAppliesInjectJSON(t *testing.T) {
+	var (
+		mu   sync.Mutex
+		body string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		body = string(b)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`)
+	}))
+	defer srv.Close()
+
+	prevModel, prevNoStream, prevInject := options.Shared.Model, chatNoStream, chatInjectRaw
+	options.Shared.Model, chatNoStream = "test-model", true
+	chatInjectRaw = json.RawMessage(`{"plugins":[{"id":"web","max_results":5}]}`)
+	var out, errBuf bytes.Buffer
+	restoreOut := options.SetStdout(&out)
+	restoreErr := options.SetStderr(&errBuf)
+	t.Cleanup(func() {
+		options.Shared.Model, chatNoStream, chatInjectRaw = prevModel, prevNoStream, prevInject
+		restoreOut()
+		restoreErr()
+	})
+
+	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
+	history := []types.ChatMessage{{Role: "user", Content: "hi"}}
+
+	if err := runAgentLoop(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd()); err != nil {
+		t.Fatalf("runAgentLoop() error = %v", err)
+	}
+
+	mu.Lock()
+	gotBody := body
+	mu.Unlock()
+	if !strings.Contains(gotBody, `"plugins":[{"id":"web","max_results":5}]`) {
+		t.Errorf("injected plugins missing from the agent-loop request body: %s", gotBody)
 	}
 }
 

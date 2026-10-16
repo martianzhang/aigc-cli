@@ -185,6 +185,7 @@ With it on, a request carries only the **primitives** plus two meta-tools: the m
 | `--context-size` | Max input context tokens; auto-compacts at 80% (summarizes older messages) | `0` (model default) |
 | `--system` | System prompt | — |
 | `--json` | Pass messages as JSON; forwarded **verbatim** when no flags are set, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API. Explicitly-set flags override the matching key | — |
+| `--inject-json` | Merge a JSON object **on top of** the generated body (objects recurse, arrays append, scalars overwrite). Use it for vendor-only fields (native web search, reasoning, routing); takes precedence over `--json` | — |
 | `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
 | `--search-provider` | Engine for the `web_search` primitive (`duckduckgo`/`firecrawl`/`brave`/`doubao`, or `auto`/`free`/`quality`); overrides `defaults.chat.search_provider` | — |
 
@@ -212,6 +213,35 @@ aigc-cli chat --json '{"messages": [{"role": "user", "content": "Hello"}]}' --mo
 Here `messages` stays as written while `model` and `max_tokens` come from the flags. Behavioral flags (`--dry-run`, `--provider`, `--api-key`, `--api-base`, `--output`, `--verbose`, `--timeout`, `--context-size`, `--interactive`, `--search-provider`) never enter the body.
 
 When using `--json` with an `openai_responses` provider, the JSON body must be in Responses shape (`input` / `instructions`), not chat-completions shape (`messages`).
+
+## Injecting an Extra Body Snippet (`--inject-json`)
+
+`--inject-json` sits at the same level as `--json` but is a second body-input channel: it **merges** a small JSON object on top of the body the CLI generated, so vendor parameters the CLI does not model (native web search, reasoning, routing) reach the API without a code change.
+
+- **Merge semantics**: objects recurse; **arrays append** (the CLI's elements first, then yours); every other value overwrites.
+- **Precedence**: typed fields/CLI flags < `--json` < `--inject-json` — the injected snippet always wins.
+- Input matches `--json`: a file path, inline JSON, or `-` (stdin). The value must be a JSON **object**, or the command errors out.
+- **Known limitation**: arrays can only be appended, never cleared or replaced; only objects are accepted.
+
+> 💡 The snippet is **provider-specific** — the CLI does not translate it. `{"enable_search":true}` only works on Bailian's OpenAI-compatible protocol; Anthropic-native uses `{"tools":[{"type":"web_search_20250305","name":"web_search"}]}`; OpenAI Responses needs `{"tools":[{"type":"web_search_preview"}]}`; OpenRouter uses `{"plugins":[{"id":"web"}]}` (or the model-name suffix `:online`). Run with `--dry-run` first to see the exact curl.
+
+**Example: OpenRouter web search.** OpenRouter's `web` plugin works for **any model** (non-native models are backed by Exa). It is a chat-completions body field, so the provider must use `type: openai` (`/chat/completions` — **not** `type: anthropic`):
+
+```yaml
+providers:
+  openrouter:
+    type: openai
+    api_key: sk-or-xxx
+    base_url: https://openrouter.ai/api/v1
+```
+
+```bash
+aigc-cli chat -P openrouter --model anthropic/claude-sonnet-5.5 \
+  --message "New York weather tomorrow" --no-stream \
+  --inject-json '{"plugins":[{"id":"web","max_results":5}]}'
+```
+
+`plugins` also accepts `engine` (`native`/`exa`/`firecrawl`/…), `include_domains` / `exclude_domains`, and `search_prompt`. To skip the parameters, use the `:online` model suffix instead (equivalent to `plugins:[{"id":"web"}]`): `--model anthropic/claude-sonnet-5.5:online`. Web search is billed per search.
 
 ## Provider Type
 

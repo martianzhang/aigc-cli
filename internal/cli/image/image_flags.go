@@ -51,6 +51,7 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.BoolVar(&genEdit, "edit", false, "Edit mode: force the provider's image-edit protocol (APIMart Grok / OpenAI-family multipart /images/edits / ZeekAI); requires --image-url")
 	f.BoolVar(&genPreview, "preview", false, "Open generated image with system default viewer")
 	f.StringVar(&options.Shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
+	f.StringVar(&options.Shared.InjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&options.Shared.Mode, "mode", "", "Generation mode: auto (detect), sync, async (default: auto)")
 	f.BoolVar(&options.Shared.SavePrompt, "save-prompt", false, "save prompt to .md file alongside results")
 }

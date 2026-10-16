@@ -135,6 +135,7 @@ aigc-cli completion powershell > aigc-cli.ps1
 | `--print-config` | Print effective config with source annotations (secrets masked: API keys show only the last 4 chars, URL credentials/keys become `REDACTED`) |
 | `-v` / `--verbose` | Show detailed output: full JSON, token usage, timing, cost |
 | `--json` | Pass request as JSON (file, string, or stdin) |
+| `--inject-json` | Merge a JSON object on top of the generated body (objects recurse, arrays append, scalars overwrite); for vendor-only request fields, takes precedence over `--json` |
 | `--preview` | Open system preview after generation |
 | `--save-prompt` | Save prompt as .md file |
 | `--http-proxy` | Specify HTTP proxy |

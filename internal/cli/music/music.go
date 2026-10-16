@@ -38,6 +38,7 @@ var (
 	musicDuration     int
 	musicFormat       string
 	musicJSONInput    string
+	musicInjectJSON   string
 	musicDryRun       bool
 )
 
@@ -85,6 +86,7 @@ func init() {
 	f.IntVarP(&musicDuration, "duration", "d", 0, "Duration in seconds")
 	f.StringVar(&musicFormat, "format", "", "Audio format (suno backend)")
 	f.StringVar(&musicJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
+	f.StringVar(&musicInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); file path, JSON string, or \"-\" for stdin")
 
 	musicCmd.AddCommand(musicGenerateCmd)
 	musicCmd.AddCommand(musicQueryCmd)

@@ -17,6 +17,11 @@ import (
 
 // buildChatRequest constructs a ChatRequest from --json or individual flags.
 func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
+	inject, err := service.ReadInjectJSON(chatInjectJSON)
+	if err != nil {
+		return nil, err
+	}
+	chatInjectRaw = inject
 	if chatJSONFlag != "" {
 		data, err := service.ReadJSONInput(chatJSONFlag)
 		if err != nil {
@@ -52,6 +57,7 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		if err := json.Unmarshal(merged, req); err != nil {
 			return nil, fmt.Errorf("failed to parse merged JSON: %w", err)
 		}
+		req.InjectJSON = inject
 		return req, nil
 	}
 
@@ -67,6 +73,7 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 	}
 	options.SetIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
 
+	req.InjectJSON = inject
 	return req, nil
 }
 

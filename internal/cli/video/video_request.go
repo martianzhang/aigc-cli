@@ -29,8 +29,17 @@ func resolveVideoPrompt() (string, error) {
 }
 
 func buildVideoRequest(cmd *cobra.Command) (*types.VideoGenerateRequest, error) {
+	inject, err := service.ReadInjectJSON(options.Shared.InjectJSON)
+	if err != nil {
+		return nil, err
+	}
 	if options.Shared.JSONInput != "" {
-		return buildVideoRequestFromJSON(cmd)
+		req, err := buildVideoRequestFromJSON(cmd)
+		if err != nil {
+			return nil, err
+		}
+		req.InjectJSON = inject
+		return req, nil
 	}
 
 	prompt, err := resolveVideoPrompt()
@@ -70,6 +79,7 @@ func buildVideoRequest(cmd *cobra.Command) (*types.VideoGenerateRequest, error) 
 		req.Tools = append(req.Tools, types.VideoTool{Type: t})
 	}
 
+	req.InjectJSON = inject
 	return req, nil
 }
 

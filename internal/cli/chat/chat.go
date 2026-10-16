@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -28,6 +29,11 @@ var (
 	// chatSearchProvider overrides defaults.chat.search_provider for the
 	// web_search primitive when set on the CLI.
 	chatSearchProvider string
+	// chatInjectJSON is a --inject-json snippet merged additively into the body.
+	chatInjectJSON string
+	// chatInjectRaw is chatInjectJSON parsed once by buildChatRequest, so the
+	// agent loop and TUI (which rebuild the request each turn) can re-apply it.
+	chatInjectRaw json.RawMessage
 )
 
 // chatCmd represents the `aigc-cli chat` command.
@@ -151,6 +157,7 @@ func init() {
 	f.BoolVarP(&chatInteractive, "interactive", "i", false, "Enter interactive multi-turn chat mode")
 	f.BoolVar(&chatDryRun, "dry-run", false, "Print the equivalent curl without calling the API")
 	f.StringVar(&chatSearchProvider, "search-provider", "", "Web search engine for the web_search tool: duckduckgo/firecrawl/brave/doubao, or auto/free/quality (overrides defaults.chat.search_provider)")
+	f.StringVar(&chatInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); file path, JSON string, or \"-\" for stdin")
 }
 
 // Cmd returns the chat command.

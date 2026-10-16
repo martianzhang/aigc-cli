@@ -52,12 +52,16 @@ type MusicGenerateRequest struct {
 	// RawJSON is a verbatim --json body; when set it overrides MarshalJSON so
 	// provider-specific parameters reach the API unmodelled.
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the
+	// final body (objects recurse, arrays concatenate, scalars overwrite).
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
-// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields,
+// then layers InjectJSON on top.
 func (r MusicGenerateRequest) MarshalJSON() ([]byte, error) {
 	type typed MusicGenerateRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 // MusicSubmitResponse is the POST /v1/music/generations response. Data is an array.
@@ -152,12 +156,15 @@ type OpenRouterMusicRequest struct {
 	Stream     bool                     `json:"stream"`
 	// RawJSON is a verbatim --json body carried over from the music command.
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet carried over from the music command.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
-// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields.
+// MarshalJSON emits RawJSON unchanged when set, otherwise the typed fields,
+// then layers InjectJSON on top.
 func (r OpenRouterMusicRequest) MarshalJSON() ([]byte, error) {
 	type typed OpenRouterMusicRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 // OpenRouterMusicMessage is a single chat message carrying the music prompt.

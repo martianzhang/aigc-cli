@@ -106,6 +106,12 @@ func buildMusicGenerateReq(cmd *cobra.Command) (*types.MusicGenerateRequest, err
 		req.RawJSON = data
 	}
 
+	inject, err := service.ReadInjectJSON(musicInjectJSON)
+	if err != nil {
+		return nil, err
+	}
+	req.InjectJSON = inject
+
 	return req, nil
 }
 
@@ -113,7 +119,7 @@ func buildMusicGenerateReq(cmd *cobra.Command) (*types.MusicGenerateRequest, err
 // --json body is returned as-is, skipping the mapping and its validation.
 func buildMusicBody(req *types.MusicGenerateRequest) (any, error) {
 	if len(req.RawJSON) > 0 {
-		return req.RawJSON, nil
+		return types.MaybeInject(req.RawJSON, req.InjectJSON)
 	}
 
 	model := req.Model
@@ -186,5 +192,5 @@ func buildMusicBody(req *types.MusicGenerateRequest) (any, error) {
 		}
 	}
 
-	return body, nil
+	return types.MaybeInject(body, req.InjectJSON)
 }

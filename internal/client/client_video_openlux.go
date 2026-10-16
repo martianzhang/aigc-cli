@@ -14,7 +14,7 @@ import (
 // OpenLuxVideoBody builds the openlux video request body. A verbatim --json body
 // wins; otherwise the typed fields are mapped. Shared by the real request and
 // --dry-run/--verbose.
-func OpenLuxVideoBody(req *types.VideoGenerateRequest) any {
+func OpenLuxVideoBody(req *types.VideoGenerateRequest) (any, error) {
 	bodyMap := map[string]any{
 		"model":  req.Model,
 		"prompt": req.Prompt,
@@ -36,7 +36,11 @@ func OpenLuxVideoBody(req *types.VideoGenerateRequest) any {
 
 // OpenLuxVideoSubmit sends a video generation request to api.openlux.ai's POST /v1/video/create.
 func (c *Client) OpenLuxVideoSubmit(req *types.VideoGenerateRequest) (*types.OpenLuxVideoCreateResponse, error) {
-	body, err := json.Marshal(OpenLuxVideoBody(req))
+	reqBody, err := OpenLuxVideoBody(req)
+	if err != nil {
+		return nil, err
+	}
+	body, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}

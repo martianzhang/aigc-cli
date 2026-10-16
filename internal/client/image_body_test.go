@@ -26,10 +26,20 @@ func marshalBody(t *testing.T, body any) string {
 	return string(data)
 }
 
+// bodyOf builds a provider body and marshals it, failing the test on error.
+func bodyOf(t *testing.T, fn func(*types.GenerateRequest) (any, error), req *types.GenerateRequest) string {
+	t.Helper()
+	body, err := fn(req)
+	if err != nil {
+		t.Fatalf("build body: %v", err)
+	}
+	return marshalBody(t, body)
+}
+
 func TestImageBodyBuildersForwardRawJSON(t *testing.T) {
 	tests := []struct {
 		name string
-		body func(*types.GenerateRequest) any
+		body func(*types.GenerateRequest) (any, error)
 	}{
 		{"openrouter", OpenRouterImageBody},
 		{"gemini", GeminiImageBody},
@@ -37,7 +47,7 @@ func TestImageBodyBuildersForwardRawJSON(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := marshalBody(t, tc.body(rawImageReq())); got != rawImageJSON {
+			if got := bodyOf(t, tc.body, rawImageReq()); got != rawImageJSON {
 				t.Errorf("raw --json body = %s, want %s", got, rawImageJSON)
 			}
 		})
@@ -52,16 +62,16 @@ func TestImageBodyBuildersMapTypedFields(t *testing.T) {
 		ImageURLs: []string{"photo.png"},
 	}
 
-	if got := marshalBody(t, OpenRouterImageBody(req)); !strings.Contains(got, `"input_references"`) {
+	if got := bodyOf(t, OpenRouterImageBody, req); !strings.Contains(got, `"input_references"`) {
 		t.Errorf("openrouter typed body should map image_urls to input_references, got %s", got)
 	}
-	if got := marshalBody(t, ImageEditsBody(req)); !strings.Contains(got, `"images":[{"image_url":"photo.png"}]`) {
+	if got := bodyOf(t, ImageEditsBody, req); !strings.Contains(got, `"images":[{"image_url":"photo.png"}]`) {
 		t.Errorf("edits typed body should use images[].image_url, got %s", got)
 	}
-	if got := marshalBody(t, GeminiImageBody(req)); !strings.Contains(got, `"response_format"`) || !strings.Contains(got, `"input"`) {
+	if got := bodyOf(t, GeminiImageBody, req); !strings.Contains(got, `"response_format"`) || !strings.Contains(got, `"input"`) {
 		t.Errorf("gemini typed body should carry input/response_format, got %s", got)
 	}
-	if got := marshalBody(t, ImageEditsBody(req)); strings.Contains(got, "loras") {
+	if got := bodyOf(t, ImageEditsBody, req); strings.Contains(got, "loras") {
 		t.Errorf("typed body must not invent loras, got %s", got)
 	}
 }
@@ -81,7 +91,7 @@ type geminiBodyProbe struct {
 func decodeGeminiBody(t *testing.T, req *types.GenerateRequest) geminiBodyProbe {
 	t.Helper()
 	var probe geminiBodyProbe
-	if err := json.Unmarshal([]byte(marshalBody(t, GeminiImageBody(req))), &probe); err != nil {
+	if err := json.Unmarshal([]byte(bodyOf(t, GeminiImageBody, req)), &probe); err != nil {
 		t.Fatalf("unmarshal gemini body: %v", err)
 	}
 	return probe
@@ -95,7 +105,7 @@ func TestGeminiImageBodyMapsReferenceImages(t *testing.T) {
 			Prompt:    "p",
 			ImageURLs: []string{"data:image/png;base64," + rawB64},
 		}
-		body := marshalBody(t, GeminiImageBody(req))
+		body := bodyOf(t, GeminiImageBody, req)
 		if want := `{"type":"image","data":"` + rawB64 + `","mime_type":"image/png"}`; !strings.Contains(body, want) {
 			t.Errorf("gemini body = %s, want image item %s", body, want)
 		}
@@ -118,7 +128,7 @@ func TestGeminiImageBodyMapsReferenceImages(t *testing.T) {
 			Prompt:    "p",
 			ImageURLs: []string{"https://example.com/a.png"},
 		}
-		body := marshalBody(t, GeminiImageBody(req))
+		body := bodyOf(t, GeminiImageBody, req)
 		if want := `{"type":"image","uri":"https://example.com/a.png"}`; !strings.Contains(body, want) {
 			t.Errorf("gemini body = %s, want image item %s", body, want)
 		}
@@ -167,7 +177,7 @@ func TestGeminiImageBodyMapsReferenceImages(t *testing.T) {
 func TestOpenRouterImageBodyAspectRatio(t *testing.T) {
 	t.Run("ratio maps to aspect_ratio and keeps a tier size", func(t *testing.T) {
 		req := &types.GenerateRequest{Model: "m", Prompt: "p", Size: "2K", Ratio: "16:9"}
-		got := marshalBody(t, OpenRouterImageBody(req))
+		got := bodyOf(t, OpenRouterImageBody, req)
 		if !strings.Contains(got, `"aspect_ratio":"16:9"`) {
 			t.Errorf("openrouter body = %s, want aspect_ratio 16:9", got)
 		}
@@ -178,14 +188,14 @@ func TestOpenRouterImageBodyAspectRatio(t *testing.T) {
 
 	t.Run("empty ratio omits aspect_ratio", func(t *testing.T) {
 		req := &types.GenerateRequest{Model: "m", Prompt: "p", Size: "2K"}
-		if got := marshalBody(t, OpenRouterImageBody(req)); strings.Contains(got, "aspect_ratio") {
+		if got := bodyOf(t, OpenRouterImageBody, req); strings.Contains(got, "aspect_ratio") {
 			t.Errorf("openrouter body = %s, must not contain aspect_ratio", got)
 		}
 	})
 
 	t.Run("ratio drops a conflicting pixel size", func(t *testing.T) {
 		req := &types.GenerateRequest{Model: "m", Prompt: "p", Size: "1024x768", Ratio: "16:9"}
-		got := marshalBody(t, OpenRouterImageBody(req))
+		got := bodyOf(t, OpenRouterImageBody, req)
 		if !strings.Contains(got, `"aspect_ratio":"16:9"`) {
 			t.Errorf("openrouter body = %s, want aspect_ratio 16:9", got)
 		}

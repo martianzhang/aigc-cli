@@ -67,7 +67,7 @@ type geminiErrorResponse struct {
 // verbatim --json body wins; otherwise the typed fields are mapped onto
 // input/response_format. Shared by the real request and --dry-run/--verbose so
 // the preview cannot drift from what is sent.
-func GeminiImageBody(req *types.GenerateRequest) any {
+func GeminiImageBody(req *types.GenerateRequest) (any, error) {
 	input := []geminiInputItem{
 		{Type: "text", Text: req.Prompt},
 	}
@@ -108,7 +108,11 @@ func geminiImageItem(value string) geminiInputItem {
 
 // GeminiImageGenerate generates images using Gemini Interactions API.
 func (c *Client) GeminiImageGenerate(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
-	body, err := c.doGeminiRequest(http.MethodPost, GeminiInteractionsPath, GeminiImageBody(req))
+	reqBody, err := GeminiImageBody(req)
+	if err != nil {
+		return nil, err
+	}
+	body, err := c.doGeminiRequest(http.MethodPost, GeminiInteractionsPath, reqBody)
 	if err != nil {
 		return nil, err
 	}

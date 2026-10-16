@@ -49,6 +49,7 @@ func buildOpenRouterMusicReq(req *types.MusicGenerateRequest) *types.OpenRouterM
 		Audio:      &types.OpenRouterAudioConfig{Format: format},
 		Stream:     true,
 		RawJSON:    req.RawJSON,
+		InjectJSON: req.InjectJSON,
 	}
 }
 

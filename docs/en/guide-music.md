@@ -145,6 +145,7 @@ Notes:
 | `--duration` | `-d` | Duration in seconds; suno → `duration`, flowmusic → `length`; not supported by Bailian |
 | `--format` | | Audio format (suno / OpenRouter / Bailian; not supported by flowmusic) |
 | `--json` | | JSON input (file path, string, or `-` for stdin); a backend-native body sent **verbatim** when no flags are set. Explicitly-set flags overlay the key the active backend uses |
+| `--inject-json` | | Merge a JSON object on top of the generated body (objects recurse, arrays append, scalars overwrite); for vendor-only fields, takes precedence over `--json` |
 | `--dry-run` | | Print the equivalent curl, do not call the API |
 | `--provider` | `-P` | Global: reference a named provider (e.g. `openrouter`) |
 | `--api-key` | | Global: override API key |

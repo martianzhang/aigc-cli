@@ -28,14 +28,15 @@ func NewClient() client.APIClient {
 // MJ shared flag variables
 // ============================================================================
 var (
-	mjPrompt    string
-	mjImageURLs []string
-	mjTaskID    string
-	mjIndex     int
-	mjCustomID  string
-	mjSpeed     string
-	mjDryRun    bool
-	mjJSONInput string
+	mjPrompt     string
+	mjImageURLs  []string
+	mjTaskID     string
+	mjIndex      int
+	mjCustomID   string
+	mjSpeed      string
+	mjDryRun     bool
+	mjJSONInput  string
+	mjInjectJSON string
 )
 
 // MJ imagine (structured) flag variables

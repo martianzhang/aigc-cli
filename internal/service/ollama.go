@@ -35,7 +35,7 @@ func OllamaGenerateURL(baseURL string) string {
 
 // OllamaGenerateBody builds the /api/generate body. A verbatim --json body
 // wins; otherwise the typed fields are mapped.
-func OllamaGenerateBody(req *types.GenerateRequest) any {
+func OllamaGenerateBody(req *types.GenerateRequest) (any, error) {
 	return req.BodyOrRaw(map[string]any{
 		"model":  req.Model,
 		"prompt": req.Prompt,
@@ -47,7 +47,14 @@ func OllamaGenerateBody(req *types.GenerateRequest) any {
 // the saved image filenames under outputDir.
 func OllamaGenerateImages(baseURL string, req *types.GenerateRequest, outputDir string) ([]string, error) {
 	url := OllamaGenerateURL(baseURL)
-	bodyBytes, _ := json.Marshal(OllamaGenerateBody(req))
+	reqBody, err := OllamaGenerateBody(req)
+	if err != nil {
+		return nil, err
+	}
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
 	httpResp, err := http.Post(url, "application/json", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("ollama request failed: %w", err)

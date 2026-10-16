@@ -57,7 +57,11 @@ func buildImagePlan(req *types.GenerateRequest, p *provider.EffectiveProvider) (
 		return buildAPIMartPlan(req, base)
 	}
 	if p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL) {
-		return newImagePlan(service.OllamaGenerateURL(p.BaseURL), service.OllamaGenerateBody(req)), nil
+		body, err := service.OllamaGenerateBody(req)
+		if err != nil {
+			return nil, err
+		}
+		return newImagePlan(service.OllamaGenerateURL(p.BaseURL), body), nil
 	}
 
 	switch p.ProviderType {
@@ -65,12 +69,20 @@ func buildImagePlan(req *types.GenerateRequest, p *provider.EffectiveProvider) (
 		if err := encodeLocalImages(req); err != nil {
 			return nil, err
 		}
-		return newImagePlan(base+client.OpenRouterImagesPath, client.OpenRouterImageBody(req)), nil
+		body, err := client.OpenRouterImageBody(req)
+		if err != nil {
+			return nil, err
+		}
+		return newImagePlan(base+client.OpenRouterImagesPath, body), nil
 	case provider.Gemini:
 		if err := encodeLocalImages(req); err != nil {
 			return nil, err
 		}
-		return newImagePlan(base+client.GeminiInteractionsPath, client.GeminiImageBody(req)), nil
+		body, err := client.GeminiImageBody(req)
+		if err != nil {
+			return nil, err
+		}
+		return newImagePlan(base+client.GeminiInteractionsPath, body), nil
 	case provider.ModelScope:
 		if err := encodeLocalImages(req); err != nil {
 			return nil, err
@@ -79,13 +91,21 @@ func buildImagePlan(req *types.GenerateRequest, p *provider.EffectiveProvider) (
 		if err != nil {
 			return nil, err
 		}
-		return newImagePlan(base+client.ImageSubmitPath, body), nil
+		injected, err := types.MaybeInject(body, req.InjectJSON)
+		if err != nil {
+			return nil, err
+		}
+		return newImagePlan(base+client.ImageSubmitPath, injected), nil
 	case provider.Zeekai:
 		if usesImageEditsJSON(p, req) {
 			if err := encodeLocalImages(req); err != nil {
 				return nil, err
 			}
-			pl := newImagePlan(base+client.ImageEditsPath, client.ImageEditsBody(req))
+			body, err := client.ImageEditsBody(req)
+			if err != nil {
+				return nil, err
+			}
+			pl := newImagePlan(base+client.ImageEditsPath, body)
 			pl.Note = imageEditsDataURINote
 			return pl, nil
 		}

@@ -39,9 +39,10 @@ func (m *chatModel) runTUIAgentLoop() {
 		turnCount++
 
 		req := &types.ChatRequest{
-			Model:    m.model,
-			Messages: localHistory,
-			Stream:   true,
+			Model:      m.model,
+			Messages:   localHistory,
+			Stream:     true,
+			InjectJSON: chatInjectRaw,
 		}
 		if tools := m.rt.RequestTools(); len(tools) > 0 {
 			req.Tools = tools

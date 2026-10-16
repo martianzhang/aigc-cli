@@ -106,6 +106,7 @@ aigc-cli mj imagine --json '{"prompt":"a cat","size":"16:9","version":"6.1"}' --
 | `--stop` | 提前停止 10-100 |
 | `--extra` | 额外 flag 转义口，原样追加到 prompt |
 | `--json` | JSON 输入（原样转发；显式 flag 覆盖对应键，未知字段不丢弃） |
+| `--inject-json` | 在最终 body 上追加合并一段 JSON（对象递归合并、数组拼接、标量覆盖）；优先级高于 `--json` |
 | `--dry-run` | 打印真实 host 与请求体的等价 curl，不调用 API |
 
 ---

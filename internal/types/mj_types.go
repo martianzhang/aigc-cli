@@ -92,6 +92,8 @@ type MJImagineRequest struct {
 	Extra          string   `json:"extra,omitempty"`
 
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the body.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Blend (POST /v1/midjourney/generations/blend) ----
@@ -105,6 +107,8 @@ type MJBlendRequest struct {
 	Metadata   map[string]string `json:"metadata,omitempty"`
 
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the body.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Describe (POST /v1/midjourney/generations/describe) ----
@@ -116,6 +120,8 @@ type MJDescribeRequest struct {
 	Metadata  map[string]string `json:"metadata,omitempty"`
 
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the body.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Edits (POST /v1/midjourney/generations/edits) ----
@@ -134,6 +140,8 @@ type MJTaskActionRequest struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the body.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Reroll (POST /v1/midjourney/generations/reroll) ----
@@ -146,6 +154,8 @@ type MJRerollRequest struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the body.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Zoom (POST /v1/midjourney/generations/zoom) ----
@@ -160,6 +170,8 @@ type MJZoomRequest struct {
 	Metadata  map[string]string `json:"metadata,omitempty"`
 
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the body.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Pan (POST /v1/midjourney/generations/pan) ----
@@ -174,6 +186,8 @@ type MJPanRequest struct {
 	Metadata  map[string]string `json:"metadata,omitempty"`
 
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the body.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Modal (POST /v1/midjourney/generations/modal) ----
@@ -187,6 +201,8 @@ type MJModalRequest struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the body.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Video (POST /v1/midjourney/generations/video) ----
@@ -204,6 +220,8 @@ type MJVideoRequest struct {
 	EndURL      string   `json:"end_url,omitempty"`
 
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the body.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 // ---- Remix (POST /v1/midjourney/generations/remix-strong / remix-subtle) ----
@@ -216,54 +234,70 @@ type MJRemixRequest struct {
 	Speed  string `json:"speed,omitempty"`
 
 	RawJSON json.RawMessage `json:"-" yaml:"-"`
+	// InjectJSON is a --inject-json snippet merged additively on top of the body.
+	InjectJSON json.RawMessage `json:"-" yaml:"-"`
 }
 
 func (r MJImagineRequest) MarshalJSON() ([]byte, error) {
 	type typed MJImagineRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 func (r MJBlendRequest) MarshalJSON() ([]byte, error) {
 	type typed MJBlendRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 func (r MJDescribeRequest) MarshalJSON() ([]byte, error) {
 	type typed MJDescribeRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 func (r MJTaskActionRequest) MarshalJSON() ([]byte, error) {
 	type typed MJTaskActionRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 func (r MJRerollRequest) MarshalJSON() ([]byte, error) {
 	type typed MJRerollRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 func (r MJZoomRequest) MarshalJSON() ([]byte, error) {
 	type typed MJZoomRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 func (r MJPanRequest) MarshalJSON() ([]byte, error) {
 	type typed MJPanRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 func (r MJModalRequest) MarshalJSON() ([]byte, error) {
 	type typed MJModalRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 func (r MJVideoRequest) MarshalJSON() ([]byte, error) {
 	type typed MJVideoRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
 
 func (r MJRemixRequest) MarshalJSON() ([]byte, error) {
 	type typed MJRemixRequest
-	return marshalVerbatim(r.RawJSON, typed(r))
+	return marshalVerbatim(r.RawJSON, r.InjectJSON, typed(r))
 }
+
+// SetInjectJSON attaches a --inject-json snippet to the request body. The ten
+// methods implement the CLI's mjInjector interface so the runner can attach the
+// snippet without a per-type switch.
+func (r *MJImagineRequest) SetInjectJSON(b json.RawMessage)    { r.InjectJSON = b }
+func (r *MJBlendRequest) SetInjectJSON(b json.RawMessage)      { r.InjectJSON = b }
+func (r *MJDescribeRequest) SetInjectJSON(b json.RawMessage)   { r.InjectJSON = b }
+func (r *MJTaskActionRequest) SetInjectJSON(b json.RawMessage) { r.InjectJSON = b }
+func (r *MJRerollRequest) SetInjectJSON(b json.RawMessage)     { r.InjectJSON = b }
+func (r *MJZoomRequest) SetInjectJSON(b json.RawMessage)       { r.InjectJSON = b }
+func (r *MJPanRequest) SetInjectJSON(b json.RawMessage)        { r.InjectJSON = b }
+func (r *MJModalRequest) SetInjectJSON(b json.RawMessage)      { r.InjectJSON = b }
+func (r *MJVideoRequest) SetInjectJSON(b json.RawMessage)      { r.InjectJSON = b }
+func (r *MJRemixRequest) SetInjectJSON(b json.RawMessage)      { r.InjectJSON = b }

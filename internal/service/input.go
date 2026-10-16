@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -46,6 +47,27 @@ func ReadJSONInput(input string) ([]byte, error) {
 		return NormalizeJSONC(data), nil
 	}
 	return nil, fmt.Errorf("file not found: %s (pass a file path, inline JSON, or \"-\" for stdin)", input)
+}
+
+// ReadInjectJSON resolves a --inject-json value (file path, inline JSON, or
+// "-" for stdin) and validates that it is a JSON object. An empty input yields
+// nil so callers can treat "not provided" and "empty object" the same way.
+func ReadInjectJSON(input string) (json.RawMessage, error) {
+	if input == "" {
+		return nil, nil
+	}
+	data, err := ReadJSONInput(input)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, fmt.Errorf("invalid --inject-json: %w", err)
+	}
+	if m == nil {
+		return nil, fmt.Errorf("invalid --inject-json: not a JSON object")
+	}
+	return json.RawMessage(data), nil
 }
 
 // isInlineJSON reports whether input looks like an inline JSON document rather
