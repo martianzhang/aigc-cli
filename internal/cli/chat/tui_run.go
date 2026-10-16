@@ -74,8 +74,9 @@ func runChatTUI(cmd *cobra.Command) error {
 	tuiModel.provider = providerName
 
 	// Create the Bubble Tea program with alt screen. Mouse capture is enabled so
-	// the wheel scrolls the chat viewport; hold Shift (or your terminal's select
-	// modifier) to select text natively.
+	// the wheel scrolls the chat viewport; hold the terminal's mouse-reporting
+	// bypass key to select text natively (Shift on most terminals, Option/⌥ on
+	// iTerm2).
 	p := tea.NewProgram(
 		&tuiModel,
 		tea.WithAltScreen(),

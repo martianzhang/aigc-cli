@@ -63,7 +63,7 @@ aigc-cli chat -v
 | `/tools` | 列出可用工具 |
 | `/<tool> <json>` | 直接调用工具 |
 | `/preview <file>` | 预览图片/视频 |
-| `PgUp` `PgDn` / 鼠标滚轮 | 上下滚动对话输出（如需选中文本，按住 `Shift` 再拖动） |
+| `PgUp` `PgDn` / 鼠标滚轮 | 上下滚动对话输出（选中文本需按住终端「绕过鼠标报告」的键再拖拽：**iTerm2 是 `⌥ Option`**，多数终端是 `Shift`；`/copy` 可复制最后一条回复） |
 | `!<command>` | 执行 Shell 命令（输出区会带 `$ 命令` 前缀，便于看清执行了什么） |
 
 > **多行输入：** 按 `Alt+Enter` 或 `Ctrl+J` 换行，`Enter` 提交消息。

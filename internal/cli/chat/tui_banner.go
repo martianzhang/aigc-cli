@@ -69,7 +69,7 @@ func (m *chatModel) showHelp() {
   /preview <file>      Preview an image/video with system viewer
   !<command>           Run a shell command
   PgUp/PgDn or wheel  Scroll conversation output
-  Shift+drag           Select text (mouse capture is on for wheel scrolling)
+  Shift+drag           Select text — iTerm2: ⌥ Option + drag (mouse capture is on for scrolling)
   Ctrl+C/D             Quit
   Esc                  Cancel current operation
   F1                   Show this help`

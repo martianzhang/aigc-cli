@@ -27,7 +27,7 @@ The REPL supports:
 - Tool calling (built-in primitives + tools from configured MCP servers)
 - Streaming output
 - Command history
-- Scroll the conversation with PgUp/PgDn or the mouse wheel (hold Shift to select text)
+- Scroll the conversation with PgUp/PgDn or the mouse wheel (to select text, hold the terminal's mouse-reporting bypass key while dragging — `Shift` on most terminals, **`Option`/`⌥` on iTerm2**; `/copy` copies the last assistant response)
 - Slash commands, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
 
 ## Tool Calling
