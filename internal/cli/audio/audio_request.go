@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -49,25 +50,61 @@ func buildAudioSpeechRequest() (*types.AudioSpeechRequest, error) {
 	return req, nil
 }
 
+// audioEndpoint resolves the base URL and API key a real audio request uses,
+// honoring a named provider (--provider / defaults.audio.provider). Dry-run
+// previews must use this, not the package-global Shared.APIBase, so they point
+// at the same endpoint the request would actually hit.
+func audioEndpoint() (base, key string) {
+	p := options.Shared.ResolveProvider(options.ProviderNameAudio)
+	base, key = options.Shared.APIBase, options.Shared.APIKey
+	if p != nil {
+		if p.BaseURL != "" {
+			base = p.BaseURL
+		}
+		if p.APIKey != "" {
+			key = p.APIKey
+		}
+	}
+	return client.NormalizeBaseURL(base), key
+}
+
 // buildAudioSpeechCurl generates a dry-run curl command for TTS requests.
 func buildAudioSpeechCurl(req *types.AudioSpeechRequest) string {
+	base, key := audioEndpoint()
 	payload, _ := json.MarshalIndent(req, "", "  ")
 	var b strings.Builder
-	fmt.Fprintf(&b, "curl %s/audio/speech \\\n", options.Shared.APIBase)
-	fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(options.Shared.APIKey))
+	fmt.Fprintf(&b, "curl %s/audio/speech \\\n", base)
+	fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(key))
 	b.WriteString("  -H \"Content-Type: application/json\" \\\n")
 	fmt.Fprintf(&b, "  -d '%s' \\\n", string(payload))
 	fmt.Fprintf(&b, "  --output speech.%s\n", req.ResponseFormat)
 	return b.String()
 }
 
-// buildAudioTranscribeCurl generates a dry-run curl command for STT requests.
+// buildAudioTranscribeCurl generates a dry-run curl command for base64 (JSON) STT.
 func buildAudioTranscribeCurl(req *types.AudioTranscribeRequest) string {
+	base, key := audioEndpoint()
 	payload, _ := json.MarshalIndent(req, "", "  ")
 	var b strings.Builder
-	fmt.Fprintf(&b, "curl %s/audio/transcriptions \\\n", options.Shared.APIBase)
-	fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(options.Shared.APIKey))
+	fmt.Fprintf(&b, "curl %s/audio/transcriptions \\\n", base)
+	fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(key))
 	b.WriteString("  -H \"Content-Type: application/json\" \\\n")
 	fmt.Fprintf(&b, "  -d '%s'\n", string(payload))
+	return b.String()
+}
+
+// buildAudioTranscribeFileCurl generates a dry-run curl command for multipart
+// file STT.
+func buildAudioTranscribeFileCurl(input, model, language string) string {
+	base, key := audioEndpoint()
+	var b strings.Builder
+	fmt.Fprintf(&b, "curl %s/audio/transcriptions \\\n", base)
+	fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(key))
+	fmt.Fprintf(&b, "  -F file=\"@%s\" \\\n", input)
+	fmt.Fprintf(&b, "  -F model=\"%s\"", model)
+	if language != "" {
+		fmt.Fprintf(&b, " \\\n  -F language=\"%s\"", language)
+	}
+	b.WriteString("\n")
 	return b.String()
 }

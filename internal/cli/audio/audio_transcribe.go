@@ -60,13 +60,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 		}
 
 		if audioDryRun {
-			fmt.Printf("curl %s/audio/transcriptions \\\n", options.Shared.APIBase)
-			fmt.Printf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(options.Shared.APIKey))
-			fmt.Printf("  -F file=\"@%s\" \\\n", audioTranscribeInput)
-			fmt.Printf("  -F model=\"%s\"\n", audioTranscribeModel)
-			if audioTranscribeLanguage != "" {
-				fmt.Printf("  -F language=\"%s\"\n", audioTranscribeLanguage)
-			}
+			fmt.Print(buildAudioTranscribeFileCurl(audioTranscribeInput, audioTranscribeModel, audioTranscribeLanguage))
 			return nil
 		}
 
