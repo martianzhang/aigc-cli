@@ -33,8 +33,11 @@ type Config struct {
 	Defaults     *types.ConfigDefaults
 	ToolsEnable  []string
 	ToolsDisable []string
-	ListTools    bool
-	ListPrompts  bool
+	// ListTools selects the `mcp --list-tools` mode: "" (do not list),
+	// "all" (every registered tool, annotated with its enable/disable state)
+	// or "enabled" (only the tools that will actually be exposed).
+	ListTools   string
+	ListPrompts bool
 	// CmdProviders holds pre-resolved providers for each command,
 	// set by cmd/mcp.go at startup.
 	CmdProviders map[string]*provider.EffectiveProvider
@@ -247,8 +250,13 @@ func matchAny(name string, patterns []string) bool {
 
 // Run starts the MCP server with stdio transport.
 func Run(cfg *Config) error {
-	if cfg.ListTools {
-		ListTools(cfg)
+	if cfg.ListTools != "" {
+		switch cfg.ListTools {
+		case "all", "enabled":
+			ListTools(cfg, cfg.ListTools)
+		default:
+			return fmt.Errorf("invalid --list-tools mode %q: want \"all\" or \"enabled\"", cfg.ListTools)
+		}
 		return nil
 	}
 	if cfg.ListPrompts {
@@ -277,14 +285,43 @@ func Run(cfg *Config) error {
 	return stdioServer.Listen(ctx, os.Stdin, protocolOut)
 }
 
-// ListTools prints all registered MCP tools and exits.
-func ListTools(cfg *Config) {
-	fmt.Println("Available MCP tools:")
+// ListTools prints the MCP tool registry and exits. mode is "all" (every
+// registered tool, annotated with its state and the rule responsible) or
+// "enabled" (only the tools that will be exposed to a client).
+func ListTools(cfg *Config, mode string) {
+	showAll := mode != "enabled"
+
+	enabledCount := 0
 	for _, info := range toolRegistry {
-		if !isToolAllowed(info.name, cfg.ToolsEnable, cfg.ToolsDisable) {
+		if isToolAllowed(info.name, cfg.ToolsEnable, cfg.ToolsDisable) {
+			enabledCount++
+		}
+	}
+
+	if showAll {
+		fmt.Printf("MCP tools: %d registered, %d enabled\n\n", len(toolRegistry), enabledCount)
+	} else {
+		fmt.Printf("MCP tools: %d enabled (of %d registered; use --list-tools=all to show the rest)\n\n",
+			enabledCount, len(toolRegistry))
+	}
+
+	for _, info := range toolRegistry {
+		allowed := isToolAllowed(info.name, cfg.ToolsEnable, cfg.ToolsDisable)
+		if !allowed && !showAll {
 			continue
 		}
-		fmt.Printf("  %-24s  %s\n", info.name, info.desc)
+
+		mark, note := "✅", ""
+		if !allowed {
+			mark = "⛔"
+			// Report which rule is responsible, matching isToolAllowed's order.
+			if len(cfg.ToolsEnable) > 0 && !matchAny(info.name, cfg.ToolsEnable) {
+				note = "  [not in tools_enable]"
+			} else {
+				note = "  [in tools_disable]"
+			}
+		}
+		fmt.Printf("  %s %-24s  %s%s\n", mark, info.name, info.desc, note)
 	}
 
 	if len(cfg.ToolsEnable) > 0 {

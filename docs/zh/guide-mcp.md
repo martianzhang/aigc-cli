@@ -248,18 +248,35 @@ aigc-cli mcp --api-key sk-xxx --output ./downloads
 | `--base-url` | API base URL |
 | `--http-proxy` | HTTP proxy URL |
 | `--output` | Download directory for generated files |
-| `--list-tools` | List registered MCP tools and exit |
+| `--list-tools[=all\|enabled]` | List MCP tools and exit（裸标志 = `all`） |
 | `--list-prompts` | List registered MCP prompts and exit |
 
 ## Test Available Tools
 
-You can list all registered MCP tools with a simple flag:
+列出 MCP 工具注册表：
 
 ```bash
+# 全部 30 个工具，逐个标注启用状态与原因
 aigc-cli mcp --list-tools
+aigc-cli mcp --list-tools=all          # 同上，显式写法
+
+# 只看真正会暴露给客户端的工具
+aigc-cli mcp --list-tools=enabled
 ```
 
-This respects `tools_enable`/`tools_disable` config — only the tools that would actually be registered are shown.
+`all` 模式下会逐行标出状态：
+
+```
+MCP tools: 30 registered, 28 enabled
+
+  ✅ generate_image            Generate images via AI
+  ⛔ get_balance               Query API key or account balance  [in tools_disable]
+  ⛔ generate_speech           Convert text to speech (TTS)  [not in tools_enable]
+
+  tools_disable: [get_balance]
+```
+
+`✅` 表示会注册，`⛔` 表示被过滤，方括号里说明是哪条规则拦下的（`[not in tools_enable]` / `[in tools_disable]`）——排查「为什么我的工具没出来」时看这里。`enabled` 模式只打印 `✅` 行。
 
 Prompts can be listed the same way:
 

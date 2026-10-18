@@ -189,11 +189,33 @@ MCP mode uses the same config.yaml as CLI mode. Provider, API keys, and defaults
 
 ## Testing
 
-List available tools without starting the server:
+List the tool registry without starting the server:
 
 ```bash
+# Every registered tool, annotated with its state and the rule responsible
 aigc-cli mcp --list-tools
+aigc-cli mcp --list-tools=all          # same, explicit
+
+# Only the tools a client will actually see
+aigc-cli mcp --list-tools=enabled
 ```
+
+`all` mode marks each row:
+
+```
+MCP tools: 30 registered, 28 enabled
+
+  ✅ generate_image            Generate images via AI
+  ⛔ get_balance               Query API key or account balance  [in tools_disable]
+  ⛔ generate_speech           Convert text to speech (TTS)  [not in tools_enable]
+
+  tools_disable: [get_balance]
+```
+
+`✅` means the tool will be registered; `⛔` means it was filtered out, with the
+responsible rule in brackets (`[not in tools_enable]` / `[in tools_disable]`) —
+the fastest way to answer "why isn't my tool showing up?". `enabled` mode prints
+only the `✅` rows.
 
 List available prompts the same way:
 

@@ -25,7 +25,8 @@ tools directly: generate images, generate videos, query models, etc.
 
 Configuration is read from config.yaml, environment variables, and --config flag.
 
-Use --list-tools to see available tools, and --list-prompts to see available prompts.
+Use --list-tools to see the tool registry (all tools with their enable/disable
+state, or just the enabled ones), and --list-prompts to see available prompts.
 
 Example MCP host config:
 {
@@ -37,12 +38,18 @@ Example MCP host config:
   }
 }
 `,
-	Example: `  aigc-cli mcp --list-tools     # list available MCP tools and exit
-  aigc-cli mcp --list-prompts   # list available workflow prompts and exit
-  aigc-cli mcp                  # run the stdio server (used by MCP host config)`,
+	Example: `  aigc-cli mcp --list-tools            # every tool, annotated with enable/disable state
+  aigc-cli mcp --list-tools=enabled    # only the tools a client will actually see
+  aigc-cli mcp --list-prompts          # list available workflow prompts and exit
+  aigc-cli mcp                         # run the stdio server (used by MCP host config)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		listTools, _ := cmd.Flags().GetBool("list-tools")
+		listTools, _ := cmd.Flags().GetString("list-tools")
 		listPrompts, _ := cmd.Flags().GetBool("list-prompts")
+		// `--list-tools=` (explicit empty) must still list rather than silently
+		// starting the stdio server.
+		if cmd.Flags().Changed("list-tools") && listTools == "" {
+			listTools = "all"
+		}
 
 		// Load config (optional); non-fatal but logged via verbose if set.
 		cfg, loadErr := config.Load(options.Shared.CfgFile)
@@ -125,7 +132,10 @@ func init() {
 		return nil
 	}
 
-	mcpCmd.Flags().Bool("list-tools", false, "list available MCP tools and exit")
+	mcpCmd.Flags().String("list-tools", "", "list MCP tools and exit: --list-tools[=all|enabled] (bare flag = all)")
+	// NoOptDefVal lets the bare `--list-tools` form keep working while also
+	// accepting an explicit mode.
+	mcpCmd.Flags().Lookup("list-tools").NoOptDefVal = "all"
 	mcpCmd.Flags().Bool("list-prompts", false, "list available MCP prompts and exit")
 }
 
