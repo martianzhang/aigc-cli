@@ -82,6 +82,38 @@ func TestReadFile_binary(t *testing.T) {
 	}
 }
 
+func TestReadFileRaw(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "note.md")
+	if err := os.WriteFile(path, []byte("body"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	got, err := ReadFileRaw(path, nil)
+	if err != nil {
+		t.Fatalf("ReadFileRaw(allow) error: %v", err)
+	}
+	if string(got) != "body" {
+		t.Errorf("ReadFileRaw(allow) = %q, want raw body", got)
+	}
+
+	if _, err := ReadFileRaw(path, []string{`\.md$`}); err == nil {
+		t.Error("ReadFileRaw(deny) = nil error, want blocked")
+	}
+	if _, err := ReadFileRaw(filepath.Join(dir, "missing.md"), nil); err == nil {
+		t.Error("ReadFileRaw(missing) = nil error, want not-found error")
+	}
+}
+
+func TestLooksBinary(t *testing.T) {
+	if LooksBinary([]byte("plain ascii text\n")) {
+		t.Error("LooksBinary(text) = true, want false")
+	}
+	if !LooksBinary([]byte{'a', 0x00, 'b'}) {
+		t.Error("LooksBinary(nul byte) = false, want true")
+	}
+}
+
 func TestFindFiles(t *testing.T) {
 	dir := t.TempDir()
 	for name, body := range map[string]string{"one.txt": "1", "two.txt": "2", "three.md": "3"} {

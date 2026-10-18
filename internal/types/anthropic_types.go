@@ -1,5 +1,10 @@
 package types
 
+import (
+	"encoding/base64"
+	"encoding/json"
+)
+
 // AnthropicMessageRequest is the request body for POST /v1/messages (Anthropic Messages API).
 type AnthropicMessageRequest struct {
 	Model       string             `json:"model"`
@@ -13,9 +18,52 @@ type AnthropicMessageRequest struct {
 }
 
 // AnthropicMessage represents a single message in the conversation.
+// MarshalJSON emits text-only content as a plain string (unchanged from before)
+// and multimodal content as an array of text/image blocks.
 type AnthropicMessage struct {
-	Role    string `json:"role"`    // "user" | "assistant"
-	Content string `json:"content"` // text content (simplified for text-only)
+	Role    string
+	Content string
+	Images  []ChatImage
+}
+
+// MarshalJSON renders the Anthropic wire shape: `content` is a string for
+// text-only messages, or an array of blocks ({"type":"text"} / {"type":"image"}
+// with a base64 source) when images are attached.
+func (m AnthropicMessage) MarshalJSON() ([]byte, error) {
+	type wire struct {
+		Role    string          `json:"role"`
+		Content json.RawMessage `json:"content"`
+	}
+
+	var content json.RawMessage
+	if len(m.Images) == 0 {
+		raw, err := json.Marshal(m.Content)
+		if err != nil {
+			return nil, err
+		}
+		content = raw
+	} else {
+		blocks := make([]map[string]any, 0, len(m.Images)+1)
+		if m.Content != "" {
+			blocks = append(blocks, map[string]any{"type": "text", "text": m.Content})
+		}
+		for _, img := range m.Images {
+			blocks = append(blocks, map[string]any{
+				"type": "image",
+				"source": map[string]any{
+					"type":       "base64",
+					"media_type": img.MIMEType,
+					"data":       base64.StdEncoding.EncodeToString(img.Data),
+				},
+			})
+		}
+		raw, err := json.Marshal(blocks)
+		if err != nil {
+			return nil, err
+		}
+		content = raw
+	}
+	return json.Marshal(wire{Role: m.Role, Content: content})
 }
 
 // AnthropicMessageResponse is the non-streaming response from POST /v1/messages.

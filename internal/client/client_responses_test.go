@@ -73,6 +73,40 @@ func TestResponsesBody_userMessage(t *testing.T) {
 	}
 }
 
+func TestResponsesBody_userMessageWithImage(t *testing.T) {
+	req := &types.ChatRequest{
+		Model: "gpt-6-luna",
+		Messages: []types.ChatMessage{{
+			Role:    "user",
+			Content: "what is this",
+			Images:  []types.ChatImage{{MIMEType: "image/png", Data: []byte("abc")}},
+		}},
+	}
+	got, err := ResponsesBody(req)
+	if err != nil {
+		t.Fatalf("ResponsesBody: %v", err)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(got, &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	input, _ := body["input"].([]any)
+	if len(input) != 1 {
+		t.Fatalf("input = %+v, want 1 item", body["input"])
+	}
+	parts, ok := input[0].(map[string]any)["content"].([]any)
+	if !ok || len(parts) != 2 {
+		t.Fatalf("content = %+v, want 2 parts", input[0].(map[string]any)["content"])
+	}
+	if parts[0].(map[string]any)["type"] != "input_text" {
+		t.Errorf("part[0] = %+v, want input_text", parts[0])
+	}
+	img := parts[1].(map[string]any)
+	if img["type"] != "input_image" || img["image_url"] != "data:image/png;base64,YWJj" {
+		t.Errorf("part[1] = %+v, want an input_image data URI", img)
+	}
+}
+
 func TestResponsesBody_assistantToolCalls(t *testing.T) {
 	req := &types.ChatRequest{
 		Model: "gpt-6-luna",

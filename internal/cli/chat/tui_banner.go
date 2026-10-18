@@ -30,6 +30,7 @@ func buildWelcomeBanner() string {
 		gray.Render("  ──────────────────────────────────────"),
 		green.Render("  💬  Type a message to start chatting"),
 		yellow.Render("  ⌨️  /help  —  commands & shortcuts"),
+		gray.Render("  📎  @path  —  attach a file (Tab completes)"),
 		gray.Render("  🚀  Tab complete  ·  Ctrl+C quit"),
 		gray.Render("  ──────────────────────────────────────"),
 	}
@@ -67,6 +68,8 @@ func (m *chatModel) showHelp() {
   /tools               List available tools
   /<tool> <args>       Call a tool directly (e.g. /generate_image {"prompt":"a cat"})
   /preview <file>      Preview an image/video with system viewer
+  @path                Attach a file: text is inlined, images are sent as media
+                       (Tab completes paths; defaults.chat.read_deny still applies)
   !<command>           Run a shell command
   PgUp/PgDn or wheel  Scroll conversation output
   Shift+drag           Select text — iTerm2: ⌥ Option + drag (mouse capture is on for scrolling)

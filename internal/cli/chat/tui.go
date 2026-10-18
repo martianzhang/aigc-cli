@@ -145,6 +145,9 @@ type chatModel struct {
 	completions  []string // all possible completions (built on init)
 	cycleMatches []string // current completion cycle matches
 	cycleIdx     int      // index into cycleMatches
+	// fileIndex caches project files for @-mention completion (built lazily).
+	fileIndex      []string
+	fileIndexReady bool
 
 	// altPending is set when Escape is pressed in idle state.
 	// On some terminals, Alt+Enter sends ESC then Enter separately;

@@ -63,6 +63,7 @@ aigc-cli chat -v
 | `/tools` | 列出可用工具 |
 | `/<tool> <json>` | 直接调用工具 |
 | `/preview <file>` | 预览图片/视频 |
+| `@path` | 引用本地文件：文本内联、图片作为附件（`Tab` 补全路径；受 `defaults.chat.read_deny` 限制） |
 | `PgUp` `PgDn` / 鼠标滚轮 | 上下滚动对话输出（选中文本需按住终端「绕过鼠标报告」的键再拖拽：**iTerm2 是 `⌥ Option`**，多数终端是 `Shift`；`/copy` 可复制最后一条回复） |
 | `!<command>` | 执行 Shell 命令（输出区会带 `$ 命令` 前缀，便于看清执行了什么） |
 
@@ -88,6 +89,35 @@ $ aigc-cli chat -v
 ---  Model: deepseek-v4-flash  |  Tokens: 15↑ + 8↓ = 23  |  Cost: $0.000001  |  Time: 1.234s
 >>>
 ```
+
+## 文件引用（@）
+
+在消息里用 `@path` 引用本地文件，不必手动把内容贴进对话。
+
+```bash
+# 交互式：输入 @ 后按 Tab 补全路径
+aigc-cli chat
+>>> 帮我 review @internal/cli/chat/chat.go
+
+# 非交互式同样支持
+aigc-cli chat --message "解释 @main.go"
+```
+
+| 文件类型 | 行为 |
+|---|---|
+| 文本文件 | 原样内联进消息：`<file name="路径">内容</file>` |
+| 图片（png / jpeg / gif / webp） | 作为图片附件发送（base64），正文保留 `[attached image: 路径]` 标记；需使用支持视觉的模型 |
+| 二进制文件 | 不内联，原样保留 `@路径` 并给出警告 |
+| 超过 1 MiB 的文本 / 超过 20 MiB 的图片 | 拒绝内联或附加，给出警告 |
+| 解析不到的 token | 原样保留（`@用户名`、`@scope/pkg` 不会被误当成路径） |
+
+**Tab 补全：** 输入 `@` 后按 `Tab` 循环匹配项目文件。git 仓库内走 `git ls-files`（遵循 `.gitignore`），否则回退为跳过隐藏条目的文件遍历。
+
+**安全边界：**
+
+- `@` 读取与 `read` 工具共用同一套策略：`defaults.chat.read_deny` 中的正则一样会拦截，被拦截时**不会**读取文件，只给出警告。
+- 二进制文件不会作为文本内联，避免把乱码灌进上下文。
+- 仅对**用户消息**生效；工具调用参数里的 `@` 由另一套逻辑展开（见下文 `read` 原语）。
 
 ## Agentic Chat — 聊天中生成图片和视频
 

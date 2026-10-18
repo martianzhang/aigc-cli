@@ -82,8 +82,13 @@ func flagMessages() []types.ChatMessage {
 	if chatSystem != "" {
 		messages = append(messages, types.ChatMessage{Role: "system", Content: chatSystem})
 	}
+	deny := readDenyPatterns()
 	for _, msg := range chatMessages {
-		messages = append(messages, types.ChatMessage{Role: "user", Content: msg})
+		expanded, images, warnings := expandMentions(msg, deny)
+		for _, warning := range warnings {
+			fmt.Fprintf(options.Stderr(), "⚠️  %s\n", warning)
+		}
+		messages = append(messages, types.ChatMessage{Role: "user", Content: expanded, Images: images})
 	}
 	return messages
 }

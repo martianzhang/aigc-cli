@@ -22,7 +22,7 @@ Generate, detect, and manage AI content from the terminal. Supports OpenAI, Open
 | 🔌 | **Multi-Protocol** | Not just OpenAI — supports Anthropic Messages API, Ollama, local ONNX models alongside OpenAI-compatible endpoints. |
 | 🧠 | **Provider Auto-Adapt** | Each provider gets the correct API routing automatically (OpenRouter dedicated image/video API, APIMart async tasks, etc.) |
 | 🎨 | **Midjourney Pipeline** | 17 subcommands: imagine → blend → describe → upscale → zoom → inpaint → video → remix. No Discord required. |
-| 💬 | **Agentic Chat** | Interactive REPL with built-in tools: `generate_image`, `generate_video`, `midjourney_*`, `ideas`, `kb_*`, `detect_image`, `recognize_text`. |
+| 💬 | **Agentic Chat** | Interactive REPL with built-in tools: `generate_image`, `generate_video`, `midjourney_*`, `ideas`, `kb_*`, `detect_image`, `recognize_text`. Supports `@file` references — text is inlined, images are attached as media (Tab completes paths). |
 | 🔍 | **Prompt Ideas** | Offline BM25 search (CJK-aware + n-gram + RRF) plus 4 keyless online prompt libraries, fused with RRF; 10K+ prompt dataset. |
 | 🔊 | **Local TTS / ASR** | sherpa-onnx offline speech (kokoro 53 voices, EN/ZH/JA/KR/FR) and recognition (SenseVoice). No internet. |
 | 🔄 | **Video Job Persistence** | OpenRouter submit → poll → download pipeline. `--job-id` resume after timeout. |
@@ -101,7 +101,7 @@ AI agents can generate images/videos/music, run Midjourney, OCR, search the idea
 | 🧠 | **Provider Auto-Adapt** | OpenRouter automatically routes to dedicated image/video APIs, zero config |
 | 🎨 | **Complete Midjourney Pipeline** | 17 subcommands covering imagine → blend → describe → upscale → zoom → inpaint → video → remix, no Discord needed |
 | 🎵 | **AI Music Generation** | Natural-language music: APIMart (suno / flowmusic, async submit → poll → download), OpenRouter (Lyria-3, sync streaming), Alibaba Cloud Bailian (Fun-Music, sync) |
-| 💬 | **Agentic Chat** | Interactive REPL with built-in `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` tools |
+| 💬 | **Agentic Chat** | Interactive REPL with built-in `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` tools; `@file` references (text inlined, images attached, Tab completes paths) |
 | 🔍 | **Prompt Idea Library** | Offline BM25 search engine (CJK-aware + n-gram + RRF), 10K+ prompt dataset, plus aipromptslibrary / prompts.chat / openart / civitai via `--source` |
 | 🔊 | **Local TTS / ASR** | sherpa-onnx offline speech synthesis (kokoro, 53 voices, EN/ZH/JA/KR/FR) and speech recognition (SenseVoice, best for Chinese), no internet needed |
 | 📏 | **Depth Map** | `depth`: local Depth Anything V2 ONNX → grayscale depth map (image or video) for depth-guided image-to-video |

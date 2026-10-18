@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -424,12 +425,74 @@ type ChatStreamDeltaFunction struct {
 	Arguments string `json:"arguments,omitempty"`
 }
 
+// ChatImage is an image attached to a chat message. It travels through the
+// pipeline as raw bytes and is expanded to a provider-specific wire shape at
+// marshal time (OpenAI image_url data URI, Anthropic base64 source, Responses
+// input_image).
+type ChatImage struct {
+	Name     string `json:"-"` // display name (informational)
+	MIMEType string `json:"-"` // e.g. "image/png"
+	Data     []byte `json:"-"`
+}
+
+// DataURI renders the image as a base64 data URI (used by OpenAI-style and
+// Responses-style wire formats).
+func (i ChatImage) DataURI() string {
+	return "data:" + i.MIMEType + ";base64," + base64.StdEncoding.EncodeToString(i.Data)
+}
+
 // ChatMessage represents a single message in a chat conversation.
 type ChatMessage struct {
 	Role       string     `json:"role"`
 	Content    string     `json:"content,omitempty"`
 	ToolCallID string     `json:"tool_call_id,omitempty"`
 	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	// Images are multimodal attachments. They are never serialized as a field
+	// (json:"-"): MarshalJSON folds them into Content as OpenAI-style
+	// content parts when any are present.
+	Images []ChatImage `json:"-"`
+}
+
+// MarshalJSON emits the OpenAI-compatible wire shape. With no images the output
+// is identical to the previous string-content form (empty content omitted).
+// With images, content becomes a parts array: a text part (when non-empty)
+// followed by one image_url part per attachment.
+func (m ChatMessage) MarshalJSON() ([]byte, error) {
+	type wire struct {
+		Role       string          `json:"role"`
+		Content    json.RawMessage `json:"content,omitempty"`
+		ToolCallID string          `json:"tool_call_id,omitempty"`
+		ToolCalls  []ToolCall      `json:"tool_calls,omitempty"`
+	}
+
+	out := wire{Role: m.Role, ToolCallID: m.ToolCallID, ToolCalls: m.ToolCalls}
+	switch {
+	case len(m.Images) == 0:
+		if m.Content != "" {
+			raw, err := json.Marshal(m.Content)
+			if err != nil {
+				return nil, err
+			}
+			out.Content = raw
+		}
+	default:
+		parts := make([]map[string]any, 0, len(m.Images)+1)
+		if m.Content != "" {
+			parts = append(parts, map[string]any{"type": "text", "text": m.Content})
+		}
+		for _, img := range m.Images {
+			parts = append(parts, map[string]any{
+				"type":      "image_url",
+				"image_url": map[string]any{"url": img.DataURI()},
+			})
+		}
+		raw, err := json.Marshal(parts)
+		if err != nil {
+			return nil, err
+		}
+		out.Content = raw
+	}
+	return json.Marshal(out)
 }
 
 // ChatRequest is the request body for chat completion.

@@ -13,11 +13,15 @@ func EstimateTokens(s string) int {
 	return len(s) / 2
 }
 
-// EstimateHistoryTokens estimates total tokens for a chat history.
+// EstimateHistoryTokens estimates total tokens for a chat history. Images are
+// approximated from their raw byte size (base64 grows ~4/3, tokens ≈ chars/4).
 func EstimateHistoryTokens(history []types.ChatMessage) int {
 	total := 0
 	for _, msg := range history {
 		total += EstimateTokens(msg.Content)
+		for _, img := range msg.Images {
+			total += len(img.Data) / 3
+		}
 	}
 	return total
 }

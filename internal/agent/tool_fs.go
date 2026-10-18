@@ -79,6 +79,22 @@ func ReadFile(argsJSON string) string {
 	return ReadFileWithPolicy(argsJSON, nil)
 }
 
+// ReadFileRaw reads path as raw bytes after applying the read denylist
+// (defaults.chat.read_deny). Unlike ReadFileWithPolicy it returns the bytes
+// directly and surfaces an error, so callers that inline file content (e.g.
+// chat @-mentions) can distinguish a policy block from a missing file.
+func ReadFileRaw(path string, deny []string) ([]byte, error) {
+	if deniedByReadPolicy(path, deny) {
+		return nil, fmt.Errorf("reading %q is blocked by defaults.chat.read_deny", path)
+	}
+	return os.ReadFile(path)
+}
+
+// LooksBinary reports whether data is likely binary — a NUL byte, or more than
+// ~1% invalid UTF-8 sequences in the first 8 KiB — and so should not be inlined
+// into the model's context as text.
+func LooksBinary(data []byte) bool { return looksBinary(data) }
+
 // ReadFileWithPolicy reads a local file, rejecting any path that matches one of
 // the deny regular expressions (matched against both the full path and the base
 // name). An empty deny list allows every file.

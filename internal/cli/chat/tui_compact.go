@@ -39,16 +39,22 @@ func (m *chatModel) compactConversation(count int) {
 }
 
 func (m *chatModel) handleUserMessage(input string) (tea.Model, tea.Cmd) {
+	// Resolve @file mentions: text files inline, images become attachments.
+	expanded, images, warnings := expandMentions(input, readDenyPatterns())
+
 	// Remove initial welcome message on first real message
 	if len(m.messages) == 1 && m.messages[0].role == "system" {
 		m.messages = nil
 	}
-	// Add user message to display
+	// Display the text the user typed (not the inlined expansion).
 	m.messages = append(m.messages, message{role: "user", content: input})
+	for _, warning := range warnings {
+		m.messages = append(m.messages, message{role: "system", content: "⚠️  " + warning})
+	}
 
 	// Add to API history
 	m.mu.Lock()
-	m.history = append(m.history, types.ChatMessage{Role: "user", Content: input})
+	m.history = append(m.history, types.ChatMessage{Role: "user", Content: expanded, Images: images})
 	m.mu.Unlock()
 	m.input.Reset()
 	m.input.Blur()

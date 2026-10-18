@@ -29,6 +29,36 @@ The REPL supports:
 - Command history
 - Scroll the conversation with PgUp/PgDn or the mouse wheel (to select text, hold the terminal's mouse-reporting bypass key while dragging — `Shift` on most terminals, **`Option`/`⌥` on iTerm2**; `/copy` copies the last assistant response)
 - Slash commands, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
+- `@path` file references: text files are inlined, images are attached (Tab completes paths; governed by `defaults.chat.read_deny`)
+
+## File References (@)
+
+Reference local files in a message with `@path` — no need to paste their contents.
+
+```bash
+# Interactive: type @ and press Tab to complete a path
+aigc-cli chat
+> review @internal/cli/chat/chat.go
+
+# Works non-interactively too
+aigc-cli chat --message "explain @main.go"
+```
+
+| File type | Behaviour |
+|---|---|
+| Text file | Inlined in place as `<file name="path">content</file>` |
+| Image (png / jpeg / gif / webp) | Sent as an image attachment (base64); the text keeps an `[attached image: path]` marker. Requires a vision-capable model |
+| Binary file | Not inlined; the `@path` token is left as-is with a warning |
+| Text > 1 MiB / image > 20 MiB | Refused with a warning |
+| Unresolvable token | Left as-is (`@user` and `@scope/pkg` are never mistaken for paths) |
+
+**Tab completion:** type `@` then press `Tab` to cycle matching project files. Inside a git repository this uses `git ls-files` (honouring `.gitignore`); otherwise it falls back to a walk that skips hidden entries.
+
+**Safety:**
+
+- `@` reads share the exact policy of the `read` tool: patterns in `defaults.chat.read_deny` block them the same way. A blocked file is never read — only a warning is shown.
+- Binary files are never inlined as text, so garbled bytes cannot be pushed into the context.
+- Applies to **user messages only**; `@` inside tool-call arguments is expanded by separate logic (see the `read` primitive below).
 
 ## Tool Calling
 

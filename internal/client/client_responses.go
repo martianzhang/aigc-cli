@@ -101,7 +101,17 @@ func translateMessageToResponsesItem(m types.ChatMessage) []map[string]any {
 	}
 
 	item := map[string]any{"role": m.Role}
-	if m.Content != "" {
+	switch {
+	case len(m.Images) > 0:
+		parts := make([]map[string]any, 0, len(m.Images)+1)
+		if m.Content != "" {
+			parts = append(parts, map[string]any{"type": "input_text", "text": m.Content})
+		}
+		for _, img := range m.Images {
+			parts = append(parts, map[string]any{"type": "input_image", "image_url": img.DataURI()})
+		}
+		item["content"] = parts
+	case m.Content != "":
 		item["content"] = m.Content
 	}
 	return []map[string]any{item}

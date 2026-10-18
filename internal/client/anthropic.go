@@ -80,7 +80,7 @@ func buildAnthropicRequest(req *types.ChatRequest) *types.AnthropicMessageReques
 			systemPrompt = m.Content
 			continue
 		}
-		msgs = append(msgs, types.AnthropicMessage{Role: m.Role, Content: m.Content})
+		msgs = append(msgs, types.AnthropicMessage{Role: m.Role, Content: m.Content, Images: m.Images})
 	}
 
 	// Default to empty messages slice if none (Anthropic requires at least one)
