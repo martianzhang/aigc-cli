@@ -7,6 +7,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 
+	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -105,6 +106,44 @@ func TestToolRegistry_hasWebTools(t *testing.T) {
 	for _, name := range []string{"search", "fetch", "web_search", "web_fetch"} {
 		if registryTool(name) == nil {
 			t.Errorf("tool registry is missing %q", name)
+		}
+	}
+}
+
+// localPrimitives are the generic local side-effect primitives that belong to a
+// coding agent, never to this MCP server.
+var localPrimitives = []string{"read", "write", "edit", "bash", "grep", "find", "ls"}
+
+// intendedPrimitiveOverlap is the only allowed name overlap with chat
+// primitives: the web tools, deliberately named to match the chat vocabulary.
+var intendedPrimitiveOverlap = map[string]bool{
+	"search": true, "fetch": true, "web_search": true, "web_fetch": true,
+}
+
+// TestToolRegistry_exposesNoLocalPrimitives pins the tool-surface boundary: this
+// server exposes AIGC domain capabilities (generation, detection, knowledge
+// base, web access), never generic local filesystem/shell primitives. An MCP
+// host must not be able to read or write arbitrary files, or run shell commands,
+// through aigc-cli's MCP surface.
+func TestToolRegistry_exposesNoLocalPrimitives(t *testing.T) {
+	for _, name := range localPrimitives {
+		if registryTool(name) != nil {
+			t.Errorf("MCP must not expose the local primitive %q", name)
+		}
+	}
+}
+
+// TestToolRegistry_primitiveOverlapIsNetworkOnly keeps the previous test honest
+// as the registry grows: if a new tool is named exactly like a chat primitive,
+// it must be one of the intended network tools. Anything else would mean a
+// generic local primitive slipped into the MCP surface.
+func TestToolRegistry_primitiveOverlapIsNetworkOnly(t *testing.T) {
+	for _, info := range toolRegistry {
+		if !agent.IsPrimitive(info.name) {
+			continue
+		}
+		if !intendedPrimitiveOverlap[info.name] {
+			t.Errorf("MCP tool %q collides with a chat primitive but is not one of the intended network tools", info.name)
 		}
 	}
 }

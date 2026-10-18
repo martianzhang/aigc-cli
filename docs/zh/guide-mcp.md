@@ -123,6 +123,8 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `search` / `fetch` | 内置实现（DuckDuckGo 抓取 / 本地 HTTP + readability） | 免费，无需 API Key |
 | `web_search` / `web_fetch` | 第三方厂商 API | 按厂商计费 |
 
+> **工具面边界**：本服务器只暴露 AIGC 领域能力（生成 / 检测 / 知识库 / 联网），**不暴露 `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` 这类通用本地原语**——MCP 宿主无法通过 aigc-cli 读写任意文件或执行 shell 命令。上一节的 4 个联网工具是与 chat 词表**唯一有意重名**的部分（回归测试 `TestToolRegistry_exposesNoLocalPrimitives` / `_primitiveOverlapIsNetworkOnly` 固定了这条边界）。
+
 厂商选择分两个 scope：
 
 | 入口 | 选择键 |
@@ -193,9 +195,9 @@ defaults:
 |---|---|---|
 | 新增 4 个联网工具 | 工具数 30 → **34**：`search` / `fetch` / `web_search` / `web_fetch` | 用 `tools_enable` 白名单时需显式加入想开放的工具 |
 | `kb_search` 不再写死 DuckDuckGo | 改用搜索路由，`firecrawl`/`brave`/`doubao`/`deepseek` 现在对 MCP 生效（仍保留免费 DDG 兜底）；结果条数上限 5 | 无需操作；此前配了厂商却不生效的问题已修复 |
-| 内置原语优先于同名 MCP 工具 | 在 chat 中，若 MCP server 也提供 `search`/`fetch`/`read`/… 同名工具，**CLI 自己的实现优先**，同名 MCP 工具不再下发也不再执行 | 若你依赖某个 MCP server 覆盖内置 `read`/`bash` 等，需要给该 MCP 工具改名 |
+| 内置原语优先于同名 MCP 工具 | 在 chat 中，若某个 MCP server 也提供 `search`/`fetch`/… 同名工具，**CLI 自己的实现优先**；同名 MCP 工具既不下发也不执行（原来 MCP 优先）。本服务器的工具面不含 `read`/`write`/`bash` 等通用本地原语，所以冲突实际来自本服务器同名的联网工具或第三方服务器 | 若你依赖某个 MCP server 覆盖内置 `read`/`bash`，需要给该 MCP 工具改名 |
 
-> 第 3 条是为了修掉两个隐患：同名工具会让请求里出现重复 function（多数厂商直接报错），且 MCP server 能静默替换 `read`/`bash` 这类敏感原语。现在 chat 侧按名去重（内置优先），`-v` 下会打印被屏蔽的 MCP 工具名。
+> 第 3 条的**主因**是修掉「请求里出现两个同名 function」（多数厂商直接报错）——本服务器的联网工具与 chat 原语有意同名，所以这条路必然会被踩到。顺带把优先级定为「内置优先」，作为第三方服务器重名时的兜底；它**不是**为了防「MCP 顶掉 `read`/`bash`」——我们的 MCP 根本不暴露这类原语（见「工具面边界」）。
 
 ### `model` 参数的真实行为
 

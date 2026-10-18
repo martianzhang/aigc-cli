@@ -319,7 +319,8 @@ mcp:
 | `enabled` | 是否连接（默认 `true`） |
 
 - server 级的 `tools_enable`/`tools_disable` **只影响 Chat 看到哪些工具**，不影响该 MCP 服务器自身对外暴露的工具面（那由顶层 `tools_enable`/`tools_disable` 控制）。
-- **内置原语优先于同名 MCP 工具**：若某个 server 也提供 `search`/`fetch`/`read`/`bash` 等同名工具，Chat 一律使用 **CLI 自己的实现**——同名 MCP 工具既不下发给模型，也不会被执行；`-v` 下会打印被屏蔽的工具名。这同时避免了请求里出现两个同名 function（多数厂商会直接报错）。需要让 MCP 版本生效时，请给该 MCP 工具改名。
+- **内置原语优先于同名 MCP 工具**：若某个 server 也提供 `search`/`fetch`/… 同名工具，Chat 一律使用 **CLI 自己的实现**——同名 MCP 工具既不下发给模型，也不会被执行；`-v` 下会打印被屏蔽的工具名。这同时避免了请求里出现两个同名 function（多数厂商会直接报错）。需要让 MCP 版本生效时，请给该 MCP 工具改名。
+  > 注：aigc-cli 自己的 MCP 服务器只暴露领域能力，**不暴露 `read`/`write`/`bash` 这类通用本地原语**；同名冲突只会来自同名的联网工具或第三方服务器。
 - 合并后的工具集仍受顶层 `tools_enable`/`tools_disable` 和 `defaults.chat.tools`/`disable_tools` 约束。
 - 某个 server 连接失败（命令不存在、初始化超时等）会被**跳过**并在 stderr 提示，不影响其它 server 与正常对话。
 - 连接在启动时建立、退出时关闭；`/tools` 会列出所有可用工具（含 MCP 来源的）。

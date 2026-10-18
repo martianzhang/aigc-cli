@@ -74,6 +74,8 @@ The web tools follow one **globally consistent** naming rule, identical in chat 
 | `search` / `fetch` | Built-in implementation (DuckDuckGo scrape / local HTTP + readability) | Free, no API key |
 | `web_search` / `web_fetch` | Third-party provider API | Billed by the vendor |
 
+> **Tool-surface boundary**: this server exposes AIGC domain capabilities only (generation / detection / knowledge base / web access). It **never exposes the generic local primitives `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls`** — an MCP host cannot read or write arbitrary files, or run shell commands, through aigc-cli. The four web tools above are the **only deliberate** name overlap with the chat vocabulary, pinned by the `TestToolRegistry_exposesNoLocalPrimitives` / `_primitiveOverlapIsNetworkOnly` regression tests.
+
 Vendor selection has two scopes:
 
 | Entry point | Selector |
@@ -144,9 +146,9 @@ defaults:
 |---|---|---|
 | Four new web tools | Tool count 30 → **34**: `search` / `fetch` / `web_search` / `web_fetch` | If you use a `tools_enable` allowlist, add the tools you want to expose |
 | `kb_search` no longer hardcodes DuckDuckGo | It now uses the search router, so `firecrawl`/`brave`/`doubao`/`deepseek` take effect over MCP (the free DuckDuckGo fallback is kept); results are capped at 5 | None — this fixes configured providers being silently ignored |
-| Built-in primitives win over same-named MCP tools | In chat, when an MCP server also exposes `search`/`fetch`/`read`/…, **the CLI's own implementation wins**; the colliding MCP tool is neither sent nor executed | If you rely on an MCP server overriding a built-in `read`/`bash`, rename that MCP tool |
+| Built-in primitives win over same-named MCP tools | In chat, when an MCP server also exposes `search`/`fetch`/…, **the CLI's own implementation wins**; the colliding MCP tool is neither sent nor executed (previously MCP won). This server's surface contains no generic local primitives (`read`/`write`/`bash`/…), so collisions come from its own same-named web tools or from a third-party server | If you rely on an MCP server overriding the built-in `read`/`bash`, rename that MCP tool |
 
-> The third row fixes two hazards: duplicate function names in one request (most providers reject it) and an MCP server silently replacing sensitive primitives like `read`/`bash`. Chat now de-duplicates by name with built-ins winning, and `-v` logs which MCP tools were shadowed.
+> The **main reason** for row 3 is eliminating duplicate function names in one request (most providers reject that) — and this server's web tools are deliberately named after the chat primitives, so that path is guaranteed to be hit. Pinning precedence to "built-in wins" is cheap insurance for third-party name clashes; it is **not** about preventing an MCP server from shadowing `read`/`bash`, which this server never exposes (see "Tool-surface boundary").
 
 ### What the `model` argument actually does
 

@@ -203,7 +203,8 @@ mcp:
 | `enabled` | Whether to connect (default `true`) |
 
 - Per-server `tools_enable`/`tools_disable` only affect **what chat sees**; they do not change the MCP server's own exposed tool surface (controlled by the top-level `tools_enable`/`tools_disable`).
-- **Built-in primitives win over same-named MCP tools**: if a server also exposes `search`/`fetch`/`read`/`bash`/…, chat always uses **the CLI's own implementation** — the colliding MCP tool is neither sent to the model nor executed, and `-v` logs the names that were shadowed. This also avoids emitting two functions with the same name, which most providers reject. Rename the MCP tool if you need its version to take effect.
+- **Built-in primitives win over same-named MCP tools**: if a server also exposes `search`/`fetch`/…, chat always uses **the CLI's own implementation** — the colliding MCP tool is neither sent to the model nor executed, and `-v` logs the names that were shadowed. This also avoids emitting two functions with the same name, which most providers reject. Rename the MCP tool if you need its version to take effect.
+  > Note: aigc-cli's own MCP server exposes domain capabilities only — **never the generic local primitives `read`/`write`/`bash`**. Name clashes can only come from same-named web tools or from a third-party server.
 - The merged toolset is still subject to the top-level `tools_enable`/`tools_disable` and `defaults.chat.tools`/`disable_tools`.
 - A server that fails to connect (missing command, init timeout, …) is **skipped** with a stderr notice; other servers and the chat keep working.
 - Connections open at startup and close on exit; `/tools` lists every tool, including MCP-provided ones.
