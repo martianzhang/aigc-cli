@@ -15,7 +15,13 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
+	"github.com/martianzhang/aigc-cli/internal/netguard"
+	"github.com/martianzhang/aigc-cli/internal/search"
 )
+
+// fetchURLGuard rejects non-public fetch targets (SSRF protection). It is a
+// package variable so tests can bypass it for loopback httptest servers.
+var fetchURLGuard = netguard.ValidatePublicURL
 
 // maxWebFetchBytes bounds how much of a response body web_fetch buffers before
 // converting/paginating. HTML→markdown needs the whole document, so this is
@@ -32,12 +38,22 @@ type webFetchArgs struct {
 	Offset    int    `json:"offset"`
 }
 
-// executeWebFetch fetches a URL and returns its content for the model. HTML
-// responses are converted to markdown (main-content extraction via readability,
+const (
+	// defaultFetchMaxLength is how many characters a fetch returns when the
+	// model omits max_length.
+	defaultFetchMaxLength = 5000
+	// maxFetchMaxLength caps max_length for a single fetch.
+	maxFetchMaxLength = 50000
+)
+
+// executeBuiltinFetch dispatches the `fetch` primitive: a direct HTTP GET whose
+// HTML is converted to markdown (main-content extraction via readability,
 // falling back to whole-document conversion) so the model gets clean text and
 // the context spends fewer tokens; non-HTML bodies (JSON, plain text, …) are
-// returned verbatim. Large results are paginated by character offset.
-func executeWebFetch(argsJSON string) string {
+// returned verbatim. It is free, needs no API key, is SSRF-guarded, and
+// paginates by character offset. See executeWebFetch for the third-party
+// `web_fetch` primitive.
+func executeBuiltinFetch(argsJSON string) string {
 	var args webFetchArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return fmt.Sprintf("Error: invalid arguments: %v", err)
@@ -49,10 +65,14 @@ func executeWebFetch(argsJSON string) string {
 		return "Error: offset must be non-negative"
 	}
 	if args.MaxLength <= 0 {
-		args.MaxLength = 5000
+		args.MaxLength = defaultFetchMaxLength
 	}
-	if args.MaxLength > 50000 {
-		args.MaxLength = 50000
+	if args.MaxLength > maxFetchMaxLength {
+		args.MaxLength = maxFetchMaxLength
+	}
+
+	if err := fetchURLGuard(args.URL); err != nil {
+		return fmt.Sprintf("Error: %v", err)
 	}
 
 	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -64,7 +84,9 @@ func executeWebFetch(argsJSON string) string {
 	httpReq.Header.Set("User-Agent", defaultWebFetchUA)
 	httpReq.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5")
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	// The guarded client re-validates every redirect hop, so a public URL
+	// cannot be bounced onto a loopback/private address.
+	resp, err := netguard.NewGuardedClient(30 * time.Second).Do(httpReq)
 	if err != nil {
 		return fmt.Sprintf("Error: failed to fetch %s: %v", args.URL, err)
 	}
@@ -102,15 +124,25 @@ func executeWebFetch(argsJSON string) string {
 		}
 	}
 
-	chunk, total, start, end, remaining := takeChars(text, args.Offset, args.MaxLength)
+	out := renderFetch("fetch", args.URL, title, text, args.Offset, args.MaxLength, converted)
+	if truncatedFetch {
+		out += fmt.Sprintf("\n\nNote: response exceeded %d MB and was truncated before conversion.", maxWebFetchBytes/(1024*1024))
+	}
+	return out
+}
 
+// renderFetch renders a fetched page body for the model, paginated by character
+// offset. markdown marks the body as already-Markdown; toolName is used in the
+// "read the next section" hint.
+func renderFetch(toolName, url, title, text string, offset, maxLength int, markdown bool) string {
+	chunk, total, start, end, remaining := takeChars(text, offset, maxLength)
 	if total > 0 && start >= total {
-		return fmt.Sprintf("Content has %d chars, but offset %d is past the end. Use offset=0 to read from the beginning.", total, args.Offset)
+		return fmt.Sprintf("Content has %d chars, but offset %d is past the end. Use offset=0 to read from the beginning.", total, offset)
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "Content from %s", args.URL)
-	if converted {
+	fmt.Fprintf(&b, "Content from %s", url)
+	if markdown {
 		b.WriteString(" (markdown)")
 	}
 	b.WriteString("\n")
@@ -125,14 +157,44 @@ func executeWebFetch(argsJSON string) string {
 		b.WriteString("\n\n")
 	}
 	b.WriteString(chunk)
-
 	if remaining > 0 {
-		fmt.Fprintf(&b, "\n\nContent truncated. Use web_fetch(url=%q, offset=%d) to read the next section.", args.URL, end)
-	}
-	if truncatedFetch {
-		fmt.Fprintf(&b, "\n\nNote: response exceeded %d MB and was truncated before conversion.", maxWebFetchBytes/(1024*1024))
+		fmt.Fprintf(&b, "\n\nContent truncated. Use %s(url=%q, offset=%d) to read the next section.", toolName, url, end)
 	}
 	return b.String()
+}
+
+// executeWebFetch dispatches the `web_fetch` primitive: it retrieves a page
+// through the configured third-party fetch API (the same provider web_search
+// uses) and returns provider-formatted Markdown. The provider may bill per
+// request. For the built-in free fetcher use `fetch`.
+func executeWebFetch(argsJSON string) string {
+	var args webFetchArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return fmt.Sprintf("Error: invalid arguments: %v", err)
+	}
+	if args.URL == "" {
+		return "Error: url is required"
+	}
+	if args.Offset < 0 {
+		return "Error: offset must be non-negative"
+	}
+	if args.MaxLength <= 0 {
+		args.MaxLength = defaultFetchMaxLength
+	}
+	if args.MaxLength > maxFetchMaxLength {
+		args.MaxLength = maxFetchMaxLength
+	}
+
+	router := remoteRouter()
+	fetcher, ok := search.ResolveFetcher(router, resolveSearchVendor())
+	if !ok {
+		return "Error: no third-party fetch provider configured. Configure a fetch-capable provider under web_search.*, or use the built-in `fetch` primitive."
+	}
+	title, content, err := fetcher.Fetch(args.URL)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	return renderFetch("web_fetch", args.URL, title, content, args.Offset, args.MaxLength, true)
 }
 
 // isHTMLBody reports whether a response should be treated as HTML and converted

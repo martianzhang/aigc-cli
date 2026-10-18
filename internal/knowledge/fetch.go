@@ -15,10 +15,15 @@ import (
 	md "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
+
+	"github.com/martianzhang/aigc-cli/internal/netguard"
 )
 
 // defaultUserAgent is used for web requests.
 const defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) aigc-cli-kb/1.0"
+
+// maxFetchBytes caps how much of a response body FetchURL reads into memory.
+const maxFetchBytes = 10 * 1024 * 1024
 
 // FetchResult holds the result of a URL fetch.
 type FetchResult struct {
@@ -41,7 +46,7 @@ func FetchURL(rawURL string) (*FetchResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid URL %q: %w", rawURL, err)
 	}
-	if err := validatePublicURL(u.String()); err != nil {
+	if err := netguard.ValidatePublicURL(u.String()); err != nil {
 		return nil, err
 	}
 
@@ -53,7 +58,7 @@ func FetchURL(rawURL string) (*FetchResult, error) {
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
 
-	resp, err := newKBClient(30 * time.Second).Do(req)
+	resp, err := netguard.NewGuardedClient(30 * time.Second).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", u.String(), err)
 	}
@@ -218,7 +223,7 @@ func DDGSearchURLs(query string) ([]string, error) {
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; aigc-cli/1.0)")
 
-	resp, err := newKBClient(10 * time.Second).Do(req)
+	resp, err := netguard.NewGuardedClient(10 * time.Second).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("search request: %w", err)
 	}
@@ -261,7 +266,7 @@ func DDGSearchURLs(query string) ([]string, error) {
 	// non-public address before it ever reaches FetchURL.
 	safe := make([]string, 0, len(urls))
 	for _, u := range urls {
-		if err := validatePublicURL(u); err != nil {
+		if err := netguard.ValidatePublicURL(u); err != nil {
 			continue
 		}
 		safe = append(safe, u)

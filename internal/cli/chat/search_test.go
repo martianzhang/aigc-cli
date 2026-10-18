@@ -34,7 +34,7 @@ func TestFormatSearchResults(t *testing.T) {
 				{URL: "https://b.example/2", Title: "Beta"},
 			},
 		}
-		got := formatSearchResults("golang", result)
+		got := formatSearchResults("golang", result, "web_fetch")
 		for _, want := range []string{
 			"golang", "duckduckgo",
 			"Alpha", "https://a.example/1",
@@ -52,21 +52,21 @@ func TestFormatSearchResults(t *testing.T) {
 			Provider: "duckduckgo",
 			Results:  []search.Result{{URL: "https://only.example/1", Title: "https://only.example/1"}},
 		}
-		got := formatSearchResults("q", result)
+		got := formatSearchResults("q", result, "web_fetch")
 		if n := strings.Count(got, "https://only.example/1"); n != 1 {
 			t.Errorf("formatSearchResults() = %q, URL appears %d times, want 1", got, n)
 		}
 	})
 
 	t.Run("empty results", func(t *testing.T) {
-		got := formatSearchResults("nothing", &search.SearchResult{Provider: "duckduckgo"})
+		got := formatSearchResults("nothing", &search.SearchResult{Provider: "duckduckgo"}, "web_fetch")
 		if !strings.Contains(got, "No search results") {
 			t.Errorf("formatSearchResults(empty) = %q, want 'No search results'", got)
 		}
 	})
 
 	t.Run("nil result", func(t *testing.T) {
-		got := formatSearchResults("nothing", nil)
+		got := formatSearchResults("nothing", nil, "web_fetch")
 		if !strings.Contains(got, "No search results") {
 			t.Errorf("formatSearchResults(nil) = %q, want 'No search results'", got)
 		}
@@ -160,6 +160,34 @@ func TestSearchWithRouter_flagOverridesConfig(t *testing.T) {
 	}
 	if got.Provider != "first" {
 		t.Errorf("provider = %q, want first (flag overrides config)", got.Provider)
+	}
+}
+
+// Without a configured third-party provider, web_search/web_fetch must fail
+// with a message pointing at the right knob rather than falling back silently.
+func TestExecuteWebSearch_noRemoteProvider(t *testing.T) {
+	prev := options.Shared.Cfg
+	options.Shared.Cfg = nil
+	prevProvider := chatSearchProvider
+	chatSearchProvider = ""
+	t.Cleanup(func() { options.Shared.Cfg = prev; chatSearchProvider = prevProvider })
+
+	got := executeWebSearch(`{"query":"hello"}`)
+	if !strings.Contains(got, "third-party provider") {
+		t.Errorf("executeWebSearch(no provider) = %q, want a hint about configuring one", got)
+	}
+}
+
+func TestExecuteWebFetch_noRemoteProvider(t *testing.T) {
+	prev := options.Shared.Cfg
+	options.Shared.Cfg = nil
+	prevProvider := chatSearchProvider
+	chatSearchProvider = ""
+	t.Cleanup(func() { options.Shared.Cfg = prev; chatSearchProvider = prevProvider })
+
+	got := executeWebFetch(`{"url":"https://example.com/a"}`)
+	if !strings.Contains(got, "no third-party fetch provider") {
+		t.Errorf("executeWebFetch(no provider) = %q, want 'no third-party fetch provider'", got)
 	}
 }
 

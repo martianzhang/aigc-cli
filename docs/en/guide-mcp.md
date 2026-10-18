@@ -51,7 +51,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `crop_watermark` | Crop to remove watermarks (no learning required; `target` = auto / n% / WxH) | Free (local) |
 | `recognize_text` | Offline OCR for images/PDFs (requires `aigc-cli ocr init`; markdown or json output) | Free (local) |
 | `kb_find` | Search the local knowledge base (keyword + semantic) | Free (local) |
-| `kb_search` | Web search (`provider` selects the search engine: duckduckgo/firecrawl) and save results to the KB | Free (web) |
+| `kb_search` | Web search (`provider` selects the search engine: duckduckgo/firecrawl/brave/doubao/deepseek) and save results to the KB | Free (web) |
 | `kb_add` | Add a local file to the knowledge base (.md/.txt/.go/.py/.json/.yaml/.html) | Free (local) |
 | `kb_fetch` | Fetch a URL, convert it to markdown, and save it to the KB | Free (web) |
 | `kb_list` | List all documents in the knowledge base | Free (local) |
@@ -131,7 +131,7 @@ tools_disable:
 
 ### Tool surface decision (design note)
 
-`read`, `grep`, `find`, `ls`, `write`, `edit`, `bash`, `web_fetch`, and `web_search` exist as **chat-only** primitive tools (they live in `internal/agent`, used by the interactive REPL / agent loop) and are **deliberately not exposed over MCP**: they hand an agent arbitrary file, web and command access, so a prompt-injection payload in a model-visible page or file could turn into local file disclosure. The MCP surface is intentionally scoped to AIGC capability (generation, detection, OCR, knowledge base, provider/config inspection). Among them `write`/`edit`/`bash`/`web_fetch`/`web_search` are off by default and require an explicit `tools_enable` entry. This is a deliberate boundary, not an oversight.
+`read`, `grep`, `find`, `ls`, `write`, `edit`, `bash`, `search`, `fetch`, `web_fetch`, and `web_search` exist as **chat-only** primitive tools (they live in `internal/agent`, used by the interactive REPL / agent loop) and are **deliberately not exposed over MCP**: they hand an agent arbitrary file, web and command access, so a prompt-injection payload in a model-visible page or file could turn into local file disclosure. The MCP surface is intentionally scoped to AIGC capability (generation, detection, OCR, knowledge base, provider/config inspection). Among them `write`/`edit`/`bash`/`search`/`fetch`/`web_fetch`/`web_search` are off by default and require an explicit `tools_enable` entry. This is a deliberate boundary, not an oversight.
 
 ### Security hardening (v3.3.0)
 

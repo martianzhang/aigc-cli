@@ -98,10 +98,14 @@ func executeToolCallMCP(_ *client.Client, mcp *mcpcli.Manager, tc types.ToolCall
 		return agent.FindFiles(args)
 	case "ls":
 		return agent.ListDir(args)
-	case "web_fetch":
-		return executeWebFetch(args)
+	case "search":
+		return executeBuiltinSearch(args)
+	case "fetch":
+		return executeBuiltinFetch(args)
 	case "web_search":
 		return executeWebSearch(args)
+	case "web_fetch":
+		return executeWebFetch(args)
 	default:
 		return fmt.Sprintf("Error: unknown tool '%s'", tc.Function.Name)
 	}

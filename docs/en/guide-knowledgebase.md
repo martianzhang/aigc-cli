@@ -60,7 +60,15 @@ web_search:
     api_key: "xxx"
     tags: [quality]
     weight: 2
+
+  deepseek:
+    type: deepseek
+    api_key: "sk-xxx"    # DeepSeek Search (in-house engine, $0.75/1000)
+    tags: [quality]
 ```
+
+> **DeepSeek search**: `POST https://api.deepseek.com/v1/tools/search`, billed per successful request ($0.75/1000 ≈ ¥5/1000 — independent of result count). Reuse the same key as `providers.deepseek`.
+> Note: only **server-side tool calls in DeepSeek Harness / Claude Code / Codex** are free until 2026-11-01; this CLI calling the endpoint directly is **billed immediately**.
 
 ### Provider Selection Strategies
 

@@ -61,7 +61,7 @@ func newKbSearchTool() mcp.Tool {
 			mcp.Required(),
 		),
 		mcp.WithString("provider",
-			mcp.Description("Search provider: duckduckgo (default) or firecrawl"),
+			mcp.Description("Search provider: duckduckgo (default), firecrawl, brave, doubao, or deepseek"),
 		),
 	)
 }

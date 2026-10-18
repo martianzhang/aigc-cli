@@ -14,8 +14,8 @@ import (
 // for domain tools.
 //
 // Read-only primitives (read/grep/find/ls) are enabled by default; privileged
-// primitives (write/edit/bash/web_fetch/web_search) require an explicit
-// `tools_enable` entry. See IsReadOnlyPrimitive / IsPrivilegedPrimitive.
+// primitives (write/edit/bash/search/fetch/web_search/web_fetch) require an
+// explicit `tools_enable` entry. See IsReadOnlyPrimitive / IsPrivilegedPrimitive.
 var ToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
@@ -129,8 +129,23 @@ var ToolDefs = []types.ToolDefinition{
 	{
 		Type: "function",
 		Function: types.ToolFunction{
-			Name:        "web_fetch",
-			Description: "Fetch a URL and return its content. HTML pages are converted to markdown (main content only) so the result is clean and token-efficient; non-HTML content (JSON, plain text) is returned as-is. Use this when you need to read web pages, check current information, or access online resources. Large results are paginated by character offset. Requires `tools_enable` to list \"web_fetch\".",
+			Name:        "search",
+			Description: "Search the web with the built-in free engine (DuckDuckGo) and return a ranked list of result titles and URLs. Free and needs no API key. Read a result in full with `fetch`. Use `web_search` instead when a third-party search API is configured. Requires `tools_enable` to list \"search\".",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"query": {"type": "string", "description": "Search query"},
+					"limit": {"type": "integer", "description": "Max results to return (default 5, max 10)"}
+				},
+				"required": ["query"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "fetch",
+			Description: "Fetch a URL with the built-in free fetcher (direct HTTP; HTML is converted to markdown, main content only) and return its content. Non-HTML content (JSON, plain text) is returned as-is. Free and needs no API key. Large results are paginated by character offset. Use `web_fetch` to go through a configured third-party fetch API instead. Requires `tools_enable` to list \"fetch\".",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
@@ -146,7 +161,7 @@ var ToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "web_search",
-			Description: "Search the web and return a ranked list of result titles and URLs. Use this when you need current information or a set of candidate pages; follow up with web_fetch to read a specific result. The search provider is chosen by the user's config. Requires `tools_enable` to list \"web_search\".",
+			Description: "Search the web through the configured third-party search provider (defaults.chat.search_provider) and return a ranked list of result titles and URLs. The provider may bill per request. Requires a configured third-party provider under web_search.* and `tools_enable` to list \"web_search\".",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
@@ -154,6 +169,22 @@ var ToolDefs = []types.ToolDefinition{
 					"limit": {"type": "integer", "description": "Max results to return (default 5, max 10)"}
 				},
 				"required": ["query"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: types.ToolFunction{
+			Name:        "web_fetch",
+			Description: "Fetch a URL through the configured third-party fetch API (the same provider web_search uses) and return its content as provider-formatted Markdown. The provider may bill per request. Requires a fetch-capable provider under web_search.* and `tools_enable` to list \"web_fetch\". For free fetching use `fetch`.",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"url": {"type": "string", "description": "URL to fetch (http:// or https://)"},
+					"max_length": {"type": "integer", "description": "Max characters to return (default 5000, max 50000)"},
+					"offset": {"type": "integer", "description": "Character offset to start reading from (default 0). Use this to paginate through large results — the response tells you how many characters remain and what offset to use next."}
+				},
+				"required": ["url"]
 			}`),
 		},
 	},
@@ -172,8 +203,10 @@ var privilegedPrimitives = map[string]bool{
 	"write":      true,
 	"edit":       true,
 	"bash":       true,
-	"web_fetch":  true,
+	"search":     true,
+	"fetch":      true,
 	"web_search": true,
+	"web_fetch":  true,
 }
 
 // IsPrimitive reports whether name is one of the built-in primitives.

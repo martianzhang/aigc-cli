@@ -43,10 +43,12 @@ Chat ships a small set of **primitives** (names aligned with pi coding agent). D
 | `write` | ⛔ | Write/overwrite a file, creating parent dirs |
 | `edit` | ⛔ | Exact-text replace (`old_string` must be unique) |
 | `bash` | ⛔ | Execute a shell command in the current directory |
-| `web_fetch` | ⛔ | Fetch a URL: HTML is converted to Markdown (main content, token-efficient); non-HTML returned as-is (via proxy) |
-| `web_search` | ⛔ | Web search; returns a list of titles + URLs (read one with `web_fetch`) |
+| `search` | ⛔ | Built-in web search (DuckDuckGo, free, no key); returns titles + URLs |
+| `fetch` | ⛔ | Built-in URL fetch: HTML → Markdown (main content, token-efficient), non-HTML as-is; free, SSRF-guarded |
+| `web_search` | ⛔ | Search through a **third-party API** (vendor chosen by `search_provider`; may be billed); returns titles + URLs |
+| `web_fetch` | ⛔ | Fetch through a **third-party API** (same vendor; returns provider-formatted Markdown; may be billed) |
 
-**Read-only primitives** (`read`/`grep`/`find`/`ls`) are on by default. **Privileged primitives** (`write`/`edit`/`bash`/`web_fetch`/`web_search`) are off by default and require an explicit `tools_enable` entry — the safety gate for handing file-writes/command execution/network access to the model.
+**Read-only primitives** (`read`/`grep`/`find`/`ls`) are on by default. **Privileged primitives** (`write`/`edit`/`bash`/`search`/`fetch`/`web_search`/`web_fetch`) are off by default and require an explicit `tools_enable` entry — the safety gate for handing file-writes/command execution/network access to the model.
 
 Domain tools (`generate_image`, `recognize_text`, `kb_find`, …) are no longer defined in chat; they come from MCP servers. To use aigc-cli's own tools, point `mcp.servers` at `aigc-cli mcp` (see below).
 
@@ -54,44 +56,55 @@ Domain tools (`generate_image`, `recognize_text`, `kb_find`, …) are no longer 
 >
 > **Binary protection**: `read` sniffs content — files with NUL bytes or many invalid UTF-8 sequences (images, executables, …) are not returned as text; they report `[binary file — not displayed as text]` so garbled bytes never enter the context.
 >
-> **web_fetch main-content extraction**: HTML fetched by `web_fetch` is first run through readability to extract the main article, then converted to Markdown (nav/footer boilerplate dropped — a big token saving); when no article can be extracted it falls back to converting the whole page. Non-HTML (JSON, plain text, …) is returned as-is. Results are paginated by **character** (not byte): `max_length` defaults to 5000 and caps at 50000; read further with the `offset` given in the response.
+> **`fetch` main-content extraction**: HTML fetched by the built-in `fetch` is first run through readability to extract the main article, then converted to Markdown (nav/footer boilerplate dropped — a big token saving); when no article can be extracted it falls back to converting the whole page. Non-HTML (JSON, plain text, …) is returned as-is. Results are paginated by **character** (not byte): `max_length` defaults to 5000 and caps at 50000; read further with the `offset` given in the response.
+>
+> The built-in `fetch` is free and **SSRF-guarded**: before the request it rejects loopback / private / link-local / cloud-metadata addresses (e.g. `169.254.169.254`) and re-validates every redirect hop. The third-party `web_fetch` sends the request to the vendor, whose own security policy applies.
 
-### Web search (`web_search`)
+### Web access: built-in vs third-party
 
-The `web_search` primitive lets the model search the web by keyword and returns a list of **titles + URLs** (it does not fetch page bodies); the model can then use `web_fetch` to read a specific result. It is a **privileged primitive** and must be listed in `tools_enable`:
+Chat has two sets of web primitives. The naming rule is — **no `web_` prefix = built-in and free; a `web_` prefix = goes out to a third-party API (may be billed)**:
+
+| Capability | Built-in (free) | Third-party API (billed by the vendor) |
+|---|---|---|
+| Search | `search` (DuckDuckGo scrape) | `web_search` (vendor chosen by `search_provider`) |
+| Fetch | `fetch` (local HTTP + readability) | `web_fetch` (same vendor's fetch endpoint) |
+
+All four are **privileged primitives** and must be listed in `tools_enable`:
 
 ```yaml
 tools_enable:
+  - "search"
+  - "fetch"
   - "web_search"
+  - "web_fetch"
 ```
 
-Results come from the engines declared under the top-level `web_search.*` (the same config `kb search` uses), selected by `defaults.chat.search_provider`:
+The built-in `search`/`fetch` need **no configuration and cost nothing**. The third-party `web_search`/`web_fetch` are served by the vendors declared under the top-level `web_search.*`, with `defaults.chat.search_provider` selecting the **vendor**. Vendors generally offer both search and fetch, so the two primitives **share one vendor selection** — there is no separate fetch setting:
 
 ```yaml
 web_search:
-  duckduckgo:
-    type: duckduckgo          # free, no key needed — the built-in fallback
+  deepseek:
+    type: deepseek             # in-house engine, provides both Search and Fetch
+    api_key: "sk-xxx"          # $0.75/1000 successful requests (Search and Fetch alike)
+  doubao:
+    type: doubao
+    api_key: "your-doubao-api-key"
   firecrawl:
     type: firecrawl
     api_key: "fc-xxx"
     tags: [free, quality]
-  brave:
-    type: brave
-    api_key: "brave-xxx"
-  doubao:
-    type: doubao
-    api_key: "your-doubao-api-key"
 
 defaults:
   chat:
-    search_provider: duckduckgo   # duckduckgo/firecrawl/brave/doubao, or auto/free/quality (default auto)
+    search_provider: deepseek   # duckduckgo/firecrawl/brave/doubao/deepseek, or auto/free/quality (default auto)
 ```
 
-- `search_provider`: an engine name (`duckduckgo`/`firecrawl`/`brave`/`doubao`) forces that engine; `auto` (default) picks by `free`/`quality` tags with fallback; `free`/`cheap` uses only free engines; `quality` uses only quality engines.
+- `search_provider`: a vendor name forces that vendor; `auto` (default) picks by `free`/`quality` tags; `free`/`cheap` uses only free engines; `quality` uses only quality engines.
 - The `--search-provider` flag overrides the config for one run (precedence: `--search-provider` > `defaults.chat.search_provider` > `auto`).
-- With no `web_search.*` declared, the free DuckDuckGo fallback is used automatically; paid engines require an `api_key` and are skipped when it is missing.
+- `web_search` uses **third-party vendors only**: the built-in DuckDuckGo is excluded, so `auto` can never silently answer from a non-third-party engine. With no third-party vendor declared, `web_search`/`web_fetch` **error out and point you at the built-in `search`/`fetch`** — no silent spend, no silent downgrade.
+- `web_fetch` needs a **fetch-capable vendor** (e.g. `deepseek`); search-only vendors (`duckduckgo`/`brave`) do not provide it.
 - One call returns 5 results by default, at most 10.
-- Unlike `kb search`, chat's `web_search` **searches only — it does not save to the knowledge base**.
+- Unlike `kb search`, chat's web primitives **search/fetch only — they do not save to the knowledge base**; `kb search` still uses the same `web_search.*` vendor config (including the free DuckDuckGo fallback).
 
 ### Project context (AGENTS.md)
 
@@ -112,7 +125,10 @@ tools_enable:
   - "find"
   - "bash"        # enable shell
   - "write"       # enable file writes
-  - "web_search"  # enable web search
+  - "web_search"  # third-party search API (billed by the vendor)
+  - "web_fetch"   # third-party fetch API (billed by the vendor)
+  # - "search"    # built-in web search (DuckDuckGo; free, no key)
+  # - "fetch"     # built-in fetch (local readability; free)
 
 # Top-level blocklist always wins
 tools_disable:
@@ -187,7 +203,7 @@ With it on, a request carries only the **primitives** plus two meta-tools: the m
 | `--json` | Pass messages as JSON; forwarded **verbatim** when no flags are set, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API. Explicitly-set flags override the matching key | — |
 | `--inject-json` | Merge a JSON object **on top of** the generated body (objects recurse, arrays append, scalars overwrite). Use it for vendor-only fields (native web search, reasoning, routing); takes precedence over `--json` | — |
 | `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
-| `--search-provider` | Engine for the `web_search` primitive (`duckduckgo`/`firecrawl`/`brave`/`doubao`, or `auto`/`free`/`quality`); overrides `defaults.chat.search_provider` | — |
+| `--search-provider` | Vendor for the `web_search`/`web_fetch` primitives (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`, or `auto`/`free`/`quality`); overrides `defaults.chat.search_provider` | — |
 
 ### Context Management
 

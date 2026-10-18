@@ -1,4 +1,11 @@
-package knowledge
+// Package netguard provides SSRF protection for outbound HTTP fetches.
+//
+// It rejects URLs whose host does not resolve to a public address and
+// re-validates every redirect hop, so a fetch of an attacker-influenced URL
+// cannot be bounced onto loopback, private, link-local or cloud-metadata
+// services. Both the knowledge-base fetcher and chat's web_fetch primitive use
+// it so the guard stays a single implementation.
+package netguard
 
 import (
 	"fmt"
@@ -8,13 +15,11 @@ import (
 	"time"
 )
 
-// maxFetchBytes caps how much of a response body FetchURL reads into memory.
-const maxFetchBytes = 10 * 1024 * 1024
-
-// newKBClient returns a shallow copy of http.DefaultClient with the given
-// timeout. Copying http.DefaultClient keeps the app-wide transport — and with
-// it the configured HTTP proxy — instead of bypassing it with a private client.
-func newKBClient(timeout time.Duration) *http.Client {
+// NewGuardedClient returns a shallow copy of http.DefaultClient with the given
+// timeout and a redirect hook that re-validates each hop. Copying
+// http.DefaultClient keeps the app-wide transport — and with it the configured
+// HTTP proxy — instead of bypassing it with a private client.
+func NewGuardedClient(timeout time.Duration) *http.Client {
 	c := *http.DefaultClient
 	c.Timeout = timeout
 	c.CheckRedirect = checkRedirect
@@ -27,18 +32,18 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= 10 {
 		return fmt.Errorf("stopped after 10 redirects")
 	}
-	return validatePublicURL(req.URL.String())
+	return ValidatePublicURL(req.URL.String())
 }
 
-// validatePublicURL rejects URLs whose host is not a public http/https address.
+// ValidatePublicURL rejects URLs whose host is not a public http/https address.
 // It blocks loopback, private (RFC1918 / ULA fc00::/7), link-local
-// (169.254.0.0/16 and fe80::/10), unspecified and multicast targets so a KB
-// fetch cannot be used for SSRF against local or cloud-metadata services.
-func validatePublicURL(rawURL string) error {
+// (169.254.0.0/16 and fe80::/10), unspecified and multicast targets so a fetch
+// cannot be used for SSRF against local or cloud-metadata services.
+func ValidatePublicURL(rawURL string) error {
 	return validateURL(rawURL, net.LookupIP)
 }
 
-// validateURL implements validatePublicURL with an injectable resolver so the
+// validateURL implements ValidatePublicURL with an injectable resolver so the
 // hostname paths can be tested without network access.
 func validateURL(rawURL string, lookup func(host string) ([]net.IP, error)) error {
 	u, err := url.Parse(rawURL)

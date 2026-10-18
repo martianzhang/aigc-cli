@@ -31,6 +31,11 @@ func NewProviderFromConfig(cfg *types.WebSearchProvider) (Provider, error) {
 			return nil, fmt.Errorf("doubao requires api_key")
 		}
 		return NewDoubaoProvider(cfg.APIKey), nil
+	case "deepseek":
+		if cfg.APIKey == "" {
+			return nil, fmt.Errorf("deepseek requires api_key")
+		}
+		return NewDeepSeekProvider(cfg.APIKey), nil
 	default:
 		return nil, fmt.Errorf("unknown provider type: %s", cfg.Type)
 	}

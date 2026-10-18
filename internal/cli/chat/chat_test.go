@@ -61,7 +61,7 @@ func TestExecuteToolCall_unknown(t *testing.T) {
 }
 
 func TestExecuteToolCall_invalidJSON(t *testing.T) {
-	tools := []string{"read", "write", "edit", "bash", "grep", "find", "ls", "web_fetch", "web_search"}
+	tools := []string{"read", "write", "edit", "bash", "grep", "find", "ls", "search", "fetch", "web_fetch", "web_search"}
 	for _, name := range tools {
 		tc := types.ToolCall{
 			ID:   "call_1",
@@ -187,7 +187,7 @@ func TestBuildAgentTools_defaultReadOnly(t *testing.T) {
 			t.Errorf("read-only primitive %q should be enabled by default", want)
 		}
 	}
-	for _, priv := range []string{"write", "edit", "bash", "web_fetch", "web_search"} {
+	for _, priv := range []string{"write", "edit", "bash", "search", "fetch", "web_fetch", "web_search"} {
 		if names[priv] {
 			t.Errorf("privileged primitive %q must be off by default", priv)
 		}

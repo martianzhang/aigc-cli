@@ -20,10 +20,12 @@ var toolNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 var expectedToolNames = []string{
 	"bash",
 	"edit",
+	"fetch",
 	"find",
 	"grep",
 	"ls",
 	"read",
+	"search",
 	"web_fetch",
 	"web_search",
 	"write",

@@ -53,6 +53,7 @@ imageStrategies:
 | brave | `api.search.brave.com` | Paid (free tier available) |
 | firecrawl | `api.firecrawl.dev` | Paid (free tier available) |
 | doubao | `open.feedcoopapi.com` | 0.020 CNY/request (500 free/month) |
+| deepseek | `api.deepseek.com` (`POST /v1/tools/search`) | $0.75/1000 successful requests (≈¥5/1000) |
 
 ## Midjourney API
 

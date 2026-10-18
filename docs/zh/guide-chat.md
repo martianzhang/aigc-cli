@@ -137,10 +137,12 @@ Chat 只内置少量**原语**（命名对齐 pi coding agent）；生成 / 检�
 | `write` | ⛔ | 写入 / 覆盖文件，自动建父目录 |
 | `edit` | ⛔ | 精确文本替换（`old_string` 必须唯一匹配） |
 | `bash` | ⛔ | 在当前目录执行 shell 命令 |
-| `web_fetch` | ⛔ | 抓取 URL：HTML 自动转 Markdown（正文提取，省 token），非 HTML 原样返回（走代理） |
-| `web_search` | ⛔ | 联网搜索，返回标题 + URL 列表（用 `web_fetch` 深入阅读） |
+| `search` | ⛔ | 内置联网搜索（DuckDuckGo，免费免 Key），返回标题 + URL 列表 |
+| `fetch` | ⛔ | 内置抓取 URL：HTML 转 Markdown（正文提取，省 token），非 HTML 原样返回；免费、带 SSRF 防护 |
+| `web_search` | ⛔ | 经**第三方 API** 搜索（厂商由 `search_provider` 选择，可能计费），返回标题 + URL 列表 |
+| `web_fetch` | ⛔ | 经**第三方 API** 抓取（同一厂商，返回已格式化 Markdown，可能计费） |
 
-**只读原语**（`read`/`grep`/`find`/`ls`）默认开启；**特权原语**（`write`/`edit`/`bash`/`web_fetch`/`web_search`）默认关闭，需在 `tools_enable` 中**显式列出**才启用——这是把写文件 / 执行命令 / 联网交给模型的安全闸门。
+**只读原语**（`read`/`grep`/`find`/`ls`）默认开启；**特权原语**（`write`/`edit`/`bash`/`search`/`fetch`/`web_search`/`web_fetch`）默认关闭，需在 `tools_enable` 中**显式列出**才启用——这是把写文件 / 执行命令 / 联网交给模型的安全闸门。
 
 领域工具（`generate_image`、`generate_video`、`recognize_text`、`kb_find` 等）不再定义在 Chat 内，而由 MCP 服务器提供：想用 aigc-cli 自己的能力，配置 `mcp.servers` 指向 `aigc-cli mcp` 即可（见下）。
 
@@ -148,44 +150,55 @@ Chat 只内置少量**原语**（命名对齐 pi coding agent）；生成 / 检�
 >
 > **二进制防护**：`read` 会嗅探内容，含 NUL 字节或大量非法 UTF-8 的文件（图片、可执行文件等）不会作为文本返回，而是提示 `[binary file — not displayed as text]`，避免把乱码灌进上下文。
 >
-> **web_fetch 的正文提取**：`web_fetch` 抓到的 HTML 会先用 readability 提取正文、再转成 Markdown（丢弃导航/页脚等样板，显著省 token）；提取不到正文时回退为整页转 Markdown。非 HTML（JSON、纯文本等）原样返回。结果按**字符**（非字节）分页：`max_length` 默认 5000、最大 50000，超大结果用返回里给出的 `offset` 继续读。
+> **`fetch` 的正文提取**：内置 `fetch` 抓到的 HTML 会先用 readability 提取正文、再转成 Markdown（丢弃导航/页脚等样板，显著省 token）；提取不到正文时回退为整页转 Markdown。非 HTML（JSON、纯文本等）原样返回。结果按**字符**（非字节）分页：`max_length` 默认 5000、最大 50000，超大结果用返回里给出的 `offset` 继续读。
+>
+> 内置 `fetch` 免费，并带 **SSRF 防护**：请求前拒绝回环 / 私网 / 链路本地 / 元数据地址（`169.254.169.254` 等），重定向逐跳校验。第三方 `web_fetch` 的请求发往厂商服务器，安全性由厂商策略负责。
 
-### 联网搜索（web_search）
+### 联网：内置 vs 第三方
 
-`web_search` 原语让模型按关键词联网搜索，返回**标题 + URL** 列表（不抓正文）；模型可再用 `web_fetch` 打开其中某个链接精读。它是**特权原语**，需在 `tools_enable` 中显式开启：
+Chat 有两套联网原语，命名规则是——**不带 `web_` = 内置免费实现；带 `web_` = 走第三方 API（可能计费）**：
+
+| 能力 | 内置（免费） | 第三方 API（按厂商计费） |
+|---|---|---|
+| 搜索 | `search`（DuckDuckGo 抓取） | `web_search`（厂商由 `search_provider` 选择） |
+| 抓取 | `fetch`（本地 HTTP + readability） | `web_fetch`（同一厂商的抓取接口） |
+
+四个都是**特权原语**，需在 `tools_enable` 中显式开启：
 
 ```yaml
 tools_enable:
+  - "search"
+  - "fetch"
   - "web_search"
+  - "web_fetch"
 ```
 
-搜索结果由顶层 `web_search.*` 中声明的引擎提供（与 `kb search` 共用同一套配置），用 `defaults.chat.search_provider` 选择用哪个引擎：
+内置的 `search`/`fetch` **无需任何配置、不产生费用**。第三方的 `web_search`/`web_fetch` 由顶层 `web_search.*` 中声明的厂商提供，用 `defaults.chat.search_provider` 选择**厂商**。厂商一般同时提供 Search 与 Fetch，所以两者**共用同一个厂商选择**，没有单独的 fetch 配置：
 
 ```yaml
 web_search:
-  duckduckgo:
-    type: duckduckgo          # 免费、免 Key，默认兜底
+  deepseek:
+    type: deepseek             # 自研搜索引擎，同时提供 Search 与 Fetch
+    api_key: "sk-xxx"          # 0.5 分/次成功请求（Search、Fetch 同价）
+  doubao:
+    type: doubao
+    api_key: "your-doubao-api-key"
   firecrawl:
     type: firecrawl
     api_key: "fc-xxx"
     tags: [free, quality]
-  brave:
-    type: brave
-    api_key: "brave-xxx"
-  doubao:
-    type: doubao
-    api_key: "your-doubao-api-key"
 
 defaults:
   chat:
-    search_provider: duckduckgo   # duckduckgo/firecrawl/brave/doubao，或 auto/free/quality（默认 auto）
+    search_provider: deepseek   # duckduckgo/firecrawl/brave/doubao/deepseek，或 auto/free/quality（默认 auto）
 ```
 
-- `search_provider` 取值：引擎名（`duckduckgo`/`firecrawl`/`brave`/`doubao`）指定该引擎；`auto`（默认）按 `free`/`quality` 标签自动选择并回退；`free`/`cheap` 只用免费引擎；`quality` 只用高质量引擎。
+- `search_provider` 取值：厂商名指定该厂商；`auto`（默认）按 `free`/`quality` 标签选择；`free`/`cheap` 只用免费引擎；`quality` 只用高质量引擎。
 - 也可用 `--search-provider` 命令行参数临时覆盖配置（优先级：`--search-provider` > `defaults.chat.search_provider` > `auto`）。
-- 未声明任何 `web_search.*` 时自动使用免费的 DuckDuckGo；付费引擎需填 `api_key`，缺失会被跳过。
+- `web_search` **只使用第三方厂商**：内置 DuckDuckGo 不参与，避免 `auto` 时静默回落成"非第三方"。未声明任何第三方厂商时，`web_search`/`web_fetch` 会**报错并提示改用内置 `search`/`fetch`**（不会静默花钱，也不会静默降级）。
+- `web_fetch` 需要**具备抓取能力的厂商**（如 `deepseek`）；只有搜索能力的厂商（`duckduckgo`/`brave`）不提供 `web_fetch`。
 - 单次调用默认返回 5 条、最多 10 条。
-- 与 `kb search` 不同，chat 的 `web_search` **只搜索、不入库**。
+- 与 `kb search` 不同，chat 的联网原语**只搜索/抓取、不入库**；`kb search` 仍使用同一套 `web_search.*` 厂商配置（含免费 DuckDuckGo 兜底）。
 
 ### 项目上下文（AGENTS.md）
 
@@ -220,7 +233,10 @@ tools_enable:
   - "find"
   - "bash"        # 显式开启 shell
   - "write"       # 显式开启写文件
-  - "web_search"  # 显式开启联网搜索
+  - "web_search"  # 第三方搜索 API（按厂商计费）
+  - "web_fetch"   # 第三方抓取 API（按厂商计费）
+  # - "search"    # 内置联网搜索（DuckDuckGo，免费免 Key）
+  # - "fetch"     # 内置抓取（本地 readability，免费）
 
 # 顶层黑名单，永远优先
 tools_disable:
@@ -235,7 +251,7 @@ defaults:
 规则要点：
 
 - **只读原语**（`read`/`grep`/`find`/`ls`）默认可用，`tools_disable` 可关掉。
-- **特权原语**（`write`/`edit`/`bash`/`web_fetch`/`web_search`）只有在 `tools_enable` 里**显式列出**才启用。
+- **特权原语**（`write`/`edit`/`bash`/`search`/`fetch`/`web_search`/`web_fetch`）只有在 `tools_enable` 里**显式列出**才启用。
 - 领域工具（MCP 来源）在有 `tools_enable` 时按白名单过滤，为空时全部允许。
 - `tools_disable` 永远优先于 `tools_enable`。
 
@@ -297,7 +313,7 @@ defaults:
 | `defaults.chat.allow_tool_override` | `true`=LLM参数优先，`false`=配置强制覆盖LLM（默认`false`，省钱） |
 | `defaults.chat.tools_on_demand` | `true`=MCP 工具按需加载（`search_tools`/`load_tools`），降低上下文占用（默认 `false`） |
 | `defaults.chat.read_deny` | `read` 原语的拒绝正则列表（匹配文件路径或文件名）；空 = 全部放行 |
-| `defaults.chat.search_provider` | `web_search` 原语使用的搜索引擎（`duckduckgo`/`firecrawl`/`brave`/`doubao`，或 `auto`/`free`/`quality`）；空 = `auto` |
+| `defaults.chat.search_provider` | `web_search`/`web_fetch` 原语使用的第三方厂商（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`，或 `auto`/`free`/`quality`）；空 = `auto` |
 
 ---
 
@@ -368,7 +384,7 @@ aigc-cli chat --message "Hello"
 | `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
 | `--inject-json` | 在 CLI 生成的最终 body 上**追加合并**一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于联网搜索等厂商私有参数，优先级高于 `--json` |
 | `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |
-| `--search-provider` | `web_search` 原语使用的搜索引擎（`duckduckgo`/`firecrawl`/`brave`/`doubao`，或 `auto`/`free`/`quality`），覆盖 `defaults.chat.search_provider` |
+| `--search-provider` | `web_search`/`web_fetch` 原语使用的第三方厂商（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`，或 `auto`/`free`/`quality`），覆盖 `defaults.chat.search_provider` |
 | `--verbose`, `-v` | 显示 token 消耗、费用和耗时统计（全局 flag） |
 
 ### `--json` 与参数合并

@@ -58,7 +58,8 @@ func TestTakeChars(t *testing.T) {
 	})
 }
 
-func TestExecuteWebFetch_convertsHTMLToMarkdown(t *testing.T) {
+func TestExecuteBuiltinFetch_convertsHTMLToMarkdown(t *testing.T) {
+	allowLoopbackFetch(t)
 	const page = `<!doctype html><html><head><title>Page Title</title></head><body>` +
 		`<nav>NAVMARKER</nav><article><h1>Heading</h1>` +
 		`<p>A substantial paragraph of body text so readability keeps it in the article.</p>` +
@@ -71,7 +72,7 @@ func TestExecuteWebFetch_convertsHTMLToMarkdown(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got := executeWebFetch(`{"url":"` + srv.URL + `"}`)
+	got := executeBuiltinFetch(`{"url":"` + srv.URL + `"}`)
 	if !strings.Contains(got, "(markdown)") {
 		t.Errorf("response not marked markdown:\n%s", got)
 	}
@@ -83,14 +84,15 @@ func TestExecuteWebFetch_convertsHTMLToMarkdown(t *testing.T) {
 	}
 }
 
-func TestExecuteWebFetch_jsonPassthrough(t *testing.T) {
+func TestExecuteBuiltinFetch_jsonPassthrough(t *testing.T) {
+	allowLoopbackFetch(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		io.WriteString(w, `{"hello":"world"}`)
 	}))
 	defer srv.Close()
 
-	got := executeWebFetch(`{"url":"` + srv.URL + `"}`)
+	got := executeBuiltinFetch(`{"url":"` + srv.URL + `"}`)
 	if strings.Contains(got, "(markdown)") {
 		t.Errorf("JSON should not be converted to markdown:\n%s", got)
 	}
@@ -99,14 +101,15 @@ func TestExecuteWebFetch_jsonPassthrough(t *testing.T) {
 	}
 }
 
-func TestExecuteWebFetch_pagination(t *testing.T) {
+func TestExecuteBuiltinFetch_pagination(t *testing.T) {
+	allowLoopbackFetch(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		io.WriteString(w, strings.Repeat("x", 100))
 	}))
 	defer srv.Close()
 
-	got := executeWebFetch(`{"url":"` + srv.URL + `","offset":10,"max_length":20}`)
+	got := executeBuiltinFetch(`{"url":"` + srv.URL + `","offset":10,"max_length":20}`)
 	if !strings.Contains(got, "Showing chars 10-30 (70 remaining)") {
 		t.Errorf("pagination window wrong:\n%s", got)
 	}
@@ -115,15 +118,42 @@ func TestExecuteWebFetch_pagination(t *testing.T) {
 	}
 }
 
-func TestExecuteWebFetch_offsetPastEnd(t *testing.T) {
+func TestExecuteBuiltinFetch_offsetPastEnd(t *testing.T) {
+	allowLoopbackFetch(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		io.WriteString(w, strings.Repeat("x", 100))
 	}))
 	defer srv.Close()
 
-	got := executeWebFetch(`{"url":"` + srv.URL + `","offset":1000}`)
+	got := executeBuiltinFetch(`{"url":"` + srv.URL + `","offset":1000}`)
 	if !strings.Contains(got, "past the end") {
 		t.Errorf("expected past-the-end message, got:\n%s", got)
+	}
+}
+
+// allowLoopbackFetch disables the SSRF guard for a test that serves from a
+// loopback httptest server.
+func allowLoopbackFetch(t *testing.T) {
+	t.Helper()
+	prev := fetchURLGuard
+	fetchURLGuard = func(string) error { return nil }
+	t.Cleanup(func() { fetchURLGuard = prev })
+}
+
+// TestExecuteBuiltinFetch_rejectsPrivateURL verifies the SSRF guard runs before any
+// request is issued: no server is started, so a regression would hang or error
+// differently rather than reaching these targets.
+func TestExecuteBuiltinFetch_rejectsPrivateURL(t *testing.T) {
+	for _, u := range []string{
+		"http://127.0.0.1/",
+		"http://169.254.169.254/latest/meta-data/",
+		"http://10.0.0.1/",
+		"file:///etc/passwd",
+	} {
+		got := executeBuiltinFetch(`{"url":"` + u + `"}`)
+		if !strings.HasPrefix(got, "Error:") {
+			t.Errorf("executeBuiltinFetch(%s) = %q, want an Error:", u, got)
+		}
 	}
 }

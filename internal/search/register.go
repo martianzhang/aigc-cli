@@ -32,6 +32,24 @@ func RegisterAll(router *Router, providers map[string]*types.WebSearchProvider) 
 	}
 }
 
+// RegisterRemote registers only the third-party providers — everything except
+// the built-in DuckDuckGo scraper — and adds no fallback. The chat `web_search`
+// and `web_fetch` primitives use it so they never silently fall back to the
+// built-in engine that the `search`/`fetch` primitives already cover.
+func RegisterRemote(router *Router, providers map[string]*types.WebSearchProvider) {
+	configs := ConfigFromTypes(providers)
+	for name, cfg := range providers {
+		if cfg == nil || cfg.Type == "duckduckgo" {
+			continue
+		}
+		p, err := NewProviderFromConfig(cfg)
+		if err != nil {
+			continue
+		}
+		router.Register(name, p, configs[name])
+	}
+}
+
 // ResolveStrategy maps a provider spec to a router strategy and, for a named
 // provider, the preferred list. It mirrors the values accepted by
 // `kb search --provider` and `defaults.chat.search_provider`:

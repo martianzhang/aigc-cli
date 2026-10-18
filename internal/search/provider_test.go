@@ -38,6 +38,11 @@ func TestNewProviderFromConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "deepseek without api key returns error",
+			cfg:     &types.WebSearchProvider{Type: "deepseek"},
+			wantErr: true,
+		},
+		{
 			name:    "unknown type returns error",
 			cfg:     &types.WebSearchProvider{Type: "nonexistent"},
 			wantErr: true,
@@ -66,6 +71,15 @@ func TestNewProviderFromConfig(t *testing.T) {
 			check: func(t *testing.T, p Provider) {
 				if _, ok := p.(*DoubaoProvider); !ok {
 					t.Errorf("NewProviderFromConfig() = %T, want *DoubaoProvider", p)
+				}
+			},
+		},
+		{
+			name: "deepseek with api key returns DeepSeekProvider",
+			cfg:  &types.WebSearchProvider{Type: "deepseek", APIKey: "ds-key"},
+			check: func(t *testing.T, p Provider) {
+				if _, ok := p.(*DeepSeekProvider); !ok {
+					t.Errorf("NewProviderFromConfig() = %T, want *DeepSeekProvider", p)
 				}
 			},
 		},

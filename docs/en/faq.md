@@ -57,6 +57,7 @@ Depends on the provider:
 - duckduckgo: free
 - doubao (Volcengine): 0.020 CNY/request (500 free/month)
 - firecrawl: paid (has free tier)
+- deepseek: $0.75/1000 successful requests (≈¥5/1000)
 
 ### Are local features free?
 

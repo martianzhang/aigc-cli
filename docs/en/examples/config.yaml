@@ -50,7 +50,7 @@ base_url: "https://api.apimart.ai"
 #   tools_enable  — Allowlist mode, only listed tools are enabled (empty = all allowed)
 #   tools_disable — Blocklist mode, disable listed tools (applied on top of allowlist)
 # When both are set, enable filter runs first, then disable exclusion.
-# Chat primitives: read/grep/find/ls are on by default (read-only); write/edit/bash/web_fetch/web_search
+# Chat primitives: read/grep/find/ls are on by default (read-only); write/edit/bash/search/fetch/web_search/web_fetch
 # are privileged and require an explicit tools_enable entry. Domain tools (generate_*, …) come from MCP.
 
 # Scenario A: Allowlist — only free/offline tools (local ONNX / BM25)
@@ -73,14 +73,16 @@ base_url: "https://api.apimart.ai"
 #   - "transcribe_audio"   # STT speech recognition
 #   - "midjourney_*"       # Midjourney suite (imagine/describe/reroll/video etc.)
 
-# Scenario C: enable chat privileged primitives (write/edit/bash/web_fetch/web_search are off by default)
+# Scenario C: enable chat privileged primitives (write/edit/bash/search/fetch/web_search/web_fetch are off by default)
 # tools_enable:
 #   - "read"        # read-only primitives (read/grep/find/ls) are on by default anyway
 #   - "bash"        # let the model run shell commands
 #   - "write"       # let the model write files
 #   - "edit"        # let the model edit files precisely
-#   - "web_fetch"   # let the model fetch web pages
-#   - "web_search"  # let the model search the web (engine: defaults.chat.search_provider)
+#   - "search"      # built-in web search (DuckDuckGo; free, no key)
+#   - "fetch"       # built-in web fetch (local readability; free)
+#   - "web_fetch"   # fetch via a third-party API (vendor: defaults.chat.search_provider; may be billed)
+#   - "web_search"  # search via a third-party API (same vendor; may be billed)
 
 # ── MCP Client (Chat connects to MCP servers) ──
 # Chat acts as an MCP client: it connects to arbitrary stdio MCP servers and
@@ -207,7 +209,7 @@ defaults:
     context_size: 32768         # Max input context tokens; 0=model default. Auto-compacts at 80%
     # tools_on_demand: true     # Load MCP tools on demand (search_tools/load_tools) to save context
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$']  # read primitive denylist regexes (path or basename; empty = allow all)
-    # search_provider: duckduckgo # engine for the web_search primitive (duckduckgo/firecrawl/brave/doubao, or auto/free/quality; default auto)
+    # search_provider: duckduckgo # vendor for the web_search/web_fetch primitives (duckduckgo/firecrawl/brave/doubao/deepseek, or auto/free/quality; default auto)
 
   decision:
     # provider: "ollama"        # named provider (ollama / openrouter / ...); unset uses global
@@ -237,7 +239,7 @@ defaults:
   # ── Optional: Knowledge Base (knowledgebase) ──
   # knowledgebase:
   #   base_dir: "~/.config/aigc-cli/knowledge"   # KB storage path
-  #   search_provider: duckduckgo                 # kb search engine: duckduckgo / firecrawl / brave / doubao
+  #   search_provider: duckduckgo                 # kb search engine: duckduckgo / firecrawl / brave / doubao / deepseek
   #   auto_save: true                             # Auto-save kb search results to KB (default: true)
   #   min_score: 0.8                              # Minimum similarity for vector search (default 0.8, 0 to disable)
   #   embedding_provider: ollama                  # "" / local / onnx / hash, or a name in config.providers
@@ -259,7 +261,7 @@ defaults:
 
   # ── Optional: Web Search Providers ──
   # Declare multiple providers for auto-fallback, shared by `kb search` and
-  # chat's web_search primitive.
+  # chat's web_search/web_fetch primitives.
   # kb search also supports a --provider flag; chat selects via defaults.chat.search_provider.
   # web_search:
   #   duckduckgo:
@@ -276,6 +278,9 @@ defaults:
   #   doubao:
   #     type: doubao
   #     api_key: "your-doubao-api-key"
+  #   deepseek:
+  #     type: deepseek
+  #     api_key: "sk-xxx"          # DeepSeek Search (in-house engine, $0.75/1000 successful requests)
 
   # ── Optional: Force local ONNX (no provider config needed) ──
   # Just run: aigc-cli ocr scan x.png --provider local
