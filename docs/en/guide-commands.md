@@ -46,20 +46,31 @@ aigc-cli task --provider apimart task_01KV4KD9FBH3AZ4DE18A7Y17S3
 
 ## balance
 
-Query account balance across providers:
+Query account balance across providers that expose a balance API: APIMart (and
+APIMart-compatible relays), OpenRouter, DeepSeek, and Moonshot (Kimi). Other
+providers have no public balance API — check their web console.
+
+**By default every balance endpoint a provider exposes is queried and shown**
+(e.g. APIMart's key quota + account balance, OpenRouter's key usage + account
+credits). The `token` / `user` subcommands narrow the output to one scope.
 
 ```bash
-# Query every configured provider that has an API key
+# Query every configured provider that has an API key (all endpoints)
 aigc-cli balance
 
 # Query one specific provider
-aigc-cli balance --provider siliconflow
+aigc-cli balance --provider openrouter
 
-# Query the whole user account
+# Narrow to the API-key scope / the account scope
+aigc-cli balance token
 aigc-cli balance user
 ```
 
 > **API key**: without `--provider`, every configured provider that has an API key is queried (local providers such as Ollama are exempt). An explicitly selected non-local provider without a key fails fast with a clear error; use `--provider <name>` or configure its key.
+
+> **OpenRouter**: account credits (`GET /credits`, matching the console) require a management key; a regular inference key only yields key-scoped usage/limits (`GET /key`).
+
+> **SiliconFlow**: its `/user/info` balance endpoint was retired on 2026-08-14 with no replacement yet, so it reports "not available".
 
 ## config
 

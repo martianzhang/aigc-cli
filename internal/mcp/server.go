@@ -557,7 +557,10 @@ func newGetBalanceTool() mcp.Tool {
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(true),
 		mcp.WithOpenWorldHintAnnotation(true),
-		mcp.WithDescription("查询余额和用量。同时返回当前 API Key 的余额和用户账号的总余额。"),
+		mcp.WithDescription("查询余额/用量。默认展示该 Provider 的全部余额端点。支持 APIMart、OpenRouter、DeepSeek、Moonshot（Kimi）；其他 Provider 无公开余额接口。OpenRouter 需 management key 才能取账户信用点余额，否则只返回 Key 维度用量。"),
+		mcp.WithString("scope",
+			mcp.Description("all（默认，全部端点）/ token（仅 API Key 维度）/ user（仅账户/账号维度）"),
+		),
 	)
 }
 

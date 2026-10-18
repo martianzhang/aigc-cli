@@ -13,6 +13,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"gopkg.in/yaml.v3"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/balance"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -118,50 +119,17 @@ func getModelPricingHandler() server.ToolHandlerFunc {
 	}
 }
 
-// getBalanceHandler creates the handler for get_balance.
-// Calls both token balance and user balance, returns combined result.
+// getBalanceHandler creates the handler for get_balance. It dispatches through
+// the shared cli/balance logic, so it supports the same providers as the CLI
+// (APIMart, OpenRouter, DeepSeek, Moonshot); others report "not available".
 func getBalanceHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		if cfg.APIKey == "" {
+		p := cfg.cmdProvider("balance")
+		if p.RequiresAPIKey() {
 			return mcp.NewToolResultError("API Key not configured"), nil
 		}
-
-		c := client.New(cfg.APIKey, cfg.BaseURL, cfg.Proxy)
-
-		var b strings.Builder
-		b.WriteString("=== Token Balance ===\n")
-
-		tokenBal, err := c.GetTokenBalance()
-		if err != nil {
-			fmt.Fprintf(&b, "查询失败: %v\n", err)
-		} else if tokenBal.Success {
-			if tokenBal.UnlimitedQuota {
-				b.WriteString("  Status: Unlimited Quota (no limit)\n")
-			} else {
-				fmt.Fprintf(&b, "  Remain Balance: $%.4f\n", tokenBal.RemainBalance)
-				fmt.Fprintf(&b, "  Remain Credits: %.4f\n", tokenBal.RemainCredits)
-			}
-			fmt.Fprintf(&b, "  Used Balance: $%.4f\n", tokenBal.UsedBalance)
-			fmt.Fprintf(&b, "  Used Credits: %.4f\n", tokenBal.UsedCredits)
-		} else {
-			fmt.Fprintf(&b, "  Error: %s\n", tokenBal.Message)
-		}
-
-		b.WriteString("\n=== User Balance ===\n")
-
-		userBal, err := c.GetUserBalance()
-		if err != nil {
-			fmt.Fprintf(&b, "查询失败: %v\n", err)
-		} else if userBal.Success {
-			fmt.Fprintf(&b, "  Remain Balance: $%.4f\n", userBal.RemainBalance)
-			fmt.Fprintf(&b, "  Remain Credits: %.4f\n", userBal.RemainCredits)
-			fmt.Fprintf(&b, "  Used Balance: $%.4f\n", userBal.UsedBalance)
-			fmt.Fprintf(&b, "  Used Credits: %.4f\n", userBal.UsedCredits)
-		} else {
-			fmt.Fprintf(&b, "  Error: %s\n", userBal.Message)
-		}
-
-		return mcp.NewToolResultText(b.String()), nil
+		scope := request.GetString("scope", "all")
+		return mcp.NewToolResultText(balance.Query(p, scope)), nil
 	}
 }
 

@@ -21,7 +21,10 @@ type Deps struct {
 	Providers       map[string]*types.NamedProvider
 }
 
-func queryOne(p *provider.EffectiveProvider, scope string) string {
+// Query renders the balance for one provider. scope is "all" (default; every
+// endpoint the provider exposes), "token" (API-key scope) or "user" (account
+// scope). Providers with a single endpoint show it regardless of scope.
+func Query(p *provider.EffectiveProvider, scope string) string {
 	label := providerLabel(p)
 
 	if p.ProviderType == provider.ModelScope {
@@ -30,36 +33,16 @@ func queryOne(p *provider.EffectiveProvider, scope string) string {
 
 	c := client.NewFromProvider(p)
 
-	if scope == "user" {
-		bal, err := c.GetUserBalance()
-		if err != nil {
-			return fmt.Sprintf("User Balance (%s): error — %v", label, err)
-		}
-		if !bal.Success {
-			return fmt.Sprintf("User Balance (%s): API error — %s", label, bal.Message)
-		}
-		return fmt.Sprintf("User Balance (%s):\n  Remain Balance: $%.4f\n  Remain Credits: %.4f\n  Used Balance: $%.4f\n  Used Credits: %.4f",
-			label, bal.RemainBalance, bal.RemainCredits, bal.UsedBalance, bal.UsedCredits)
+	if sections, ok := providerSections(c, p, label); ok {
+		return renderSections(sections, scope)
 	}
 
-	bal, err := c.GetTokenBalance()
-	if err != nil {
-		if strings.Contains(err.Error(), "404") {
-			return fmt.Sprintf("Token Balance (%s): not available\n  Check your balance on the provider's web console.", label)
-		}
-		return fmt.Sprintf("Token Balance (%s): error — %v", label, err)
+	// Generic probe for providers without a dedicated balance API: the
+	// APIMart-style endpoints (key quota by default, account when requested).
+	if scope == "user" {
+		return apimartUserBalance(c, label)
 	}
-	if !bal.Success {
-		return fmt.Sprintf("Token Balance (%s): API error — %s", label, bal.Message)
-	}
-	msg := fmt.Sprintf("Token Balance (%s):\n", label)
-	if bal.UnlimitedQuota {
-		msg += "  Status: Unlimited Quota (no limit)\n"
-	} else {
-		msg += fmt.Sprintf("  Remain Balance: $%.4f\n  Remain Credits: %.4f\n", bal.RemainBalance, bal.RemainCredits)
-	}
-	msg += fmt.Sprintf("  Used Balance: $%.4f\n  Used Credits: %.4f", bal.UsedBalance, bal.UsedCredits)
-	return msg
+	return apimartTokenBalance(c, label)
 }
 
 // GetText queries balance for all configured providers.
@@ -72,7 +55,7 @@ func GetText(d Deps, scope string) (string, error) {
 	providers := collectProviders(d)
 	var results []string
 	for _, p := range providers {
-		results = append(results, queryOne(p, scope))
+		results = append(results, Query(p, scope))
 	}
 	if len(results) == 0 {
 		if err := options.RequireAPIKey("balance", resolveGlobal(d), d.Providers); err != nil {
@@ -145,20 +128,36 @@ func NewCommand(deps func() Deps) *cobra.Command {
 		SilenceUsage: true,
 		Long: `Query balance information.
 
+Supported providers with a balance API: APIMart (and compatible relays),
+OpenRouter, DeepSeek, and Moonshot (Kimi). Other providers have no public
+balance API — check their web console.
+
+By default every balance endpoint a provider exposes is queried and shown.
+Providers with more than one: APIMart (key quota + account balance) and
+OpenRouter (key usage + account credits; the latter needs a management key).
+
 Accepts --provider flag to query a specific named provider's balance.
 Without --provider, queries every configured provider that has an API key.
 
-Subcommands:
-  balance token   - Query the current API key (token) balance (default)
-  balance user    - Query the entire user account balance
-
-If no subcommand is given, defaults to "token".
+Subcommands (narrow the output to one scope):
+  balance token   - Only the API key (token) scope
+  balance user    - Only the account (user) scope
 
 Examples:
   aigc-cli balance
-  aigc-cli balance --provider siliconflow
+  aigc-cli balance --provider openrouter
   aigc-cli balance token
   aigc-cli balance user`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return printBalance(deps(), "all")
+		},
+	}
+
+	balanceTokenCmd := &cobra.Command{
+		Use:          "token",
+		Short:        "Query the API key (token) scope only",
+		SilenceUsage: true,
+		Example:      `  aigc-cli balance token`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return printBalance(deps(), "token")
 		},
@@ -166,15 +165,15 @@ Examples:
 
 	balanceUserCmd := &cobra.Command{
 		Use:          "user",
-		Short:        "Query user account balance",
+		Short:        "Query the account (user) scope only",
 		SilenceUsage: true,
 		Example: `  aigc-cli balance user
-  aigc-cli balance user --provider siliconflow`,
+  aigc-cli balance user --provider apimart`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return printBalance(deps(), "user")
 		},
 	}
-	balanceCmd.AddCommand(balanceUserCmd)
+	balanceCmd.AddCommand(balanceTokenCmd, balanceUserCmd)
 	return balanceCmd
 }
 

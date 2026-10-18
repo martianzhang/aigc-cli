@@ -261,6 +261,54 @@ type UserBalanceResponse struct {
 	UsedCredits   float64 `json:"used_credits"`
 }
 
+// OpenRouterCredits is the response from GET /api/v1/credits. Account-level:
+// remaining credits = TotalCredits - TotalUsage. Requires a management key.
+type OpenRouterCredits struct {
+	Data struct {
+		TotalCredits float64 `json:"total_credits"`
+		TotalUsage   float64 `json:"total_usage"`
+	} `json:"data"`
+}
+
+// OpenRouterKeyInfo is the response from GET /api/v1/key. Limit and
+// LimitRemaining are nil when the key has no spending cap.
+type OpenRouterKeyInfo struct {
+	Data struct {
+		Label          string   `json:"label"`
+		Limit          *float64 `json:"limit"`
+		LimitRemaining *float64 `json:"limit_remaining"`
+		Usage          float64  `json:"usage"`
+		IsFreeTier     bool     `json:"is_free_tier"`
+	} `json:"data"`
+}
+
+// DeepSeekBalance is the response from GET /user/balance. Amounts are decimal
+// strings, one entry per currency (CNY, USD).
+type DeepSeekBalance struct {
+	IsAvailable  bool                  `json:"is_available"`
+	BalanceInfos []DeepSeekBalanceItem `json:"balance_infos"`
+}
+
+// DeepSeekBalanceItem is one currency entry of DeepSeekBalance.
+type DeepSeekBalanceItem struct {
+	Currency        string `json:"currency"`
+	TotalBalance    string `json:"total_balance"`
+	GrantedBalance  string `json:"granted_balance"`
+	ToppedUpBalance string `json:"topped_up_balance"`
+}
+
+// MoonshotBalance is the response from GET /v1/users/me/balance. Amounts are in
+// CNY.
+type MoonshotBalance struct {
+	Code   int  `json:"code"`
+	Status bool `json:"status"`
+	Data   struct {
+		AvailableBalance float64 `json:"available_balance"`
+		VoucherBalance   float64 `json:"voucher_balance"`
+		CashBalance      float64 `json:"cash_balance"`
+	} `json:"data"`
+}
+
 // UploadResponse is the response from POST /v1/uploads/images.
 type UploadResponse struct {
 	URL         string `json:"url"`
