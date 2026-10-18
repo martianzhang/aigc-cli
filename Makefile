@@ -23,7 +23,7 @@ build: fmt ## Build the binary
 	$(GO) build $(LDFLAGS) -o $(OUTPUT) .
 
 install: fmt ## Install into $GOPATH/bin
-	$(GO) install ./...
+	$(GO) install $(LDFLAGS) ./...
 
 ideas: ## Ensure ideas.json exists (script skips if already up-to-date)
 	python scripts/convert_ideas.py || python3 scripts/convert_ideas.py
