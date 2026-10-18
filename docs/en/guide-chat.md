@@ -207,7 +207,7 @@ mcp:
   > Note: aigc-cli's own MCP server exposes domain capabilities only — **never the generic local primitives `read`/`write`/`bash`**. Name clashes can only come from same-named web tools or from a third-party server.
 - The merged toolset is still subject to the top-level `tools_enable`/`tools_disable` and `defaults.chat.tools`/`disable_tools`.
 - A server that fails to connect (missing command, init timeout, …) is **skipped** with a stderr notice; other servers and the chat keep working.
-- Connections open at startup and close on exit; `/tools` lists every tool, including MCP-provided ones.
+- Connections open at startup and close on exit; `/tools` lists every tool, including MCP-provided ones. The list shows only each tool's **first line** — MCP descriptions run 13–24 lines (including an `Examples:` block), and inlining them wholesale broke the alignment. Use `/tools <name>` for the full text.
 - Image/audio tool results are surfaced to the model as **local file paths** (no inlined media); generated files are already on disk, so the model reports their locations.
 
 ### On-demand tool loading (optional)

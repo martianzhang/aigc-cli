@@ -66,6 +66,7 @@ func (m *chatModel) showHelp() {
   /copy                Copy last assistant response to clipboard
   /help, /?            Show this help
   /tools               List available tools
+  /tools <name>        Show a tool's full description and examples
   /<tool> <args>       Call a tool directly (e.g. /generate_image {"prompt":"a cat"})
   /preview <file>      Preview an image/video with system viewer
   @path                Attach a file: text is inlined, images are sent as media
@@ -80,25 +81,74 @@ func (m *chatModel) showHelp() {
 	m.refreshViewport()
 }
 
-func (m *chatModel) showTools() {
+func (m *chatModel) showTools(name string) {
 	if len(m.agentTools) == 0 {
 		m.messages = append(m.messages, message{role: "system", content: "No tools available."})
 		m.refreshViewport()
 		return
 	}
+
+	if name != "" {
+		m.showToolDetail(strings.TrimPrefix(name, "/"))
+		return
+	}
+
 	var b strings.Builder
 	b.WriteString("Available tools:\n")
 	for _, t := range m.agentTools {
-		fmt.Fprintf(&b, "  /%s", t.Function.Name)
-		if desc := t.Function.Description; desc != "" {
-			b.WriteString(" — ")
-			b.WriteString(desc)
-		}
-		b.WriteByte('\n')
+		fmt.Fprintf(&b, "  /%-20s  %s\n", t.Function.Name, collapsedSummary(t.Function.Description, 90))
 	}
 	b.WriteString("\nUsage: /<tool_name> <json_args>")
+	b.WriteString("\nFull description: /tools <tool_name>")
 	m.messages = append(m.messages, message{role: "system", content: b.String()})
 	m.refreshViewport()
+}
+
+// showToolDetail prints one tool's complete description.
+func (m *chatModel) showToolDetail(name string) {
+	for _, t := range m.agentTools {
+		if t.Function.Name != name {
+			continue
+		}
+		desc := strings.TrimSpace(t.Function.Description)
+		if desc == "" {
+			desc = "(no description)"
+		}
+		m.messages = append(m.messages, message{role: "system", content: "/" + name + "\n\n" + desc})
+		m.refreshViewport()
+		return
+	}
+	m.messages = append(m.messages, message{
+		role:    "system",
+		content: fmt.Sprintf("Unknown tool %q. Run /tools for the list.", name),
+	})
+	m.refreshViewport()
+}
+
+// collapsedSummary reduces a tool description to a single line for the list
+// view: the first non-empty line, inner whitespace collapsed, truncated to
+// maxRunes.
+//
+// Tool descriptions are rich multi-line schema text — several MCP tools ship
+// 13–24 lines with their own indentation and an Examples block. Inlining that
+// after the tool name left every continuation line at column 0, so the list
+// shows a one-line summary and /tools <name> prints the full text.
+func collapsedSummary(desc string, maxRunes int) string {
+	line := ""
+	for _, ln := range strings.Split(desc, "\n") {
+		if strings.TrimSpace(ln) != "" {
+			line = ln
+			break
+		}
+	}
+	line = strings.Join(strings.Fields(line), " ")
+	if line == "" {
+		return "(no description)"
+	}
+	if runes := []rune(line); len(runes) > maxRunes {
+		return string(runes[:maxRunes]) + "…"
+	}
+	return line
 }
 
 // handleCopy copies the last assistant response to the system clipboard.

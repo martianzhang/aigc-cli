@@ -124,7 +124,12 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case input == "/tools":
-		m.showTools()
+		m.showTools("")
+		m.input.Reset()
+		return m, nil
+
+	case strings.HasPrefix(input, "/tools "):
+		m.showTools(strings.TrimSpace(strings.TrimPrefix(input, "/tools")))
 		m.input.Reset()
 		return m, nil
 
