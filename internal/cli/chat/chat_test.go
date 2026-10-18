@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -232,6 +233,87 @@ func TestToolRuntime_includesMCPByDefault(t *testing.T) {
 	names := toolNames(rt.RequestTools())
 	if !names["read"] {
 		t.Error("read primitive missing")
+	}
+}
+
+// An MCP server exposing the same names as the CLI's own primitives (e.g.
+// `aigc-cli mcp`, which now serves search/fetch/web_search/web_fetch) must not
+// produce duplicate function names in the request, and must not shadow the
+// built-in implementation.
+func TestToolRuntime_dedupPrefersBuiltin(t *testing.T) {
+	prev := options.Shared.Cfg
+	options.Shared.Cfg = nil
+	t.Cleanup(func() { options.Shared.Cfg = prev })
+
+	rt := &toolRuntime{
+		base: []types.ToolDefinition{
+			{Type: "function", Function: types.ToolFunction{Name: "search", Description: "builtin"}},
+		},
+		mcpTools: []types.ToolDefinition{
+			{Type: "function", Function: types.ToolFunction{Name: "search", Description: "mcp copy"}},
+			{Type: "function", Function: types.ToolFunction{Name: "unique_mcp", Description: "keep me"}},
+		},
+		activated: map[string]bool{},
+	}
+
+	var searchCount int
+	var names []string
+	for _, tool := range rt.RequestTools() {
+		names = append(names, tool.Function.Name)
+		if tool.Function.Name == "search" {
+			searchCount++
+			if tool.Function.Description != "builtin" {
+				t.Errorf("search description = %q, want the built-in one", tool.Function.Description)
+			}
+		}
+	}
+	if searchCount != 1 {
+		t.Errorf("search appears %d times in %v, want exactly 1", searchCount, names)
+	}
+	if !toolNames(rt.RequestTools())["unique_mcp"] {
+		t.Errorf("non-colliding MCP tool was dropped: %v", names)
+	}
+}
+
+// On-demand mode must not double-register the meta-tools or re-add a shadowed
+// MCP tool once activated.
+func TestToolRuntime_dedupOnDemand(t *testing.T) {
+	prev := options.Shared.Cfg
+	options.Shared.Cfg = nil
+	t.Cleanup(func() { options.Shared.Cfg = prev })
+
+	rt := &toolRuntime{
+		base: []types.ToolDefinition{
+			{Type: "function", Function: types.ToolFunction{Name: "fetch", Description: "builtin"}},
+		},
+		mcpTools: []types.ToolDefinition{
+			{Type: "function", Function: types.ToolFunction{Name: "fetch", Description: "mcp copy"}},
+		},
+		onDemand:  true,
+		activated: map[string]bool{"fetch": true},
+	}
+
+	counts := map[string]int{}
+	for _, tool := range rt.RequestTools() {
+		counts[tool.Function.Name]++
+	}
+	for name, n := range counts {
+		if n != 1 {
+			t.Errorf("tool %q appears %d times, want 1 (all: %v)", name, n, counts)
+		}
+	}
+	if counts[searchToolsName] != 1 || counts[loadToolsName] != 1 {
+		t.Errorf("meta-tools not exposed exactly once: %v", counts)
+	}
+}
+
+// The four web tool names must stay registered as built-in primitives: that is
+// what makes executeToolCallMCP skip the MCP branch for them.
+func TestWebToolNamesArePrimitives(t *testing.T) {
+	for _, name := range []string{"search", "fetch", "web_search", "web_fetch"} {
+		if !agent.IsPrimitive(name) {
+			t.Errorf("%q must remain a built-in primitive, otherwise an MCP tool of the same name would shadow it", name)
+		}
 	}
 }
 

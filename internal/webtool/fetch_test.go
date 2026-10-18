@@ -1,4 +1,4 @@
-package chat
+package webtool
 
 import (
 	"io"
@@ -37,28 +37,28 @@ func TestIsHTMLBody(t *testing.T) {
 func TestTakeChars(t *testing.T) {
 	t.Run("slices by rune and clamps", func(t *testing.T) {
 		// Each rune is multi-byte; slicing by rune must never split one.
-		chunk, total, start, end, remaining := takeChars("αβγδε", 1, 2)
+		chunk, total, start, end, remaining := TakeChars("αβγδε", 1, 2)
 		if chunk != "βγ" || total != 5 || start != 1 || end != 3 || remaining != 2 {
 			t.Errorf("got chunk=%q total=%d start=%d end=%d remaining=%d", chunk, total, start, end, remaining)
 		}
 	})
 
 	t.Run("offset past end clamps", func(t *testing.T) {
-		chunk, total, start, end, remaining := takeChars("abc", 10, 5)
+		chunk, total, start, end, remaining := TakeChars("abc", 10, 5)
 		if chunk != "" || total != 3 || start != 3 || end != 3 || remaining != 0 {
 			t.Errorf("got chunk=%q total=%d start=%d end=%d remaining=%d", chunk, total, start, end, remaining)
 		}
 	})
 
 	t.Run("negative offset clamps to zero", func(t *testing.T) {
-		chunk, _, start, _, _ := takeChars("abc", -5, 2)
+		chunk, _, start, _, _ := TakeChars("abc", -5, 2)
 		if chunk != "ab" || start != 0 {
 			t.Errorf("got chunk=%q start=%d, want ab/0", chunk, start)
 		}
 	})
 }
 
-func TestExecuteBuiltinFetch_convertsHTMLToMarkdown(t *testing.T) {
+func TestFetch_convertsHTMLToMarkdown(t *testing.T) {
 	allowLoopbackFetch(t)
 	const page = `<!doctype html><html><head><title>Page Title</title></head><body>` +
 		`<nav>NAVMARKER</nav><article><h1>Heading</h1>` +
@@ -72,7 +72,7 @@ func TestExecuteBuiltinFetch_convertsHTMLToMarkdown(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got := executeBuiltinFetch(`{"url":"` + srv.URL + `"}`)
+	got := Fetch(`{"url":"` + srv.URL + `"}`)
 	if !strings.Contains(got, "(markdown)") {
 		t.Errorf("response not marked markdown:\n%s", got)
 	}
@@ -84,7 +84,7 @@ func TestExecuteBuiltinFetch_convertsHTMLToMarkdown(t *testing.T) {
 	}
 }
 
-func TestExecuteBuiltinFetch_jsonPassthrough(t *testing.T) {
+func TestFetch_jsonPassthrough(t *testing.T) {
 	allowLoopbackFetch(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -92,7 +92,7 @@ func TestExecuteBuiltinFetch_jsonPassthrough(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got := executeBuiltinFetch(`{"url":"` + srv.URL + `"}`)
+	got := Fetch(`{"url":"` + srv.URL + `"}`)
 	if strings.Contains(got, "(markdown)") {
 		t.Errorf("JSON should not be converted to markdown:\n%s", got)
 	}
@@ -101,7 +101,7 @@ func TestExecuteBuiltinFetch_jsonPassthrough(t *testing.T) {
 	}
 }
 
-func TestExecuteBuiltinFetch_pagination(t *testing.T) {
+func TestFetch_pagination(t *testing.T) {
 	allowLoopbackFetch(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -109,7 +109,7 @@ func TestExecuteBuiltinFetch_pagination(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got := executeBuiltinFetch(`{"url":"` + srv.URL + `","offset":10,"max_length":20}`)
+	got := Fetch(`{"url":"` + srv.URL + `","offset":10,"max_length":20}`)
 	if !strings.Contains(got, "Showing chars 10-30 (70 remaining)") {
 		t.Errorf("pagination window wrong:\n%s", got)
 	}
@@ -118,7 +118,7 @@ func TestExecuteBuiltinFetch_pagination(t *testing.T) {
 	}
 }
 
-func TestExecuteBuiltinFetch_offsetPastEnd(t *testing.T) {
+func TestFetch_offsetPastEnd(t *testing.T) {
 	allowLoopbackFetch(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -126,9 +126,21 @@ func TestExecuteBuiltinFetch_offsetPastEnd(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got := executeBuiltinFetch(`{"url":"` + srv.URL + `","offset":1000}`)
+	got := Fetch(`{"url":"` + srv.URL + `","offset":1000}`)
 	if !strings.Contains(got, "past the end") {
 		t.Errorf("expected past-the-end message, got:\n%s", got)
+	}
+}
+
+func TestFetch_invalidArgs(t *testing.T) {
+	if got := Fetch("{bad json}"); !strings.Contains(got, "invalid arguments") {
+		t.Errorf("Fetch(bad json) = %q", got)
+	}
+	if got := Fetch(`{}`); !strings.Contains(got, "url is required") {
+		t.Errorf("Fetch(no url) = %q", got)
+	}
+	if got := Fetch(`{"url":"https://x.example","offset":-1}`); !strings.Contains(got, "offset must be non-negative") {
+		t.Errorf("Fetch(negative offset) = %q", got)
 	}
 }
 
@@ -141,19 +153,19 @@ func allowLoopbackFetch(t *testing.T) {
 	t.Cleanup(func() { fetchURLGuard = prev })
 }
 
-// TestExecuteBuiltinFetch_rejectsPrivateURL verifies the SSRF guard runs before any
-// request is issued: no server is started, so a regression would hang or error
-// differently rather than reaching these targets.
-func TestExecuteBuiltinFetch_rejectsPrivateURL(t *testing.T) {
+// TestFetch_rejectsPrivateURL verifies the SSRF guard runs before any request is
+// issued: no server is started, so a regression would hang or error differently
+// rather than reaching these targets.
+func TestFetch_rejectsPrivateURL(t *testing.T) {
 	for _, u := range []string{
 		"http://127.0.0.1/",
 		"http://169.254.169.254/latest/meta-data/",
 		"http://10.0.0.1/",
 		"file:///etc/passwd",
 	} {
-		got := executeBuiltinFetch(`{"url":"` + u + `"}`)
+		got := Fetch(`{"url":"` + u + `"}`)
 		if !strings.HasPrefix(got, "Error:") {
-			t.Errorf("executeBuiltinFetch(%s) = %q, want an Error:", u, got)
+			t.Errorf("Fetch(%s) = %q, want an Error:", u, got)
 		}
 	}
 }

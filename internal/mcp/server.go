@@ -38,6 +38,14 @@ type Config struct {
 	// or "enabled" (only the tools that will actually be exposed).
 	ListTools   string
 	ListPrompts bool
+	// SearchProvider is the global default vendor (top-level `search_provider`)
+	// for the MCP `web_search`/`web_fetch` tools.
+	SearchProvider string
+	// KBSearchProvider is the knowledge-base vendor
+	// (defaults.knowledgebase.search_provider) used by the MCP `kb_search` tool.
+	KBSearchProvider string
+	// WebSearchProviders is the web_search.* provider registry.
+	WebSearchProviders map[string]*types.WebSearchProvider
 	// CmdProviders holds pre-resolved providers for each command,
 	// set by cmd/mcp.go at startup.
 	CmdProviders map[string]*provider.EffectiveProvider
@@ -170,14 +178,20 @@ var toolRegistry = []toolInfo{
 	{"remove_background", "Remove image background (offline)", func(desc string) mcp.Tool { return newRemoveBackgroundTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeBackgroundHandler(cfg) }},
 	{"convert_depth", "Convert image/video to grayscale depth map (offline)", func(desc string) mcp.Tool { return newConvertDepthTool() }, func(cfg *Config) server.ToolHandlerFunc { return convertDepthHandler(cfg) }},
 	{"upscale", "Upscale image resolution 2x/4x (offline)", func(desc string) mcp.Tool { return newUpscaleTool() }, func(cfg *Config) server.ToolHandlerFunc { return upscaleHandler(cfg) }},
-	{"detect_image", "Detect AIGC/watermark in images (offline)", func(desc string) mcp.Tool { return newDetectTool() }, func(cfg *Config) server.ToolHandlerFunc { return detectHandler() }},
-	{"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler(cfg) }},
+	{"detect_image", "Detect AIGC/watermark in images (offline)", func(desc string) mcp.Tool { return newDetectTool() }, func(cfg *Config) server.ToolHandlerFunc { return detectHandler() }}, {"remove_watermark", "Remove visible AI watermark", func(desc string) mcp.Tool { return newRemoveWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return removeWatermarkHandler(cfg) }},
 	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler(cfg) }},
 	{"crop_watermark", "Crop image to remove watermarks (no learning required)", func(desc string) mcp.Tool { return newCropWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return cropWatermarkHandler(cfg) }},
 	{"recognize_text", "Recognize text in images/PDF using offline OCR", func(desc string) mcp.Tool { return newRecognizeTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return recognizeTextHandler() }},
+	// Web tools. Naming matches the chat primitives: search/fetch are built-in
+	// and free; web_search/web_fetch go through a third-party provider and may
+	// bill per request.
+	{"search", "Search the web with the built-in free engine (DuckDuckGo)", func(desc string) mcp.Tool { return newSearchTool() }, func(cfg *Config) server.ToolHandlerFunc { return searchHandler() }},
+	{"fetch", "Fetch a URL with the built-in free fetcher (HTML→markdown)", func(desc string) mcp.Tool { return newFetchTool() }, func(cfg *Config) server.ToolHandlerFunc { return fetchHandler() }},
+	{"web_search", "Search the web via the configured third-party provider (may bill)", func(desc string) mcp.Tool { return newWebSearchTool() }, func(cfg *Config) server.ToolHandlerFunc { return webSearchHandler(cfg) }},
+	{"web_fetch", "Fetch a URL via the configured third-party fetch API (may bill)", func(desc string) mcp.Tool { return newWebFetchTool() }, func(cfg *Config) server.ToolHandlerFunc { return webFetchHandler(cfg) }},
 	// Knowledge base tools
 	{"kb_find", "Search the local knowledge base", func(desc string) mcp.Tool { return newKbFindTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbFindHandler() }},
-	{"kb_search", "Search the web and save to the knowledge base", func(desc string) mcp.Tool { return newKbSearchTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbSearchHandler() }},
+	{"kb_search", "Search the web and save to the knowledge base", func(desc string) mcp.Tool { return newKbSearchTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbSearchHandler(cfg) }},
 	{"kb_add", "Add a local file to the knowledge base", func(desc string) mcp.Tool { return newKbAddTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbAddHandler() }},
 	{"kb_fetch", "Fetch a URL and save to the knowledge base", func(desc string) mcp.Tool { return newKbFetchTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbFetchHandler() }},
 	{"kb_list", "List all documents in the knowledge base", func(desc string) mcp.Tool { return newKbListTool() }, func(cfg *Config) server.ToolHandlerFunc { return kbListHandler() }},

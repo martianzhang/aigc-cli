@@ -68,19 +68,25 @@ type Config struct {
 	// — Named provider registry (user-defined, referenced by defaults.{cmd}.provider) —
 	Providers map[string]*NamedProvider `mapstructure:"providers" yaml:"providers,omitempty"`
 
-	Verbose      bool                          `mapstructure:"verbose" yaml:"verbose"`
-	ZDR          bool                          `mapstructure:"zdr" yaml:"zdr"`
-	SavePrompt   bool                          `mapstructure:"save_prompt" yaml:"save_prompt"`
-	Mode         string                        `mapstructure:"mode" yaml:"mode,omitempty"`
-	OutputDir    string                        `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
-	Timeout      *int                          `mapstructure:"timeout" yaml:"timeout,omitempty"`
-	Defaults     *ConfigDefaults               `mapstructure:"defaults" yaml:"defaults,omitempty"`
-	Detect       *DetectConfig                 `mapstructure:"detect" yaml:"detect,omitempty"`
-	Background   *BackgroundConfig             `mapstructure:"background" yaml:"background,omitempty"`
-	WebSearch    map[string]*WebSearchProvider `mapstructure:"web_search" yaml:"web_search,omitempty"`
-	ToolsEnable  []string                      `mapstructure:"tools_enable" yaml:"tools_enable,omitempty"`
-	ToolsDisable []string                      `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
-	MCP          *MCPConfig                    `mapstructure:"mcp" yaml:"mcp,omitempty"`
+	Verbose    bool                          `mapstructure:"verbose" yaml:"verbose"`
+	ZDR        bool                          `mapstructure:"zdr" yaml:"zdr"`
+	SavePrompt bool                          `mapstructure:"save_prompt" yaml:"save_prompt"`
+	Mode       string                        `mapstructure:"mode" yaml:"mode,omitempty"`
+	OutputDir  string                        `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
+	Timeout    *int                          `mapstructure:"timeout" yaml:"timeout,omitempty"`
+	Defaults   *ConfigDefaults               `mapstructure:"defaults" yaml:"defaults,omitempty"`
+	Detect     *DetectConfig                 `mapstructure:"detect" yaml:"detect,omitempty"`
+	Background *BackgroundConfig             `mapstructure:"background" yaml:"background,omitempty"`
+	WebSearch  map[string]*WebSearchProvider `mapstructure:"web_search" yaml:"web_search,omitempty"`
+	// SearchProvider is the global default vendor for the third-party search
+	// tools (search/fetch vocabulary: `web_search`/`web_fetch`). Accepted values
+	// mirror ResolveStrategy: "auto" | "free" | "quality" | "<vendor name>".
+	// Per-scope keys (defaults.chat.search_provider,
+	// defaults.knowledgebase.search_provider) override it; empty = auto.
+	SearchProvider string     `mapstructure:"search_provider" yaml:"search_provider,omitempty"`
+	ToolsEnable    []string   `mapstructure:"tools_enable" yaml:"tools_enable,omitempty"`
+	ToolsDisable   []string   `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
+	MCP            *MCPConfig `mapstructure:"mcp" yaml:"mcp,omitempty"`
 }
 
 // MCPConfig holds external MCP (Model Context Protocol) servers that the chat

@@ -72,6 +72,12 @@ func WebSearchConfig() map[string]*types.WebSearchProvider {
 	return Field(Shared.Cfg, func(c *types.Config) map[string]*types.WebSearchProvider { return c.WebSearch })
 }
 
+// GlobalSearchProvider returns the top-level search_provider default (the
+// global fallback vendor for the third-party search tools), or "".
+func GlobalSearchProvider() string {
+	return Field(Shared.Cfg, func(c *types.Config) string { return c.SearchProvider })
+}
+
 // MCPConfig returns the top-level mcp section, or nil.
 func MCPConfig() *types.MCPConfig {
 	return Field(Shared.Cfg, func(c *types.Config) *types.MCPConfig { return c.MCP })

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -38,25 +39,52 @@ func newToolRuntime(cfg *types.ChatDefaults, mcp *mcpcli.Manager) *toolRuntime {
 }
 
 // RequestTools returns the tool definitions to send for the current turn.
+//
+// Built-in primitives win on name collisions: an MCP server that exposes
+// `search`/`fetch`/`read`/… cannot shadow the CLI's own implementation, and the
+// request never carries two definitions with the same function name (which most
+// providers reject). Collisions are reported on stderr in verbose mode.
 func (rt *toolRuntime) RequestTools() []types.ToolDefinition {
 	if rt == nil {
 		return nil
 	}
 	out := make([]types.ToolDefinition, 0, len(rt.base)+len(rt.mcpTools)+2)
-	out = append(out, rt.base...)
-
-	if !rt.onDemand {
-		return append(out, rt.mcpTools...)
+	seen := make(map[string]bool, len(rt.base)+len(rt.mcpTools)+2)
+	for _, t := range rt.base {
+		out = append(out, t)
+		seen[t.Function.Name] = true
 	}
 
-	// On-demand: expose the meta-tools plus only the already-activated MCP tools.
-	if len(rt.mcpTools) > 0 {
+	var shadowed []string
+	appendMCP := func(t types.ToolDefinition) {
+		if seen[t.Function.Name] {
+			shadowed = append(shadowed, t.Function.Name)
+			return
+		}
+		seen[t.Function.Name] = true
+		out = append(out, t)
+	}
+
+	if !rt.onDemand {
+		for _, t := range rt.mcpTools {
+			appendMCP(t)
+		}
+	} else if len(rt.mcpTools) > 0 {
+		// On-demand: expose the meta-tools plus only the already-activated MCP tools.
 		out = append(out, searchToolsDef, loadToolsDef)
+		seen[searchToolsName] = true
+		seen[loadToolsName] = true
 		for _, t := range rt.mcpTools {
 			if rt.activated[t.Function.Name] {
-				out = append(out, t)
+				appendMCP(t)
 			}
 		}
+	}
+
+	if len(shadowed) > 0 && options.Shared.Verbose {
+		fmt.Fprintf(options.Stderr(),
+			"[tools] %d MCP tool(s) shadowed by built-in primitives and not sent: %s\r\n",
+			len(shadowed), strings.Join(shadowed, ", "))
 	}
 	return out
 }

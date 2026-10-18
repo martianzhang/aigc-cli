@@ -50,8 +50,12 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `add_watermark` | Add a visible AI watermark (test fixtures only; built-in gemini alpha map, unknown names rendered as text) | Free (local) |
 | `crop_watermark` | Crop to remove watermarks (no learning required; `target` = auto / n% / WxH) | Free (local) |
 | `recognize_text` | Offline OCR for images/PDFs (requires `aigc-cli ocr init`; markdown or json output) | Free (local) |
+| `search` | Web search via the built-in free engine (DuckDuckGo scrape); returns titles + URLs. Read a result with `fetch`. No provider API, never billed | Free |
+| `fetch` | Fetch a URL with the built-in free fetcher (HTML→main-content markdown; non-HTML as-is), SSRF-guarded, paginated by character offset | Free |
+| `web_search` | Web search via the configured third-party provider (top-level `search_provider`); **may bill per request**. Errors out when no provider is configured instead of silently using the built-in engine | Vendor-dependent |
+| `web_fetch` | Fetch a URL via the same third-party vendor's fetch API, returned as provider-formatted Markdown; **may bill per request**; needs a fetch-capable vendor (e.g. deepseek) | Vendor-dependent |
 | `kb_find` | Search the local knowledge base (keyword + semantic) | Free (local) |
-| `kb_search` | Web search (`provider` selects the search engine: duckduckgo/firecrawl/brave/doubao/deepseek) and save results to the KB | Free (web) |
+| `kb_search` | Web search then save the results to the KB (engine selected by `defaults.knowledgebase.search_provider`, with the free DuckDuckGo fallback) | Free (web) |
 | `kb_add` | Add a local file to the knowledge base (.md/.txt/.go/.py/.json/.yaml/.html) | Free (local) |
 | `kb_fetch` | Fetch a URL, convert it to markdown, and save it to the KB | Free (web) |
 | `kb_list` | List all documents in the knowledge base | Free (local) |
@@ -59,7 +63,40 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 
 > Every tool declares MCP annotations (`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`): hosts can skip confirmation for read-only tools, and no tool in this server is destructive.
 >
-> Tools declared read-only (`readOnlyHint=true`, hosts may skip confirmation): `list_models`, `get_model_pricing`, `get_balance`, `get_task`, `get_config`, `caption_image`, `search_ideas`, `detect_image`, `recognize_text`, `kb_find`, `kb_list`, `kb_show`.
+> Tools declared read-only (`readOnlyHint=true`, hosts may skip confirmation): `list_models`, `get_model_pricing`, `get_balance`, `get_task`, `get_config`, `caption_image`, `search_ideas`, `detect_image`, `recognize_text`, `search`, `fetch`, `web_search`, `web_fetch`, `kb_find`, `kb_list`, `kb_show`.
+
+### Web access: naming rule and vendor selection
+
+The web tools follow one **globally consistent** naming rule, identical in chat and MCP:
+
+| Tool | Meaning | Billing |
+|---|---|---|
+| `search` / `fetch` | Built-in implementation (DuckDuckGo scrape / local HTTP + readability) | Free, no API key |
+| `web_search` / `web_fetch` | Third-party provider API | Billed by the vendor |
+
+Vendor selection has two scopes:
+
+| Entry point | Selector |
+|---|---|
+| MCP `web_search` / `web_fetch` | top-level `search_provider` |
+| chat `web_search` / `web_fetch` | `--search-provider` > `defaults.chat.search_provider` > top-level `search_provider` |
+| MCP `kb_search` / `kb search` | `defaults.knowledgebase.search_provider` (with the free DuckDuckGo fallback) |
+
+```yaml
+search_provider: deepseek      # global default; each scope below may override it
+web_search:
+  deepseek:
+    type: deepseek             # supports both search and fetch
+  brave:
+    type: brave                # search-only, cannot back web_fetch
+defaults:
+  chat:
+    search_provider: brave     # affects chat only
+```
+
+`search_provider` accepts `auto` (default) | `free` | `quality` | a vendor name (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`).
+
+> **No silent fallback**: with no third-party provider configured, `web_search`/`web_fetch` **fail with an explicit error** pointing at the built-in `search`/`fetch` tools — so nothing silently bills, and nothing silently degrades.
 
 > `generate_image` / `generate_video` / `generate_music` share the CLI provider routing, so every supported provider (OpenRouter, APIMart, Agnes, OpenLux, ModelScope, Gemini, ZeekAI, Alibaba Cloud Bailian, …) works without extra configuration.
 >
@@ -100,6 +137,16 @@ defaults:
 ```
 
 **Security**: MCP tools never accept `base_url` or `api_key` arguments, and no tool can write config (there is no `set_config`). Agents can only reference provider names you configured and trust in `config.yaml`; they cannot point requests at an arbitrary host or inject credentials.
+
+### Behaviour changes (since v4.2.1)
+
+| Change | Detail | Action needed |
+|---|---|---|
+| Four new web tools | Tool count 30 → **34**: `search` / `fetch` / `web_search` / `web_fetch` | If you use a `tools_enable` allowlist, add the tools you want to expose |
+| `kb_search` no longer hardcodes DuckDuckGo | It now uses the search router, so `firecrawl`/`brave`/`doubao`/`deepseek` take effect over MCP (the free DuckDuckGo fallback is kept); results are capped at 5 | None — this fixes configured providers being silently ignored |
+| Built-in primitives win over same-named MCP tools | In chat, when an MCP server also exposes `search`/`fetch`/`read`/…, **the CLI's own implementation wins**; the colliding MCP tool is neither sent nor executed | If you rely on an MCP server overriding a built-in `read`/`bash`, rename that MCP tool |
+
+> The third row fixes two hazards: duplicate function names in one request (most providers reject it) and an MCP server silently replacing sensitive primitives like `read`/`bash`. Chat now de-duplicates by name with built-ins winning, and `-v` logs which MCP tools were shadowed.
 
 ### What the `model` argument actually does
 

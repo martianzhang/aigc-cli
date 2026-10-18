@@ -200,7 +200,7 @@ defaults:
     context_size: 32768 # 输入上下文窗口大小（token），0=使用模型默认值。超过 80% 自动压缩
     # tools_on_demand: true # MCP 工具按需加载（search_tools/load_tools），降低上下文占用
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$'] # read 原语拒绝正则（匹配路径或文件名，默认空=全部放行）
-    # search_provider: duckduckgo # web_search/web_fetch 原语使用的第三方厂商（duckduckgo/firecrawl/brave/doubao/deepseek，或 auto/free/quality；默认 auto）
+    # search_provider: duckduckgo # web_search/web_fetch 原语使用的第三方厂商（duckduckgo/firecrawl/brave/doubao/deepseek，或 auto/free/quality；默认 auto，留空则用顶层 search_provider）
   decision:
   # provider: "ollama"        # 命名 provider（ollama / openrouter / ...）；不填则用全局
   # model: "tev1"             # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
@@ -248,8 +248,10 @@ defaults:
   #   semantic_top_k: 200                                # 语义列表参与 RRF 的条数（默认 200；<=0 全部）
 
   # ── 可选：Web 搜索引擎 ──
-  # 声明多个 provider 供 kb search 与 chat 的 web_search/web_fetch 原语使用。
+  # 声明多个 provider 供 kb search 与 chat/MCP 的 web_search/web_fetch 使用。
   # kb search 也可通过 --provider 参数临时切换；chat 用 defaults.chat.search_provider 选择。
+  # 顶层 search_provider 是全局默认（chat 与 MCP 的 web_search/web_fetch 都回落到它）。
+  # search_provider: deepseek   # 可选：auto / free / quality / 厂商名
   # web_search:
   #   duckduckgo:
   #     type: duckduckgo

@@ -209,7 +209,7 @@ defaults:
     context_size: 32768         # Max input context tokens; 0=model default. Auto-compacts at 80%
     # tools_on_demand: true     # Load MCP tools on demand (search_tools/load_tools) to save context
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$']  # read primitive denylist regexes (path or basename; empty = allow all)
-    # search_provider: duckduckgo # vendor for the web_search/web_fetch primitives (duckduckgo/firecrawl/brave/doubao/deepseek, or auto/free/quality; default auto)
+    # search_provider: duckduckgo # vendor for the web_search/web_fetch primitives (duckduckgo/firecrawl/brave/doubao/deepseek, or auto/free/quality; default auto; empty falls back to top-level search_provider)
 
   decision:
     # provider: "ollama"        # named provider (ollama / openrouter / ...); unset uses global
@@ -260,9 +260,12 @@ defaults:
   #   semantic_top_k: 200                                # entries the semantic list contributes to RRF (default 200; <=0 = all)
 
   # ── Optional: Web Search Providers ──
-  # Declare multiple providers for auto-fallback, shared by `kb search` and
-  # chat's web_search/web_fetch primitives.
+  # Declare multiple providers for auto-fallback, shared by `kb search` and the
+  # chat/MCP web_search/web_fetch tools.
   # kb search also supports a --provider flag; chat selects via defaults.chat.search_provider.
+  # Top-level search_provider is the global default: chat's and MCP's
+  # web_search/web_fetch both fall back to it.
+  # search_provider: deepseek   # optional: auto / free / quality / a vendor name
   # web_search:
   #   duckduckgo:
   #     type: duckduckgo

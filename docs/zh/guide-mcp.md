@@ -99,8 +99,12 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `add_watermark` | 添加可见 AI 水印（仅用于构造去水印测试样本；内置 gemini alpha map，未知名称按文字渲染） | ❌ |
 | `crop_watermark` | 裁切去水印（无需学习模板；`target` 支持 auto / n% / WxH） | ❌ |
 | `recognize_text` | 离线 OCR 识别图片/PDF 文字（需先 `aigc-cli ocr init`；输出 markdown 或 json） | ❌ |
+| `search` | 联网搜索：内置免费引擎（DuckDuckGo 抓取），返回标题+URL；用 `fetch` 读全文。不调厂商 API、不计费 | ❌ |
+| `fetch` | 抓 URL 正文：内置免费抓取（HTML→Markdown 主内容提取，非 HTML 原样返回），SSRF 防护，按字符分页 | ❌ |
+| `web_search` | 联网搜索：走配置的第三方厂商（顶层 `search_provider` 选择），**可能按次计费**；未配置厂商时明确报错，不静默回落内置引擎 | 视厂商 |
+| `web_fetch` | 抓 URL 正文：走同一第三方厂商的抓取接口，返回厂商格式化 Markdown，**可能按次计费**；需具备抓取能力的厂商（如 deepseek） | 视厂商 |
 | `kb_find` | 本地知识库关键词 + 语义搜索 | ❌ |
-| `kb_search` | 联网搜索（`provider` 选择搜索引擎 duckduckgo/firecrawl/brave/doubao/deepseek）并把结果入库 | ❌ |
+| `kb_search` | 联网搜索并入库（搜索引擎由 `defaults.knowledgebase.search_provider` 选择，含免费 DuckDuckGo 兜底） | ❌ |
 | `kb_add` | 把本地文件加入知识库（.md/.txt/.go/.py/.json/.yaml/.html） | ❌ |
 | `kb_fetch` | 抓取 URL 正文转 Markdown 后入库 | ❌ |
 | `kb_list` | 列出知识库中的全部文档 | ❌ |
@@ -108,7 +112,40 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 
 > 所有工具都声明了 MCP annotations（`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`）：宿主对只读工具可跳过确认，本服务器的任何工具都不是破坏性的。
 >
-> 声明为只读（`readOnlyHint=true`，宿主可跳过确认）的工具：`list_models`、`get_model_pricing`、`get_balance`、`get_task`、`get_config`、`caption_image`、`search_ideas`、`detect_image`、`recognize_text`、`kb_find`、`kb_list`、`kb_show`。
+> 声明为只读（`readOnlyHint=true`，宿主可跳过确认）的工具：`list_models`、`get_model_pricing`、`get_balance`、`get_task`、`get_config`、`caption_image`、`search_ideas`、`detect_image`、`recognize_text`、`search`、`fetch`、`web_search`、`web_fetch`、`kb_find`、`kb_list`、`kb_show`。
+
+### 联网能力：命名规则与厂商选择
+
+联网工具有一条**全局统一**的命名规则，chat 与 MCP 完全一致：
+
+| 工具 | 语义 | 计费 |
+|---|---|---|
+| `search` / `fetch` | 内置实现（DuckDuckGo 抓取 / 本地 HTTP + readability） | 免费，无需 API Key |
+| `web_search` / `web_fetch` | 第三方厂商 API | 按厂商计费 |
+
+厂商选择分两个 scope：
+
+| 入口 | 选择键 |
+|---|---|
+| MCP `web_search` / `web_fetch` | 顶层 `search_provider` |
+| chat `web_search` / `web_fetch` | `--search-provider` > `defaults.chat.search_provider` > 顶层 `search_provider` |
+| MCP `kb_search` / `kb search` | `defaults.knowledgebase.search_provider`（含免费 DuckDuckGo 兜底） |
+
+```yaml
+search_provider: deepseek      # 全局默认；下方各 scope 可覆盖
+web_search:
+  deepseek:
+    type: deepseek             # 同时具备 search 与 fetch
+  brave:
+    type: brave                # 仅搜索，不能用于 web_fetch
+defaults:
+  chat:
+    search_provider: brave     # 只影响 chat
+```
+
+`search_provider` 取值：`auto`（默认）| `free` | `quality` | 厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`）。
+
+> **不静默降级**：`web_search`/`web_fetch` 在未配置第三方厂商时**明确报错**并提示改用内置 `search`/`fetch`——既不静默花钱，也不静默降级。
 
 > `generate_image` / `generate_video` / `generate_music` 与对应的 CLI 命令共用同一套 Provider 路由，所有已支持的 Provider（OpenRouter、APIMart、Agnes、OpenLux、ModelScope、Gemini、ZeekAI、阿里云百炼等）无需额外配置即可使用。
 >
@@ -149,6 +186,16 @@ defaults:
 ```
 
 **安全性**：MCP 工具**不接受** `base_url` 或 `api_key` 参数，也不提供任何写配置的工具（没有 `set_config`）。Agent 只能引用你在 `config.yaml` 中预先配置并信任的 Provider 名称，无法把请求指向任意地址，也无法注入凭证。
+
+### 行为变更（相对 v4.2.1）
+
+| 变更 | 说明 | 需要做什么 |
+|---|---|---|
+| 新增 4 个联网工具 | 工具数 30 → **34**：`search` / `fetch` / `web_search` / `web_fetch` | 用 `tools_enable` 白名单时需显式加入想开放的工具 |
+| `kb_search` 不再写死 DuckDuckGo | 改用搜索路由，`firecrawl`/`brave`/`doubao`/`deepseek` 现在对 MCP 生效（仍保留免费 DDG 兜底）；结果条数上限 5 | 无需操作；此前配了厂商却不生效的问题已修复 |
+| 内置原语优先于同名 MCP 工具 | 在 chat 中，若 MCP server 也提供 `search`/`fetch`/`read`/… 同名工具，**CLI 自己的实现优先**，同名 MCP 工具不再下发也不再执行 | 若你依赖某个 MCP server 覆盖内置 `read`/`bash` 等，需要给该 MCP 工具改名 |
+
+> 第 3 条是为了修掉两个隐患：同名工具会让请求里出现重复 function（多数厂商直接报错），且 MCP server 能静默替换 `read`/`bash` 这类敏感原语。现在 chat 侧按名去重（内置优先），`-v` 下会打印被屏蔽的 MCP 工具名。
 
 ### `model` 参数的真实行为
 
@@ -256,7 +303,7 @@ aigc-cli mcp --api-key sk-xxx --output ./downloads
 列出 MCP 工具注册表：
 
 ```bash
-# 全部 30 个工具，逐个标注启用状态与原因
+# 全部 34 个工具，逐个标注启用状态与原因
 aigc-cli mcp --list-tools
 aigc-cli mcp --list-tools=all          # 同上，显式写法
 

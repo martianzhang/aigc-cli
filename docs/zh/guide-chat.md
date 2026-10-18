@@ -206,6 +206,8 @@ tools_enable:
 内置的 `search`/`fetch` **无需任何配置、不产生费用**。第三方的 `web_search`/`web_fetch` 由顶层 `web_search.*` 中声明的厂商提供，用 `defaults.chat.search_provider` 选择**厂商**。厂商一般同时提供 Search 与 Fetch，所以两者**共用同一个厂商选择**，没有单独的 fetch 配置：
 
 ```yaml
+search_provider: deepseek        # 全局默认（可选）；各 scope 可覆盖
+
 web_search:
   deepseek:
     type: deepseek             # 自研搜索引擎，同时提供 Search 与 Fetch
@@ -220,11 +222,12 @@ web_search:
 
 defaults:
   chat:
-    search_provider: deepseek   # duckduckgo/firecrawl/brave/doubao/deepseek，或 auto/free/quality（默认 auto）
+    search_provider: deepseek   # 仅影响 chat；留空则用顶层 search_provider
 ```
 
 - `search_provider` 取值：厂商名指定该厂商；`auto`（默认）按 `free`/`quality` 标签选择；`free`/`cheap` 只用免费引擎；`quality` 只用高质量引擎。
-- 也可用 `--search-provider` 命令行参数临时覆盖配置（优先级：`--search-provider` > `defaults.chat.search_provider` > `auto`）。
+- 也可用 `--search-provider` 命令行参数临时覆盖配置（优先级：`--search-provider` > `defaults.chat.search_provider` > 顶层 `search_provider` > `auto`）。
+- 顶层 `search_provider` 是**全局默认**：chat 与 MCP 的 `web_search`/`web_fetch` 都回落到它；`kb search` / MCP `kb_search` 用 `defaults.knowledgebase.search_provider`（含免费 DuckDuckGo 兜底）。
 - `web_search` **只使用第三方厂商**：内置 DuckDuckGo 不参与，避免 `auto` 时静默回落成"非第三方"。未声明任何第三方厂商时，`web_search`/`web_fetch` 会**报错并提示改用内置 `search`/`fetch`**（不会静默花钱，也不会静默降级）。
 - `web_fetch` 需要**具备抓取能力的厂商**（如 `deepseek`）；只有搜索能力的厂商（`duckduckgo`/`brave`）不提供 `web_fetch`。
 - 单次调用默认返回 5 条、最多 10 条。

@@ -1,104 +1,56 @@
 package chat
 
 import (
-	"encoding/json"
-	"fmt"
-	"strings"
-
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
-	"github.com/martianzhang/aigc-cli/internal/knowledge"
-	"github.com/martianzhang/aigc-cli/internal/search"
+	"github.com/martianzhang/aigc-cli/internal/webtool"
 )
 
-const (
-	// defaultWebSearchLimit is used when the model omits `limit`.
-	defaultWebSearchLimit = 5
-	// maxWebSearchLimit caps how many results a single call may request.
-	maxWebSearchLimit = 10
-)
-
-// webSearchArgs are the arguments shared by the `search` and `web_search`
-// primitives.
-type webSearchArgs struct {
-	Query string `json:"query"`
-	Limit int    `json:"limit"`
-}
-
-// parseWebSearchArgs validates and normalizes the shared search arguments,
-// returning a model-facing message on error.
-func parseWebSearchArgs(argsJSON string) (webSearchArgs, string) {
-	var args webSearchArgs
-	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
-		return args, fmt.Sprintf("Error: invalid arguments: %v", err)
-	}
-	args.Query = strings.TrimSpace(args.Query)
-	if args.Query == "" {
-		return args, "Error: query is required"
-	}
-	if args.Limit <= 0 {
-		args.Limit = defaultWebSearchLimit
-	}
-	if args.Limit > maxWebSearchLimit {
-		args.Limit = maxWebSearchLimit
-	}
-	return args, ""
-}
+// The chat search/fetch primitives are thin wrappers over internal/webtool, so
+// the same implementation also backs the MCP server. Only the vendor-spec
+// resolution (which is CLI/config-scoped) lives here.
+//
+// Naming rule (shared with MCP): `search`/`fetch` are the built-in free tools;
+// `web_search`/`web_fetch` go through the configured third-party provider and
+// may bill per request.
 
 // executeBuiltinSearch dispatches the `search` primitive — the built-in, free
 // DuckDuckGo scrape. It calls no provider API and is never billed.
 func executeBuiltinSearch(argsJSON string) string {
-	args, errMsg := parseWebSearchArgs(argsJSON)
-	if errMsg != "" {
-		return errMsg
-	}
-
-	urls, err := knowledge.DDGSearchURLs(args.Query)
-	if err != nil {
-		return fmt.Sprintf("Error: %v", err)
-	}
-	results := make([]search.Result, 0, len(urls))
-	for _, u := range urls {
-		results = append(results, search.Result{URL: u, Title: u})
-	}
-	return formatSearchResults(args.Query, &search.SearchResult{Provider: "duckduckgo", Results: results}, "fetch")
+	return webtool.Search(argsJSON)
 }
 
 // executeWebSearch dispatches the `web_search` primitive, which queries the
 // configured third-party search provider (the same vendor web_fetch uses).
 func executeWebSearch(argsJSON string) string {
-	args, errMsg := parseWebSearchArgs(argsJSON)
-	if errMsg != "" {
-		return errMsg
+	return webtool.WebSearch(argsJSON, searchEnv())
+}
+
+// executeBuiltinFetch dispatches the `fetch` primitive: a free, SSRF-guarded
+// direct HTTP GET converted to markdown.
+func executeBuiltinFetch(argsJSON string) string {
+	return webtool.Fetch(argsJSON)
+}
+
+// executeWebFetch dispatches the `web_fetch` primitive: the configured
+// third-party fetch API (the same provider web_search uses).
+func executeWebFetch(argsJSON string) string {
+	return webtool.WebFetch(argsJSON, searchEnv())
+}
+
+// searchEnv builds the vendor-resolution environment for the third-party
+// primitives. web_search and web_fetch share one vendor, which bundles both
+// capabilities.
+func searchEnv() webtool.Env {
+	return webtool.Env{
+		Spec:      resolveSearchVendor(),
+		Providers: options.WebSearchConfig(),
+		Scope:     "defaults.chat.search_provider",
 	}
-
-	router := remoteRouter()
-	result, err := searchWithRouter(router, args.Query, args.Limit)
-	if err != nil {
-		return fmt.Sprintf("Error: %v. Configure a third-party provider under web_search.* (selected by defaults.chat.search_provider), or use the built-in `search` primitive.", err)
-	}
-	return formatSearchResults(args.Query, result, "web_fetch")
 }
 
-// remoteRouter builds a router over the configured third-party providers only.
-// The built-in free DuckDuckGo engine is excluded on purpose: it is the `search`
-// primitive's job, and including it would let `web_search` silently answer from
-// the built-in engine under `auto`.
-func remoteRouter() *search.Router {
-	router := search.NewRouter(search.NoopQuotaStore{})
-	search.RegisterRemote(router, options.WebSearchConfig())
-	return router
-}
-
-// searchWithRouter picks a provider from the --search-provider flag (which
-// overrides defaults.chat.search_provider) and runs one search.
-func searchWithRouter(router *search.Router, query string, limit int) (*search.SearchResult, error) {
-	strategy, preferred := search.ResolveStrategy(resolveSearchVendor())
-	return router.Search(query, limit, strategy, preferred)
-}
-
-// resolveSearchVendor returns the provider spec shared by the web_search and
-// web_fetch primitives — they target the same vendor, which bundles search and
-// fetch. Precedence: --search-provider > defaults.chat.search_provider > auto.
+// resolveSearchVendor returns the vendor spec shared by the web_search and
+// web_fetch primitives. Precedence:
+// --search-provider > defaults.chat.search_provider > search_provider (global) > auto.
 func resolveSearchVendor() string {
 	if chatSearchProvider != "" {
 		return chatSearchProvider
@@ -106,27 +58,8 @@ func resolveSearchVendor() string {
 	if cfg := options.ChatDefaults(); cfg != nil && cfg.SearchProvider != "" {
 		return cfg.SearchProvider
 	}
+	if p := options.GlobalSearchProvider(); p != "" {
+		return p
+	}
 	return "auto"
-}
-
-// formatSearchResults renders a SearchResult as a compact, LLM-friendly list.
-// fetchTool is the primitive the model should use to read a result in full
-// ("fetch" for the built-in search, "web_fetch" for the third-party one).
-func formatSearchResults(query string, result *search.SearchResult, fetchTool string) string {
-	if result == nil || len(result.Results) == 0 {
-		return fmt.Sprintf("No search results for %q.", query)
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "Search results for %q (via %s):\n", query, result.Provider)
-	for i, r := range result.Results {
-		// Some engines (e.g. DuckDuckGo) return no title — the URL stands in
-		// for it, so print the URL only once.
-		if r.Title == "" || r.Title == r.URL {
-			fmt.Fprintf(&b, "%d. %s\n", i+1, r.URL)
-			continue
-		}
-		fmt.Fprintf(&b, "%d. %s\n   %s\n", i+1, r.Title, r.URL)
-	}
-	fmt.Fprintf(&b, "\nUse %s with a URL above to read a page in full.", fetchTool)
-	return b.String()
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
+	"github.com/martianzhang/aigc-cli/internal/search"
 )
 
 func kbDir() string {
@@ -126,6 +127,38 @@ func argsMap(req mcp.CallToolRequest) (map[string]any, error) {
 	return args, nil
 }
 
+// kbSearchResultLimit caps how many web results one kb_search fetches and stores.
+const kbSearchResultLimit = 5
+
+// kbSearchURLs resolves the result URLs to ingest into the knowledge base.
+//
+// Unlike the chat search primitives this uses the knowledge-base scope
+// (defaults.knowledgebase.search_provider) and keeps the free DuckDuckGo
+// fallback via RegisterAll, matching `aigc-cli kb search`. Previously this was
+// hardcoded to DuckDuckGo, so a configured Brave/DeepSeek/Firecrawl provider had
+// no effect on MCP at all.
+func kbSearchURLs(cfg *Config, store *knowledge.Store, query string, limit int) ([]string, error) {
+	quotaStore, err := search.NewQuotaStore(store.DB())
+	if err != nil {
+		return nil, fmt.Errorf("quota store: %w", err)
+	}
+
+	router := search.NewRouter(quotaStore)
+	search.RegisterAll(router, cfg.WebSearchProviders)
+
+	strategy, preferred := search.ResolveStrategy(specOrAuto(cfg.KBSearchProvider))
+	result, err := router.Search(query, limit, strategy, preferred)
+	if err != nil {
+		return nil, err
+	}
+
+	urls := make([]string, 0, len(result.Results))
+	for _, r := range result.Results {
+		urls = append(urls, r.URL)
+	}
+	return urls, nil
+}
+
 // ----- Handlers -----
 
 func kbFindHandler() server.ToolHandlerFunc {
@@ -228,7 +261,7 @@ func kbFindHandler() server.ToolHandlerFunc {
 	}
 }
 
-func kbSearchHandler() server.ToolHandlerFunc {
+func kbSearchHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args, err := argsMap(req)
 		if err != nil {
@@ -245,7 +278,7 @@ func kbSearchHandler() server.ToolHandlerFunc {
 		}
 		defer store.Close()
 
-		urls, err := knowledge.DDGSearchURLs(query)
+		urls, err := kbSearchURLs(cfg, store, query, kbSearchResultLimit)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("search request: %v", err)), nil
 		}

@@ -36,6 +36,13 @@ var annotationTable = []annotationWant{
 	// Network reads whose repeated calls add no effect.
 	{"get_balance", true, false, true, true},
 	{"get_task", true, false, true, true},
+	// Web search/fetch. search/fetch are the built-in free tools; web_search/
+	// web_fetch go through a third-party API. All four are idempotent network
+	// reads.
+	{"search", true, false, true, true},
+	{"fetch", true, false, true, true},
+	{"web_search", true, false, true, true},
+	{"web_fetch", true, false, true, true},
 	// Tools that create new output files/entries and never overwrite inputs.
 	{"generate_image", false, false, false, true},
 	{"generate_video", false, false, false, true},
