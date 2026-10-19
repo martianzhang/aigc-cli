@@ -2,8 +2,10 @@ package models
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -11,6 +13,27 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+// captureStdout runs fn and returns everything written to os.Stdout.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() error = %v", err)
+	}
+	os.Stdout = w
+	done := make(chan string, 1)
+	go func() {
+		b, _ := io.ReadAll(r)
+		done <- string(b)
+	}()
+	defer func() { os.Stdout = old }()
+	fn()
+	w.Close()
+	os.Stdout = old
+	return <-done
+}
 
 func TestFormatPrice_perGeneration(t *testing.T) {
 	m := types.MarketplaceModel{
@@ -307,6 +330,108 @@ func TestRunModelsDetailListsForAllProviders(t *testing.T) {
 				t.Errorf("provider %s: GET /models/{id} was probed, want list-only", tc.name)
 			}
 		})
+	}
+}
+
+func TestRunModelsModelFlagResolvesDetail(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":[{"id":"mimo-v2.6-flash","object":"model","owned_by":"xiaomi"}]}`))
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{
+		BaseURL:      srv.URL,
+		APIKey:       "sk-test",
+		Type:         types.ProviderOpenAI,
+		ProviderType: provider.OpenAI,
+	}
+
+	prevModel, prevType, prevPrice, prevDryRun := options.Shared.Model, modelType, priceArg, modelsDryRun
+	defer func() {
+		options.Shared.Model, modelType, priceArg, modelsDryRun = prevModel, prevType, prevPrice, prevDryRun
+	}()
+	options.Shared.Model, modelType, priceArg, modelsDryRun = "", "", "", false
+
+	cmd := NewCommand(func() Deps {
+		return Deps{
+			Model:           options.Shared.Model,
+			ResolveProvider: func(string) *provider.EffectiveProvider { return p },
+		}
+	})
+	cmd.Flags().StringVar(&options.Shared.Model, "model", "", "test-only stand-in for the root persistent flag")
+	cmd.SetArgs([]string{"--model", "mimo-v2.6-flash"})
+
+	out := captureStdout(t, func() {
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("execute() error = %v", err)
+		}
+	})
+
+	if gotPath != "/v1/models" {
+		t.Errorf("request path = %q, want /v1/models", gotPath)
+	}
+	if !strings.Contains(out, "mimo-v2.6-flash") || !strings.Contains(out, "Owned by: xiaomi") {
+		t.Errorf("output = %q, want the model detail", out)
+	}
+}
+
+func TestModelsDryRunMakesNoRequests(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{
+		BaseURL:      srv.URL,
+		APIKey:       "sk-test",
+		Type:         types.ProviderOpenAI,
+		ProviderType: provider.OpenAI,
+	}
+
+	prevDryRun, prevD := modelsDryRun, d
+	defer func() { modelsDryRun, d = prevDryRun, prevD }()
+	modelsDryRun = true
+	d = Deps{APIBase: srv.URL}
+
+	cases := []struct {
+		name string
+		run  func() error
+		want string
+	}{
+		{"list", func() error { return runModelsOpenAI(p) }, "curl -X GET " + srv.URL + "/v1/models"},
+		{"detail", func() error { return runModelsDetail("test/model", p) }, "curl -X GET " + srv.URL + "/v1/models"},
+		{"discovery", func() error {
+			or := &provider.EffectiveProvider{BaseURL: srv.URL + "/api/v1", ProviderType: provider.OpenRouter}
+			return runModelsOpenRouterDiscovery(or, "image")
+		}, "curl -X GET " + srv.URL + "/api/v1/images/models"},
+		{"openrouter detail", func() error {
+			or := &provider.EffectiveProvider{BaseURL: srv.URL + "/api/v1", APIKey: "sk-test", ProviderType: provider.OpenRouter}
+			return runModelsOpenRouterDetail("openai/gpt-4o", or)
+		}, "curl -X GET " + srv.URL + "/api/v1/model/openai/gpt-4o"},
+		{"marketplace", func() error { return runModelsMarketplace("image") }, "curl -X GET " + srv.URL + "/api/marketplace/models"},
+		{"pricing", func() error { return runModelsPricing("gpt-4o") }, "curl -X GET " + srv.URL + "/api/pricing/model?model=gpt-4o"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := captureStdout(t, func() {
+				if err := tc.run(); err != nil {
+					t.Fatalf("%s dry-run error = %v", tc.name, err)
+				}
+			})
+			if !strings.Contains(out, tc.want) {
+				t.Errorf("%s output = %q, want it to contain %q", tc.name, out, tc.want)
+			}
+		})
+	}
+
+	if hits != 0 {
+		t.Errorf("dry-run made %d HTTP request(s), want 0", hits)
 	}
 }
 

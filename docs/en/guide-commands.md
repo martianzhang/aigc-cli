@@ -24,9 +24,17 @@ aigc-cli models --price
 
 # Single model detail (context window, pricing, modalities, params)
 aigc-cli models --provider openrouter openai/gpt-4o
+# The global --model/-m flag works too (same as the positional argument)
+aigc-cli models --provider openrouter --model openai/gpt-4o
+
+# Print the equivalent curl without calling the API (zero cost)
+aigc-cli models --model gpt-4o --dry-run
+aigc-cli models --type image --dry-run
 ```
 
-> **Single-model lookup**: `aigc-cli models <model>` prints one model's details. For OpenRouter it calls the **singular** `GET /v1/model/{author}/{slug}` endpoint (not the plural `/models` used for listing) and **prints the response JSON verbatim** (pretty-printed, no field parsing). Other providers fetch the `GET /v1/models` list and filter by model id (the `GET /v1/models/{id}` endpoint is never probed — most providers do not serve it), with no extra configuration.
+> **Single-model lookup**: `aigc-cli models <model>` or `aigc-cli models --model <model>` prints one model's details (the positional argument wins). For OpenRouter it calls the **singular** `GET /v1/model/{author}/{slug}` endpoint (not the plural `/models` used for listing) and **prints the response JSON verbatim** (pretty-printed, no field parsing). Other providers fetch the `GET /v1/models` list and filter by model id (the `GET /v1/models/{id}` endpoint is never probed — most providers do not serve it), with no extra configuration.
+
+> **`--dry-run`**: renders the equivalent `curl` command (API key masked) and makes no network request. It works for the plain list, single-model detail, marketplace (`--type`), pricing (`--price`), and OpenRouter discovery; marketplace pagination only renders the first page and notes the follow-up pages in a comment.
 
 > **API key**: calling with no arguments (or with a bare model name, e.g. `aigc-cli models gpt-4o`) hits `/v1/models` and requires an API key. Without `--provider` and a global `api_key` / `OPENAI_API_KEY`, the command fails fast with a clear error listing the configured providers; use `--provider <name>` to pick one, or supply `--api-key`. `--type` and `--price` (marketplace and pricing) are auth-free — no key needed.
 

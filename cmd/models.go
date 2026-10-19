@@ -13,6 +13,7 @@ func modelsDeps() models.Deps {
 	}
 	return models.Deps{
 		APIBase:         shared.APIBase,
+		Model:           shared.Model,
 		ResolveProvider: shared.ResolveProvider,
 		Providers:       providers,
 	}

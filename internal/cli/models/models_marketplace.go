@@ -25,6 +25,10 @@ func runModelsMarketplace(mediaType string) error {
 		firstURL += "&type=" + mediaType
 	}
 	printAPIURL(firstURL)
+	if modelsDryRun {
+		printModelsCurl(firstURL, "", "subsequent pages use page=2,3,… until the reported total is reached")
+		return nil
+	}
 
 	pageSize := 50
 	page := 1
@@ -124,6 +128,10 @@ func runModelsPricing(modelName string) error {
 	pricingURL := base + "/api/pricing/model?model=" + modelName
 
 	printAPIURL(pricingURL)
+	if modelsDryRun {
+		printModelsCurl(pricingURL, "", "")
+		return nil
+	}
 
 	resp, err := http.DefaultClient.Get(pricingURL)
 	if err != nil {

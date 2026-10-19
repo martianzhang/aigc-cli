@@ -57,12 +57,20 @@ aigc-cli models --provider openrouter --type video
 
 # 查询单个模型详情（展示上下文窗口、定价、模态、支持参数）
 aigc-cli models --provider openrouter openai/gpt-4o
+# 也可用全局 --model/-m 指定（等价于上面的位置参数）
+aigc-cli models --provider openrouter --model openai/gpt-4o
+
+# 只打印等价 curl，不真正调用接口（零成本）
+aigc-cli models --model gpt-4o --dry-run
+aigc-cli models --type image --dry-run
 
 # OpenAI 标准模型列表
 aigc-cli models --api-base "https://api.openai.com/v1"
 ```
 
-> **单模型查询**：`aigc-cli models <模型名>` 展示单个模型的详情。OpenRouter 走其**单数端点** `GET /v1/model/{author}/{slug}`（与列表的复数 `/models` 不同），并**原样输出接口返回的 JSON（仅格式化缩进，不做字段解析）**；其他 Provider 直接拉取 `GET /v1/models` 列表并按模型名过滤（不再探测 `GET /v1/models/{id}`——多数 Provider 并不支持该端点），无需额外配置。
+> **单模型查询**：`aigc-cli models <模型名>` 或 `aigc-cli models --model <模型名>` 展示单个模型的详情（位置参数优先）。OpenRouter 走其**单数端点** `GET /v1/model/{author}/{slug}`（与列表的复数 `/models` 不同），并**原样输出接口返回的 JSON（仅格式化缩进，不做字段解析）**；其他 Provider 直接拉取 `GET /v1/models` 列表并按模型名过滤（不再探测 `GET /v1/models/{id}`——多数 Provider 并不支持该端点），无需额外配置。
+
+> **`--dry-run`**：只渲染等价的 `curl` 命令（API Key 已脱敏），不发起任何网络请求。列表、单模型详情、市场（`--type`）、定价（`--price`）与 OpenRouter 发现均支持；市场分页只打印第一页，后续页码以注释说明。
 
 > **API Key**：无参数调用（或查询单个模型，如 `aigc-cli models gpt-4o`）会请求 `/v1/models`，需要 API Key。未指定 `--provider` 且全局未配置 `api_key` / `OPENAI_API_KEY` 时，命令会直接报错并提示已配置密钥的 Provider；用 `--provider <name>` 指定 Provider，或通过 `--api-key` / 环境变量 `OPENAI_API_KEY` 提供密钥。`--type` / `--price`（市场与定价）免认证，无需 API Key。
 

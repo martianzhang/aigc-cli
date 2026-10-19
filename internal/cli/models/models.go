@@ -13,6 +13,7 @@ import (
 // Deps carries the runtime configuration the models command needs.
 type Deps struct {
 	APIBase         string
+	Model           string
 	ResolveProvider func(string) *provider.EffectiveProvider
 	Providers       map[string]*types.NamedProvider
 }
@@ -20,8 +21,9 @@ type Deps struct {
 var d Deps
 
 var (
-	modelType string
-	priceArg  string
+	modelType    string
+	priceArg     string
+	modelsDryRun bool
 )
 
 var knownMediaTypes = map[string]bool{"image": true, "video": true, "chat": true}
@@ -38,16 +40,24 @@ func NewCommand(deps func() Deps) *cobra.Command {
 Without flags: queries the /v1/models endpoint (works with OpenAI,
 OpenRouter, or any OpenAI-compatible relay).
 
+Model detail: pass the model name as an argument or via --model/-m.
+  aigc-cli models gpt-4o
+  aigc-cli models --model gpt-4o
+
 Marketplace flags (use the APIMart-compatible marketplace API at the
 configured base URL):
   --type, -t <type>      Filter by media type: image, video, chat
   --price, -p [model]    Show pricing, or specify a model name for details
 
+Use --dry-run to print the equivalent curl request without calling the API.
+
 Examples:
   aigc-cli models
   aigc-cli models --type image
   aigc-cli models --price
-  aigc-cli models --price gpt-4o`,
+  aigc-cli models --price gpt-4o
+  aigc-cli models --model gpt-4o
+  aigc-cli models gpt-4o --dry-run`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			d = deps()
@@ -56,6 +66,7 @@ Examples:
 	}
 	cmd.Flags().StringVarP(&modelType, "type", "t", "", "Filter by media type (APIMart marketplace): image, video, chat")
 	cmd.Flags().StringVarP(&priceArg, "price", "p", "", "Show pricing column (no arg) or model pricing details (with model name) (APIMart only)")
+	cmd.Flags().BoolVar(&modelsDryRun, "dry-run", false, "Print the equivalent curl request without calling the API")
 	return cmd
 }
 
@@ -68,6 +79,16 @@ func runModels(cmd *cobra.Command, args []string) error {
 		mediaType = modelType
 	} else if len(args) > 0 {
 		mediaType = args[0]
+	}
+
+	// A non-media-type positional argument is a model name. When none is
+	// given, fall back to the global --model/-m flag so `models -m <name>`
+	// behaves like `models <name>`.
+	modelName := ""
+	if len(args) > 0 && !knownMediaTypes[args[0]] {
+		modelName = args[0]
+	} else if len(args) == 0 {
+		modelName = d.Model
 	}
 
 	priceChanged := cmd.Flags().Changed("price")
@@ -83,14 +104,15 @@ func runModels(cmd *cobra.Command, args []string) error {
 		return runModelsMarketplace(mediaType)
 	}
 
+	if modelName != "" {
+		return runModelsDetail(modelName, p)
+	}
+
 	if len(args) > 0 {
-		if knownMediaTypes[args[0]] {
-			if isOpenRouter {
-				return runModelsOpenRouterDiscovery(p, args[0])
-			}
-			return runModelsMarketplace(args[0])
+		if isOpenRouter {
+			return runModelsOpenRouterDiscovery(p, args[0])
 		}
-		return runModelsDetail(args[0], p)
+		return runModelsMarketplace(args[0])
 	}
 
 	return runModelsOpenAI(p)

@@ -30,6 +30,10 @@ func runModelsOpenRouterDiscovery(p *provider.EffectiveProvider, mediaType strin
 	}
 
 	printAPIURL(endpoint)
+	if modelsDryRun {
+		printModelsCurl(endpoint, "", "")
+		return nil
+	}
 
 	resp, err := http.DefaultClient.Get(endpoint)
 	if err != nil {
@@ -116,6 +120,10 @@ func runModelsOpenAI(p *provider.EffectiveProvider) error {
 		base += "/v1"
 	}
 	printAPIURL(base + "/models")
+	if modelsDryRun {
+		printModelsCurl(base+"/models", p.APIKey, "")
+		return nil
+	}
 
 	c := client.NewFromProvider(p)
 	models, err := c.ListModelsOpenAI()
@@ -160,16 +168,19 @@ func runModelsDetail(modelID string, p *provider.EffectiveProvider) error {
 	if !client.HasVersionSuffix(base) {
 		base += "/v1"
 	}
-	return runModelsDetailFromList(client.NewFromProvider(p), base, modelID)
+	printAPIURL(base + "/models")
+	if modelsDryRun {
+		printModelsCurl(base+"/models", p.APIKey, "")
+		return nil
+	}
+	return runModelsDetailFromList(client.NewFromProvider(p), modelID)
 }
 
 // runModelsDetailFromList resolves a model by fetching the list and matching the
 // id. The list is the one endpoint every OpenAI-compatible provider serves;
 // many (ModelScope, Ollama, LM Studio, APIMart, DeepSeek, Groq, …) reject the
 // OpenAI-style GET /models/{id} with 404, so it is never probed.
-func runModelsDetailFromList(c *client.Client, base, modelID string) error {
-	printAPIURL(base + "/models")
-
+func runModelsDetailFromList(c *client.Client, modelID string) error {
 	models, err := c.ListModelsOpenAI()
 	if err != nil {
 		return fmt.Errorf("failed to list models: %w", err)
@@ -206,6 +217,10 @@ func runModelsOpenRouterDetail(modelID string, p *provider.EffectiveProvider) er
 	}
 	base := client.NormalizeBaseURL(p.BaseURL)
 	printAPIURL(base + "/model/" + modelID)
+	if modelsDryRun {
+		printModelsCurl(base+"/model/"+modelID, p.APIKey, "")
+		return nil
+	}
 
 	c := client.NewFromProvider(p)
 	raw, err := c.GetModelOpenRouter(modelID)
