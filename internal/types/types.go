@@ -495,10 +495,28 @@ type ChatMessage struct {
 	Content    string     `json:"content,omitempty"`
 	ToolCallID string     `json:"tool_call_id,omitempty"`
 	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	// Annotations are citations returned by providers that run web search
+	// server-side (OpenAI url_citation, OpenRouter web plugin, MiMo web_search).
+	// They are response-only: MarshalJSON never emits them on a request.
+	Annotations []ChatAnnotation `json:"annotations,omitempty"`
 	// Images are multimodal attachments. They are never serialized as a field
 	// (json:"-"): MarshalJSON folds them into Content as OpenAI-style
 	// content parts when any are present.
 	Images []ChatImage `json:"-"`
+}
+
+// ChatAnnotation is one citation attached to an assistant message by a
+// provider-side web search tool. The common fields follow OpenAI's
+// url_citation shape; MiMo also fills site_name, publish_time, summary and
+// logo_url, all of which are preserved for callers that want them.
+type ChatAnnotation struct {
+	Type        string `json:"type,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Title       string `json:"title,omitempty"`
+	SiteName    string `json:"site_name,omitempty"`
+	PublishTime string `json:"publish_time,omitempty"`
+	Summary     string `json:"summary,omitempty"`
+	LogoURL     string `json:"logo_url,omitempty"`
 }
 
 // MarshalJSON emits the OpenAI-compatible wire shape. With no images the output
@@ -599,6 +617,8 @@ type ChatStreamChunk struct {
 	Created int64              `json:"created"`
 	Model   string             `json:"model"`
 	Choices []ChatStreamChoice `json:"choices"`
+	// Usage is emitted by providers that report usage in the final chunk.
+	Usage *ChatUsage `json:"usage,omitempty"`
 }
 
 // ChatStreamChoice represents a choice in a streaming chunk.
@@ -610,9 +630,10 @@ type ChatStreamChoice struct {
 
 // ChatStreamDelta represents the delta content in a streaming chunk.
 type ChatStreamDelta struct {
-	Role      string                    `json:"role,omitempty"`
-	Content   string                    `json:"content,omitempty"`
-	ToolCalls []ChatStreamDeltaToolCall `json:"tool_calls,omitempty"`
+	Role        string                    `json:"role,omitempty"`
+	Content     string                    `json:"content,omitempty"`
+	ToolCalls   []ChatStreamDeltaToolCall `json:"tool_calls,omitempty"`
+	Annotations []ChatAnnotation          `json:"annotations,omitempty"`
 }
 
 // ChatUsage represents token usage statistics.
@@ -622,6 +643,16 @@ type ChatUsage struct {
 	CompletionTokens int     `json:"completion_tokens"`
 	TotalTokens      int     `json:"total_tokens"`
 	Cost             float64 `json:"cost,omitempty"` // OpenRouter-specific
+	// WebSearchUsage is MiMo's server-side search breakdown
+	// (usage.web_search_usage). Other providers leave it nil.
+	WebSearchUsage *WebSearchUsage `json:"web_search_usage,omitempty"`
+}
+
+// WebSearchUsage reports MiMo web_search consumption: how many search calls
+// were made and how many result pages were returned.
+type WebSearchUsage struct {
+	ToolUsage int `json:"tool_usage"`
+	PageUsage int `json:"page_usage"`
 }
 
 // MarketplaceResponse is the response from the public marketplace API.

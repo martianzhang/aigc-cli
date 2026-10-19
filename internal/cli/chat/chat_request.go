@@ -129,9 +129,12 @@ func sendChatRequest(_ *cobra.Command, req *types.ChatRequest) error {
 		fmt.Println(result.Choices[0].Message.Content)
 	}
 
+	// Web-search citations (to stderr, when the provider attached any)
+	printSources(result)
+
 	// Usage stats (to stderr, only with --verbose)
 	if options.Shared.Verbose {
-		printUsageStats(result, elapsed)
+		printUsageStats(result, elapsed, p)
 	}
 
 	return nil
@@ -163,8 +166,9 @@ func buildChatCurl(req *types.ChatRequest, p *provider.EffectiveProvider) string
 	return cmd
 }
 
-// printUsageStats prints token/cost/timing stats to stderr.
-func printUsageStats(result *types.ChatResponse, elapsed time.Duration) {
+// printUsageStats prints token/cost/timing stats to stderr. p identifies the
+// provider so vendor-only counters (MiMo web search) are only shown for it.
+func printUsageStats(result *types.ChatResponse, elapsed time.Duration, p *provider.EffectiveProvider) {
 	if result == nil {
 		return
 	}
@@ -177,6 +181,9 @@ func printUsageStats(result *types.ChatResponse, elapsed time.Duration) {
 			result.Usage.PromptTokens, result.Usage.CompletionTokens, result.Usage.TotalTokens))
 		if result.Usage.Cost > 0 {
 			parts = append(parts, fmt.Sprintf("Cost: $%.6f", result.Usage.Cost))
+		}
+		if line := webSearchLine(p, result.Usage); line != "" {
+			parts = append(parts, line)
 		}
 	}
 	parts = append(parts, fmt.Sprintf("Time: %v", elapsed.Round(time.Millisecond)))

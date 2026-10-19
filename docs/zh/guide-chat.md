@@ -456,7 +456,7 @@ aigc-cli chat --json request.json --max-output 1024 --no-stream
 - 输入：文件路径或内联 JSON（**不支持 stdin**——避免和 `--json` / `--prompt` 抢 stdin）；值必须是 JSON **对象**，否则直接报错。
 - **已知限制**：数组只能追加、无法清空或替换；值必须是对象，不接受数组或标量。
 
-> 💡 `--inject-json` 的内容是 **provider 相关**的，CLI 不做转换：`{"enable_search":true}` 只对百炼 OpenAI 兼容协议有效；Anthropic 原生用 `{"tools":[{"type":"web_search_20250305","name":"web_search"}]}`；OpenAI Responses 用 `{"tools":[{"type":"web_search_preview"}]}`；OpenRouter 用 `{"plugins":[{"id":"web"}]}`（或模型名后缀 `:online`）。担心写错时先用 `--dry-run` 看待发 curl。
+> 💡 `--inject-json` 的内容是 **provider 相关**的，CLI 不做转换：`{"enable_search":true}` 只对百炼 OpenAI 兼容协议有效；Anthropic 原生用 `{"tools":[{"type":"web_search_20250305","name":"web_search"}]}`；OpenAI Responses 用 `{"tools":[{"type":"web_search_preview"}]}`；OpenRouter 用 `{"plugins":[{"id":"web"}]}`（或模型名后缀 `:online`）；小米 MiMo 用 `{"tools":[{"type":"web_search","force_search":true}]}`。担心写错时先用 `--dry-run` 看待发 curl。
 
 **例：OpenRouter 联网搜索。** OpenRouter 的 `web` 插件对**任意模型**生效（非原生搜索模型走 Exa），它是 chat-completions 的 body 字段，所以 provider 要用 `openai` 类型（走 `/chat/completions`，**不能**用 `type: anthropic`）：
 
@@ -475,6 +475,28 @@ aigc-cli chat -P openrouter --model anthropic/claude-sonnet-5.5 \
 ```
 
 `plugins` 还能写 `engine`（`native`/`exa`/`firecrawl`/…）、`include_domains` / `exclude_domains`、`search_prompt`。不想调参时也可用模型名后缀 `:online`（等价于 `plugins:[{"id":"web"}]`）：`--model anthropic/claude-sonnet-5.5:online`。联网按次计费。
+
+**例：小米 MiMo 联网搜索。** MiMo 的联网能力是**原生工具**，用 `tools` 声明，`type` 固定为 `web_search`：
+
+```yaml
+providers:
+  mimo:
+    type: openai
+    api_key: sk-xxx
+    base_url: https://api.xiaomimimo.com/v1
+```
+
+```bash
+aigc-cli chat -P mimo --model mimo-v2.6-flash \
+  --message "明天北京天气怎么样？请给出气温范围和是否下雨。" --no-stream \
+  --inject-json '{"tools":[{"type":"web_search","force_search":true}],"thinking":{"type":"disabled"}}'
+```
+
+- `force_search`（默认 `false`）：`true` 强制搜索，`false` 由模型自行判断是否需要联网。
+- 还可写 `max_keyword`（单轮最大关键词数，1–50，默认 5）、`limit`（单次返回的最大结果条数，1–50，默认 5）、`user_location`（`{"type":"approximate","city":"北京",…}`）。
+- `thinking.type` 可设为 `enabled`/`disabled` 控制思维链（MiMo 默认 `enabled`）。
+- **前置条件**：需先在 [MiMo 控制台](https://platform.xiaomimimo.com/#/console/plugin) 开通「联网服务插件」，否则接口返回 `webSearchEnabled is false`（请求体本身是正确的）。
+- 响应中的引用会由 CLI 汇总到 stderr 的 `Sources:` 列表（默认最多 10 条，`-v` 列出全部）；`-v` 的用量行还会显示联网调用量 `Web search: N call(s), M page(s)`。
 
 ### Provider 协议类型
 

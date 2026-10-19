@@ -271,7 +271,7 @@ When using `--json` with an `openai_responses` provider, the JSON body must be i
 - Input: a file path or inline JSON (**stdin is not supported** — this avoids competing with other stdin consumers such as `--json` / `--prompt`). The value must be a JSON **object**, or the command errors out.
 - **Known limitation**: arrays can only be appended, never cleared or replaced; only objects are accepted.
 
-> 💡 The snippet is **provider-specific** — the CLI does not translate it. `{"enable_search":true}` only works on Bailian's OpenAI-compatible protocol; Anthropic-native uses `{"tools":[{"type":"web_search_20250305","name":"web_search"}]}`; OpenAI Responses needs `{"tools":[{"type":"web_search_preview"}]}`; OpenRouter uses `{"plugins":[{"id":"web"}]}` (or the model-name suffix `:online`). Run with `--dry-run` first to see the exact curl.
+> 💡 The snippet is **provider-specific** — the CLI does not translate it. `{"enable_search":true}` only works on Bailian's OpenAI-compatible protocol; Anthropic-native uses `{"tools":[{"type":"web_search_20250305","name":"web_search"}]}`; OpenAI Responses needs `{"tools":[{"type":"web_search_preview"}]}`; OpenRouter uses `{"plugins":[{"id":"web"}]}` (or the model-name suffix `:online`); Xiaomi MiMo uses `{"tools":[{"type":"web_search","force_search":true}]}`. Run with `--dry-run` first to see the exact curl.
 
 **Example: OpenRouter web search.** OpenRouter's `web` plugin works for **any model** (non-native models are backed by Exa). It is a chat-completions body field, so the provider must use `type: openai` (`/chat/completions` — **not** `type: anthropic`):
 
@@ -290,6 +290,28 @@ aigc-cli chat -P openrouter --model anthropic/claude-sonnet-5.5 \
 ```
 
 `plugins` also accepts `engine` (`native`/`exa`/`firecrawl`/…), `include_domains` / `exclude_domains`, and `search_prompt`. To skip the parameters, use the `:online` model suffix instead (equivalent to `plugins:[{"id":"web"}]`): `--model anthropic/claude-sonnet-5.5:online`. Web search is billed per search.
+
+**Example: Xiaomi MiMo web search.** MiMo exposes search as a **native tool**, declared under `tools` with `type: web_search`:
+
+```yaml
+providers:
+  mimo:
+    type: openai
+    api_key: sk-xxx
+    base_url: https://api.xiaomimimo.com/v1
+```
+
+```bash
+aigc-cli chat -P mimo --model mimo-v2.6-flash \
+  --message "What is the Beijing weather tomorrow?" --no-stream \
+  --inject-json '{"tools":[{"type":"web_search","force_search":true}],"thinking":{"type":"disabled"}}'
+```
+
+- `force_search` (default `false`): `true` always searches, `false` lets the model decide.
+- Also supported: `max_keyword` (max keywords per turn, 1–50, default 5), `limit` (max results per search, 1–50, default 5), and `user_location` (`{"type":"approximate","city":"Beijing",…}`).
+- `thinking.type` accepts `enabled`/`disabled` (MiMo defaults to `enabled`).
+- **Prerequisite**: enable the web-search plugin in the [MiMo console](https://platform.xiaomimimo.com/#/console/plugin) first, otherwise the API answers `webSearchEnabled is false` (the request body itself is correct).
+- Citations are collected into a `Sources:` list on stderr (capped at 10; `-v` lists all). With `-v`, the usage line also reports `Web search: N call(s), M page(s)`.
 
 ## Provider Type
 

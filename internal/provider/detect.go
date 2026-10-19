@@ -23,6 +23,7 @@ const (
 	Bailian
 	Zeekai
 	Pollinations
+	MiMo
 )
 
 var names = map[Type]string{
@@ -37,6 +38,7 @@ var names = map[Type]string{
 	Bailian:      "阿里云百炼",
 	Zeekai:       "ZeekAI",
 	Pollinations: "Pollinations",
+	MiMo:         "MiMo",
 }
 
 func (t Type) String() string {
@@ -102,6 +104,14 @@ var bailianDomains = []string{
 // POST /images/edits with images[].image_url for image-to-image.
 var zeekaiDomains = []string{
 	"zeekai.cc",
+}
+
+// mimoDomains lists domains where Xiaomi MiMo APIs are served. MiMo follows
+// the OpenAI Chat Completions protocol but adds server-side web search whose
+// usage is reported under usage.web_search_usage.
+var mimoDomains = []string{
+	"xiaomimimo.com",
+	"mimo.mi.com",
 }
 
 // ofoxDomains lists hosts where the OfoxAI aggregator serves its API.
@@ -239,6 +249,11 @@ func Detect(baseURL string) Type {
 			return Pollinations
 		}
 	}
+	for _, d := range mimoDomains {
+		if matchDomain(baseURL, d) {
+			return MiMo
+		}
+	}
 	// Default to OpenAI-compatible for everything else
 	return OpenAI
 }
@@ -263,6 +278,9 @@ func IsGemini(baseURL string) bool { return Detect(baseURL) == Gemini }
 
 // IsBailian is a convenience wrapper around Detect.
 func IsBailian(baseURL string) bool { return Detect(baseURL) == Bailian }
+
+// IsMiMo is a convenience wrapper around Detect.
+func IsMiMo(baseURL string) bool { return Detect(baseURL) == MiMo }
 
 // IsZeekai is a convenience wrapper around Detect.
 func IsZeekai(baseURL string) bool { return Detect(baseURL) == Zeekai }

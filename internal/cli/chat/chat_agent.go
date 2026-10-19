@@ -12,13 +12,14 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // runAgentLoop executes the tool-calling loop: send request -> check tool_calls -> execute -> repeat.
 // history is modified in-place (appended with assistant + tool messages).
 // If ctx is cancelled (Ctrl+C), returns immediately with context.Canceled.
-func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command) error {
+func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command, p *provider.EffectiveProvider) error {
 	// Merge defaults.chat.model into options.Shared.Model if empty
 	if options.Shared.Model == "" {
 		if cfg := options.ChatDefaults(); cfg != nil && cfg.Model != "" {
@@ -97,8 +98,11 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 		}
 		*history = append(*history, choice.Message)
 
+		// Web-search citations (to stderr, when the provider attached any)
+		printSources(result)
+
 		if options.Shared.Verbose {
-			printUsageStats(result, time.Since(agentStart))
+			printUsageStats(result, time.Since(agentStart), p)
 		}
 
 		if turnCount >= maxIterations {

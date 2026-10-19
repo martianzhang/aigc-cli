@@ -57,7 +57,7 @@ func TestRunAgentLoop_noStreamPrintsOnce(t *testing.T) {
 	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
 	history := []types.ChatMessage{{Role: "user", Content: "hi"}}
 
-	if err := runAgentLoop(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd()); err != nil {
+	if err := runAgentLoop(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd(), nil); err != nil {
 		t.Fatalf("runAgentLoop() error = %v", err)
 	}
 
@@ -105,7 +105,7 @@ func TestRunAgentLoopAppliesInjectJSON(t *testing.T) {
 	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
 	history := []types.ChatMessage{{Role: "user", Content: "hi"}}
 
-	if err := runAgentLoop(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd()); err != nil {
+	if err := runAgentLoop(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd(), nil); err != nil {
 		t.Fatalf("runAgentLoop() error = %v", err)
 	}
 
@@ -140,7 +140,7 @@ func TestRunAgentLoop_noLeadingBlankLine(t *testing.T) {
 	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
 	history := []types.ChatMessage{{Role: "user", Content: "hi"}}
 
-	if err := runAgentLoop(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd()); err != nil {
+	if err := runAgentLoop(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd(), nil); err != nil {
 		t.Fatalf("runAgentLoop() error = %v", err)
 	}
 

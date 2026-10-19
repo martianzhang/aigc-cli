@@ -395,6 +395,26 @@ func TestNeedsMultipartImageEdits(t *testing.T) {
 	}
 }
 
+func TestDetect_MiMo(t *testing.T) {
+	cases := []string{
+		"https://api.xiaomimimo.com/v1",
+		"https://api.xiaomimimo.com",
+		"https://mimo.mi.com/v1",
+	}
+	for _, url := range cases {
+		if got := Detect(url); got != MiMo {
+			t.Errorf("Detect(%q) = %v, want MiMo", url, got)
+		}
+		if !IsMiMo(url) {
+			t.Errorf("IsMiMo(%q) = false, want true", url)
+		}
+	}
+	// A look-alike host must not be mistaken for MiMo.
+	if IsMiMo("https://xiaomimimo.com.evil.com/v1") {
+		t.Error("IsMiMo matched a look-alike domain")
+	}
+}
+
 func TestImageEditsHeaders(t *testing.T) {
 	for _, base := range []string{"https://api.ofox.ai/v1", "https://api.ofox.run/v1", "https://api.ofox.io/v1"} {
 		headers := ImageEditsHeaders(base)

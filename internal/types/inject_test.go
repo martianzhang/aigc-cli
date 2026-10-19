@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -81,6 +82,53 @@ func TestInjectJSONEmptyLeavesBodyUntouched(t *testing.T) {
 
 // TestInjectJSONInvalidFailsMarshal verifies a non-object inject surfaces as a
 // marshal error instead of silently producing a wrong body.
+// TestChatMessageAnnotationsAreNotSerialized guards that response-only
+// citations never leak into a request body.
+func TestChatMessageAnnotationsAreNotSerialized(t *testing.T) {
+	msg := ChatMessage{
+		Role:    "assistant",
+		Content: "hi",
+		Annotations: []ChatAnnotation{
+			{Type: "url_citation", URL: "https://example.com", Title: "Example"},
+		},
+	}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if strings.Contains(string(data), "annotations") {
+		t.Errorf("request message = %s, want no annotations field", data)
+	}
+}
+
+func TestChatResponseParsesAnnotationsAndWebSearchUsage(t *testing.T) {
+	raw := `{
+		"choices": [{"message": {"role": "assistant", "content": "answer",
+			"annotations": [{"type": "url_citation", "url": "https://example.com/a",
+				"title": "A", "site_name": "Site", "publish_time": "2026-01-01",
+				"summary": "s", "logo_url": "https://example.com/logo.png"}]}}],
+		"usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12,
+			"web_search_usage": {"tool_usage": 1, "page_usage": 5}}
+	}`
+	var resp ChatResponse
+	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	anns := resp.Choices[0].Message.Annotations
+	if len(anns) != 1 || anns[0].URL != "https://example.com/a" || anns[0].SiteName != "Site" {
+		t.Errorf("Annotations = %+v, want the parsed citation", anns)
+	}
+	if resp.Usage == nil || resp.Usage.WebSearchUsage == nil {
+		t.Fatal("WebSearchUsage = nil, want parsed counters")
+	}
+	if got := resp.Usage.WebSearchUsage.ToolUsage; got != 1 {
+		t.Errorf("ToolUsage = %d, want 1", got)
+	}
+	if got := resp.Usage.WebSearchUsage.PageUsage; got != 5 {
+		t.Errorf("PageUsage = %d, want 5", got)
+	}
+}
+
 func TestInjectJSONInvalidFailsMarshal(t *testing.T) {
 	_, err := json.Marshal(ChatRequest{
 		RawJSON:    json.RawMessage(`{"model":"m"}`),

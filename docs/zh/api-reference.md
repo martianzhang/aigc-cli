@@ -177,6 +177,7 @@ OpenRouter 有两种图片生成路径：
 APIMart:    域名包含 apimart.ai / apib.ai / aiuxu.com / aishuch.com
 OpenRouter: 域名包含 openrouter.ai
 OpenLux:    域名包含 openlux.ai
+MiMo:       域名包含 xiaomimimo.com / mimo.mi.com（chat 用量报告 web_search_usage）
 Zeekai:     域名包含 zeekai.cc（图生图自动改走 POST /images/edits）
 OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io
             （带参考图时自动改走 POST /images/edits 的 multipart/form-data 上传）

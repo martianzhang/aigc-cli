@@ -21,6 +21,7 @@ Provider detection uses `base_url` pattern matching:
 | `openrouter.ai` | OpenRouter |
 | `apimart.ai` | APIMart |
 | `zeekai.cc` | ZeekAI (image-to-image auto-routes to `/images/edits`) |
+| `xiaomimimo.com`, `mimo.mi.com` | MiMo (chat reports `web_search_usage`) |
 | `openai.com`, `openai.azure.com`, `ofox.ai`, `ofox.run`, `ofox.io` | OpenAI-family (image input auto-routes to multipart `POST /images/edits`) |
 | `openlux.ai` (in URL) | OpenLux |
 | `localhost` or `127.0.0.1` | Local (no API Key) |

@@ -141,6 +141,26 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 	return &result, nil
 }
 
+// appendAnnotationUnique appends a citation unless its URL (or, when the URL is
+// missing, its title) is already present. Streaming providers repeat the same
+// citation across chunks and may attach slightly different titles to one URL.
+func appendAnnotationUnique(dst []types.ChatAnnotation, a types.ChatAnnotation) []types.ChatAnnotation {
+	key := a.URL
+	other := func(x types.ChatAnnotation) string { return x.URL }
+	if key == "" {
+		key, other = a.Title, func(x types.ChatAnnotation) string { return x.Title }
+	}
+	if key == "" {
+		return dst
+	}
+	for _, existing := range dst {
+		if other(existing) == key {
+			return dst
+		}
+	}
+	return append(dst, a)
+}
+
 // truncate returns the first n bytes of b as a string, with "..." if truncated.
 func truncate(b []byte, n int) string {
 	if len(b) <= n {
@@ -164,6 +184,10 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 	// Accumulate tool calls by index across streaming chunks
 	// Key: tool call index, Value: accumulated ToolCall
 	toolCallAccum := map[int]*types.ToolCall{}
+
+	// Citations (provider-side web search) may be repeated across chunks, so
+	// deduplicate by URL+title while accumulating.
+	var annotations []types.ChatAnnotation
 
 	var roleSkipped bool
 	for scanner.Scan() {
@@ -222,6 +246,10 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 				}
 			}
 
+			for _, a := range choice.Delta.Annotations {
+				annotations = appendAnnotationUnique(annotations, a)
+			}
+
 			// Write text content (only if no tool calls in this response)
 			content := choice.Delta.Content
 			if content != "" {
@@ -244,6 +272,10 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 		if chunk.Model != "" && full.Model == "" {
 			full.Model = chunk.Model
 		}
+		// Some providers only report usage in the final chunk.
+		if chunk.Usage != nil {
+			full.Usage = chunk.Usage
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -260,6 +292,7 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 		}
 		full.Choices[0].Message.ToolCalls = tcs
 	}
+	full.Choices[0].Message.Annotations = annotations
 
 	// Only print trailing newline if we wrote text content
 	if full.Choices[0].Message.Content != "" {
