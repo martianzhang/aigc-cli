@@ -123,16 +123,19 @@ web_search:
     type: firecrawl
     api_key: "fc-xxx"
     tags: [free, quality]
+  exa:
+    type: exa                  # neural search; also provides Contents (fetch)
+    api_key: "exa-xxx"
 
 defaults:
   chat:
-    search_provider: deepseek   # duckduckgo/firecrawl/brave/doubao/deepseek, or auto/free/quality (default auto)
+    search_provider: deepseek   # duckduckgo/firecrawl/brave/doubao/deepseek/exa, or auto/free/quality (default auto)
 ```
 
 - `search_provider`: a vendor name forces that vendor; `auto` (default) picks by `free`/`quality` tags; `free`/`cheap` uses only free engines; `quality` uses only quality engines.
 - The `--search-provider` flag overrides the config for one run (precedence: `--search-provider` > `defaults.chat.search_provider` > `auto`).
 - `web_search` uses **third-party vendors only**: the built-in DuckDuckGo is excluded, so `auto` can never silently answer from a non-third-party engine. With no third-party vendor declared, `web_search`/`web_fetch` **error out and point you at the built-in `search`/`fetch`** — no silent spend, no silent downgrade.
-- `web_fetch` needs a **fetch-capable vendor** (e.g. `deepseek`); search-only vendors (`duckduckgo`/`brave`) do not provide it.
+- `web_fetch` needs a **fetch-capable vendor** (e.g. `deepseek`/`exa`); search-only vendors (`duckduckgo`/`brave`) do not provide it.
 - One call returns 5 results by default, at most 10.
 - Unlike `kb search`, chat's web primitives **search/fetch only — they do not save to the knowledge base**; `kb search` still uses the same `web_search.*` vendor config (including the free DuckDuckGo fallback).
 
@@ -235,7 +238,7 @@ With it on, a request carries only the **primitives** plus two meta-tools: the m
 | `--json` | Pass messages as JSON; forwarded **verbatim** when no flags are set, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API. Explicitly-set flags override the matching key | — |
 | `--inject-json` | Merge a JSON object **on top of** the generated body (objects recurse, arrays append, scalars overwrite). Use it for vendor-only fields (native web search, reasoning, routing); takes precedence over `--json` | — |
 | `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
-| `--search-provider` | Vendor for the `web_search`/`web_fetch` primitives (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`, or `auto`/`free`/`quality`); overrides `defaults.chat.search_provider` | — |
+| `--search-provider` | Vendor for the `web_search`/`web_fetch` primitives (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`, or `auto`/`free`/`quality`); overrides `defaults.chat.search_provider` | — |
 
 ### Context Management
 

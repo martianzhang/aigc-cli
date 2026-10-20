@@ -174,6 +174,9 @@ web_search:
   deepseek:
     type: deepseek
     api_key: "sk-xxx"   # DeepSeek Search（自研引擎）
+  exa:
+    type: exa
+    api_key: "exa-xxx"  # Exa 神经搜索（Search + Contents/Fetch，$10 免费额度/月）
 ```
 
 配置多个 provider 时会自动根据配额和策略进行 fallback。

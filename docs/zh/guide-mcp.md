@@ -145,7 +145,7 @@ defaults:
     search_provider: brave     # 只影响 chat
 ```
 
-`search_provider` 取值：`auto`（默认）| `free` | `quality` | 厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`）。
+`search_provider` 取值：`auto`（默认）| `free` | `quality` | 厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`）。
 
 > **不静默降级**：`web_search`/`web_fetch` 在未配置第三方厂商时**明确报错**并提示改用内置 `search`/`fetch`——既不静默花钱，也不静默降级。
 

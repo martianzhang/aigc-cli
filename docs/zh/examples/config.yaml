@@ -205,7 +205,7 @@ defaults:
     context_size: 32768 # 输入上下文窗口大小（token），0=使用模型默认值。超过 80% 自动压缩
     # tools_on_demand: true # MCP 工具按需加载（search_tools/load_tools），降低上下文占用
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$'] # read 原语拒绝正则（匹配路径或文件名，默认空=全部放行）
-    # search_provider: duckduckgo # web_search/web_fetch 原语使用的第三方厂商（duckduckgo/firecrawl/brave/doubao/deepseek，或 auto/free/quality；默认 auto，留空则用顶层 search_provider）
+    # search_provider: duckduckgo # web_search/web_fetch 原语使用的第三方厂商（duckduckgo/firecrawl/brave/doubao/deepseek/exa，或 auto/free/quality；默认 auto，留空则用顶层 search_provider）
   decision:
   # provider: "ollama"        # 命名 provider（ollama / openrouter / ...）；不填则用全局
   # model: "tev1"             # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
@@ -234,7 +234,7 @@ defaults:
   # ── 可选：知识库（knowledgebase）──
   # knowledgebase:
   #   base_dir: "~/.config/aigc-cli/knowledge"   # 知识库存放路径
-  #   search_provider: duckduckgo                 # kb search 引擎：duckduckgo / firecrawl / brave / doubao / deepseek
+  #   search_provider: duckduckgo                 # kb search 引擎：duckduckgo / firecrawl / brave / doubao / deepseek / exa
   #   auto_save: true                             # kb search 结果是否自动存入 KB（默认 true）
   #   min_score: 0.8                              # 向量搜索结果最低相似度（默认0.8，设0关闭）
   #   embedding_provider: ollama                  # 留空 / local / onnx / hash，或 config.providers 里的名字
@@ -275,6 +275,9 @@ defaults:
   #   deepseek:
   #     type: deepseek
   #     api_key: "sk-xxx"          # DeepSeek Search（自研引擎，5元/1000 次成功请求）
+  #   exa:
+  #     type: exa
+  #     api_key: "exa-xxx"         # Exa 神经搜索（同时提供 Search 与 Contents/Fetch；$10 免费额度/月）
 
   # ── 可选：强制走本地 ONNX（无需配 provider）──
   # 命令行 aigc-cli ocr scan x.png --provider local 即可

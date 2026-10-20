@@ -96,7 +96,7 @@ defaults:
     search_provider: brave     # affects chat only
 ```
 
-`search_provider` accepts `auto` (default) | `free` | `quality` | a vendor name (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`).
+`search_provider` accepts `auto` (default) | `free` | `quality` | a vendor name (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`).
 
 > **No silent fallback**: with no third-party provider configured, `web_search`/`web_fetch` **fail with an explicit error** pointing at the built-in `search`/`fetch` tools — so nothing silently bills, and nothing silently degrades.
 

@@ -43,6 +43,11 @@ func TestNewProviderFromConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "exa without api key returns error",
+			cfg:     &types.WebSearchProvider{Type: "exa"},
+			wantErr: true,
+		},
+		{
 			name:    "unknown type returns error",
 			cfg:     &types.WebSearchProvider{Type: "nonexistent"},
 			wantErr: true,
@@ -83,13 +88,22 @@ func TestNewProviderFromConfig(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "exa with api key returns ExaProvider",
+			cfg:  &types.WebSearchProvider{Type: "exa", APIKey: "exa-key"},
+			check: func(t *testing.T, p Provider) {
+				if _, ok := p.(*ExaProvider); !ok {
+					t.Errorf("NewProviderFromConfig() = %T, want *ExaProvider", p)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Ensure an ambient FIRECRAWL_API_KEY cannot leak into the
-			// "without api key" cases.
+			// Ensure ambient keys cannot leak into the "without api key" cases.
 			t.Setenv("FIRECRAWL_API_KEY", "")
+			t.Setenv("EXA_API_KEY", "")
 
 			p, err := NewProviderFromConfig(tt.cfg)
 			if tt.wantErr {

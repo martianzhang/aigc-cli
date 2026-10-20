@@ -36,6 +36,15 @@ func NewProviderFromConfig(cfg *types.WebSearchProvider) (Provider, error) {
 			return nil, fmt.Errorf("deepseek requires api_key")
 		}
 		return NewDeepSeekProvider(cfg.APIKey), nil
+	case "exa":
+		apiKey := cfg.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("EXA_API_KEY")
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("exa requires api_key")
+		}
+		return NewExaProvider(apiKey), nil
 	default:
 		return nil, fmt.Errorf("unknown provider type: %s", cfg.Type)
 	}
