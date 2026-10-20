@@ -73,10 +73,11 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
   --size "1024x768" --image-url photo.png --prompt "a cat wearing a hat"
 ```
 
-> **Note:** ModelScope has two gotchas:
+> **Note:** ModelScope has three gotchas:
 >
 > 1. **No image upload endpoint.** Local `--image-url` files are converted to base64 Data URIs and sent in the `image_url` field (a string for one input, an array for several).
 > 2. **LoRAs must go in the `loras` field — never pass a LoRA repo ID as `--model`.** Doing so makes ModelScope **silently fall back to the base checkpoint**: no error, but the output has nothing to do with that LoRA.
+> 3. **The free queue can be slow.** Image task polling gives up after **10 minutes** by default; the job keeps running server-side but the CLI stops waiting. Raise `defaults.image.timeout` (e.g. `1800`) or pass `--timeout 1800`. ModelScope tasks cannot be re-queried with `aigc-cli task` (that command only supports APIMart-family vendors), so a timeout means re-running.
 
 ### `--json` is forwarded verbatim
 
@@ -236,11 +237,13 @@ aigc-cli image --prompt "a cat" --mode sync
 
 ## Async Mode
 
-Used by APIMart and similar providers. Submits a task and polls until completion.
+Used by APIMart, ModelScope and similar providers. Submits a task and polls until completion.
 
 ```bash
 aigc-cli image --prompt "a cat" --mode async --timeout 120
 ```
+
+Polling gives up after **10 minutes** by default. Raise it with `defaults.image.timeout` (e.g. `1800`) or a one-off `--timeout 1800`; the global `timeout` key does not bound polling. APIMart tasks can be re-queried with `aigc-cli task <id>`, ModelScope tasks cannot.
 
 ## Transparent Background (OpenAI gpt-image-1)
 

@@ -36,7 +36,7 @@ func (c *Client) MidjourneyGetTask(taskID string) (*types.MJTaskData, error) {
 
 // MidjourneyPollTask polls an MJ task until completion, failure, or MODAL state.
 // Returns the task data regardless of terminal state (caller checks .Status).
-func (c *Client) MidjourneyPollTask(taskID string) (*types.MJTaskData, error) {
+func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*types.MJTaskData, error) {
 	fmt.Printf("Task submitted: %s\n", taskID)
 	fmt.Printf("Waiting %v before first poll...\n", initialDelay)
 	select {
@@ -49,6 +49,7 @@ func (c *Client) MidjourneyPollTask(taskID string) (*types.MJTaskData, error) {
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	si := 0
 	start := time.Now()
+	wait := pollWait(maxWait, maxPollDuration)
 
 	if isTTY {
 		fmt.Print("  Progress: 0% ")
@@ -65,11 +66,11 @@ func (c *Client) MidjourneyPollTask(taskID string) (*types.MJTaskData, error) {
 		default:
 		}
 
-		if time.Since(start) > maxPollDuration {
+		if time.Since(start) > wait {
 			if isTTY {
 				fmt.Println()
 			}
-			return nil, fmt.Errorf("polling timed out after %v", maxPollDuration)
+			return nil, fmt.Errorf("polling timed out after %v", wait)
 		}
 
 		task, err := c.MidjourneyGetTask(taskID)

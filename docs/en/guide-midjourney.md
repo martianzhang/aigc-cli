@@ -132,4 +132,5 @@ defaults:
     version: "6.1"            # Midjourney version
     style: "raw"               # Style parameter
     size: "1:1"               # Aspect ratio
+    # timeout: 600            # HTTP timeout + task polling deadline (s); polling defaults to 10m
 ```

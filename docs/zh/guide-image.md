@@ -103,10 +103,11 @@ aigc-cli image --provider agnes --model agnes-image-2.5-flash \
   --size "1024x768" --image-url photo.png --prompt "一只戴帽子的猫"
 ```
 
-> ⚠️ **ModelScope 有两个必须注意的点**：
+> ⚠️ **ModelScope 有三个必须注意的点**：
 >
 > 1. **没有图片上传端点**：本地 `--image-url` 会自动转 base64 Data URI，以 `image_url` 字段提交（单张为字符串，多张为数组）。
 > 2. **LoRA 必须走 `loras` 字段，不能把 LoRA 仓库 ID 当 `--model`**。否则 ModelScope 会**静默回退到底模**——不报错，但出图和这个 LoRA 毫无关系。
+> 3. **免费队列可能排队很久**：图片异步任务的轮询上限默认 **10 分钟**，超时后任务仍在服务端运行，但 CLI 不再等待。要等更久就调高 `defaults.image.timeout`（例如 `1800`）或临时用 `--timeout 1800`；ModelScope 的任务无法用 `aigc-cli task` 回查（该命令只支持 APIMart 系厂商），超时只能重跑。
 
 ### `--json`：原样转发 + 显式参数覆盖
 
@@ -570,7 +571,8 @@ aigc-cli image --prompt "..." \
   ```
 - 或在配置文件中设置：`timeout: 300`
 
-**异步模式（APIMart）**
+**异步模式（APIMart / ModelScope 等）**
+- 轮询上限默认 **10 分钟**，可用 `defaults.image.timeout`（如 `1800`）或临时 `--timeout 1800` 调整；全局 `timeout` 不约束轮询
 - 超时后任务仍在后端运行，不会丢失
 - 使用 `task` 命令查询结果：
   ```bash

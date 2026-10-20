@@ -30,7 +30,9 @@ func (m *mockAPIClient) ImageGenerateEdits(req *types.GenerateRequest) (*types.O
 func (m *mockAPIClient) ImageGenerateEditsMultipart(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
 	return nil, nil
 }
-func (m *mockAPIClient) PollTask(taskID string) (*types.TaskData, error) { return nil, nil }
+func (m *mockAPIClient) PollTask(taskID string, maxWait time.Duration) (*types.TaskData, error) {
+	return nil, nil
+}
 func (m *mockAPIClient) GetTask(taskID string) (*types.TaskData, error) {
 	if m.getTaskFn != nil {
 		return m.getTaskFn(taskID)
@@ -89,7 +91,7 @@ func (m *mockAPIClient) MidjourneySubmit(action string, reqBody any) (*types.MJS
 func (m *mockAPIClient) MidjourneyGetTask(taskID string) (*types.MJTaskData, error) {
 	return nil, nil
 }
-func (m *mockAPIClient) MidjourneyPollTask(taskID string) (*types.MJTaskData, error) {
+func (m *mockAPIClient) MidjourneyPollTask(taskID string, maxWait time.Duration) (*types.MJTaskData, error) {
 	return nil, nil
 }
 func (m *mockAPIClient) MusicSubmit(reqBody any) (*types.MusicSubmitResponse, error) {
@@ -98,7 +100,7 @@ func (m *mockAPIClient) MusicSubmit(reqBody any) (*types.MusicSubmitResponse, er
 func (m *mockAPIClient) MusicGetTask(taskID string) (*types.MusicTaskData, error) {
 	return nil, nil
 }
-func (m *mockAPIClient) MusicPollTask(taskID string) (*types.MusicTaskData, error) {
+func (m *mockAPIClient) MusicPollTask(taskID string, maxWait time.Duration) (*types.MusicTaskData, error) {
 	return nil, nil
 }
 func (m *mockAPIClient) OpenRouterMusicGenerate(req *types.OpenRouterMusicRequest) ([]byte, string, error) {

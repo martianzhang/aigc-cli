@@ -38,10 +38,8 @@ func runAgnesVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 
 	// Step 2: Poll
 	fmt.Println("Polling for completion...")
-	const (
-		agnesPollInterval = 15 * time.Second
-		agnesMaxWait      = 10 * time.Minute
-	)
+	const agnesPollInterval = 15 * time.Second
+	agnesMaxWait := options.TaskWait(types.MediaVideo)
 	start := time.Now()
 	var videoURL string
 	for {

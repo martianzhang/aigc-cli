@@ -5,6 +5,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // NewClient creates an API client from the resolved provider for cmdName.
@@ -17,43 +18,74 @@ func NewClient(cmdName string) *client.Client {
 // back to modDefault. Priority: --timeout flag > defaults.{mod}.timeout >
 // timeout > modDefault.
 func ApplyTimeout(c client.APIClient, modKey string, modDefault time.Duration) {
-	d := modDefault
+	c.SetTimeout(resolveTimeout(modKey, modDefault))
+}
+
+// TaskWait returns how long to wait for an async task of the given media type
+// (types.MediaImage / MediaVideo / MediaMusic) before giving up.
+//
+// Async polling reuses the same per-media knob as the HTTP timeout, with a
+// per-media built-in fallback because generators queue very differently:
+// Priority: --timeout flag > defaults.{media}.timeout > built-in default
+// (image 10m, video 30m, music 15m).
+//
+// The global `timeout` key is intentionally not consulted here: it exists to
+// bound a single HTTP request, not a multi-minute generation job.
+func TaskWait(media string) time.Duration {
+	fallback := types.DefaultTaskWait(media)
 	if Shared.TimeoutFlag > 0 {
-		d = time.Duration(Shared.TimeoutFlag) * time.Second
-		c.SetTimeout(d)
-		return
+		return time.Duration(Shared.TimeoutFlag) * time.Second
+	}
+	if seconds := modalityTimeout(media); seconds != nil && *seconds > 0 {
+		return time.Duration(*seconds) * time.Second
+	}
+	return fallback
+}
+
+// resolveTimeout implements the priority chain of ApplyTimeout.
+func resolveTimeout(modKey string, modDefault time.Duration) time.Duration {
+	if Shared.TimeoutFlag > 0 {
+		return time.Duration(Shared.TimeoutFlag) * time.Second
+	}
+	if seconds := modalityTimeout(modKey); seconds != nil && *seconds > 0 {
+		return time.Duration(*seconds) * time.Second
 	}
 	if cfg, err := config.LoadDefaults(Shared.CfgFile); err == nil && cfg != nil {
-		var modTimeout *int
-		if cfg.Defaults != nil {
-			switch modKey {
-			case "image":
-				if cfg.Defaults.Image != nil {
-					modTimeout = cfg.Defaults.Image.Timeout
-				}
-			case "video":
-				if cfg.Defaults.Video != nil {
-					modTimeout = cfg.Defaults.Video.Timeout
-				}
-			case "midjourney":
-				if cfg.Defaults.Midjourney != nil {
-					modTimeout = cfg.Defaults.Midjourney.Timeout
-				}
-			case "music":
-				if cfg.Defaults.Music != nil {
-					modTimeout = cfg.Defaults.Music.Timeout
-				}
-			case "audio":
-				if cfg.Defaults.Audio != nil {
-					modTimeout = cfg.Defaults.Audio.Timeout
-				}
-			}
-		}
-		if modTimeout != nil && *modTimeout > 0 {
-			d = time.Duration(*modTimeout) * time.Second
-		} else if cfg.Timeout != nil && *cfg.Timeout > 0 {
-			d = time.Duration(*cfg.Timeout) * time.Second
+		if cfg.Timeout != nil && *cfg.Timeout > 0 {
+			return time.Duration(*cfg.Timeout) * time.Second
 		}
 	}
-	c.SetTimeout(d)
+	return modDefault
+}
+
+// modalityTimeout returns defaults.{modKey}.timeout in seconds, or nil.
+func modalityTimeout(modKey string) *int {
+	cfg, err := config.LoadDefaults(Shared.CfgFile)
+	if err != nil || cfg == nil || cfg.Defaults == nil {
+		return nil
+	}
+	d := cfg.Defaults
+	switch modKey {
+	case "image":
+		if d.Image != nil {
+			return d.Image.Timeout
+		}
+	case "video":
+		if d.Video != nil {
+			return d.Video.Timeout
+		}
+	case "midjourney":
+		if d.Midjourney != nil {
+			return d.Midjourney.Timeout
+		}
+	case "music":
+		if d.Music != nil {
+			return d.Music.Timeout
+		}
+	case "audio":
+		if d.Audio != nil {
+			return d.Audio.Timeout
+		}
+	}
+	return nil
 }

@@ -194,6 +194,7 @@ http_proxy: "http://127.0.0.1:7890"
 # output_dir: "./downloads"
 
 # 全局超时（秒，默认 180），各模态 defaults.*.timeout 会覆盖此值
+# 只约束单次 HTTP 请求；异步任务轮询上限用 defaults.<模态>.timeout（不填时按模态取内置值）
 # timeout: 300
 
 defaults:
@@ -203,11 +204,11 @@ defaults:
     resolution: "1k"
     quality: "low"
     output_format: "png"
-    # timeout: 300                 # HTTP 超时秒数（覆盖 timeout）
+    # timeout: 300                 # HTTP 超时秒数（覆盖 timeout），同时作为异步任务轮询上限（不填时默认 10 分钟）
 
   video:
     model: "doubao-seedance-2.0"
-    # timeout: 600                 # HTTP 超时秒数（视频生成更慢）
+    # timeout: 600                 # HTTP 超时秒数（视频生成更慢），同时作为轮询上限（不填时默认 30 分钟）
 ```
 
 完整示例见 [examples/config.yaml](examples/config.yaml)。

@@ -302,7 +302,7 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 }
 
 // PollTask polls a task (image or video) until completion or failure.
-func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
+func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData, error) {
 	fmt.Printf("Task submitted: %s\n", taskID)
 	fmt.Printf("Waiting %v before first poll...\n", initialDelay)
 	select {
@@ -315,6 +315,7 @@ func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	si := 0
 	start := time.Now()
+	wait := pollWait(maxWait, maxPollDuration)
 
 	// Print initial progress line
 	if isTTY {
@@ -332,11 +333,11 @@ func (c *Client) PollTask(taskID string) (*types.TaskData, error) {
 		default:
 		}
 
-		if time.Since(start) > maxPollDuration {
+		if time.Since(start) > wait {
 			if isTTY {
 				fmt.Println()
 			}
-			return nil, fmt.Errorf("polling timed out after %v\n  The task may still be running. Use: aigc-cli task %s", maxPollDuration, taskID)
+			return nil, fmt.Errorf("polling timed out after %v\n  The task may still be running. Use: aigc-cli task %s", wait, taskID)
 		}
 
 		task, err := c.GetTask(taskID)

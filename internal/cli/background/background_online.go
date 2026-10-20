@@ -51,7 +51,7 @@ func generateOnlineBackground(imagePath string, p *provider.EffectiveProvider, d
 		if len(subResp.Data) == 0 {
 			return "", fmt.Errorf("submit returned no tasks")
 		}
-		taskData, err := c.PollTask(subResp.Data[0].TaskID)
+		taskData, err := c.PollTask(subResp.Data[0].TaskID, options.TaskWait(types.MediaImage))
 		if err != nil {
 			return "", fmt.Errorf("poll failed: %w", err)
 		}

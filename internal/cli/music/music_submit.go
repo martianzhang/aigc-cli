@@ -64,7 +64,7 @@ func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any)
 	fmt.Printf("Status: %s\n\n", task.Status)
 
 	fmt.Println("Polling for completion...")
-	taskData, err := c.MusicPollTask(task.TaskID)
+	taskData, err := c.MusicPollTask(task.TaskID, options.TaskWait(types.MediaMusic))
 	if err != nil {
 		return nil, fmt.Errorf("polling failed: %w", err)
 	}

@@ -427,6 +427,10 @@ aigc-cli video --first-frame start.jpg --last-frame end.jpg --prompt "从首帧�
 
 视频生成耗时较长（通常 30 秒到几分钟），超时处理方式取决于 provider：
 
+**所有异步轮询（APIMart / Agnes / OpenLux / OpenRouter）**
+- 轮询上限默认 **30 分钟**，可用 `defaults.video.timeout`（例如 `1800`）或临时 `--timeout 1800` 调整
+- 该配置项同时作为 HTTP 请求超时；全局 `timeout` 不约束轮询
+
 **同步中转（部分第三方）**
 - 默认超时 600 秒（10 分钟）
 - 超时后无法恢复，需要重新生成

@@ -423,6 +423,7 @@ defaults:
     style: raw
     size: "16:9"
     # niji: false
+    # timeout: 600        # HTTP 超时 + 任务轮询上限（秒）；不填时轮询默认 10 分钟
 ```
 
 ---

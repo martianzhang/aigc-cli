@@ -31,10 +31,8 @@ func runOpenLuxVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	// Step 2: Poll
 	fmt.Println("Polling for completion...")
 	taskID := createResp.ID
-	const (
-		openluxPollInterval = 10 * time.Second
-		openluxMaxWait      = 5 * time.Minute
-	)
+	const openluxPollInterval = 10 * time.Second
+	openluxMaxWait := options.TaskWait(types.MediaVideo)
 	start := time.Now()
 	var videoURL string
 	for {

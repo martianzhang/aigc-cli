@@ -165,4 +165,4 @@ aigc-cli completion powershell > aigc-cli.ps1
 | `--model` / `-m` | Model name |
 | `--provider` / `-P` | Named provider reference |
 | `--output` / `-o` | Output directory |
-| `--timeout` | HTTP request timeout in seconds |
+| `--timeout` | HTTP request timeout in seconds; also caps async task polling (per-media defaults live in `defaults.<command>.timeout`) |

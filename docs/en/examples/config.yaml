@@ -43,6 +43,8 @@ base_url: "https://api.apimart.ai"
 
 # Global timeout in seconds for HTTP requests (default: 180s).
 # Modality-specific timeout overrides this if set.
+# This key only bounds a single HTTP request; async task polling uses
+# defaults.<modality>.timeout (and per-media built-in defaults) instead.
 # timeout: 300
 
 # ── Tool Filtering (MCP / Chat mode) ──
@@ -183,10 +185,12 @@ defaults:
     resolution: "1k"
     quality: "low"
     output_format: "png"
+    # timeout: 600               # HTTP timeout + async task polling deadline (s); polling defaults to 10m
     # background: "auto"   # auto | opaque | transparent (requires output_format=png/webp)
 
   video:
     model: "doubao-seedance-2.0"
+    # timeout: 1800              # HTTP timeout + async task polling deadline (s); polling defaults to 30m
 
   audio:
     speak_model: "gpt-4o-mini-tts"
@@ -199,6 +203,7 @@ defaults:
   music:
     # provider: "apimart"        # apimart (default), openrouter, or dashscope (Fun-Music)
     model: "suno"                # suno | flowmusic (flowmusic if the name contains it); OpenRouter: google/lyria-3-*; dashscope: fun-music-v1 / fun-music-preview
+    # timeout: 900               # HTTP timeout + async task polling deadline (s); polling defaults to 15m
     # instrumental: false        # true = no vocals
     # duration: 120              # seconds (suno: duration, flowmusic: length); not supported by Bailian Fun-Music
     # format: "mp3"              # audio format (suno / OpenRouter / Bailian; flowmusic not supported)

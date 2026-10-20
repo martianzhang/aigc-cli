@@ -83,7 +83,7 @@ func runMJSubmitAndPoll(c client.APIClient, action string, req any) error {
 	}
 
 	fmt.Println("Polling for completion...")
-	taskData, err := c.MidjourneyPollTask(task.TaskID)
+	taskData, err := c.MidjourneyPollTask(task.TaskID, options.TaskWait(types.MediaMidjourney))
 	if err != nil {
 		return fmt.Errorf("polling failed: %w", err)
 	}
@@ -211,7 +211,7 @@ func SubmitAndGetText(c client.APIClient, action string, req any) (string, error
 		return fmt.Sprintf("Task %s entered MODAL state. Call midjourney modal to submit parameters.", task.TaskID), nil
 	}
 
-	taskData, err := c.MidjourneyPollTask(task.TaskID)
+	taskData, err := c.MidjourneyPollTask(task.TaskID, options.TaskWait(types.MediaMidjourney))
 	if err != nil {
 		return "", fmt.Errorf("polling failed: %w", err)
 	}

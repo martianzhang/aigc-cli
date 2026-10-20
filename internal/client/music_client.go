@@ -33,7 +33,7 @@ func (c *Client) MusicGetTask(taskID string) (*types.MusicTaskData, error) {
 
 // MusicPollTask polls a music task until completion or failure.
 // Success on completed/success/succeeded; failure on failed/failure.
-func (c *Client) MusicPollTask(taskID string) (*types.MusicTaskData, error) {
+func (c *Client) MusicPollTask(taskID string, maxWait time.Duration) (*types.MusicTaskData, error) {
 	fmt.Printf("Task submitted: %s\n", taskID)
 	fmt.Printf("Waiting %v before first poll...\n", initialDelay)
 	select {
@@ -46,6 +46,7 @@ func (c *Client) MusicPollTask(taskID string) (*types.MusicTaskData, error) {
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	si := 0
 	start := time.Now()
+	wait := pollWait(maxWait, maxPollDuration)
 
 	if isTTY {
 		fmt.Print("  Progress: 0% ")
@@ -61,11 +62,11 @@ func (c *Client) MusicPollTask(taskID string) (*types.MusicTaskData, error) {
 		default:
 		}
 
-		if time.Since(start) > maxPollDuration {
+		if time.Since(start) > wait {
 			if isTTY {
 				fmt.Println()
 			}
-			return nil, fmt.Errorf("polling timed out after %v", maxPollDuration)
+			return nil, fmt.Errorf("polling timed out after %v", wait)
 		}
 
 		task, err := c.MusicGetTask(taskID)

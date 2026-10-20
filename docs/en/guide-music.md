@@ -62,6 +62,8 @@ aigc-cli music query task_xxx
 
 The submission returns a `task_id`; the CLI polls until completion and downloads the result. `music query <task-id>` inspects an in-flight task or re-fetches a past one.
 
+Polling gives up after **15 minutes** by default; raise it with `defaults.music.timeout` (e.g. `1800`) or a one-off `--timeout 1800`. A timed-out task keeps rendering server-side — fetch it with `music query <task-id>`.
+
 Field mapping:
 
 - **suno**

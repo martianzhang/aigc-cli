@@ -39,6 +39,8 @@ base_url: "https://api.apimart.ai"
 
 # Global timeout in seconds for HTTP requests (default: 180s).
 # Modality-specific timeout overrides this if set.
+# This key only bounds a single HTTP request; async task polling uses
+# defaults.<modality>.timeout (and per-media built-in defaults) instead.
 # timeout: 300
 
 # ── 工具过滤（MCP / Chat 模式通用）──
@@ -179,9 +181,11 @@ defaults:
     resolution: "1k"
     quality: "low"
     output_format: "png"
+    # timeout: 600              # HTTP 超时 + 异步任务轮询上限（秒）；不填时轮询默认 10 分钟
     # background: "auto"   # auto | opaque | transparent（透明背景需 output_format=png/webp）
   video:
     model: "doubao-seedance-2.0"
+    # timeout: 1800             # HTTP 超时 + 异步任务轮询上限（秒）；不填时轮询默认 30 分钟
   audio:
     speak_model: "gpt-4o-mini-tts"
     transcribe_model: "whisper-tiny"
@@ -191,6 +195,7 @@ defaults:
   music:
     # provider: "apimart"        # apimart（默认）或 openrouter / dashscope（Fun-Music）
     model: "suno" # suno | flowmusic（名称含 flowmusic 走 flowmusic 后端）；OpenRouter 填 google/lyria-3-*；dashscope 填 fun-music-v1 / fun-music-preview
+    # timeout: 900               # HTTP 超时 + 异步任务轮询上限（秒）；不填时轮询默认 15 分钟
     # instrumental: false        # 纯音乐（无人声）
     # duration: 120              # 时长（秒），suno 用 duration，flowmusic 用 length；百炼 Fun-Music 不支持
     # format: "mp3"              # 音频格式（suno / OpenRouter / 百炼；flowmusic 不支持）

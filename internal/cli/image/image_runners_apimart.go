@@ -29,7 +29,7 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	fmt.Printf("Status: %s\n\n", task.Status)
 
 	fmt.Println("Polling for completion...")
-	taskData, err := c.PollTask(task.TaskID)
+	taskData, err := c.PollTask(task.TaskID, options.TaskWait(types.MediaImage))
 	if err != nil {
 		return nil, fmt.Errorf("polling failed: %w", err)
 	}

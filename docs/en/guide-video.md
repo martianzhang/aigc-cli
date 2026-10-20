@@ -24,7 +24,7 @@ aigc-cli video --model "google/veo-3.1" --prompt "a dog running"
 | `--image-url` / `-i` | Reference image URL or local file (repeatable); with `--gif`/`--mp4` and no `--prompt`, converts a local file | — |
 | `--video-url` | Reference video (APIMart VEO3 Remix) | — |
 | `--audio-url` | Reference audio | — |
-| `--timeout` | Polling timeout in seconds | `300` |
+| `--timeout` | HTTP request timeout **and** async polling deadline in seconds (overrides `defaults.video.timeout`; polling defaults to 30m) | `300` |
 | `--job-id` | Resume a previous job | — |
 | `--gif` | Convert generated videos to GIF after download, or convert a local video via `-i/--image-url` | `false` |
 | `--gif-width` | GIF output width in px (height auto, even) | `160` |

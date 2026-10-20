@@ -62,6 +62,8 @@ aigc-cli music query task_xxx
 
 提交后返回 `task_id`，CLI 自动轮询直到完成并下载。`music query <task-id>` 可随时查看进度、或对历史任务重新拉取下载。
 
+轮询上限默认 **15 分钟**，可用 `defaults.music.timeout`（如 `1800`）或临时 `--timeout 1800` 调整；超时后任务仍在服务端生成，用 `music query <task-id>` 取回。
+
 字段映射：
 
 - **suno**

@@ -53,6 +53,16 @@ var DefaultTimeout = defaultHTTPTimeout
 // Defaults to "dev" when not set.
 var Version = "dev"
 
+// pollWait returns the effective polling deadline: the caller-provided value
+// when positive, otherwise the built-in default. Callers pass a value resolved
+// from options.TaskWait so per-media config (task_timeout) takes effect.
+func pollWait(maxWait, fallback time.Duration) time.Duration {
+	if maxWait > 0 {
+		return maxWait
+	}
+	return fallback
+}
+
 // Client is the API client for image generation, chat, and more.
 type Client struct {
 	baseURL        string
