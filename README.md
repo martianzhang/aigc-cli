@@ -166,6 +166,7 @@ aigc-cli
 │   └── mj     Alias for midjourney
 ├── chat      AI chat / Interactive REPL / Agent Loop (tool calling)                  →  docs/en/guide-chat.md
 ├── ideas / idea  Prompt idea search (local dataset + online libraries)                →  docs/en/guide-ideas.md
+├── search     Web search: prints the executed vendor's raw JSON (vendors + DuckDuckGo fallback) →  docs/en/guide-commands.md
 ├── knowledgebase / kb  Local knowledge base (FTS5 + semantic search, pluggable embeddings) →  docs/en/guide-knowledgebase.md
 ├── models / model                                                                    →  docs/en/guide-commands.md
 │   └── --price    View model pricing

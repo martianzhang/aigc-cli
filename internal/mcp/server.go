@@ -38,12 +38,9 @@ type Config struct {
 	// or "enabled" (only the tools that will actually be exposed).
 	ListTools   string
 	ListPrompts bool
-	// SearchProvider is the global default vendor (top-level `search_provider`)
-	// for the MCP `web_search`/`web_fetch` tools.
+	// SearchProvider is the shared default vendor (defaults.search.provider)
+	// for the MCP web_search/web_fetch and kb_search tools.
 	SearchProvider string
-	// KBSearchProvider is the knowledge-base vendor
-	// (defaults.knowledgebase.search_provider) used by the MCP `kb_search` tool.
-	KBSearchProvider string
 	// WebSearchProviders is the web_search.* provider registry.
 	WebSearchProviders map[string]*types.WebSearchProvider
 	// CmdProviders holds pre-resolved providers for each command,

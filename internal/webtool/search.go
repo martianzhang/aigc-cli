@@ -126,7 +126,7 @@ type Env struct {
 	// Providers is the web_search.* registry from config.
 	Providers map[string]*types.WebSearchProvider
 	// Scope names where Spec came from, for actionable error messages
-	// (e.g. "defaults.chat.search_provider"). Optional.
+	// (e.g. "defaults.search.provider"). Optional.
 	Scope string
 }
 
@@ -144,5 +144,5 @@ func (e Env) specHint() string {
 	if e.Scope != "" {
 		return e.Scope
 	}
-	return "defaults.chat.search_provider"
+	return "defaults.search.provider"
 }

@@ -110,8 +110,8 @@ func resolveSearchProvider(cmd *cobra.Command) string {
 			return v
 		}
 	}
-	if cfg := options.KnowledgeDefaults(); cfg != nil && cfg.SearchProvider != "" {
-		return cfg.SearchProvider
+	if p := options.SearchProviderDefault(); p != "" {
+		return p
 	}
 	return "auto"
 }

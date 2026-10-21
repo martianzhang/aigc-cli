@@ -44,21 +44,17 @@ func searchEnv() webtool.Env {
 	return webtool.Env{
 		Spec:      resolveSearchVendor(),
 		Providers: options.WebSearchConfig(),
-		Scope:     "defaults.chat.search_provider",
+		Scope:     "defaults.search.provider",
 	}
 }
 
 // resolveSearchVendor returns the vendor spec shared by the web_search and
-// web_fetch primitives. Precedence:
-// --search-provider > defaults.chat.search_provider > search_provider (global) > auto.
+// web_fetch primitives: --search-provider > defaults.search.provider > auto.
 func resolveSearchVendor() string {
 	if chatSearchProvider != "" {
 		return chatSearchProvider
 	}
-	if cfg := options.ChatDefaults(); cfg != nil && cfg.SearchProvider != "" {
-		return cfg.SearchProvider
-	}
-	if p := options.GlobalSearchProvider(); p != "" {
+	if p := options.SearchProviderDefault(); p != "" {
 		return p
 	}
 	return "auto"

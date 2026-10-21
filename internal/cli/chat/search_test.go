@@ -22,8 +22,7 @@ func TestResolveSearchVendor_precedence(t *testing.T) {
 	t.Run("flag wins", func(t *testing.T) {
 		restore()
 		options.Shared.Cfg = &types.Config{
-			SearchProvider: "global",
-			Defaults:       &types.ConfigDefaults{Chat: &types.ChatDefaults{SearchProvider: "chat"}},
+			Defaults: &types.ConfigDefaults{Search: &types.SearchDefaults{Provider: "shared"}},
 		}
 		chatSearchProvider = "flag"
 		if got := resolveSearchVendor(); got != "flag" {
@@ -31,22 +30,13 @@ func TestResolveSearchVendor_precedence(t *testing.T) {
 		}
 	})
 
-	t.Run("chat scope overrides global", func(t *testing.T) {
+	t.Run("shared default applies", func(t *testing.T) {
 		restore()
 		options.Shared.Cfg = &types.Config{
-			SearchProvider: "global",
-			Defaults:       &types.ConfigDefaults{Chat: &types.ChatDefaults{SearchProvider: "chat"}},
+			Defaults: &types.ConfigDefaults{Search: &types.SearchDefaults{Provider: "shared"}},
 		}
-		if got := resolveSearchVendor(); got != "chat" {
-			t.Errorf("resolveSearchVendor() = %q, want chat", got)
-		}
-	})
-
-	t.Run("global default applies when no chat scope", func(t *testing.T) {
-		restore()
-		options.Shared.Cfg = &types.Config{SearchProvider: "global"}
-		if got := resolveSearchVendor(); got != "global" {
-			t.Errorf("resolveSearchVendor() = %q, want global", got)
+		if got := resolveSearchVendor(); got != "shared" {
+			t.Errorf("resolveSearchVendor() = %q, want shared", got)
 		}
 	})
 
@@ -71,8 +61,8 @@ func TestExecuteWebSearch_noRemoteProvider(t *testing.T) {
 	if !strings.Contains(got, "third-party provider") {
 		t.Errorf("executeWebSearch(no provider) = %q, want a hint about configuring one", got)
 	}
-	if !strings.Contains(got, "defaults.chat.search_provider") {
-		t.Errorf("executeWebSearch(no provider) = %q, want the chat scope hint", got)
+	if !strings.Contains(got, "defaults.search.provider") {
+		t.Errorf("executeWebSearch(no provider) = %q, want the shared scope hint", got)
 	}
 }
 

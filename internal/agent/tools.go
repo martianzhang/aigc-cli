@@ -161,7 +161,7 @@ var ToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "web_search",
-			Description: "Search the web through the configured third-party search provider (defaults.chat.search_provider) and return a ranked list of result titles and URLs. The provider may bill per request. Requires a configured third-party provider under web_search.* and `tools_enable` to list \"web_search\".",
+			Description: "Search the web through the configured third-party search provider (defaults.search.provider) and return a ranked list of result titles and URLs. The provider may bill per request. Requires a configured third-party provider under web_search.* and `tools_enable` to list \"web_search\".",
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {

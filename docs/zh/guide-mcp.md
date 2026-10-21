@@ -101,10 +101,10 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `recognize_text` | 离线 OCR 识别图片/PDF 文字（需先 `aigc-cli ocr init`；输出 markdown 或 json） | ❌ |
 | `search` | 联网搜索：内置免费引擎（DuckDuckGo 抓取），返回标题+URL；用 `fetch` 读全文。不调厂商 API、不计费 | ❌ |
 | `fetch` | 抓 URL 正文：内置免费抓取（HTML→Markdown 主内容提取，非 HTML 原样返回），SSRF 防护，按字符分页 | ❌ |
-| `web_search` | 联网搜索：走配置的第三方厂商（顶层 `search_provider` 选择），**可能按次计费**；未配置厂商时明确报错，不静默回落内置引擎 | 视厂商 |
+| `web_search` | 联网搜索：走配置的第三方厂商（`defaults.search.provider` 选择），**可能按次计费**；未配置厂商时明确报错，不静默回落内置引擎 | 视厂商 |
 | `web_fetch` | 抓 URL 正文：走同一第三方厂商的抓取接口，返回厂商格式化 Markdown，**可能按次计费**；需具备抓取能力的厂商（如 deepseek） | 视厂商 |
 | `kb_find` | 本地知识库关键词 + 语义搜索 | ❌ |
-| `kb_search` | 联网搜索并入库（搜索引擎由 `defaults.knowledgebase.search_provider` 选择，含免费 DuckDuckGo 兜底） | ❌ |
+| `kb_search` | 联网搜索并入库（搜索引擎由 `defaults.search.provider` 选择，含免费 DuckDuckGo 兜底） | ❌ |
 | `kb_add` | 把本地文件加入知识库（.md/.txt/.go/.py/.json/.yaml/.html） | ❌ |
 | `kb_fetch` | 抓取 URL 正文转 Markdown 后入库 | ❌ |
 | `kb_list` | 列出知识库中的全部文档 | ❌ |
@@ -129,23 +129,22 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 
 | 入口 | 选择键 |
 |---|---|
-| MCP `web_search` / `web_fetch` | 顶层 `search_provider` |
-| chat `web_search` / `web_fetch` | `--search-provider` > `defaults.chat.search_provider` > 顶层 `search_provider` |
-| MCP `kb_search` / `kb search` | `defaults.knowledgebase.search_provider`（含免费 DuckDuckGo 兜底） |
+| MCP `web_search` / `web_fetch` | `defaults.search.provider` |
+| chat `web_search` / `web_fetch` | `--search-provider` > `defaults.search.provider` |
+| MCP `kb_search` / `kb search` | `defaults.search.provider`（含免费 DuckDuckGo 兜底） |
 
 ```yaml
-search_provider: deepseek      # 全局默认；下方各 scope 可覆盖
 web_search:
   deepseek:
     type: deepseek             # 同时具备 search 与 fetch
   brave:
     type: brave                # 仅搜索，不能用于 web_fetch
 defaults:
-  chat:
-    search_provider: brave     # 只影响 chat
+  search:
+    provider: deepseek         # CLI / kb / chat / MCP 共享
 ```
 
-`search_provider` 取值：`auto`（默认）| `free` | `quality` | 厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`）。
+`defaults.search.provider` 取值：`auto`（默认）| `free` | `quality` | 厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`）。
 
 > **不静默降级**：`web_search`/`web_fetch` 在未配置第三方厂商时**明确报错**并提示改用内置 `search`/`fetch`——既不静默花钱，也不静默降级。
 

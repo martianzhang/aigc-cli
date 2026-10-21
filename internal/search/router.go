@@ -3,6 +3,7 @@
 package search
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"slices"
@@ -17,6 +18,15 @@ type Provider interface {
 	Name() string
 	// Search returns up to limit result URLs for the given query.
 	Search(query string, limit int) ([]Result, error)
+}
+
+// RawProvider is an optional extension for providers that can return the
+// vendor's raw response body alongside the normalized results. It exists for
+// debugging (`search` prints the raw body by default) without widening the core
+// Provider interface or forcing every test double to implement it.
+type RawProvider interface {
+	Provider
+	SearchRaw(query string, limit int, opts Options) ([]Result, json.RawMessage, error)
 }
 
 // Result holds a single search result.
@@ -78,14 +88,47 @@ func (r *Router) GetProvider(name string) (Provider, bool) {
 	return p, ok
 }
 
+// Names returns the names of all registered providers, sorted. Callers use it
+// to build actionable errors that list what is actually available.
+func (r *Router) Names() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	names := make([]string, 0, len(r.providers))
+	for name := range r.providers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // SearchResult holds search results and the provider used.
 type SearchResult struct {
 	Results  []Result
 	Provider string
+	// Raw is the winning provider's raw response body when it implements
+	// RawProvider. Nil for providers without a raw form (and for test doubles).
+	Raw json.RawMessage
 }
 
-// Search performs a search using the configured strategy.
+// Candidates returns the provider names the router would consider for the given
+// strategy, in priority order, after applying quota availability. It performs
+// no search and no weighted shuffle, so callers can preview a run (`--dry-run`)
+// deterministically.
+func (r *Router) Candidates(strategy string, preferred []string) []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.filterAvailable(r.selectProviders(strategy, preferred))
+}
+
+// Search performs a search using the configured strategy and no extra vendor
+// options.
 func (r *Router) Search(query string, limit int, strategy string, preferred []string) (*SearchResult, error) {
+	return r.SearchWithOptions(query, limit, strategy, preferred, Options{})
+}
+
+// SearchWithOptions performs a search with optional vendor-specific overrides
+// (from --inject-json).
+func (r *Router) SearchWithOptions(query string, limit int, strategy string, preferred []string, opts Options) (*SearchResult, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -108,13 +151,25 @@ func (r *Router) Search(query string, limit int, strategy string, preferred []st
 		if !ok {
 			continue
 		}
-		results, err := p.Search(query, limit)
+		var results []Result
+		var raw json.RawMessage
+		var err error
+		rp, rawOK := p.(RawProvider)
+		if len(opts.Extra) > 0 && !rawOK {
+			lastErr = fmt.Errorf("provider %q does not support --inject-json", name)
+			continue
+		}
+		if rawOK {
+			results, raw, err = rp.SearchRaw(query, limit, opts)
+		} else {
+			results, err = p.Search(query, limit)
+		}
 		if err != nil {
 			lastErr = err
 			continue
 		}
 		r.store.RecordUse(name)
-		return &SearchResult{Results: results, Provider: name}, nil
+		return &SearchResult{Results: results, Provider: name, Raw: raw}, nil
 	}
 
 	if lastErr != nil {

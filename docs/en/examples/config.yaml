@@ -83,7 +83,7 @@ base_url: "https://api.apimart.ai"
 #   - "edit"        # let the model edit files precisely
 #   - "search"      # built-in web search (DuckDuckGo; free, no key)
 #   - "fetch"       # built-in web fetch (local readability; free)
-#   - "web_fetch"   # fetch via a third-party API (vendor: defaults.chat.search_provider; may be billed)
+#   - "web_fetch"   # fetch via a third-party API (vendor: defaults.search.provider; may be billed)
 #   - "web_search"  # search via a third-party API (same vendor; may be billed)
 
 # ── MCP Client (Chat connects to MCP servers) ──
@@ -214,7 +214,9 @@ defaults:
     context_size: 32768         # Max input context tokens; 0=model default. Auto-compacts at 80%
     # tools_on_demand: true     # Load MCP tools on demand (search_tools/load_tools) to save context
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$']  # read primitive denylist regexes (path or basename; empty = allow all)
-    # search_provider: duckduckgo # vendor for the web_search/web_fetch primitives (duckduckgo/firecrawl/brave/doubao/deepseek/exa, or auto/free/quality; default auto; empty falls back to top-level search_provider)
+  # ── Optional: shared web-search vendor (aigc-cli search / kb search / chat / MCP)──
+  # search:
+  #   provider: duckduckgo   # auto / free / quality / a vendor name
 
   decision:
     # provider: "ollama"        # named provider (ollama / openrouter / ...); unset uses global
@@ -244,7 +246,6 @@ defaults:
   # ── Optional: Knowledge Base (knowledgebase) ──
   # knowledgebase:
   #   base_dir: "~/.config/aigc-cli/knowledge"   # KB storage path
-  #   search_provider: duckduckgo                 # kb search engine: duckduckgo / firecrawl / brave / doubao / deepseek / exa
   #   auto_save: true                             # Auto-save kb search results to KB (default: true)
   #   min_score: 0.8                              # Minimum similarity for vector search (default 0.8, 0 to disable)
   #   embedding_provider: ollama                  # "" / local / onnx / hash, or a name in config.providers
@@ -265,12 +266,14 @@ defaults:
   #   semantic_top_k: 200                                # entries the semantic list contributes to RRF (default 200; <=0 = all)
 
   # ── Optional: Web Search Providers ──
-  # Declare multiple providers for auto-fallback, shared by `kb search` and the
-  # chat/MCP web_search/web_fetch tools.
-  # kb search also supports a --provider flag; chat selects via defaults.chat.search_provider.
-  # Top-level search_provider is the global default: chat's and MCP's
-  # web_search/web_fetch both fall back to it.
-  # search_provider: deepseek   # optional: auto / free / quality / a vendor name
+  # Declare multiple providers for auto-fallback, shared by `aigc-cli search`,
+  # `kb search`, and the chat/MCP web_search/web_fetch tools.
+  # `aigc-cli search` / `kb search` also support a --provider flag; chat can
+  # override via --search-provider.
+  # The shared default lives in defaults.search.provider.
+  # defaults:
+  #   search:
+  #     provider: deepseek   # optional: auto / free / quality / a vendor name
   # web_search:
   #   duckduckgo:
   #     type: duckduckgo

@@ -128,6 +128,85 @@ aigc-cli image --prompt "a cat" --dry-run
 
 Prints the HTTP method, URL, headers, and JSON body.
 
+## search
+
+`aigc-cli search` searches the web and prints **the executed vendor's raw JSON
+response** — no title/URL normalization. Vendor fields such as snippets, scores
+and metadata are preserved, which keeps debugging and downstream parsing
+straightforward. With no third-party provider configured it falls back to the
+built-in free DuckDuckGo engine — no API key required.
+
+```bash
+aigc-cli search "golang context timeout"
+aigc-cli search golang context timeout            # multiple args form one query
+aigc-cli search "vector database" -n 10           # request 10 results (default 5, max 20)
+aigc-cli search "vector database" -P deepseek     # pick a search vendor
+aigc-cli search "vector database" -P free         # free engines only
+echo "golang context timeout" | aigc-cli search  # read the query from stdin
+aigc-cli search - < query.txt                     # explicit stdin
+aigc-cli search --json query.json                 # command-level JSON (file)
+aigc-cli search --json '{"query":"golang context","provider":"exa","limit":3}'
+aigc-cli search "golang" --inject-json '{"type":"neural"}'
+aigc-cli search "vector database" --dry-run       # print equivalent curl, no request
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `-P, --provider` | empty (→ auto) | Search vendor: `duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa`, or a strategy: `auto` / `free` / `quality` |
+| `-n, --limit` | `5` | Number of results to request (capped at 20) |
+| `--json` | empty | Command-level JSON: file path or inline JSON (**no stdin**); fields: `query`, `provider`, `limit` |
+| `--inject-json` | empty | Vendor-native fields: file path or inline JSON; merged into the POST body or appended as GET query parameters |
+| `--dry-run` | `false` | Print the equivalent curl for each candidate provider (keys masked, injected fields included), without calling any search API |
+
+- **stdin carries the query**: `echo "..." | aigc-cli search` (or a no-arg
+  invocation with piped input) reads it automatically; `aigc-cli search -` forces
+  stdin. Multi-line input is flattened to one line. Neither `--json` nor
+  `--inject-json` reads stdin.
+
+- **`--provider` selects a search vendor, not an LLM provider.** Precedence:
+  `--provider` > `--json`'s `provider` > `defaults.search.provider` > `auto`.
+- Query and limit follow the same rule: positional args / `--limit` > `--json` >
+  built-in defaults.
+- `--inject-json` follows the global merge rules: objects recurse, arrays append,
+  scalars overwrite. POST vendors merge it into the JSON body; GET vendors
+  (Brave) only accept scalars or arrays of scalars and turn them into query
+  parameters — nested objects are rejected.
+- DuckDuckGo is an HTML scrape and rejects `--inject-json` with a clear error.
+- The output is the vendor's response body: valid JSON is pretty-printed;
+  non-JSON bodies are printed verbatim (useful for error pages).
+- DuckDuckGo has no vendor JSON, so its output is `{"urls":["..."]}`.
+- Under `auto`, providers tagged `free` come first in the candidate list, then the
+  router picks by `weight`; use `-P free` to force free engines or `-P <name>` to
+  pin one vendor.
+- `--dry-run` sends no network request. Under `auto` it prints one curl per
+  candidate; only one of them will actually run.
+- Search only: no knowledge-base write. Use `aigc-cli kb search` for
+  search + fetch + index. A standalone `aigc-cli fetch` is still planned.
+- `-v` adds nothing for search; stdout always contains only the vendor JSON.
+
+`--json` input example:
+
+```json
+{
+  "query": "golang context",
+  "provider": "exa",
+  "limit": 3
+}
+```
+
+`--dry-run` example (with `--inject-json`):
+
+```bash
+# dry run: no request sent
+# query: golang
+# strategy: manual
+# provider: exa (candidate 1/1)
+curl -X POST https://api.exa.ai/search \
+  -H "x-api-key: ...3644" \
+  -H "Content-Type: application/json" \
+  -d '{"numResults":4,"query":"golang","type":"neural"}'
+```
+
 ## completion
 
 Generate shell completion scripts:

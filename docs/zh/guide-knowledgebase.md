@@ -156,9 +156,15 @@ defaults:
 
 ## Web 搜索
 
-`kb search` 使用配置的 web_search 提供商：
+`kb search` 使用配置的 web_search 提供商；默认厂商在 `defaults.search.provider` 中设置：
+
+> 只想搜网页、不抓正文也不入库？用 `aigc-cli search "query"`（默认带 DuckDuckGo 免费兜底）。`kb search` 会抓取正文、分块并写入知识库。
 
 ```yaml
+defaults:
+  search:
+    provider: auto   # auto / free / quality / 厂商名
+
 web_search:
   duckduckgo:
     type: duckduckgo    # 零配置

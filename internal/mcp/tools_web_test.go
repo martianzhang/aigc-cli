@@ -29,8 +29,8 @@ func TestWebEnv_usesGlobalScope(t *testing.T) {
 	if env.Spec != "auto" {
 		t.Errorf("Spec = %q, want auto", env.Spec)
 	}
-	if env.Scope != "search_provider" {
-		t.Errorf("Scope = %q, want search_provider", env.Scope)
+	if env.Scope != "defaults.search.provider" {
+		t.Errorf("Scope = %q, want defaults.search.provider", env.Scope)
 	}
 
 	providers := map[string]*types.WebSearchProvider{"brave": {Type: "brave", APIKey: "k"}}
@@ -55,7 +55,7 @@ func TestWebSearchHandler_noProviderHints(t *testing.T) {
 	if !strings.Contains(got, "third-party provider") {
 		t.Errorf("web_search result = %q, want a hint about configuring a provider", got)
 	}
-	if !strings.Contains(got, "search_provider") {
+	if !strings.Contains(got, "defaults.search.provider") {
 		t.Errorf("web_search result = %q, want the config key", got)
 	}
 }

@@ -42,6 +42,24 @@ func KnowledgeDefaults() *types.KBDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.KBDefaults { return d.Knowledgebase })
 }
 
+// SearchDefaults returns defaults.search, or nil.
+func SearchDefaults() *types.SearchDefaults {
+	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.SearchDefaults { return d.Search })
+}
+
+// SearchProviderFromConfig returns defaults.search.provider, or "".
+func SearchProviderFromConfig(cfg *types.Config) string {
+	if cfg == nil || cfg.Defaults == nil || cfg.Defaults.Search == nil {
+		return ""
+	}
+	return cfg.Defaults.Search.Provider
+}
+
+// SearchProviderDefault is SearchProviderFromConfig applied to the loaded config.
+func SearchProviderDefault() string {
+	return SearchProviderFromConfig(Shared.Cfg)
+}
+
 // IdeasDefaults returns defaults.ideas, or nil.
 func IdeasDefaults() *types.IdeasConfig {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.IdeasConfig { return d.Ideas })
@@ -70,12 +88,6 @@ func BackgroundConfig() *types.BackgroundConfig {
 // WebSearchConfig returns the top-level web_search section, or nil.
 func WebSearchConfig() map[string]*types.WebSearchProvider {
 	return Field(Shared.Cfg, func(c *types.Config) map[string]*types.WebSearchProvider { return c.WebSearch })
-}
-
-// GlobalSearchProvider returns the top-level search_provider default (the
-// global fallback vendor for the third-party search tools), or "".
-func GlobalSearchProvider() string {
-	return Field(Shared.Cfg, func(c *types.Config) string { return c.SearchProvider })
 }
 
 // MCPConfig returns the top-level mcp section, or nil.

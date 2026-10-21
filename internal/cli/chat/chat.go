@@ -26,8 +26,8 @@ var (
 	chatJSONFlag    string
 	chatInteractive bool
 	chatDryRun      bool
-	// chatSearchProvider overrides defaults.chat.search_provider for the
-	// web_search primitive when set on the CLI.
+	// chatSearchProvider overrides defaults.search.provider for the
+	// web_search/web_fetch primitives when set on the CLI.
 	chatSearchProvider string
 	// chatInjectJSON is a --inject-json snippet merged additively into the body.
 	chatInjectJSON string
@@ -156,7 +156,7 @@ func init() {
 	f.StringVar(&chatJSONFlag, "json", "", "JSON file, string, or \"-\" for stdin")
 	f.BoolVarP(&chatInteractive, "interactive", "i", false, "Enter interactive multi-turn chat mode")
 	f.BoolVar(&chatDryRun, "dry-run", false, "Print the equivalent curl without calling the API")
-	f.StringVar(&chatSearchProvider, "search-provider", "", "Third-party vendor for the web_search/web_fetch tools: duckduckgo/firecrawl/brave/doubao/deepseek/exa, or auto/free/quality (overrides defaults.chat.search_provider)")
+	f.StringVar(&chatSearchProvider, "search-provider", "", "Third-party vendor for the web_search/web_fetch tools: duckduckgo/firecrawl/brave/doubao/deepseek/exa, or auto/free/quality (overrides defaults.search.provider)")
 	f.StringVar(&chatInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")
 }
 

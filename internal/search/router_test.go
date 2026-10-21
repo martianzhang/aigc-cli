@@ -1,6 +1,7 @@
 package search
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -56,6 +57,17 @@ func (m *mockProvider) recordedQuery() (string, int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.lastQuery, m.lastLimit
+}
+
+// mockRawProvider adds the optional RawProvider extension for router tests.
+type mockRawProvider struct {
+	*mockProvider
+	raw json.RawMessage
+}
+
+func (m *mockRawProvider) SearchRaw(query string, limit int, _ Options) ([]Result, json.RawMessage, error) {
+	results, err := m.Search(query, limit)
+	return results, m.raw, err
 }
 
 // mockQuotaStore is an in-memory QuotaStore. A provider without an explicit
@@ -309,6 +321,71 @@ func TestRouterGetProvider(t *testing.T) {
 				t.Errorf("provider = %v, want nil", got)
 			}
 		})
+	}
+}
+
+func TestRouterNames(t *testing.T) {
+	t.Parallel()
+
+	r := NewRouter(newMockQuotaStore())
+	if got := r.Names(); len(got) != 0 {
+		t.Fatalf("Names() on an empty router = %v, want empty", got)
+	}
+
+	r.Register("gamma", &mockProvider{name: "gamma"}, nil)
+	r.Register("alpha", &mockProvider{name: "alpha"}, nil)
+	r.Register("beta", &mockProvider{name: "beta"}, nil)
+
+	got := r.Names()
+	want := []string{"alpha", "beta", "gamma"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Names() = %v, want %v", got, want)
+	}
+}
+
+func TestRouterCandidates(t *testing.T) {
+	t.Parallel()
+
+	r := NewRouter(newMockQuotaStore())
+	r.Register("alpha", &mockProvider{name: "alpha"}, &ProviderInfo{Tags: []string{"free"}})
+	r.Register("beta", &mockProvider{name: "beta"}, &ProviderInfo{Tags: []string{"quality"}})
+
+	tests := []struct {
+		name      string
+		strategy  string
+		preferred []string
+		want      []string
+	}{
+		{name: "auto lists free then quality", strategy: "auto", want: []string{"alpha", "beta"}},
+		{name: "manual returns the preferred name", strategy: "manual", preferred: []string{"beta"}, want: []string{"beta"}},
+		{name: "cheap keeps only free", strategy: "cheap", want: []string{"alpha"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := r.Candidates(tc.strategy, tc.preferred); !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("Candidates() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRouterSearchReturnsRawResponse(t *testing.T) {
+	t.Parallel()
+
+	raw := json.RawMessage(`{"ok":true,"hits":[1,2]}`)
+	r := NewRouter(newMockQuotaStore())
+	r.Register("raw", &mockRawProvider{
+		mockProvider: &mockProvider{name: "raw", results: []Result{{URL: "https://example.com"}}},
+		raw:          raw,
+	}, nil)
+
+	got, err := r.Search("q", 5, "manual", []string{"raw"})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if string(got.Raw) != string(raw) {
+		t.Errorf("Raw = %s, want %s", got.Raw, raw)
 	}
 }
 

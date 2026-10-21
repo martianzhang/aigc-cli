@@ -52,7 +52,7 @@ func RegisterRemote(router *Router, providers map[string]*types.WebSearchProvide
 
 // ResolveStrategy maps a provider spec to a router strategy and, for a named
 // provider, the preferred list. It mirrors the values accepted by
-// `kb search --provider` and `defaults.chat.search_provider`:
+// `search --provider` and `defaults.search.provider`:
 //
 //	"" | "auto"      -> auto
 //	"free" | "cheap" -> cheap

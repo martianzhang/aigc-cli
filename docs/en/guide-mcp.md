@@ -52,10 +52,10 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `recognize_text` | Offline OCR for images/PDFs (requires `aigc-cli ocr init`; markdown or json output) | Free (local) |
 | `search` | Web search via the built-in free engine (DuckDuckGo scrape); returns titles + URLs. Read a result with `fetch`. No provider API, never billed | Free |
 | `fetch` | Fetch a URL with the built-in free fetcher (HTML→main-content markdown; non-HTML as-is), SSRF-guarded, paginated by character offset | Free |
-| `web_search` | Web search via the configured third-party provider (top-level `search_provider`); **may bill per request**. Errors out when no provider is configured instead of silently using the built-in engine | Vendor-dependent |
+| `web_search` | Web search via the configured third-party provider (`defaults.search.provider`); **may bill per request**. Errors out when no provider is configured instead of silently using the built-in engine | Vendor-dependent |
 | `web_fetch` | Fetch a URL via the same third-party vendor's fetch API, returned as provider-formatted Markdown; **may bill per request**; needs a fetch-capable vendor (e.g. deepseek) | Vendor-dependent |
 | `kb_find` | Search the local knowledge base (keyword + semantic) | Free (local) |
-| `kb_search` | Web search then save the results to the KB (engine selected by `defaults.knowledgebase.search_provider`, with the free DuckDuckGo fallback) | Free (web) |
+| `kb_search` | Web search then save the results to the KB (engine selected by `defaults.search.provider`, with the free DuckDuckGo fallback) | Free (web) |
 | `kb_add` | Add a local file to the knowledge base (.md/.txt/.go/.py/.json/.yaml/.html) | Free (local) |
 | `kb_fetch` | Fetch a URL, convert it to markdown, and save it to the KB | Free (web) |
 | `kb_list` | List all documents in the knowledge base | Free (local) |
@@ -80,23 +80,22 @@ Vendor selection has two scopes:
 
 | Entry point | Selector |
 |---|---|
-| MCP `web_search` / `web_fetch` | top-level `search_provider` |
-| chat `web_search` / `web_fetch` | `--search-provider` > `defaults.chat.search_provider` > top-level `search_provider` |
-| MCP `kb_search` / `kb search` | `defaults.knowledgebase.search_provider` (with the free DuckDuckGo fallback) |
+| MCP `web_search` / `web_fetch` | `defaults.search.provider` |
+| chat `web_search` / `web_fetch` | `--search-provider` > `defaults.search.provider` |
+| MCP `kb_search` / `kb search` | `defaults.search.provider` (with the free DuckDuckGo fallback) |
 
 ```yaml
-search_provider: deepseek      # global default; each scope below may override it
 web_search:
   deepseek:
     type: deepseek             # supports both search and fetch
   brave:
     type: brave                # search-only, cannot back web_fetch
 defaults:
-  chat:
-    search_provider: brave     # affects chat only
+  search:
+    provider: deepseek         # shared by CLI / kb / chat / MCP
 ```
 
-`search_provider` accepts `auto` (default) | `free` | `quality` | a vendor name (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`).
+`defaults.search.provider` accepts `auto` (default) | `free` | `quality` | a vendor name (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`).
 
 > **No silent fallback**: with no third-party provider configured, `web_search`/`web_fetch` **fail with an explicit error** pointing at the built-in `search`/`fetch` tools — so nothing silently bills, and nothing silently degrades.
 

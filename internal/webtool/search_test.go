@@ -70,11 +70,11 @@ func TestWebSearch_invalidArgs(t *testing.T) {
 // a message pointing at the right knob rather than falling back silently to the
 // built-in engine.
 func TestWebSearch_noRemoteProvider(t *testing.T) {
-	got := WebSearch(`{"query":"hello"}`, Env{Scope: "defaults.chat.search_provider"})
+	got := WebSearch(`{"query":"hello"}`, Env{Scope: "defaults.search.provider"})
 	if !strings.Contains(got, "third-party provider") {
 		t.Errorf("WebSearch(no provider) = %q, want a hint about configuring one", got)
 	}
-	if !strings.Contains(got, "defaults.chat.search_provider") {
+	if !strings.Contains(got, "defaults.search.provider") {
 		t.Errorf("WebSearch(no provider) = %q, want the scope hint", got)
 	}
 }

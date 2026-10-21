@@ -68,25 +68,19 @@ type Config struct {
 	// — Named provider registry (user-defined, referenced by defaults.{cmd}.provider) —
 	Providers map[string]*NamedProvider `mapstructure:"providers" yaml:"providers,omitempty"`
 
-	Verbose    bool                          `mapstructure:"verbose" yaml:"verbose"`
-	ZDR        bool                          `mapstructure:"zdr" yaml:"zdr"`
-	SavePrompt bool                          `mapstructure:"save_prompt" yaml:"save_prompt"`
-	Mode       string                        `mapstructure:"mode" yaml:"mode,omitempty"`
-	OutputDir  string                        `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
-	Timeout    *int                          `mapstructure:"timeout" yaml:"timeout,omitempty"`
-	Defaults   *ConfigDefaults               `mapstructure:"defaults" yaml:"defaults,omitempty"`
-	Detect     *DetectConfig                 `mapstructure:"detect" yaml:"detect,omitempty"`
-	Background *BackgroundConfig             `mapstructure:"background" yaml:"background,omitempty"`
-	WebSearch  map[string]*WebSearchProvider `mapstructure:"web_search" yaml:"web_search,omitempty"`
-	// SearchProvider is the global default vendor for the third-party search
-	// tools (search/fetch vocabulary: `web_search`/`web_fetch`). Accepted values
-	// mirror ResolveStrategy: "auto" | "free" | "quality" | "<vendor name>".
-	// Per-scope keys (defaults.chat.search_provider,
-	// defaults.knowledgebase.search_provider) override it; empty = auto.
-	SearchProvider string     `mapstructure:"search_provider" yaml:"search_provider,omitempty"`
-	ToolsEnable    []string   `mapstructure:"tools_enable" yaml:"tools_enable,omitempty"`
-	ToolsDisable   []string   `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
-	MCP            *MCPConfig `mapstructure:"mcp" yaml:"mcp,omitempty"`
+	Verbose      bool                          `mapstructure:"verbose" yaml:"verbose"`
+	ZDR          bool                          `mapstructure:"zdr" yaml:"zdr"`
+	SavePrompt   bool                          `mapstructure:"save_prompt" yaml:"save_prompt"`
+	Mode         string                        `mapstructure:"mode" yaml:"mode,omitempty"`
+	OutputDir    string                        `mapstructure:"output_dir" yaml:"output_dir,omitempty"`
+	Timeout      *int                          `mapstructure:"timeout" yaml:"timeout,omitempty"`
+	Defaults     *ConfigDefaults               `mapstructure:"defaults" yaml:"defaults,omitempty"`
+	Detect       *DetectConfig                 `mapstructure:"detect" yaml:"detect,omitempty"`
+	Background   *BackgroundConfig             `mapstructure:"background" yaml:"background,omitempty"`
+	WebSearch    map[string]*WebSearchProvider `mapstructure:"web_search" yaml:"web_search,omitempty"`
+	ToolsEnable  []string                      `mapstructure:"tools_enable" yaml:"tools_enable,omitempty"`
+	ToolsDisable []string                      `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
+	MCP          *MCPConfig                    `mapstructure:"mcp" yaml:"mcp,omitempty"`
 }
 
 // MCPConfig holds external MCP (Model Context Protocol) servers that the chat
@@ -179,14 +173,21 @@ type ConfigDefaults struct {
 	Upscale       *UpscaleDefaults    `mapstructure:"upscale" yaml:"upscale,omitempty"`
 	Vision        *VisionDefaults     `mapstructure:"vision" yaml:"vision,omitempty"`
 	Knowledgebase *KBDefaults         `mapstructure:"knowledgebase" yaml:"knowledgebase,omitempty"`
+	Search        *SearchDefaults     `mapstructure:"search" yaml:"search,omitempty"`
 	Ideas         *IdeasConfig        `mapstructure:"ideas" yaml:"ideas,omitempty"`
 	Decision      *DecisionDefaults   `mapstructure:"decision" yaml:"decision,omitempty"`
+}
+
+// SearchDefaults holds the shared web-search vendor selection used by
+// `aigc-cli search`, `kb search`, chat's web_search/web_fetch primitives and
+// the MCP tools.
+type SearchDefaults struct {
+	Provider string `mapstructure:"provider" yaml:"provider,omitempty"`
 }
 
 // KBDefaults holds default values for the knowledge base.
 type KBDefaults struct {
 	BaseDir           string            `mapstructure:"base_dir" yaml:"base_dir,omitempty"`
-	SearchProvider    string            `mapstructure:"search_provider" yaml:"search_provider,omitempty"`
 	MinScore          *float64          `mapstructure:"min_score" yaml:"min_score,omitempty"`
 	AutoSave          *bool             `mapstructure:"auto_save" yaml:"auto_save,omitempty"` // nil=true (save to KB)
 	Loaders           map[string]string `mapstructure:"loaders" yaml:"loaders,omitempty"`
@@ -238,7 +239,6 @@ type ChatDefaults struct {
 	AllowToolOverride bool     `mapstructure:"allow_tool_override" yaml:"allow_tool_override,omitempty"` // true=LLM参数可覆盖配置, false=配置强制覆盖LLM（默认false,省钱）
 	ToolsOnDemand     bool     `mapstructure:"tools_on_demand" yaml:"tools_on_demand,omitempty"`         // true=MCP 工具按需加载（search_tools/load_tools），减少上下文占用
 	ReadDeny          []string `mapstructure:"read_deny" yaml:"read_deny,omitempty"`                     // read 原语的拒绝正则（匹配文件路径或文件名）；空=全部放行
-	SearchProvider    string   `mapstructure:"search_provider" yaml:"search_provider,omitempty"`         // web_search 原语使用的搜索提供商：duckduckgo/firecrawl/brave/doubao/deepseek/exa，或 auto/free/quality；空=auto（与 knowledgebase.search_provider 对齐）
 }
 
 // ImageDefaults holds default values for image generation.

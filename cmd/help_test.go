@@ -70,10 +70,32 @@ func TestAgentHelpFooter(t *testing.T) {
 			wantNone: []string{"Offline:"},
 		},
 		{
+			name: "boolean json flag is output, not input",
+			build: func() *cobra.Command {
+				c := &cobra.Command{Use: "search"}
+				c.Flags().Bool("json", false, "")
+				return c
+			},
+			wantNone: []string{"JSON input:"},
+		},
+		{
+			name: "json input leaves stdin for the query",
+			build: func() *cobra.Command {
+				c := &cobra.Command{
+					Use:         "search",
+					Annotations: map[string]string{"json_stdin_is_query": "true"},
+				}
+				c.Flags().String("json", "", "")
+				return c
+			},
+			want:     []string{"--json accepts a file path or inline JSON; stdin carries the query"},
+			wantNone: []string{"'-' for stdin"},
+		},
+		{
 			name:     "offline command",
 			build:    func() *cobra.Command { return &cobra.Command{Use: "detect"} },
 			want:     []string{"Offline:     first run needs models: aigc-cli detect init"},
-			wantNone: []string{"Preview:", "Async:", "JSON input:"},
+			wantNone: []string{"Preview:", "Async:", "JSON input:", "--json input"},
 		},
 		{
 			name:     "root command is skipped",

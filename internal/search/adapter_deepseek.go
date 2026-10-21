@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 )
 
 // defaultDeepSeekBaseURL is the DeepSeek API root. Both the in-house Search and
@@ -32,21 +34,48 @@ func (p *DeepSeekProvider) Name() string { return "deepseek" }
 // router's Result shape (title + URL). An empty result set is a normal, free
 // response.
 func (p *DeepSeekProvider) Search(query string, limit int) ([]Result, error) {
+	results, _, err := p.SearchRaw(query, limit, Options{})
+	return results, err
+}
+
+// SearchRaw also returns the raw Search API response for debugging.
+func (p *DeepSeekProvider) SearchRaw(query string, limit int, opts Options) ([]Result, json.RawMessage, error) {
 	var dsResp struct {
 		Results []struct {
 			URL   string `json:"url"`
 			Title string `json:"title"`
 		} `json:"results"`
 	}
-	if err := p.post("/v1/tools/search", map[string]any{"query": query, "count": limit}, &dsResp); err != nil {
-		return nil, err
+	body, err := mergePayload(map[string]any{"query": query, "count": limit}, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	raw, err := p.post("/v1/tools/search", body, &dsResp)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	results := make([]Result, 0, len(dsResp.Results))
 	for _, r := range dsResp.Results {
 		results = append(results, Result{URL: r.URL, Title: r.Title})
 	}
-	return results, nil
+	return results, raw, nil
+}
+
+// Preview renders the equivalent DeepSeek Search request with a masked key.
+func (p *DeepSeekProvider) Preview(query string, limit int, opts Options) (*reqbuild.Plan, error) {
+	body, err := mergePayload(map[string]any{"query": query, "count": limit}, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &reqbuild.Plan{
+		Method: http.MethodPost,
+		URL:    p.baseURL + "/v1/tools/search",
+		Body:   body,
+		Headers: []reqbuild.Header{
+			{Name: "Authorization", Value: "Bearer " + maskedKey(p.apiKey)},
+		},
+	}, nil
 }
 
 // Fetch retrieves a single page and returns its title (possibly empty) and
@@ -57,37 +86,40 @@ func (p *DeepSeekProvider) Fetch(url string) (title, content string, err error) 
 		Title   string `json:"title"`
 		Content string `json:"content"`
 	}
-	if err := p.post("/v1/tools/fetch", map[string]any{"url": url}, &dsResp); err != nil {
+	body, err := json.Marshal(map[string]any{"url": url})
+	if err != nil {
+		return "", "", fmt.Errorf("deepseek marshal: %w", err)
+	}
+	if _, err := p.post("/v1/tools/fetch", body, &dsResp); err != nil {
 		return "", "", err
 	}
 	return dsResp.Title, dsResp.Content, nil
 }
 
-// post sends a JSON request to a DeepSeek tool endpoint and decodes the response
-// body into out.
-func (p *DeepSeekProvider) post(path string, payload map[string]any, out any) error {
-	bodyJSON, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("deepseek marshal: %w", err)
-	}
-
+// post sends a JSON request to a DeepSeek tool endpoint, decodes the response
+// body into out, and returns the raw body for debugging.
+func (p *DeepSeekProvider) post(path string, bodyJSON json.RawMessage, out any) (json.RawMessage, error) {
 	req, err := http.NewRequest("POST", p.baseURL+path, bytes.NewReader(bodyJSON))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("deepseek request: %w", err)
+		return nil, fmt.Errorf("deepseek request: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("deepseek API error %d", resp.StatusCode)
+		return nil, fmt.Errorf("deepseek API error %d", resp.StatusCode)
 	}
-	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		return fmt.Errorf("deepseek parse: %w", err)
+	raw, err := readRawBody(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("deepseek read: %w", err)
 	}
-	return nil
+	if err := json.Unmarshal(raw, out); err != nil {
+		return nil, fmt.Errorf("deepseek parse: %w", err)
+	}
+	return raw, nil
 }

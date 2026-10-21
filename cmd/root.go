@@ -33,8 +33,9 @@ var rootCmd = &cobra.Command{
 compatible relay), plus local offline models for AIGC detection, OCR, background
 removal, depth maps, TTS/ASR, and image understanding.
 
-Generate images, videos and music, run Midjourney, chat with tools, search prompt
-ideas and knowledge bases — or expose all of it to AI agents via MCP.
+Generate images, videos and music, run Midjourney, chat with tools, search the
+web, search prompt ideas and knowledge bases — or expose all of it to AI agents
+via MCP.
 
 Getting started (no config file required):
   1. Credentials:  export OPENAI_API_KEY=sk-xxx

@@ -8,6 +8,68 @@
 
 自然语言生成音乐（APIMart suno/flowmusic 异步、OpenRouter Lyria 同步流式），详见 [guide-music.md](guide-music.md)。
 
+## 联网搜索（search）
+
+`aigc-cli search` 搜索网页并**直接输出实际执行厂商返回的原始 JSON**，不做 title/url 归一化。这样 snippets、score、metadata 等厂商字段都保留下来，便于调试和脚本处理。未配置任何第三方厂商时自动使用内置 DuckDuckGo，免费免 Key：
+
+```bash
+aigc-cli search "golang context timeout"
+aigc-cli search golang context timeout            # 多个参数自动拼成 query
+aigc-cli search "vector database" -n 10           # 请求 10 条（默认 5，上限 20）
+aigc-cli search "vector database" -P deepseek     # 指定搜索厂商
+aigc-cli search "vector database" -P free         # 只用免费引擎
+echo "golang context timeout" | aigc-cli search  # 从 stdin 读取 query
+aigc-cli search - < query.txt                     # 显式从 stdin 读取
+aigc-cli search --json query.json                 # 命令级 JSON（文件）
+aigc-cli search --json '{"query":"golang context","provider":"exa","limit":3}'
+aigc-cli search "golang" --inject-json '{"type":"neural"}'
+aigc-cli search "vector database" --dry-run       # 打印等价 curl，不发请求
+```
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `-P, --provider` | 空（→ auto） | 搜索厂商：`duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa`，或策略 `auto` / `free` / `quality` |
+| `-n, --limit` | `5` | 请求结果条数，上限 20 |
+| `--json` | 空 | 命令级 JSON：文件路径或 inline JSON（**不接受 stdin**），字段：`query`、`provider`、`limit` |
+| `--inject-json` | 空 | 厂商原生字段：文件路径或 inline JSON；POST 合并进请求体，GET 变成 query 参数 |
+| `--dry-run` | `false` | 打印每个候选厂商的等价 curl（API key 掩码，含注入字段），不调用任何搜索 API |
+
+- **stdin 用来传 query**：`echo "..." | aigc-cli search` 或无参数时自动读取管道/文件；`aigc-cli search -` 显式从 stdin 读取。多行输入会压成一行。`--json` / `--inject-json` 都不读 stdin。
+
+- **`--provider` 指搜索厂商，不是 LLM provider**；优先级：`--provider` > `--json` 的 `provider` > `defaults.search.provider` > `auto`。
+- 查询与 limit 的优先级同样是：命令行位置参数 / `--limit` > `--json` > 默认值。
+- `--inject-json` 遵循全局约定：对象递归合并、数组追加、标量覆盖。POST 厂商直接合入 JSON body；GET 厂商（Brave）只接受标量或标量数组并转为 query 参数，嵌套对象会报错。
+- DuckDuckGo 是 HTML 抓取，不接受 `--inject-json`，会明确报错。
+- 输出就是厂商响应体：合法 JSON 会做缩进美化；不是合法 JSON 时原样输出（便于看到错误页）。
+- DuckDuckGo 没有厂商 JSON，输出为 `{"urls":["..."]}`。
+- 配置了多个厂商时，`auto` 会把带 `free` 标签的厂商排在候选前面，最终按 `weight` 随机选择；要强制只用免费引擎请用 `-P free`，要固定厂商请用 `-P <name>`。
+- `--dry-run` 不产生网络请求。`auto` 下会列出所有候选厂商的 curl；最终只会调用其中一个。
+- 只搜索、不写知识库。需要“搜索 + 抓取 + 入库”请用 `aigc-cli kb search`；单独抓取 URL 的 `aigc-cli fetch` 仍在 TODO。
+- `-v` 对搜索命令不再有额外输出；标准输出始终只有厂商 JSON。
+
+`--json` 输入示例：
+
+```json
+{
+  "query": "golang context",
+  "provider": "exa",
+  "limit": 3
+}
+```
+
+`--dry-run` 示例（带 `--inject-json`）：
+
+```bash
+# dry run: no request sent
+# query: golang
+# strategy: manual
+# provider: exa (candidate 1/1)
+curl -X POST https://api.exa.ai/search \
+  -H "x-api-key: ...3644" \
+  -H "Content-Type: application/json" \
+  -d '{"numResults":4,"query":"golang","type":"neural"}'
+```
+
 ## Shell 补全
 
 生成并启用 shell 命令补全脚本（bash/zsh/fish/powershell）：

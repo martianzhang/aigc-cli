@@ -37,14 +37,16 @@ Uses FTS5 full-text search plus semantic vector search. The embedding backend is
 
 `kb search` supports multiple web search providers with failover and weight-based routing.
 
+> Just want web results without fetching or indexing? Use `aigc-cli search "query"` (free DuckDuckGo fallback by default). `kb search` additionally fetches page bodies, chunks and stores them.
+
 ### Configuration
 
-`duckduckgo` is built-in and always available (no API key needed). Add other providers as needed:
+`duckduckgo` is built-in and always available (no API key needed). The default vendor lives in `defaults.search.provider`. Add other providers as needed:
 
 ```yaml
 defaults:
-  knowledgebase:
-    search_provider: auto  # auto (default), quality, cheap, or provider name
+  search:
+    provider: auto  # auto (default), quality, cheap, or a provider name
 
 web_search:
   doubao:
@@ -173,9 +175,10 @@ A named provider supplies its `base_url` / `api_key` / `http_proxy`; set `embedd
 
 ```yaml
 defaults:
+  search:
+    provider: duckduckgo
   knowledgebase:
     base_dir: "~/.config/aigc-cli/knowledge"
-    search_provider: duckduckgo
     auto_save: true          # Auto-save web search results to KB
     min_score: 0.8           # Minimum similarity for vector search (default 0.8; 0 disables filtering)
     embedding_provider: ollama        # "" / local / onnx / hash, or a named provider

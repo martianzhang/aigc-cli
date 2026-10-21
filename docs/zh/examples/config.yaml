@@ -79,7 +79,7 @@ base_url: "https://api.apimart.ai"
 #   - "edit"        # 允许模型精确改文件
 #   - "search"      # 内置联网搜索（DuckDuckGo，免费免 Key）
 #   - "fetch"       # 内置抓取网页（本地 readability，免费）
-#   - "web_fetch"   # 经第三方 API 抓取（厂商见 defaults.chat.search_provider，可能计费）
+#   - "web_fetch"   # 经第三方 API 抓取（厂商见 defaults.search.provider，可能计费）
 #   - "web_search"  # 经第三方 API 联网搜索（同一厂商，可能计费）
 
 # ── MCP 客户端（Chat 连接 MCP 服务器）──
@@ -205,7 +205,9 @@ defaults:
     context_size: 32768 # 输入上下文窗口大小（token），0=使用模型默认值。超过 80% 自动压缩
     # tools_on_demand: true # MCP 工具按需加载（search_tools/load_tools），降低上下文占用
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$'] # read 原语拒绝正则（匹配路径或文件名，默认空=全部放行）
-    # search_provider: duckduckgo # web_search/web_fetch 原语使用的第三方厂商（duckduckgo/firecrawl/brave/doubao/deepseek/exa，或 auto/free/quality；默认 auto，留空则用顶层 search_provider）
+  # ── 可选：Web 搜索默认厂商（aigc-cli search / kb search / chat / MCP 共用）──
+  # search:
+  #   provider: duckduckgo   # auto / free / quality / 厂商名
   decision:
   # provider: "ollama"        # 命名 provider（ollama / openrouter / ...）；不填则用全局
   # model: "tev1"             # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
@@ -234,7 +236,6 @@ defaults:
   # ── 可选：知识库（knowledgebase）──
   # knowledgebase:
   #   base_dir: "~/.config/aigc-cli/knowledge"   # 知识库存放路径
-  #   search_provider: duckduckgo                 # kb search 引擎：duckduckgo / firecrawl / brave / doubao / deepseek / exa
   #   auto_save: true                             # kb search 结果是否自动存入 KB（默认 true）
   #   min_score: 0.8                              # 向量搜索结果最低相似度（默认0.8，设0关闭）
   #   embedding_provider: ollama                  # 留空 / local / onnx / hash，或 config.providers 里的名字
@@ -253,10 +254,12 @@ defaults:
   #   semantic_top_k: 200                                # 语义列表参与 RRF 的条数（默认 200；<=0 全部）
 
   # ── 可选：Web 搜索引擎 ──
-  # 声明多个 provider 供 kb search 与 chat/MCP 的 web_search/web_fetch 使用。
-  # kb search 也可通过 --provider 参数临时切换；chat 用 defaults.chat.search_provider 选择。
-  # 顶层 search_provider 是全局默认（chat 与 MCP 的 web_search/web_fetch 都回落到它）。
-  # search_provider: deepseek   # 可选：auto / free / quality / 厂商名
+  # 声明多个 provider 供 aigc-cli search、kb search 与 chat/MCP 的 web_search/web_fetch 使用。
+  # aigc-cli search / kb search 也可通过 --provider 参数临时切换；chat 可用 --search-provider 覆盖。
+  # 默认厂商统一在 defaults.search.provider 中配置。
+  # defaults:
+  #   search:
+  #     provider: deepseek   # 可选：auto / free / quality / 厂商名
   # web_search:
   #   duckduckgo:
   #     type: duckduckgo

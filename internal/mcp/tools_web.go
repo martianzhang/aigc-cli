@@ -18,9 +18,9 @@ import (
 //	search / fetch           built-in, free, no API key
 //	web_search / web_fetch   third-party provider, may bill per request
 //
-// Vendor resolution differs only in scope: MCP uses the global top-level
-// `search_provider` default, while chat additionally honours
-// defaults.chat.search_provider and its --search-provider flag.
+// Vendor resolution differs only in scope: MCP uses the shared
+// `defaults.search.provider` default, while chat also honours its
+// --search-provider flag.
 
 // specOrAuto normalizes an empty vendor spec to "auto".
 func specOrAuto(spec string) string {
@@ -35,7 +35,7 @@ func (cfg *Config) webEnv() webtool.Env {
 	return webtool.Env{
 		Spec:      specOrAuto(cfg.SearchProvider),
 		Providers: cfg.WebSearchProviders,
-		Scope:     "search_provider",
+		Scope:     "defaults.search.provider",
 	}
 }
 
@@ -98,7 +98,7 @@ func newWebSearchTool() mcp.Tool {
 		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithIdempotentHintAnnotation(true),
 		mcp.WithOpenWorldHintAnnotation(true),
-		mcp.WithDescription("Search the web through the configured third-party provider (top-level `search_provider`) and return ranked titles and URLs. The provider may bill per request. Requires a provider under `web_search.*`. For free searching use `search`."),
+		mcp.WithDescription("Search the web through the configured third-party provider (defaults.search.provider) and return ranked titles and URLs. The provider may bill per request. Requires a provider under `web_search.*`. For free searching use `search`."),
 		mcp.WithString("query",
 			mcp.Required(),
 			mcp.Description("Search query"),

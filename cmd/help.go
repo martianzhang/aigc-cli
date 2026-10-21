@@ -63,20 +63,28 @@ func agentHelpFooter(c *cobra.Command) string {
 	b.WriteString("\nRunning this command (no external docs needed):\n")
 	b.WriteString("  Setup:       export OPENAI_API_KEY=<KEY>  (or --api-key/--api-base; Ollama needs none)\n")
 	b.WriteString("  Config:      aigc-cli --print-config      (effective YAML); persist: config set <key> <val> [--force]\n")
-	b.WriteString("  Precedence:  CLI flags > --json input > config.yaml > built-in defaults\n")
+	if hasJSONInputFlag(c) {
+		b.WriteString("  Precedence:  CLI flags > --json input > config.yaml > built-in defaults\n")
+	} else {
+		b.WriteString("  Precedence:  CLI flags > config.yaml > built-in defaults\n")
+	}
 
 	if localCommandRoots[topLevelCommand(c)] {
 		fmt.Fprintf(&b, "  Offline:     first run needs models: aigc-cli %s init\n", topLevelCommand(c))
 	}
 
 	if hasFlag(c, "dry-run") {
-		b.WriteString("  Preview:     --dry-run prints the request without calling the API (zero cost)\n")
+		b.WriteString("  Preview:     --dry-run shows what would be sent without calling the API (zero cost)\n")
 	}
 	if asyncCommandRoots[topLevelCommand(c)] {
 		b.WriteString("  Async:       long jobs poll automatically; re-query a task id with 'aigc-cli task <id>'\n")
 	}
-	if hasFlag(c, "json") {
-		b.WriteString("  JSON input:  --json accepts a file path, inline JSON, or '-' for stdin\n")
+	if hasJSONInputFlag(c) {
+		if c.Annotations["json_stdin_is_query"] == "true" {
+			b.WriteString("  JSON input:  --json accepts a file path or inline JSON; stdin carries the query\n")
+		} else {
+			b.WriteString("  JSON input:  --json accepts a file path, inline JSON, or '-' for stdin\n")
+		}
 	}
 
 	b.WriteString("  Files:       saved file paths are printed; use -o/--output to choose the location\n")
@@ -96,4 +104,15 @@ func topLevelCommand(c *cobra.Command) string {
 // hasFlag reports whether cmd exposes a local or inherited flag by that name.
 func hasFlag(c *cobra.Command, name string) bool {
 	return c.Flags().Lookup(name) != nil || c.InheritedFlags().Lookup(name) != nil
+}
+
+// hasJSONInputFlag reports whether --json takes a value (a request/input
+// payload). Boolean --json flags are output selectors and must not be described
+// as JSON input in the agent footer.
+func hasJSONInputFlag(c *cobra.Command) bool {
+	f := c.Flags().Lookup("json")
+	if f == nil {
+		f = c.InheritedFlags().Lookup("json")
+	}
+	return f != nil && f.Value.Type() != "bool"
 }

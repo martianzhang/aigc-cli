@@ -90,11 +90,8 @@ Example MCP host config:
 			}
 			mcpCfg.ToolsEnable = cfg.ToolsEnable
 			mcpCfg.ToolsDisable = cfg.ToolsDisable
-			mcpCfg.SearchProvider = cfg.SearchProvider
+			mcpCfg.SearchProvider = options.SearchProviderFromConfig(cfg)
 			mcpCfg.WebSearchProviders = cfg.WebSearch
-			if kd := cfg.Defaults; kd != nil && kd.Knowledgebase != nil {
-				mcpCfg.KBSearchProvider = kd.Knowledgebase.SearchProvider
-			}
 			mcpCfg.Defaults = cfg.Defaults
 			if mcpCfg.Defaults == nil {
 				mcpCfg.Defaults = &types.ConfigDefaults{}
