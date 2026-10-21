@@ -1,21 +1,15 @@
 package webtool
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
-	"golang.org/x/net/html/charset"
-
-	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/netguard"
 	"github.com/martianzhang/aigc-cli/internal/search"
+	"github.com/martianzhang/aigc-cli/internal/webfetch"
 )
 
 // fetchURLGuard rejects non-public fetch targets (SSRF protection). It is a
@@ -27,9 +21,8 @@ var fetchURLGuard = netguard.ValidatePublicURL
 // is larger than a single page of output.
 const maxFetchBytes = 5 * 1024 * 1024
 
-// defaultFetchUA is a browser-like User-Agent; many sites return a stub or
-// block requests without one.
-const defaultFetchUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) aigc-cli/1.0"
+// defaultFetchUA is the browser-like UA shared by the fetch core.
+const defaultFetchUA = webfetch.DefaultUserAgent
 
 // fetchArgs are the arguments shared by the `fetch` and `web_fetch` tools.
 type fetchArgs struct {
@@ -79,61 +72,21 @@ func Fetch(argsJSON string) string {
 		return errMsg
 	}
 
-	if err := fetchURLGuard(args.URL); err != nil {
+	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer fetchCancel()
+	doc, err := webfetch.Fetch(fetchCtx, args.URL, webfetch.Options{
+		MaxBytes:    maxFetchBytes,
+		Timeout:     30 * time.Second,
+		UserAgent:   defaultFetchUA,
+		Accept:      "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
+		ValidateURL: fetchURLGuard,
+	})
+	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
 	}
 
-	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer fetchCancel()
-	httpReq, err := http.NewRequestWithContext(fetchCtx, http.MethodGet, args.URL, nil)
-	if err != nil {
-		return fmt.Sprintf("Error: invalid URL %s: %v", args.URL, err)
-	}
-	httpReq.Header.Set("User-Agent", defaultFetchUA)
-	httpReq.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5")
-
-	// The guarded client re-validates every redirect hop, so a public URL
-	// cannot be bounced onto a loopback/private address.
-	resp, err := netguard.NewGuardedClient(30 * time.Second).Do(httpReq)
-	if err != nil {
-		return fmt.Sprintf("Error: failed to fetch %s: %v", args.URL, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
-		return fmt.Sprintf("Error: %s returned status %d", args.URL, resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFetchBytes+1))
-	if err != nil {
-		return fmt.Sprintf("Error: failed to read response: %v", err)
-	}
-	truncated := len(body) > maxFetchBytes
-	if truncated {
-		body = body[:maxFetchBytes]
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	text := string(body)
-	title := ""
-	converted := false
-	if isHTMLBody(contentType, body) {
-		if decoded, derr := decodeCharset(body, contentType); derr == nil {
-			body = decoded
-		}
-		var pageURL *url.URL
-		if u, perr := url.Parse(args.URL); perr == nil {
-			pageURL = u
-		}
-		if t, mdText, cerr := knowledge.HTMLToMarkdown(string(body), pageURL); cerr == nil {
-			title = t
-			text = mdText
-			converted = true
-		}
-	}
-
-	out := RenderFetch("fetch", args.URL, title, text, args.Offset, args.MaxLength, converted)
-	if truncated {
+	out := RenderFetch("fetch", args.URL, doc.Title, doc.Content, args.Offset, args.MaxLength, doc.Converted)
+	if doc.Truncated {
 		out += fmt.Sprintf("\n\nNote: response exceeded %d MB and was truncated before conversion.", maxFetchBytes/(1024*1024))
 	}
 	return out
@@ -190,35 +143,6 @@ func RenderFetch(toolName, url, title, text string, offset, maxLength int, markd
 		fmt.Fprintf(&b, "\n\nContent truncated. Use %s(url=%q, offset=%d) to read the next section.", toolName, url, end)
 	}
 	return b.String()
-}
-
-// isHTMLBody reports whether a response should be treated as HTML and converted
-// to markdown. An explicit non-HTML Content-Type (JSON, plain text, XML, binary)
-// wins over sniffing; only a missing/blank type falls back to looking at the
-// body's opening bytes.
-func isHTMLBody(contentType string, body []byte) bool {
-	ct := strings.ToLower(strings.TrimSpace(contentType))
-	if strings.Contains(ct, "html") { // text/html, application/xhtml+xml
-		return true
-	}
-	if ct != "" {
-		return false
-	}
-	head := strings.ToLower(strings.TrimSpace(string(body[:min(len(body), 512)])))
-	return strings.HasPrefix(head, "<!doctype html") || strings.HasPrefix(head, "<html")
-}
-
-// decodeCharset converts a body from its declared/guessed charset to UTF-8.
-func decodeCharset(body []byte, contentType string) ([]byte, error) {
-	r, err := charset.NewReader(bytes.NewReader(body), contentType)
-	if err != nil {
-		return nil, err
-	}
-	out, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 // TakeChars returns the rune slice [offset, offset+maxLen) of s, clamped to the

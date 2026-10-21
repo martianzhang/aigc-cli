@@ -266,8 +266,8 @@ defaults:
   #   semantic_top_k: 200                                # entries the semantic list contributes to RRF (default 200; <=0 = all)
 
   # ── Optional: Web Search Providers ──
-  # Declare multiple providers for auto-fallback, shared by `aigc-cli search`,
-  # `kb search`, and the chat/MCP web_search/web_fetch tools.
+  # Declare multiple providers for auto-fallback, shared by `aigc-cli search` /
+  # `fetch`, `kb search`, and the chat/MCP web_search/web_fetch tools.
   # `aigc-cli search` / `kb search` also support a --provider flag; chat can
   # override via --search-provider.
   # The shared default lives in defaults.search.provider.

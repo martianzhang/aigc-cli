@@ -38,6 +38,8 @@ Uses FTS5 full-text search plus semantic vector search. The embedding backend is
 `kb search` supports multiple web search providers with failover and weight-based routing.
 
 > Just want web results without fetching or indexing? Use `aigc-cli search "query"` (free DuckDuckGo fallback by default). `kb search` additionally fetches page bodies, chunks and stores them.
+>
+> Just want one URL as Markdown without indexing? Use `aigc-cli fetch <url>`; `kb fetch` fetches and stores it in the knowledge base.
 
 ### Configuration
 

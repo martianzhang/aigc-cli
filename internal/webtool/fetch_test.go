@@ -8,32 +8,6 @@ import (
 	"testing"
 )
 
-func TestIsHTMLBody(t *testing.T) {
-	tests := []struct {
-		name string
-		ct   string
-		body string
-		want bool
-	}{
-		{"text/html", "text/html; charset=utf-8", "<html></html>", true},
-		{"xhtml", "application/xhtml+xml", "<html/>", true},
-		{"json", "application/json", `{"a":1}`, false},
-		{"plain text", "text/plain", "hello", false},
-		{"xml feed", "application/xml", "<rss></rss>", false},
-		{"sniff html doctype", "", "<!doctype html><html>", true},
-		{"sniff html tag", "", "<html lang=\"en\">", true},
-		{"sniff non-html", "", `{"a":1}`, false},
-		{"blank body", "", "", false},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := isHTMLBody(tc.ct, []byte(tc.body)); got != tc.want {
-				t.Errorf("isHTMLBody(%q, %q) = %v, want %v", tc.ct, tc.body, got, tc.want)
-			}
-		})
-	}
-}
-
 func TestTakeChars(t *testing.T) {
 	t.Run("slices by rune and clamps", func(t *testing.T) {
 		// Each rune is multi-byte; slicing by rune must never split one.

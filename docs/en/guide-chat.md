@@ -109,7 +109,7 @@ tools_enable:
   - "web_fetch"
 ```
 
-> CLI equivalents: `aigc-cli search "query"` searches without touching the knowledge base, using configured vendors with a free DuckDuckGo fallback; `aigc-cli kb search` additionally fetches page bodies and indexes them.
+> CLI equivalents: `aigc-cli search "query"` searches without touching the knowledge base, using configured vendors with a free DuckDuckGo fallback; `aigc-cli fetch <url>` downloads one page as Markdown; `aigc-cli kb search` additionally fetches page bodies and indexes them.
 
 The built-in `search`/`fetch` need **no configuration and cost nothing**. The third-party `web_search`/`web_fetch` are served by the vendors declared under the top-level `web_search.*`, with `defaults.search.provider` selecting the **shared default vendor**. Vendors generally offer both search and fetch, so the two primitives **share one vendor selection** — there is no separate fetch setting:
 

@@ -44,6 +44,24 @@ func TestValidatePublicURL_AcceptsPublicIP(t *testing.T) {
 	}
 }
 
+func TestNewGuardedClientKeepsDefaultTransport(t *testing.T) {
+	original := http.DefaultClient
+	transport := &http.Transport{}
+	http.DefaultClient = &http.Client{Transport: transport}
+	t.Cleanup(func() { http.DefaultClient = original })
+
+	client := NewGuardedClient(5 * time.Second)
+	if client.Transport != transport {
+		t.Error("NewGuardedClient did not reuse http.DefaultClient.Transport (proxy would be bypassed)")
+	}
+	if client.Timeout != 5*time.Second {
+		t.Errorf("Timeout = %v, want 5s", client.Timeout)
+	}
+	if client.CheckRedirect == nil {
+		t.Error("CheckRedirect is nil, want per-hop validation")
+	}
+}
+
 func TestValidateURL_PublicHostname(t *testing.T) {
 	lookup := func(host string) ([]net.IP, error) {
 		return []net.IP{net.ParseIP("93.184.216.34")}, nil

@@ -262,7 +262,7 @@ func (r *Router) selectProviders(strategy string, preferred []string) []string {
 				nonFreeQuality = append(nonFreeQuality, p)
 			}
 		}
-		sort.Slice(free, func(i, j int) bool {
+		sort.SliceStable(free, func(i, j int) bool {
 			return r.quotaRemaining(free[i]) < r.quotaRemaining(free[j])
 		})
 		return append(free, nonFreeQuality...)
@@ -270,10 +270,11 @@ func (r *Router) selectProviders(strategy string, preferred []string) []string {
 }
 
 func (r *Router) allProviders() []string {
-	var all []string
+	all := make([]string, 0, len(r.providers))
 	for name := range r.providers {
 		all = append(all, name)
 	}
+	sort.Strings(all)
 	return all
 }
 
@@ -284,6 +285,7 @@ func (r *Router) filterByTag(tag string) []string {
 			result = append(result, name)
 		}
 	}
+	sort.Strings(result)
 	return result
 }
 

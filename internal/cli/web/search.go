@@ -94,7 +94,10 @@ without calling any search API (API keys are masked, injected fields included).
 The --provider flag selects a search vendor (duckduckgo, firecrawl, brave,
 doubao, deepseek, exa) or a strategy (auto, free, quality). It is unrelated to
 the LLM provider used by generation commands. When omitted, the shared
-defaults.search.provider config value is used, then auto.`,
+defaults.search.provider config value is used, then auto.
+
+All requests honor the global http_proxy config and HTTP_PROXY/HTTPS_PROXY/NO_PROXY
+environment variables.`,
 		Example: `  aigc-cli search "golang context timeout"
   aigc-cli search golang context timeout
   echo "golang context timeout" | aigc-cli search

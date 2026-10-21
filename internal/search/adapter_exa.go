@@ -76,6 +76,22 @@ func (p *ExaProvider) Preview(query string, limit int, opts Options) (*reqbuild.
 	}, nil
 }
 
+// PreviewFetch renders the equivalent Exa Contents request with a masked key.
+func (p *ExaProvider) PreviewFetch(url string) (*reqbuild.Plan, error) {
+	body, err := json.Marshal(map[string]any{"urls": []string{url}, "text": true})
+	if err != nil {
+		return nil, fmt.Errorf("exa marshal: %w", err)
+	}
+	return &reqbuild.Plan{
+		Method: http.MethodPost,
+		URL:    p.baseURL + "/contents",
+		Body:   body,
+		Headers: []reqbuild.Header{
+			{Name: "x-api-key", Value: maskedKey(p.apiKey)},
+		},
+	}, nil
+}
+
 // Fetch retrieves a single page through the Contents API and returns its title
 // (possibly empty) and full text. Callers paginate the returned text.
 func (p *ExaProvider) Fetch(url string) (title, content string, err error) {

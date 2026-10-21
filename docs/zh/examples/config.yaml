@@ -254,7 +254,7 @@ defaults:
   #   semantic_top_k: 200                                # 语义列表参与 RRF 的条数（默认 200；<=0 全部）
 
   # ── 可选：Web 搜索引擎 ──
-  # 声明多个 provider 供 aigc-cli search、kb search 与 chat/MCP 的 web_search/web_fetch 使用。
+  # 声明多个 provider 供 aigc-cli search / fetch、kb search 与 chat/MCP 的 web_search/web_fetch 使用。
   # aigc-cli search / kb search 也可通过 --provider 参数临时切换；chat 可用 --search-provider 覆盖。
   # 默认厂商统一在 defaults.search.provider 中配置。
   # defaults:

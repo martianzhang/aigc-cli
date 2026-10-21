@@ -194,7 +194,7 @@ Chat 有两套联网原语，命名规则是——**不带 `web_` = 内置免费
 | 搜索 | `search`（DuckDuckGo 抓取） | `web_search`（厂商由 `defaults.search.provider` 选择） |
 | 抓取 | `fetch`（本地 HTTP + readability） | `web_fetch`（同一厂商的抓取接口） |
 
-> 命令行等价物：`aigc-cli search "query"` 是不入库的联网搜索，默认使用已配置厂商并带 DuckDuckGo 免费兜底；`aigc-cli kb search` 则额外抓取正文并入知识库。
+> 命令行等价物：`aigc-cli search "query"` 是不入库的联网搜索，默认使用已配置厂商并带 DuckDuckGo 免费兜底；`aigc-cli fetch <url>` 抓取单个 URL 并输出 Markdown；`aigc-cli kb search` 则额外抓取正文并入知识库。
 
 四个都是**特权原语**，需在 `tools_enable` 中显式开启：
 

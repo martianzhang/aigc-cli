@@ -159,6 +159,8 @@ defaults:
 `kb search` 使用配置的 web_search 提供商；默认厂商在 `defaults.search.provider` 中设置：
 
 > 只想搜网页、不抓正文也不入库？用 `aigc-cli search "query"`（默认带 DuckDuckGo 免费兜底）。`kb search` 会抓取正文、分块并写入知识库。
+>
+> 只想抓取单个 URL、不入库？用 `aigc-cli fetch <url>` 直接输出 Markdown；`kb fetch` 会抓取后写入知识库。
 
 ```yaml
 defaults:

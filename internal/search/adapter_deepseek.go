@@ -78,6 +78,22 @@ func (p *DeepSeekProvider) Preview(query string, limit int, opts Options) (*reqb
 	}, nil
 }
 
+// PreviewFetch renders the equivalent DeepSeek Fetch request with a masked key.
+func (p *DeepSeekProvider) PreviewFetch(url string) (*reqbuild.Plan, error) {
+	body, err := json.Marshal(map[string]any{"url": url})
+	if err != nil {
+		return nil, fmt.Errorf("deepseek marshal: %w", err)
+	}
+	return &reqbuild.Plan{
+		Method: http.MethodPost,
+		URL:    p.baseURL + "/v1/tools/fetch",
+		Body:   body,
+		Headers: []reqbuild.Header{
+			{Name: "Authorization", Value: "Bearer " + maskedKey(p.apiKey)},
+		},
+	}, nil
+}
+
 // Fetch retrieves a single page and returns its title (possibly empty) and
 // Markdown content. Unlike Search it returns the whole document with no offset,
 // so callers paginate the returned text themselves.

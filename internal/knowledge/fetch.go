@@ -1,9 +1,9 @@
 package knowledge
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -11,16 +11,14 @@ import (
 	"strings"
 	"time"
 
-	readability "codeberg.org/readeck/go-readability/v2"
-	md "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"golang.org/x/net/html"
-	"golang.org/x/net/html/charset"
 
 	"github.com/martianzhang/aigc-cli/internal/netguard"
+	"github.com/martianzhang/aigc-cli/internal/webfetch"
 )
 
-// defaultUserAgent is used for web requests.
-const defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) aigc-cli-kb/1.0"
+// defaultUserAgent is the browser-like UA shared by the fetch core.
+const defaultUserAgent = webfetch.DefaultUserAgent
 
 // maxFetchBytes caps how much of a response body FetchURL reads into memory.
 const maxFetchBytes = 10 * 1024 * 1024
@@ -35,99 +33,36 @@ type FetchResult struct {
 	Size        int64
 }
 
-// FetchURL fetches a URL, extracts the main content via readability,
-// and converts to markdown.
+// FetchURL fetches a URL, extracts the main content via readability, and
+// converts HTML to markdown. Non-HTML textual responses are returned verbatim.
 func FetchURL(rawURL string) (*FetchResult, error) {
-	// Auto-add https:// for bare hostnames
-	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
-		rawURL = "https://" + rawURL
-	}
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid URL %q: %w", rawURL, err)
-	}
-	if err := netguard.ValidatePublicURL(u.String()); err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("User-Agent", defaultUserAgent)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-
-	resp, err := netguard.NewGuardedClient(30 * time.Second).Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch %s: %w", u.String(), err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("fetch %s: HTTP %d", u.String(), resp.StatusCode)
-	}
-
-	// Detect and decode charset
-	contentType := resp.Header.Get("Content-Type")
-	body, err := charset.NewReader(resp.Body, contentType)
-	if err != nil {
-		body = resp.Body
-	}
-
-	// Read at most maxFetchBytes+1 bytes so an oversized response is cut at
-	// the reader instead of being buffered whole in memory.
-	htmlBytes, err := io.ReadAll(io.LimitReader(body, maxFetchBytes+1))
-	if err != nil {
-		return nil, fmt.Errorf("read body: %w", err)
-	}
-
-	size := int64(len(htmlBytes))
-	if size > maxFetchBytes {
-		return nil, fmt.Errorf("response too large: %d MB", size/(1024*1024))
-	}
-
-	htmlStr := string(htmlBytes)
-
-	title, markdown, err := HTMLToMarkdown(htmlStr, u)
+	doc, err := webfetch.Fetch(context.Background(), rawURL, webfetch.Options{
+		MaxBytes:  maxFetchBytes,
+		Timeout:   30 * time.Second,
+		UserAgent: defaultUserAgent,
+		Accept:    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+	})
 	if err != nil {
 		return nil, err
 	}
-
+	if doc.Truncated {
+		return nil, fmt.Errorf("response too large: %d MB", doc.Bytes/(1024*1024))
+	}
 	return &FetchResult{
-		URL:         u.String(),
-		Title:       title,
-		Content:     markdown,
-		HTML:        htmlStr,
-		ContentType: contentType,
-		Size:        size,
+		URL:         doc.URL,
+		Title:       doc.Title,
+		Content:     doc.Content,
+		HTML:        doc.RawHTML,
+		ContentType: doc.ContentType,
+		Size:        doc.Bytes,
 	}, nil
 }
 
 // HTMLToMarkdown extracts the main readable content of an HTML document and
-// converts it to markdown, returning the page title (may be empty) alongside.
-// pageURL is used to resolve relative links and may be nil.
-//
-// It first tries readability (main-article extraction, which drops nav/boilerplate
-// and saves tokens). When readability cannot segment an article — short pages,
-// documentation, single-element pages — it falls back to converting the whole
-// document so callers never lose content.
+// converts it to markdown. It is kept as a knowledge-package entry point for
+// existing callers and tests; the implementation lives in internal/webfetch.
 func HTMLToMarkdown(htmlStr string, pageURL *url.URL) (title, markdown string, err error) {
-	if article, aerr := readability.FromReader(strings.NewReader(htmlStr), pageURL); aerr == nil {
-		title = article.Title()
-		var htmlBuf strings.Builder
-		if article.RenderHTML(&htmlBuf) == nil {
-			if converted, cerr := md.ConvertString(htmlBuf.String()); cerr == nil && strings.TrimSpace(converted) != "" {
-				return title, converted, nil
-			}
-		}
-	}
-
-	converted, cerr := md.ConvertString(htmlStr)
-	if cerr != nil {
-		return title, "", fmt.Errorf("html-to-markdown: %w", cerr)
-	}
-	return title, converted, nil
+	return webfetch.HTMLToMarkdown(htmlStr, pageURL)
 }
 
 // Checksum computes the SHA256 hex digest of content.

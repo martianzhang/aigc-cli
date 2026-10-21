@@ -57,6 +57,65 @@ func TestPreviewAppliesInjectJSON(t *testing.T) {
 	})
 }
 
+func TestFetchPreviewsRenderCurl(t *testing.T) {
+	deepseek := NewDeepSeekProvider("deepseek-secret-1111")
+	deepseek.baseURL = "https://api.deepseek.test"
+	exa := NewExaProvider("exa-secret-2222")
+	exa.baseURL = "https://api.exa.test"
+
+	tests := []struct {
+		name    string
+		preview FetchPreviewer
+		wantURL string
+		headers []string
+		body    []string
+		fullKey string
+	}{
+		{
+			name:    "deepseek",
+			preview: deepseek,
+			wantURL: "https://api.deepseek.test/v1/tools/fetch",
+			headers: []string{"Authorization: Bearer ...1111"},
+			body:    []string{`"url":"https://example.com/a"`},
+			fullKey: "deepseek-secret-1111",
+		},
+		{
+			name:    "exa",
+			preview: exa,
+			wantURL: "https://api.exa.test/contents",
+			headers: []string{"x-api-key: ...2222"},
+			body:    []string{`"urls":["https://example.com/a"]`, `"text":true`},
+			fullKey: "exa-secret-2222",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			plan, err := tc.preview.PreviewFetch("https://example.com/a")
+			if err != nil {
+				t.Fatalf("PreviewFetch: %v", err)
+			}
+			curl := plan.RenderCurls("")
+			if !strings.Contains(curl, tc.wantURL) {
+				t.Errorf("curl missing URL %q:\n%s", tc.wantURL, curl)
+			}
+			for _, header := range tc.headers {
+				if !strings.Contains(curl, header) {
+					t.Errorf("curl missing header %q:\n%s", header, curl)
+				}
+			}
+			for _, body := range tc.body {
+				if !strings.Contains(curl, body) {
+					t.Errorf("curl missing body fragment %q:\n%s", body, curl)
+				}
+			}
+			if strings.Contains(curl, tc.fullKey) {
+				t.Errorf("curl leaked the API key %q:\n%s", tc.fullKey, curl)
+			}
+		})
+	}
+}
+
 func TestProviderPreviewsRenderCurl(t *testing.T) {
 	deepseek := NewDeepSeekProvider("deepseek-secret-1111")
 	deepseek.baseURL = "https://api.deepseek.test"

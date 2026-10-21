@@ -183,6 +183,8 @@ aigc-cli search "vector database" --dry-run       # print equivalent curl, no re
 - Search only: no knowledge-base write. Use `aigc-cli kb search` for
   search + fetch + index. A standalone `aigc-cli fetch` is still planned.
 - `-v` adds nothing for search; stdout always contains only the vendor JSON.
+- All search requests honor the global proxy: `http_proxy` in config, or
+  `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`.
 
 `--json` input example:
 
@@ -205,6 +207,85 @@ curl -X POST https://api.exa.ai/search \
   -H "x-api-key: ...3644" \
   -H "Content-Type: application/json" \
   -d '{"numResults":4,"query":"golang","type":"neural"}'
+```
+
+## fetch
+
+`aigc-cli fetch` downloads one URL or converts one local HTML/text file and
+prints its main content as Markdown on stdout. The default is the built-in free
+fetcher; nothing is saved or indexed, so redirection is enough:
+
+```bash
+aigc-cli fetch https://go.dev/doc/effective_go
+aigc-cli fetch https://go.dev/doc/effective_go > effective_go.md
+aigc-cli fetch ./page.html > page.md
+aigc-cli fetch /tmp/report.html --max-chars 20000
+aigc-cli fetch https://example.com/private -H "Authorization: Bearer $TOKEN"
+aigc-cli fetch https://example.com/private -b cookies.txt
+aigc-cli fetch https://example.com/private -b a.txt -b b.txt -c cookies.txt
+aigc-cli fetch https://example.com/private -b "session=abc; theme=dark"
+aigc-cli fetch https://example.com/article --max-chars 20000
+aigc-cli fetch https://example.com/app --provider deepseek
+aigc-cli fetch https://example.com/article --dry-run
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `-P, --provider` | empty = built-in | `deepseek` / `exa`, or `auto` / `quality` for a configured fetch-capable vendor |
+| `-H, --header` | none | Repeatable `Name: value`; `Name:` removes a default header (built-in fetcher only) |
+| `-b, --cookie` | none | Repeatable; `name=value; ...` data or a Netscape cookie file (built-in fetcher only) |
+| `-c, --cookie-jar` | none | Write cookies to a Netscape-format file after fetching (built-in fetcher only) |
+| `--max-chars` | `0` (no limit) | Truncate output by rune count |
+| `--dry-run` | `false` | Print the equivalent curl without sending a request |
+| `-v` / `--timeout` | global | `-v` prints title / final URL / content type / size; `--timeout` controls the built-in fetch |
+
+- Built-in fetch extracts HTML main content via readability and converts to
+  Markdown; textual non-HTML bodies (plain text, JSON, …) are printed verbatim;
+  binary bodies (PDF, images) are rejected.
+- The argument is checked as a local file first: relative/absolute paths, spaces
+  and `file://` URLs work, and existing files are converted without network
+  access. `--provider` / `-H` / `-b` / `-c` are not applicable to local files.
+- The default User-Agent is a full browser UA, so sites are less likely to
+  return a JS redirect/anti-bot stub. If the page still yields no readable text,
+  fetch errors out instead of printing an empty body.
+- Article pages use readability first. When readability returns only a short
+  footer/navigation fragment, fetch falls back to whole-page conversion with
+  scripts/styles/footers removed, preserving navigation and other useful text.
+- Output strips `data:` URIs (e.g. base64 images) and `javascript:` links,
+  keeping their text / normal links, so huge base64 blobs never enter the body.
+- **The built-in fetcher is always the default and never reads
+  `defaults.search.provider`.** Only an explicit `-P/--provider` (including
+  `-P auto`) uses a vendor, so a plain fetch cannot silently bill.
+- `-H` is applied after the default `User-Agent` / `Accept` / `Accept-Language`
+  headers and can override or remove them; CR/LF injection is rejected.
+- `-b` accepts repeated inline cookie data or Netscape files; sources are merged
+  and later entries win for the same domain/path/name. `#HttpOnly_`, `secure`,
+  `expires`, `domain` and `path` are honored; expired cookies are ignored.
+- `-H "Cookie: ..."` takes precedence over `-b`; `-H "Cookie:"` clears cookies.
+- `-c` writes the merged jar (including response `Set-Cookie`) back in Netscape
+  format with an atomic 0600 write — useful for login-then-fetch flows.
+- `--provider` routes through a third-party fetch API (DeepSeek Fetch / Exa
+  Contents), which **may bill per request**. The request runs on the vendor's
+  side, so `-H` / `-b` / `-c` cannot be combined with `--provider`.
+- If the selected vendor is search-only (e.g. `brave` / `duckduckgo`), or
+  `auto` / `quality` finds no fetch-capable vendor, fetch falls back to the
+  built-in fetcher and prints a note on stderr; `-H` / `-b` / `-c` still work.
+  An unknown provider name is still an error.
+- Fetch only: nothing is written to the knowledge base. Use `aigc-cli kb fetch`
+  to fetch + index; use `aigc-cli search` / `kb search` to search.
+- `--output-json` is not implemented yet.
+- Both built-in and third-party fetch honor the global proxy: `http_proxy` in
+  config, or `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`.
+
+`--dry-run` example:
+
+```bash
+# dry run: no request sent
+# provider: built-in
+curl -X GET https://example.com/article \
+  -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" \
+  -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5" \
+  -H "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8"
 ```
 
 ## completion
