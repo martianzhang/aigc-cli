@@ -24,12 +24,14 @@ var localFilePath = webfetch.LocalFilePath
 
 // fetchFlags holds the parsed flags for one `aigc-cli fetch` invocation.
 type fetchFlags struct {
-	provider  string
-	maxChars  int
-	headers   []string
-	cookies   []string
-	cookieJar string
-	dryRun    bool
+	provider      string
+	maxChars      int
+	headers       []string
+	cookies       []string
+	cookieJar     string
+	dryRun        bool
+	html          bool
+	listProviders bool
 }
 
 // FetchCmd returns the `fetch` command.
@@ -40,7 +42,6 @@ func FetchCmd() *cobra.Command {
 		Short: "Fetch a URL or local file and print clean Markdown",
 		Long: `Fetch a URL or a local HTML/text file and print its main content as Markdown
 on stdout.
-
 The argument can be an http(s) URL or any existing local file. Local files are
 detected with os.Stat first (a file:// URL also works); they are converted with
 the built-in HTML→Markdown pipeline and never touch the network.
@@ -51,11 +52,12 @@ readability extraction and HTML→Markdown conversion. Non-HTML textual bodies
 are SSRF-guarded and honor the global HTTP proxy and --timeout.
 
 Use --provider to route through a third-party fetch API instead (DeepSeek or
-Exa). That may bill per request, and -H/--header, -b/--cookie and -c/--cookie-jar
-are not supported because the request runs on the vendor's side. If the selected
-vendor is search-only, fetch falls back to the built-in fetcher and prints a note
-on stderr. An unknown provider name is still an error. The built-in fetcher is
-always the default; defaults.search.provider is never read implicitly.
+Exa; see --list-providers). That may bill per request, and -H/--header,
+-b/--cookie and -c/--cookie-jar are not supported because the request runs on
+the vendor's side. If the selected vendor is search-only, fetch falls back to
+the built-in fetcher and prints a note on stderr. An unknown provider name is
+still an error. The built-in fetcher is always the default;
+defaults.search.provider is never read implicitly.
 
 Cookies follow curl's conventions: -b accepts repeated inline data
 ("name=value; name2=value2") or Netscape cookie files, and -c writes the merged
@@ -64,6 +66,9 @@ jar back after fetching. -H "Cookie: ..." takes precedence over -b.
 Output is only the page body, so redirection works naturally:
 
   aigc-cli fetch https://example.com/article > article.md
+
+Use --html to print the raw response body (or local file contents) instead of
+converted Markdown. It is only available with the built-in fetcher.
 
 --dry-run prints the equivalent curl command without making any request.`,
 		Example: `  aigc-cli fetch https://go.dev/doc/effective_go
@@ -76,22 +81,33 @@ Output is only the page body, so redirection works naturally:
   aigc-cli fetch https://example.com/private -b "session=abc; theme=dark"
   aigc-cli fetch https://example.com/app --provider deepseek
   aigc-cli fetch https://example.com/article --max-chars 20000
+  aigc-cli fetch https://example.com/article --html > page.html
+  aigc-cli fetch --list-providers
   aigc-cli fetch https://example.com/article --dry-run`,
-		Args:         cobra.ExactArgs(1),
+		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flags.listProviders {
+				return writeProviderList(cmd.OutOrStdout(), newSearchRouter())
+			}
+			if len(args) != 1 {
+				return fmt.Errorf("url is required (or use --list-providers)")
+			}
 			return runFetch(cmd.OutOrStdout(), cmd.ErrOrStderr(), args[0], *flags, newSearchRouter())
 		},
 	}
 
 	f := cmd.Flags()
-	f.StringVarP(&flags.provider, "provider", "P", "", "Fetch provider name (deepseek/exa); empty = built-in; search-only providers fall back to built-in")
+	f.StringVarP(&flags.provider, "provider", "P", "", "Fetch provider name (see --list-providers); empty = built-in; search-only providers fall back to built-in")
 	f.IntVar(&flags.maxChars, "max-chars", 0, "Truncate output to N characters (runes); 0 = no limit")
 	f.StringArrayVarP(&flags.headers, "header", "H", nil, `Extra header "Name: value"; repeatable; "Name:" removes a default header (built-in fetcher only)`)
 	f.StringArrayVarP(&flags.cookies, "cookie", "b", nil, `Cookie data "name=value; ..." or a Netscape cookie file; repeatable (built-in fetcher only)`)
 	f.StringVarP(&flags.cookieJar, "cookie-jar", "c", "", "Write cookies to a Netscape-format file after fetching (built-in fetcher only)")
+	f.BoolVar(&flags.html, "html", false, "Print the raw HTML/response body instead of converted Markdown (built-in fetcher only)")
 	f.BoolVar(&flags.dryRun, "dry-run", false, "Print the equivalent curl command without making any request")
+	f.BoolVar(&flags.listProviders, "list-providers", false, "List configured providers with search/fetch capability and availability")
 
+	registerProviderCompletion(cmd, true)
 	return cmd
 }
 
@@ -124,6 +140,9 @@ func runFetch(stdout, stderr io.Writer, rawURL string, flags fetchFlags, router 
 	if !ok {
 		warnFetchFallback(stderr, flags.provider, router)
 		return runBuiltinFetch(stdout, stderr, rawURL, headers, cookieHeader, cookieHeaderFound, flags)
+	}
+	if flags.html {
+		return fmt.Errorf("--html is only supported by the built-in fetcher; third-party fetch returns processed content")
 	}
 	if len(headers) > 0 || cookieHeaderFound || len(flags.cookies) > 0 || flags.cookieJar != "" {
 		return fmt.Errorf("--header, --cookie and --cookie-jar are only supported by the built-in fetcher; third-party fetch runs on the vendor's side")
@@ -161,14 +180,24 @@ func runLocalFetch(stdout, stderr io.Writer, path string, flags fetchFlags) erro
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(doc.Content) == "" {
+	content := fetchedBody(doc, flags.html)
+	if strings.TrimSpace(content) == "" {
 		return fmt.Errorf("no readable text found in %s", path)
 	}
 	if options.Shared.Verbose {
 		fmt.Fprintf(stderr, "Source: local file\nPath: %s\nTitle: %s\nContent-Type: %s\nBytes: %d\nConverted: %v\n",
 			path, doc.Title, doc.ContentType, doc.Bytes, doc.Converted)
 	}
-	return writeFetchedContent(stdout, stderr, doc.Content, flags.maxChars)
+	return writeFetchedContent(stdout, stderr, content, flags.maxChars)
+}
+
+// fetchedBody selects raw HTML when requested, falling back to the text content
+// for non-HTML responses.
+func fetchedBody(doc *webfetch.Document, rawHTML bool) string {
+	if rawHTML && doc.RawHTML != "" {
+		return doc.RawHTML
+	}
+	return doc.Content
 }
 
 func runBuiltinFetch(stdout, stderr io.Writer, rawURL string, headers []webfetch.Header, cookieHeader string, cookieHeaderFound bool, flags fetchFlags) error {
@@ -203,14 +232,15 @@ func runBuiltinFetch(stdout, stderr io.Writer, rawURL string, headers []webfetch
 	if fetchErr != nil {
 		return fetchErr
 	}
-	if strings.TrimSpace(doc.Content) == "" {
+	content := fetchedBody(doc, flags.html)
+	if strings.TrimSpace(content) == "" {
 		return fmt.Errorf("no readable text found at %s (the page may be a JavaScript redirect or an anti-bot stub); try --provider deepseek", doc.FinalURL)
 	}
 	if options.Shared.Verbose {
 		fmt.Fprintf(stderr, "Provider: built-in\nTitle: %s\nFinal URL: %s\nContent-Type: %s\nBytes: %d\nConverted: %v\n",
 			doc.Title, doc.FinalURL, doc.ContentType, doc.Bytes, doc.Converted)
 	}
-	return writeFetchedContent(stdout, stderr, doc.Content, flags.maxChars)
+	return writeFetchedContent(stdout, stderr, content, flags.maxChars)
 }
 
 // buildCookieStore merges -b sources and an explicit Cookie header. The header
@@ -291,6 +321,9 @@ func runProviderFetch(stdout, stderr io.Writer, rawURL string, flags fetchFlags,
 func resolveFetcher(router *search.Router, spec string) (search.Fetcher, bool, error) {
 	if fetcher, ok := search.ResolveFetcher(router, spec); ok {
 		return fetcher, true, nil
+	}
+	if bad, ok := router.Unavailable(spec); ok {
+		return nil, false, fmt.Errorf("fetch provider %q is configured but unavailable: %w", spec, bad)
 	}
 	if _, exists := router.GetProvider(spec); exists {
 		return nil, false, nil

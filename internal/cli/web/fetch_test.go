@@ -411,6 +411,49 @@ func TestRunFetchLocalFileDryRun(t *testing.T) {
 	}
 }
 
+func TestRunFetchHTMLOutput(t *testing.T) {
+	original := fetchDocument
+	fetchDocument = func(context.Context, string, webfetch.Options) (*webfetch.Document, error) {
+		return &webfetch.Document{Content: "# Markdown", RawHTML: "<html>raw</html>"}, nil
+	}
+	t.Cleanup(func() { fetchDocument = original })
+
+	var stdout, stderr bytes.Buffer
+	if err := runFetch(&stdout, &stderr, "https://example.com/a", fetchFlags{html: true}, newFetchRouter()); err != nil {
+		t.Fatalf("runFetch: %v", err)
+	}
+	if stdout.String() != "<html>raw</html>\n" {
+		t.Errorf("stdout = %q, want raw HTML", stdout.String())
+	}
+}
+
+func TestRunFetchHTMLLocalFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "page.html")
+	if err := os.WriteFile(path, []byte("<html><body><p>raw local</p></body></html>"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if err := runFetch(&stdout, &stderr, path, fetchFlags{html: true}, newFetchRouter()); err != nil {
+		t.Fatalf("runFetch: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "<p>raw local</p>") {
+		t.Errorf("stdout = %q, want raw local HTML", stdout.String())
+	}
+}
+
+func TestRunFetchHTMLRejectsProvider(t *testing.T) {
+	provider := &fakeFetchProvider{name: "fake"}
+	var stdout, stderr bytes.Buffer
+	err := runFetch(&stdout, &stderr, "https://example.com/a", fetchFlags{
+		provider: "fake",
+		html:     true,
+	}, newFetchRouter(provider))
+	if err == nil || !strings.Contains(err.Error(), "--html is only supported") {
+		t.Fatalf("error = %v, want an --html/provider conflict", err)
+	}
+}
+
 func TestWriteFetchedContentAddsNewline(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if err := writeFetchedContent(&stdout, &stderr, "abc", 0); err != nil {

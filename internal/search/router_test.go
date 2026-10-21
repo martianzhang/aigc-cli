@@ -122,6 +122,41 @@ func TestRouterSearchRawAndOptions(t *testing.T) {
 	}
 }
 
+func TestRouterSearchConfiguredButUnavailable(t *testing.T) {
+	r := NewRouter()
+	r.RegisterUnavailable("brave", "brave", errors.New("brave requires api_key"))
+
+	_, err := r.Search("q", 5, "brave", Options{})
+	if err == nil || !strings.Contains(err.Error(), "configured but unavailable") || !strings.Contains(err.Error(), "api_key") {
+		t.Fatalf("error = %v, want configured-but-unavailable with reason", err)
+	}
+}
+
+func TestRouterStatuses(t *testing.T) {
+	r := NewRouter()
+	r.RegisterWithType("deepseek", &stubFetcher{name: "deepseek"}, "deepseek")
+	r.RegisterWithType("brave", &mockProvider{name: "brave"}, "brave")
+	r.RegisterUnavailable("exa", "exa", errors.New("exa requires api_key"))
+
+	statuses := r.Statuses()
+	if len(statuses) != 3 {
+		t.Fatalf("Statuses() = %d entries, want 3", len(statuses))
+	}
+	byName := make(map[string]ProviderStatus, len(statuses))
+	for _, status := range statuses {
+		byName[status.Name] = status
+	}
+	if !byName["deepseek"].Available || !byName["deepseek"].Fetch {
+		t.Errorf("deepseek status = %+v, want available+fetch", byName["deepseek"])
+	}
+	if !byName["brave"].Available || byName["brave"].Fetch {
+		t.Errorf("brave status = %+v, want available without fetch", byName["brave"])
+	}
+	if byName["exa"].Available || !strings.Contains(byName["exa"].Err, "api_key") {
+		t.Errorf("exa status = %+v, want unavailable with reason", byName["exa"])
+	}
+}
+
 func TestRouterSearchInjectUnsupported(t *testing.T) {
 	r := NewRouter()
 	r.Register("plain", &mockProvider{name: "plain"})

@@ -148,6 +148,7 @@ aigc-cli search --json query.json                 # command-level JSON (file)
 aigc-cli search --json '{"query":"golang context","provider":"exa","limit":3}'
 aigc-cli search "golang" --inject-json '{"type":"neural"}'
 aigc-cli search "vector database" --dry-run       # print equivalent curl, no request
+aigc-cli search --list-providers                  # registry + capability + availability
 ```
 
 | Flag | Default | Description |
@@ -157,6 +158,7 @@ aigc-cli search "vector database" --dry-run       # print equivalent curl, no re
 | `--json` | empty | Command-level JSON: file path or inline JSON (**no stdin**); fields: `query`, `provider`, `limit` |
 | `--inject-json` | empty | Vendor-native fields: file path or inline JSON; merged into the POST body or appended as GET query parameters |
 | `--dry-run` | `false` | Print the equivalent curl for the selected provider (keys masked, injected fields included), without calling any search API |
+| `--list-providers` | `false` | List configured providers with search/fetch capability and availability (including failure reasons) |
 
 - **stdin carries the query**: `echo "..." | aigc-cli search` (or a no-arg
   invocation with piped input) reads it automatically; `aigc-cli search -` forces
@@ -177,6 +179,10 @@ aigc-cli search "vector database" --dry-run       # print equivalent curl, no re
 - DuckDuckGo has no vendor JSON, so its output is `{"urls":["..."]}`.
 - Exactly one provider is called per search; a provider failure is returned
   directly (no automatic rotation or retry against another vendor).
+- A provider that is configured but fails construction (missing `api_key`,
+  unknown `type`, …) reports `configured but unavailable` with the reason
+  instead of silently disappearing from the available list;
+  `--list-providers` shows the same status table.
 - `--dry-run` sends no network request and prints one curl for the selected
   provider.
 - Search only: no knowledge-base write. Use `aigc-cli kb search` for
@@ -219,6 +225,7 @@ aigc-cli fetch https://go.dev/doc/effective_go
 aigc-cli fetch https://go.dev/doc/effective_go > effective_go.md
 aigc-cli fetch ./page.html > page.md
 aigc-cli fetch /tmp/report.html --max-chars 20000
+aigc-cli fetch https://example.com/article --html > page.html
 aigc-cli fetch https://example.com/private -H "Authorization: Bearer $TOKEN"
 aigc-cli fetch https://example.com/private -b cookies.txt
 aigc-cli fetch https://example.com/private -b a.txt -b b.txt -c cookies.txt
@@ -226,6 +233,7 @@ aigc-cli fetch https://example.com/private -b "session=abc; theme=dark"
 aigc-cli fetch https://example.com/article --max-chars 20000
 aigc-cli fetch https://example.com/app --provider deepseek
 aigc-cli fetch https://example.com/article --dry-run
+aigc-cli fetch --list-providers
 ```
 
 | Flag | Default | Description |
@@ -235,7 +243,9 @@ aigc-cli fetch https://example.com/article --dry-run
 | `-b, --cookie` | none | Repeatable; `name=value; ...` data or a Netscape cookie file (built-in fetcher only) |
 | `-c, --cookie-jar` | none | Write cookies to a Netscape-format file after fetching (built-in fetcher only) |
 | `--max-chars` | `0` (no limit) | Truncate output by rune count |
+| `--html` | `false` | Print the raw HTML/response body without readability/Markdown conversion (built-in fetcher only) |
 | `--dry-run` | `false` | Print the equivalent curl without sending a request |
+| `--list-providers` | `false` | List configured providers with search/fetch capability and availability (including failure reasons) |
 | `-v` / `--timeout` | global | `-v` prints title / final URL / content type / size; `--timeout` controls the built-in fetch |
 
 - Built-in fetch extracts HTML main content via readability and converts to
@@ -266,6 +276,9 @@ aigc-cli fetch https://example.com/article --dry-run
 - `--provider` routes through a third-party fetch API (DeepSeek Fetch / Exa
   Contents), which **may bill per request**. The request runs on the vendor's
   side, so `-H` / `-b` / `-c` cannot be combined with `--provider`.
+- `--html` prints the raw HTML (or the raw text body for non-HTML responses /
+  local text files), skipping readability/Markdown; it cannot be combined with
+  `--provider`.
 - If the selected vendor is search-only (e.g. `brave` / `duckduckgo`), fetch
   falls back to the built-in fetcher and prints a note on stderr; `-H` / `-b` /
   `-c` still work. An unknown provider name is still an error.
@@ -303,6 +316,10 @@ aigc-cli completion fish > ~/.config/fish/completions/aigc-cli.fish
 # PowerShell
 aigc-cli completion powershell > aigc-cli.ps1
 ```
+
+`search` / `fetch` also support dynamic `--provider` completion: candidates come
+from the current `web_search.*` config; `fetch` only suggests fetch-capable
+providers.
 
 ## Global Flags
 

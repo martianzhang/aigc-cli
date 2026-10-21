@@ -1,10 +1,40 @@
 package search
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+func TestRegisterAllRecordsUnavailable(t *testing.T) {
+	r := NewRouter()
+	RegisterAll(r, map[string]*types.WebSearchProvider{
+		"brave":   {Type: "brave"}, // missing api_key
+		"mystery": {Type: "mystery"},
+	})
+
+	if _, ok := r.Unavailable("brave"); !ok {
+		t.Error("brave should be recorded as unavailable")
+	}
+	if _, ok := r.Unavailable("mystery"); !ok {
+		t.Error("unknown provider type should be recorded as unavailable")
+	}
+
+	statuses := r.Statuses()
+	foundBrave := false
+	for _, status := range statuses {
+		if status.Name == "brave" {
+			foundBrave = true
+			if status.Available || !strings.Contains(status.Err, "api_key") {
+				t.Errorf("brave status = %+v, want unavailable with api_key reason", status)
+			}
+		}
+	}
+	if !foundBrave {
+		t.Error("brave missing from Statuses()")
+	}
+}
 
 func TestRegisterAll(t *testing.T) {
 	tests := []struct {

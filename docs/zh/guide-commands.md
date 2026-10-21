@@ -23,6 +23,7 @@ aigc-cli search - < query.txt                     # 显式从 stdin 读取
 aigc-cli search --json query.json                 # 命令级 JSON（文件）
 aigc-cli search --json '{"query":"golang context","provider":"exa","limit":3}'
 aigc-cli search "golang" --inject-json '{"type":"neural"}'
+aigc-cli search --list-providers
 aigc-cli search "vector database" --dry-run       # 打印等价 curl，不发请求
 ```
 
@@ -33,6 +34,7 @@ aigc-cli search "vector database" --dry-run       # 打印等价 curl，不发�
 | `--json` | 空 | 命令级 JSON：文件路径或 inline JSON（**不接受 stdin**），字段：`query`、`provider`、`limit` |
 | `--inject-json` | 空 | 厂商原生字段：文件路径或 inline JSON；POST 合并进请求体，GET 变成 query 参数 |
 | `--dry-run` | `false` | 打印选中厂商的等价 curl（API key 掩码，含注入字段），不调用任何搜索 API |
+| `--list-providers` | `false` | 列出已配置厂商、search/fetch 能力与可用状态（含不可用原因） |
 
 - **stdin 用来传 query**：`echo "..." | aigc-cli search` 或无参数时自动读取管道/文件；`aigc-cli search -` 显式从 stdin 读取。多行输入会压成一行。`--json` / `--inject-json` 都不读 stdin。
 
@@ -43,6 +45,7 @@ aigc-cli search "vector database" --dry-run       # 打印等价 curl，不发�
 - 输出就是厂商响应体：合法 JSON 会做缩进美化；不是合法 JSON 时原样输出（便于看到错误页）。
 - DuckDuckGo 没有厂商 JSON，输出为 `{"urls":["..."]}`。
 - 每次只调用一个厂商；厂商失败直接报错，不会自动切换或重试其他厂商。
+- 配置了但构造失败的厂商（例如缺少 `api_key`、`type` 拼错）会显示为 `configured but unavailable`，而不是从 available 列表静默消失；`--list-providers` 可查看具体原因。
 - `--dry-run` 不产生网络请求，只打印选中厂商的 curl。
 - 只搜索、不写知识库。需要“搜索 + 抓取 + 入库”请用 `aigc-cli kb search`；单独抓取 URL 的 `aigc-cli fetch` 仍在 TODO。
 - `-v` 对搜索命令不再有额外输出；标准输出始终只有厂商 JSON。
@@ -80,6 +83,7 @@ aigc-cli fetch https://go.dev/doc/effective_go
 aigc-cli fetch https://go.dev/doc/effective_go > effective_go.md
 aigc-cli fetch ./page.html > page.md
 aigc-cli fetch /tmp/report.html --max-chars 20000
+aigc-cli fetch https://example.com/article --html > page.html
 aigc-cli fetch https://example.com/private -H "Authorization: Bearer $TOKEN"
 aigc-cli fetch https://example.com/private -b cookies.txt
 aigc-cli fetch https://example.com/private -b a.txt -b b.txt -c cookies.txt
@@ -87,6 +91,7 @@ aigc-cli fetch https://example.com/private -b "session=abc; theme=dark"
 aigc-cli fetch https://example.com/article --max-chars 20000
 aigc-cli fetch https://example.com/app --provider deepseek
 aigc-cli fetch https://example.com/article --dry-run
+aigc-cli fetch --list-providers
 ```
 
 | 参数 | 默认 | 说明 |
@@ -96,7 +101,9 @@ aigc-cli fetch https://example.com/article --dry-run
 | `-b, --cookie` | 无 | 可重复；含 `=` 按 cookie 字符串解析，否则按 Netscape cookie 文件读取（仅内置抓取） |
 | `-c, --cookie-jar` | 无 | 抓取结束后把 cookie 写回 Netscape 格式文件（仅内置抓取） |
 | `--max-chars` | `0`（不截断） | 按字符（rune）截断输出 |
+| `--html` | `false` | 输出原始 HTML / 原始文本，不做 readability/Markdown 转换（仅内置抓取） |
 | `--dry-run` | `false` | 打印等价 curl，不发请求 |
+| `--list-providers` | `false` | 列出已配置厂商、search/fetch 能力与可用状态（含不可用原因） |
 | `-v` / `--timeout` | 全局 | `-v` 输出标题 / 最终 URL / 类型 / 大小；`--timeout` 控制内置抓取超时 |
 
 - 默认内置抓取：HTML 经 readability 提取正文并转 Markdown；`text/plain`、JSON 等文本原样输出；PDF / 图片等二进制报错。
@@ -111,6 +118,7 @@ aigc-cli fetch https://example.com/article --dry-run
 - `-H "Cookie: ..."` 优先于 `-b`；`-H "Cookie:"` 清空 cookie。
 - `-c` 在抓取结束后写回 Netscape 格式（含响应 `Set-Cookie`），可用于“先登录再抓取”的多步流程；文件原子写入、权限 `0600`。
 - `--provider` 走第三方抓取 API（DeepSeek Fetch / Exa Contents），**可能计费**；第三方请求在厂商侧执行，因此 `-H` / `-b` / `-c` 与 `--provider` 不能同时使用。
+- `--html` 输出原始 HTML（非 HTML 响应/本地文本则原样输出），跳过 readability/Markdown；与 `--provider` 互斥。
 - 如果指定厂商不支持 fetch（如 `brave` / `duckduckgo`），会自动回退内置抓取并在 stderr 提示；回退时 `-H` / `-b` / `-c` 仍然生效。未知厂商名仍会报错。
 - 只抓取、不入库。需要“抓取 + 入库”请用 `aigc-cli kb fetch`；需要搜索请用 `aigc-cli search` / `aigc-cli kb search`。
 - `--output-json` 暂未实现。
@@ -146,6 +154,8 @@ echo 'source <(aigc-cli completion bash)' >> ~/.bashrc
 ```
 
 启用后，输入 `aigc-cli im+Tab` 自动补全为 `aigc-cli image`，输入 `aigc-cli --mod+Tab` 自动补全为 `--model`，无需记忆全部命令和参数名。
+
+`search` / `fetch` 的 `--provider` 也接入了动态补全：按当前 `web_search.*` 配置提示可用厂商；`fetch` 只提示实现抓取能力的厂商。
 
 ## 查询模型列表
 

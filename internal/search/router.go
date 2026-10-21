@@ -36,20 +36,104 @@ type Result struct {
 
 // Router holds the registered providers.
 type Router struct {
-	mu        sync.RWMutex
-	providers map[string]Provider
+	mu            sync.RWMutex
+	providers     map[string]Provider
+	providerTypes map[string]string
+	unavailable   map[string]unavailableProvider
+}
+
+type unavailableProvider struct {
+	typeName string
+	err      error
+}
+
+// ProviderStatus is a diagnostic view of one configured provider.
+type ProviderStatus struct {
+	Name      string
+	Type      string
+	Search    bool
+	Fetch     bool
+	Available bool
+	Err       string
 }
 
 // NewRouter creates an empty provider registry.
 func NewRouter() *Router {
-	return &Router{providers: make(map[string]Provider)}
+	return &Router{
+		providers:     make(map[string]Provider),
+		providerTypes: make(map[string]string),
+		unavailable:   make(map[string]unavailableProvider),
+	}
 }
 
 // Register adds a search provider to the router.
 func (r *Router) Register(name string, p Provider) {
+	r.RegisterWithType(name, p, "")
+}
+
+// RegisterWithType adds a provider and records the configured type for
+// --list-providers.
+func (r *Router) RegisterWithType(name string, p Provider, typeName string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if typeName == "" {
+		typeName = p.Name()
+	}
 	r.providers[name] = p
+	r.providerTypes[name] = typeName
+	delete(r.unavailable, name)
+}
+
+// RegisterUnavailable records a configured provider that failed construction,
+// so callers can explain why it is missing instead of saying "not configured".
+func (r *Router) RegisterUnavailable(name, typeName string, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.providers, name)
+	r.providerTypes[name] = typeName
+	r.unavailable[name] = unavailableProvider{typeName: typeName, err: err}
+}
+
+// Unavailable returns the construction error for a configured provider.
+func (r *Router) Unavailable(name string) (error, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	u, ok := r.unavailable[name]
+	return u.err, ok
+}
+
+// Statuses returns every configured provider (available or not), sorted by
+// name, for --list-providers and diagnostics.
+func (r *Router) Statuses() []ProviderStatus {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	names := make([]string, 0, len(r.providers)+len(r.unavailable))
+	seen := make(map[string]bool, len(r.providers)+len(r.unavailable))
+	for name := range r.providers {
+		names = append(names, name)
+		seen[name] = true
+	}
+	for name := range r.unavailable {
+		if !seen[name] {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+
+	out := make([]ProviderStatus, 0, len(names))
+	for _, name := range names {
+		status := ProviderStatus{Name: name, Type: r.providerTypes[name]}
+		if p, ok := r.providers[name]; ok {
+			status.Available = true
+			status.Search = true
+			_, status.Fetch = p.(Fetcher)
+		} else {
+			status.Err = r.unavailable[name].err.Error()
+		}
+		out = append(out, status)
+	}
+	return out
 }
 
 // GetProvider returns the provider with the given name.
@@ -93,6 +177,9 @@ func (r *Router) Search(query string, limit int, provider string, opts Options) 
 
 	p, ok := r.providers[provider]
 	if !ok {
+		if bad, exists := r.unavailable[provider]; exists {
+			return nil, fmt.Errorf("provider %q is configured but unavailable: %w", provider, bad.err)
+		}
 		available := strings.Join(r.namesLocked(), ", ")
 		if available == "" {
 			return nil, fmt.Errorf("provider %q is not configured", provider)

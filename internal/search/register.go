@@ -1,16 +1,21 @@
 package search
 
 import (
+	"fmt"
+
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // RegisterAll registers every configured web search provider and always
 // ensures the built-in DuckDuckGo provider is available. Providers that cannot
-// be constructed (e.g. a paid provider with a missing api_key) are skipped.
+// be constructed (e.g. a paid provider with a missing api_key) are recorded as
+// unavailable with their reason, so errors can explain what is wrong.
 func RegisterAll(router *Router, providers map[string]*types.WebSearchProvider) {
 	registerConfigured(router, providers, false)
 	if _, ok := router.GetProvider("duckduckgo"); !ok {
-		router.Register("duckduckgo", NewDDGProvider())
+		if _, unavailable := router.Unavailable("duckduckgo"); !unavailable {
+			router.RegisterWithType("duckduckgo", NewDDGProvider(), "duckduckgo")
+		}
 	}
 }
 
@@ -25,6 +30,7 @@ func RegisterRemote(router *Router, providers map[string]*types.WebSearchProvide
 func registerConfigured(router *Router, providers map[string]*types.WebSearchProvider, remoteOnly bool) {
 	for name, cfg := range providers {
 		if cfg == nil {
+			router.RegisterUnavailable(name, "", fmt.Errorf("empty provider config"))
 			continue
 		}
 		if remoteOnly && cfg.Type == "duckduckgo" {
@@ -32,8 +38,9 @@ func registerConfigured(router *Router, providers map[string]*types.WebSearchPro
 		}
 		p, err := NewProviderFromConfig(cfg)
 		if err != nil {
+			router.RegisterUnavailable(name, cfg.Type, err)
 			continue
 		}
-		router.Register(name, p)
+		router.RegisterWithType(name, p, cfg.Type)
 	}
 }

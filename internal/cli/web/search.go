@@ -38,11 +38,12 @@ const (
 
 // searchFlags holds the parsed flags for one `aigc-cli search` invocation.
 type searchFlags struct {
-	provider   string
-	limit      int
-	jsonInput  string
-	injectJSON string
-	dryRun     bool
+	provider      string
+	limit         int
+	jsonInput     string
+	injectJSON    string
+	dryRun        bool
+	listProviders bool
 }
 
 // searchInput is the command-level --json document. Vendor-specific fields
@@ -91,10 +92,10 @@ accepts scalars.
 --dry-run prints the equivalent curl command for the selected provider
 without calling any search API (API keys are masked, injected fields included).
 
-The --provider flag selects one search vendor (duckduckgo, firecrawl, brave,
-doubao, deepseek, exa). It is unrelated to the LLM provider used by generation
-commands. When omitted, defaults.search.provider is used, then duckduckgo.
-There is no automatic rotation or fallback: provider errors are returned as-is.
+The --provider flag selects one search vendor (see --list-providers). It is
+unrelated to the LLM provider used by generation commands. When omitted,
+defaults.search.provider is used, then duckduckgo. There is no automatic
+rotation or fallback: provider errors are returned as-is.
 
 All requests honor the global http_proxy config and HTTP_PROXY/HTTPS_PROXY/NO_PROXY
 environment variables.`,
@@ -107,6 +108,7 @@ environment variables.`,
   aigc-cli search --json query.json
   aigc-cli search --json '{"query":"golang context","provider":"deepseek","limit":5}'
   aigc-cli search "golang" --inject-json '{"type":"neural"}'
+  aigc-cli search --list-providers
   aigc-cli search "vector database" --dry-run`,
 		Args:         cobra.ArbitraryArgs,
 		SilenceUsage: true,
@@ -114,6 +116,9 @@ environment variables.`,
 		// stdin carries the query instead.
 		Annotations: map[string]string{"json_stdin_is_query": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flags.listProviders {
+				return writeProviderList(cmd.OutOrStdout(), newSearchRouter())
+			}
 			req, err := buildSearchRequest(cmd, args, flags)
 			if err != nil {
 				return err
@@ -123,12 +128,14 @@ environment variables.`,
 	}
 
 	f := cmd.Flags()
-	f.StringVarP(&flags.provider, "provider", "P", "", "Search provider name (duckduckgo, firecrawl, brave, doubao, deepseek, exa); not an LLM provider")
+	f.StringVarP(&flags.provider, "provider", "P", "", "Search provider name (see --list-providers); not an LLM provider")
 	f.IntVarP(&flags.limit, "limit", "n", defaultSearchLimit, "Max results to request (1-20)")
 	f.StringVar(&flags.jsonInput, "json", "", "Search request JSON: file path or inline JSON (fields: query, provider, limit); stdin is the query")
 	f.StringVar(&flags.injectJSON, "inject-json", "", "JSON object (file path or inline) merged into the provider request (POST body or GET query params; scalars overwrite, arrays append)")
 	f.BoolVar(&flags.dryRun, "dry-run", false, "Print the equivalent curl command for the selected provider without calling any search API")
+	f.BoolVar(&flags.listProviders, "list-providers", false, "List configured providers with search/fetch capability and availability")
 
+	registerProviderCompletion(cmd, false)
 	return cmd
 }
 
@@ -246,6 +253,9 @@ func runSearch(stdout io.Writer, req searchRequest, router *search.Router) error
 func requireProvider(router *search.Router, name string) error {
 	if _, ok := router.GetProvider(name); ok {
 		return nil
+	}
+	if bad, ok := router.Unavailable(name); ok {
+		return fmt.Errorf("search provider %q is configured but unavailable: %w", name, bad)
 	}
 	available := router.Names()
 	if len(available) == 0 {
