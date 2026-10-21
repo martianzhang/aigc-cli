@@ -1,7 +1,7 @@
 package search
 
 import (
-	"slices"
+	"sort"
 	"strings"
 )
 
@@ -16,56 +16,28 @@ type Fetcher interface {
 	Fetch(url string) (title, content string, err error)
 }
 
-// ResolveFetcher picks the Fetcher for a provider spec, mirroring the
-// vocabulary of ResolveStrategy:
-//
-//	<name>       -> that provider, when it implements Fetcher
-//	"" | "auto"  -> the first fetch-capable provider in name order
-//	"free"|"cheap" -> first fetch-capable provider tagged "free"
-//	"quality"    -> first fetch-capable provider tagged "quality"
-//
-// The boolean is false when no fetch-capable provider matches.
-func ResolveFetcher(r *Router, spec string) (Fetcher, bool) {
-	name := strings.TrimSpace(spec)
-	switch strings.ToLower(name) {
-	case "", "auto":
-		return r.firstFetcher("")
-	case "free", "cheap":
-		return r.firstFetcher("free")
-	case "quality":
-		return r.firstFetcher("quality")
-	default:
-		p, ok := r.GetProvider(name)
-		if !ok {
-			return nil, false
-		}
-		f, ok := p.(Fetcher)
-		return f, ok
+// ResolveFetcher returns the named provider when it implements Fetcher. The
+// boolean is false when the provider is unknown or search-only.
+func ResolveFetcher(r *Router, name string) (Fetcher, bool) {
+	p, ok := r.GetProvider(strings.TrimSpace(name))
+	if !ok {
+		return nil, false
 	}
+	f, ok := p.(Fetcher)
+	return f, ok
 }
 
-// firstFetcher returns the first fetch-capable provider in deterministic name
-// order, optionally restricted to providers carrying tag.
-func (r *Router) firstFetcher(tag string) (Fetcher, bool) {
+// FetcherNames returns the registered providers that support fetch, sorted.
+func (r *Router) FetcherNames() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	names := make([]string, 0, len(r.providers))
-	for name := range r.providers {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-
-	for _, name := range names {
-		if tag != "" {
-			info := r.configs[name]
-			if info == nil || !slices.Contains(info.Tags, tag) {
-				continue
-			}
-		}
-		if f, ok := r.providers[name].(Fetcher); ok {
-			return f, true
+	for name, p := range r.providers {
+		if _, ok := p.(Fetcher); ok {
+			names = append(names, name)
 		}
 	}
-	return nil, false
+	sort.Strings(names)
+	return names
 }

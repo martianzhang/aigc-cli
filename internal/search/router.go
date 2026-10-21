@@ -1,12 +1,11 @@
-// Package search provides a pluggable web search router with
-// automatic provider fallback, quota tracking, and strategy-based selection.
+// Package search provides a small registry of pluggable web search providers.
+// Selection is explicit: callers name one provider, and a failure is returned
+// directly (no automatic rotation, weighted picking or quota accounting).
 package search
 
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -35,49 +34,22 @@ type Result struct {
 	Title string
 }
 
-// ProviderInfo holds configuration for a registered provider.
-type ProviderInfo struct {
-	Type   string
-	APIKey string
-	Tags   []string
-	Quota  int
-	Period string
-	Weight int
-}
-
-// Router manages multiple search providers and implements fallback.
+// Router holds the registered providers.
 type Router struct {
 	mu        sync.RWMutex
 	providers map[string]Provider
-	configs   map[string]*ProviderInfo
-	store     QuotaStore // SQLite-backed quota tracking
 }
 
-// QuotaStore tracks usage per provider.
-type QuotaStore interface {
-	CanUse(provider string) bool
-	RecordUse(provider string)
-	ResetIfNeeded(provider string)
-	Usage(provider string) (used, total int)
-}
-
-// NewRouter creates a search router with the given providers and configs.
-func NewRouter(store QuotaStore) *Router {
-	return &Router{
-		providers: make(map[string]Provider),
-		configs:   make(map[string]*ProviderInfo),
-		store:     store,
-	}
+// NewRouter creates an empty provider registry.
+func NewRouter() *Router {
+	return &Router{providers: make(map[string]Provider)}
 }
 
 // Register adds a search provider to the router.
-func (r *Router) Register(name string, p Provider, info *ProviderInfo) {
+func (r *Router) Register(name string, p Provider) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.providers[name] = p
-	if info != nil {
-		r.configs[name] = info
-	}
 }
 
 // GetProvider returns the provider with the given name.
@@ -88,11 +60,14 @@ func (r *Router) GetProvider(name string) (Provider, bool) {
 	return p, ok
 }
 
-// Names returns the names of all registered providers, sorted. Callers use it
-// to build actionable errors that list what is actually available.
+// Names returns the names of all registered providers, sorted.
 func (r *Router) Names() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	return r.namesLocked()
+}
+
+func (r *Router) namesLocked() []string {
 	names := make([]string, 0, len(r.providers))
 	for name := range r.providers {
 		names = append(names, name)
@@ -105,197 +80,39 @@ func (r *Router) Names() []string {
 type SearchResult struct {
 	Results  []Result
 	Provider string
-	// Raw is the winning provider's raw response body when it implements
-	// RawProvider. Nil for providers without a raw form (and for test doubles).
+	// Raw is the provider's raw response body when it implements RawProvider.
+	// Nil for providers without a raw form (and for test doubles).
 	Raw json.RawMessage
 }
 
-// Candidates returns the provider names the router would consider for the given
-// strategy, in priority order, after applying quota availability. It performs
-// no search and no weighted shuffle, so callers can preview a run (`--dry-run`)
-// deterministically.
-func (r *Router) Candidates(strategy string, preferred []string) []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.filterAvailable(r.selectProviders(strategy, preferred))
-}
-
-// Search performs a search using the configured strategy and no extra vendor
-// options.
-func (r *Router) Search(query string, limit int, strategy string, preferred []string) (*SearchResult, error) {
-	return r.SearchWithOptions(query, limit, strategy, preferred, Options{})
-}
-
-// SearchWithOptions performs a search with optional vendor-specific overrides
-// (from --inject-json).
-func (r *Router) SearchWithOptions(query string, limit int, strategy string, preferred []string, opts Options) (*SearchResult, error) {
+// Search calls exactly one named provider. Unknown names and provider errors
+// are returned to the caller; there is no fallback to another vendor.
+func (r *Router) Search(query string, limit int, provider string, opts Options) (*SearchResult, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	if len(r.providers) == 0 {
-		return nil, fmt.Errorf("no search providers registered")
+	p, ok := r.providers[provider]
+	if !ok {
+		available := strings.Join(r.namesLocked(), ", ")
+		if available == "" {
+			return nil, fmt.Errorf("provider %q is not configured", provider)
+		}
+		return nil, fmt.Errorf("provider %q is not configured (available: %s)", provider, available)
 	}
 
-	candidates := r.selectProviders(strategy, preferred)
-	candidates = r.filterAvailable(candidates)
-
-	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no providers available (all exhausted quota or none configured)")
+	var results []Result
+	var raw json.RawMessage
+	var err error
+	if rp, rawOK := p.(RawProvider); rawOK {
+		results, raw, err = rp.SearchRaw(query, limit, opts)
+	} else {
+		if len(opts.Extra) > 0 {
+			return nil, fmt.Errorf("provider %q does not support --inject-json", provider)
+		}
+		results, err = p.Search(query, limit)
 	}
-
-	ordered := r.sortByWeight(candidates)
-
-	var lastErr error
-	for _, name := range ordered {
-		p, ok := r.providers[name]
-		if !ok {
-			continue
-		}
-		var results []Result
-		var raw json.RawMessage
-		var err error
-		rp, rawOK := p.(RawProvider)
-		if len(opts.Extra) > 0 && !rawOK {
-			lastErr = fmt.Errorf("provider %q does not support --inject-json", name)
-			continue
-		}
-		if rawOK {
-			results, raw, err = rp.SearchRaw(query, limit, opts)
-		} else {
-			results, err = p.Search(query, limit)
-		}
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		r.store.RecordUse(name)
-		return &SearchResult{Results: results, Provider: name, Raw: raw}, nil
+	if err != nil {
+		return nil, fmt.Errorf("search via %s: %w", provider, err)
 	}
-
-	if lastErr != nil {
-		return nil, fmt.Errorf("all providers failed, last error: %w", lastErr)
-	}
-	return nil, fmt.Errorf("no providers available")
+	return &SearchResult{Results: results, Provider: provider, Raw: raw}, nil
 }
-
-func (r *Router) filterAvailable(candidates []string) []string {
-	var result []string
-	for _, name := range candidates {
-		if r.store.CanUse(name) {
-			result = append(result, name)
-		}
-	}
-	return result
-}
-
-func (r *Router) sortByWeight(candidates []string) []string {
-	type weighted struct {
-		name   string
-		weight int
-	}
-	var items []weighted
-	for _, name := range candidates {
-		w := 1
-		if cfg, ok := r.configs[name]; ok && cfg.Weight > 0 {
-			w = cfg.Weight
-		}
-		items = append(items, weighted{name: name, weight: w})
-	}
-
-	if len(items) <= 1 {
-		return candidates
-	}
-
-	var result []string
-	remaining := items
-	for len(remaining) > 0 {
-		totalWeight := 0
-		for _, item := range remaining {
-			totalWeight += item.weight
-		}
-		r := rand.Intn(totalWeight)
-		cumulative := 0
-		for i, item := range remaining {
-			cumulative += item.weight
-			if r < cumulative {
-				result = append(result, item.name)
-				remaining = append(remaining[:i], remaining[i+1:]...)
-				break
-			}
-		}
-	}
-	return result
-}
-
-// selectProviders returns provider names in priority order.
-func (r *Router) selectProviders(strategy string, preferred []string) []string {
-	switch strings.ToLower(strategy) {
-	case "manual":
-		return preferred
-	case "quality":
-		result := r.filterByTag("quality")
-		if len(result) == 0 {
-			return r.allProviders()
-		}
-		return result
-	case "cheap":
-		result := r.filterByTag("free")
-		if len(result) == 0 {
-			return r.allProviders()
-		}
-		return result
-	default: // "auto"
-		free := r.filterByTag("free")
-		quality := r.filterByTag("quality")
-
-		if len(free) == 0 && len(quality) == 0 {
-			return r.allProviders()
-		}
-
-		freeSet := make(map[string]bool)
-		for _, f := range free {
-			freeSet[f] = true
-		}
-		var nonFreeQuality []string
-		for _, p := range quality {
-			if !freeSet[p] {
-				nonFreeQuality = append(nonFreeQuality, p)
-			}
-		}
-		sort.SliceStable(free, func(i, j int) bool {
-			return r.quotaRemaining(free[i]) < r.quotaRemaining(free[j])
-		})
-		return append(free, nonFreeQuality...)
-	}
-}
-
-func (r *Router) allProviders() []string {
-	all := make([]string, 0, len(r.providers))
-	for name := range r.providers {
-		all = append(all, name)
-	}
-	sort.Strings(all)
-	return all
-}
-
-func (r *Router) filterByTag(tag string) []string {
-	var result []string
-	for name, info := range r.configs {
-		if slices.Contains(info.Tags, tag) {
-			result = append(result, name)
-		}
-	}
-	sort.Strings(result)
-	return result
-}
-
-func (r *Router) quotaRemaining(name string) int {
-	used, total := r.store.Usage(name)
-	if total <= 0 {
-		return 999 // unlimited
-	}
-	return total - used
-}
-
-// Close releases router resources.
-func (r *Router) Close() {}

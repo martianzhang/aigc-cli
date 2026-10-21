@@ -28,22 +28,22 @@ aigc-cli search "vector database" --dry-run       # 打印等价 curl，不发�
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `-P, --provider` | 空（→ auto） | 搜索厂商：`duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa`，或策略 `auto` / `free` / `quality` |
+| `-P, --provider` | 空（→ `duckduckgo`） | 搜索厂商名：`duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` |
 | `-n, --limit` | `5` | 请求结果条数，上限 20 |
 | `--json` | 空 | 命令级 JSON：文件路径或 inline JSON（**不接受 stdin**），字段：`query`、`provider`、`limit` |
 | `--inject-json` | 空 | 厂商原生字段：文件路径或 inline JSON；POST 合并进请求体，GET 变成 query 参数 |
-| `--dry-run` | `false` | 打印每个候选厂商的等价 curl（API key 掩码，含注入字段），不调用任何搜索 API |
+| `--dry-run` | `false` | 打印选中厂商的等价 curl（API key 掩码，含注入字段），不调用任何搜索 API |
 
 - **stdin 用来传 query**：`echo "..." | aigc-cli search` 或无参数时自动读取管道/文件；`aigc-cli search -` 显式从 stdin 读取。多行输入会压成一行。`--json` / `--inject-json` 都不读 stdin。
 
-- **`--provider` 指搜索厂商，不是 LLM provider**；优先级：`--provider` > `--json` 的 `provider` > `defaults.search.provider` > `auto`。
+- **`--provider` 指搜索厂商，不是 LLM provider**；优先级：`--provider` > `--json` 的 `provider` > `defaults.search.provider` > `duckduckgo`。
 - 查询与 limit 的优先级同样是：命令行位置参数 / `--limit` > `--json` > 默认值。
 - `--inject-json` 遵循全局约定：对象递归合并、数组追加、标量覆盖。POST 厂商直接合入 JSON body；GET 厂商（Brave）只接受标量或标量数组并转为 query 参数，嵌套对象会报错。
 - DuckDuckGo 是 HTML 抓取，不接受 `--inject-json`，会明确报错。
 - 输出就是厂商响应体：合法 JSON 会做缩进美化；不是合法 JSON 时原样输出（便于看到错误页）。
 - DuckDuckGo 没有厂商 JSON，输出为 `{"urls":["..."]}`。
-- 配置了多个厂商时，`auto` 会把带 `free` 标签的厂商排在候选前面，最终按 `weight` 随机选择；要强制只用免费引擎请用 `-P free`，要固定厂商请用 `-P <name>`。
-- `--dry-run` 不产生网络请求。`auto` 下会列出所有候选厂商的 curl；最终只会调用其中一个。
+- 每次只调用一个厂商；厂商失败直接报错，不会自动切换或重试其他厂商。
+- `--dry-run` 不产生网络请求，只打印选中厂商的 curl。
 - 只搜索、不写知识库。需要“搜索 + 抓取 + 入库”请用 `aigc-cli kb search`；单独抓取 URL 的 `aigc-cli fetch` 仍在 TODO。
 - `-v` 对搜索命令不再有额外输出；标准输出始终只有厂商 JSON。
 - 所有搜索请求都走全局代理：配置文件 `http_proxy` 或环境变量 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`。
@@ -64,7 +64,7 @@ aigc-cli search "vector database" --dry-run       # 打印等价 curl，不发�
 # dry run: no request sent
 # query: golang
 # strategy: manual
-# provider: exa (candidate 1/1)
+# provider: exa
 curl -X POST https://api.exa.ai/search \
   -H "x-api-key: ...3644" \
   -H "Content-Type: application/json" \
@@ -91,7 +91,7 @@ aigc-cli fetch https://example.com/article --dry-run
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `-P, --provider` | 空 = 内置抓取 | `deepseek` / `exa`，或 `auto` / `quality`（选择已配置的抓取厂商） |
+| `-P, --provider` | 空 = 内置抓取 | 抓取厂商名：`deepseek` / `exa` |
 | `-H, --header` | 无 | 可重复，`Name: value`；`Name:` 删除默认 header（仅内置抓取） |
 | `-b, --cookie` | 无 | 可重复；含 `=` 按 cookie 字符串解析，否则按 Netscape cookie 文件读取（仅内置抓取） |
 | `-c, --cookie-jar` | 无 | 抓取结束后把 cookie 写回 Netscape 格式文件（仅内置抓取） |
@@ -104,14 +104,14 @@ aigc-cli fetch https://example.com/article --dry-run
 - 默认使用浏览器 User-Agent，减少站点返回 JS 跳转/反爬空页；如果正文仍为空，会明确报错而不是输出空白。
 - 文章页优先使用 readability 提取正文；如果 readability 只提取到很短的页脚/导航碎片，会回退整页转换，并移除 script/style/footer，保留导航等有用内容。
 - 输出会清理 `data:` URI（例如 base64 图片）和 `javascript:` 链接，只保留文本/正常链接，避免把大段 base64 塞进正文。
-- **默认永远使用内置抓取，不读取 `defaults.search.provider`**；只有显式 `-P/--provider`（含 `-P auto`）才会走厂商，避免静默计费。
+- **默认永远使用内置抓取，不读取 `defaults.search.provider`**；只有显式 `-P/--provider` 才会走厂商，避免静默计费。
 - `-H` 在默认 header（`User-Agent` / `Accept` / `Accept-Language`）之后应用，可覆盖或删除；拒绝 CR/LF 注入。
 - `-b` 可重复：含 `=` 视为 `name=value; ...`，否则视为 Netscape cookie 文件；多个来源合并，后出现的同 domain/path/name 覆盖前者。
 - Netscape 文件支持标准 7 字段、`#HttpOnly_`、`secure`、`expires`、`domain`、`path`；过期 cookie 自动忽略。
 - `-H "Cookie: ..."` 优先于 `-b`；`-H "Cookie:"` 清空 cookie。
 - `-c` 在抓取结束后写回 Netscape 格式（含响应 `Set-Cookie`），可用于“先登录再抓取”的多步流程；文件原子写入、权限 `0600`。
 - `--provider` 走第三方抓取 API（DeepSeek Fetch / Exa Contents），**可能计费**；第三方请求在厂商侧执行，因此 `-H` / `-b` / `-c` 与 `--provider` 不能同时使用。
-- 如果指定厂商不支持 fetch（如 `brave` / `duckduckgo`），或 `auto` / `quality` 找不到可抓取厂商，会自动回退内置抓取并在 stderr 提示；回退时 `-H` / `-b` / `-c` 仍然生效。未知厂商名仍会报错。
+- 如果指定厂商不支持 fetch（如 `brave` / `duckduckgo`），会自动回退内置抓取并在 stderr 提示；回退时 `-H` / `-b` / `-c` 仍然生效。未知厂商名仍会报错。
 - 只抓取、不入库。需要“抓取 + 入库”请用 `aigc-cli kb fetch`；需要搜索请用 `aigc-cli search` / `aigc-cli kb search`。
 - `--output-json` 暂未实现。
 - 内置抓取与第三方抓取都走全局代理：配置文件 `http_proxy` 或环境变量 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`。

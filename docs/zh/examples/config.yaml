@@ -207,7 +207,7 @@ defaults:
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$'] # read 原语拒绝正则（匹配路径或文件名，默认空=全部放行）
   # ── 可选：Web 搜索默认厂商（aigc-cli search / kb search / chat / MCP 共用）──
   # search:
-  #   provider: duckduckgo   # auto / free / quality / 厂商名
+  #   provider: duckduckgo   # 厂商名（duckduckgo / firecrawl / brave / doubao / deepseek / exa）
   decision:
   # provider: "ollama"        # 命名 provider（ollama / openrouter / ...）；不填则用全局
   # model: "tev1"             # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
@@ -259,19 +259,13 @@ defaults:
   # 默认厂商统一在 defaults.search.provider 中配置。
   # defaults:
   #   search:
-  #     provider: deepseek   # 可选：auto / free / quality / 厂商名
+  #     provider: deepseek   # 可选：厂商名
   # web_search:
   #   duckduckgo:
   #     type: duckduckgo
-  #     tags: [free]
-  #     quota: 50
-  #     period: hourly
   #   firecrawl:
   #     type: firecrawl
   #     api_key: "fc-xxx"
-  #     tags: [free, quality]
-  #     quota: 1000
-  #     period: monthly
   #   doubao:
   #     type: doubao
   #     api_key: "your-doubao-api-key"

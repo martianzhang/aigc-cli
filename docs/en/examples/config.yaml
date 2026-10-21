@@ -216,7 +216,7 @@ defaults:
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$']  # read primitive denylist regexes (path or basename; empty = allow all)
   # ── Optional: shared web-search vendor (aigc-cli search / kb search / chat / MCP)──
   # search:
-  #   provider: duckduckgo   # auto / free / quality / a vendor name
+  #   provider: duckduckgo   # vendor name (duckduckgo / firecrawl / brave / doubao / deepseek / exa)
 
   decision:
     # provider: "ollama"        # named provider (ollama / openrouter / ...); unset uses global
@@ -273,19 +273,13 @@ defaults:
   # The shared default lives in defaults.search.provider.
   # defaults:
   #   search:
-  #     provider: deepseek   # optional: auto / free / quality / a vendor name
+  #     provider: deepseek   # optional: a vendor name
   # web_search:
   #   duckduckgo:
   #     type: duckduckgo
-  #     tags: [free]
-  #     quota: 50
-  #     period: hourly
   #   firecrawl:
   #     type: firecrawl
   #     api_key: "fc-xxx"
-  #     tags: [free, quality]
-  #     quota: 1000
-  #     period: monthly
   #   doubao:
   #     type: doubao
   #     api_key: "your-doubao-api-key"

@@ -80,70 +80,11 @@ func TestWebSearch_noRemoteProvider(t *testing.T) {
 }
 
 func TestWebFetch_noRemoteProvider(t *testing.T) {
-	got := WebFetch(`{"url":"https://example.com/a"}`, Env{Scope: "search_provider"})
+	got := WebFetch(`{"url":"https://example.com/a"}`, Env{Scope: "defaults.search.provider"})
 	if !strings.Contains(got, "no third-party fetch provider") {
 		t.Errorf("WebFetch(no provider) = %q, want 'no third-party fetch provider'", got)
 	}
-	if !strings.Contains(got, "search_provider") {
+	if !strings.Contains(got, "defaults.search.provider") {
 		t.Errorf("WebFetch(no provider) = %q, want the scope hint", got)
-	}
-}
-
-// stubProvider is an in-memory search.Provider for router tests.
-type stubProvider struct {
-	results []search.Result
-	query   string
-	limit   int
-}
-
-func (s *stubProvider) Name() string { return "stub" }
-
-func (s *stubProvider) Search(query string, limit int) ([]search.Result, error) {
-	s.query, s.limit = query, limit
-	return s.results, nil
-}
-
-func TestSearchWithRouter_auto(t *testing.T) {
-	stub := &stubProvider{results: []search.Result{{URL: "https://x.example", Title: "X"}}}
-	router := search.NewRouter(search.NoopQuotaStore{})
-	router.Register("stub", stub, &search.ProviderInfo{Tags: []string{"free"}})
-
-	got, err := searchWithRouter(router, "hello", 3, "auto")
-	if err != nil {
-		t.Fatalf("searchWithRouter() error = %v", err)
-	}
-	if got.Provider != "stub" || len(got.Results) != 1 {
-		t.Errorf("result = %+v, want provider stub with 1 result", got)
-	}
-	if stub.query != "hello" || stub.limit != 3 {
-		t.Errorf("provider received (%q, %d), want (hello, 3)", stub.query, stub.limit)
-	}
-}
-
-func TestSearchWithRouter_namedSpec(t *testing.T) {
-	first := &stubProvider{results: []search.Result{{URL: "https://first", Title: "first"}}}
-	second := &stubProvider{results: []search.Result{{URL: "https://second", Title: "second"}}}
-	router := search.NewRouter(search.NoopQuotaStore{})
-	router.Register("first", first, nil)
-	router.Register("second", second, nil)
-
-	got, err := searchWithRouter(router, "q", 1, "second")
-	if err != nil {
-		t.Fatalf("searchWithRouter() error = %v", err)
-	}
-	if got.Provider != "second" {
-		t.Errorf("provider = %q, want second", got.Provider)
-	}
-}
-
-// A named spec that is not registered must fail rather than silently picking
-// another vendor.
-func TestSearchWithRouter_unknownNamedSpecFails(t *testing.T) {
-	first := &stubProvider{results: []search.Result{{URL: "https://first", Title: "first"}}}
-	router := search.NewRouter(search.NoopQuotaStore{})
-	router.Register("first", first, nil)
-
-	if _, err := searchWithRouter(router, "q", 1, "missing"); err == nil {
-		t.Error("searchWithRouter(unknown) = nil error, want a failure")
 	}
 }

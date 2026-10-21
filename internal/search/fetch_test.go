@@ -22,10 +22,9 @@ func (s *searchOnly) Name() string                         { return s.name }
 func (s *searchOnly) Search(string, int) ([]Result, error) { return nil, nil }
 
 func TestResolveFetcher(t *testing.T) {
-	router := NewRouter(NoopQuotaStore{})
-	router.Register("alpha", &searchOnly{name: "alpha"}, nil)
-	router.Register("beta", &stubFetcher{name: "beta"}, nil)
-	router.Register("gamma", &stubFetcher{name: "gamma"}, &ProviderInfo{Tags: []string{"quality"}})
+	router := NewRouter()
+	router.Register("alpha", &searchOnly{name: "alpha"})
+	router.Register("beta", &stubFetcher{name: "beta"})
 
 	cases := []struct {
 		name   string
@@ -36,10 +35,7 @@ func TestResolveFetcher(t *testing.T) {
 		{name: "named provider that fetches", spec: "beta", want: "beta", wantOK: true},
 		{name: "named provider that cannot fetch", spec: "alpha", wantOK: false},
 		{name: "unknown name", spec: "nope", wantOK: false},
-		{name: "auto skips non-fetchers and is name-ordered", spec: "auto", want: "beta", wantOK: true},
-		{name: "empty is auto", spec: "", want: "beta", wantOK: true},
-		{name: "quality tag picks the tagged fetcher", spec: "quality", want: "gamma", wantOK: true},
-		{name: "free tag has no fetcher", spec: "free", wantOK: false},
+		{name: "empty is not a provider", spec: "", wantOK: false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -60,16 +56,20 @@ func TestResolveFetcher(t *testing.T) {
 	}
 }
 
-func TestResolveFetcher_NoFetchCapableProvider(t *testing.T) {
-	router := NewRouter(NoopQuotaStore{})
-	router.Register("alpha", &searchOnly{name: "alpha"}, nil)
-	if _, ok := ResolveFetcher(router, "auto"); ok {
-		t.Error("auto with only search-only providers should report no fetcher")
+func TestFetcherNames(t *testing.T) {
+	router := NewRouter()
+	router.Register("alpha", &searchOnly{name: "alpha"})
+	router.Register("beta", &stubFetcher{name: "beta"})
+	router.Register("gamma", &stubFetcher{name: "gamma"})
+
+	got := router.FetcherNames()
+	if len(got) != 2 || got[0] != "beta" || got[1] != "gamma" {
+		t.Errorf("FetcherNames() = %v, want [beta gamma]", got)
 	}
 }
 
 func TestRegisterRemote(t *testing.T) {
-	router := NewRouter(NoopQuotaStore{})
+	router := NewRouter()
 	RegisterRemote(router, map[string]*types.WebSearchProvider{
 		"ddg":      {Type: "duckduckgo"},
 		"deepseek": {Type: "deepseek", APIKey: "k"},

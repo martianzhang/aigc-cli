@@ -11,23 +11,11 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-func TestSpecOrAuto(t *testing.T) {
-	if got := specOrAuto(""); got != "auto" {
-		t.Errorf("specOrAuto(\"\") = %q, want auto", got)
-	}
-	if got := specOrAuto("  "); got != "auto" {
-		t.Errorf("specOrAuto(blank) = %q, want auto", got)
-	}
-	if got := specOrAuto("brave"); got != "brave" {
-		t.Errorf("specOrAuto(brave) = %q, want brave", got)
-	}
-}
-
 func TestWebEnv_usesGlobalScope(t *testing.T) {
 	cfg := &Config{}
 	env := cfg.webEnv()
-	if env.Spec != "auto" {
-		t.Errorf("Spec = %q, want auto", env.Spec)
+	if env.Provider != "" {
+		t.Errorf("Provider = %q, want empty", env.Provider)
 	}
 	if env.Scope != "defaults.search.provider" {
 		t.Errorf("Scope = %q, want defaults.search.provider", env.Scope)
@@ -36,8 +24,8 @@ func TestWebEnv_usesGlobalScope(t *testing.T) {
 	providers := map[string]*types.WebSearchProvider{"brave": {Type: "brave", APIKey: "k"}}
 	cfg = &Config{SearchProvider: "brave", WebSearchProviders: providers}
 	env = cfg.webEnv()
-	if env.Spec != "brave" || env.Providers["brave"] == nil {
-		t.Errorf("env = %+v, want brave spec with providers wired", env)
+	if env.Provider != "brave" || env.Providers["brave"] == nil {
+		t.Errorf("env = %+v, want brave provider wired", env)
 	}
 }
 

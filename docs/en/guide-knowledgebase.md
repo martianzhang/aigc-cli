@@ -48,59 +48,42 @@ Uses FTS5 full-text search plus semantic vector search. The embedding backend is
 ```yaml
 defaults:
   search:
-    provider: auto  # auto (default), quality, cheap, or a provider name
+    provider: deepseek  # a vendor name; empty falls back to duckduckgo
 
 web_search:
   doubao:
     type: doubao
     api_key: "xxx"
-    tags: [quality]
-    weight: 3          # Higher weight = more likely to be selected
-    quota: 100         # Max requests per period
-    period: daily      # hourly / daily / monthly
 
   firecrawl:
     type: firecrawl
     api_key: "xxx"
-    tags: [quality]
-    weight: 2
 
   deepseek:
     type: deepseek
     api_key: "sk-xxx"    # DeepSeek Search (in-house engine, $0.75/1000)
-    tags: [quality]
 
   exa:
     type: exa
     api_key: "exa-xxx"   # Exa neural search (Search + Contents/fetch, $10 free credit/month)
-    tags: [quality]
 ```
 
 > **DeepSeek search**: `POST https://api.deepseek.com/v1/tools/search`, billed per successful request ($0.75/1000 ≈ ¥5/1000 — independent of result count). Reuse the same key as `providers.deepseek`.
 > Note: only **server-side tool calls in DeepSeek Harness / Claude Code / Codex** are free until 2026-11-01; this CLI calling the endpoint directly is **billed immediately**.
 
-### Provider Selection Strategies
+### Provider Selection
 
-| Strategy | Behavior |
-|----------|----------|
-| `auto` (default) | Free providers first, then quality providers |
-| `quality` | Only quality-tagged providers |
-| `cheap` | Only free-tagged providers |
-| `doubao` (specific name) | Use this provider only, with failover to others |
+Exactly one provider is used per search: `--provider` or
+`defaults.search.provider`, falling back to `duckduckgo`. There is no automatic
+rotation, strategy, or failover.
 
 ### Usage
 
 ```bash
-# Default: auto strategy
+# Default: defaults.search.provider, or duckduckgo
 aigc-cli kb search "query"
 
-# Use only free providers
-aigc-cli kb search "query" --provider free
-
-# Use only quality providers
-aigc-cli kb search "query" --provider quality
-
-# Use specific provider (with failover to others)
+# Use a specific provider
 aigc-cli kb search "query" --provider doubao
 
 # Also search local KB

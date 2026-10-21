@@ -42,20 +42,18 @@ func executeWebFetch(argsJSON string) string {
 // capabilities.
 func searchEnv() webtool.Env {
 	return webtool.Env{
-		Spec:      resolveSearchVendor(),
+		Provider:  resolveSearchVendor(),
 		Providers: options.WebSearchConfig(),
 		Scope:     "defaults.search.provider",
 	}
 }
 
-// resolveSearchVendor returns the vendor spec shared by the web_search and
-// web_fetch primitives: --search-provider > defaults.search.provider > auto.
+// resolveSearchVendor returns the explicitly configured vendor for the
+// web_search/web_fetch primitives: --search-provider > defaults.search.provider.
+// An empty result means no third-party vendor is configured.
 func resolveSearchVendor() string {
 	if chatSearchProvider != "" {
 		return chatSearchProvider
 	}
-	if p := options.SearchProviderDefault(); p != "" {
-		return p
-	}
-	return "auto"
+	return options.SearchProviderDefault()
 }

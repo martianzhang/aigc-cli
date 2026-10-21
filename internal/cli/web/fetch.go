@@ -53,11 +53,9 @@ are SSRF-guarded and honor the global HTTP proxy and --timeout.
 Use --provider to route through a third-party fetch API instead (DeepSeek or
 Exa). That may bill per request, and -H/--header, -b/--cookie and -c/--cookie-jar
 are not supported because the request runs on the vendor's side. If the selected
-vendor is search-only (or a strategy like auto finds no fetch-capable vendor),
-fetch falls back to the built-in fetcher and prints a note on stderr. An unknown
-provider name is still an error. The built-in fetcher is always the default:
-defaults.search.provider is only consulted when you explicitly pass
---provider auto.
+vendor is search-only, fetch falls back to the built-in fetcher and prints a note
+on stderr. An unknown provider name is still an error. The built-in fetcher is
+always the default; defaults.search.provider is never read implicitly.
 
 Cookies follow curl's conventions: -b accepts repeated inline data
 ("name=value; name2=value2") or Netscape cookie files, and -c writes the merged
@@ -87,7 +85,7 @@ Output is only the page body, so redirection works naturally:
 	}
 
 	f := cmd.Flags()
-	f.StringVarP(&flags.provider, "provider", "P", "", "Fetch provider: empty = built-in; deepseek/exa, or auto/quality; search-only or no match falls back to built-in")
+	f.StringVarP(&flags.provider, "provider", "P", "", "Fetch provider name (deepseek/exa); empty = built-in; search-only providers fall back to built-in")
 	f.IntVar(&flags.maxChars, "max-chars", 0, "Truncate output to N characters (runes); 0 = no limit")
 	f.StringArrayVarP(&flags.headers, "header", "H", nil, `Extra header "Name: value"; repeatable; "Name:" removes a default header (built-in fetcher only)`)
 	f.StringArrayVarP(&flags.cookies, "cookie", "b", nil, `Cookie data "name=value; ..." or a Netscape cookie file; repeatable (built-in fetcher only)`)
@@ -287,19 +285,14 @@ func runProviderFetch(stdout, stderr io.Writer, rawURL string, flags fetchFlags,
 	return writeFetchedContent(stdout, stderr, content, flags.maxChars)
 }
 
-// resolveFetcher turns a --provider value into a fetch-capable provider.
-// The boolean is false when the spec is a strategy with no fetch-capable match
-// or names a configured search-only vendor; callers then fall back to the
-// built-in fetcher. An unknown name is still an error (likely a typo).
+// resolveFetcher returns the named fetch-capable provider. The boolean is
+// false when the name is a configured search-only provider (callers fall back
+// to the built-in fetcher). Unknown names are errors.
 func resolveFetcher(router *search.Router, spec string) (search.Fetcher, bool, error) {
 	if fetcher, ok := search.ResolveFetcher(router, spec); ok {
 		return fetcher, true, nil
 	}
 	if _, exists := router.GetProvider(spec); exists {
-		return nil, false, nil
-	}
-	switch strings.ToLower(spec) {
-	case "auto", "quality", "free", "cheap":
 		return nil, false, nil
 	}
 	return nil, false, fmt.Errorf("fetch provider %q is not configured (available: %s)", spec, strings.Join(router.Names(), ", "))
@@ -309,7 +302,12 @@ func resolveFetcher(router *search.Router, spec string) (search.Fetcher, bool, e
 // built-in fetcher, without touching stdout.
 func warnFetchFallback(stderr io.Writer, spec string, router *search.Router) {
 	if provider, exists := router.GetProvider(spec); exists {
-		fmt.Fprintf(stderr, "Note: provider %q does not support fetch; using the built-in fetcher.\n", provider.Name())
+		capable := strings.Join(router.FetcherNames(), ", ")
+		if capable == "" {
+			capable = "none configured"
+		}
+		fmt.Fprintf(stderr, "Note: provider %q does not support fetch; using the built-in fetcher (fetch-capable: %s).\n",
+			provider.Name(), capable)
 		return
 	}
 	fmt.Fprintf(stderr, "Note: no fetch-capable provider matched %q; using the built-in fetcher.\n", spec)

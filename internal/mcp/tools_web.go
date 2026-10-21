@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -22,18 +21,10 @@ import (
 // `defaults.search.provider` default, while chat also honours its
 // --search-provider flag.
 
-// specOrAuto normalizes an empty vendor spec to "auto".
-func specOrAuto(spec string) string {
-	if strings.TrimSpace(spec) == "" {
-		return "auto"
-	}
-	return spec
-}
-
 // webEnv is the vendor-resolution environment for web_search / web_fetch.
 func (cfg *Config) webEnv() webtool.Env {
 	return webtool.Env{
-		Spec:      specOrAuto(cfg.SearchProvider),
+		Provider:  cfg.SearchProvider,
 		Providers: cfg.WebSearchProviders,
 		Scope:     "defaults.search.provider",
 	}

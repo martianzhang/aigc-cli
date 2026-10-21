@@ -199,12 +199,8 @@ type KBDefaults struct {
 
 // WebSearchProvider defines a web search engine configuration.
 type WebSearchProvider struct {
-	Type   string   `mapstructure:"type" yaml:"type,omitempty"`
-	APIKey string   `mapstructure:"api_key" yaml:"api_key,omitempty"`
-	Tags   []string `mapstructure:"tags" yaml:"tags,omitempty"`
-	Quota  int      `mapstructure:"quota" yaml:"quota,omitempty"`
-	Period string   `mapstructure:"period" yaml:"period,omitempty"`
-	Weight int      `mapstructure:"weight" yaml:"weight,omitempty"`
+	Type   string `mapstructure:"type" yaml:"type,omitempty"`
+	APIKey string `mapstructure:"api_key" yaml:"api_key,omitempty"`
 }
 
 // OCRDefaults holds default values for OCR scanning.

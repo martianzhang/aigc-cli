@@ -165,7 +165,7 @@ defaults:
 ```yaml
 defaults:
   search:
-    provider: auto   # auto / free / quality / 厂商名
+    provider: deepseek   # 厂商名；留空则用 duckduckgo
 
 web_search:
   duckduckgo:
@@ -187,7 +187,7 @@ web_search:
     api_key: "exa-xxx"  # Exa 神经搜索（Search + Contents/Fetch，$10 免费额度/月）
 ```
 
-配置多个 provider 时会自动根据配额和策略进行 fallback。
+每次只使用一个厂商（`--provider` 或 `defaults.search.provider`，留空用 DuckDuckGo），不做自动轮询或 fallback。
 
 > **豆包搜索**：火山引擎联网搜索（Custom版），0.020元/次（按量后付费），每月 500 次免费额度。
 > API Key 获取：[联网搜索控制台](https://console.volcengine.com/search-infinity/api-key?tab=post_paid)。

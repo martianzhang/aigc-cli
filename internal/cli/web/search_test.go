@@ -64,9 +64,9 @@ func (f *fakePreviewProvider) Preview(_ string, _ int, opts search.Options) (*re
 }
 
 func newFakeRouter(providers ...search.Provider) *search.Router {
-	router := search.NewRouter(search.NoopQuotaStore{})
+	router := search.NewRouter()
 	for _, p := range providers {
-		router.Register(p.Name(), p, &search.ProviderInfo{Tags: []string{"free"}})
+		router.Register(p.Name(), p)
 	}
 	return router
 }
@@ -83,7 +83,7 @@ func TestResolveProvider(t *testing.T) {
 	}{
 		{name: "cli wins", cli: "brave", shared: "deepseek", want: "brave"},
 		{name: "shared default", shared: "deepseek", want: "deepseek"},
-		{name: "auto default", want: "auto"},
+		{name: "duckduckgo default", want: "duckduckgo"},
 		{name: "blank cli uses shared", cli: "  ", shared: "firecrawl", want: "firecrawl"},
 	}
 
@@ -374,26 +374,6 @@ func TestRunSearchFallsBackToResultsWithoutRaw(t *testing.T) {
 	}
 }
 
-func TestRunSearchAutoFallsBackToFreeProvider(t *testing.T) {
-	free := &fakeRawProvider{
-		fakeProvider: fakeProvider{name: "free", results: []search.Result{{URL: "https://free.example"}}},
-		raw:          json.RawMessage(`{"from":"free"}`),
-	}
-	paid := &fakeProvider{name: "paid", err: errors.New("quota exhausted")}
-
-	router := search.NewRouter(search.NoopQuotaStore{})
-	router.Register("free", free, &search.ProviderInfo{Tags: []string{"free"}})
-	router.Register("paid", paid, &search.ProviderInfo{Tags: []string{"quality"}})
-
-	var stdout bytes.Buffer
-	if err := runSearch(&stdout, searchRequest{query: "q", limit: 5}, router); err != nil {
-		t.Fatalf("runSearch: %v", err)
-	}
-	if !strings.Contains(stdout.String(), `"from": "free"`) {
-		t.Errorf("output = %q, want the free provider's raw response", stdout.String())
-	}
-}
-
 func TestRunSearchUnknownProvider(t *testing.T) {
 	var stdout bytes.Buffer
 
@@ -455,39 +435,9 @@ func TestRunSearchDryRunPrintsCurlWithoutCallingProvider(t *testing.T) {
 
 	for _, want := range []string{
 		"# dry run: no request sent",
-		"# strategy: manual",
-		"# provider: brave (candidate 1/1)",
+		"# provider: brave",
 		"curl -X GET https://api.example/search?q=golang+context",
 		`-H "X-Test: 1"`,
-	} {
-		if !strings.Contains(stdout.String(), want) {
-			t.Errorf("stdout = %q, want it to contain %q", stdout.String(), want)
-		}
-	}
-}
-
-func TestRunSearchDryRunListsEveryCandidateCurl(t *testing.T) {
-	makeProvider := func(name string) *fakePreviewProvider {
-		return &fakePreviewProvider{
-			fakeProvider: fakeProvider{name: name},
-			plan:         &reqbuild.Plan{Method: "GET", URL: "https://" + name + ".example/search"},
-		}
-	}
-	var stdout bytes.Buffer
-
-	err := runSearch(&stdout, searchRequest{query: "q", limit: 5, dryRun: true}, newFakeRouter(
-		makeProvider("alpha"),
-		makeProvider("beta"),
-	))
-	if err != nil {
-		t.Fatalf("runSearch: %v", err)
-	}
-
-	for _, want := range []string{
-		"# provider: alpha (candidate 1/2; final pick is weighted)",
-		"curl -X GET https://alpha.example/search",
-		"# provider: beta (candidate 2/2; final pick is weighted)",
-		"curl -X GET https://beta.example/search",
 	} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Errorf("stdout = %q, want it to contain %q", stdout.String(), want)
@@ -499,11 +449,8 @@ func TestRunSearchDryRunReportsMissingPreview(t *testing.T) {
 	var stdout bytes.Buffer
 	err := runSearch(&stdout, searchRequest{query: "q", provider: "plain", limit: 5, dryRun: true},
 		newFakeRouter(&fakeProvider{name: "plain"}))
-	if err != nil {
-		t.Fatalf("runSearch: %v", err)
-	}
-	if !strings.Contains(stdout.String(), "no curl preview available") {
-		t.Errorf("stdout = %q, want a missing-preview note", stdout.String())
+	if err == nil || !strings.Contains(err.Error(), "does not provide a curl preview") {
+		t.Fatalf("error = %v, want a missing-preview error", err)
 	}
 }
 

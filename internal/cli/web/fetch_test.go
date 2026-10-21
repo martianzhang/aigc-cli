@@ -50,9 +50,9 @@ func (f *fakeFetchProvider) PreviewFetch(url string) (*reqbuild.Plan, error) {
 }
 
 func newFetchRouter(providers ...search.Provider) *search.Router {
-	router := search.NewRouter(search.NoopQuotaStore{})
+	router := search.NewRouter()
 	for _, p := range providers {
-		router.Register(p.Name(), p, nil)
+		router.Register(p.Name(), p)
 	}
 	return router
 }
@@ -203,23 +203,6 @@ func TestRunFetchSearchOnlyProviderFallsBack(t *testing.T) {
 		t.Errorf("stdout = %q, want built-in body", stdout.String())
 	}
 	if !strings.Contains(stderr.String(), `provider "duckduckgo" does not support fetch`) {
-		t.Errorf("stderr = %q, want a fallback note", stderr.String())
-	}
-}
-
-func TestRunFetchStrategyWithoutFetcherFallsBack(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	err := runFetch(&stdout, &stderr, "https://example.com/a", fetchFlags{
-		provider: "auto",
-		dryRun:   true,
-	}, newFetchRouter())
-	if err != nil {
-		t.Fatalf("runFetch: %v", err)
-	}
-	if !strings.Contains(stdout.String(), "# provider: built-in") {
-		t.Errorf("stdout = %q, want a built-in curl preview", stdout.String())
-	}
-	if !strings.Contains(stderr.String(), `no fetch-capable provider matched "auto"`) {
 		t.Errorf("stderr = %q, want a fallback note", stderr.String())
 	}
 }

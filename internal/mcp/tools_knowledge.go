@@ -137,17 +137,15 @@ const kbSearchResultLimit = 5
 // defaults.search.provider vendor as every other search surface. Previously
 // this was hardcoded to DuckDuckGo, so a configured Brave/DeepSeek/Firecrawl
 // provider had no effect on MCP at all.
-func kbSearchURLs(cfg *Config, store *knowledge.Store, query string, limit int) ([]string, error) {
-	quotaStore, err := search.NewQuotaStore(store.DB())
-	if err != nil {
-		return nil, fmt.Errorf("quota store: %w", err)
-	}
-
-	router := search.NewRouter(quotaStore)
+func kbSearchURLs(cfg *Config, query string, limit int) ([]string, error) {
+	router := search.NewRouter()
 	search.RegisterAll(router, cfg.WebSearchProviders)
 
-	strategy, preferred := search.ResolveStrategy(specOrAuto(cfg.SearchProvider))
-	result, err := router.Search(query, limit, strategy, preferred)
+	provider := cfg.SearchProvider
+	if provider == "" {
+		provider = "duckduckgo"
+	}
+	result, err := router.Search(query, limit, provider, search.Options{})
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +276,7 @@ func kbSearchHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 		defer store.Close()
 
-		urls, err := kbSearchURLs(cfg, store, query, kbSearchResultLimit)
+		urls, err := kbSearchURLs(cfg, query, kbSearchResultLimit)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("search request: %v", err)), nil
 		}

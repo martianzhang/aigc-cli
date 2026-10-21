@@ -67,31 +67,14 @@ func init() {
 	kbSearchCmd.Flags().BoolVar(&kbSearchLocalFlag, "local", false, "Also search local knowledge base")
 }
 
-// searchWebWithRouter uses the search router or falls back to direct providers.
+// searchWebWithRouter runs one explicit provider and ingests its results.
 func searchWebWithRouter(store *knowledge.Store, cmd *cobra.Command, query, project string, verbose bool) error {
-	if cmd.Flags().Changed("provider") {
-		provider, _ := cmd.Flags().GetString("provider")
-		return searchWithProvider(store, cmd, query, project, provider, verbose)
-	}
-
 	provider := resolveSearchProvider(cmd)
-	return searchWithProvider(store, cmd, query, project, provider, verbose)
-}
 
-// searchWithProvider uses router with specified provider or strategy.
-func searchWithProvider(store *knowledge.Store, cmd *cobra.Command, query, project string, provider string, verbose bool) error {
-	qStore, err := search.NewQuotaStore(store.DB())
-	if err != nil {
-		return fmt.Errorf("quota store: %w", err)
-	}
-
-	router := search.NewRouter(qStore)
-
+	router := search.NewRouter()
 	search.RegisterAll(router, options.WebSearchConfig())
 
-	strategy, preferred := search.ResolveStrategy(provider)
-
-	searchResult, err := router.Search(query, 3, strategy, preferred)
+	searchResult, err := router.Search(query, 3, provider, search.Options{})
 	if err != nil {
 		return err
 	}
@@ -113,5 +96,5 @@ func resolveSearchProvider(cmd *cobra.Command) string {
 	if p := options.SearchProviderDefault(); p != "" {
 		return p
 	}
-	return "auto"
+	return "duckduckgo"
 }

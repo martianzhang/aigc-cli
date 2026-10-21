@@ -101,7 +101,7 @@ func WebFetch(argsJSON string, env Env) string {
 		return errMsg
 	}
 
-	fetcher, ok := search.ResolveFetcher(env.router(), env.Spec)
+	fetcher, ok := search.ResolveFetcher(env.router(), env.Provider)
 	if !ok {
 		return fmt.Sprintf("Error: no third-party fetch provider configured. Configure a fetch-capable provider under web_search.* (selected by %s), or use the built-in `fetch` tool.",
 			env.specHint())

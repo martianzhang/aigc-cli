@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-
-	"github.com/martianzhang/aigc-cli/internal/search"
 )
 
 func TestExtractHost(t *testing.T) {
@@ -66,36 +64,5 @@ func TestSubcommandsRegisteredOnce(t *testing.T) {
 		if !got[name] {
 			t.Errorf("%s: subcommand %q is not registered", root.CommandPath(), name)
 		}
-	}
-}
-
-func TestResolveSearchStrategy(t *testing.T) {
-	tests := []struct {
-		provider   string
-		wantStrat  string
-		wantManual []string
-	}{
-		{"auto", "auto", nil},
-		{"", "auto", nil},
-		{"free", "cheap", nil},
-		{"cheap", "cheap", nil},
-		{"quality", "quality", nil},
-		{"firecrawl", "manual", []string{"firecrawl"}},
-	}
-	for _, tc := range tests {
-		t.Run(tc.provider, func(t *testing.T) {
-			strat, manual := search.ResolveStrategy(tc.provider)
-			if strat != tc.wantStrat {
-				t.Errorf("strategy = %q, want %q", strat, tc.wantStrat)
-			}
-			if len(manual) != len(tc.wantManual) {
-				t.Fatalf("manual = %v, want %v", manual, tc.wantManual)
-			}
-			for i := range manual {
-				if manual[i] != tc.wantManual[i] {
-					t.Fatalf("manual = %v, want %v", manual, tc.wantManual)
-				}
-			}
-		})
 	}
 }

@@ -219,7 +219,6 @@ web_search:
   firecrawl:
     type: firecrawl
     api_key: "fc-xxx"
-    tags: [free, quality]
   exa:
     type: exa                  # 神经搜索，同时提供 Search 与 Contents（Fetch）
     api_key: "exa-xxx"
@@ -229,10 +228,10 @@ defaults:
     provider: deepseek          # CLI search / kb search / chat / MCP 共用
 ```
 
-- `provider` 取值：厂商名指定该厂商；`auto`（默认）按 `free`/`quality` 标签选择；`free`/`cheap` 只用免费引擎；`quality` 只用高质量引擎。
-- 也可用 `--search-provider` 命令行参数临时覆盖配置（优先级：`--search-provider` > `defaults.search.provider` > `auto`）。
+- `provider` 取值：厂商名，例如 `deepseek` / `exa` / `brave`；不做自动选择。
+- 也可用 `--search-provider` 命令行参数临时覆盖配置（优先级：`--search-provider` > `defaults.search.provider`）。
 - `defaults.search.provider` 是**共享默认**：`aigc-cli search`、`kb search`、chat 与 MCP 的 `web_search`/`web_fetch`、MCP `kb_search` 都使用它。
-- `web_search` **只使用第三方厂商**：内置 DuckDuckGo 不参与，避免 `auto` 时静默回落成"非第三方"。未声明任何第三方厂商时，`web_search`/`web_fetch` 会**报错并提示改用内置 `search`/`fetch`**（不会静默花钱，也不会静默降级）。
+- `web_search` **只使用第三方厂商**：内置 DuckDuckGo 不参与。未配置 `defaults.search.provider` 或未声明对应厂商时，`web_search`/`web_fetch` 会**报错并提示改用内置 `search`/`fetch`**（不会静默花钱，也不会静默降级）。
 - `web_fetch` 需要**具备抓取能力的厂商**（如 `deepseek`/`exa`）；只有搜索能力的厂商（`duckduckgo`/`brave`）不提供 `web_fetch`。
 - 单次调用默认返回 5 条、最多 10 条。
 - 与 `kb search` 不同，chat 的联网原语**只搜索/抓取、不入库**；`kb search` 仍使用同一套 `web_search.*` 厂商配置（含免费 DuckDuckGo 兜底）。
@@ -352,7 +351,7 @@ defaults:
 | `defaults.chat.allow_tool_override` | `true`=LLM参数优先，`false`=配置强制覆盖LLM（默认`false`，省钱） |
 | `defaults.chat.tools_on_demand` | `true`=MCP 工具按需加载（`search_tools`/`load_tools`），降低上下文占用（默认 `false`） |
 | `defaults.chat.read_deny` | `read` 原语的拒绝正则列表（匹配文件路径或文件名）；空 = 全部放行 |
-| `defaults.search.provider` | 共享搜索厂商（`aigc-cli search` / `kb search` / chat / MCP）；`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`，或 `auto`/`free`/`quality`；空 = `auto` |
+| `defaults.search.provider` | 共享搜索厂商名（`aigc-cli search` / `kb search` / chat / MCP）；`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`；空 = CLI/kb 用 `duckduckgo`，chat/MCP `web_*` 报错 |
 
 ---
 
@@ -423,7 +422,7 @@ aigc-cli chat --message "Hello"
 | `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
 | `--inject-json` | 在 CLI 生成的最终 body 上**追加合并**一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于联网搜索等厂商私有参数，优先级高于 `--json` |
 | `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |
-| `--search-provider` | `web_search`/`web_fetch` 原语使用的第三方厂商（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`，或 `auto`/`free`/`quality`），覆盖 `defaults.search.provider` |
+| `--search-provider` | `web_search`/`web_fetch` 原语使用的第三方厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`），覆盖 `defaults.search.provider` |
 | `--verbose`, `-v` | 显示 token 消耗、费用和耗时统计（全局 flag） |
 
 ### `--json` 与参数合并

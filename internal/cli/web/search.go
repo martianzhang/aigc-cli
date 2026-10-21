@@ -88,13 +88,13 @@ providers merge it into the JSON body, GET providers add flat query parameters.
 Array/object values follow the usual additive merge rules for POST; GET only
 accepts scalars.
 
---dry-run prints the equivalent curl command for each candidate provider
+--dry-run prints the equivalent curl command for the selected provider
 without calling any search API (API keys are masked, injected fields included).
 
-The --provider flag selects a search vendor (duckduckgo, firecrawl, brave,
-doubao, deepseek, exa) or a strategy (auto, free, quality). It is unrelated to
-the LLM provider used by generation commands. When omitted, the shared
-defaults.search.provider config value is used, then auto.
+The --provider flag selects one search vendor (duckduckgo, firecrawl, brave,
+doubao, deepseek, exa). It is unrelated to the LLM provider used by generation
+commands. When omitted, defaults.search.provider is used, then duckduckgo.
+There is no automatic rotation or fallback: provider errors are returned as-is.
 
 All requests honor the global http_proxy config and HTTP_PROXY/HTTPS_PROXY/NO_PROXY
 environment variables.`,
@@ -123,11 +123,11 @@ environment variables.`,
 	}
 
 	f := cmd.Flags()
-	f.StringVarP(&flags.provider, "provider", "P", "", "Search provider: duckduckgo, firecrawl, brave, doubao, deepseek, exa, or auto/free/quality (not an LLM provider)")
+	f.StringVarP(&flags.provider, "provider", "P", "", "Search provider name (duckduckgo, firecrawl, brave, doubao, deepseek, exa); not an LLM provider")
 	f.IntVarP(&flags.limit, "limit", "n", defaultSearchLimit, "Max results to request (1-20)")
 	f.StringVar(&flags.jsonInput, "json", "", "Search request JSON: file path or inline JSON (fields: query, provider, limit); stdin is the query")
 	f.StringVar(&flags.injectJSON, "inject-json", "", "JSON object (file path or inline) merged into the provider request (POST body or GET query params; scalars overwrite, arrays append)")
-	f.BoolVar(&flags.dryRun, "dry-run", false, "Print the equivalent curl command for each candidate provider without calling any search API")
+	f.BoolVar(&flags.dryRun, "dry-run", false, "Print the equivalent curl command for the selected provider without calling any search API")
 
 	return cmd
 }
@@ -214,32 +214,27 @@ func queryFromStdin() (string, error) {
 	return strings.Join(strings.Fields(string(data)), " "), nil
 }
 
-// newSearchRouter registers every configured provider plus the free
-// DuckDuckGo fallback. NoopQuotaStore keeps the command independent of the
-// knowledge base database, matching the chat/MCP search tools.
+// newSearchRouter registers every configured provider plus DuckDuckGo. The
+// command calls exactly one of them; there is no rotation or quota layer.
 func newSearchRouter() *search.Router {
-	router := search.NewRouter(search.NoopQuotaStore{})
+	router := search.NewRouter()
 	search.RegisterAll(router, options.WebSearchConfig())
 	return router
 }
 
 // runSearch resolves the vendor, runs one search, and prints the raw response.
 func runSearch(stdout io.Writer, req searchRequest, router *search.Router) error {
-	spec := resolveProvider(req.provider)
-	strategy, preferred := search.ResolveStrategy(spec)
-
-	if strategy == "manual" {
-		if err := requireProvider(router, preferred[0]); err != nil {
-			return err
-		}
+	provider := resolveProvider(req.provider)
+	if err := requireProvider(router, provider); err != nil {
+		return err
 	}
 
 	limit := normalizeLimit(req.limit)
 	if req.dryRun {
-		return writeDryRun(stdout, req.query, strategy, preferred, limit, req.inject, router)
+		return writeDryRun(stdout, req.query, provider, limit, req.inject, router)
 	}
 
-	result, err := router.SearchWithOptions(req.query, limit, strategy, preferred, search.Options{Extra: req.inject})
+	result, err := router.Search(req.query, limit, provider, search.Options{Extra: req.inject})
 	if err != nil {
 		return fmt.Errorf("search failed: %w", err)
 	}

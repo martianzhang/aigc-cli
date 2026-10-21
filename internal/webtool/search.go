@@ -79,20 +79,17 @@ func WebSearch(argsJSON string, env Env) string {
 	if errMsg != "" {
 		return errMsg
 	}
+	if strings.TrimSpace(env.Provider) == "" {
+		return fmt.Sprintf("Error: no third-party provider configured. Set a provider name via %s or use the built-in `search` tool.", env.specHint())
+	}
 
 	router := env.router()
-	result, err := searchWithRouter(router, args.Query, args.Limit, env.Spec)
+	result, err := router.Search(args.Query, args.Limit, env.Provider, search.Options{})
 	if err != nil {
-		return fmt.Sprintf("Error: %v. Configure a third-party provider under web_search.* (selected by %s), or use the built-in `search` tool.",
+		return fmt.Sprintf("Error: %v. Configure the provider under web_search.* (selected by %s), or use the built-in `search` tool.",
 			err, env.specHint())
 	}
 	return FormatSearchResults(args.Query, result, "web_fetch")
-}
-
-// searchWithRouter resolves the vendor spec into a strategy and runs one search.
-func searchWithRouter(router *search.Router, query string, limit int, spec string) (*search.SearchResult, error) {
-	strategy, preferred := search.ResolveStrategy(spec)
-	return router.Search(query, limit, strategy, preferred)
 }
 
 // FormatSearchResults renders a SearchResult as a compact, LLM-friendly list.
@@ -121,21 +118,21 @@ func FormatSearchResults(query string, result *search.SearchResult, fetchTool st
 // the tools free of any config/scope lookup so chat and MCP can each resolve
 // their own scope and pass the result down.
 type Env struct {
-	// Spec is the vendor selector: "auto" | "free" | "quality" | "<vendor name>".
-	Spec string
+	// Provider is the configured vendor name. Empty means no third-party
+	// search/fetch vendor is configured.
+	Provider string
 	// Providers is the web_search.* registry from config.
 	Providers map[string]*types.WebSearchProvider
-	// Scope names where Spec came from, for actionable error messages
+	// Scope names where Provider came from, for actionable error messages
 	// (e.g. "defaults.search.provider"). Optional.
 	Scope string
 }
 
 // router builds a router over the configured third-party providers only. The
-// built-in free DuckDuckGo engine is excluded on purpose: it is the `search`
-// tool's job, and including it would let `web_search` silently answer from the
-// built-in engine under `auto`.
+// built-in DuckDuckGo engine is excluded on purpose: it is the `search` tool's
+// job, and third-party tools must not silently answer from it.
 func (e Env) router() *search.Router {
-	router := search.NewRouter(search.NoopQuotaStore{})
+	router := search.NewRouter()
 	search.RegisterRemote(router, e.Providers)
 	return router
 }

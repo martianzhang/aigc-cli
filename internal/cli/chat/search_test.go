@@ -40,10 +40,10 @@ func TestResolveSearchVendor_precedence(t *testing.T) {
 		}
 	})
 
-	t.Run("auto when nothing configured", func(t *testing.T) {
+	t.Run("empty when nothing configured", func(t *testing.T) {
 		restore()
-		if got := resolveSearchVendor(); got != "auto" {
-			t.Errorf("resolveSearchVendor() = %q, want auto", got)
+		if got := resolveSearchVendor(); got != "" {
+			t.Errorf("resolveSearchVendor() = %q, want empty (no implicit default)", got)
 		}
 	})
 }

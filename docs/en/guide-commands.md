@@ -152,11 +152,11 @@ aigc-cli search "vector database" --dry-run       # print equivalent curl, no re
 
 | Flag | Default | Description |
 |---|---|---|
-| `-P, --provider` | empty (→ auto) | Search vendor: `duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa`, or a strategy: `auto` / `free` / `quality` |
+| `-P, --provider` | empty (→ `duckduckgo`) | Search vendor name: `duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` |
 | `-n, --limit` | `5` | Number of results to request (capped at 20) |
 | `--json` | empty | Command-level JSON: file path or inline JSON (**no stdin**); fields: `query`, `provider`, `limit` |
 | `--inject-json` | empty | Vendor-native fields: file path or inline JSON; merged into the POST body or appended as GET query parameters |
-| `--dry-run` | `false` | Print the equivalent curl for each candidate provider (keys masked, injected fields included), without calling any search API |
+| `--dry-run` | `false` | Print the equivalent curl for the selected provider (keys masked, injected fields included), without calling any search API |
 
 - **stdin carries the query**: `echo "..." | aigc-cli search` (or a no-arg
   invocation with piped input) reads it automatically; `aigc-cli search -` forces
@@ -164,7 +164,7 @@ aigc-cli search "vector database" --dry-run       # print equivalent curl, no re
   `--inject-json` reads stdin.
 
 - **`--provider` selects a search vendor, not an LLM provider.** Precedence:
-  `--provider` > `--json`'s `provider` > `defaults.search.provider` > `auto`.
+  `--provider` > `--json`'s `provider` > `defaults.search.provider` > `duckduckgo`.
 - Query and limit follow the same rule: positional args / `--limit` > `--json` >
   built-in defaults.
 - `--inject-json` follows the global merge rules: objects recurse, arrays append,
@@ -175,11 +175,10 @@ aigc-cli search "vector database" --dry-run       # print equivalent curl, no re
 - The output is the vendor's response body: valid JSON is pretty-printed;
   non-JSON bodies are printed verbatim (useful for error pages).
 - DuckDuckGo has no vendor JSON, so its output is `{"urls":["..."]}`.
-- Under `auto`, providers tagged `free` come first in the candidate list, then the
-  router picks by `weight`; use `-P free` to force free engines or `-P <name>` to
-  pin one vendor.
-- `--dry-run` sends no network request. Under `auto` it prints one curl per
-  candidate; only one of them will actually run.
+- Exactly one provider is called per search; a provider failure is returned
+  directly (no automatic rotation or retry against another vendor).
+- `--dry-run` sends no network request and prints one curl for the selected
+  provider.
 - Search only: no knowledge-base write. Use `aigc-cli kb search` for
   search + fetch + index. A standalone `aigc-cli fetch` is still planned.
 - `-v` adds nothing for search; stdout always contains only the vendor JSON.
@@ -202,7 +201,7 @@ aigc-cli search "vector database" --dry-run       # print equivalent curl, no re
 # dry run: no request sent
 # query: golang
 # strategy: manual
-# provider: exa (candidate 1/1)
+# provider: exa
 curl -X POST https://api.exa.ai/search \
   -H "x-api-key: ...3644" \
   -H "Content-Type: application/json" \
@@ -231,7 +230,7 @@ aigc-cli fetch https://example.com/article --dry-run
 
 | Flag | Default | Description |
 |---|---|---|
-| `-P, --provider` | empty = built-in | `deepseek` / `exa`, or `auto` / `quality` for a configured fetch-capable vendor |
+| `-P, --provider` | empty = built-in | Fetch vendor name: `deepseek` / `exa` |
 | `-H, --header` | none | Repeatable `Name: value`; `Name:` removes a default header (built-in fetcher only) |
 | `-b, --cookie` | none | Repeatable; `name=value; ...` data or a Netscape cookie file (built-in fetcher only) |
 | `-c, --cookie-jar` | none | Write cookies to a Netscape-format file after fetching (built-in fetcher only) |
@@ -254,8 +253,8 @@ aigc-cli fetch https://example.com/article --dry-run
 - Output strips `data:` URIs (e.g. base64 images) and `javascript:` links,
   keeping their text / normal links, so huge base64 blobs never enter the body.
 - **The built-in fetcher is always the default and never reads
-  `defaults.search.provider`.** Only an explicit `-P/--provider` (including
-  `-P auto`) uses a vendor, so a plain fetch cannot silently bill.
+  `defaults.search.provider`.** Only an explicit `-P/--provider` uses a vendor,
+  so a plain fetch cannot silently bill.
 - `-H` is applied after the default `User-Agent` / `Accept` / `Accept-Language`
   headers and can override or remove them; CR/LF injection is rejected.
 - `-b` accepts repeated inline cookie data or Netscape files; sources are merged
@@ -267,10 +266,9 @@ aigc-cli fetch https://example.com/article --dry-run
 - `--provider` routes through a third-party fetch API (DeepSeek Fetch / Exa
   Contents), which **may bill per request**. The request runs on the vendor's
   side, so `-H` / `-b` / `-c` cannot be combined with `--provider`.
-- If the selected vendor is search-only (e.g. `brave` / `duckduckgo`), or
-  `auto` / `quality` finds no fetch-capable vendor, fetch falls back to the
-  built-in fetcher and prints a note on stderr; `-H` / `-b` / `-c` still work.
-  An unknown provider name is still an error.
+- If the selected vendor is search-only (e.g. `brave` / `duckduckgo`), fetch
+  falls back to the built-in fetcher and prints a note on stderr; `-H` / `-b` /
+  `-c` still work. An unknown provider name is still an error.
 - Fetch only: nothing is written to the knowledge base. Use `aigc-cli kb fetch`
   to fetch + index; use `aigc-cli search` / `kb search` to search.
 - `--output-json` is not implemented yet.
