@@ -68,9 +68,8 @@ func TestFetcherNames(t *testing.T) {
 	}
 }
 
-func TestRegisterRemote(t *testing.T) {
-	router := NewRouter()
-	RegisterRemote(router, map[string]*types.WebSearchProvider{
+func TestNewRemoteRouter(t *testing.T) {
+	router := NewRemoteRouter(map[string]*types.WebSearchProvider{
 		"ddg":      {Type: "duckduckgo"},
 		"deepseek": {Type: "deepseek", APIKey: "k"},
 		"brave":    {Type: "brave"}, // missing api_key -> skipped
@@ -80,7 +79,7 @@ func TestRegisterRemote(t *testing.T) {
 		t.Error("the built-in duckduckgo engine must be excluded from the remote router")
 	}
 	if _, ok := router.GetProvider("duckduckgo"); ok {
-		t.Error("RegisterRemote must not add the built-in duckduckgo fallback")
+		t.Error("NewRemoteRouter must not add the built-in duckduckgo fallback")
 	}
 	if _, ok := router.GetProvider("deepseek"); !ok {
 		t.Error("deepseek should be registered")

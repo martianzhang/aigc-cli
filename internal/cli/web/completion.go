@@ -41,8 +41,7 @@ func completionWebSearchConfig() map[string]*types.WebSearchProvider {
 
 // providerCompletionNames builds the registry and filters by the typed prefix.
 func providerCompletionNames(providers map[string]*types.WebSearchProvider, fetchOnly bool, toComplete string) []string {
-	router := search.NewRouter()
-	search.RegisterAll(router, providers)
+	router := search.NewRouterAll(providers)
 
 	var names []string
 	if fetchOnly {

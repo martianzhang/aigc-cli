@@ -8,8 +8,7 @@ import (
 )
 
 func TestRegisterAllRecordsUnavailable(t *testing.T) {
-	r := NewRouter()
-	RegisterAll(r, map[string]*types.WebSearchProvider{
+	r := NewRouterAll(map[string]*types.WebSearchProvider{
 		"brave":   {Type: "brave"}, // missing api_key
 		"mystery": {Type: "mystery"},
 	})
@@ -77,8 +76,7 @@ func TestRegisterAll(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := NewRouter()
-			RegisterAll(r, tc.providers)
+			r := NewRouterAll(tc.providers)
 
 			for _, name := range tc.wantNames {
 				if _, ok := r.GetProvider(name); !ok {

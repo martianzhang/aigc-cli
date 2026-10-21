@@ -133,13 +133,12 @@ const kbSearchResultLimit = 5
 // kbSearchURLs resolves the result URLs to ingest into the knowledge base.
 //
 // Unlike the chat search primitives this keeps the free DuckDuckGo fallback
-// via RegisterAll, matching `aigc-cli kb search`. It uses the same shared
+// via NewRouterAll, matching `aigc-cli kb search`. It uses the same shared
 // defaults.search.provider vendor as every other search surface. Previously
 // this was hardcoded to DuckDuckGo, so a configured Brave/DeepSeek/Firecrawl
 // provider had no effect on MCP at all.
 func kbSearchURLs(cfg *Config, query string, limit int) ([]string, error) {
-	router := search.NewRouter()
-	search.RegisterAll(router, cfg.WebSearchProviders)
+	router := search.NewRouterAll(cfg.WebSearchProviders)
 
 	provider := cfg.SearchProvider
 	if provider == "" {

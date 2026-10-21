@@ -71,8 +71,7 @@ func init() {
 func searchWebWithRouter(store *knowledge.Store, cmd *cobra.Command, query, project string, verbose bool) error {
 	provider := resolveSearchProvider(cmd)
 
-	router := search.NewRouter()
-	search.RegisterAll(router, options.WebSearchConfig())
+	router := search.NewRouterAll(options.WebSearchConfig())
 
 	searchResult, err := router.Search(query, 3, provider, search.Options{})
 	if err != nil {

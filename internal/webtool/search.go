@@ -132,9 +132,7 @@ type Env struct {
 // built-in DuckDuckGo engine is excluded on purpose: it is the `search` tool's
 // job, and third-party tools must not silently answer from it.
 func (e Env) router() *search.Router {
-	router := search.NewRouter()
-	search.RegisterRemote(router, e.Providers)
-	return router
+	return search.NewRemoteRouter(e.Providers)
 }
 
 func (e Env) specHint() string {

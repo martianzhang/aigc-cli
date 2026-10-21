@@ -224,9 +224,7 @@ func queryFromStdin() (string, error) {
 // newSearchRouter registers every configured provider plus DuckDuckGo. The
 // command calls exactly one of them; there is no rotation or quota layer.
 func newSearchRouter() *search.Router {
-	router := search.NewRouter()
-	search.RegisterAll(router, options.WebSearchConfig())
-	return router
+	return search.NewRouterAll(options.WebSearchConfig())
 }
 
 // runSearch resolves the vendor, runs one search, and prints the raw response.
