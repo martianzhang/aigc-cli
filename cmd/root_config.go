@@ -34,6 +34,7 @@ func runPrintConfig(cmd *cobra.Command) {
 	shared.APIKeySet = hasFlagChanged(cmd, "api-key")
 	shared.APIBaseSet = hasFlagChanged(cmd, "api-base")
 	shared.ProviderSet = hasFlagChanged(cmd, "provider")
+	shared.HTTPProxySet = hasFlagChanged(cmd, "http-proxy")
 
 	// Populate shared state so ResolveProvider works correctly.
 	if cfg != nil {
@@ -62,8 +63,11 @@ func runPrintConfig(cmd *cobra.Command) {
 	if shared.APIBase != "" && raw.BaseURL == "" {
 		raw.BaseURL = shared.APIBase
 	}
-	if shared.HTTPProxy != "" && raw.HTTPProxy == "" {
+	if shared.HTTPProxy != "" && raw.HTTPProxy == "" && !shared.NoProxy {
 		raw.HTTPProxy = shared.HTTPProxy
+	}
+	if shared.NoProxy {
+		raw.HTTPProxy = ""
 	}
 	displayCfg := &configDisplay{}
 	if masked := service.MaskConfigSecrets(&raw); masked != nil {
@@ -110,7 +114,9 @@ func runPrintConfig(cmd *cobra.Command) {
 	}
 
 	// Proxy
-	if displayCfg.HTTPProxy != "" {
+	if shared.NoProxy {
+		proxyNote = "# proxy: disabled by --no-proxy (direct connection)"
+	} else if displayCfg.HTTPProxy != "" {
 		proxyNote = fmt.Sprintf("# http_proxy: %s", displayCfg.HTTPProxy)
 	} else if envProxy := os.Getenv("HTTP_PROXY"); envProxy != "" {
 		proxyNote = ""

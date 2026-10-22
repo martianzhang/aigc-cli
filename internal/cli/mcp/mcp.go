@@ -111,6 +111,7 @@ func init() {
 		options.Shared.APIBaseSet = options.HasFlagChanged(cmd, "api-base")
 		options.Shared.ProviderSet = options.HasFlagChanged(cmd, "provider")
 		options.Shared.ZDRSet = options.HasFlagChanged(cmd, "zdr")
+		options.Shared.HTTPProxySet = options.HasFlagChanged(cmd, "http-proxy")
 
 		// Load config to populate shared fields if not set via flags
 		if c, err := config.Load(options.Shared.CfgFile); err == nil {
@@ -121,14 +122,16 @@ func init() {
 			if options.Shared.APIBase == "" {
 				options.Shared.APIBase = c.BaseURL
 			}
-			if options.Shared.HTTPProxy == "" {
+			if options.Shared.HTTPProxy == "" && !options.Shared.NoProxy {
 				options.Shared.HTTPProxy = c.HTTPProxy
 			}
 			if !options.HasFlagChanged(cmd, "output") && c.OutputDir != "" {
 				options.Shared.OutputDir = c.OutputDir
 			}
 		}
-		// Configure global HTTP client with proxy for all requests
+		// Configure global HTTP client with proxy for all requests.
+		// --no-proxy also covers the MCP tools' HTTP calls (kb_fetch etc.).
+		provider.SetDirectMode(options.Shared.NoProxy)
 		client.ConfigureDefaultClient(options.Shared.HTTPProxy)
 		// Don't error on missing API key - tools will handle it gracefully
 		return nil

@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -219,6 +220,84 @@ func TestValidateProviderRef(t *testing.T) {
 			t.Error("expected error for nil map")
 		}
 	})
+}
+
+func TestResolveCmdProvider_directModeClearsProxy(t *testing.T) {
+	SetDirectMode(true)
+	t.Cleanup(func() { SetDirectMode(false) })
+
+	global := &GlobalConfig{
+		APIKey:  "key-g",
+		BaseURL: "https://global.example.com/v1",
+		Proxy:   "http://global-proxy:8080",
+	}
+	named := map[string]*types.NamedProvider{
+		"p": {BaseURL: "https://named.example.com/v1", HTTPProxy: "http://named-proxy:8080"},
+	}
+
+	tests := []struct {
+		name string
+		cli  *CLIOverride
+		ref  string
+	}{
+		{"named provider", nil, "p"},
+		{"global fallback", nil, ""},
+		{"cli override", &CLIOverride{APIKey: "key-cli", Proxy: "http://cli-proxy:8080"}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ep := ResolveCmdProvider(tt.cli, tt.ref, named, global)
+			if ep.HTTPProxy != "" {
+				t.Errorf("HTTPProxy = %q, want empty under --no-proxy", ep.HTTPProxy)
+			}
+		})
+	}
+}
+
+func TestResolveCmdProvider_keepsProxyWithoutDirectMode(t *testing.T) {
+	SetDirectMode(false)
+
+	global := &GlobalConfig{BaseURL: "https://global.example.com/v1", Proxy: "http://global-proxy:8080"}
+	named := map[string]*types.NamedProvider{
+		"p": {BaseURL: "https://named.example.com/v1", HTTPProxy: "http://named-proxy:8080"},
+	}
+
+	if ep := ResolveCmdProvider(nil, "p", named, global); ep.HTTPProxy != "http://named-proxy:8080" {
+		t.Errorf("named HTTPProxy = %q, want %q", ep.HTTPProxy, "http://named-proxy:8080")
+	}
+	if ep := ResolveCmdProvider(nil, "", nil, global); ep.HTTPProxy != "http://global-proxy:8080" {
+		t.Errorf("global HTTPProxy = %q, want %q", ep.HTTPProxy, "http://global-proxy:8080")
+	}
+}
+
+func TestNewTransport_directMode(t *testing.T) {
+	SetDirectMode(true)
+	t.Cleanup(func() { SetDirectMode(false) })
+
+	tr := NewTransport("http://proxy.example.com:8080")
+	if tr.Proxy != nil {
+		t.Error("NewTransport under --no-proxy must return a transport with nil Proxy")
+	}
+	if tr != NewDirectTransport() {
+		t.Error("NewTransport under --no-proxy should reuse the shared direct transport")
+	}
+}
+
+func TestNewTransport_usesProxyWhenNotDirect(t *testing.T) {
+	SetDirectMode(false)
+
+	tr := NewTransport("http://proxy.example.com:8080")
+	if tr.Proxy == nil {
+		t.Fatal("NewTransport should install a Proxy func when a URL is configured")
+	}
+	req, _ := http.NewRequest("GET", "https://example.com", nil)
+	u, err := tr.Proxy(req)
+	if err != nil {
+		t.Fatalf("Proxy() error: %v", err)
+	}
+	if u == nil || u.String() != "http://proxy.example.com:8080" {
+		t.Errorf("Proxy() = %v, want http://proxy.example.com:8080", u)
+	}
 }
 
 func TestFirstNonEmpty(t *testing.T) {

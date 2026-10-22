@@ -234,7 +234,14 @@ export HTTP_PROXY="http://127.0.0.1:7890"
 
 # SOCKS5
 aigc-cli image --prompt "..." --http-proxy "socks5://127.0.0.1:1080"
+
+# 临时直连：忽略配置文件与 HTTP_PROXY/HTTPS_PROXY 环境变量（只对本次运行生效）
+aigc-cli image --prompt "..." --no-proxy
 ```
+
+`--no-proxy` 会同时忽略全局 `http_proxy`、命名 provider 自己的 `http_proxy` 以及
+`HTTP_PROXY` / `HTTPS_PROXY` 环境变量，适用于「国内接口不想走代理」这类单次例外。
+它与显式传入的 `--http-proxy <URL>` 互斥，同时使用会直接报错。
 
 ## 优先级规则
 
@@ -242,3 +249,6 @@ aigc-cli image --prompt "..." --http-proxy "socks5://127.0.0.1:1080"
 
 代理优先级：
 **`--http-proxy` 参数 > `HTTP_PROXY` / `HTTPS_PROXY` 标准环境变量**
+
+`--no-proxy` 是上述链路的总开关：一旦传入，前面所有代理设置（含命名 provider 的
+`http_proxy`）全部失效，直接连接。

@@ -3,6 +3,7 @@ package options
 import (
 	"testing"
 
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -32,6 +33,81 @@ func TestResolveProvider_CLIOverride(t *testing.T) {
 	if ep.BaseURL != "https://cli.com/v1" {
 		t.Errorf("BaseURL = %q, want %q", ep.BaseURL, "https://cli.com/v1")
 	}
+}
+
+func TestResolveProvider_HTTPProxyFlag(t *testing.T) {
+	t.Run("explicit flag reaches the effective provider", func(t *testing.T) {
+		defer setSharedForTest(&SharedConfig{
+			HTTPProxy:    "http://cli-proxy:8080",
+			HTTPProxySet: true,
+			Cfg: &types.Config{
+				BaseURL:   "https://cfg.com/v1",
+				HTTPProxy: "http://cfg-proxy:8080",
+			},
+		})()
+
+		ep := Shared.ResolveProvider("image")
+		if ep.HTTPProxy != "http://cli-proxy:8080" {
+			t.Errorf("HTTPProxy = %q, want %q", ep.HTTPProxy, "http://cli-proxy:8080")
+		}
+	})
+
+	t.Run("flag overrides a named provider proxy", func(t *testing.T) {
+		defer setSharedForTest(&SharedConfig{
+			HTTPProxy:    "http://cli-proxy:8080",
+			HTTPProxySet: true,
+			Cfg: &types.Config{
+				Providers: map[string]*types.NamedProvider{
+					"p": {BaseURL: "https://p.com/v1", HTTPProxy: "http://prov-proxy:8080"},
+				},
+				Defaults: &types.ConfigDefaults{
+					Image: &types.ImageDefaults{Provider: "p"},
+				},
+			},
+		})()
+
+		ep := Shared.ResolveProvider("image")
+		if ep.HTTPProxy != "http://cli-proxy:8080" {
+			t.Errorf("HTTPProxy = %q, want CLI value", ep.HTTPProxy)
+		}
+	})
+
+	t.Run("unset flag keeps the provider proxy", func(t *testing.T) {
+		defer setSharedForTest(&SharedConfig{
+			Cfg: &types.Config{
+				Providers: map[string]*types.NamedProvider{
+					"p": {BaseURL: "https://p.com/v1", HTTPProxy: "http://prov-proxy:8080"},
+				},
+				Defaults: &types.ConfigDefaults{
+					Image: &types.ImageDefaults{Provider: "p"},
+				},
+			},
+		})()
+
+		ep := Shared.ResolveProvider("image")
+		if ep.HTTPProxy != "http://prov-proxy:8080" {
+			t.Errorf("HTTPProxy = %q, want provider value", ep.HTTPProxy)
+		}
+	})
+
+	t.Run("--no-proxy wins over the flag", func(t *testing.T) {
+		provider.SetDirectMode(true)
+		t.Cleanup(func() { provider.SetDirectMode(false) })
+		defer setSharedForTest(&SharedConfig{
+			HTTPProxy:    "http://cli-proxy:8080",
+			HTTPProxySet: true,
+			NoProxy:      true,
+			Cfg: &types.Config{
+				BaseURL:   "https://cfg.com/v1",
+				HTTPProxy: "http://cfg-proxy:8080",
+			},
+		})()
+
+		ep := Shared.ResolveProvider("image")
+		if ep.HTTPProxy != "" {
+			t.Errorf("HTTPProxy = %q, want empty with --no-proxy", ep.HTTPProxy)
+		}
+	})
 }
 
 func TestResolveProvider_propagatesZDR(t *testing.T) {

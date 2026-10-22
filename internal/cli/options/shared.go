@@ -32,6 +32,12 @@ type SharedConfig struct {
 	APIBaseSet  bool
 	ProviderSet bool
 	ZDRSet      bool
+	// HTTPProxySet is --http-proxy: an explicit flag value must also reach
+	// clients built from an EffectiveProvider, not just http.DefaultClient.
+	HTTPProxySet bool
+	// NoProxy is --no-proxy: ignore config http_proxy, per-provider
+	// http_proxy, and HTTP_PROXY/HTTPS_PROXY for this run.
+	NoProxy bool
 }
 
 // Shared is the process-wide shared configuration instance.
@@ -94,6 +100,12 @@ func (s *SharedConfig) ResolveProvider(cmdName string) *provider.EffectiveProvid
 	}
 
 	ep := provider.ResolveCmdProvider(cli, providerRef, providerMap(s.Cfg), global)
+	// An explicit --http-proxy overrides both the global and per-provider
+	// http_proxy, and must reach clients created from this EffectiveProvider
+	// (client.NewFromProvider builds its transport from ep.HTTPProxy).
+	if s.HTTPProxySet && !s.NoProxy {
+		ep.HTTPProxy = s.HTTPProxy
+	}
 	ep.ZDR = s.resolveZDR(ep)
 	if s.Model != "" {
 		ep.Model = s.Model

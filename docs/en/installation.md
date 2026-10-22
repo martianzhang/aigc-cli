@@ -127,6 +127,17 @@ All HTTP requests go through the configured proxy. Configuration priority:
 
 **`--http-proxy` flag > `HTTP_PROXY` / `HTTPS_PROXY` env vars > `http_proxy` in config file**
 
+To bypass the proxy for a single run (for example when a domestic endpoint must be
+reached directly), pass `--no-proxy`:
+
+```bash
+aigc-cli image --prompt "..." --no-proxy
+```
+
+`--no-proxy` ignores the global `http_proxy`, every `providers.*.http_proxy`, and the
+`HTTP_PROXY` / `HTTPS_PROXY` environment variables. It is mutually exclusive with an
+explicit `--http-proxy <URL>`; combining them is an error.
+
 ## Provider Configuration
 
 Named providers allow you to define reusable API accounts/endpoints:

@@ -82,6 +82,12 @@ export HTTP_PROXY="http://127.0.0.1:7890"
 
 支持 http、https、socks5 协议。
 
+临时不走代理：加 `--no-proxy`（本次运行忽略配置文件和 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量）：
+
+```bash
+aigc-cli image --prompt "cat" --no-proxy
+```
+
 ### 支持从文件读取提示词吗？
 
 支持。`--prompt` 自动识别文件路径和 stdin：

@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -79,14 +80,14 @@ func ResolveCmdProvider(
 		if baseURL == "" {
 			baseURL = firstNonEmpty(global.BaseURL, types.DefaultAPIBaseURL)
 		}
-		return &EffectiveProvider{
+		return finalizeProvider(&EffectiveProvider{
 			APIKey:       cli.APIKey,
 			BaseURL:      baseURL,
 			HTTPProxy:    firstNonEmpty(cli.Proxy, global.Proxy),
 			Model:        cli.Model,
 			Type:         types.ProviderOpenAI,
 			ProviderType: Detect(baseURL),
-		}
+		})
 	}
 
 	// 2. Named provider
@@ -122,19 +123,28 @@ func ResolveCmdProvider(
 			if !ep.Type.DetectProvider() {
 				ep.ProviderType = Unknown
 			}
-			return ep
+			return finalizeProvider(ep)
 		}
 	}
 
 	// 3. Global fallback
 	baseURL := firstNonEmpty(global.BaseURL, types.DefaultAPIBaseURL)
-	return &EffectiveProvider{
+	return finalizeProvider(&EffectiveProvider{
 		APIKey:       global.APIKey,
 		BaseURL:      baseURL,
 		HTTPProxy:    global.Proxy,
 		Type:         types.ProviderOpenAI,
 		ProviderType: Detect(baseURL),
+	})
+}
+
+// finalizeProvider applies process-wide proxy bypass (--no-proxy) to a
+// resolved provider so no caller can accidentally use a configured proxy.
+func finalizeProvider(ep *EffectiveProvider) *EffectiveProvider {
+	if directMode.Load() {
+		ep.HTTPProxy = ""
 	}
+	return ep
 }
 
 // ValidateProviderRef checks that a provider reference name exists in the
@@ -193,10 +203,42 @@ func init() {
 	transportCache.m = make(map[string]*http.Transport)
 }
 
+// directMode disables every proxy for the process: config http_proxy,
+// providers.*.http_proxy, and the HTTP_PROXY/HTTPS_PROXY environment
+// variables. It backs the global --no-proxy flag. A single process-wide switch
+// is deliberate: proxy settings are resolved in many places (EffectiveProvider,
+// ad-hoc http.Clients, http.DefaultTransport), and threading a bool through all
+// of them would be far more error-prone than one switch read by NewTransport.
+var directMode atomic.Bool
+
+// SetDirectMode enables or disables process-wide proxy bypass (--no-proxy).
+func SetDirectMode(on bool) { directMode.Store(on) }
+
+// directTransportOnce guards the shared no-proxy transport.
+var (
+	directTransportOnce sync.Once
+	directTransport     *http.Transport
+)
+
+// NewDirectTransport returns a shared transport that never uses a proxy.
+// Its Proxy field is nil, which disables proxy use entirely (unlike an empty
+// proxy URL, which falls back to the environment).
+func NewDirectTransport() *http.Transport {
+	directTransportOnce.Do(func() {
+		directTransport = &http.Transport{}
+	})
+	return directTransport
+}
+
 // NewTransport creates an http.Transport with the given proxy URL configured.
 // Local/loopback addresses bypass the proxy automatically.
 // The transport is cached and shared among callers using the same proxyURL.
+// While --no-proxy is active (SetDirectMode(true)) a direct transport is
+// returned regardless of proxyURL.
 func NewTransport(proxyURL string) *http.Transport {
+	if directMode.Load() {
+		return NewDirectTransport()
+	}
 	transportCache.Lock()
 	defer transportCache.Unlock()
 	if t, ok := transportCache.m[proxyURL]; ok {

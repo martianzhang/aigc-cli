@@ -20,6 +20,7 @@ api_key: enc:v1:xTvA5Luio1XZRZZOdCye7wfFfsMKCYgQGvTdFjBPxzFlHdxCwxZJKL1BCR9Q
 # 任意中转:   https://your-relay.com/v1
 base_url: "https://api.apimart.ai"
 # HTTP proxy (can also be set via HTTP_PROXY / HTTPS_PROXY env vars, or --http-proxy CLI flag)
+# Use the --no-proxy CLI flag to bypass this setting for a single run.
 # http_proxy: "http://127.0.0.1:7890"
 
 # Verbose output: show full result JSON (can also use --verbose / -v CLI flag)

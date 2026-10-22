@@ -295,6 +295,7 @@ aigc-cli mcp --api-key sk-xxx --output ./downloads
 | `--api-key` | API key (overrides config/env) |
 | `--base-url` | API base URL |
 | `--http-proxy` | HTTP proxy URL |
+| `--no-proxy` | Ignore `http_proxy` config and `HTTP_PROXY` / `HTTPS_PROXY` for this run (direct connection) |
 | `--output` | Download directory for generated files |
 | `--list-tools[=all\|enabled]` | List MCP tools and exit（裸标志 = `all`） |
 | `--list-prompts` | List registered MCP prompts and exit |

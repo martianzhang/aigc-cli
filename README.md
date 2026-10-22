@@ -189,6 +189,7 @@ aigc-cli
 │   --preview      Open system preview after generation
 │   --save-prompt  Save prompt as .md file
 │   --http-proxy   Specify HTTP proxy
+│   --no-proxy     Ignore http_proxy config and HTTP_PROXY/HTTPS_PROXY for this run
 │   --zdr          Request zero data retention where supported (OpenRouter chat/music)
 ```
 

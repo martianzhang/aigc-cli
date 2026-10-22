@@ -101,6 +101,14 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 		shared.APIBaseSet = hasFlagChanged(cmd, "api-base")
 		shared.ProviderSet = hasFlagChanged(cmd, "provider")
 		shared.ZDRSet = hasFlagChanged(cmd, "zdr")
+		shared.HTTPProxySet = hasFlagChanged(cmd, "http-proxy")
+
+		// --no-proxy is a hard bypass: mixing it with an explicit proxy URL is
+		// ambiguous, so reject the combination instead of silently picking one.
+		if shared.NoProxy && shared.HTTPProxy != "" {
+			return fmt.Errorf("--no-proxy cannot be combined with --http-proxy %q", shared.HTTPProxy)
+		}
+		provider.SetDirectMode(shared.NoProxy)
 
 		// An explicitly passed --config that is absent is user error: fail fast
 		// instead of silently running with env/defaults only.
@@ -123,7 +131,7 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 			if shared.APIBase == "" {
 				shared.APIBase = cfg.BaseURL
 			}
-			if shared.HTTPProxy == "" {
+			if shared.HTTPProxy == "" && !shared.NoProxy {
 				shared.HTTPProxy = cfg.HTTPProxy
 			}
 			// Check both local and persistent flags (persistent flags are on inherited set)
@@ -178,6 +186,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&shared.APIKey, "api-key", "", "API key (env: OPENAI_API_KEY)")
 	rootCmd.PersistentFlags().StringVar(&shared.APIBase, "api-base", "", "API base URL (env: OPENAI_BASE_URL)")
 	rootCmd.PersistentFlags().StringVar(&shared.HTTPProxy, "http-proxy", "", "HTTP proxy URL (env: HTTP_PROXY / HTTPS_PROXY / NO_PROXY)")
+	rootCmd.PersistentFlags().BoolVar(&shared.NoProxy, "no-proxy", false, "ignore http_proxy config and HTTP_PROXY / HTTPS_PROXY for this run (direct connection)")
 	rootCmd.PersistentFlags().StringVarP(&shared.Model, "model", "m", "", "Model name (overrides defaults.{cmd}.model; required by image/video when unset)")
 	rootCmd.PersistentFlags().StringVarP(&shared.Provider, "provider", "P", "", "Named provider from config.providers (overrides defaults.{cmd}.provider)")
 	rootCmd.PersistentFlags().StringVarP(&shared.OutputDir, "output", "o", ".", "output directory for downloaded/generated files")

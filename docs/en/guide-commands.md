@@ -333,6 +333,7 @@ providers.
 | `--preview` | Open system preview after generation |
 | `--save-prompt` | Save prompt as .md file |
 | `--http-proxy` | Specify HTTP proxy |
+| `--no-proxy` | Ignore `http_proxy` config and `HTTP_PROXY` / `HTTPS_PROXY` for this run (direct connection) |
 | `--zdr` | Request zero data retention where supported. OpenRouter chat-completions endpoints (`chat`, `music`) honor it via `provider.zdr` + `data_collection: deny`; every other provider/endpoint is a silent no-op |
 | `--config` | Path to config file (must exist; a missing explicit path is an error. Omit it to fall back to env vars and defaults) |
 | `--api-key` | API key (overrides config/env) |
