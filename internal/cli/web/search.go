@@ -39,6 +39,8 @@ const (
 // searchFlags holds the parsed flags for one `aigc-cli search` invocation.
 type searchFlags struct {
 	provider      string
+	mediaType     string
+	refresh       bool
 	limit         int
 	jsonInput     string
 	injectJSON    string
@@ -51,16 +53,19 @@ type searchFlags struct {
 type searchInput struct {
 	Query    string `json:"query"`
 	Provider string `json:"provider"`
+	Type     string `json:"type"`
 	Limit    *int   `json:"limit"`
 }
 
 // searchRequest is the fully resolved request passed to runSearch.
 type searchRequest struct {
-	query    string
-	provider string
-	limit    int
-	inject   json.RawMessage
-	dryRun   bool
+	query     string
+	provider  string
+	mediaType string
+	refresh   bool
+	limit     int
+	inject    json.RawMessage
+	dryRun    bool
 }
 
 // SearchCmd returns the `search` command.
@@ -80,14 +85,19 @@ Uses the configured search providers, with a built-in free DuckDuckGo fallback,
 so it works without any configuration or API key. Results are never written to
 the knowledge base; use 'aigc-cli kb search' for that.
 
---json supplies the command-level request (query, provider, limit); CLI flags
-win over JSON fields. Both --json and --inject-json accept an inline JSON
+Media providers (pixabay, pexels) search images and videos. Use --type to pick
+the endpoint (image|photo|illustration|vector|video) and --inject-json for the
+vendor's own filters. Their raw JSON already contains preview and download URLs,
+so feed those URLs to 'aigc-cli fetch'. There is no response normalization.
+
+--json supplies the command-level request (query, provider, type, limit); CLI
+flags win over JSON fields. Both --json and --inject-json accept an inline JSON
 string or a file path — stdin is reserved for the query itself, so
 'echo "golang context" | aigc-cli search' works without arguments.
 --inject-json adds vendor-native fields on top of the provider request: POST
 providers merge it into the JSON body, GET providers add flat query parameters.
 Array/object values follow the usual additive merge rules for POST; GET only
-accepts scalars.
+accepts scalars. The query text, page size and API key stay CLI-owned.
 
 --dry-run prints the equivalent curl command for the selected provider
 without calling any search API (API keys are masked, injected fields included).
@@ -108,6 +118,10 @@ environment variables.`,
   aigc-cli search --json query.json
   aigc-cli search --json '{"query":"golang context","provider":"deepseek","limit":5}'
   aigc-cli search "golang" --inject-json '{"type":"neural"}'
+  aigc-cli search --provider pixabay "rain window" --type photo \
+    --inject-json '{"orientation":"horizontal","min_width":1920}'
+  aigc-cli search --provider pexels "rain window" --type video \
+    --inject-json '{"orientation":"landscape","size":"large"}'
   aigc-cli search --list-providers
   aigc-cli search "vector database" --dry-run`,
 		Args:         cobra.ArbitraryArgs,
@@ -129,8 +143,10 @@ environment variables.`,
 
 	f := cmd.Flags()
 	f.StringVarP(&flags.provider, "provider", "P", "", "Search provider name (see --list-providers); not an LLM provider")
+	f.StringVar(&flags.mediaType, "type", "", "Media type (Pixabay: image|photo|illustration|vector|video; Pexels: image|video); web providers ignore it")
+	f.BoolVar(&flags.refresh, "refresh", false, "Ignore a provider's response cache (Pixabay caches for 24h)")
 	f.IntVarP(&flags.limit, "limit", "n", defaultSearchLimit, "Max results to request (1-20)")
-	f.StringVar(&flags.jsonInput, "json", "", "Search request JSON: file path or inline JSON (fields: query, provider, limit); stdin is the query")
+	f.StringVar(&flags.jsonInput, "json", "", "Search request JSON: file path or inline JSON (fields: query, provider, type, limit); stdin is the query")
 	f.StringVar(&flags.injectJSON, "inject-json", "", "JSON object (file path or inline) merged into the provider request (POST body or GET query params; scalars overwrite, arrays append)")
 	f.BoolVar(&flags.dryRun, "dry-run", false, "Print the equivalent curl command for the selected provider without calling any search API")
 	f.BoolVar(&flags.listProviders, "list-providers", false, "List configured providers with search/fetch capability and availability")
@@ -194,6 +210,11 @@ func buildSearchRequest(cmd *cobra.Command, args []string, flags *searchFlags) (
 		provider = input.Provider
 	}
 
+	mediaType := flags.mediaType
+	if mediaType == "" {
+		mediaType = input.Type
+	}
+
 	limit := defaultSearchLimit
 	if input.Limit != nil {
 		limit = *input.Limit
@@ -203,11 +224,13 @@ func buildSearchRequest(cmd *cobra.Command, args []string, flags *searchFlags) (
 	}
 
 	return searchRequest{
-		query:    query,
-		provider: provider,
-		limit:    normalizeLimit(limit),
-		inject:   inject,
-		dryRun:   flags.dryRun,
+		query:     query,
+		provider:  provider,
+		mediaType: strings.ToLower(strings.TrimSpace(mediaType)),
+		refresh:   flags.refresh,
+		limit:     normalizeLimit(limit),
+		inject:    inject,
+		dryRun:    flags.dryRun,
 	}, nil
 }
 
@@ -235,11 +258,12 @@ func runSearch(stdout io.Writer, req searchRequest, router *search.Router) error
 	}
 
 	limit := normalizeLimit(req.limit)
+	opts := search.Options{Extra: req.inject, Type: req.mediaType, NoCache: req.refresh}
 	if req.dryRun {
-		return writeDryRun(stdout, req.query, provider, limit, req.inject, router)
+		return writeDryRun(stdout, req.query, provider, limit, opts, router)
 	}
 
-	result, err := router.Search(req.query, limit, provider, search.Options{Extra: req.inject})
+	result, err := router.Search(req.query, limit, provider, opts)
 	if err != nil {
 		return fmt.Errorf("search failed: %w", err)
 	}

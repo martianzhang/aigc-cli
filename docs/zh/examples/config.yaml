@@ -208,7 +208,7 @@ defaults:
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$'] # read 原语拒绝正则（匹配路径或文件名，默认空=全部放行）
   # ── 可选：Web 搜索默认厂商（aigc-cli search / kb search / chat / MCP 共用）──
   # search:
-  #   provider: duckduckgo   # 厂商名（duckduckgo / firecrawl / brave / doubao / deepseek / exa）
+  #   provider: duckduckgo   # 厂商名（duckduckgo / firecrawl / brave / doubao / deepseek / exa / pixabay / pexels）
   decision:
   # provider: "ollama"        # 命名 provider（ollama / openrouter / ...）；不填则用全局
   # model: "tev1"             # tev1 | tev1:0.8b | nimble | typesafe/jev-latest
@@ -254,7 +254,7 @@ defaults:
   #   embedding_max_runes: 256                           # 入库文本截断长度（默认 256；<=0 不截断，越长越慢）
   #   semantic_top_k: 200                                # 语义列表参与 RRF 的条数（默认 200；<=0 全部）
 
-  # ── 可选：Web 搜索引擎 ──
+  # ── 可选：Web / 素材搜索引擎 ──
   # 声明多个 provider 供 aigc-cli search / fetch、kb search 与 chat/MCP 的 web_search/web_fetch 使用。
   # aigc-cli search / kb search 也可通过 --provider 参数临时切换；chat 可用 --search-provider 覆盖。
   # 默认厂商统一在 defaults.search.provider 中配置。
@@ -276,6 +276,12 @@ defaults:
   #   exa:
   #     type: exa
   #     api_key: "exa-xxx"         # Exa 神经搜索（同时提供 Search 与 Contents/Fetch；$10 免费额度/月）
+  #   pixabay:
+  #     type: pixabay
+  #     api_key: "your-pixabay-key"   # 免费 API key；图片（photo/illustration/vector）+ 视频
+  #   pexels:
+  #     type: pexels
+  #     api_key: "your-pexels-key"    # 免费 API key；图片 + 视频
 
   # ── 可选：强制走本地 ONNX（无需配 provider）──
   # 命令行 aigc-cli ocr scan x.png --provider local 即可

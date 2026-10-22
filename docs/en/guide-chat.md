@@ -246,7 +246,7 @@ With it on, a request carries only the **primitives** plus two meta-tools: the m
 | `--json` | Pass messages as JSON; forwarded **verbatim** when no flags are set, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API. Explicitly-set flags override the matching key | — |
 | `--inject-json` | Merge a JSON object **on top of** the generated body (objects recurse, arrays append, scalars overwrite). Use it for vendor-only fields (native web search, reasoning, routing); takes precedence over `--json` | — |
 | `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
-| `--search-provider` | Vendor name for the `web_search`/`web_fetch` primitives (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`); overrides `defaults.search.provider` | — |
+| `--search-provider` | Vendor name for the `web_search`/`web_fetch` primitives (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`pixabay`/`pexels`); overrides `defaults.search.provider` | — |
 
 ### Context Management
 

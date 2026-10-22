@@ -45,6 +45,24 @@ func NewProviderFromConfig(cfg *types.WebSearchProvider) (Provider, error) {
 			return nil, fmt.Errorf("exa requires api_key")
 		}
 		return NewExaProvider(apiKey), nil
+	case "pixabay":
+		apiKey := cfg.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("PIXABAY_API_KEY")
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("pixabay requires api_key")
+		}
+		return NewPixabayProvider(apiKey), nil
+	case "pexels":
+		apiKey := cfg.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("PEXELS_API_KEY")
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("pexels requires api_key")
+		}
+		return NewPexelsProvider(apiKey), nil
 	default:
 		return nil, fmt.Errorf("unknown provider type: %s", cfg.Type)
 	}

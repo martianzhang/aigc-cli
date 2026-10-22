@@ -217,7 +217,7 @@ defaults:
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$']  # read primitive denylist regexes (path or basename; empty = allow all)
   # ── Optional: shared web-search vendor (aigc-cli search / kb search / chat / MCP)──
   # search:
-  #   provider: duckduckgo   # vendor name (duckduckgo / firecrawl / brave / doubao / deepseek / exa)
+  #   provider: duckduckgo   # vendor name (duckduckgo / firecrawl / brave / doubao / deepseek / exa / pixabay / pexels)
 
   decision:
     # provider: "ollama"        # named provider (ollama / openrouter / ...); unset uses global
@@ -266,7 +266,7 @@ defaults:
   #   embedding_max_runes: 256                           # truncate embedded text (default 256; <=0 = no truncation, slower)
   #   semantic_top_k: 200                                # entries the semantic list contributes to RRF (default 200; <=0 = all)
 
-  # ── Optional: Web Search Providers ──
+  # ── Optional: Web / Media Search Providers ──
   # Declare multiple providers for auto-fallback, shared by `aigc-cli search` /
   # `fetch`, `kb search`, and the chat/MCP web_search/web_fetch tools.
   # `aigc-cli search` / `kb search` also support a --provider flag; chat can
@@ -290,6 +290,12 @@ defaults:
   #   exa:
   #     type: exa
   #     api_key: "exa-xxx"         # Exa neural search (Search + Contents/Fetch; $10 free credit/month)
+  #   pixabay:
+  #     type: pixabay
+  #     api_key: "your-pixabay-key"   # free API key; photos (photo/illustration/vector) + videos
+  #   pexels:
+  #     type: pexels
+  #     api_key: "your-pexels-key"    # free API key; photos + videos
 
   # ── Optional: Force local ONNX (no provider config needed) ──
   # Just run: aigc-cli ocr scan x.png --provider local

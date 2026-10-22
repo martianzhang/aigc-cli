@@ -28,6 +28,13 @@ type RawProvider interface {
 	SearchRaw(query string, limit int, opts Options) ([]Result, json.RawMessage, error)
 }
 
+// MediaProvider is implemented by search providers whose results are media
+// assets. MediaTypes lists the --type values the provider understands.
+type MediaProvider interface {
+	Provider
+	MediaTypes() []string
+}
+
 // Result holds a single search result.
 type Result struct {
 	URL   string
@@ -49,12 +56,14 @@ type unavailableProvider struct {
 
 // ProviderStatus is a diagnostic view of one configured provider.
 type ProviderStatus struct {
-	Name      string
-	Type      string
-	Search    bool
-	Fetch     bool
-	Available bool
-	Err       string
+	Name       string
+	Type       string
+	Search     bool
+	Fetch      bool
+	Media      bool
+	MediaTypes []string
+	Available  bool
+	Err        string
 }
 
 // NewRouter creates an empty provider registry.
@@ -128,6 +137,10 @@ func (r *Router) Statuses() []ProviderStatus {
 			status.Available = true
 			status.Search = true
 			_, status.Fetch = p.(Fetcher)
+			if mp, ok := p.(MediaProvider); ok {
+				status.Media = true
+				status.MediaTypes = mp.MediaTypes()
+			}
 		} else {
 			status.Err = r.unavailable[name].err.Error()
 		}

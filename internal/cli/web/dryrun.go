@@ -1,7 +1,6 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -11,7 +10,7 @@ import (
 
 // writeDryRun prints the equivalent curl command for the selected provider
 // without sending any request.
-func writeDryRun(w io.Writer, query, provider string, limit int, inject json.RawMessage, router *search.Router) error {
+func writeDryRun(w io.Writer, query, provider string, limit int, opts search.Options, router *search.Router) error {
 	p, ok := router.GetProvider(provider)
 	if !ok {
 		return fmt.Errorf("search provider %q is not configured", provider)
@@ -20,7 +19,7 @@ func writeDryRun(w io.Writer, query, provider string, limit int, inject json.Raw
 	if !ok {
 		return fmt.Errorf("provider %q does not provide a curl preview", provider)
 	}
-	plan, err := previewer.Preview(query, limit, search.Options{Extra: inject})
+	plan, err := previewer.Preview(query, limit, opts)
 	if err != nil {
 		return fmt.Errorf("preview %s: %w", provider, err)
 	}

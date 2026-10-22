@@ -1,6 +1,7 @@
 package webfetch
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -36,6 +37,21 @@ type Options struct {
 	// CookieJar, when set, sends matching cookies and captures Set-Cookie on
 	// every response/redirect hop.
 	CookieJar http.CookieJar
+
+	// MediaDir enables saving binary responses to a file instead of rejecting
+	// them. Empty keeps the text-only behaviour.
+	MediaDir string
+	// MediaName is the requested file name. A base name without an extension
+	// gets the detected one; a name with an extension is used verbatim.
+	MediaName string
+	// Force overwrites an existing media file.
+	Force bool
+	// MediaMaxBytes bounds a media download. Zero uses DefaultMediaMaxBytes.
+	MediaMaxBytes int64
+	// Progress is called while a media response is streamed. total is -1 when
+	// the server does not send Content-Length. It is best-effort and may be
+	// called less often than every byte.
+	Progress func(downloaded, total int64)
 }
 
 // Document is the structured result of one fetch.
@@ -49,6 +65,12 @@ type Document struct {
 	Bytes         int64
 	Converted     bool // true when Content came from HTML→Markdown
 	Truncated     bool // response exceeded MaxBytes
+
+	// Media fields are populated when the response was saved to disk.
+	Media     bool
+	MediaType string
+	SavedPath string
+	SHA256    string
 }
 
 // NormalizeURL trims input and adds https:// to a bare host/path.
@@ -128,21 +150,34 @@ func Fetch(ctx context.Context, rawURL string, opts Options) (*Document, error) 
 		return nil, fmt.Errorf("fetch %s: HTTP %d", normalized, resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	bodyReader := bufio.NewReader(resp.Body)
+	head, _ := bodyReader.Peek(512)
+	contentType := resp.Header.Get("Content-Type")
+	mediaType := normalizeMediaType(contentType)
+	if mediaType == "" && len(head) > 0 {
+		mediaType = normalizeMediaType(http.DetectContentType(head))
+		contentType = mediaType
+	}
+	isHTML := mediaType == "text/html" || mediaType == "application/xhtml+xml" ||
+		(mediaType == "" && looksLikeHTML(head))
+	finalURL := normalized
+	if resp.Request != nil && resp.Request.URL != nil {
+		finalURL = resp.Request.URL.String()
+	}
+	if !isHTML && !isTextual(mediaType) {
+		if opts.MediaDir == "" {
+			return nil, fmt.Errorf("fetch %s: unsupported content type %q", normalized, contentType)
+		}
+		return saveMedia(bodyReader, opts, normalized, finalURL, mediaType, contentType, resp.ContentLength)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(bodyReader, maxBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read body: %w", err)
 	}
 	truncated := int64(len(body)) > maxBytes
 	if truncated {
 		body = body[:maxBytes]
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	mediaType := strings.ToLower(strings.TrimSpace(strings.SplitN(contentType, ";", 2)[0]))
-	isHTML := mediaType == "text/html" || mediaType == "application/xhtml+xml" ||
-		(mediaType == "" && looksLikeHTML(body))
-	if !isHTML && !isTextual(mediaType) {
-		return nil, fmt.Errorf("fetch %s: unsupported content type %q", normalized, contentType)
 	}
 
 	decoded := decodeBody(body, contentType)
@@ -153,11 +188,7 @@ func Fetch(ctx context.Context, rawURL string, opts Options) (*Document, error) 
 		ContentType: contentType,
 		Bytes:       int64(len(body)),
 		Truncated:   truncated,
-	}
-	if resp.Request != nil && resp.Request.URL != nil {
-		doc.FinalURL = resp.Request.URL.String()
-	} else {
-		doc.FinalURL = normalized
+		FinalURL:    finalURL,
 	}
 
 	if isHTML {

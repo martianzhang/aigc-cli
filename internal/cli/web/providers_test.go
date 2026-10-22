@@ -48,6 +48,7 @@ func TestWriteProviderList(t *testing.T) {
 	router := search.NewRouter()
 	router.RegisterWithType("duckduckgo", search.NewDDGProvider(), "duckduckgo")
 	router.RegisterWithType("deepseek", &fakeFetchProvider{name: "deepseek"}, "deepseek")
+	router.RegisterWithType("pixabay", search.NewPixabayProvider("k"), "pixabay")
 	router.RegisterUnavailable("brave", "brave", errors.New("brave requires api_key"))
 
 	var buf bytes.Buffer
@@ -56,8 +57,9 @@ func TestWriteProviderList(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"NAME", "TYPE", "SEARCH", "FETCH", "STATUS",
-		"duckduckgo", "deepseek", "brave",
+		"NAME", "TYPE", "SEARCH", "FETCH", "MEDIA", "STATUS",
+		"duckduckgo", "deepseek", "brave", "pixabay",
+		"image,photo,illustration,vector,video",
 		"unavailable: brave requires api_key",
 	} {
 		if !strings.Contains(out, want) {

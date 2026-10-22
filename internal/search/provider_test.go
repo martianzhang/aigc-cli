@@ -48,6 +48,16 @@ func TestNewProviderFromConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "pixabay without api key returns error",
+			cfg:     &types.WebSearchProvider{Type: "pixabay"},
+			wantErr: true,
+		},
+		{
+			name:    "pexels without api key returns error",
+			cfg:     &types.WebSearchProvider{Type: "pexels"},
+			wantErr: true,
+		},
+		{
 			name:    "unknown type returns error",
 			cfg:     &types.WebSearchProvider{Type: "nonexistent"},
 			wantErr: true,
@@ -97,6 +107,24 @@ func TestNewProviderFromConfig(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "pixabay with api key returns PixabayProvider",
+			cfg:  &types.WebSearchProvider{Type: "pixabay", APIKey: "pixabay-key"},
+			check: func(t *testing.T, p Provider) {
+				if _, ok := p.(*PixabayProvider); !ok {
+					t.Errorf("NewProviderFromConfig() = %T, want *PixabayProvider", p)
+				}
+			},
+		},
+		{
+			name: "pexels with api key returns PexelsProvider",
+			cfg:  &types.WebSearchProvider{Type: "pexels", APIKey: "pexels-key"},
+			check: func(t *testing.T, p Provider) {
+				if _, ok := p.(*PexelsProvider); !ok {
+					t.Errorf("NewProviderFromConfig() = %T, want *PexelsProvider", p)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -104,6 +132,8 @@ func TestNewProviderFromConfig(t *testing.T) {
 			// Ensure ambient keys cannot leak into the "without api key" cases.
 			t.Setenv("FIRECRAWL_API_KEY", "")
 			t.Setenv("EXA_API_KEY", "")
+			t.Setenv("PIXABAY_API_KEY", "")
+			t.Setenv("PEXELS_API_KEY", "")
 
 			p, err := NewProviderFromConfig(tt.cfg)
 			if tt.wantErr {
@@ -125,5 +155,26 @@ func TestNewProviderFromConfig(t *testing.T) {
 				tt.check(t, p)
 			}
 		})
+	}
+}
+
+func TestNewProviderFromConfigEnvKeys(t *testing.T) {
+	t.Setenv("PIXABAY_API_KEY", "env-pb-key")
+	t.Setenv("PEXELS_API_KEY", "env-px-key")
+
+	for _, tc := range []struct {
+		typ  string
+		want string
+	}{
+		{typ: "pixabay", want: "pixabay"},
+		{typ: "pexels", want: "pexels"},
+	} {
+		p, err := NewProviderFromConfig(&types.WebSearchProvider{Type: tc.typ})
+		if err != nil {
+			t.Fatalf("%s: NewProviderFromConfig() error = %v", tc.typ, err)
+		}
+		if p.Name() != tc.want {
+			t.Errorf("%s: Name() = %q, want %q", tc.typ, p.Name(), tc.want)
+		}
 	}
 }

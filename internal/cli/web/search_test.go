@@ -130,6 +130,7 @@ func TestBuildSearchRequestPrecedence(t *testing.T) {
 		setFlags   map[string]string
 		wantQuery  string
 		wantProv   string
+		wantType   string
 		wantLimit  int
 		wantInject string
 	}{
@@ -145,6 +146,23 @@ func TestBuildSearchRequestPrecedence(t *testing.T) {
 			wantQuery: "golang",
 			wantProv:  "deepseek",
 			wantLimit: 7,
+		},
+		{
+			name:      "json supplies media type",
+			jsonInput: `{"query":"rain","provider":"pexels","type":"video","limit":5}`,
+			wantQuery: "rain",
+			wantProv:  "pexels",
+			wantType:  "video",
+			wantLimit: 5,
+		},
+		{
+			name:      "cli media type beats json",
+			jsonInput: `{"query":"rain","provider":"pexels","type":"video"}`,
+			setFlags:  map[string]string{"type": "photo"},
+			wantQuery: "rain",
+			wantProv:  "pexels",
+			wantType:  "photo",
+			wantLimit: defaultSearchLimit,
 		},
 		{
 			name:      "positional args beat json query",
@@ -182,15 +200,16 @@ func TestBuildSearchRequestPrecedence(t *testing.T) {
 			}
 			// Refresh the flag-bound struct from the flag set, mirroring RunE.
 			flags.provider, _ = cmd.Flags().GetString("provider")
+			flags.mediaType, _ = cmd.Flags().GetString("type")
 			flags.limit, _ = cmd.Flags().GetInt("limit")
 
 			req, err := buildSearchRequest(cmd, tc.args, flags)
 			if err != nil {
 				t.Fatalf("buildSearchRequest: %v", err)
 			}
-			if req.query != tc.wantQuery || req.provider != tc.wantProv || req.limit != tc.wantLimit {
-				t.Errorf("request = %+v, want query=%q provider=%q limit=%d",
-					req, tc.wantQuery, tc.wantProv, tc.wantLimit)
+			if req.query != tc.wantQuery || req.provider != tc.wantProv || req.limit != tc.wantLimit || req.mediaType != tc.wantType {
+				t.Errorf("request = %+v, want query=%q provider=%q type=%q limit=%d",
+					req, tc.wantQuery, tc.wantProv, tc.wantType, tc.wantLimit)
 			}
 			if tc.wantInject != "" && string(req.inject) != tc.wantInject {
 				t.Errorf("inject = %s, want %s", req.inject, tc.wantInject)
@@ -339,10 +358,11 @@ func TestRunSearchPassesInjectJSON(t *testing.T) {
 
 	var stdout bytes.Buffer
 	if err := runSearch(&stdout, searchRequest{
-		query:    "q",
-		provider: "exa",
-		limit:    5,
-		inject:   inject,
+		query:     "q",
+		provider:  "exa",
+		mediaType: "video",
+		limit:     5,
+		inject:    inject,
 	}, newFakeRouter(provider)); err != nil {
 		t.Fatalf("runSearch: %v", err)
 	}
@@ -351,6 +371,9 @@ func TestRunSearchPassesInjectJSON(t *testing.T) {
 	}
 	if string(provider.lastOpts.Extra) != string(inject) {
 		t.Errorf("inject = %s, want %s", provider.lastOpts.Extra, inject)
+	}
+	if provider.lastOpts.Type != "video" {
+		t.Errorf("type = %q, want video", provider.lastOpts.Type)
 	}
 }
 

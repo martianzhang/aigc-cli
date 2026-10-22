@@ -29,6 +29,8 @@ type fetchFlags struct {
 	headers       []string
 	cookies       []string
 	cookieJar     string
+	name          string
+	force         bool
 	dryRun        bool
 	html          bool
 	listProviders bool
@@ -39,7 +41,7 @@ func FetchCmd() *cobra.Command {
 	flags := &fetchFlags{}
 	cmd := &cobra.Command{
 		Use:   "fetch <url>",
-		Short: "Fetch a URL or local file and print clean Markdown",
+		Short: "Fetch a URL/local file as Markdown, or save a media URL to a file",
 		Long: `Fetch a URL or a local HTML/text file and print its main content as Markdown
 on stdout.
 The argument can be an http(s) URL or any existing local file. Local files are
@@ -48,8 +50,19 @@ the built-in HTML→Markdown pipeline and never touch the network.
 
 For URLs, the default is the built-in free fetcher: a direct HTTP GET with
 readability extraction and HTML→Markdown conversion. Non-HTML textual bodies
-(JSON, plain text, …) are printed verbatim; binary bodies are rejected. Fetches
-are SSRF-guarded and honor the global HTTP proxy and --timeout.
+(JSON, plain text, …) are printed verbatim. A binary media response (image,
+video, audio, PDF, …) is saved under the global -o directory instead of being
+rejected; the saved path is printed on stdout.
+
+--name sets the file name used for a media response. A name without an
+extension gets the detected one; a name with an extension is used verbatim.
+It is a file name, not a path — use -o for the directory. Existing files are
+refused unless --force is given. Media auto-save is only available with the
+built-in fetcher, so --name/--force do not combine with --provider.
+
+A media download prints a live progress line on stderr (downloaded / total,
+percent, speed, ETA) and a final size/duration/speed summary; stdout remains
+the saved path only.
 
 Use --provider to route through a third-party fetch API instead (DeepSeek or
 Exa; see --list-providers). That may bill per request, and -H/--header,
@@ -66,6 +79,7 @@ jar back after fetching. -H "Cookie: ..." takes precedence over -b.
 Output is only the page body, so redirection works naturally:
 
   aigc-cli fetch https://example.com/article > article.md
+  aigc-cli fetch https://cdn.example/clip.mp4 -o stock/ --name rain-01
 
 Use --html to print the raw response body (or local file contents) instead of
 converted Markdown. It is only available with the built-in fetcher.
@@ -75,6 +89,9 @@ converted Markdown. It is only available with the built-in fetcher.
   aigc-cli fetch https://go.dev/doc/effective_go > effective_go.md
   aigc-cli fetch ./page.html > page.md
   aigc-cli fetch /tmp/report.html --max-chars 20000
+  aigc-cli fetch https://cdn.example/clip.mp4 -o stock/ --name rain-01
+  aigc-cli fetch https://cdn.example/photo.jpg -o stock/ --name still-01
+  aigc-cli fetch https://cdn.example/clip.mp4 -o stock/ --name rain-01.mp4 --force
   aigc-cli fetch https://example.com/private -H "Authorization: Bearer $TOKEN"
   aigc-cli fetch https://example.com/private -b cookies.txt
   aigc-cli fetch https://example.com/private -b a.txt -b b.txt -c cookies.txt
@@ -103,6 +120,8 @@ converted Markdown. It is only available with the built-in fetcher.
 	f.StringArrayVarP(&flags.headers, "header", "H", nil, `Extra header "Name: value"; repeatable; "Name:" removes a default header (built-in fetcher only)`)
 	f.StringArrayVarP(&flags.cookies, "cookie", "b", nil, `Cookie data "name=value; ..." or a Netscape cookie file; repeatable (built-in fetcher only)`)
 	f.StringVarP(&flags.cookieJar, "cookie-jar", "c", "", "Write cookies to a Netscape-format file after fetching (built-in fetcher only)")
+	f.StringVar(&flags.name, "name", "", "File name for a media response; without an extension the detected one is appended; no path separators")
+	f.BoolVar(&flags.force, "force", false, "Overwrite an existing media file (default: refuse)")
 	f.BoolVar(&flags.html, "html", false, "Print the raw HTML/response body instead of converted Markdown (built-in fetcher only)")
 	f.BoolVar(&flags.dryRun, "dry-run", false, "Print the equivalent curl command without making any request")
 	f.BoolVar(&flags.listProviders, "list-providers", false, "List configured providers with search/fetch capability and availability")
@@ -118,6 +137,11 @@ func runFetch(stdout, stderr io.Writer, rawURL string, flags fetchFlags, router 
 	if err != nil {
 		return err
 	}
+	if flags.name != "" {
+		if err := webfetch.ValidateMediaName(flags.name); err != nil {
+			return err
+		}
+	}
 	headers, cookieHeader, cookieHeaderFound := extractCookieHeader(headers)
 
 	if path, isLocal, err := localFilePath(rawURL); err != nil {
@@ -125,6 +149,9 @@ func runFetch(stdout, stderr io.Writer, rawURL string, flags fetchFlags, router 
 	} else if isLocal {
 		if flags.provider != "" || len(headers) > 0 || cookieHeaderFound || len(flags.cookies) > 0 || flags.cookieJar != "" {
 			return fmt.Errorf("local files use the built-in HTML→Markdown converter; --provider/--header/--cookie/--cookie-jar are not applicable")
+		}
+		if flags.name != "" || flags.force {
+			return fmt.Errorf("--name/--force apply to remote media downloads; local files are converted as text")
 		}
 		return runLocalFetch(stdout, stderr, path, flags)
 	}
@@ -146,6 +173,9 @@ func runFetch(stdout, stderr io.Writer, rawURL string, flags fetchFlags, router 
 	}
 	if len(headers) > 0 || cookieHeaderFound || len(flags.cookies) > 0 || flags.cookieJar != "" {
 		return fmt.Errorf("--header, --cookie and --cookie-jar are only supported by the built-in fetcher; third-party fetch runs on the vendor's side")
+	}
+	if flags.name != "" || flags.force {
+		return fmt.Errorf("--name/--force apply to media downloads by the built-in fetcher; remove --provider")
 	}
 	return runProviderFetch(stdout, stderr, rawURL, flags, fetcher)
 }
@@ -219,10 +249,19 @@ func runBuiltinFetch(stdout, stderr io.Writer, rawURL string, headers []webfetch
 		return writeCurlPreview(stdout, "built-in", plan, cookieCurlArgs(flags, cookieHeader, cookieHeaderFound))
 	}
 
+	mediaDir := options.Shared.OutputDir
+	if mediaDir == "" {
+		mediaDir = "."
+	}
+	progress := newMediaProgress(stderr)
 	doc, fetchErr := fetchDocument(context.Background(), normalized, webfetch.Options{
 		Timeout:   fetchTimeout(),
 		Headers:   headers,
 		CookieJar: store,
+		MediaDir:  mediaDir,
+		MediaName: flags.name,
+		Force:     flags.force,
+		Progress:  progress.Update,
 	})
 	if flags.cookieJar != "" {
 		if werr := store.WriteNetscapeFile(flags.cookieJar); werr != nil && fetchErr == nil {
@@ -230,7 +269,21 @@ func runBuiltinFetch(stdout, stderr io.Writer, rawURL string, headers []webfetch
 		}
 	}
 	if fetchErr != nil {
+		progress.Abort()
 		return fetchErr
+	}
+	if doc.Media {
+		if doc.SavedPath == "" {
+			progress.Abort()
+			return fmt.Errorf("media response was not saved")
+		}
+		progress.Finish(doc.Bytes)
+		fmt.Fprintln(stdout, doc.SavedPath)
+		if options.Shared.Verbose {
+			fmt.Fprintf(stderr, "Provider: built-in\nFinal URL: %s\nContent-Type: %s\nBytes: %d\nSHA256: %s\nSaved: %s\n",
+				doc.FinalURL, doc.ContentType, doc.Bytes, doc.SHA256, doc.SavedPath)
+		}
+		return nil
 	}
 	content := fetchedBody(doc, flags.html)
 	if strings.TrimSpace(content) == "" {

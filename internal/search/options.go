@@ -14,6 +14,12 @@ import (
 // Extra is a JSON object; empty/nil means no overrides.
 type Options struct {
 	Extra json.RawMessage
+	// Type selects a media endpoint for providers that search more than one
+	// medium (e.g. images vs videos). Web-search providers ignore it.
+	Type string
+	// NoCache bypasses a provider's response cache (Pixabay requires 24h
+	// caching by default; this is the explicit refresh escape hatch).
+	NoCache bool
 }
 
 // mergePayload marshals the base vendor payload and layers Extra on top using

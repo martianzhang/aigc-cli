@@ -488,3 +488,92 @@ func TestTruncateContent(t *testing.T) {
 		})
 	}
 }
+
+func TestRunFetchBuiltinMediaPrintsSavedPath(t *testing.T) {
+	originalDoc := fetchDocument
+	originalOut := options.Shared.OutputDir
+	var gotOpts webfetch.Options
+	fetchDocument = func(_ context.Context, rawURL string, opts webfetch.Options) (*webfetch.Document, error) {
+		gotOpts = opts
+		return &webfetch.Document{
+			URL: rawURL, FinalURL: rawURL, Media: true,
+			MediaType: "video/mp4", ContentType: "video/mp4",
+			SavedPath: filepath.Join("stock", "rain-01.mp4"),
+			Bytes:     12, SHA256: "abc123",
+		}, nil
+	}
+	options.Shared.OutputDir = "stock"
+	t.Cleanup(func() {
+		fetchDocument = originalDoc
+		options.Shared.OutputDir = originalOut
+	})
+
+	var stdout, stderr bytes.Buffer
+	err := runFetch(&stdout, &stderr, "https://example.com/clip.mp4", fetchFlags{
+		name:  "rain-01",
+		force: true,
+	}, newFetchRouter())
+	if err != nil {
+		t.Fatalf("runFetch: %v", err)
+	}
+	if stdout.String() != filepath.Join("stock", "rain-01.mp4")+"\n" {
+		t.Errorf("stdout = %q, want the saved path", stdout.String())
+	}
+	if gotOpts.MediaDir != "stock" || gotOpts.MediaName != "rain-01" || !gotOpts.Force {
+		t.Errorf("media options = %+v, want dir/name/force", gotOpts)
+	}
+	if !strings.Contains(stderr.String(), "downloaded 12 B") {
+		t.Errorf("stderr = %q, want the final size summary", stderr.String())
+	}
+}
+
+func TestRunFetchBuiltinMediaVerbose(t *testing.T) {
+	originalDoc := fetchDocument
+	originalVerbose := options.Shared.Verbose
+	fetchDocument = func(_ context.Context, rawURL string, _ webfetch.Options) (*webfetch.Document, error) {
+		return &webfetch.Document{
+			URL: rawURL, FinalURL: rawURL, Media: true,
+			MediaType: "audio/mpeg", ContentType: "audio/mpeg",
+			SavedPath: "theme.mp3", Bytes: 9, SHA256: "sum",
+		}, nil
+	}
+	options.Shared.Verbose = true
+	t.Cleanup(func() {
+		fetchDocument = originalDoc
+		options.Shared.Verbose = originalVerbose
+	})
+
+	var stdout, stderr bytes.Buffer
+	if err := runFetch(&stdout, &stderr, "https://example.com/theme.mp3", fetchFlags{}, newFetchRouter()); err != nil {
+		t.Fatalf("runFetch: %v", err)
+	}
+	for _, want := range []string{"Content-Type: audio/mpeg", "Bytes: 9", "SHA256: sum", "Saved: theme.mp3"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Errorf("stderr = %q, want %q", stderr.String(), want)
+		}
+	}
+}
+
+func TestRunFetchMediaFlagsWithProviderRejected(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	err := runFetch(&stdout, &stderr, "https://example.com/clip.mp4", fetchFlags{
+		provider: "fake",
+		name:     "clip",
+	}, newFetchRouter(&fakeFetchProvider{name: "fake"}))
+	if err == nil || !strings.Contains(err.Error(), "--name/--force") {
+		t.Fatalf("error = %v, want a media-flags/provider conflict", err)
+	}
+}
+
+func TestRunFetchMediaFlagsWithLocalRejected(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "page.html")
+	if err := os.WriteFile(path, []byte("<html></html>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	err := runFetch(&stdout, &stderr, path, fetchFlags{name: "page"}, newFetchRouter())
+	if err == nil || !strings.Contains(err.Error(), "--name/--force") {
+		t.Fatalf("error = %v, want a media-flags/local conflict", err)
+	}
+}

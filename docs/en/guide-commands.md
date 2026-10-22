@@ -130,11 +130,18 @@ Prints the HTTP method, URL, headers, and JSON body.
 
 ## search
 
-`aigc-cli search` searches the web and prints **the executed vendor's raw JSON
-response** — no title/URL normalization. Vendor fields such as snippets, scores
-and metadata are preserved, which keeps debugging and downstream parsing
-straightforward. With no third-party provider configured it falls back to the
-built-in free DuckDuckGo engine — no API key required.
+`aigc-cli search` searches the web or a media library (Pixabay / Pexels) and
+prints **the executed vendor's raw JSON response** — no title/URL normalization.
+Vendor fields such as snippets, scores, metadata and image/video download URLs
+are preserved, which keeps debugging and downstream parsing straightforward.
+With no third-party provider configured it falls back to the built-in free
+DuckDuckGo engine — no API key required.
+
+Media search uses `--type` to pick the endpoint and `--inject-json` for the
+vendor's own filters. The query text, page size and API key stay CLI-owned and
+cannot be overridden by injection. Pixabay supports `image` (all image types) /
+`photo` / `illustration` / `vector` / `video`; Pexels has photos and videos only,
+so it supports `image` / `video` (`image` means photos).
 
 ```bash
 aigc-cli search "golang context timeout"
@@ -151,14 +158,36 @@ aigc-cli search "vector database" --dry-run       # print equivalent curl, no re
 aigc-cli search --list-providers                  # registry + capability + availability
 ```
 
+Media examples:
+
+```bash
+# Pixabay photos (photo / illustration / vector / image)
+aigc-cli search -P pixabay "rain window night" --type photo -n 12 \
+  --inject-json '{"orientation":"horizontal","min_width":1920,"safesearch":"true"}'
+
+# Pixabay videos
+aigc-cli search -P pixabay "rain window night" --type video -n 12 \
+  --inject-json '{"min_width":1920}'
+
+# Pexels videos
+aigc-cli search -P pexels "rain window night" --type video -n 12 \
+  --inject-json '{"orientation":"landscape","size":"large"}'
+```
+
+The raw JSON contains page URLs, preview images and download URLs; feed those
+URLs to `aigc-cli fetch` to save the selected asset. Check the source license
+per asset (Pixabay Content License / Pexels License).
+
 | Flag | Default | Description |
 |---|---|---|
-| `-P, --provider` | empty (→ `duckduckgo`) | Search vendor name: `duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` |
+| `-P, --provider` | empty (→ `duckduckgo`) | Search vendor name: `duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` / `pixabay` / `pexels` |
+| `--type` | empty | Media endpoint: `image` / `photo` / `illustration` / `vector` / `video`; web providers ignore it |
 | `-n, --limit` | `5` | Number of results to request (capped at 20) |
-| `--json` | empty | Command-level JSON: file path or inline JSON (**no stdin**); fields: `query`, `provider`, `limit` |
-| `--inject-json` | empty | Vendor-native fields: file path or inline JSON; merged into the POST body or appended as GET query parameters |
+| `--json` | empty | Command-level JSON: file path or inline JSON (**no stdin**); fields: `query`, `provider`, `type`, `limit` |
+| `--inject-json` | empty | Vendor-native fields: file path or inline JSON; merged into the POST body or appended as GET query parameters; query, page size and API key stay CLI-owned |
+| `--refresh` | `false` | Ignore a provider's response cache (Pixabay caches for 24h by API requirement) |
 | `--dry-run` | `false` | Print the equivalent curl for the selected provider (keys masked, injected fields included), without calling any search API |
-| `--list-providers` | `false` | List configured providers with search/fetch capability and availability (including failure reasons) |
+| `--list-providers` | `false` | List configured providers with search/fetch/media capability and availability (including failure reasons) |
 
 - **stdin carries the query**: `echo "..." | aigc-cli search` (or a no-arg
   invocation with piped input) reads it automatically; `aigc-cli search -` forces
@@ -167,18 +196,22 @@ aigc-cli search --list-providers                  # registry + capability + avai
 
 - **`--provider` selects a search vendor, not an LLM provider.** Precedence:
   `--provider` > `--json`'s `provider` > `defaults.search.provider` > `duckduckgo`.
-- Query and limit follow the same rule: positional args / `--limit` > `--json` >
-  built-in defaults.
+- Query, `--type` and limit follow the same rule: positional args / `--type` /
+  `--limit` > `--json` > built-in defaults.
 - `--inject-json` follows the global merge rules: objects recurse, arrays append,
   scalars overwrite. POST vendors merge it into the JSON body; GET vendors
-  (Brave) only accept scalars or arrays of scalars and turn them into query
-  parameters — nested objects are rejected.
+  (Brave / Pixabay / Pexels) only accept scalars or arrays of scalars and turn
+  them into query parameters — nested objects are rejected. Media queries keep
+  the query text, `per_page` and API key CLI-owned.
 - DuckDuckGo is an HTML scrape and rejects `--inject-json` with a clear error.
 - The output is the vendor's response body: valid JSON is pretty-printed;
-  non-JSON bodies are printed verbatim (useful for error pages).
+  non-JSON bodies are printed verbatim (useful for error pages). Media JSON
+  includes preview and download URLs that can be passed to `aigc-cli fetch`.
 - DuckDuckGo has no vendor JSON, so its output is `{"urls":["..."]}`.
 - Exactly one provider is called per search; a provider failure is returned
   directly (no automatic rotation or retry against another vendor).
+- Pixabay responses are cached for 24 hours as its API requires; do not loop
+  the command for bulk scraping.
 - A provider that is configured but fails construction (missing `api_key`,
   unknown `type`, …) reports `configured but unavailable` with the reason
   instead of silently disappearing from the available list;
@@ -186,7 +219,7 @@ aigc-cli search --list-providers                  # registry + capability + avai
 - `--dry-run` sends no network request and prints one curl for the selected
   provider.
 - Search only: no knowledge-base write. Use `aigc-cli kb search` for
-  search + fetch + index. A standalone `aigc-cli fetch` is still planned.
+  search + fetch + index. Use `aigc-cli fetch` for a standalone URL fetch.
 - `-v` adds nothing for search; stdout always contains only the vendor JSON.
 - All search requests honor the global proxy: `http_proxy` in config, or
   `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`.
@@ -195,9 +228,10 @@ aigc-cli search --list-providers                  # registry + capability + avai
 
 ```json
 {
-  "query": "golang context",
-  "provider": "exa",
-  "limit": 3
+  "query": "rain window",
+  "provider": "pexels",
+  "type": "video",
+  "limit": 6
 }
 ```
 
@@ -216,15 +250,20 @@ curl -X POST https://api.exa.ai/search \
 
 ## fetch
 
-`aigc-cli fetch` downloads one URL or converts one local HTML/text file and
-prints its main content as Markdown on stdout. The default is the built-in free
-fetcher; nothing is saved or indexed, so redirection is enough:
+`aigc-cli fetch` downloads one URL or converts one local HTML/text file:
+textual content is printed as Markdown on stdout; image/video/audio responses are
+saved under the global `-o` directory and the saved path is printed. The default
+is the built-in free fetcher; text is not persisted and nothing is indexed, so
+redirection is enough:
 
 ```bash
 aigc-cli fetch https://go.dev/doc/effective_go
 aigc-cli fetch https://go.dev/doc/effective_go > effective_go.md
 aigc-cli fetch ./page.html > page.md
 aigc-cli fetch /tmp/report.html --max-chars 20000
+aigc-cli fetch https://cdn.example/clip.mp4 -o stock/ --name rain-01
+aigc-cli fetch https://cdn.example/photo.jpg -o stock/ --name still-01
+aigc-cli fetch https://cdn.example/clip.mp4 -o stock/ --name rain-01.mp4 --force
 aigc-cli fetch https://example.com/article --html > page.html
 aigc-cli fetch https://example.com/private -H "Authorization: Bearer $TOKEN"
 aigc-cli fetch https://example.com/private -b cookies.txt
@@ -242,18 +281,35 @@ aigc-cli fetch --list-providers
 | `-H, --header` | none | Repeatable `Name: value`; `Name:` removes a default header (built-in fetcher only) |
 | `-b, --cookie` | none | Repeatable; `name=value; ...` data or a Netscape cookie file (built-in fetcher only) |
 | `-c, --cookie-jar` | none | Write cookies to a Netscape-format file after fetching (built-in fetcher only) |
-| `--max-chars` | `0` (no limit) | Truncate output by rune count |
+| `--name` | none | File name for a media response; without an extension the detected one is appended, with an extension it is used verbatim; no path separators |
+| `--force` | `false` | Overwrite an existing media file; the default is to refuse |
+| `--max-chars` | `0` (no limit) | Truncate text output by rune count |
 | `--html` | `false` | Print the raw HTML/response body without readability/Markdown conversion (built-in fetcher only) |
 | `--dry-run` | `false` | Print the equivalent curl without sending a request |
 | `--list-providers` | `false` | List configured providers with search/fetch capability and availability (including failure reasons) |
-| `-v` / `--timeout` | global | `-v` prints title / final URL / content type / size; `--timeout` controls the built-in fetch |
+| `-v` / `--timeout` | global | `-v` prints title / final URL / content type / size; media also prints SHA256 and the saved path; `--timeout` controls the built-in fetch (use `--timeout 300` for large files) |
 
 - Built-in fetch extracts HTML main content via readability and converts to
-  Markdown; textual non-HTML bodies (plain text, JSON, …) are printed verbatim;
-  binary bodies (PDF, images) are rejected.
+  Markdown; textual non-HTML bodies (plain text, JSON, …) are printed verbatim.
+  Image/video/audio/PDF responses are saved under `-o` (default: current
+  directory) using the response `Content-Type`; stdout contains only the saved
+  path.
+- Media downloads show a single-line progress on a terminal (stderr): downloaded /
+  total, percent, speed and ETA. On completion — TTY or not — a
+  `downloaded <size> in <time> (<speed>)` summary is printed. stdout stays the
+  saved path only, so scripts remain parseable.
+- Media file names: without `--name`, the URL basename is used when it carries
+  a media extension; `--name rain-01` gets the detected extension appended;
+  `--name rain-01.mp4` is used verbatim. The response type wins over a misleading
+  URL suffix; unknown types fall back to `.bin`.
+- An existing media file is refused unless `--force` is given. `--name` is a
+  file name, not a path (`/` and `\` are rejected); use `-o` for the directory.
+- Media auto-save is built-in-only: `--name`/`--force` cannot be combined with
+  `--provider`, and do not apply to local files.
 - The argument is checked as a local file first: relative/absolute paths, spaces
   and `file://` URLs work, and existing files are converted without network
-  access. `--provider` / `-H` / `-b` / `-c` are not applicable to local files.
+  access. `--provider` / `-H` / `-b` / `-c` / `--name` / `--force` are not
+  applicable to local files.
 - The default User-Agent is a full browser UA, so sites are less likely to
   return a JS redirect/anti-bot stub. If the page still yields no readable text,
   fetch errors out instead of printing an empty body.
@@ -275,9 +331,11 @@ aigc-cli fetch --list-providers
   format with an atomic 0600 write — useful for login-then-fetch flows.
 - `--provider` routes through a third-party fetch API (DeepSeek Fetch / Exa
   Contents), which **may bill per request**. The request runs on the vendor's
-  side, so `-H` / `-b` / `-c` cannot be combined with `--provider`.
-- `--html` prints the raw HTML (or the raw text body for non-HTML responses /
-  local text files), skipping readability/Markdown; it cannot be combined with
+  side, so `-H` / `-b` / `-c` / `--name` / `--force` cannot be combined with
+  `--provider`.
+- `--html` prints the raw HTML (or the raw text body for non-HTML textual
+  responses / local text files), skipping readability/Markdown; it only applies
+  to text responses (media is still saved) and cannot be combined with
   `--provider`.
 - If the selected vendor is search-only (e.g. `brave` / `duckduckgo`), fetch
   falls back to the built-in fetcher and prints a note on stderr; `-H` / `-b` /

@@ -95,7 +95,7 @@ defaults:
     provider: deepseek         # shared by CLI / kb / chat / MCP
 ```
 
-`defaults.search.provider` accepts a vendor name (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`); there is no automatic selection.
+`defaults.search.provider` accepts a vendor name (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`pixabay`/`pexels`); there is no automatic selection.
 
 > **No silent fallback**: with no third-party provider configured, `web_search`/`web_fetch` **fail with an explicit error** pointing at the built-in `search`/`fetch` tools — so nothing silently bills, and nothing silently degrades.
 

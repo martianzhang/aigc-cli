@@ -10,7 +10,7 @@
 
 ## 联网搜索（search）
 
-`aigc-cli search` 搜索网页并**直接输出实际执行厂商返回的原始 JSON**，不做 title/url 归一化。这样 snippets、score、metadata 等厂商字段都保留下来，便于调试和脚本处理。未配置任何第三方厂商时自动使用内置 DuckDuckGo，免费免 Key：
+`aigc-cli search` 搜索网页或素材站（Pixabay / Pexels）并**直接输出实际执行厂商返回的原始 JSON**，不做 title/url 归一化。这样 snippets、score、metadata、图片/视频下载链接等厂商字段都保留下来，便于调试和脚本处理。未配置任何第三方厂商时自动使用内置 DuckDuckGo，免费免 Key：
 
 ```bash
 aigc-cli search "golang context timeout"
@@ -27,27 +27,48 @@ aigc-cli search --list-providers
 aigc-cli search "vector database" --dry-run       # 打印等价 curl，不发请求
 ```
 
+素材搜索（Pixabay / Pexels）用 `--type` 选择图片/视频端点，用 `--inject-json` 传厂商自己的筛选参数；查询词、条数和 API key 由 CLI 持有，不会被注入覆盖。Pixabay 支持 `image`（全部图片）/ `photo` / `illustration` / `vector` / `video`；Pexels 只有照片和视频，因此只支持 `image` / `video`（`image` 就是照片）。
+
+```bash
+# Pixabay 图片（photo / illustration / vector / image）
+aigc-cli search -P pixabay "雨夜 车窗" --type photo -n 12 \
+  --inject-json '{"orientation":"horizontal","min_width":1920,"safesearch":"true"}'
+
+# Pixabay 视频
+aigc-cli search -P pixabay "雨夜 车窗" --type video -n 12 \
+  --inject-json '{"min_width":1920}'
+
+# Pexels 视频
+aigc-cli search -P pexels "rain window night" --type video -n 12 \
+  --inject-json '{"orientation":"landscape","size":"large"}'
+```
+
+输出是厂商原始 JSON，里面的 `pageURL` / `url`、预览图和下载链接可直接交给 `aigc-cli fetch` 下载。素材的授权仍需按来源逐条确认（Pixabay Content License / Pexels License 都允许免费使用，但有各自限制）。
+
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `-P, --provider` | 空（→ `duckduckgo`） | 搜索厂商名：`duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` |
+| `-P, --provider` | 空（→ `duckduckgo`） | 搜索厂商名：`duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` / `pixabay` / `pexels` |
+| `--type` | 空 | 素材端点：`image` / `photo` / `illustration` / `vector` / `video`；网页搜索厂商忽略 |
 | `-n, --limit` | `5` | 请求结果条数，上限 20 |
-| `--json` | 空 | 命令级 JSON：文件路径或 inline JSON（**不接受 stdin**），字段：`query`、`provider`、`limit` |
-| `--inject-json` | 空 | 厂商原生字段：文件路径或 inline JSON；POST 合并进请求体，GET 变成 query 参数 |
+| `--json` | 空 | 命令级 JSON：文件路径或 inline JSON（**不接受 stdin**），字段：`query`、`provider`、`type`、`limit` |
+| `--inject-json` | 空 | 厂商原生字段：文件路径或 inline JSON；POST 合并进请求体，GET 变成 query 参数；查询词、条数、API key 保留由 CLI 控制 |
+| `--refresh` | `false` | 忽略厂商响应缓存（Pixabay 按 API 要求缓存 24h） |
 | `--dry-run` | `false` | 打印选中厂商的等价 curl（API key 掩码，含注入字段），不调用任何搜索 API |
-| `--list-providers` | `false` | 列出已配置厂商、search/fetch 能力与可用状态（含不可用原因） |
+| `--list-providers` | `false` | 列出已配置厂商、search/fetch/media 能力与可用状态（含不可用原因） |
 
 - **stdin 用来传 query**：`echo "..." | aigc-cli search` 或无参数时自动读取管道/文件；`aigc-cli search -` 显式从 stdin 读取。多行输入会压成一行。`--json` / `--inject-json` 都不读 stdin。
 
 - **`--provider` 指搜索厂商，不是 LLM provider**；优先级：`--provider` > `--json` 的 `provider` > `defaults.search.provider` > `duckduckgo`。
-- 查询与 limit 的优先级同样是：命令行位置参数 / `--limit` > `--json` > 默认值。
-- `--inject-json` 遵循全局约定：对象递归合并、数组追加、标量覆盖。POST 厂商直接合入 JSON body；GET 厂商（Brave）只接受标量或标量数组并转为 query 参数，嵌套对象会报错。
+- 查询、`--type` 与 limit 的优先级同样是：命令行位置参数 / `--type` / `--limit` > `--json` > 默认值。
+- `--inject-json` 遵循全局约定：对象递归合并、数组追加、标量覆盖。POST 厂商直接合入 JSON body；GET 厂商（Brave / Pixabay / Pexels）只接受标量或标量数组并转为 query 参数，嵌套对象会报错。素材搜索的 query、`per_page`、API key 由 CLI 保留，不会被注入覆盖。
 - DuckDuckGo 是 HTML 抓取，不接受 `--inject-json`，会明确报错。
-- 输出就是厂商响应体：合法 JSON 会做缩进美化；不是合法 JSON 时原样输出（便于看到错误页）。
+- 输出就是厂商响应体：合法 JSON 会做缩进美化；不是合法 JSON 时原样输出（便于看到错误页）。素材搜索的 JSON 包含预览图和下载链接，可直接用 `aigc-cli fetch` 保存。
 - DuckDuckGo 没有厂商 JSON，输出为 `{"urls":["..."]}`。
 - 每次只调用一个厂商；厂商失败直接报错，不会自动切换或重试其他厂商。
+- Pixabay 的响应会按 API 要求缓存 24 小时；不要写循环做批量抓取。
 - 配置了但构造失败的厂商（例如缺少 `api_key`、`type` 拼错）会显示为 `configured but unavailable`，而不是从 available 列表静默消失；`--list-providers` 可查看具体原因。
 - `--dry-run` 不产生网络请求，只打印选中厂商的 curl。
-- 只搜索、不写知识库。需要“搜索 + 抓取 + 入库”请用 `aigc-cli kb search`；单独抓取 URL 的 `aigc-cli fetch` 仍在 TODO。
+- 只搜索、不写知识库。需要“搜索 + 抓取 + 入库”请用 `aigc-cli kb search`；单独抓取 URL 用 `aigc-cli fetch`。
 - `-v` 对搜索命令不再有额外输出；标准输出始终只有厂商 JSON。
 - 所有搜索请求都走全局代理：配置文件 `http_proxy` 或环境变量 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`。
 
@@ -55,9 +76,10 @@ aigc-cli search "vector database" --dry-run       # 打印等价 curl，不发�
 
 ```json
 {
-  "query": "golang context",
-  "provider": "exa",
-  "limit": 3
+  "query": "rain window",
+  "provider": "pexels",
+  "type": "video",
+  "limit": 6
 }
 ```
 
@@ -76,13 +98,16 @@ curl -X POST https://api.exa.ai/search \
 
 ## 网页抓取（fetch）
 
-`aigc-cli fetch` 抓取一个 URL 或转换一个本地 HTML/文本文件，把正文转成 Markdown 输出到 stdout。默认使用内置免费抓取；不落盘、不入库，直接重定向即可保存：
+`aigc-cli fetch` 抓取一个 URL 或转换一个本地 HTML/文本文件：文本正文转成 Markdown 输出到 stdout；图片/视频/音频等媒体响应保存到 `-o` 目录并打印保存路径。默认使用内置免费抓取；不落盘（文本）、不入库：
 
 ```bash
 aigc-cli fetch https://go.dev/doc/effective_go
 aigc-cli fetch https://go.dev/doc/effective_go > effective_go.md
 aigc-cli fetch ./page.html > page.md
 aigc-cli fetch /tmp/report.html --max-chars 20000
+aigc-cli fetch https://cdn.example/clip.mp4 -o stock/ --name rain-01
+aigc-cli fetch https://cdn.example/photo.jpg -o stock/ --name still-01
+aigc-cli fetch https://cdn.example/clip.mp4 -o stock/ --name rain-01.mp4 --force
 aigc-cli fetch https://example.com/article --html > page.html
 aigc-cli fetch https://example.com/private -H "Authorization: Bearer $TOKEN"
 aigc-cli fetch https://example.com/private -b cookies.txt
@@ -100,14 +125,20 @@ aigc-cli fetch --list-providers
 | `-H, --header` | 无 | 可重复，`Name: value`；`Name:` 删除默认 header（仅内置抓取） |
 | `-b, --cookie` | 无 | 可重复；含 `=` 按 cookie 字符串解析，否则按 Netscape cookie 文件读取（仅内置抓取） |
 | `-c, --cookie-jar` | 无 | 抓取结束后把 cookie 写回 Netscape 格式文件（仅内置抓取） |
-| `--max-chars` | `0`（不截断） | 按字符（rune）截断输出 |
+| `--name` | 无 | 媒体响应的文件名；不带扩展名时自动补检测到的扩展名，带扩展名则原样使用；不能含路径分隔符 |
+| `--force` | `false` | 覆盖已存在的媒体文件；默认拒绝覆盖 |
+| `--max-chars` | `0`（不截断） | 按字符（rune）截断文本输出 |
 | `--html` | `false` | 输出原始 HTML / 原始文本，不做 readability/Markdown 转换（仅内置抓取） |
 | `--dry-run` | `false` | 打印等价 curl，不发请求 |
 | `--list-providers` | `false` | 列出已配置厂商、search/fetch 能力与可用状态（含不可用原因） |
-| `-v` / `--timeout` | 全局 | `-v` 输出标题 / 最终 URL / 类型 / 大小；`--timeout` 控制内置抓取超时 |
+| `-v` / `--timeout` | 全局 | `-v` 输出标题 / 最终 URL / 类型 / 大小；媒体响应还输出 SHA256 与保存路径；`--timeout` 控制内置抓取超时（大文件可用 `--timeout 300`） |
 
-- 默认内置抓取：HTML 经 readability 提取正文并转 Markdown；`text/plain`、JSON 等文本原样输出；PDF / 图片等二进制报错。
-- 参数会先做本地文件存在性检测：相对路径、绝对路径、含空格路径或 `file://` 只要文件存在，就直接转换、不联网；`--provider` / `-H` / `-b` / `-c` 对本地文件不适用。
+- 默认内置抓取：HTML 经 readability 提取正文并转 Markdown；`text/plain`、JSON 等文本原样输出；图片/视频/音频/PDF 等二进制媒体按 `Content-Type` 保存到 `-o` 目录（默认当前目录），stdout 只打印保存路径。
+- 媒体下载在终端（stderr）显示单行进度：已下载 / 总量、百分比、速度、ETA；完成后无论是否 TTY 都会输出 `downloaded <size> in <time> (<speed>)`。stdout 始终只打印保存路径，便于脚本处理。
+- 媒体文件名：不给 `--name` 时优先用 URL basename；`--name rain-01` 自动补 `.mp4` / `.jpg` 等扩展名；`--name rain-01.mp4` 原样使用。扩展名以响应 `Content-Type` 为准，URL 后缀误导时会纠正；未知类型回退 `.bin`。
+- 媒体文件已存在时默认报错并且不覆盖；显式加 `--force` 才覆盖。`--name` 只是文件名，不能含 `/` 或 `\`；目录用 `-o`。
+- 媒体自动保存只走内置抓取；`--provider` 与 `--name` / `--force` 不能同时使用，本地文件也不适用。
+- 参数会先做本地文件存在性检测：相对路径、绝对路径、含空格路径或 `file://` 只要文件存在，就直接转换、不联网；`--provider` / `-H` / `-b` / `-c` / `--name` / `--force` 对本地文件不适用。
 - 默认使用浏览器 User-Agent，减少站点返回 JS 跳转/反爬空页；如果正文仍为空，会明确报错而不是输出空白。
 - 文章页优先使用 readability 提取正文；如果 readability 只提取到很短的页脚/导航碎片，会回退整页转换，并移除 script/style/footer，保留导航等有用内容。
 - 输出会清理 `data:` URI（例如 base64 图片）和 `javascript:` 链接，只保留文本/正常链接，避免把大段 base64 塞进正文。
@@ -117,8 +148,8 @@ aigc-cli fetch --list-providers
 - Netscape 文件支持标准 7 字段、`#HttpOnly_`、`secure`、`expires`、`domain`、`path`；过期 cookie 自动忽略。
 - `-H "Cookie: ..."` 优先于 `-b`；`-H "Cookie:"` 清空 cookie。
 - `-c` 在抓取结束后写回 Netscape 格式（含响应 `Set-Cookie`），可用于“先登录再抓取”的多步流程；文件原子写入、权限 `0600`。
-- `--provider` 走第三方抓取 API（DeepSeek Fetch / Exa Contents），**可能计费**；第三方请求在厂商侧执行，因此 `-H` / `-b` / `-c` 与 `--provider` 不能同时使用。
-- `--html` 输出原始 HTML（非 HTML 响应/本地文本则原样输出），跳过 readability/Markdown；与 `--provider` 互斥。
+- `--provider` 走第三方抓取 API（DeepSeek Fetch / Exa Contents），**可能计费**；第三方请求在厂商侧执行，因此 `-H` / `-b` / `-c` / `--name` / `--force` 与 `--provider` 不能同时使用。
+- `--html` 输出原始 HTML（非 HTML 的文本/本地文本则原样输出），跳过 readability/Markdown；仅对文本响应有效，媒体响应仍保存文件；与 `--provider` 互斥。
 - 如果指定厂商不支持 fetch（如 `brave` / `duckduckgo`），会自动回退内置抓取并在 stderr 提示；回退时 `-H` / `-b` / `-c` 仍然生效。未知厂商名仍会报错。
 - 只抓取、不入库。需要“抓取 + 入库”请用 `aigc-cli kb fetch`；需要搜索请用 `aigc-cli search` / `aigc-cli kb search`。
 - `--output-json` 暂未实现。
