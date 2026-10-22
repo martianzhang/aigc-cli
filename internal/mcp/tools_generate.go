@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/music"
 	"github.com/martianzhang/aigc-cli/internal/cli/video"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/gif"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -361,7 +361,7 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 		ext := "." + req.ResponseFormat
 		ts := time.Now().Unix()
 		filename := filepath.Join(cfg.Output, fmt.Sprintf("speech_%d%s", ts, ext))
-		if err := os.WriteFile(filename, audioData, 0644); err != nil {
+		if err := fsutil.WriteFileAtomic(filename, audioData, 0644); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to save audio: %v", err)), nil
 		}
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -124,7 +125,7 @@ func runInit(d Deps) error {
 		return fmt.Errorf("cannot create directory %s: %w", dir, err)
 	}
 
-	if err := os.WriteFile(targetPath, rawData, 0644); err != nil {
+	if err := fsutil.WriteFileAtomic(targetPath, rawData, 0644); err != nil {
 		return fmt.Errorf("cannot save %s: %w", targetPath, err)
 	}
 	fmt.Printf("Saved to %s\n", targetPath)

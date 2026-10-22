@@ -321,6 +321,28 @@ aigc-cli completion powershell > aigc-cli.ps1
 from the current `web_search.*` config; `fetch` only suggests fetch-capable
 providers.
 
+## Error hints
+
+Usage errors get a short, command-scoped explanation instead of a full usage dump:
+
+```bash
+$ aigc-cli image --modle "a cat"
+Error: unknown flag: --modle
+Did you mean --mode, --model?
+Run 'aigc-cli image --help' for usage and examples.
+
+$ aigc-cli image --n abc
+Error: invalid argument "abc" for "--n" flag: strconv.ParseInt: parsing "abc": invalid syntax
+Invalid value "abc" for --n: expected an integer, such as 1.
+Run 'aigc-cli image --help' for usage and examples.
+```
+
+- Misspelled long flags suggest up to three close names (adjacent transpositions count as one edit); an unknown shorthand lists the shorthands the command actually defines.
+- Wrong-typed values show a concrete example for integers, numbers, booleans, durations, and repeatable flags.
+- Hints always point at the failing command's own `--help`, never the root command.
+- Runtime errors (API, network, task failures) stay concise and do not gain usage hints.
+- Downloaded and generated results (images, videos, audio, base64-decoded input) are written to a temporary file in the destination directory and renamed into place. If a download or write fails, an existing file at that path is left unchanged.
+
 ## Global Flags
 
 | Flag | Description |

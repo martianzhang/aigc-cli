@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/chat"
+	"github.com/martianzhang/aigc-cli/internal/cli/guidance"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
@@ -26,6 +27,7 @@ var rootCmd = &cobra.Command{
 	Short:         "Unified CLI for OpenAI-compatible APIs (supports OpenAI, OpenRouter, APIMart)",
 	Version:       Version,
 	SilenceErrors: true,
+	SilenceUsage:  true,
 	CompletionOptions: cobra.CompletionOptions{
 		HiddenDefaultCmd: false,
 	},
@@ -162,9 +164,14 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 }
 
 // Execute adds all child commands to the root command and sets flags.
+// Usage errors gain concise, command-scoped hints via guidance.Explain.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	executed, err := rootCmd.ExecuteC()
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		for _, line := range guidance.Explain(executed, err) {
+			fmt.Fprintln(os.Stderr, line)
+		}
 		os.Exit(1)
 	}
 }

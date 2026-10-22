@@ -22,6 +22,7 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
@@ -40,7 +41,7 @@ func PreviewFile(path string) error {
 		ext := detectImageExt(data)
 		// Generate a filename from the URL
 		saveName := urlToFilename(path, ext)
-		if err := os.WriteFile(saveName, data, 0644); err != nil {
+		if err := fsutil.WriteFileAtomic(saveName, data, 0644); err != nil {
 			return fmt.Errorf("failed to save %s: %w", saveName, err)
 		}
 		fmt.Printf("Saved: %s\n", saveName)

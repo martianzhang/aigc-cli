@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -85,7 +86,7 @@ func DownloadImages(images []types.ImageResult, outputDir, taskID string) ([]str
 				ext = ".png"
 			}
 			filename := filepath.Join(outputDir, fmt.Sprintf("image_%s_%d_%d%s", taskID, i, j, ext))
-			if err := os.WriteFile(filename, data, 0644); err != nil {
+			if err := fsutil.WriteFileAtomic(filename, data, 0644); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
 				continue
 			}

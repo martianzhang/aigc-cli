@@ -314,6 +314,28 @@ aigc-cli version
 aigc-cli --version
 ```
 
+## 错误提示
+
+参数错误不再打印整页 usage，而是给出可直接照做的短提示：
+
+```bash
+$ aigc-cli image --modle "a cat"
+Error: unknown flag: --modle
+Did you mean --mode, --model?
+Run 'aigc-cli image --help' for usage and examples.
+
+$ aigc-cli image --n abc
+Error: invalid argument "abc" for "--n" flag: strconv.ParseInt: parsing "abc": invalid syntax
+Invalid value "abc" for --n: expected an integer, such as 1.
+Run 'aigc-cli image --help' for usage and examples.
+```
+
+- 长参数拼错时，按编辑距离（相邻字母颠倒算一次编辑）提示最多 3 个最接近的参数；未知短参数会列出当前命令实际可用的短参数。
+- 类型错误按参数类型给出示例：整数、浮点数、布尔值、时长、可重复参数。
+- 提示始终指向出错命令自己的 `--help`，不会退回根命令。
+- 运行时错误（API、网络、任务失败）保持简短，不会被当作参数错误追加提示。
+- 下载与保存的生成结果（图片、视频、音频、base64 解码输入）先写入目标目录的临时文件，成功后再原子重命名；下载或写入失败时，原路径上的旧文件保持不变。
+
 ## API 参考
 
 > 各端口的接口规范详细参考来源见 [api-reference.md](api-reference.md)。

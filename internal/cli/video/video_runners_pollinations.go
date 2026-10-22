@@ -2,13 +2,13 @@ package video
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -46,7 +46,7 @@ func runPollinationsVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	}
 
 	filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("video_pollinations_%d%s", time.Now().Unix(), ext))
-	if err := os.WriteFile(filename, data, 0o644); err != nil {
+	if err := fsutil.WriteFileAtomic(filename, data, 0o644); err != nil {
 		return nil, fmt.Errorf("failed to save video: %w", err)
 	}
 

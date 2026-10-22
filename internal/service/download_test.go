@@ -285,6 +285,57 @@ func TestSaveResourceWithAuth_openrouterAddsBearer(t *testing.T) {
 	}
 }
 
+// TestSaveResourceHTTPFailureKeepsExisting verifies the atomic write path: a
+// truncated download must not replace the file already at the destination.
+func TestSaveResourceHTTPFailureKeepsExisting(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "32")
+		_, _ = w.Write([]byte("short"))
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "keep.png")
+	if err := os.WriteFile(dest, []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := SaveResource(srv.URL+"/image.png", dest); err == nil {
+		t.Fatal("SaveResource() error = nil, want a truncated-download failure")
+	}
+
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "original" {
+		t.Errorf("destination = %q, want the original content", data)
+	}
+}
+
+// TestSaveResourceEmptyBodyKeepsExisting rejects an empty response before the
+// destination is replaced.
+func TestSaveResourceEmptyBodyKeepsExisting(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "keep.png")
+	if err := os.WriteFile(dest, []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := SaveResource(srv.URL+"/image.png", dest); err == nil {
+		t.Fatal("SaveResource() error = nil, want an empty-download failure")
+	}
+
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "original" {
+		t.Errorf("destination = %q, want the original content", data)
+	}
+}
+
 // toBase64 encodes bytes to base64 string.
 // Required because package-level base64 import is used by source but test can use it.
 func toBase64(data []byte) string {

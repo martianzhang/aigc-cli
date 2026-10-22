@@ -4,13 +4,17 @@
 package service
 
 import (
+	"bufio"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 )
 
 // ExtractExt returns the file extension from a URL, defaulting to ".mp4".
@@ -42,7 +46,7 @@ func SaveBase64Image(outputDir, prefix, b64 string, index int) (string, error) {
 			ext = ".png"
 		}
 		filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d%s", prefix, index, ext))
-		if err := os.WriteFile(filename, raw, 0644); err != nil {
+		if err := fsutil.WriteFileAtomic(filename, raw, 0644); err != nil {
 			return "", fmt.Errorf("failed to save image: %w", err)
 		}
 		return filename, nil
@@ -50,7 +54,7 @@ func SaveBase64Image(outputDir, prefix, b64 string, index int) (string, error) {
 
 	// Decode failed — save as pure base64 text (no headers, base64 -d reads directly)
 	filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d.txt", prefix, index))
-	if err := os.WriteFile(filename, []byte(b64), 0644); err != nil {
+	if err := fsutil.WriteFileAtomic(filename, []byte(b64), 0644); err != nil {
 		return "", fmt.Errorf("failed to save base64 text: %w", err)
 	}
 	fmt.Fprintf(os.Stderr, "  Saved: %s (raw base64 — could not decode as image)\n", filename)
@@ -208,7 +212,7 @@ func SaveBase64Fallback(outputDir, prefix, raw string, index int) string {
 
 	filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d.txt", prefix, index))
 	// Save pure base64 data — no comments, base64 -d reads this directly
-	if err := os.WriteFile(filename, []byte(raw), 0644); err != nil {
+	if err := fsutil.WriteFileAtomic(filename, []byte(raw), 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to save raw data %s: %v\n", filename, err)
 		return ""
 	}
@@ -229,7 +233,7 @@ func SavePrompt(outputDir, taskID, prompt string) {
 	}
 	filename := filepath.Join(outputDir, fmt.Sprintf("image_%s.md", taskID))
 	content := fmt.Sprintf("# %s\n\n%s\n", taskID, prompt)
-	if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+	if err := fsutil.WriteFileAtomic(filename, []byte(content), 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to save prompt file: %v\n", err)
 		return
 	}
@@ -254,27 +258,17 @@ func saveHTTPResponse(resp *http.Response, dest string) error {
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
-	tmpDest := dest + ".tmp"
-	f, err := os.Create(tmpDest)
-	if err != nil {
-		return fmt.Errorf("cannot create %s: %w", tmpDest, err)
-	}
-
-	written, err := io.Copy(f, resp.Body)
-	if err != nil {
-		f.Close()
-		os.Remove(tmpDest)
+	// Peek before writing so an empty body never replaces an existing file.
+	body := bufio.NewReader(resp.Body)
+	if _, err := body.Peek(1); err != nil {
+		if errors.Is(err, io.EOF) {
+			return fmt.Errorf("downloaded file is empty")
+		}
 		return fmt.Errorf("download failed: %w", err)
 	}
-	f.Close()
 
-	if written == 0 {
-		os.Remove(tmpDest)
-		return fmt.Errorf("downloaded file is empty")
-	}
-
-	if err := os.Rename(tmpDest, dest); err != nil {
-		return fmt.Errorf("rename failed: %w", err)
+	if _, err := fsutil.WriteFileAtomicFromReader(dest, body, 0644); err != nil {
+		return fmt.Errorf("download failed: %w", err)
 	}
 	return nil
 }
@@ -303,7 +297,7 @@ func SaveResource(source, dest string) error {
 		_, after, ok := strings.Cut(cleaned, ",")
 		if ok {
 			if data, err := decodeBase64Any(after); err == nil {
-				return os.WriteFile(dest, data, 0644)
+				return fsutil.WriteFileAtomic(dest, data, 0644)
 			}
 		}
 		return fmt.Errorf("data URI contains no decodable image data")
@@ -311,7 +305,7 @@ func SaveResource(source, dest string) error {
 
 	// Raw base64 — try to decode
 	if data, err := decodeBase64Any(cleaned); err == nil {
-		return os.WriteFile(dest, data, 0644)
+		return fsutil.WriteFileAtomic(dest, data, 0644)
 	}
 
 	return fmt.Errorf("unsupported source: %.60s", cleaned)

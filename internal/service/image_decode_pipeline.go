@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
@@ -56,7 +57,7 @@ func ResolveImageSource(src, targetFormat, destDir string) (string, bool, error)
 	if fileExists(s) && filepath.Clean(dest) == filepath.Clean(s) {
 		return "", false, fmt.Errorf("output %s would overwrite the source file; use a different --output-format or output dir", dest)
 	}
-	if err := os.WriteFile(dest, decoded, 0644); err != nil {
+	if err := fsutil.WriteFileAtomic(dest, decoded, 0644); err != nil {
 		return "", false, fmt.Errorf("write %s: %w", dest, err)
 	}
 	return dest, true, nil

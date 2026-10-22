@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
@@ -146,13 +147,11 @@ func extractTar(tarr *tar.Reader, extractDir string) error {
 			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 				return err
 			}
-			out, err := os.Create(target)
-			if err != nil {
-				return err
+			mode := header.FileInfo().Mode().Perm()
+			if mode == 0 {
+				mode = 0o644
 			}
-			_, err = io.Copy(out, tarr)
-			out.Close()
-			if err != nil {
+			if _, err := fsutil.WriteFileAtomicFromReader(target, tarr, mode); err != nil {
 				return err
 			}
 		case tar.TypeSymlink, tar.TypeLink:

@@ -13,6 +13,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -223,7 +224,7 @@ done:
 		}
 		taskID := fmt.Sprintf("modelscope_%d", time.Now().Unix())
 		filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("image_%s_%d%s", taskID, i, ext))
-		if err := os.WriteFile(filename, data, 0644); err != nil {
+		if err := fsutil.WriteFileAtomic(filename, data, 0644); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
 			continue
 		}

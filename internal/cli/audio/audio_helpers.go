@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
@@ -43,7 +44,7 @@ func saveTranscriptionFile(text string, inputPath string) (string, error) {
 		filename = filepath.Join(dir, fmt.Sprintf("audio_%d.md", time.Now().Unix()))
 	}
 
-	if err := os.WriteFile(filename, []byte(text), 0644); err != nil {
+	if err := fsutil.WriteFileAtomic(filename, []byte(text), 0644); err != nil {
 		return "", fmt.Errorf("failed to save transcription: %w", err)
 	}
 	return filename, nil

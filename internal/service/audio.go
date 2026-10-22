@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 )
 
 // audioFormatExt maps an audio response_format to a file extension.
@@ -35,7 +37,7 @@ func SaveAudioFile(data []byte, format, outputDir string) (string, error) {
 	}
 
 	filename := filepath.Join(dir, fmt.Sprintf("audio_%d%s", time.Now().Unix(), ext))
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	if err := fsutil.WriteFileAtomic(filename, data, 0644); err != nil {
 		return "", fmt.Errorf("failed to save audio file: %w", err)
 	}
 
