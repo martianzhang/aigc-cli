@@ -3,6 +3,7 @@ package mcp
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
@@ -12,6 +13,17 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/spf13/cobra"
 )
+
+// modelsRoot returns the shared models directory used by local ONNX tools.
+func modelsRoot() string {
+	if cfg := options.DetectConfig(); cfg != nil && cfg.ModelsDir != "" {
+		return cfg.ModelsDir
+	}
+	if cfg := options.BackgroundConfig(); cfg != nil && cfg.ModelsDir != "" {
+		return cfg.ModelsDir
+	}
+	return filepath.Join(options.ConfigDir(), "models")
+}
 
 // mcpCmd represents the `aigc-cli mcp` command.
 var mcpCmd = &cobra.Command{
@@ -61,6 +73,7 @@ Example MCP host config:
 			options.ProviderNameChat:            options.Shared.ResolveProvider(options.ProviderNameChat),
 			options.ProviderNameAudioSpeak:      options.Shared.ResolveProvider(options.ProviderNameAudioSpeak),
 			options.ProviderNameAudioTranscribe: options.Shared.ResolveProvider(options.ProviderNameAudioTranscribe),
+			options.ProviderNameAudioSFX:        options.Shared.ResolveProvider(options.ProviderNameAudioSFX),
 			options.ProviderNameMusic:           options.Shared.ResolveProvider(options.ProviderNameMusic),
 			options.ProviderNameMidjourney:      options.Shared.ResolveProvider(options.ProviderNameMidjourney),
 		}
@@ -99,6 +112,7 @@ Example MCP host config:
 			}
 			mcpCfg.Providers = cfg.Providers
 		}
+		mcpCfg.ModelsDir = modelsRoot()
 
 		return mcp.Run(mcpCfg)
 	},

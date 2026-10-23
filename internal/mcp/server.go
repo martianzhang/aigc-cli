@@ -26,10 +26,12 @@ import (
 // Config holds the configuration for the MCP server.
 // It's a subset of the full CLI config, focused on what MCP tools need.
 type Config struct {
-	APIKey       string
-	BaseURL      string
-	Proxy        string
-	Output       string
+	APIKey  string
+	BaseURL string
+	Proxy   string
+	Output  string
+	// ModelsDir is the shared models root (~/.config/aigc-cli/models).
+	ModelsDir    string
 	Defaults     *types.ConfigDefaults
 	ToolsEnable  []string
 	ToolsDisable []string
@@ -159,6 +161,7 @@ var toolRegistry = []toolInfo{
 	{"generate_video", "Generate videos via AI (async submit → poll)", newGenerateVideoTool, func(cfg *Config) server.ToolHandlerFunc { return generateVideoHandler(cfg) }},
 	{"generate_music", "Generate music via AI (async submit → poll)", newGenerateMusicTool, func(cfg *Config) server.ToolHandlerFunc { return generateMusicHandler(cfg) }},
 	{"generate_speech", "Convert text to speech (TTS)", newGenerateSpeechTool, func(cfg *Config) server.ToolHandlerFunc { return generateSpeechHandler(cfg) }},
+	{"generate_sfx", "Generate a short sound effect (SFX)", newGenerateSFXTool, func(cfg *Config) server.ToolHandlerFunc { return generateSFXHandler(cfg) }},
 	{"transcribe_audio", "Transcribe audio to text (STT)", newTranscribeAudioTool, func(cfg *Config) server.ToolHandlerFunc { return transcribeAudioHandler(cfg) }},
 	// Midjourney tools
 	{"midjourney_imagine", "Midjourney image generation (costs 5-10x more than generate_image and produces 4 variants). Only use when the user explicitly asks for Midjourney, or needs highly artistic/stylized/painted results. For most use cases, prefer generate_image instead.", newMidjourneyImagineTool, func(cfg *Config) server.ToolHandlerFunc { return midjourneyImagineHandler(cfg) }},
@@ -213,11 +216,13 @@ func NewServer(cfg *Config) *server.MCPServer {
 	videoDesc := buildVideoDesc(cfg.Defaults.Video, cfg.BaseURL)
 	musicDesc := buildMusicDesc(cfg.Defaults.Music, cfg.BaseURL)
 	audioDesc := buildAudioDesc(cfg.Defaults.Audio, cfg.BaseURL)
+	sfxDesc := buildSFXDesc(cfg.Defaults.Audio, cfg.BaseURL)
 	toolDescriptions := map[string]string{
 		"generate_image":   imgDesc,
 		"generate_video":   videoDesc,
 		"generate_music":   musicDesc,
 		"generate_speech":  audioDesc,
+		"generate_sfx":     sfxDesc,
 		"transcribe_audio": audioDesc,
 	}
 

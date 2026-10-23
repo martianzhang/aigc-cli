@@ -79,6 +79,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `generate_video` | 视频生成（异步提交 → 轮询）；固定使用 `defaults.video.provider`，不接受 `provider` 参数；支持 `return_last_frame` 保存尾帧图用于续拍 | ✅ |
 | `generate_music` | 音乐生成（APIMart suno/flowmusic 异步、OpenRouter Lyria、阿里云百炼 Fun-Music）；支持可选 `provider` | ✅ |
 | `generate_speech` | 文字转语音 TTS；支持可选 `provider` / `model` / `voice` / `format` | ✅ |
+| `generate_sfx` | 短音效生成（ElevenLabs / Stability 在线，`provider=local` 离线 ONNX）；可选 `model` / `duration` / `loop` / `influence` / `format` / `seed` / `normalize` | ✅ |
 | `transcribe_audio` | 语音转文字 STT（本地音频文件）；支持可选 `provider` / `model` / `language` | ✅ |
 | `midjourney_imagine` | Midjourney 艺术生图（比 `generate_image` 贵 5-10 倍，一次产出 4 张变体）。仅在用户明确要求 Midjourney，或需要高度艺术化/风格化/绘画感结果时使用；一般场景请优先 `generate_image` | ✅ |
 | `midjourney_describe` | 图生文（反向提示词）：上传图片 URL，返回 Midjourney 生成该图所用的提示词 | ✅ |
@@ -152,17 +153,17 @@ defaults:
 >
 > `midjourney_*` 工具通过 `defaults.midjourney.provider`（或全局 `api_key`/`base_url`）解析 Provider，`midjourney_imagine` 会合并 `defaults.midjourney.*` 默认参数。
 >
-> `generate_image` / `generate_music` / `generate_speech` / `transcribe_audio` 与 4 个 `midjourney_*` 工具还支持可选的 `provider` 参数（仅接受 `config.providers` 中的名称白名单）；`generate_video` 不支持该参数，固定使用 `defaults.video.provider`。详见下文「按调用指定 Provider」。
+> `generate_image` / `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio` 与 4 个 `midjourney_*` 工具还支持可选的 `provider` 参数（仅接受 `config.providers` 中的名称白名单）；`generate_video` 不支持该参数，固定使用 `defaults.video.provider`。`generate_sfx` 额外接受内置 `local`（离线 ONNX，需要先 `audio init --model stable-audio-open-small`）。详见下文「按调用指定 Provider」。
 >
 > 图片参数以配置为准：`defaults.image.*` 会覆盖 Agent 传入的同名参数，除非设置 `defaults.chat.allow_tool_override: true`。
 >
-> 产出媒体文件的工具（`generate_image`、`generate_speech`、`convert_depth`、`upscale`、`remove_background`、`remove_watermark`、`add_watermark`、`crop_watermark`）会在原有文本结果之外附加**内联的图片/音频内容块**（MCP image/audio content），Claude Desktop 等宿主可直接在对话中渲染生成结果；视频等 MCP 尚不支持的媒体仍只返回文件路径。单次结果最多内联 4 个文件、每个不超过 4 MiB，超出部分仅在文本中提示；设置环境变量 `AIGC_MCP_EMBED_MEDIA=0`（或 `false`/`off`）可关闭内联，只返回文本路径。
+> 产出媒体文件的工具（`generate_image`、`generate_speech`、`generate_sfx`、`convert_depth`、`upscale`、`remove_background`、`remove_watermark`、`add_watermark`、`crop_watermark`）会在原有文本结果之外附加**内联的图片/音频内容块**（MCP image/audio content），Claude Desktop 等宿主可直接在对话中渲染生成结果；视频等 MCP 尚不支持的媒体仍只返回文件路径。单次结果最多内联 4 个文件、每个不超过 4 MiB，超出部分仅在文本中提示；设置环境变量 `AIGC_MCP_EMBED_MEDIA=0`（或 `false`/`off`）可关闭内联，只返回文本路径。
 >
 > 异步任务工具 `generate_video` / `generate_music` 在宿主传入 `progressToken` 时（如 Cursor）会发送**粗粒度进度通知**（0.05 提交前、0.40 进入提交→轮询阶段），便于宿主显示进度指示；目前只发送这两个里程碑，逐次轮询的百分比更新暂未提供。未传 `progressToken` 时完全静默。
 
 ### 按调用指定 Provider（白名单）
 
-`generate_image` / `generate_music` / `generate_speech` / `transcribe_audio` 以及 4 个 `midjourney_*` 工具都支持可选参数 `provider`：
+`generate_image` / `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio` 以及 4 个 `midjourney_*` 工具都支持可选参数 `provider`：
 
 - **留空（默认）**：行为与不传该参数完全一致，使用 `defaults.{命令}.provider` 指定的 Provider（未配置时回退全局 `api_key` / `base_url`）。
 - **传值时**：只能是 `config.providers` 中已配置的 **Provider 名称**（白名单）。URL、路径，以及未在配置中定义的名称一律被拒绝并返回错误。
@@ -201,7 +202,7 @@ defaults:
 ### `model` 参数的真实行为
 
 - `generate_image` / `generate_video`：**配置优先** —— `defaults.image.model` / `defaults.video.model` 会覆盖 Agent 传入的 `model`，除非设置 `defaults.chat.allow_tool_override: true`（此时 Agent 传值优先，配置只在缺省时补齐）。
-- `generate_music` / `generate_speech` / `transcribe_audio`：Agent 传入的 `model` **按原样使用**；仅当未传时才回退到 `defaults.music.model` / `defaults.audio.speak.model` / `defaults.audio.transcribe.model`（再回退代码默认值）。
+- `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio`：Agent 传入的 `model` **按原样使用**；仅当未传时才回退到 `defaults.music.model` / `defaults.audio.speak.model` / `defaults.audio.sfx.model` / `defaults.audio.transcribe.model`（再回退代码默认值）。
 
 ### Filter Tools
 
@@ -230,6 +231,7 @@ Glob patterns are supported (`*` matches any tool name). Empty or absent lists =
 - **`output_path` 约束**：watermark / background / depth 工具的显式输出路径必须落在 `output_dir`（`cfg.Output`）或**输入文件所在目录**两个根之内；符号链接目标被拒绝（防穿透截断）。不传 `output_path` 时默认「输出到输入旁」行为不变。
 - **本地图片校验**：`image_urls` 引用的本地文件必须是**可解码的图片**（≤32 MiB），非图片文件（如 `~/.ssh/id_rsa`、`config.yaml`）不会被内联发送给 Provider。
 - **解码炸弹防护**：本地图片处理工具先读头部尺寸，>1 亿像素（100 MP）拒绝解码。
+- **`generate_sfx` 本地模式**：`provider=local` 时 `model` 是本地模型 ID（默认 `stable-audio-open-small`），`seed` / `normalize` 生效，输出固定 wav；在线模式不支持 `seed` / `normalize`。
 - **`generate_speech.format` 枚举**：仅 `mp3/wav/opus/aac/flac/pcm`，阻断 `speech_<ts>.<ext>` 路径穿越。
 - **任务 ID 清洗**：`get_task` 下载文件名使用 `filepath.Base` 后的安全令牌，阻断 `task_id` 目录穿越。
 - **KB 路径修复**：`kb_*` 工具指向 `~/.config/aigc-cli/knowledge`（与 CLI/chat 一致），消除「字面 `~` 目录 + 预置知识库投毒」向量。

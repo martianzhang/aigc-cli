@@ -233,3 +233,14 @@ func TestGenerationHandlers_rejectURLProvider(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveProviderRef_LocalSentinel(t *testing.T) {
+	cfg := namedProviderConfig()
+	p, errMsg := cfg.resolveProviderRef("audio.sfx", "local")
+	if errMsg != "" {
+		t.Fatalf("local must be accepted: %s", errMsg)
+	}
+	if p == nil || p.Type != types.ProviderLocal || p.Name != "local" {
+		t.Fatalf("local provider = %+v, want type=local name=local", p)
+	}
+}

@@ -48,6 +48,7 @@ var annotationTable = []annotationWant{
 	{"generate_video", false, false, false, true},
 	{"generate_music", false, false, false, true},
 	{"generate_speech", false, false, false, true},
+	{"generate_sfx", false, false, false, true},
 	{"transcribe_audio", false, false, false, true},
 	{"midjourney_imagine", false, false, false, true},
 	{"midjourney_describe", false, false, false, true},

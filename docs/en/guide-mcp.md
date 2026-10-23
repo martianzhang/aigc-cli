@@ -30,6 +30,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `generate_video` | Generate videos (async submit → poll); always uses `defaults.video.provider`, no `provider` argument; supports `return_last_frame` to save the last frame as an image | Paid (API key) |
 | `generate_music` | Generate music (APIMart suno/flowmusic async, OpenRouter Lyria, Alibaba Cloud Bailian Fun-Music); optional `provider` | Paid (API key) |
 | `generate_speech` | Text-to-speech; optional `provider` / `model` / `voice` / `format` | Paid (API key) |
+| `generate_sfx` | Short sound effects (ElevenLabs / Stability online, `provider=local` for offline ONNX); optional `model` / `duration` / `loop` / `influence` / `format` / `seed` / `normalize` | Paid online, free locally |
 | `transcribe_audio` | Speech-to-text for a local audio file; optional `provider` / `model` / `language` | Paid (API key) |
 | `midjourney_imagine` | Midjourney artistic image generation (5-10x the cost of `generate_image`, 4 variants per job). Only for explicit Midjourney requests or highly artistic/stylized results — prefer `generate_image` otherwise | Paid (API key) |
 | `midjourney_describe` | Image → reverse prompt (describe an image the way Midjourney would prompt it) | Paid (API key) |
@@ -103,17 +104,17 @@ defaults:
 >
 > `midjourney_*` tools resolve their provider from `defaults.midjourney.provider` (or the global `api_key`/`base_url`), and `midjourney_imagine` merges the `defaults.midjourney.*` settings.
 >
-> `generate_image` / `generate_music` / `generate_speech` / `transcribe_audio` and the `midjourney_*` tools also accept an optional `provider` argument restricted to names from `config.providers` (whitelist); `generate_video` does not — it always uses `defaults.video.provider`. See "Per-call Provider" below.
+> `generate_image` / `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio` and the `midjourney_*` tools also accept an optional `provider` argument restricted to names from `config.providers` (whitelist); `generate_video` does not — it always uses `defaults.video.provider`. `generate_sfx` additionally accepts the built-in `local` provider (offline ONNX; run `audio init --model stable-audio-open-small` first). See "Per-call Provider" below.
 >
 > Image parameters are pinned by config: `defaults.image.*` overrides the same parameter passed by the agent unless `defaults.chat.allow_tool_override: true` is set.
 >
-> Media-producing tools (`generate_image`, `generate_speech`, `convert_depth`, `upscale`, `remove_background`, `remove_watermark`, `add_watermark`, `crop_watermark`) additionally return **inline image/audio content blocks** next to the text result, so hosts such as Claude Desktop can render generated media directly in the conversation; video and other media MCP cannot represent stay text-only with the file path. At most 4 files (each ≤ 4 MiB) are inlined per result, with an extra text note when files are skipped. Set `AIGC_MCP_EMBED_MEDIA=0` (or `false`/`off`) to disable inlining and return text paths only.
+> Media-producing tools (`generate_image`, `generate_speech`, `generate_sfx`, `convert_depth`, `upscale`, `remove_background`, `remove_watermark`, `add_watermark`, `crop_watermark`) additionally return **inline image/audio content blocks** next to the text result, so hosts such as Claude Desktop can render generated media directly in the conversation; video and other media MCP cannot represent stay text-only with the file path. At most 4 files (each ≤ 4 MiB) are inlined per result, with an extra text note when files are skipped. Set `AIGC_MCP_EMBED_MEDIA=0` (or `false`/`off`) to disable inlining and return text paths only.
 >
 > When the host passes a `progressToken` (e.g. Cursor), the async `generate_video` / `generate_music` tools emit **coarse-phase progress notifications** (0.05 before dispatch, 0.40 entering the submit → poll phase) so the host can render a progress indicator. Only these two milestones are emitted today — per-poll percentages are not yet available. Without a `progressToken` the tools stay fully silent.
 
 ### Per-call Provider (Whitelist)
 
-`generate_image`, `generate_music`, `generate_speech`, `transcribe_audio`, and the four `midjourney_*` tools accept an optional `provider` argument:
+`generate_image`, `generate_music`, `generate_speech`, `generate_sfx`, `transcribe_audio`, and the four `midjourney_*` tools accept an optional `provider` argument:
 
 - **Omitted (default)**: behaves exactly as before — the provider selected by `defaults.{command}.provider` (falling back to the global `api_key` / `base_url`).
 - **Provided**: must be the **name** of a provider defined in `config.providers` (whitelist). URLs, paths, and names that are not configured are rejected with an error.
@@ -152,7 +153,7 @@ defaults:
 ### What the `model` argument actually does
 
 - `generate_image` / `generate_video`: **config wins** — `defaults.image.model` / `defaults.video.model` overrides the agent-supplied `model` unless `defaults.chat.allow_tool_override: true` is set (then the agent value wins and config only fills gaps).
-- `generate_music` / `generate_speech` / `transcribe_audio`: the agent-supplied `model` is used as given; `defaults.music.model` / `defaults.audio.speak.model` / `defaults.audio.transcribe.model` fills in only when omitted (then code defaults).
+- `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio`: the agent-supplied `model` is used as given; `defaults.music.model` / `defaults.audio.speak.model` / `defaults.audio.sfx.model` / `defaults.audio.transcribe.model` fills in only when omitted (then code defaults).
 
 ## Tool Filtering
 
@@ -188,6 +189,7 @@ After a pre-release security audit (attack-surface mapping + three hunter lanes 
 - **`output_path` confinement**: explicit output paths for the watermark / background / depth tools must resolve inside `output_dir` (`cfg.Output`) or the **input file's directory**; symlink targets are rejected (no write-through-symlink truncation). Omitting `output_path` keeps the default "next to the input" behavior unchanged.
 - **Local-image validation**: local files referenced via `image_urls` must be **decodable images (≤32 MiB)**; non-image files (e.g. `~/.ssh/id_rsa`, `config.yaml`) are never inlined into requests sent to the provider.
 - **Decode-bomb guard**: local image tools read the header size first and refuse >100 megapixels.
+- **`generate_sfx` local mode**: with `provider=local`, `model` is a local model ID (default `stable-audio-open-small`), `seed` / `normalize` apply, and output is always wav; online mode ignores `seed` / `normalize`.
 - **`generate_speech.format` enum**: only `mp3/wav/opus/aac/flac/pcm`, closing the `speech_<ts>.<ext>` path traversal.
 - **Task-ID sanitization**: `get_task` download filenames use a `filepath.Base`-sanitized token, blocking `task_id` directory traversal.
 - **KB path fix**: `kb_*` tools now use `~/.config/aigc-cli/knowledge` (same as CLI/chat), removing the literal-`~` directory and the pre-planted-KB poisoning vector.

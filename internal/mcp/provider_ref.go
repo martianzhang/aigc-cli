@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // providerArgDesc is the shared schema description for the optional per-call
@@ -28,6 +29,10 @@ func (cfg *Config) resolveProviderRef(cmdName, ref string) (*provider.EffectiveP
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
 		return cfg.cmdProvider(cmdName), ""
+	}
+	// "local" is a built-in provider (ONNX), not a config.providers entry.
+	if ref == "local" {
+		return &provider.EffectiveProvider{Name: "local", Type: types.ProviderLocal}, ""
 	}
 	if msg := rejectProviderShape(ref); msg != "" {
 		return nil, msg
