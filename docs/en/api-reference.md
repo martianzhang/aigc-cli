@@ -56,6 +56,7 @@ imageStrategies:
 | doubao | `open.feedcoopapi.com` | 0.020 CNY/request (500 free/month) |
 | deepseek | `api.deepseek.com` (`POST /v1/tools/search`) | $0.75/1000 successful requests (≈¥5/1000) |
 | exa | `api.exa.ai` (`POST /search`, `POST /contents`) | $7/1000 auto searches, $1/1000 contents pages ($10 free credit/month) |
+| wsa | `api.wsa.cloud.tencent.com` (`POST /SearchPro`, API KEY mode) | Tencent Yuanbao Search; see the [product docs](https://cloud.tencent.com/document/product/1806/121799) |
 
 ## Midjourney API
 

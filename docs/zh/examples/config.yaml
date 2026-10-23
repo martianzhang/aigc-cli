@@ -276,6 +276,9 @@ defaults:
   #   exa:
   #     type: exa
   #     api_key: "exa-xxx"         # Exa 神经搜索（同时提供 Search 与 Contents/Fetch；$10 免费额度/月）
+  #   tencent:
+  #     type: wsa
+  #     api_key: "sk-xxx"          # 腾讯云元宝搜索 API KEY（api.wsa.cloud.tencent.com/SearchPro）
   #   pixabay:
   #     type: pixabay
   #     api_key: "your-pixabay-key"   # 免费 API key；图片（photo/illustration/vector）+ 视频

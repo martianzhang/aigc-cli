@@ -26,6 +26,15 @@ func NewProviderFromConfig(cfg *types.WebSearchProvider) (Provider, error) {
 			return nil, fmt.Errorf("brave requires api_key")
 		}
 		return NewBraveProvider(cfg.APIKey), nil
+	case "wsa":
+		apiKey := cfg.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("TENCENTCLOUD_WSA_APIKEY")
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("wsa requires api_key")
+		}
+		return NewTencentWSAProvider(apiKey), nil
 	case "doubao":
 		if cfg.APIKey == "" {
 			return nil, fmt.Errorf("doubao requires api_key")

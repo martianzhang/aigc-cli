@@ -180,7 +180,7 @@ per asset (Pixabay Content License / Pexels License).
 
 | Flag | Default | Description |
 |---|---|---|
-| `-P, --provider` | empty (→ `duckduckgo`) | Search vendor name: `duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` / `pixabay` / `pexels` |
+| `-P, --provider` | empty (→ `duckduckgo`) | Search vendor name: `duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` / `wsa` / `pixabay` / `pexels` |
 | `--type` | empty | Media endpoint: `image` / `photo` / `illustration` / `vector` / `video`; web providers ignore it |
 | `-n, --limit` | `5` | Number of results to request (capped at 20) |
 | `--json` | empty | Command-level JSON: file path or inline JSON (**no stdin**); fields: `query`, `provider`, `type`, `limit` |

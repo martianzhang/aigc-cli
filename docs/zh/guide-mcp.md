@@ -144,7 +144,7 @@ defaults:
     provider: deepseek         # CLI / kb / chat / MCP 共享
 ```
 
-`defaults.search.provider` 取值：厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`pixabay`/`pexels`）。不做自动选择。
+`defaults.search.provider` 取值：厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`）。不做自动选择。
 
 > **不静默降级**：`web_search`/`web_fetch` 在未配置第三方厂商时**明确报错**并提示改用内置 `search`/`fetch`——既不静默花钱，也不静默降级。
 

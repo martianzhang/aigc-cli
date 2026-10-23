@@ -61,13 +61,18 @@ web_search:
 
   deepseek:
     type: deepseek
-    api_key: "sk-xxx"    # DeepSeek Search (in-house engine, $0.75/1000)
+    api_key: "sk-xxx"
+  tencent:
+    type: wsa
+    api_key: "sk-xxx"   # Tencent Yuanbao Search API KEY (SearchPro)    # DeepSeek Search (in-house engine, $0.75/1000)
 
   exa:
     type: exa
     api_key: "exa-xxx"   # Exa neural search (Search + Contents/fetch, $10 free credit/month)
 ```
 
+> **Tencent Yuanbao Search (wsa)**: API KEY mode `POST https://api.wsa.cloud.tencent.com/SearchPro`, authenticated with `Authorization: Bearer <API KEY>`. Results are JSON strings in `Pages` (title/url/passage/date). The console currently offers a free trial; check the [console](https://console.cloud.tencent.com/wsapi/index) for version and quota. Use `type: wsa`; the provider name is arbitrary (the example uses `tencent`).
+>
 > **DeepSeek search**: `POST https://api.deepseek.com/v1/tools/search`, billed per successful request ($0.75/1000 ≈ ¥5/1000 — independent of result count). Reuse the same key as `providers.deepseek`.
 > Note: only **server-side tool calls in DeepSeek Harness / Claude Code / Codex** are free until 2026-11-01; this CLI calling the endpoint directly is **billed immediately**.
 

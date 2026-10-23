@@ -33,6 +33,11 @@ func TestNewProviderFromConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "wsa without api key returns error",
+			cfg:     &types.WebSearchProvider{Type: "wsa"},
+			wantErr: true,
+		},
+		{
 			name:    "doubao without api key returns error",
 			cfg:     &types.WebSearchProvider{Type: "doubao"},
 			wantErr: true,
@@ -77,6 +82,15 @@ func TestNewProviderFromConfig(t *testing.T) {
 			check: func(t *testing.T, p Provider) {
 				if _, ok := p.(*BraveProvider); !ok {
 					t.Errorf("NewProviderFromConfig() = %T, want *BraveProvider", p)
+				}
+			},
+		},
+		{
+			name: "wsa with api key returns TencentWSAProvider",
+			cfg:  &types.WebSearchProvider{Type: "wsa", APIKey: "wsa-key"},
+			check: func(t *testing.T, p Provider) {
+				if _, ok := p.(*TencentWSAProvider); !ok {
+					t.Errorf("NewProviderFromConfig() = %T, want *TencentWSAProvider", p)
 				}
 			},
 		},
@@ -134,6 +148,7 @@ func TestNewProviderFromConfig(t *testing.T) {
 			t.Setenv("EXA_API_KEY", "")
 			t.Setenv("PIXABAY_API_KEY", "")
 			t.Setenv("PEXELS_API_KEY", "")
+			t.Setenv("TENCENTCLOUD_WSA_APIKEY", "")
 
 			p, err := NewProviderFromConfig(tt.cfg)
 			if tt.wantErr {
@@ -161,6 +176,7 @@ func TestNewProviderFromConfig(t *testing.T) {
 func TestNewProviderFromConfigEnvKeys(t *testing.T) {
 	t.Setenv("PIXABAY_API_KEY", "env-pb-key")
 	t.Setenv("PEXELS_API_KEY", "env-px-key")
+	t.Setenv("TENCENTCLOUD_WSA_APIKEY", "env-wsa-key")
 
 	for _, tc := range []struct {
 		typ  string
@@ -168,6 +184,7 @@ func TestNewProviderFromConfigEnvKeys(t *testing.T) {
 	}{
 		{typ: "pixabay", want: "pixabay"},
 		{typ: "pexels", want: "pexels"},
+		{typ: "wsa", want: "wsa"},
 	} {
 		p, err := NewProviderFromConfig(&types.WebSearchProvider{Type: tc.typ})
 		if err != nil {

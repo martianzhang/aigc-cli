@@ -289,7 +289,10 @@ defaults:
   #     api_key: "sk-xxx"          # DeepSeek Search (in-house engine, $0.75/1000 successful requests)
   #   exa:
   #     type: exa
-  #     api_key: "exa-xxx"         # Exa neural search (Search + Contents/Fetch; $10 free credit/month)
+  #     api_key: "exa-xxx"
+  #   tencent:
+  #     type: wsa
+  #     api_key: "sk-xxx"          # Tencent Yuanbao Search API KEY (api.wsa.cloud.tencent.com/SearchPro)         # Exa neural search (Search + Contents/Fetch; $10 free credit/month)
   #   pixabay:
   #     type: pixabay
   #     api_key: "your-pixabay-key"   # free API key; photos (photo/illustration/vector) + videos

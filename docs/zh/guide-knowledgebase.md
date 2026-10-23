@@ -185,6 +185,9 @@ web_search:
   exa:
     type: exa
     api_key: "exa-xxx"  # Exa 神经搜索（Search + Contents/Fetch，$10 免费额度/月）
+  tencent:
+    type: wsa
+    api_key: "sk-xxx"   # 腾讯云元宝搜索 API KEY（SearchPro）
 ```
 
 每次只使用一个厂商（`--provider` 或 `defaults.search.provider`，留空用 DuckDuckGo），不做自动轮询或 fallback。
@@ -192,6 +195,8 @@ web_search:
 > **豆包搜索**：火山引擎联网搜索（Custom版），0.020元/次（按量后付费），每月 500 次免费额度。
 > API Key 获取：[联网搜索控制台](https://console.volcengine.com/search-infinity/api-key?tab=post_paid)。
 > 认证方式：`Authorization: Bearer <API_KEY>`。
+>
+> **腾讯云元宝搜索（wsa）**：API KEY 模式 `POST https://api.wsa.cloud.tencent.com/SearchPro`，认证头 `Authorization: Bearer <API KEY>`，结果为 `Pages` 字符串数组（title/url/passage/date 等）。控制台当前提供免费试用，版本与配额以 [元宝搜索控制台](https://console.cloud.tencent.com/wsapi/index) 为准；`type` 填 `wsa`，provider 名可自取（示例为 `tencent`）。
 >
 > **DeepSeek 搜索**：`POST https://api.deepseek.com/v1/tools/search`，5元/1000 次成功请求（≈0.5 分/次，按成功请求计费，与返回条数无关）。用 `providers.deepseek` 同一把 key 即可。
 > 注意：仅 **DeepSeek Harness / Claude Code / Codex 的服务端工具调用**在 2026-11-01 前免费；本 CLI 直连该接口**立即计费**。

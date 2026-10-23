@@ -47,7 +47,7 @@ aigc-cli search -P pexels "rain window night" --type video -n 12 \
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `-P, --provider` | 空（→ `duckduckgo`） | 搜索厂商名：`duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` / `pixabay` / `pexels` |
+| `-P, --provider` | 空（→ `duckduckgo`） | 搜索厂商名：`duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` / `wsa` / `pixabay` / `pexels` |
 | `--type` | 空 | 素材端点：`image` / `photo` / `illustration` / `vector` / `video`；网页搜索厂商忽略 |
 | `-n, --limit` | `5` | 请求结果条数，上限 20 |
 | `--json` | 空 | 命令级 JSON：文件路径或 inline JSON（**不接受 stdin**），字段：`query`、`provider`、`type`、`limit` |
