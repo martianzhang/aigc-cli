@@ -121,6 +121,12 @@ api_key: enc:v1:8jjcyC8N4it1sd0ig-xLkmAY47HDqPuXZkWLOr-vuUNqx0Tkd8POFfdq5tl1
   and tells you to set `AIGC_CLI_MASTER_KEY` to the original value; otherwise
   you must re-enter the API key.
 
+### Moving to another machine
+
+Export/import commands for macOS, Linux, and Windows, multi-machine strategies,
+rotation, and troubleshooting are covered in
+[Master Key & Multi-Machine Migration](guide-master-key.md).
+
 ## Proxy
 
 All HTTP requests go through the configured proxy. Configuration priority:

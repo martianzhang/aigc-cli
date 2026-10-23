@@ -172,6 +172,10 @@ api_key: enc:v1:8jjcyC8N4it1sd0ig-xLkmAY47HDqPuXZkWLOr-vuUNqx0Tkd8POFfdq5tl1
 - 其余普通字段不受影响；`config get/list/--print-config` 始终以掩码显示。
 - 换机器或丢失钥匙串时，解密会失败并提示设置 `AIGC_CLI_MASTER_KEY`（值为原密钥），否则需重新填写 API Key。
 
+### 换机器 / 多机使用
+
+主密钥的导出、导入（macOS / Linux / Windows 命令）、多机共用策略、轮换与常见问题，见 [主密钥与多机迁移](guide-master-key.md)。
+
 ## 配置文件
 
 默认位置 `~/.config/aigc-cli/config.yaml`：

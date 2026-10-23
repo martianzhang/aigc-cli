@@ -242,6 +242,7 @@ aigc-cli midjourney (or mj)
 | Document | Content |
 |---|---|
 | [Installation & Configuration](docs/en/installation.md) | Install, API Key, config file, proxy |
+| [Master Key & Migration](docs/en/guide-master-key.md) | Export/import the encryption key (macOS/Linux/Windows), multi-machine use, rotation |
 | [Image Generation](docs/en/guide-image.md) | All parameters, sync/async modes, image-to-image, Inpainting |
 | [Video Generation](docs/en/guide-video.md) | All parameters, first/last frame, reference video (APIMart) |
 | [Music Generation](docs/en/guide-music.md) | Prompt-to-music: APIMart async (suno/flowmusic), OpenRouter Lyria sync streaming, Alibaba Cloud Bailian Fun-Music sync |

@@ -239,6 +239,7 @@ aigc-cli midjourney (或 mj)
 | 文档 | 内容 |
 |---|---|
 | [安装与配置](docs/zh/installation.md) | 安装、API Key、配置文件、代理 |
+| [主密钥与多机迁移](docs/zh/guide-master-key.md) | 加密主密钥的导出/导入（macOS/Linux/Windows）、多机共用、轮换 |
 | [图片生成](docs/zh/guide-image.md) | 全部参数、同步/异步模式、图生图、Inpainting |
 | [视频生成](docs/zh/guide-video.md) | 全部参数、首尾帧、参考视频（APIMart） |
 | [音乐生成](docs/zh/guide-music.md) | 自然语言生成音乐：APIMart 异步（suno/flowmusic）、OpenRouter Lyria 同步流式、阿里云百炼 Fun-Music 同步 |
