@@ -125,6 +125,15 @@ providers:
 #   base_url: "https://openrouter.ai/api/v1"
 #   zdr: true
 
+# 示例：音效生成（audio sfx）— ElevenLabs / Stability AI
+# 也可以不写这里，直接设 ELEVENLABS_API_KEY / STABILITY_API_KEY 并用 --provider elevenlabs|stability
+# elevenlabs:
+#   base_url: "https://api.elevenlabs.io"
+#   api_key: "xi-xxx"
+# stability:
+#   base_url: "https://api.stability.ai"
+#   api_key: "sk-xxx"
+
 # 示例：阿里云百炼（音乐用 Fun-Music 时配置；chat 走 compatible-mode，音乐会自动改走原生 services 路径）
 # dashscope:
 #   api_key: "sk-xxx"
@@ -188,8 +197,20 @@ defaults:
     model: "doubao-seedance-2.0"
     # timeout: 1800             # HTTP 超时 + 异步任务轮询上限（秒）；不填时轮询默认 30 分钟
   audio:
-    speak_model: "gpt-4o-mini-tts"
-    transcribe_model: "whisper-tiny"
+    # timeout: 120               # 音频请求超时（秒）
+    speak:
+      model: "gpt-4o-mini-tts"
+      # provider: "openai-tts"   # 不填则用全局/默认 provider
+      voice: "alloy"
+      format: "mp3"
+    transcribe:
+      model: "whisper-tiny"
+      # provider: "openai-asr"
+      # language: "zh"
+    sfx:
+      provider: "elevenlabs"     # 命名 provider 或内置别名 elevenlabs / stability
+      # model: "eleven_text_to_sound_v2"  # ElevenLabs 默认；Stability 用 stable-audio-2.5
+      # format: "mp3"             # mp3 | wav
   midjourney:
     speed: "fast"
     version: "6.1"
@@ -285,6 +306,11 @@ defaults:
   #   pexels:
   #     type: pexels
   #     api_key: "your-pexels-key"    # 免费 API key；图片 + 视频
+  #   sfxmint:
+  #     type: sfxmint                 # 免 API key；CC0 音效库，结果含 WAV/MP3 直链
+  #   freesound:
+  #     type: freesound
+  #     api_key: "your-freesound-key" # 免费 API key；音效库（原档需 OAuth2，CLI 返回预览 MP3）
 
   # ── 可选：强制走本地 ONNX（无需配 provider）──
   # 命令行 aigc-cli ocr scan x.png --provider local 即可

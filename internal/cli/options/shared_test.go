@@ -327,10 +327,14 @@ func TestResolveProvider_LocalBuiltin(t *testing.T) {
 
 func TestLookupCmdProviderAndModel(t *testing.T) {
 	defaults := &types.ConfigDefaults{
-		Image:      &types.ImageDefaults{Provider: "img-prov", Model: "img-model"},
-		Video:      &types.VideoDefaults{Provider: "vid-prov"},
-		Chat:       &types.ChatDefaults{Provider: "chat-prov"},
-		Audio:      &types.AudioDefaults{Provider: "audio-prov"},
+		Image: &types.ImageDefaults{Provider: "img-prov", Model: "img-model"},
+		Video: &types.VideoDefaults{Provider: "vid-prov"},
+		Chat:  &types.ChatDefaults{Provider: "chat-prov"},
+		Audio: &types.AudioDefaults{
+			Speak:      &types.AudioSpeakDefaults{Provider: "tts-prov", Model: "tts-model"},
+			Transcribe: &types.AudioTranscribeDefaults{Provider: "asr-prov", Model: "asr-model"},
+			SFX:        &types.AudioSFXDefaults{Provider: "sfx-prov", Model: "sfx-model"},
+		},
 		Midjourney: &types.MidjourneyDefaults{Provider: "mj-prov"},
 		OCR:        &types.OCRDefaults{Provider: "ocr-prov", Model: "ocr-model"},
 		Vision:     &types.VisionDefaults{Provider: "vis-prov"},
@@ -344,7 +348,9 @@ func TestLookupCmdProviderAndModel(t *testing.T) {
 		{"image", "img-prov", "img-model"},
 		{"video", "vid-prov", ""},
 		{"chat", "chat-prov", ""},
-		{"audio", "audio-prov", ""},
+		{"audio.speak", "tts-prov", ""},
+		{"audio.transcribe", "asr-prov", ""},
+		{"audio.sfx", "sfx-prov", "sfx-model"},
 		{"midjourney", "mj-prov", ""},
 		{"ocr", "ocr-prov", "ocr-model"},
 		{"vision", "vis-prov", ""},

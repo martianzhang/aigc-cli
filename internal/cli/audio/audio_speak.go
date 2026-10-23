@@ -12,13 +12,12 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
-	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
 func runAudioSpeak(cmd *cobra.Command, args []string) error {
 	// ── Check local mode: --local flag, type=local, or no provider+model ──
-	p := options.Shared.ResolveProvider(options.ProviderNameAudio)
+	p := options.Shared.ResolveProvider(options.ProviderNameAudioSpeak)
 	if isLocalAudioMode(p, audioSpeechLocal) {
 		return runLocalAudioSpeak(cmd)
 	}
@@ -28,15 +27,15 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if cfg, err := config.LoadDefaults(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Audio != nil {
+	if cfg := options.AudioDefaults(); cfg != nil {
 		if req.Model == "" {
-			req.Model = cfg.Defaults.Audio.SpeakModel
+			req.Model = cfg.SpeakModel()
 		}
-		if req.Voice == "" && cfg.Defaults.Audio.Voice != "" {
-			req.Voice = cfg.Defaults.Audio.Voice
+		if req.Voice == "" {
+			req.Voice = cfg.SpeakVoice()
 		}
-		if req.ResponseFormat == "" && cfg.Defaults.Audio.Format != "" {
-			req.ResponseFormat = cfg.Defaults.Audio.Format
+		if req.ResponseFormat == "" {
+			req.ResponseFormat = cfg.SpeakFormat()
 		}
 	}
 
@@ -179,7 +178,7 @@ func resolveSID(voiceFlag string) int {
 	v := voiceFlag
 	if v == "" {
 		if cfg := options.AudioDefaults(); cfg != nil {
-			v = cfg.Voice
+			v = cfg.SpeakVoice()
 		}
 	}
 	if v == "" {

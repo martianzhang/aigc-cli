@@ -87,8 +87,9 @@ the knowledge base; use 'aigc-cli kb search' for that.
 
 Media providers (pixabay, pexels) search images and videos. Use --type to pick
 the endpoint (image|photo|illustration|vector|video) and --inject-json for the
-vendor's own filters. Their raw JSON already contains preview and download URLs,
-so feed those URLs to 'aigc-cli fetch'. There is no response normalization.
+vendor's own filters. Audio providers (sfxmint, freesound) return sound-effect
+hits whose raw JSON already contains preview and download URLs, so feed those
+URLs to 'aigc-cli fetch'. There is no response normalization.
 
 --json supplies the command-level request (query, provider, type, limit); CLI
 flags win over JSON fields. Both --json and --inject-json accept an inline JSON
@@ -143,7 +144,7 @@ environment variables.`,
 
 	f := cmd.Flags()
 	f.StringVarP(&flags.provider, "provider", "P", "", "Search provider name (see --list-providers); not an LLM provider")
-	f.StringVar(&flags.mediaType, "type", "", "Media type (Pixabay: image|photo|illustration|vector|video; Pexels: image|video); web providers ignore it")
+	f.StringVar(&flags.mediaType, "type", "", "Media type (Pixabay: image|photo|illustration|vector|video; Pexels: image|video); other providers ignore it")
 	f.BoolVar(&flags.refresh, "refresh", false, "Ignore a provider's response cache (Pixabay caches for 24h)")
 	f.IntVarP(&flags.limit, "limit", "n", defaultSearchLimit, "Max results to request (1-20)")
 	f.StringVar(&flags.jsonInput, "json", "", "Search request JSON: file path or inline JSON (fields: query, provider, type, limit); stdin is the query")

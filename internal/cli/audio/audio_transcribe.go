@@ -13,21 +13,25 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
-	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 	// ── Check local mode: --local flag, type=local, or no provider+model ──
-	p := options.Shared.ResolveProvider(options.ProviderNameAudio)
+	p := options.Shared.ResolveProvider(options.ProviderNameAudioTranscribe)
 	if isLocalAudioMode(p, audioTranscribeLocal) {
 		return runLocalAudioTranscribe(cmd)
 	}
 
 	if audioTranscribeModel == "" {
-		if cfg, err := config.LoadDefaults(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Audio != nil && cfg.Defaults.Audio.TranscribeModel != "" {
-			audioTranscribeModel = cfg.Defaults.Audio.TranscribeModel
+		if cfg := options.AudioDefaults(); cfg != nil {
+			audioTranscribeModel = cfg.TranscribeModel()
+		}
+	}
+	if audioTranscribeLanguage == "" {
+		if cfg := options.AudioDefaults(); cfg != nil {
+			audioTranscribeLanguage = cfg.TranscribeLanguage()
 		}
 	}
 	if audioTranscribeModel == "" {
@@ -155,7 +159,7 @@ func runLocalAudioTranscribe(_ *cobra.Command) error {
 	modelID := audioTranscribeModel
 	if modelID == "" {
 		if cfg := options.AudioDefaults(); cfg != nil {
-			modelID = cfg.TranscribeModel
+			modelID = cfg.TranscribeModel()
 		}
 	}
 	if modelID == "" {

@@ -144,7 +144,7 @@ defaults:
     provider: deepseek         # CLI / kb / chat / MCP 共享
 ```
 
-`defaults.search.provider` 取值：厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`）。不做自动选择。
+`defaults.search.provider` 取值：厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`/`sfxmint`/`freesound`）。不做自动选择。
 
 > **不静默降级**：`web_search`/`web_fetch` 在未配置第三方厂商时**明确报错**并提示改用内置 `search`/`fetch`——既不静默花钱，也不静默降级。
 
@@ -201,7 +201,7 @@ defaults:
 ### `model` 参数的真实行为
 
 - `generate_image` / `generate_video`：**配置优先** —— `defaults.image.model` / `defaults.video.model` 会覆盖 Agent 传入的 `model`，除非设置 `defaults.chat.allow_tool_override: true`（此时 Agent 传值优先，配置只在缺省时补齐）。
-- `generate_music` / `generate_speech` / `transcribe_audio`：Agent 传入的 `model` **按原样使用**；仅当未传时才回退到 `defaults.music.model` / `defaults.audio.speak_model` / `defaults.audio.transcribe_model`（再回退代码默认值）。
+- `generate_music` / `generate_speech` / `transcribe_audio`：Agent 传入的 `model` **按原样使用**；仅当未传时才回退到 `defaults.music.model` / `defaults.audio.speak.model` / `defaults.audio.transcribe.model`（再回退代码默认值）。
 
 ### Filter Tools
 

@@ -72,6 +72,17 @@ func NewProviderFromConfig(cfg *types.WebSearchProvider) (Provider, error) {
 			return nil, fmt.Errorf("pexels requires api_key")
 		}
 		return NewPexelsProvider(apiKey), nil
+	case "sfxmint":
+		return NewSFXMintProvider(), nil
+	case "freesound":
+		apiKey := cfg.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("FREESOUND_API_KEY")
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("freesound requires api_key")
+		}
+		return NewFreesoundProvider(apiKey), nil
 	default:
 		return nil, fmt.Errorf("unknown provider type: %s", cfg.Type)
 	}

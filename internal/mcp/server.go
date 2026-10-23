@@ -141,7 +141,7 @@ func buildAudioDesc(d *types.AudioDefaults, baseURL string) string {
 	p := provider.Detect(baseURL)
 	fmt.Fprintf(b, "Generate speech audio from text via %s.\n\nCurrent config (edit in ~/.config/aigc-cli/config.yaml):\n", p)
 	if d != nil {
-		fmt.Fprintf(b, "  speak_model = %s | transcribe_model = %s | voice = %s | format = %s\n", d.SpeakModel, d.TranscribeModel, d.Voice, d.Format)
+		fmt.Fprintf(b, "  speak.model = %s | speak.voice = %s | speak.format = %s | transcribe.model = %s | sfx.model = %s\n", d.SpeakModel(), d.SpeakVoice(), d.SpeakFormat(), d.TranscribeModel(), d.SFXModel())
 	}
 	b.WriteString("\nStrategy: Parameters already have defaults. Only set when the user explicitly specifies a value. Note: Videos are async — use get_task to query results.\n")
 	return b.String()
@@ -479,7 +479,7 @@ func newGenerateSpeechTool(desc string) mcp.Tool {
 			mcp.Description("Text to convert to speech"),
 		),
 		mcp.WithString("model",
-			mcp.Description("TTS model (e.g. openai/gpt-4o-mini-tts). Used as given; defaults.audio.speak_model fills in only when omitted"),
+			mcp.Description("TTS model (e.g. openai/gpt-4o-mini-tts). Used as given; defaults.audio.speak.model fills in only when omitted"),
 		),
 		mcp.WithString("provider",
 			mcp.Description(providerArgDesc),
@@ -508,7 +508,7 @@ func newTranscribeAudioTool(desc string) mcp.Tool {
 			mcp.Description("Path to the audio file to transcribe"),
 		),
 		mcp.WithString("model",
-			mcp.Description("STT model (e.g. openai/whisper-1). Used as given; defaults.audio.transcribe_model fills in only when omitted"),
+			mcp.Description("STT model (e.g. openai/whisper-1). Used as given; defaults.audio.transcribe.model fills in only when omitted"),
 		),
 		mcp.WithString("provider",
 			mcp.Description(providerArgDesc),

@@ -130,6 +130,15 @@ providers:
   #   base_url: "https://openrouter.ai/api/v1"
   #   zdr: true
 
+  # Example: sound effects (audio sfx) — ElevenLabs / Stability AI
+  # You can also skip this and just set ELEVENLABS_API_KEY / STABILITY_API_KEY with --provider elevenlabs|stability
+  # elevenlabs:
+  #   base_url: "https://api.elevenlabs.io"
+  #   api_key: "xi-xxx"
+  # stability:
+  #   base_url: "https://api.stability.ai"
+  #   api_key: "sk-xxx"
+
   # Example: Alibaba Cloud Bailian (needed for Fun-Music; chat uses compatible-mode,
   # music is automatically redirected to the native services path)
   # dashscope:
@@ -194,8 +203,20 @@ defaults:
     # timeout: 1800              # HTTP timeout + async task polling deadline (s); polling defaults to 30m
 
   audio:
-    speak_model: "gpt-4o-mini-tts"
-    transcribe_model: "whisper-tiny"
+    # timeout: 120               # audio request timeout (seconds)
+    speak:
+      model: "gpt-4o-mini-tts"
+      # provider: "openai-tts"   # unset = global/default provider
+      voice: "alloy"
+      format: "mp3"
+    transcribe:
+      model: "whisper-tiny"
+      # provider: "openai-asr"
+      # language: "zh"
+    sfx:
+      provider: "elevenlabs"     # named provider or built-in alias elevenlabs / stability
+      # model: "eleven_text_to_sound_v2"  # ElevenLabs default; Stability uses stable-audio-2.5
+      # format: "mp3"             # mp3 | wav
 
   midjourney:
     speed: "fast"
@@ -299,6 +320,11 @@ defaults:
   #   pexels:
   #     type: pexels
   #     api_key: "your-pexels-key"    # free API key; photos + videos
+  #   sfxmint:
+  #     type: sfxmint                 # no API key; CC0 sound effects with direct WAV/MP3 URLs
+  #   freesound:
+  #     type: freesound
+  #     api_key: "your-freesound-key" # free API key; sound effects (originals need OAuth2, CLI returns preview MP3)
 
   # ── Optional: Force local ONNX (no provider config needed) ──
   # Just run: aigc-cli ocr scan x.png --provider local

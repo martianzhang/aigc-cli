@@ -311,7 +311,7 @@ func validateSpeechFormat(format string) error {
 // generateSpeechHandler creates the handler for generate_speech, capturing the config.
 func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		p, providerErr := cfg.resolveProviderRef("audio", request.GetString("provider", ""))
+		p, providerErr := cfg.resolveProviderRef("audio.speak", request.GetString("provider", ""))
 		if providerErr != "" {
 			return mcp.NewToolResultError(providerErr), nil
 		}
@@ -337,16 +337,15 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		if req.Model == "" {
-			if cfg.Defaults.Audio != nil && cfg.Defaults.Audio.SpeakModel != "" {
-				req.Model = cfg.Defaults.Audio.SpeakModel
-			} else {
+			if cfg.Defaults.Audio != nil {
+				req.Model = cfg.Defaults.Audio.SpeakModel()
+			}
+			if req.Model == "" {
 				req.Model = "gpt-4o-mini-tts"
 			}
 		}
-		if req.Voice == "" {
-			if cfg.Defaults.Audio != nil && cfg.Defaults.Audio.Voice != "" {
-				req.Voice = cfg.Defaults.Audio.Voice
-			}
+		if req.Voice == "" && cfg.Defaults.Audio != nil {
+			req.Voice = cfg.Defaults.Audio.SpeakVoice()
 		}
 		if req.Voice == "" {
 			return mcp.NewToolResultError("voice is required"), nil
@@ -373,7 +372,7 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 // transcribeAudioHandler creates the handler for transcribe_audio, capturing the config.
 func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		p, providerErr := cfg.resolveProviderRef("audio", request.GetString("provider", ""))
+		p, providerErr := cfg.resolveProviderRef("audio.transcribe", request.GetString("provider", ""))
 		if providerErr != "" {
 			return mcp.NewToolResultError(providerErr), nil
 		}
@@ -388,9 +387,10 @@ func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 
 		model := request.GetString("model", "")
 		if model == "" {
-			if cfg.Defaults.Audio != nil && cfg.Defaults.Audio.TranscribeModel != "" {
-				model = cfg.Defaults.Audio.TranscribeModel
-			} else {
+			if cfg.Defaults.Audio != nil {
+				model = cfg.Defaults.Audio.TranscribeModel()
+			}
+			if model == "" {
 				model = "whisper-1"
 			}
 		}

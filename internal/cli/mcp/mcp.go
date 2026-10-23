@@ -56,12 +56,13 @@ Example MCP host config:
 
 		// Resolve providers for all commands that MCP tools may use.
 		cmdProviders := map[string]*provider.EffectiveProvider{
-			options.ProviderNameImage:      options.Shared.ResolveProvider(options.ProviderNameImage),
-			options.ProviderNameVideo:      options.Shared.ResolveProvider(options.ProviderNameVideo),
-			options.ProviderNameChat:       options.Shared.ResolveProvider(options.ProviderNameChat),
-			options.ProviderNameAudio:      options.Shared.ResolveProvider(options.ProviderNameAudio),
-			options.ProviderNameMusic:      options.Shared.ResolveProvider(options.ProviderNameMusic),
-			options.ProviderNameMidjourney: options.Shared.ResolveProvider(options.ProviderNameMidjourney),
+			options.ProviderNameImage:           options.Shared.ResolveProvider(options.ProviderNameImage),
+			options.ProviderNameVideo:           options.Shared.ResolveProvider(options.ProviderNameVideo),
+			options.ProviderNameChat:            options.Shared.ResolveProvider(options.ProviderNameChat),
+			options.ProviderNameAudioSpeak:      options.Shared.ResolveProvider(options.ProviderNameAudioSpeak),
+			options.ProviderNameAudioTranscribe: options.Shared.ResolveProvider(options.ProviderNameAudioTranscribe),
+			options.ProviderNameMusic:           options.Shared.ResolveProvider(options.ProviderNameMusic),
+			options.ProviderNameMidjourney:      options.Shared.ResolveProvider(options.ProviderNameMidjourney),
 		}
 
 		mcpCfg := &mcp.Config{

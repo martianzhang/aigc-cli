@@ -149,8 +149,9 @@ aigc-cli
 ├── video / vid   Video generation (Agnes / OpenRouter / OpenLux + VEO3 Remix)          →  docs/en/guide-video.md
 ├── depth         Image/video → grayscale depth map (offline ONNX, V2 models)   →  docs/en/guide-depth.md
 ├── upscale / sr  Image super-resolution 2x/4x (offline ONNX: Real-ESRGAN/Real-CUGAN/Swin2SR)  →  docs/en/guide-upscale.md
-├── audio / voice Audio: TTS and STT                                                →  docs/en/guide-audio.md
+├── audio / voice Audio: TTS, STT and sound effects                                →  docs/en/guide-audio.md
 │   ├── tts / speak  Text-to-speech (cloud API or local sherpa-onnx offline)
+│   ├── sfx          Short sound effects (ElevenLabs / Stability AI)
 │   ├── asr / stt    Speech-to-text (cloud API or local sherpa-onnx offline)
 │   └── init         Download local models (kokoro, sense-voice, etc.)
 ├── music      AI music generation (APIMart suno/flowmusic async, OpenRouter Lyria sync, Bailian Fun-Music)  →  docs/en/guide-music.md

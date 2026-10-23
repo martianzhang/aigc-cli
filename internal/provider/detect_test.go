@@ -434,3 +434,17 @@ func TestImageEditsHeaders(t *testing.T) {
 		t.Error("IsOfox should be false for api.openai.com")
 	}
 }
+
+func TestDetectAudioVendors(t *testing.T) {
+	cases := map[string]Type{
+		"https://api.elevenlabs.io":             ElevenLabs,
+		"https://api.us.elevenlabs.io":          ElevenLabs,
+		"https://api.stability.ai":              Stability,
+		"https://api.elevenlabs.io.evil.com/v1": OpenAI,
+	}
+	for url, want := range cases {
+		if got := Detect(url); got != want {
+			t.Errorf("Detect(%q) = %v, want %v", url, got, want)
+		}
+	}
+}

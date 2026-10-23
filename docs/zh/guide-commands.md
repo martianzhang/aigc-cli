@@ -45,9 +45,26 @@ aigc-cli search -P pexels "rain window night" --type video -n 12 \
 
 输出是厂商原始 JSON，里面的 `pageURL` / `url`、预览图和下载链接可直接交给 `aigc-cli fetch` 下载。素材的授权仍需按来源逐条确认（Pixabay Content License / Pexels License 都允许免费使用，但有各自限制）。
 
+音频素材（SFXMint / Freesound）同样只透传厂商 JSON，不加额外筛选参数，过滤条件走 `--inject-json`：
+
+```bash
+# SFXMint：免 API key，全部 CC0，结果 URL 就是 WAV 直链
+aigc-cli search -P sfxmint "door slam" -n 5
+aigc-cli search -P sfxmint "ui click" -n 5 --inject-json '{"max_duration_ms":1000,"loop":false}'
+
+# Freesound：需要 api_key；用厂商的 filter 只要 CC0、时长 0-3 秒
+aigc-cli search -P freesound "door slam" -n 5 \
+  --inject-json '{"filter":"license:\"Creative Commons 0\" duration:[0 TO 3]"}'
+
+# 下载搜到的音效
+aigc-cli fetch "https://sfxmint.com/dl/metal-door-slam-02.wav" -o sfx/
+```
+
+> Freesound 的原始 WAV 下载需要 OAuth2，CLI 因此把结果 URL 指向公开预览 MP3（`preview-hq-mp3`）；要原档请到声音页面手动下载。SFXMint 的结果 URL 直接是 WAV/MP3，可直接 `fetch`。
+
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `-P, --provider` | 空（→ `duckduckgo`） | 搜索厂商名：`duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` / `wsa` / `pixabay` / `pexels` |
+| `-P, --provider` | 空（→ `duckduckgo`） | 搜索厂商名：`duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` / `wsa` / `pixabay` / `pexels` / `sfxmint` / `freesound` |
 | `--type` | 空 | 素材端点：`image` / `photo` / `illustration` / `vector` / `video`；网页搜索厂商忽略 |
 | `-n, --limit` | `5` | 请求结果条数，上限 20 |
 | `--json` | 空 | 命令级 JSON：文件路径或 inline JSON（**不接受 stdin**），字段：`query`、`provider`、`type`、`limit` |

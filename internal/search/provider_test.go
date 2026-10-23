@@ -63,6 +63,20 @@ func TestNewProviderFromConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "freesound without api key returns error",
+			cfg:     &types.WebSearchProvider{Type: "freesound"},
+			wantErr: true,
+		},
+		{
+			name: "sfxmint needs no api key",
+			cfg:  &types.WebSearchProvider{Type: "sfxmint"},
+			check: func(t *testing.T, p Provider) {
+				if _, ok := p.(*SFXMintProvider); !ok {
+					t.Errorf("NewProviderFromConfig() = %T, want *SFXMintProvider", p)
+				}
+			},
+		},
+		{
 			name:    "unknown type returns error",
 			cfg:     &types.WebSearchProvider{Type: "nonexistent"},
 			wantErr: true,
@@ -139,6 +153,15 @@ func TestNewProviderFromConfig(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "freesound with api key returns FreesoundProvider",
+			cfg:  &types.WebSearchProvider{Type: "freesound", APIKey: "fs-key"},
+			check: func(t *testing.T, p Provider) {
+				if _, ok := p.(*FreesoundProvider); !ok {
+					t.Errorf("NewProviderFromConfig() = %T, want *FreesoundProvider", p)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -148,6 +171,7 @@ func TestNewProviderFromConfig(t *testing.T) {
 			t.Setenv("EXA_API_KEY", "")
 			t.Setenv("PIXABAY_API_KEY", "")
 			t.Setenv("PEXELS_API_KEY", "")
+			t.Setenv("FREESOUND_API_KEY", "")
 			t.Setenv("TENCENTCLOUD_WSA_APIKEY", "")
 
 			p, err := NewProviderFromConfig(tt.cfg)
@@ -176,6 +200,7 @@ func TestNewProviderFromConfig(t *testing.T) {
 func TestNewProviderFromConfigEnvKeys(t *testing.T) {
 	t.Setenv("PIXABAY_API_KEY", "env-pb-key")
 	t.Setenv("PEXELS_API_KEY", "env-px-key")
+	t.Setenv("FREESOUND_API_KEY", "env-fs-key")
 	t.Setenv("TENCENTCLOUD_WSA_APIKEY", "env-wsa-key")
 
 	for _, tc := range []struct {
@@ -184,6 +209,7 @@ func TestNewProviderFromConfigEnvKeys(t *testing.T) {
 	}{
 		{typ: "pixabay", want: "pixabay"},
 		{typ: "pexels", want: "pexels"},
+		{typ: "freesound", want: "freesound"},
 		{typ: "wsa", want: "wsa"},
 	} {
 		p, err := NewProviderFromConfig(&types.WebSearchProvider{Type: tc.typ})

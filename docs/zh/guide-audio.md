@@ -1,6 +1,6 @@
 # 音频生成（文字转语音 TTS）
 
-支持文字转语音（Text-to-Speech，TTS）和语音转文字（Speech-to-Text，STT），通过统一的 `audio` 命令提供。
+支持文字转语音（Text-to-Speech，TTS）、语音转文字（Speech-to-Text，STT）和短音效生成（SFX），通过统一的 `audio` 命令提供。
 
 > 📝 支持云端 API（OpenAI / OpenRouter / APIMart）和本地离线 TTS（sherpa-onnx）。
 
@@ -121,6 +121,63 @@ TTS 端点返回**二进制音频流**（非 JSON），需根据 `response_forma
 | `pcm` | `audio/pcm` | `.pcm` | 纯裸采样（24kHz 16-bit signed LE） |
 
 OpenRouter 仅支持 `mp3` 和 `pcm`。
+
+---
+
+## 音效生成（SFX）
+
+`audio sfx` 生成的是**单个短音效**（whoosh、impact、UI 声、脚步、环境音），而不是一首音乐。它要求显式时长、可选无缝 loop，并可调 prompt 贴合度。
+
+| Provider | 端点 | 时长 | loop | 额外参数 |
+|---|---|---|---|---|
+| **ElevenLabs** | `POST /v1/sound-generation` | 0.5–30s（0 = 自动） | ✅ | `prompt_influence` |
+| **Stability AI** | `POST /v2beta/audio/stable-audio-2/text-to-audio` | 1–190s（默认 5s） | ❌ | `--influence` 不支持 |
+
+```yaml
+# ~/.config/aigc-cli/config.yaml
+providers:
+  elevenlabs:
+    base_url: https://api.elevenlabs.io
+    api_key: "xi-xxx"
+defaults:
+  audio:
+    sfx:
+      provider: elevenlabs
+      # model: eleven_text_to_sound_v2   # 默认
+      # format: mp3                      # 默认
+```
+
+```bash
+# 1.5 秒的关门声
+aigc-cli audio sfx --input "heavy metal door slam with echo" --duration 1.5
+
+# 10 秒可循环的环境音
+aigc-cli audio sfx --input "rain on a car roof, steady ambience" -d 10 --loop
+
+# UI 提示音，提高贴合度，输出 wav
+aigc-cli audio sfx -i "sci-fi UI confirmation beep" -d 0.8 --influence 0.8 --format wav
+
+# 从文件 / stdin 读取描述
+aigc-cli audio sfx -i prompt.txt -d 2
+echo "cinematic whoosh" | aigc-cli audio sfx -d 1.2
+
+# 只看等价 curl
+aigc-cli audio sfx -i "whoosh" -d 1 --dry-run
+```
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `-i, --input` | stdin | 音效描述（文件路径 / 文本 / 管道） |
+| `-d, --duration` | `0` | 时长（秒）；0 = 由厂商决定（ElevenLabs）或 5s（Stability） |
+| `--loop` | `false` | 无缝循环（仅 ElevenLabs，且 ≤22s） |
+| `--influence` | `0.3` | Prompt 贴合度 0–1（仅 ElevenLabs） |
+| `-m, --model` | 厂商默认 | `eleven_text_to_sound_v2` / `stable-audio-2.5` |
+| `-f, --format` | `mp3` | `mp3` 或 `wav` |
+| `--play` | `false` | 保存后播放 |
+
+- 只设置 `ELEVENLABS_API_KEY` 或 `STABILITY_API_KEY`、并用 `--provider elevenlabs|stability` 也能直接跑，不必写 `providers`。
+- 也支持把任意代理/中转的 `base_url` 指到 ElevenLabs 或 Stability 协议端点。
+- 素材检索优先：先用 `aigc-cli search -P sfxmint` 找现成 CC0 音效，找不到再生成。
 
 ---
 
@@ -416,10 +473,10 @@ aigc-cli audio init --list-voices --model kokoro
 # ~/.config/aigc-cli/config.yaml
 defaults:
   audio:
-    local: true                    # 优先使用本地模型
-    speak_model: kokoro            # 本地 TTS 模型 ID
-    voice: "zf_xiaoxiao"           # 默认音色（支持名字或数字）
-    format: wav                    # 输出格式
+    speak:
+      model: kokoro                # 本地 TTS 模型 ID
+      voice: "zf_xiaoxiao"         # 默认音色（支持名字或数字）
+      format: wav                  # 输出格式
 ```
 
 启用后可直接运行：

@@ -54,8 +54,8 @@ func buildAudioSpeechRequest() (*types.AudioSpeechRequest, error) {
 // honoring a named provider (--provider / defaults.audio.provider). Dry-run
 // previews must use this, not the package-global Shared.APIBase, so they point
 // at the same endpoint the request would actually hit.
-func audioEndpoint() (base, key string) {
-	p := options.Shared.ResolveProvider(options.ProviderNameAudio)
+func audioEndpoint(cmdName string) (base, key string) {
+	p := options.Shared.ResolveProvider(cmdName)
 	base, key = options.Shared.APIBase, options.Shared.APIKey
 	if p != nil {
 		if p.BaseURL != "" {
@@ -70,7 +70,7 @@ func audioEndpoint() (base, key string) {
 
 // buildAudioSpeechCurl generates a dry-run curl command for TTS requests.
 func buildAudioSpeechCurl(req *types.AudioSpeechRequest) string {
-	base, key := audioEndpoint()
+	base, key := audioEndpoint(options.ProviderNameAudioSpeak)
 	payload, _ := json.MarshalIndent(req, "", "  ")
 	var b strings.Builder
 	fmt.Fprintf(&b, "curl %s/audio/speech \\\n", base)
@@ -83,7 +83,7 @@ func buildAudioSpeechCurl(req *types.AudioSpeechRequest) string {
 
 // buildAudioTranscribeCurl generates a dry-run curl command for base64 (JSON) STT.
 func buildAudioTranscribeCurl(req *types.AudioTranscribeRequest) string {
-	base, key := audioEndpoint()
+	base, key := audioEndpoint(options.ProviderNameAudioTranscribe)
 	payload, _ := json.MarshalIndent(req, "", "  ")
 	var b strings.Builder
 	fmt.Fprintf(&b, "curl %s/audio/transcriptions \\\n", base)
@@ -96,7 +96,7 @@ func buildAudioTranscribeCurl(req *types.AudioTranscribeRequest) string {
 // buildAudioTranscribeFileCurl generates a dry-run curl command for multipart
 // file STT.
 func buildAudioTranscribeFileCurl(input, model, language string) string {
-	base, key := audioEndpoint()
+	base, key := audioEndpoint(options.ProviderNameAudioTranscribe)
 	var b strings.Builder
 	fmt.Fprintf(&b, "curl %s/audio/transcriptions \\\n", base)
 	fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(key))

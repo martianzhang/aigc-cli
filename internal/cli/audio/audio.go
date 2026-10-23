@@ -27,11 +27,13 @@ uses ONNX models downloaded with 'audio init'.
 
 Subcommands:
   speak / tts       Convert text to speech audio
+  sfx               Generate a short sound effect from text
   play              Play an audio file (no external app needed)
   transcribe / asr  Convert audio to text
   init              Download local audio models`,
 	Example: `  aigc-cli audio speak --input "Hello world" --voice alloy
   aigc-cli audio speak --input text.txt --voice nova --play
+  aigc-cli audio sfx --input "heavy metal door slam" --duration 1.5
   aigc-cli audio transcribe --input recording.wav
   aigc-cli audio init --list`,
 }
@@ -172,11 +174,13 @@ func registerAudioTranscribeFlags(cmd *cobra.Command) {
 func init() {
 	registerAudioSpeakFlags(speechCmd)
 	registerAudioTranscribeFlags(transcribeCmd)
+	registerAudioSFXFlags(sfxCmd)
 	audioCmd.AddCommand(speechCmd)
+	audioCmd.AddCommand(sfxCmd)
 	audioCmd.AddCommand(playCmd)
 	audioCmd.AddCommand(transcribeCmd)
 
-	// --dry-run is shared by speak/transcribe.
+	// --dry-run is shared by speak/sfx/transcribe.
 	audioCmd.PersistentFlags().BoolVar(&audioDryRun, "dry-run", false, "Print curl command without calling API")
 }
 

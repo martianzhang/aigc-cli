@@ -24,6 +24,8 @@ const (
 	Zeekai
 	Pollinations
 	MiMo
+	ElevenLabs
+	Stability
 )
 
 var names = map[Type]string{
@@ -39,6 +41,8 @@ var names = map[Type]string{
 	Zeekai:       "ZeekAI",
 	Pollinations: "Pollinations",
 	MiMo:         "MiMo",
+	ElevenLabs:   "ElevenLabs",
+	Stability:    "Stability AI",
 }
 
 func (t Type) String() string {
@@ -112,6 +116,17 @@ var zeekaiDomains = []string{
 var mimoDomains = []string{
 	"xiaomimimo.com",
 	"mimo.mi.com",
+}
+
+// elevenLabsDomains lists hosts where the ElevenLabs API is served. The
+// sound-effects endpoint is not OpenAI-compatible, so it has its own type.
+var elevenLabsDomains = []string{
+	"elevenlabs.io",
+}
+
+// stabilityDomains lists hosts where the Stability AI API is served.
+var stabilityDomains = []string{
+	"stability.ai",
 }
 
 // ofoxDomains lists hosts where the OfoxAI aggregator serves its API.
@@ -252,6 +267,16 @@ func Detect(baseURL string) Type {
 	for _, d := range mimoDomains {
 		if matchDomain(baseURL, d) {
 			return MiMo
+		}
+	}
+	for _, d := range elevenLabsDomains {
+		if matchDomain(baseURL, d) {
+			return ElevenLabs
+		}
+	}
+	for _, d := range stabilityDomains {
+		if matchDomain(baseURL, d) {
+			return Stability
 		}
 	}
 	// Default to OpenAI-compatible for everything else

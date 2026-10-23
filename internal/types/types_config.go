@@ -360,15 +360,130 @@ func (d *MidjourneyDefaults) MergeIntoImagine(req *MJImagineRequest) {
 	}
 }
 
-// AudioDefaults holds default values for audio generation and transcription.
-// Local inference is controlled by the provider type (type=local), not this struct.
+// AudioDefaults holds default values for audio generation, transcription and
+// sound effects. Local inference is controlled by the provider type
+// (type=local), not this struct.
+//
+// The nested speak/transcribe/sfx sections are the only supported layout.
 type AudioDefaults struct {
-	Provider        string `mapstructure:"provider" yaml:"provider,omitempty"`
-	SpeakModel      string `mapstructure:"speak_model" yaml:"speak_model,omitempty"`
-	TranscribeModel string `mapstructure:"transcribe_model" yaml:"transcribe_model,omitempty"`
-	Voice           string `mapstructure:"voice" yaml:"voice,omitempty"`
-	Format          string `mapstructure:"format" yaml:"format,omitempty"`
-	Timeout         *int   `mapstructure:"timeout" yaml:"timeout,omitempty"`
+	Timeout    *int                     `mapstructure:"timeout" yaml:"timeout,omitempty"`
+	Speak      *AudioSpeakDefaults      `mapstructure:"speak" yaml:"speak,omitempty"`
+	Transcribe *AudioTranscribeDefaults `mapstructure:"transcribe" yaml:"transcribe,omitempty"`
+	SFX        *AudioSFXDefaults        `mapstructure:"sfx" yaml:"sfx,omitempty"`
+}
+
+// AudioSpeakDefaults holds defaults for `audio speak`.
+type AudioSpeakDefaults struct {
+	Provider string `mapstructure:"provider" yaml:"provider,omitempty"`
+	Model    string `mapstructure:"model" yaml:"model,omitempty"`
+	Voice    string `mapstructure:"voice" yaml:"voice,omitempty"`
+	Format   string `mapstructure:"format" yaml:"format,omitempty"`
+}
+
+// AudioTranscribeDefaults holds defaults for `audio transcribe`.
+type AudioTranscribeDefaults struct {
+	Provider string `mapstructure:"provider" yaml:"provider,omitempty"`
+	Model    string `mapstructure:"model" yaml:"model,omitempty"`
+	Language string `mapstructure:"language" yaml:"language,omitempty"`
+}
+
+// AudioSFXDefaults holds defaults for `audio sfx`.
+type AudioSFXDefaults struct {
+	Provider string `mapstructure:"provider" yaml:"provider,omitempty"`
+	Model    string `mapstructure:"model" yaml:"model,omitempty"`
+	Format   string `mapstructure:"format" yaml:"format,omitempty"`
+}
+
+// SpeakModel returns the effective speak model.
+func (d *AudioDefaults) SpeakModel() string {
+	if d == nil {
+		return ""
+	}
+	if d.Speak == nil {
+		return ""
+	}
+	return d.Speak.Model
+}
+
+// SpeakProvider returns the configured speak provider (empty = global).
+func (d *AudioDefaults) SpeakProvider() string {
+	if d == nil || d.Speak == nil {
+		return ""
+	}
+	return d.Speak.Provider
+}
+
+// SpeakVoice returns the effective speak voice.
+func (d *AudioDefaults) SpeakVoice() string {
+	if d == nil {
+		return ""
+	}
+	if d.Speak == nil {
+		return ""
+	}
+	return d.Speak.Voice
+}
+
+// SpeakFormat returns the effective speak format.
+func (d *AudioDefaults) SpeakFormat() string {
+	if d == nil {
+		return ""
+	}
+	if d.Speak == nil {
+		return ""
+	}
+	return d.Speak.Format
+}
+
+// TranscribeModel returns the effective transcription model.
+func (d *AudioDefaults) TranscribeModel() string {
+	if d == nil {
+		return ""
+	}
+	if d.Transcribe == nil {
+		return ""
+	}
+	return d.Transcribe.Model
+}
+
+// TranscribeProvider returns the configured transcription provider (empty = global).
+func (d *AudioDefaults) TranscribeProvider() string {
+	if d == nil || d.Transcribe == nil {
+		return ""
+	}
+	return d.Transcribe.Provider
+}
+
+// TranscribeLanguage returns the default transcription language hint.
+func (d *AudioDefaults) TranscribeLanguage() string {
+	if d == nil || d.Transcribe == nil {
+		return ""
+	}
+	return d.Transcribe.Language
+}
+
+// SFXModel returns the effective sound-effect model.
+func (d *AudioDefaults) SFXModel() string {
+	if d == nil || d.SFX == nil {
+		return ""
+	}
+	return d.SFX.Model
+}
+
+// SFXProvider returns the configured sound-effect provider (empty = global).
+func (d *AudioDefaults) SFXProvider() string {
+	if d == nil || d.SFX == nil {
+		return ""
+	}
+	return d.SFX.Provider
+}
+
+// SFXFormat returns the effective sound-effect format.
+func (d *AudioDefaults) SFXFormat() string {
+	if d == nil || d.SFX == nil {
+		return ""
+	}
+	return d.SFX.Format
 }
 
 // MergeIntoVideo applies non-zero default values to a video generation request.

@@ -12,10 +12,8 @@ import (
 
 func Test_buildAudioDesc_withOpenAI(t *testing.T) {
 	d := &types.AudioDefaults{
-		SpeakModel:      "tts-1",
-		TranscribeModel: "whisper-1",
-		Voice:           "alloy",
-		Format:          "mp3",
+		Speak:      &types.AudioSpeakDefaults{Model: "tts-1", Voice: "alloy", Format: "mp3"},
+		Transcribe: &types.AudioTranscribeDefaults{Model: "whisper-1"},
 	}
 	got := buildAudioDesc(d, "https://api.openai.com/v1")
 	if !strings.Contains(got, "OpenAI") {
@@ -31,10 +29,8 @@ func Test_buildAudioDesc_withOpenAI(t *testing.T) {
 
 func Test_buildAudioDesc_withOpenRouter(t *testing.T) {
 	d := &types.AudioDefaults{
-		SpeakModel:      "openai/gpt-4o-mini-tts",
-		TranscribeModel: "openai/whisper-1",
-		Voice:           "nova",
-		Format:          "wav",
+		Speak:      &types.AudioSpeakDefaults{Model: "openai/gpt-4o-mini-tts", Voice: "nova", Format: "wav"},
+		Transcribe: &types.AudioTranscribeDefaults{Model: "openai/whisper-1"},
 	}
 	got := buildAudioDesc(d, "https://openrouter.ai/api/v1")
 	if !strings.Contains(got, "OpenRouter") {
@@ -279,7 +275,7 @@ func TestNewServer_returnsNonNil(t *testing.T) {
 		Defaults: &types.ConfigDefaults{
 			Image: &types.ImageDefaults{Model: "dall-e-3"},
 			Video: &types.VideoDefaults{Model: "veo-2"},
-			Audio: &types.AudioDefaults{SpeakModel: "tts-1"},
+			Audio: &types.AudioDefaults{Speak: &types.AudioSpeakDefaults{Model: "tts-1"}},
 		},
 	}
 	s := NewServer(cfg)
@@ -295,7 +291,7 @@ func TestNewServer_toolsRegistered(t *testing.T) {
 		Defaults: &types.ConfigDefaults{
 			Image: &types.ImageDefaults{Model: "dall-e-3"},
 			Video: &types.VideoDefaults{Model: "veo-2"},
-			Audio: &types.AudioDefaults{SpeakModel: "tts-1"},
+			Audio: &types.AudioDefaults{Speak: &types.AudioSpeakDefaults{Model: "tts-1"}},
 		},
 	}
 	s := NewServer(cfg)
@@ -333,7 +329,7 @@ func TestNewServer_withEnableList(t *testing.T) {
 		Defaults: &types.ConfigDefaults{
 			Image: &types.ImageDefaults{Model: "dall-e-3"},
 			Video: &types.VideoDefaults{Model: "veo-2"},
-			Audio: &types.AudioDefaults{SpeakModel: "tts-1"},
+			Audio: &types.AudioDefaults{Speak: &types.AudioSpeakDefaults{Model: "tts-1"}},
 		},
 	}
 	s := NewServer(cfg)
@@ -351,7 +347,7 @@ func TestNewServer_withDisableList(t *testing.T) {
 		Defaults: &types.ConfigDefaults{
 			Image: &types.ImageDefaults{Model: "dall-e-3"},
 			Video: &types.VideoDefaults{Model: "veo-2"},
-			Audio: &types.AudioDefaults{SpeakModel: "tts-1"},
+			Audio: &types.AudioDefaults{Speak: &types.AudioSpeakDefaults{Model: "tts-1"}},
 		},
 	}
 	s := NewServer(cfg)

@@ -45,20 +45,22 @@ var Shared = &SharedConfig{}
 
 // Provider name constants for ResolveProvider.
 const (
-	ProviderNameImage      = "image"
-	ProviderNameVideo      = "video"
-	ProviderNameChat       = "chat"
-	ProviderNameAudio      = "audio"
-	ProviderNameMidjourney = "midjourney"
-	ProviderNameMusic      = "music"
-	ProviderNameModels     = "models"
-	ProviderNameOCR        = "ocr"
-	ProviderNameUpscale    = "upscale"
-	ProviderNameVision     = "vision"
-	ProviderNameDetect     = "detect"
-	ProviderNameBackground = "background"
-	ProviderNameDecision   = "decision"
-	ProviderNameLocal      = "local"
+	ProviderNameImage           = "image"
+	ProviderNameVideo           = "video"
+	ProviderNameChat            = "chat"
+	ProviderNameAudioSpeak      = "audio.speak"
+	ProviderNameAudioTranscribe = "audio.transcribe"
+	ProviderNameAudioSFX        = "audio.sfx"
+	ProviderNameMidjourney      = "midjourney"
+	ProviderNameMusic           = "music"
+	ProviderNameModels          = "models"
+	ProviderNameOCR             = "ocr"
+	ProviderNameUpscale         = "upscale"
+	ProviderNameVision          = "vision"
+	ProviderNameDetect          = "detect"
+	ProviderNameBackground      = "background"
+	ProviderNameDecision        = "decision"
+	ProviderNameLocal           = "local"
 )
 
 // ResolveProvider returns the effective provider configuration for a command.
@@ -160,9 +162,21 @@ var CmdProviderMap = map[string]CmdProviderInfo{
 		}
 		return "", ""
 	}},
-	ProviderNameAudio: {func(d *types.ConfigDefaults) (string, string) {
+	ProviderNameAudioSpeak: {func(d *types.ConfigDefaults) (string, string) {
 		if d.Audio != nil {
-			return d.Audio.Provider, ""
+			return d.Audio.SpeakProvider(), ""
+		}
+		return "", ""
+	}},
+	ProviderNameAudioTranscribe: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Audio != nil {
+			return d.Audio.TranscribeProvider(), ""
+		}
+		return "", ""
+	}},
+	ProviderNameAudioSFX: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Audio != nil {
+			return d.Audio.SFXProvider(), d.Audio.SFXModel()
 		}
 		return "", ""
 	}},

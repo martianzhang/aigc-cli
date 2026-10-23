@@ -240,3 +240,65 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatal("cfg should not be nil")
 	}
 }
+
+func TestLoad_audioDefaults(t *testing.T) {
+	t.Setenv("HTTP_PROXY", "")
+	t.Setenv("HTTPS_PROXY", "")
+
+	path := filepath.Join(t.TempDir(), "audio.yaml")
+	content := []byte(`
+defaults:
+  audio:
+    speak:
+      provider: "nested-tts"
+      model: "nested-model"
+      voice: "alloy"
+      format: "mp3"
+    transcribe:
+      model: "whisper-large-v3"
+      language: "zh"
+    sfx:
+      provider: "elevenlabs"
+      model: "eleven_text_to_sound_v2"
+      format: "wav"
+`)
+	if err := os.WriteFile(path, content, 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Defaults == nil || cfg.Defaults.Audio == nil {
+		t.Fatal("defaults.audio was not parsed")
+	}
+	audio := cfg.Defaults.Audio
+	if got := audio.SpeakModel(); got != "nested-model" {
+		t.Errorf("SpeakModel() = %q, want nested-model", got)
+	}
+	if got := audio.SpeakProvider(); got != "nested-tts" {
+		t.Errorf("SpeakProvider() = %q, want nested-tts", got)
+	}
+	if got := audio.SpeakVoice(); got != "alloy" {
+		t.Errorf("SpeakVoice() = %q, want alloy", got)
+	}
+	if got := audio.SpeakFormat(); got != "mp3" {
+		t.Errorf("SpeakFormat() = %q, want mp3", got)
+	}
+	if got := audio.TranscribeModel(); got != "whisper-large-v3" {
+		t.Errorf("TranscribeModel() = %q, want whisper-large-v3", got)
+	}
+	if got := audio.TranscribeProvider(); got != "" {
+		t.Errorf("TranscribeProvider() = %q, want empty (global fallback)", got)
+	}
+	if got := audio.TranscribeLanguage(); got != "zh" {
+		t.Errorf("TranscribeLanguage() = %q, want zh", got)
+	}
+	if got := audio.SFXProvider(); got != "elevenlabs" {
+		t.Errorf("SFXProvider() = %q, want elevenlabs", got)
+	}
+	if got := audio.SFXFormat(); got != "wav" {
+		t.Errorf("SFXFormat() = %q, want wav", got)
+	}
+}

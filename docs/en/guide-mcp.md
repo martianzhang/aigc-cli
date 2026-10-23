@@ -95,7 +95,7 @@ defaults:
     provider: deepseek         # shared by CLI / kb / chat / MCP
 ```
 
-`defaults.search.provider` accepts a vendor name (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`); there is no automatic selection.
+`defaults.search.provider` accepts a vendor name (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`/`sfxmint`/`freesound`); there is no automatic selection.
 
 > **No silent fallback**: with no third-party provider configured, `web_search`/`web_fetch` **fail with an explicit error** pointing at the built-in `search`/`fetch` tools — so nothing silently bills, and nothing silently degrades.
 
@@ -152,7 +152,7 @@ defaults:
 ### What the `model` argument actually does
 
 - `generate_image` / `generate_video`: **config wins** — `defaults.image.model` / `defaults.video.model` overrides the agent-supplied `model` unless `defaults.chat.allow_tool_override: true` is set (then the agent value wins and config only fills gaps).
-- `generate_music` / `generate_speech` / `transcribe_audio`: the agent-supplied `model` is used as given; `defaults.music.model` / `defaults.audio.speak_model` / `defaults.audio.transcribe_model` fills in only when omitted (then code defaults).
+- `generate_music` / `generate_speech` / `transcribe_audio`: the agent-supplied `model` is used as given; `defaults.music.model` / `defaults.audio.speak.model` / `defaults.audio.transcribe.model` fills in only when omitted (then code defaults).
 
 ## Tool Filtering
 

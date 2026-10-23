@@ -178,9 +178,30 @@ The raw JSON contains page URLs, preview images and download URLs; feed those
 URLs to `aigc-cli fetch` to save the selected asset. Check the source license
 per asset (Pixabay Content License / Pexels License).
 
+Audio assets (SFXMint / Freesound) follow the same rule: the vendor's JSON is
+passed through untouched and filters go in `--inject-json`:
+
+```bash
+# SFXMint: no API key, everything CC0, result URLs are direct WAV links
+aigc-cli search -P sfxmint "door slam" -n 5
+aigc-cli search -P sfxmint "ui click" -n 5 --inject-json '{"max_duration_ms":1000,"loop":false}'
+
+# Freesound: needs api_key; use the vendor filter for CC0 only, 0-3 seconds
+aigc-cli search -P freesound "door slam" -n 5 \
+  --inject-json '{"filter":"license:\"Creative Commons 0\" duration:[0 TO 3]"}'
+
+# download a result
+aigc-cli fetch "https://sfxmint.com/dl/metal-door-slam-02.wav" -o sfx/
+```
+
+> Freesound's original WAV download requires OAuth2, so the CLI points result
+> URLs at the public preview MP3 (`preview-hq-mp3`); download the original from
+> the sound page. SFXMint result URLs are direct WAV/MP3 files that `fetch` can
+> save as-is.
+
 | Flag | Default | Description |
 |---|---|---|
-| `-P, --provider` | empty (→ `duckduckgo`) | Search vendor name: `duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` / `wsa` / `pixabay` / `pexels` |
+| `-P, --provider` | empty (→ `duckduckgo`) | Search vendor name: `duckduckgo` / `firecrawl` / `brave` / `doubao` / `deepseek` / `exa` / `wsa` / `pixabay` / `pexels` / `sfxmint` / `freesound` |
 | `--type` | empty | Media endpoint: `image` / `photo` / `illustration` / `vector` / `video`; web providers ignore it |
 | `-n, --limit` | `5` | Number of results to request (capped at 20) |
 | `--json` | empty | Command-level JSON: file path or inline JSON (**no stdin**); fields: `query`, `provider`, `type`, `limit` |
