@@ -102,7 +102,7 @@ AI agents can generate images/videos/music, run Midjourney, OCR, search the idea
 | 🎨 | **Complete Midjourney Pipeline** | 17 subcommands covering imagine → blend → describe → upscale → zoom → inpaint → video → remix, no Discord needed |
 | 🎵 | **AI Music Generation** | Natural-language music: APIMart (suno / flowmusic, async submit → poll → download), OpenRouter (Lyria-3, sync streaming), Alibaba Cloud Bailian (Fun-Music, sync) |
 | 💬 | **Agentic Chat** | Interactive REPL with built-in `generate_image` / `generate_video` / `midjourney_*` / `ideas` / `kb_*` tools; `@file` references (text inlined, images attached, Tab completes paths) |
-| 🔍 | **Prompt Idea Library** | Offline BM25 search engine (CJK-aware + n-gram + RRF), 10K+ prompt dataset, plus aipromptslibrary / prompts.chat / openart / civitai via `--source` |
+| 🔍 | **Prompt Idea Library** | Offline BM25 search engine (CJK-aware + n-gram + RRF), 10K+ prompt dataset, plus aipromptslibrary / prompts.chat / openart / civitai / youmind via `--source` |
 | 🔊 | **Local TTS / ASR** | sherpa-onnx offline speech synthesis (kokoro, 53 voices, EN/ZH/JA/KR/FR) and speech recognition (SenseVoice, best for Chinese), no internet needed |
 | 📏 | **Depth Map** | `depth`: local Depth Anything V2 ONNX → grayscale depth map (image or video) for depth-guided image-to-video |
 | 🔎 | **Image Upscale** | `upscale`: local Real-ESRGAN / Real-CUGAN / Swin2SR ONNX super-resolution (2x/4x), offline, feathered tiles |
@@ -250,7 +250,7 @@ aigc-cli midjourney (or mj)
 | [Midjourney](docs/en/guide-midjourney.md) | 17 subcommands complete guide: imagine, blend, upscale etc. |
 | [AI Chat](docs/en/guide-chat.md) | Interactive multi-turn REPL, streaming, verbose stats |
 | [AIGC Detection](docs/en/guide-detect.md) | Multi-signal fusion, ONNX models, FFT spectrum, emoji output |
-| [Prompt Ideas](docs/en/guide-ideas.md) | Local BM25 search + online libraries (aipromptslibrary, prompts.chat, openart, civitai) |
+| [Prompt Ideas](docs/en/guide-ideas.md) | Local BM25 search + online libraries (aipromptslibrary, prompts.chat, openart, civitai, youmind) |
 | [Knowledge Base](docs/en/guide-knowledgebase.md) | Local KB: FTS5 + semantic search, vault, web search |
 | [Other Commands](docs/en/guide-commands.md) | models, task, balance, config, dry-run, API reference |
 | [API Reference](docs/en/api-reference.md) | Provider API specification sources, detection, strategy routing |

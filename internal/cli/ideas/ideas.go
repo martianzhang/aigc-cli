@@ -58,6 +58,7 @@ Sources (--source):
   prompts.chat      prompts.chat community prompt library
   openart           openart.ai community prompts (experimental)
   civitai           civitai.com image prompts (matched via model search)
+  youmind           youmind.com prompt library (image + video + webpage)
 
 Pass one value, a comma-separated list, or repeat the flag:
   --source local,openart
@@ -84,7 +85,7 @@ online sources only.`,
 	fl.BoolVar(&f.save, "save", false, "Download reference images to local directory")
 	fl.BoolVar(&f.preview, "preview", false, "Open saved images with system default viewer (implies --save)")
 	fl.StringVar(&f.findImage, "find-image", "", "Search by image filename (matches image_urls in dataset)")
-	fl.StringSliceVar(&f.sources, "source", []string{ideas.SourceAll}, "Sources to search (comma-separated or repeatable): all, local, aipromptslibrary, prompts.chat, openart, civitai")
+	fl.StringSliceVar(&f.sources, "source", []string{ideas.SourceAll}, "Sources to search (comma-separated or repeatable): all, local, aipromptslibrary, prompts.chat, openart, civitai, youmind")
 
 	cmd.AddCommand(newInitCommand(deps))
 	return cmd

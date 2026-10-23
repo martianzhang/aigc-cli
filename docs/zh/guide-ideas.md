@@ -47,6 +47,7 @@ aigc-cli ideas "cyberpunk city" --source aipromptslibrary
 aigc-cli ideas "portrait" --source prompts.chat
 aigc-cli ideas "portrait" --source openart
 aigc-cli ideas "cyberpunk city" --source civitai
+aigc-cli ideas "cyberpunk city" --source youmind
 
 # 组合多个源（逗号分隔或重复传参均可）
 aigc-cli ideas "portrait" --source local,openart
@@ -63,6 +64,7 @@ aigc-cli ideas "portrait" --source prompts.chat --source openart
 | `prompts.chat` | [prompts.chat](https://prompts.chat) 社区提示词库 |
 | `openart` | [openart.ai](https://openart.ai) 社区提示词，**实验性**：搜索接口未公开文档且没有规范的条目链接，因此结果不带来源链接 |
 | `civitai` | [civitai.com](https://civitai.com) 图片提示词：先用关键词检索 Civitai 的模型，再从这些模型图片的元数据中提取提示词（Civitai 没有提示词检索接口）。结果默认过滤 NSFW（`nsfw=None`） |
+| `youmind` | [youmind.com/prompts](https://youmind.com/prompts) 提示词库：直接调用站点的公开 JSON 接口，并发查询图片、视频、网页三类提示词并按来源去重合并。免 API Key，返回完整提示词正文、作者、参考图和详情链接 |
 
 说明：
 

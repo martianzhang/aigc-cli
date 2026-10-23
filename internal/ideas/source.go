@@ -15,6 +15,7 @@ const (
 	SourcePromptsChat     = "prompts.chat"
 	SourceOpenArt         = "openart"
 	SourceCivitai         = "civitai"
+	SourceYouMind         = "youmind"
 	SourceAll             = "all"
 )
 
@@ -29,12 +30,12 @@ type Source interface {
 
 // AllSourceNames lists every accepted --source value, including the "all" selector.
 func AllSourceNames() []string {
-	return []string{SourceAll, SourceLocal, SourceAIPromptLibrary, SourcePromptsChat, SourceOpenArt, SourceCivitai}
+	return []string{SourceAll, SourceLocal, SourceAIPromptLibrary, SourcePromptsChat, SourceOpenArt, SourceCivitai, SourceYouMind}
 }
 
 // OnlineSourceNames lists the online libraries in their default order.
 func OnlineSourceNames() []string {
-	return []string{SourceAIPromptLibrary, SourcePromptsChat, SourceOpenArt, SourceCivitai}
+	return []string{SourceAIPromptLibrary, SourcePromptsChat, SourceOpenArt, SourceCivitai, SourceYouMind}
 }
 
 // ResolveSources turns --source specs into an ordered source list.
@@ -132,6 +133,8 @@ func onlineSource(name string) Source {
 		return openArtSource{}
 	case SourceCivitai:
 		return civitaiSource{}
+	case SourceYouMind:
+		return youmindSource{}
 	default:
 		return nil
 	}

@@ -20,8 +20,8 @@ func sourceNames(sources []Source) []string {
 }
 
 func TestResolveSources(t *testing.T) {
-	allWithLocal := []string{SourceLocal, SourceAIPromptLibrary, SourcePromptsChat, SourceOpenArt, SourceCivitai}
-	allOnline := []string{SourceAIPromptLibrary, SourcePromptsChat, SourceOpenArt, SourceCivitai}
+	allWithLocal := []string{SourceLocal, SourceAIPromptLibrary, SourcePromptsChat, SourceOpenArt, SourceCivitai, SourceYouMind}
+	allOnline := []string{SourceAIPromptLibrary, SourcePromptsChat, SourceOpenArt, SourceCivitai, SourceYouMind}
 
 	tests := []struct {
 		name     string
