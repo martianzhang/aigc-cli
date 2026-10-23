@@ -2,7 +2,6 @@ package search
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -243,7 +242,11 @@ func TestTencentWSAPreview(t *testing.T) {
 	if strings.Contains(plan.Headers[0].Value, "secret") {
 		t.Errorf("Authorization = %q, want masked key", plan.Headers[0].Value)
 	}
-	if !strings.Contains(fmt.Sprintf("%v", plan.Body), "三星堆的由来") {
-		t.Errorf("body = %v, want it to contain the query", plan.Body)
+	body, ok := plan.Body.(json.RawMessage)
+	if !ok {
+		t.Fatalf("body type = %T, want json.RawMessage", plan.Body)
+	}
+	if !strings.Contains(string(body), "三星堆的由来") {
+		t.Errorf("body = %s, want it to contain the query", body)
 	}
 }
