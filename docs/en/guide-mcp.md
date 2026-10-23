@@ -30,7 +30,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `generate_video` | Generate videos (async submit → poll); always uses `defaults.video.provider`, no `provider` argument; supports `return_last_frame` to save the last frame as an image | Paid (API key) |
 | `generate_music` | Generate music (APIMart suno/flowmusic async, OpenRouter Lyria, Alibaba Cloud Bailian Fun-Music); optional `provider` | Paid (API key) |
 | `generate_speech` | Text-to-speech; optional `provider` / `model` / `voice` / `format` | Paid (API key) |
-| `generate_sfx` | Short sound effects (ElevenLabs / Stability online, `provider=local` for offline ONNX); optional `model` / `duration` / `loop` / `influence` / `format` / `seed` / `normalize` | Paid online, free locally |
+| `generate_sfx` | Short sound effects (ElevenLabs / Stability online, `provider=local` for offline ONNX); optional `model` / `duration` / `inject_json` / `format` | Paid online, free locally |
 | `transcribe_audio` | Speech-to-text for a local audio file; optional `provider` / `model` / `language` | Paid (API key) |
 | `midjourney_imagine` | Midjourney artistic image generation (5-10x the cost of `generate_image`, 4 variants per job). Only for explicit Midjourney requests or highly artistic/stylized results — prefer `generate_image` otherwise | Paid (API key) |
 | `midjourney_describe` | Image → reverse prompt (describe an image the way Midjourney would prompt it) | Paid (API key) |
@@ -189,7 +189,7 @@ After a pre-release security audit (attack-surface mapping + three hunter lanes 
 - **`output_path` confinement**: explicit output paths for the watermark / background / depth tools must resolve inside `output_dir` (`cfg.Output`) or the **input file's directory**; symlink targets are rejected (no write-through-symlink truncation). Omitting `output_path` keeps the default "next to the input" behavior unchanged.
 - **Local-image validation**: local files referenced via `image_urls` must be **decodable images (≤32 MiB)**; non-image files (e.g. `~/.ssh/id_rsa`, `config.yaml`) are never inlined into requests sent to the provider.
 - **Decode-bomb guard**: local image tools read the header size first and refuse >100 megapixels.
-- **`generate_sfx` local mode**: with `provider=local`, `model` is a local model ID (default `stable-audio-open-small`), `seed` / `normalize` apply, and output is always wav; online mode ignores `seed` / `normalize`.
+- **`generate_sfx` local mode**: with `provider=local`, `model` is a local model ID (default `stable-audio-open-small`); `inject_json` accepts `steps` / `sigma_max` / `seed` / `normalize`, and output is always wav. Online mode uses `inject_json` for vendor fields.
 - **`generate_speech.format` enum**: only `mp3/wav/opus/aac/flac/pcm`, closing the `speech_<ts>.<ext>` path traversal.
 - **Task-ID sanitization**: `get_task` download filenames use a `filepath.Base`-sanitized token, blocking `task_id` directory traversal.
 - **KB path fix**: `kb_*` tools now use `~/.config/aigc-cli/knowledge` (same as CLI/chat), removing the literal-`~` directory and the pre-planted-KB poisoning vector.

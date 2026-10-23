@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -13,18 +14,15 @@ import (
 // withSFXFlags resets the package-level SFX flags around a test.
 func withSFXFlags(t *testing.T) *cobra.Command {
 	t.Helper()
-	oldInput, oldDuration, oldLoop, oldInfluence := sfxInput, sfxDuration, sfxLoop, sfxInfluence
+	oldInput, oldDuration, oldInject := sfxInput, sfxDuration, sfxInject
 	oldModel, oldFormat, oldPlay := sfxModel, sfxFormat, sfxPlay
-	oldSeed, oldNoNorm := sfxSeed, sfxNoNormalize
 	t.Cleanup(func() {
-		sfxInput, sfxDuration, sfxLoop, sfxInfluence = oldInput, oldDuration, oldLoop, oldInfluence
+		sfxInput, sfxDuration, sfxInject = oldInput, oldDuration, oldInject
 		sfxModel, sfxFormat, sfxPlay = oldModel, oldFormat, oldPlay
-		sfxSeed, sfxNoNormalize = oldSeed, oldNoNorm
 	})
 
-	sfxInput, sfxDuration, sfxLoop, sfxInfluence = "", 0, false, 0.3
+	sfxInput, sfxDuration, sfxInject = "", 0, ""
 	sfxModel, sfxFormat, sfxPlay = "", "", false
-	sfxSeed, sfxNoNormalize = 0, false
 
 	cmd := &cobra.Command{Use: "sfx"}
 	registerAudioSFXFlags(cmd)
@@ -40,11 +38,11 @@ func withSFXConfig(t *testing.T, cfg *types.Config) {
 }
 
 func TestBuildSFXRequestElevenLabsDefaults(t *testing.T) {
-	cmd := withSFXFlags(t)
+	withSFXFlags(t)
 	withSFXConfig(t, nil)
 
 	p := &provider.EffectiveProvider{ProviderType: provider.ElevenLabs}
-	req, err := buildSFXRequest(cmd, "door slam", p)
+	req, err := buildSFXRequest("door slam", p, nil)
 	if err != nil {
 		t.Fatalf("buildSFXRequest() error = %v", err)
 	}
@@ -54,25 +52,20 @@ func TestBuildSFXRequestElevenLabsDefaults(t *testing.T) {
 	if req.DurationSeconds != 0 {
 		t.Errorf("duration = %v, want 0 (auto)", req.DurationSeconds)
 	}
-	if req.PromptInfluence != nil {
-		t.Errorf("influence = %v, want nil unless --influence is set", *req.PromptInfluence)
-	}
 }
 
-func TestBuildSFXRequestElevenLabsFlagInfluence(t *testing.T) {
-	cmd := withSFXFlags(t)
+func TestBuildSFXRequestCarriesInjectJSON(t *testing.T) {
+	withSFXFlags(t)
 	withSFXConfig(t, nil)
-	if err := cmd.Flags().Set("influence", "0"); err != nil {
-		t.Fatal(err)
-	}
 
+	extra := json.RawMessage(`{"loop":true,"prompt_influence":0.8}`)
 	p := &provider.EffectiveProvider{ProviderType: provider.ElevenLabs}
-	req, err := buildSFXRequest(cmd, "whoosh", p)
+	req, err := buildSFXRequest("whoosh", p, extra)
 	if err != nil {
 		t.Fatalf("buildSFXRequest() error = %v", err)
 	}
-	if req.PromptInfluence == nil || *req.PromptInfluence != 0 {
-		t.Fatalf("influence = %v, want explicit 0", req.PromptInfluence)
+	if string(req.Extra) != string(extra) {
+		t.Errorf("Extra = %s, want %s", req.Extra, extra)
 	}
 }
 
@@ -81,7 +74,6 @@ func TestBuildSFXRequestValidation(t *testing.T) {
 		name     string
 		duration float64
 		format   string
-		loop     bool
 		engine   provider.Type
 		wantErr  bool
 	}{
@@ -89,24 +81,21 @@ func TestBuildSFXRequestValidation(t *testing.T) {
 		{name: "elevenlabs min duration", duration: 0.5, engine: provider.ElevenLabs},
 		{name: "elevenlabs too short", duration: 0.1, engine: provider.ElevenLabs, wantErr: true},
 		{name: "elevenlabs too long", duration: 31, engine: provider.ElevenLabs, wantErr: true},
-		{name: "elevenlabs loop over 22s", duration: 23, loop: true, engine: provider.ElevenLabs, wantErr: true},
 		{name: "stability zero becomes five", duration: 0, engine: provider.Stability},
 		{name: "stability min duration", duration: 1, engine: provider.Stability},
 		{name: "stability too long", duration: 191, engine: provider.Stability, wantErr: true},
-		{name: "stability loop unsupported", duration: 5, loop: true, engine: provider.Stability, wantErr: true},
 		{name: "bad format", duration: 2, format: "flac", engine: provider.ElevenLabs, wantErr: true},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := withSFXFlags(t)
+			withSFXFlags(t)
 			withSFXConfig(t, nil)
 			sfxDuration = tc.duration
 			sfxFormat = tc.format
-			sfxLoop = tc.loop
 
 			p := &provider.EffectiveProvider{ProviderType: tc.engine}
-			req, err := buildSFXRequest(cmd, "sound", p)
+			req, err := buildSFXRequest("sound", p, nil)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("buildSFXRequest() error = nil, want error")
@@ -124,13 +113,13 @@ func TestBuildSFXRequestValidation(t *testing.T) {
 }
 
 func TestBuildSFXRequestConfigDefaults(t *testing.T) {
-	cmd := withSFXFlags(t)
+	withSFXFlags(t)
 	withSFXConfig(t, &types.Config{Defaults: &types.ConfigDefaults{
 		Audio: &types.AudioDefaults{SFX: &types.AudioSFXDefaults{Model: "eleven_text_to_sound_v3", Format: "wav"}},
 	}})
 
 	p := &provider.EffectiveProvider{ProviderType: provider.ElevenLabs}
-	req, err := buildSFXRequest(cmd, "sound", p)
+	req, err := buildSFXRequest("sound", p, nil)
 	if err != nil {
 		t.Fatalf("buildSFXRequest() error = %v", err)
 	}
@@ -199,54 +188,19 @@ func TestResolveSFXProviderKeepsCustomBaseURL(t *testing.T) {
 }
 
 func TestCheckLocalSFXFlags(t *testing.T) {
-	cmd := withSFXFlags(t)
-
-	if err := checkLocalSFXFlags(cmd); err != nil {
+	withSFXFlags(t)
+	if err := checkLocalSFXFlags(); err != nil {
 		t.Fatalf("checkLocalSFXFlags() error = %v", err)
 	}
 
-	sfxLoop = true
-	if err := checkLocalSFXFlags(cmd); err == nil {
-		t.Error("--loop must be rejected in local mode")
-	}
-	sfxLoop = false
-
-	if err := cmd.Flags().Set("influence", "0.5"); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkLocalSFXFlags(cmd); err == nil {
-		t.Error("--influence must be rejected in local mode")
-	}
-
-	cmd = withSFXFlags(t)
+	withSFXFlags(t)
 	sfxFormat = "mp3"
-	if err := checkLocalSFXFlags(cmd); err == nil {
+	if err := checkLocalSFXFlags(); err == nil {
 		t.Error("--format mp3 must be rejected in local mode")
 	}
 	sfxFormat = "wav"
-	if err := checkLocalSFXFlags(cmd); err != nil {
+	if err := checkLocalSFXFlags(); err != nil {
 		t.Errorf("--format wav must be accepted, got %v", err)
-	}
-}
-
-func TestCheckOnlineSFXFlags(t *testing.T) {
-	cmd := withSFXFlags(t)
-	if err := checkOnlineSFXFlags(cmd); err != nil {
-		t.Fatalf("checkOnlineSFXFlags() error = %v", err)
-	}
-	if err := cmd.Flags().Set("seed", "42"); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkOnlineSFXFlags(cmd); err == nil {
-		t.Error("--seed must be rejected in online mode")
-	}
-
-	cmd = withSFXFlags(t)
-	if err := cmd.Flags().Set("no-normalize", "true"); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkOnlineSFXFlags(cmd); err == nil {
-		t.Error("--no-normalize must be rejected in online mode")
 	}
 }
 

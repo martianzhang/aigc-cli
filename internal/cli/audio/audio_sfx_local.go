@@ -1,12 +1,11 @@
 package audio
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	sfxengine "github.com/martianzhang/aigc-cli/internal/audio/sfx"
@@ -16,33 +15,16 @@ import (
 )
 
 // checkLocalSFXFlags rejects online-only flags in local mode.
-func checkLocalSFXFlags(cmd *cobra.Command) error {
-	if sfxLoop {
-		return fmt.Errorf("--loop is not supported by the local provider (use the online ElevenLabs provider)")
-	}
-	if cmd.Flags().Changed("influence") {
-		return fmt.Errorf("--influence is not supported by the local provider (use the online ElevenLabs provider)")
-	}
+func checkLocalSFXFlags() error {
 	if sfxFormat != "" && sfxFormat != "wav" {
 		return fmt.Errorf("the local provider produces wav only, got --format %q", sfxFormat)
 	}
 	return nil
 }
 
-// checkOnlineSFXFlags rejects local-only flags in online mode.
-func checkOnlineSFXFlags(cmd *cobra.Command) error {
-	if cmd.Flags().Changed("seed") {
-		return fmt.Errorf("--seed only applies to -P local; online providers do not accept a seed")
-	}
-	if cmd.Flags().Changed("no-normalize") {
-		return fmt.Errorf("--no-normalize only applies to -P local")
-	}
-	return nil
-}
-
 // runLocalSFX generates a sound effect with the local ONNX model. The model ID
 // comes from --model, then defaults.audio.sfx.model, then the built-in default.
-func runLocalSFX(prompt string, p *provider.EffectiveProvider) error {
+func runLocalSFX(prompt string, p *provider.EffectiveProvider, inject json.RawMessage) error {
 	modelID := sfxModel
 	if modelID == "" && p != nil {
 		modelID = p.Model
@@ -69,11 +51,25 @@ func runLocalSFX(prompt string, p *provider.EffectiveProvider) error {
 	if seconds == 0 {
 		seconds = 5
 	}
+	tuning, err := sfxengine.ParseTuning(inject)
+	if err != nil {
+		return err
+	}
+	seed := int64(0)
+	if tuning.Seed != nil {
+		seed = *tuning.Seed
+	}
+	normalize := true
+	if tuning.Normalize != nil {
+		normalize = *tuning.Normalize
+	}
 	req := sfxengine.Request{
 		Prompt:    prompt,
 		Seconds:   seconds,
-		Seed:      sfxSeed,
-		Normalize: !sfxNoNormalize,
+		Seed:      seed,
+		Steps:     tuning.Steps,
+		SigmaMax:  tuning.SigmaMax,
+		Normalize: normalize,
 	}
 	if err := req.Validate(); err != nil {
 		return err

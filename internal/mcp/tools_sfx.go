@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -39,21 +40,12 @@ func newGenerateSFXTool(desc string) mcp.Tool {
 		mcp.WithNumber("duration",
 			mcp.Description("Duration in seconds. 0 = provider default; local 0.1-11.9, ElevenLabs 0.5-30, Stability 1-190"),
 		),
-		mcp.WithBoolean("loop",
-			mcp.Description("Seamless loop (ElevenLabs only)"),
-		),
-		mcp.WithNumber("influence",
-			mcp.Description("Prompt adherence 0-1 (ElevenLabs only)"),
+		mcp.WithString("inject_json",
+			mcp.Description("Vendor-native fields as a JSON object string (e.g. {\"loop\":true,\"prompt_influence\":0.8}); local accepts steps, sigma_max, seed and normalize"),
 		),
 		mcp.WithString("format",
 			mcp.Enum("mp3", "wav"),
 			mcp.Description("Audio format (local always wav)"),
-		),
-		mcp.WithNumber("seed",
-			mcp.Description("Random seed (local only; same seed reproduces the output)"),
-		),
-		mcp.WithBoolean("normalize",
-			mcp.Description("Peak-normalize local output to -1 dBFS (default true)"),
 		),
 	)
 }
@@ -91,14 +83,36 @@ func generateSFXHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 		duration := request.GetFloat("duration", 0)
 
-		if p.Type == types.ProviderLocal {
-			return generateLocalSFX(cfg, request, input, model, duration)
+		extra, err := parseInjectJSON(request.GetString("inject_json", ""))
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
-		return generateOnlineSFX(cfg, request, p, input, model, duration)
+		if p.Type == types.ProviderLocal {
+			return generateLocalSFX(cfg, request, input, model, duration, extra)
+		}
+		return generateOnlineSFX(cfg, request, p, input, model, duration, extra)
 	}
 }
 
-func generateOnlineSFX(cfg *Config, request mcp.CallToolRequest, p *provider.EffectiveProvider, prompt, model string, duration float64) (*mcp.CallToolResult, error) {
+func parseInjectJSON(raw string) (json.RawMessage, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(raw), &obj); err != nil {
+		return nil, fmt.Errorf("inject_json must be a JSON object: %w", err)
+	}
+	if obj == nil {
+		return nil, fmt.Errorf("inject_json must be a JSON object")
+	}
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return nil, fmt.Errorf("inject_json: %w", err)
+	}
+	return data, nil
+}
+
+func generateOnlineSFX(cfg *Config, request mcp.CallToolRequest, p *provider.EffectiveProvider, prompt, model string, duration float64, extra json.RawMessage) (*mcp.CallToolResult, error) {
 	if p.RequiresAPIKey() {
 		return mcp.NewToolResultError("API Key not configured"), nil
 	}
@@ -117,15 +131,9 @@ func generateOnlineSFX(cfg *Config, request mcp.CallToolRequest, p *provider.Eff
 	req := &provider.SoundEffectRequest{
 		Prompt:          prompt,
 		DurationSeconds: duration,
-		Loop:            request.GetBool("loop", false),
 		Model:           model,
 		Format:          format,
-	}
-	if args := request.GetArguments(); args != nil {
-		if _, ok := args["influence"]; ok {
-			v := request.GetFloat("influence", 0.3)
-			req.PromptInfluence = &v
-		}
+		Extra:           extra,
 	}
 
 	switch p.ProviderType {
@@ -133,19 +141,10 @@ func generateOnlineSFX(cfg *Config, request mcp.CallToolRequest, p *provider.Eff
 		if req.DurationSeconds > 0 && (req.DurationSeconds < 0.5 || req.DurationSeconds > 30) {
 			return mcp.NewToolResultError("elevenlabs duration must be 0.5-30s"), nil
 		}
-		if req.Loop && req.DurationSeconds > 22 {
-			return mcp.NewToolResultError("elevenlabs looping sounds are limited to 22s"), nil
-		}
 		if req.Model == "" {
 			req.Model = provider.DefaultSFXModelElevenLabs
 		}
 	case provider.Stability:
-		if req.Loop {
-			return mcp.NewToolResultError("stability does not support loop"), nil
-		}
-		if req.PromptInfluence != nil {
-			return mcp.NewToolResultError("stability does not support influence"), nil
-		}
 		if req.DurationSeconds == 0 {
 			req.DurationSeconds = 5
 		}
@@ -173,7 +172,7 @@ func generateOnlineSFX(cfg *Config, request mcp.CallToolRequest, p *provider.Eff
 		filename, format, len(res.Data), req.Model), filename), nil
 }
 
-func generateLocalSFX(cfg *Config, request mcp.CallToolRequest, prompt, model string, duration float64) (*mcp.CallToolResult, error) {
+func generateLocalSFX(cfg *Config, request mcp.CallToolRequest, prompt, model string, duration float64, extra json.RawMessage) (*mcp.CallToolResult, error) {
 	if model == "" {
 		model = audio.SFXDefaultModelID
 	}
@@ -193,17 +192,32 @@ func generateLocalSFX(cfg *Config, request mcp.CallToolRequest, prompt, model st
 		duration = 5
 	}
 
+	tuning, err := sfxengine.ParseTuning(extra)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
 	engine, err := sfxengine.NewEngine(modelDir, libPath)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("load sfx model: %v (run 'aigc-cli audio init --model %s')", err, audio.SFXDefaultModelID)), nil
 	}
 	defer engine.Close()
 
+	seed := int64(0)
+	if tuning.Seed != nil {
+		seed = *tuning.Seed
+	}
+	normalize := true
+	if tuning.Normalize != nil {
+		normalize = *tuning.Normalize
+	}
 	generated, err := engine.Generate(sfxengine.Request{
 		Prompt:    prompt,
 		Seconds:   duration,
-		Seed:      int64(request.GetInt("seed", 0)),
-		Normalize: request.GetBool("normalize", true),
+		Seed:      seed,
+		Steps:     tuning.Steps,
+		SigmaMax:  tuning.SigmaMax,
+		Normalize: normalize,
 	})
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("sound effect failed: %v", err)), nil

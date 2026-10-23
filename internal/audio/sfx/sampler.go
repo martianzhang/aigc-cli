@@ -5,14 +5,18 @@ import (
 	"math/rand/v2"
 )
 
-// schedule returns the rectified-flow timestep schedule: linspace(1, 0, steps+1).
-func schedule(steps int) []float32 {
+// schedule returns the rectified-flow timestep schedule:
+// linspace(sigmaMax, 0, steps+1). sigmaMax < 1 starts from less noise.
+func schedule(steps int, sigmaMax float32) []float32 {
 	if steps < 1 {
 		steps = 1
 	}
+	if sigmaMax <= 0 || sigmaMax > 1 {
+		sigmaMax = 1
+	}
 	out := make([]float32, steps+1)
 	for i := range out {
-		out[i] = 1 - float32(i)/float32(steps)
+		out[i] = sigmaMax * (1 - float32(i)/float32(steps))
 	}
 	return out
 }
@@ -26,9 +30,12 @@ func schedule(steps int) []float32 {
 //
 //	denoised = x - t*v
 //	x = (1-t_next)*denoised + t_next*noise
-func pingPong(x []float32, steps int, rng *rand.Rand, velocity func(t float32, x []float32) []float32) []float32 {
-	sched := schedule(steps)
+func pingPong(x []float32, sched []float32, rng *rand.Rand, velocity func(t float32, x []float32) []float32) []float32 {
 	out := append([]float32(nil), x...)
+	if len(sched) < 2 {
+		return out
+	}
+	steps := len(sched) - 1
 	if len(out) == 0 {
 		return out
 	}

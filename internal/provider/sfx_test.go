@@ -11,8 +11,6 @@ import (
 	"testing"
 )
 
-func sfxPtr(v float64) *float64 { return &v }
-
 func TestGenerateSoundEffectUnsupportedProvider(t *testing.T) {
 	p := &EffectiveProvider{Name: "openai", BaseURL: "https://api.example.com", ProviderType: OpenAI}
 	if _, err := GenerateSoundEffect(p, &SoundEffectRequest{Prompt: "whoosh"}); err == nil {
@@ -43,9 +41,8 @@ func TestGenerateSoundEffectElevenLabs(t *testing.T) {
 	res, err := GenerateSoundEffect(p, &SoundEffectRequest{
 		Prompt:          "door slam",
 		DurationSeconds: 1.5,
-		Loop:            true,
-		PromptInfluence: sfxPtr(0.8),
 		Format:          "wav",
+		Extra:           json.RawMessage(`{"loop":true,"prompt_influence":0.8}`),
 	})
 	if err != nil {
 		t.Fatalf("GenerateSoundEffect() error = %v", err)
@@ -96,8 +93,11 @@ func TestGenerateSoundEffectElevenLabsOmitsAutoDuration(t *testing.T) {
 	if _, ok := gotBody["duration_seconds"]; ok {
 		t.Errorf("duration_seconds should be omitted when 0, body = %v", gotBody)
 	}
-	if _, ok := gotBody["prompt_influence"]; !ok {
-		t.Errorf("prompt_influence should default to 0.3, body = %v", gotBody)
+	if _, ok := gotBody["prompt_influence"]; ok {
+		t.Errorf("prompt_influence must only come from --inject-json, body = %v", gotBody)
+	}
+	if _, ok := gotBody["loop"]; ok {
+		t.Errorf("loop must only come from --inject-json, body = %v", gotBody)
 	}
 }
 
@@ -201,5 +201,53 @@ func TestFormatMapping(t *testing.T) {
 	}
 	if got := stabilityOutputFormat("WAV"); got != "wav" {
 		t.Errorf("stabilityOutputFormat(WAV) = %q", got)
+	}
+}
+
+func TestElevenLabsInjectKeepsReservedFields(t *testing.T) {
+	req := &SoundEffectRequest{
+		Prompt:          "door slam",
+		DurationSeconds: 1.5,
+		Extra:           json.RawMessage(`{"text":"hacked","model_id":"hacked","duration_seconds":99,"style":"cinematic"}`),
+	}
+	payload, err := ElevenLabsSFXPayload(req, "eleven_text_to_sound_v2")
+	if err != nil {
+		t.Fatalf("ElevenLabsSFXPayload() error = %v", err)
+	}
+	if payload["text"] != "door slam" {
+		t.Errorf("text = %v, want the CLI prompt", payload["text"])
+	}
+	if payload["model_id"] != "eleven_text_to_sound_v2" {
+		t.Errorf("model_id = %v, want the CLI model", payload["model_id"])
+	}
+	if payload["duration_seconds"] != 1.5 {
+		t.Errorf("duration_seconds = %v, want 1.5", payload["duration_seconds"])
+	}
+	if payload["style"] != "cinematic" {
+		t.Errorf("style = %v, want the injected value", payload["style"])
+	}
+}
+
+func TestStabilityInjectFields(t *testing.T) {
+	req := &SoundEffectRequest{
+		Prompt:          "rain",
+		DurationSeconds: 5,
+		Format:          "wav",
+		Extra:           json.RawMessage(`{"cfg_scale":7,"seed":12}`),
+	}
+	fields, err := StabilitySFXFields(req, "stable-audio-2.5")
+	if err != nil {
+		t.Fatalf("StabilitySFXFields() error = %v", err)
+	}
+	if fields["cfg_scale"] != "7" || fields["seed"] != "12" {
+		t.Errorf("injected fields = %v", fields)
+	}
+	if fields["prompt"] != "rain" || fields["output_format"] != "wav" {
+		t.Errorf("reserved fields = %v", fields)
+	}
+
+	req.Extra = json.RawMessage(`{"nested":{"a":1}}`)
+	if _, err := StabilitySFXFields(req, "stable-audio-2.5"); err == nil {
+		t.Fatal("nested inject value must be rejected for multipart")
 	}
 }

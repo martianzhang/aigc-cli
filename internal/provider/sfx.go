@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/jsonmerge"
 )
 
 const (
@@ -32,10 +34,12 @@ const (
 type SoundEffectRequest struct {
 	Prompt          string
 	DurationSeconds float64
-	Loop            bool
-	PromptInfluence *float64
 	Model           string
 	Format          string // mp3 or wav
+	// Extra carries vendor-native fields from --inject-json. It is merged into
+	// the ElevenLabs JSON body or the Stability multipart form, so provider
+	// knobs (loop, prompt_influence, style, …) never become normalized flags.
+	Extra json.RawMessage
 }
 
 // SoundEffectResult is the generated audio plus the vendor's content type.
@@ -73,14 +77,9 @@ func generateElevenLabsSFX(p *EffectiveProvider, req *SoundEffectRequest) (*Soun
 		model = DefaultSFXModelElevenLabs
 	}
 
-	payload := map[string]any{
-		"text":             req.Prompt,
-		"model_id":         model,
-		"loop":             req.Loop,
-		"prompt_influence": defaultPromptInfluence(req.PromptInfluence),
-	}
-	if req.DurationSeconds > 0 {
-		payload["duration_seconds"] = req.DurationSeconds
+	payload, err := ElevenLabsSFXPayload(req, model)
+	if err != nil {
+		return nil, err
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -115,13 +114,9 @@ func generateStabilitySFX(p *EffectiveProvider, req *SoundEffectRequest) (*Sound
 
 	var body bytes.Buffer
 	form := multipart.NewWriter(&body)
-	fields := map[string]string{
-		"prompt":        req.Prompt,
-		"model":         model,
-		"output_format": stabilityOutputFormat(req.Format),
-	}
-	if req.DurationSeconds > 0 {
-		fields["duration"] = strconv.FormatFloat(req.DurationSeconds, 'f', -1, 64)
+	fields, err := StabilitySFXFields(req, model)
+	if err != nil {
+		return nil, err
 	}
 	for name, value := range fields {
 		if err := form.WriteField(name, value); err != nil {
@@ -167,11 +162,92 @@ func doSFXRequest(req *http.Request, vendor string) (*SoundEffectResult, error) 
 	return &SoundEffectResult{Data: data, ContentType: resp.Header.Get("Content-Type")}, nil
 }
 
-func defaultPromptInfluence(v *float64) float64 {
-	if v == nil {
-		return 0.3
+// ElevenLabsSFXPayload builds the JSON body for /v1/sound-generation, merging
+// vendor-native Extra fields. CLI-owned keys (text, model_id, duration_seconds)
+// always win.
+func ElevenLabsSFXPayload(req *SoundEffectRequest, model string) (map[string]any, error) {
+	payload := map[string]any{
+		"text":     req.Prompt,
+		"model_id": model,
 	}
-	return *v
+	if req.DurationSeconds > 0 {
+		payload["duration_seconds"] = req.DurationSeconds
+	}
+
+	merged, err := mergeJSONPayload(payload, req.Extra)
+	if err != nil {
+		return nil, err
+	}
+	merged["text"] = req.Prompt
+	merged["model_id"] = model
+	if req.DurationSeconds > 0 {
+		merged["duration_seconds"] = req.DurationSeconds
+	} else {
+		delete(merged, "duration_seconds")
+	}
+	return merged, nil
+}
+
+// StabilitySFXFields builds the multipart fields for Stable Audio, merging
+// vendor-native Extra fields. Multipart values must be scalars; nested objects
+// and arrays are rejected instead of being silently stringified.
+func StabilitySFXFields(req *SoundEffectRequest, model string) (map[string]string, error) {
+	fields := map[string]string{
+		"prompt":        req.Prompt,
+		"model":         model,
+		"output_format": stabilityOutputFormat(req.Format),
+	}
+	if req.DurationSeconds > 0 {
+		fields["duration"] = strconv.FormatFloat(req.DurationSeconds, 'f', -1, 64)
+	}
+	if len(req.Extra) > 0 {
+		var extra map[string]any
+		dec := json.NewDecoder(bytes.NewReader(req.Extra))
+		dec.UseNumber()
+		if err := dec.Decode(&extra); err != nil {
+			return nil, fmt.Errorf("inject sfx fields: %w", err)
+		}
+		for key, value := range extra {
+			switch v := value.(type) {
+			case string:
+				fields[key] = v
+			case json.Number:
+				fields[key] = v.String()
+			case bool:
+				fields[key] = strconv.FormatBool(v)
+			default:
+				return nil, fmt.Errorf("inject sfx field %q: multipart providers only accept scalar values", key)
+			}
+		}
+	}
+
+	fields["prompt"] = req.Prompt
+	fields["model"] = model
+	fields["output_format"] = stabilityOutputFormat(req.Format)
+	if req.DurationSeconds > 0 {
+		fields["duration"] = strconv.FormatFloat(req.DurationSeconds, 'f', -1, 64)
+	} else {
+		delete(fields, "duration")
+	}
+	return fields, nil
+}
+
+func mergeJSONPayload(payload map[string]any, extra json.RawMessage) (map[string]any, error) {
+	base, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("encode sfx payload: %w", err)
+	}
+	merged, err := jsonmerge.Inject(base, extra)
+	if err != nil {
+		return nil, fmt.Errorf("inject sfx payload: %w", err)
+	}
+	var out map[string]any
+	dec := json.NewDecoder(bytes.NewReader(merged))
+	dec.UseNumber()
+	if err := dec.Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode sfx payload: %w", err)
+	}
+	return out, nil
 }
 
 // elevenLabsOutputFormat maps a user-facing format to ElevenLabs' output_format

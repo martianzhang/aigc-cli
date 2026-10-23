@@ -79,7 +79,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `generate_video` | 视频生成（异步提交 → 轮询）；固定使用 `defaults.video.provider`，不接受 `provider` 参数；支持 `return_last_frame` 保存尾帧图用于续拍 | ✅ |
 | `generate_music` | 音乐生成（APIMart suno/flowmusic 异步、OpenRouter Lyria、阿里云百炼 Fun-Music）；支持可选 `provider` | ✅ |
 | `generate_speech` | 文字转语音 TTS；支持可选 `provider` / `model` / `voice` / `format` | ✅ |
-| `generate_sfx` | 短音效生成（ElevenLabs / Stability 在线，`provider=local` 离线 ONNX）；可选 `model` / `duration` / `loop` / `influence` / `format` / `seed` / `normalize` | ✅ |
+| `generate_sfx` | 短音效生成（ElevenLabs / Stability 在线，`provider=local` 离线 ONNX）；可选 `model` / `duration` / `inject_json` / `format` | ✅ |
 | `transcribe_audio` | 语音转文字 STT（本地音频文件）；支持可选 `provider` / `model` / `language` | ✅ |
 | `midjourney_imagine` | Midjourney 艺术生图（比 `generate_image` 贵 5-10 倍，一次产出 4 张变体）。仅在用户明确要求 Midjourney，或需要高度艺术化/风格化/绘画感结果时使用；一般场景请优先 `generate_image` | ✅ |
 | `midjourney_describe` | 图生文（反向提示词）：上传图片 URL，返回 Midjourney 生成该图所用的提示词 | ✅ |
@@ -231,7 +231,7 @@ Glob patterns are supported (`*` matches any tool name). Empty or absent lists =
 - **`output_path` 约束**：watermark / background / depth 工具的显式输出路径必须落在 `output_dir`（`cfg.Output`）或**输入文件所在目录**两个根之内；符号链接目标被拒绝（防穿透截断）。不传 `output_path` 时默认「输出到输入旁」行为不变。
 - **本地图片校验**：`image_urls` 引用的本地文件必须是**可解码的图片**（≤32 MiB），非图片文件（如 `~/.ssh/id_rsa`、`config.yaml`）不会被内联发送给 Provider。
 - **解码炸弹防护**：本地图片处理工具先读头部尺寸，>1 亿像素（100 MP）拒绝解码。
-- **`generate_sfx` 本地模式**：`provider=local` 时 `model` 是本地模型 ID（默认 `stable-audio-open-small`），`seed` / `normalize` 生效，输出固定 wav；在线模式不支持 `seed` / `normalize`。
+- **`generate_sfx` 本地模式**：`provider=local` 时 `model` 是本地模型 ID（默认 `stable-audio-open-small`），`inject_json` 可传 `steps` / `sigma_max` / `seed` / `normalize`，输出固定 wav；在线模式用 `inject_json` 传厂商字段。
 - **`generate_speech.format` 枚举**：仅 `mp3/wav/opus/aac/flac/pcm`，阻断 `speech_<ts>.<ext>` 路径穿越。
 - **任务 ID 清洗**：`get_task` 下载文件名使用 `filepath.Base` 后的安全令牌，阻断 `task_id` 目录穿越。
 - **KB 路径修复**：`kb_*` 工具指向 `~/.config/aigc-cli/knowledge`（与 CLI/chat 一致），消除「字面 `~` 目录 + 预置知识库投毒」向量。

@@ -49,6 +49,10 @@ type Request struct {
 	Seconds float64
 	// Seed makes generation deterministic. Zero picks a time-based seed.
 	Seed int64
+	// Steps is the sampler step count. Zero uses the distilled default (8).
+	Steps int
+	// SigmaMax is the starting noise level (0.01-1). Zero uses 1.
+	SigmaMax float64
 	// Normalize scales the output so its peak sits at TargetPeak.
 	Normalize bool
 }

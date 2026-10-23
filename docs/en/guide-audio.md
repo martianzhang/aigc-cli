@@ -43,10 +43,13 @@ Supported voices include Chinese, English, Japanese, Korean, and French.
 ambience) rather than a full music track. Duration is explicit, seamless
 looping is optional, and prompt adherence is tunable.
 
-| Provider | Endpoint | Duration | loop | Notes |
-|---|---|---|---|---|
-| **ElevenLabs** | `POST /v1/sound-generation` | 0.5–30s (0 = auto) | ✅ | `prompt_influence` |
-| **Stability AI** | `POST /v2beta/audio/stable-audio-2/text-to-audio` | 1–190s (default 5s) | ❌ | no `--influence` |
+| Provider | Endpoint | Duration | Vendor fields (`--inject-json`) |
+|---|---|---|---|
+| **ElevenLabs** | `POST /v1/sound-generation` | 0.5–30s (0 = auto) | `loop`, `prompt_influence`, … |
+| **Stability AI** | `POST /v2beta/audio/stable-audio-2/text-to-audio` | 1–190s (default 5s) | `cfg_scale`, `seed`, … |
+
+> Vendor-specific knobs are not normalized into CLI flags; pass them through
+> `--inject-json` so each new provider does not add another flag.
 
 ```yaml
 # ~/.config/aigc-cli/config.yaml
@@ -66,11 +69,13 @@ defaults:
 # 1.5-second door slam
 aigc-cli audio sfx --input "heavy metal door slam with echo" --duration 1.5
 
-# 10-second loopable ambience
-aigc-cli audio sfx --input "rain on a car roof, steady ambience" -d 10 --loop
+# 10-second loopable ambience (vendor-native loop field)
+aigc-cli audio sfx -i "rain on a car roof, steady ambience" -d 10 \
+  --inject-json '{"loop":true,"prompt_influence":0.5}'
 
 # UI cue with stronger prompt adherence, wav output
-aigc-cli audio sfx -i "sci-fi UI confirmation beep" -d 0.8 --influence 0.8 --format wav
+aigc-cli audio sfx -i "sci-fi UI confirmation beep" -d 0.8 \
+  --inject-json '{"prompt_influence":0.8}' --format wav
 
 # prompt from a file or stdin
 aigc-cli audio sfx -i prompt.txt -d 2
@@ -84,8 +89,7 @@ aigc-cli audio sfx -i "whoosh" -d 1 --dry-run
 |---|---|---|
 | `-i, --input` | stdin | Sound description (file path / text / pipe) |
 | `-d, --duration` | `0` | Seconds; 0 = vendor decides (ElevenLabs) or 5s (Stability) |
-| `--loop` | `false` | Seamless loop (ElevenLabs only, ≤22s) |
-| `--influence` | `0.3` | Prompt adherence 0–1 (ElevenLabs only) |
+| `--inject-json` | empty | vendor-native fields (JSON object/file); e.g. `loop`, `prompt_influence` for ElevenLabs, `cfg_scale`/`seed` for Stability |
 | `-m, --model` | vendor default | `eleven_text_to_sound_v2` / `stable-audio-2.5` |
 | `-f, --format` | `mp3` | `mp3` or `wav` |
 | `--play` | `false` | Play after saving |
@@ -110,9 +114,11 @@ aigc-cli audio init --model stable-audio-open-small
 aigc-cli audio sfx -P local -m stable-audio-open-small \
   -i "heavy metal door slam" -d 2
 
-# 3. fixed seed / raw levels
-aigc-cli audio sfx -P local -i "cinematic whoosh" -d 1.2 --seed 42
-aigc-cli audio sfx -P local -i "rain on a roof" -d 8 --no-normalize
+# 3. fixed seed / raw levels (local engine knobs also use --inject-json)
+aigc-cli audio sfx -P local -i "cinematic whoosh" -d 1.2 \
+  --inject-json '{"seed":42}'
+aigc-cli audio sfx -P local -i "rain on a roof" -d 8 \
+  --inject-json '{"normalize":false}'   # default is -1 dBFS peak normalize
 ```
 
 To make local the default (no `-P local` needed):
@@ -134,11 +140,10 @@ Local inference is the built-in `local` provider, so `-P` works exactly like
 | `-P, --provider` | use `local` for local inference |
 | `-m, --model` | local model ID, default `stable-audio-open-small` (absolute paths accepted) |
 | `-d, --duration` | 0.1–11.9s; defaults to 5s when 0 |
-| `--seed` | Reproducible output for the same seed |
-| `--no-normalize` | Keep raw output levels |
+| `--inject-json` | Local engine knobs: `steps` (1–50), `sigma_max` (0.01–1), `seed`, `normalize`; online passes vendor fields |
 
-- Output is always **44.1kHz stereo WAV**; `--loop`, `--influence` and
-  `--format mp3` are online-provider-only.
+- Output is always **44.1kHz stereo WAV**; `--format mp3` is online-only.
+  `--inject-json` works for both, with different keys.
 - The model caps clips at 11.9s and rejects longer requests.
 - Reference speed: about 9s for a 1s clip on Apple Silicon CPU (8 DiT steps +
   VAE decode).

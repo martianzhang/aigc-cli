@@ -51,6 +51,16 @@ func (e *Engine) Generate(req Request) (*Audio, error) {
 	copy(cond[TextTokens*TextDim:], seconds)
 	copy(e.globalIn.GetData(), seconds)
 
+	steps := req.Steps
+	if steps <= 0 {
+		steps = Steps
+	}
+	sigmaMax := float32(req.SigmaMax)
+	if sigmaMax <= 0 {
+		sigmaMax = 1
+	}
+	sched := schedule(steps, sigmaMax)
+
 	rng := rand.New(rand.NewPCG(uint64(seed), 0x9e3779b97f4a7c15))
 	x := e.xIn.GetData()
 	for i := range x {
@@ -58,7 +68,7 @@ func (e *Engine) Generate(req Request) (*Audio, error) {
 	}
 
 	var stepErr error
-	latent := pingPong(x, Steps, rng, func(t float32, in []float32) []float32 {
+	latent := pingPong(x, sched, rng, func(t float32, in []float32) []float32 {
 		if stepErr != nil {
 			return make([]float32, len(in))
 		}

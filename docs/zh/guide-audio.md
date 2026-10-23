@@ -128,10 +128,12 @@ OpenRouter 仅支持 `mp3` 和 `pcm`。
 
 `audio sfx` 生成的是**单个短音效**（whoosh、impact、UI 声、脚步、环境音），而不是一首音乐。它要求显式时长、可选无缝 loop，并可调 prompt 贴合度。
 
-| Provider | 端点 | 时长 | loop | 额外参数 |
-|---|---|---|---|---|
-| **ElevenLabs** | `POST /v1/sound-generation` | 0.5–30s（0 = 自动） | ✅ | `prompt_influence` |
-| **Stability AI** | `POST /v2beta/audio/stable-audio-2/text-to-audio` | 1–190s（默认 5s） | ❌ | `--influence` 不支持 |
+| Provider | 端点 | 时长 | 厂商参数（`--inject-json`） |
+|---|---|---|---|
+| **ElevenLabs** | `POST /v1/sound-generation` | 0.5–30s（0 = 自动） | `loop`、`prompt_influence` 等 |
+| **Stability AI** | `POST /v2beta/audio/stable-audio-2/text-to-audio` | 1–190s（默认 5s） | `cfg_scale`、`seed` 等 |
+
+> 厂商私有参数不单独做 CLI flag，统一通过 `--inject-json` 透传，避免每接一个 provider 就加一批参数。
 
 ```yaml
 # ~/.config/aigc-cli/config.yaml
@@ -151,11 +153,13 @@ defaults:
 # 1.5 秒的关门声
 aigc-cli audio sfx --input "heavy metal door slam with echo" --duration 1.5
 
-# 10 秒可循环的环境音
-aigc-cli audio sfx --input "rain on a car roof, steady ambience" -d 10 --loop
+# 10 秒可循环的环境音（厂商原生 loop 字段）
+aigc-cli audio sfx -i "rain on a car roof, steady ambience" -d 10 \
+  --inject-json '{"loop":true,"prompt_influence":0.5}'
 
 # UI 提示音，提高贴合度，输出 wav
-aigc-cli audio sfx -i "sci-fi UI confirmation beep" -d 0.8 --influence 0.8 --format wav
+aigc-cli audio sfx -i "sci-fi UI confirmation beep" -d 0.8 \
+  --inject-json '{"prompt_influence":0.8}' --format wav
 
 # 从文件 / stdin 读取描述
 aigc-cli audio sfx -i prompt.txt -d 2
@@ -169,8 +173,7 @@ aigc-cli audio sfx -i "whoosh" -d 1 --dry-run
 |---|---|---|
 | `-i, --input` | stdin | 音效描述（文件路径 / 文本 / 管道） |
 | `-d, --duration` | `0` | 时长（秒）；0 = 由厂商决定（ElevenLabs）或 5s（Stability） |
-| `--loop` | `false` | 无缝循环（仅 ElevenLabs，且 ≤22s） |
-| `--influence` | `0.3` | Prompt 贴合度 0–1（仅 ElevenLabs） |
+| `--inject-json` | 空 | 厂商原生字段（JSON 对象/文件）；ElevenLabs 如 `loop`、`prompt_influence`，Stability 如 `cfg_scale`、`seed` |
 | `-m, --model` | 厂商默认 | `eleven_text_to_sound_v2` / `stable-audio-2.5` |
 | `-f, --format` | `mp3` | `mp3` 或 `wav` |
 | `--play` | `false` | 保存后播放 |
@@ -191,9 +194,11 @@ aigc-cli audio init --model stable-audio-open-small
 aigc-cli audio sfx -P local -m stable-audio-open-small \
   -i "heavy metal door slam" -d 2
 
-# 3. 固定 seed / 保留原始电平
-aigc-cli audio sfx -P local -i "cinematic whoosh" -d 1.2 --seed 42
-aigc-cli audio sfx -P local -i "rain on a roof" -d 8 --no-normalize
+# 3. 固定 seed / 保留原始电平（本地引擎参数也走 --inject-json）
+aigc-cli audio sfx -P local -i "cinematic whoosh" -d 1.2 \
+  --inject-json '{"seed":42}'
+aigc-cli audio sfx -P local -i "rain on a roof" -d 8 \
+  --inject-json '{"normalize":false}'   # 默认归一化到 -1 dBFS
 ```
 
 想把本地设为默认（省掉 `-P local`）：
@@ -213,10 +218,9 @@ defaults:
 | `-P, --provider` | 填 `local` 使用本地模型 |
 | `-m, --model` | 本地模型 ID，默认 `stable-audio-open-small`（也接受绝对路径） |
 | `-d, --duration` | 0.1–11.9s；0 时默认 5s |
-| `--seed` | 固定随机种子，同 seed 输出可复现 |
-| `--no-normalize` | 不做峰值归一化 |
+| `--inject-json` | 本地引擎参数：`steps`（1–50）、`sigma_max`（0.01–1）、`seed`、`normalize`；在线则透传厂商字段 |
 
-- 输出固定为 **44.1kHz 立体声 WAV**；`--loop` / `--influence` / `--format mp3` 仅在线 provider 支持。
+- 输出固定为 **44.1kHz 立体声 WAV**；`--format mp3` 仅在线 provider 支持，本地会拒绝。`--inject-json` 在线/本地都支持，只是键不同。
 - 模型最长生成 11.9s；超过会报错。
 - 性能参考：Apple Silicon CPU 上 1s 音频约 9s（8 步 DiT + VAE 解码）。
 - 许可：Stability AI Community License（年收入 100 万美元以下可商用，需保留归属）。

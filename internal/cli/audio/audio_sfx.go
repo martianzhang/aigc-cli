@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,11 +24,11 @@ var sfxCmd = &cobra.Command{
 	Long: `Generate a short sound effect (SFX) from a text description.
 
 Unlike the music command, this targets one-shots: whooshes, impacts, UI
-sounds, footsteps and ambience. Duration is explicit, a seamless loop can be
-requested, and prompt adherence is tunable.
+sounds, footsteps and ambience. Duration is explicit; vendor-specific knobs
+(loop, prompt_influence, cfg_scale, …) go through --inject-json.
 
 Supported providers (detected from the provider base URL):
-  elevenlabs   POST /v1/sound-generation, 0.5-30s, loop + prompt influence
+  elevenlabs   POST /v1/sound-generation, 0.5-30s
   stability    POST /v2beta/audio/stable-audio-2/text-to-audio, 1-190s
   local        Stable Audio Open Small (ONNX, CPU, up to 11.9s, wav only) via -P local
 
@@ -45,25 +46,24 @@ Configure a named provider and select it with --provider, or run
 
 Examples:
   aigc-cli audio sfx --input "heavy metal door slam with echo" --duration 1.5
-  aigc-cli audio sfx --input "rain on a car roof" --duration 10 --loop
+  aigc-cli audio sfx --input "rain on a car roof" --duration 10 \
+    --inject-json '{"loop":true,"prompt_influence":0.5}'
   aigc-cli audio sfx --input "sci-fi UI confirmation beep" --duration 0.8 \
-    --influence 0.8 --format wav
+    --inject-json '{"prompt_influence":0.8}' --format wav
   aigc-cli audio sfx --input "cinematic whoosh" --dry-run
   aigc-cli audio sfx -P local -m stable-audio-open-small \
-    --input "heavy metal door slam" -d 2 --seed 42`,
+    --input "heavy metal door slam" -d 2 \
+    --inject-json '{"seed":42}'`,
 	RunE: runAudioSFX,
 }
 
 var (
-	sfxInput       string
-	sfxDuration    float64
-	sfxLoop        bool
-	sfxInfluence   float64
-	sfxModel       string
-	sfxFormat      string
-	sfxPlay        bool
-	sfxSeed        int64
-	sfxNoNormalize bool
+	sfxInput    string
+	sfxDuration float64
+	sfxInject   string
+	sfxModel    string
+	sfxFormat   string
+	sfxPlay     bool
 )
 
 func registerAudioSFXFlags(cmd *cobra.Command) {
@@ -71,12 +71,9 @@ func registerAudioSFXFlags(cmd *cobra.Command) {
 	f.StringVarP(&sfxInput, "input", "i", "", "Sound description (file path, raw text, or omit to auto-detect piped stdin)")
 	f.StringVarP(&sfxModel, "model", "m", "", "SFX model (online default: eleven_text_to_sound_v2 / stable-audio-2.5; local default: stable-audio-open-small)")
 	f.Float64VarP(&sfxDuration, "duration", "d", 0, "Duration in seconds (0 = let the provider decide)")
-	f.BoolVar(&sfxLoop, "loop", false, "Generate a seamlessly looping sound (ElevenLabs only)")
-	f.Float64Var(&sfxInfluence, "influence", 0.3, "Prompt adherence 0-1 (ElevenLabs only, default 0.3)")
+	f.StringVar(&sfxInject, "inject-json", "", "JSON object (file path or inline); online: vendor fields (e.g. loop, prompt_influence), local: steps/sigma_max/seed/normalize")
 	f.StringVarP(&sfxFormat, "format", "f", "", "Audio format: mp3 or wav (default: mp3)")
 	f.BoolVar(&sfxPlay, "play", false, "Play the generated sound after saving")
-	f.Int64Var(&sfxSeed, "seed", 0, "Random seed for local generation (0 = time-based)")
-	f.BoolVar(&sfxNoNormalize, "no-normalize", false, "Keep raw local output levels instead of peak-normalizing to -1 dBFS")
 }
 
 func runAudioSFX(cmd *cobra.Command, _ []string) error {
@@ -85,21 +82,23 @@ func runAudioSFX(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	inject, err := service.ReadInjectJSON(sfxInject)
+	if err != nil {
+		return fmt.Errorf("read --inject-json: %w", err)
+	}
+
 	p := resolveSFXProvider()
 	if isLocalSFXProvider(p) {
-		if err := checkLocalSFXFlags(cmd); err != nil {
+		if err := checkLocalSFXFlags(); err != nil {
 			return err
 		}
-		return runLocalSFX(prompt, p)
-	}
-	if err := checkOnlineSFXFlags(cmd); err != nil {
-		return err
+		return runLocalSFX(prompt, p, inject)
 	}
 	if p == nil {
 		return fmt.Errorf("no provider configured for sound effects")
 	}
 
-	req, err := buildSFXRequest(cmd, prompt, p)
+	req, err := buildSFXRequest(prompt, p, inject)
 	if err != nil {
 		return err
 	}
@@ -112,7 +111,7 @@ func runAudioSFX(cmd *cobra.Command, _ []string) error {
 	if options.Shared.Verbose {
 		fmt.Printf("Provider: %s (%s)\n", firstNonEmpty(p.Name, p.ProviderType.String()), p.BaseURL)
 		fmt.Printf("Model: %s\n", req.Model)
-		fmt.Printf("Prompt: %d chars, duration=%.1fs loop=%v\n", len(req.Prompt), req.DurationSeconds, req.Loop)
+		fmt.Printf("Prompt: %d chars, duration=%.1fs\n", len(req.Prompt), req.DurationSeconds)
 	}
 
 	start := time.Now()
@@ -256,17 +255,13 @@ func firstNonEmpty(values ...string) string {
 }
 
 // buildSFXRequest applies config defaults and validates vendor limits.
-func buildSFXRequest(cmd *cobra.Command, prompt string, p *provider.EffectiveProvider) (*provider.SoundEffectRequest, error) {
+func buildSFXRequest(prompt string, p *provider.EffectiveProvider, extra json.RawMessage) (*provider.SoundEffectRequest, error) {
 	req := &provider.SoundEffectRequest{
 		Prompt:          prompt,
 		DurationSeconds: sfxDuration,
-		Loop:            sfxLoop,
 		Model:           sfxModel,
 		Format:          strings.ToLower(strings.TrimSpace(sfxFormat)),
-	}
-	if cmd.Flags().Changed("influence") {
-		v := sfxInfluence
-		req.PromptInfluence = &v
+		Extra:           extra,
 	}
 
 	if cfg := options.AudioDefaults(); cfg != nil {
@@ -281,9 +276,6 @@ func buildSFXRequest(cmd *cobra.Command, prompt string, p *provider.EffectivePro
 	if req.DurationSeconds < 0 {
 		return nil, fmt.Errorf("duration must be zero (auto) or positive")
 	}
-	if req.PromptInfluence != nil && (*req.PromptInfluence < 0 || *req.PromptInfluence > 1) {
-		return nil, fmt.Errorf("influence must be between 0 and 1")
-	}
 	if req.Format != "" && req.Format != "mp3" && req.Format != "wav" {
 		return nil, fmt.Errorf("format must be mp3 or wav, got %q", req.Format)
 	}
@@ -293,24 +285,15 @@ func buildSFXRequest(cmd *cobra.Command, prompt string, p *provider.EffectivePro
 		if req.DurationSeconds > 0 && (req.DurationSeconds < 0.5 || req.DurationSeconds > 30) {
 			return nil, fmt.Errorf("elevenlabs duration must be 0.5-30s, got %.1fs", req.DurationSeconds)
 		}
-		if req.Loop && req.DurationSeconds > 22 {
-			return nil, fmt.Errorf("elevenlabs looping sounds are limited to 22s")
-		}
 		if req.Model == "" {
 			req.Model = provider.DefaultSFXModelElevenLabs
 		}
 	case provider.Stability:
-		if req.Loop {
-			return nil, fmt.Errorf("stability does not support --loop")
-		}
 		if req.DurationSeconds == 0 {
 			req.DurationSeconds = 5
 		}
 		if req.DurationSeconds < 1 || req.DurationSeconds > 190 {
 			return nil, fmt.Errorf("stability duration must be 1-190s, got %.1fs", req.DurationSeconds)
-		}
-		if req.PromptInfluence != nil {
-			return nil, fmt.Errorf("stability does not support --influence")
 		}
 		if req.Model == "" {
 			req.Model = provider.DefaultSFXModelStability
@@ -335,14 +318,10 @@ func buildSFXCurl(p *provider.EffectiveProvider, req *provider.SoundEffectReques
 		if format == "wav" {
 			outputFormat = "wav_44100"
 		}
-		payload := map[string]any{
-			"text":             req.Prompt,
-			"model_id":         firstNonEmpty(req.Model, provider.DefaultSFXModelElevenLabs),
-			"loop":             req.Loop,
-			"prompt_influence": defaultInfluence(req.PromptInfluence),
-		}
-		if req.DurationSeconds > 0 {
-			payload["duration_seconds"] = req.DurationSeconds
+		payload, err := provider.ElevenLabsSFXPayload(req, firstNonEmpty(req.Model, provider.DefaultSFXModelElevenLabs))
+		if err != nil {
+			fmt.Fprintf(&b, "# %v\n", err)
+			return b.String()
 		}
 		data, _ := json.MarshalIndent(payload, "", "  ")
 		fmt.Fprintf(&b, "curl -X POST %s/v1/sound-generation?output_format=%s \\\n", base, outputFormat)
@@ -354,27 +333,22 @@ func buildSFXCurl(p *provider.EffectiveProvider, req *provider.SoundEffectReques
 		fmt.Fprintf(&b, "curl -X POST %s/v2beta/audio/stable-audio-2/text-to-audio \\\n", base)
 		fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", masked)
 		b.WriteString("  -H \"Accept: audio/*\" \\\n")
-		fmt.Fprintf(&b, "  -F prompt=%q \\\n", req.Prompt)
-		fmt.Fprintf(&b, "  -F model=%q \\\n", firstNonEmpty(req.Model, provider.DefaultSFXModelStability))
-		fmt.Fprintf(&b, "  -F duration=%.1f \\\n", req.DurationSeconds)
-		fmt.Fprintf(&b, "  -F output_format=%s \\\n", formatForStability(format))
+		fields, err := provider.StabilitySFXFields(req, firstNonEmpty(req.Model, provider.DefaultSFXModelStability))
+		if err != nil {
+			fmt.Fprintf(&b, "# %v\n", err)
+			return b.String()
+		}
+		keys := make([]string, 0, len(fields))
+		for key := range fields {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			fmt.Fprintf(&b, "  -F %s=%q \\\n", key, fields[key])
+		}
 		fmt.Fprintf(&b, "  --output sfx.%s\n", format)
 	default:
 		fmt.Fprintf(&b, "# unsupported provider type: %s\n", p.ProviderType)
 	}
 	return b.String()
-}
-
-func defaultInfluence(v *float64) float64 {
-	if v == nil {
-		return 0.3
-	}
-	return *v
-}
-
-func formatForStability(format string) string {
-	if format == "wav" {
-		return "wav"
-	}
-	return "mp3"
 }

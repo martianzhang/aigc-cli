@@ -30,7 +30,7 @@ func TestGenerateSFXTool_Definition(t *testing.T) {
 	if tool.Description == "" {
 		t.Error("description is empty")
 	}
-	for _, key := range []string{"input", "duration", "loop", "format", "seed"} {
+	for _, key := range []string{"input", "duration", "inject_json", "format"} {
 		if _, ok := tool.InputSchema.Properties[key]; !ok {
 			t.Errorf("missing property %q", key)
 		}

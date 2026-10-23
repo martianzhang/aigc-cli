@@ -7,7 +7,7 @@ import (
 )
 
 func TestSchedule(t *testing.T) {
-	got := schedule(8)
+	got := schedule(8, 1)
 	if len(got) != 9 {
 		t.Fatalf("len = %d, want 9", len(got))
 	}
@@ -17,7 +17,7 @@ func TestSchedule(t *testing.T) {
 	if got[4] != 0.5 {
 		t.Errorf("midpoint = %v, want 0.5", got[4])
 	}
-	if schedule(0)[0] != 1 {
+	if schedule(0, 1)[0] != 1 {
 		t.Error("steps<1 should still return a usable schedule")
 	}
 }
@@ -30,7 +30,7 @@ func TestPingPongReachesDenoised(t *testing.T) {
 		initial[i] = 1
 	}
 	rng := rand.New(rand.NewPCG(1, 2))
-	out := pingPong(initial, 8, rng, func(_ float32, x []float32) []float32 {
+	out := pingPong(initial, schedule(8, 1), rng, func(_ float32, x []float32) []float32 {
 		v := make([]float32, len(x))
 		copy(v, x)
 		return v
@@ -54,13 +54,23 @@ func TestPingPongDeterministic(t *testing.T) {
 
 	run := func() []float32 {
 		rng := rand.New(rand.NewPCG(7, 11))
-		return pingPong(initial, 8, rng, velocity)
+		return pingPong(initial, schedule(8, 1), rng, velocity)
 	}
 	a, b := run(), run()
 	for i := range a {
 		if a[i] != b[i] {
 			t.Fatalf("sample %d differs: %v vs %v", i, a[i], b[i])
 		}
+	}
+}
+
+func TestScheduleSigmaMax(t *testing.T) {
+	got := schedule(4, 0.5)
+	if got[0] != 0.5 || got[4] != 0 {
+		t.Errorf("schedule = %v, want 0.5..0", got)
+	}
+	if got := schedule(4, 2); got[0] != 1 {
+		t.Errorf("out-of-range sigmaMax should fall back to 1, got %v", got[0])
 	}
 }
 
