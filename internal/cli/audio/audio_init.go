@@ -68,8 +68,8 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 	// ── List available models ──
 	if audioInitList {
 		typ := audio.ModelType(audioInitType)
-		if typ != "" && typ != audio.ModelASR && typ != audio.ModelTTS {
-			return fmt.Errorf("invalid type %q (choose: asr, tts)", audioInitType)
+		if typ != "" && typ != audio.ModelASR && typ != audio.ModelTTS && typ != audio.ModelSFX {
+			return fmt.Errorf("invalid type %q (choose: asr, tts, sfx)", audioInitType)
 		}
 		models := audio.ListByType(typ, audioInitLang)
 		if len(models) == 0 {
@@ -167,24 +167,46 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Ensure sherpa-onnx runtime libraries are available
-	if err := ensureAudioRuntime(); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: audio runtime not fully installed: %v\n", err)
-		fmt.Fprintf(os.Stderr, "  Local TTS/ASR will not work. Use a release build or install GCC and run:\n")
-		fmt.Fprintf(os.Stderr, "    bash scripts/build-helper.sh\n")
-	}
-
+	// Sherpa-onnx is only needed by TTS/ASR; SFX uses pure-onnx + onnxruntime.
+	needsSherpa := false
+	var infos []audio.ModelInfo
 	for _, modelID := range audioInitModel {
 		info, err := audio.Lookup(modelID)
 		if err != nil {
 			return err
 		}
-		if err := downloadModelFiles(info, modelsDir, audioInitForce); err != nil {
-			return fmt.Errorf("model %q: %w", modelID, err)
+		infos = append(infos, info)
+		if info.Type != audio.ModelSFX {
+			needsSherpa = true
 		}
-		fmt.Printf("Model %q installed. Use 'aigc-cli audio speak --local --input \"...\"' to try it.\n", modelID)
+	}
+	if needsSherpa {
+		if err := ensureAudioRuntime(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: audio runtime not fully installed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "  Local TTS/ASR will not work. Use a release build or install GCC and run:\n")
+			fmt.Fprintf(os.Stderr, "    bash scripts/build-helper.sh\n")
+		}
+	}
+
+	for _, info := range infos {
+		if err := downloadModelFiles(info, modelsDir, audioInitForce); err != nil {
+			return fmt.Errorf("model %q: %w", info.ID, err)
+		}
+		fmt.Printf("Model %q installed. %s\n", info.ID, modelTryHint(info))
 	}
 	return nil
+}
+
+// modelTryHint returns a type-appropriate next-step hint.
+func modelTryHint(info audio.ModelInfo) string {
+	switch info.Type {
+	case audio.ModelSFX:
+		return "Use 'aigc-cli audio sfx --local --input \"heavy metal door slam\"' to try it."
+	case audio.ModelASR:
+		return "Use 'aigc-cli audio transcribe --local --input recording.wav' to try it."
+	default:
+		return "Use 'aigc-cli audio speak --local --input \"Hello\"' to try it."
+	}
 }
 
 func init() {

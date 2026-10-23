@@ -28,6 +28,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
+	github.com/sugarme/tokenizer v0.3.0
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/image v0.43.0
 	golang.org/x/term v0.44.0
@@ -43,12 +44,17 @@ require (
 	github.com/andybalholm/cascadia v1.3.4 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/go-shiori/dom v0.0.0-20230515143342-73569d674e1c // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/gogs/chardet v0.0.0-20211120154057-b7413eaefb8f // indirect
 	github.com/itlightning/dateparse v0.2.1 // indirect
+	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/schollz/progressbar/v2 v2.15.0 // indirect
+	github.com/sugarme/regexpset v0.0.0-20200920021344-4d4ec8eaf93c // indirect
 	github.com/tetratelabs/wazero v1.12.0 // indirect
 	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
@@ -123,7 +129,7 @@ require (
 	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/net v0.55.0
 	golang.org/x/sys v0.46.0
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/text v0.38.0
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 

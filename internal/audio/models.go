@@ -17,7 +17,11 @@ type ModelType string
 const (
 	ModelASR ModelType = "asr"
 	ModelTTS ModelType = "tts"
+	ModelSFX ModelType = "sfx"
 )
+
+// SFXDefaultModelID is the local text-to-sound-effect model.
+const SFXDefaultModelID = "stable-audio-open-small"
 
 // ModelFile describes a single file that makes up a model.
 type ModelFile struct {
@@ -272,7 +276,42 @@ func Registry() map[string]ModelInfo {
 			NeedToken: false,
 			License:   "MIT",
 		},
+		SFXDefaultModelID: {
+			ID:          SFXDefaultModelID,
+			Name:        "Stable Audio Open Small (SFX)",
+			Type:        ModelSFX,
+			Description: "Local text-to-sound-effect model, 341M params, 44.1kHz stereo, up to 11.9s, CPU",
+			Language:    []string{"en"},
+			Size:        "507MB",
+			SampleRate:  44100,
+			Files:       sfxModelFiles(),
+			NeedToken:   false,
+			License:     "Stability AI Community License",
+		},
 	}
+}
+
+// sfxModelFiles lists the ONNX bundle hosted on aigc-cli-models. Release assets
+// are flat, so each asset carries the sfx-sao-small- prefix and is installed
+// under its unprefixed name.
+func sfxModelFiles() []ModelFile {
+	const base = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1/sfx-sao-small-"
+	names := []string{
+		"dit_step.onnx",
+		"dit_step.onnx.data",
+		"t5_text_encoder.onnx",
+		"t5_text_encoder.onnx.data",
+		"vae_decoder.onnx",
+		"vae_decoder.onnx.data",
+		"t5_tokenizer_json.json",
+		"seconds_embedder.json",
+		"LICENSE.txt",
+	}
+	files := make([]ModelFile, 0, len(names))
+	for _, name := range names {
+		files = append(files, ModelFile{URL: base + name, Path: name})
+	}
+	return files
 }
 
 // Lookup returns the model with the given ID, or an error if not found.

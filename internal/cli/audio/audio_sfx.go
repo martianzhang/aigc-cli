@@ -29,6 +29,7 @@ requested, and prompt adherence is tunable.
 Supported providers (detected from the provider base URL):
   elevenlabs   POST /v1/sound-generation, 0.5-30s, loop + prompt influence
   stability    POST /v2beta/audio/stable-audio-2/text-to-audio, 1-190s
+  local        Stable Audio Open Small (ONNX, CPU, up to 11.9s, wav only)
 
 Configure a named provider and select it with --provider, or run
 'aigc-cli audio sfx ... --provider elevenlabs' with ELEVENLABS_API_KEY set:
@@ -47,34 +48,51 @@ Examples:
   aigc-cli audio sfx --input "rain on a car roof" --duration 10 --loop
   aigc-cli audio sfx --input "sci-fi UI confirmation beep" --duration 0.8 \
     --influence 0.8 --format wav
-  aigc-cli audio sfx --input "cinematic whoosh" --dry-run`,
+  aigc-cli audio sfx --input "cinematic whoosh" --dry-run
+  aigc-cli audio sfx --local --input "heavy metal door slam" -d 2 --seed 42`,
 	RunE: runAudioSFX,
 }
 
 var (
-	sfxInput     string
-	sfxDuration  float64
-	sfxLoop      bool
-	sfxInfluence float64
-	sfxModel     string
-	sfxFormat    string
-	sfxPlay      bool
+	sfxInput       string
+	sfxDuration    float64
+	sfxLoop        bool
+	sfxInfluence   float64
+	sfxModel       string
+	sfxFormat      string
+	sfxPlay        bool
+	sfxLocal       bool
+	sfxSeed        int64
+	sfxNoNormalize bool
 )
 
 func registerAudioSFXFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
 	f.StringVarP(&sfxInput, "input", "i", "", "Sound description (file path, raw text, or omit to auto-detect piped stdin)")
-	f.StringVarP(&sfxModel, "model", "m", "", "SFX model (default: eleven_text_to_sound_v2 / stable-audio-2.5)")
+	f.StringVarP(&sfxModel, "model", "m", "", "SFX model (online default: eleven_text_to_sound_v2 / stable-audio-2.5; local default: stable-audio-open-small)")
 	f.Float64VarP(&sfxDuration, "duration", "d", 0, "Duration in seconds (0 = let the provider decide)")
 	f.BoolVar(&sfxLoop, "loop", false, "Generate a seamlessly looping sound (ElevenLabs only)")
 	f.Float64Var(&sfxInfluence, "influence", 0.3, "Prompt adherence 0-1 (ElevenLabs only, default 0.3)")
 	f.StringVarP(&sfxFormat, "format", "f", "", "Audio format: mp3 or wav (default: mp3)")
 	f.BoolVar(&sfxPlay, "play", false, "Play the generated sound after saving")
+	f.BoolVar(&sfxLocal, "local", false, "Use the local ONNX model (Stable Audio Open Small) instead of an online API")
+	f.Int64Var(&sfxSeed, "seed", 0, "Random seed for local generation (0 = time-based)")
+	f.BoolVar(&sfxNoNormalize, "no-normalize", false, "Keep raw local output levels instead of peak-normalizing to -1 dBFS")
 }
 
 func runAudioSFX(cmd *cobra.Command, _ []string) error {
 	prompt, err := readSFXInput()
 	if err != nil {
+		return err
+	}
+
+	if sfxLocal {
+		if err := checkLocalSFXFlags(cmd); err != nil {
+			return err
+		}
+		return runLocalSFX(prompt)
+	}
+	if err := checkOnlineSFXFlags(cmd); err != nil {
 		return err
 	}
 

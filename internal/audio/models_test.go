@@ -108,7 +108,7 @@ func TestModelInfo_fields(t *testing.T) {
 		if m.Name == "" {
 			t.Errorf("model %q has empty Name", id)
 		}
-		if m.Type != ModelASR && m.Type != ModelTTS {
+		if m.Type != ModelASR && m.Type != ModelTTS && m.Type != ModelSFX {
 			t.Errorf("model %q has invalid Type %q", id, m.Type)
 		}
 		if len(m.Files) == 0 {

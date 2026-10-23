@@ -179,6 +179,35 @@ aigc-cli audio sfx -i "whoosh" -d 1 --dry-run
 - 也支持把任意代理/中转的 `base_url` 指到 ElevenLabs 或 Stability 协议端点。
 - 素材检索优先：先用 `aigc-cli search -P sfxmint` 找现成 CC0 音效，找不到再生成。
 
+### 本地音效（离线 ONNX）
+
+本地模式基于 Stable Audio Open Small（341M，ONNX，纯 Go 推理），无需 API Key、无需 Python。
+
+```bash
+# 1. 下载模型（约 507MB；会复用已安装的 ONNX Runtime）
+aigc-cli audio init --model stable-audio-open-small
+
+# 2. 生成（默认 5s，峰值自动归一化到 -1 dBFS）
+aigc-cli audio sfx --local --input "heavy metal door slam" -d 2
+
+# 3. 固定 seed / 保留原始电平
+aigc-cli audio sfx --local -i "cinematic whoosh" -d 1.2 --seed 42
+aigc-cli audio sfx --local -i "rain on a roof" -d 8 --no-normalize
+```
+
+| 参数 | 说明 |
+|---|---|
+| `--local` | 使用本地模型 |
+| `-d, --duration` | 0.1–11.9s；0 时默认 5s |
+| `--seed` | 固定随机种子，同 seed 输出可复现 |
+| `--no-normalize` | 不做峰值归一化 |
+| `-m, --model` | 本地模型 ID，默认 `stable-audio-open-small`（也接受绝对路径） |
+
+- 输出固定为 **44.1kHz 立体声 WAV**；`--loop` / `--influence` / `--format mp3` 仅在线模式支持。
+- 模型最长生成 11.9s；超过会报错。
+- 性能参考：Apple Silicon CPU 上 1s 音频约 9s（8 步 DiT + VAE 解码）。
+- 许可：Stability AI Community License（年收入 100 万美元以下可商用，需保留归属）。
+
 ---
 
 ## 语音转文字（STT）

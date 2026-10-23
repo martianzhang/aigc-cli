@@ -97,6 +97,39 @@ aigc-cli audio sfx -i "whoosh" -d 1 --dry-run
 - Search first: `aigc-cli search -P sfxmint` finds ready-made CC0 effects; only
   generate when nothing fits.
 
+### Local SFX (offline ONNX)
+
+Local mode runs Stable Audio Open Small (341M, ONNX) with pure Go inference. No
+API key and no Python runtime are required.
+
+```bash
+# 1. download the model (~507MB; reuses the installed ONNX Runtime)
+aigc-cli audio init --model stable-audio-open-small
+
+# 2. generate (5s default, peak-normalized to -1 dBFS)
+aigc-cli audio sfx --local --input "heavy metal door slam" -d 2
+
+# 3. fixed seed / raw levels
+aigc-cli audio sfx --local -i "cinematic whoosh" -d 1.2 --seed 42
+aigc-cli audio sfx --local -i "rain on a roof" -d 8 --no-normalize
+```
+
+| Flag | Description |
+|---|---|
+| `--local` | Use the local model |
+| `-d, --duration` | 0.1–11.9s; defaults to 5s when 0 |
+| `--seed` | Reproducible output for the same seed |
+| `--no-normalize` | Keep raw output levels |
+| `-m, --model` | Local model ID, default `stable-audio-open-small` (absolute paths accepted) |
+
+- Output is always **44.1kHz stereo WAV**; `--loop`, `--influence` and
+  `--format mp3` are online-only.
+- The model caps clips at 11.9s and rejects longer requests.
+- Reference speed: about 9s for a 1s clip on Apple Silicon CPU (8 DiT steps +
+  VAE decode).
+- License: Stability AI Community License (commercial use under $1M revenue,
+  attribution retained).
+
 ## Cloud STT
 
 ```bash

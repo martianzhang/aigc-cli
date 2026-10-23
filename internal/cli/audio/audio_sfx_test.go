@@ -15,13 +15,16 @@ func withSFXFlags(t *testing.T) *cobra.Command {
 	t.Helper()
 	oldInput, oldDuration, oldLoop, oldInfluence := sfxInput, sfxDuration, sfxLoop, sfxInfluence
 	oldModel, oldFormat, oldPlay := sfxModel, sfxFormat, sfxPlay
+	oldLocal, oldSeed, oldNoNorm := sfxLocal, sfxSeed, sfxNoNormalize
 	t.Cleanup(func() {
 		sfxInput, sfxDuration, sfxLoop, sfxInfluence = oldInput, oldDuration, oldLoop, oldInfluence
 		sfxModel, sfxFormat, sfxPlay = oldModel, oldFormat, oldPlay
+		sfxLocal, sfxSeed, sfxNoNormalize = oldLocal, oldSeed, oldNoNorm
 	})
 
 	sfxInput, sfxDuration, sfxLoop, sfxInfluence = "", 0, false, 0.3
 	sfxModel, sfxFormat, sfxPlay = "", "", false
+	sfxLocal, sfxSeed, sfxNoNormalize = false, 0, false
 
 	cmd := &cobra.Command{Use: "sfx"}
 	registerAudioSFXFlags(cmd)
@@ -192,5 +195,57 @@ func TestResolveSFXProviderKeepsCustomBaseURL(t *testing.T) {
 	}
 	if p.APIKey != "xi-proxy" {
 		t.Errorf("api key = %q, want xi-proxy", p.APIKey)
+	}
+}
+
+func TestCheckLocalSFXFlags(t *testing.T) {
+	cmd := withSFXFlags(t)
+
+	if err := checkLocalSFXFlags(cmd); err != nil {
+		t.Fatalf("checkLocalSFXFlags() error = %v", err)
+	}
+
+	sfxLoop = true
+	if err := checkLocalSFXFlags(cmd); err == nil {
+		t.Error("--loop must be rejected in local mode")
+	}
+	sfxLoop = false
+
+	if err := cmd.Flags().Set("influence", "0.5"); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkLocalSFXFlags(cmd); err == nil {
+		t.Error("--influence must be rejected in local mode")
+	}
+
+	cmd = withSFXFlags(t)
+	sfxFormat = "mp3"
+	if err := checkLocalSFXFlags(cmd); err == nil {
+		t.Error("--format mp3 must be rejected in local mode")
+	}
+	sfxFormat = "wav"
+	if err := checkLocalSFXFlags(cmd); err != nil {
+		t.Errorf("--format wav must be accepted, got %v", err)
+	}
+}
+
+func TestCheckOnlineSFXFlags(t *testing.T) {
+	cmd := withSFXFlags(t)
+	if err := checkOnlineSFXFlags(cmd); err != nil {
+		t.Fatalf("checkOnlineSFXFlags() error = %v", err)
+	}
+	if err := cmd.Flags().Set("seed", "42"); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkOnlineSFXFlags(cmd); err == nil {
+		t.Error("--seed must be rejected in online mode")
+	}
+
+	cmd = withSFXFlags(t)
+	if err := cmd.Flags().Set("no-normalize", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkOnlineSFXFlags(cmd); err == nil {
+		t.Error("--no-normalize must be rejected in online mode")
 	}
 }
