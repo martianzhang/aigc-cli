@@ -56,6 +56,7 @@ type ModelInfo struct {
 	Files       []ModelFile // files to download
 	NeedToken   bool        // whether HuggingFace token is required
 	License     string      // SPDX identifier or custom, e.g. "Apache-2.0", "CC BY-NC 4.0"
+	LicenseURL  string      // optional license text/page link
 }
 
 // Registry returns all known audio models indexed by ID.
@@ -288,6 +289,7 @@ func Registry() map[string]ModelInfo {
 			Files:       sfxModelFiles(),
 			NeedToken:   false,
 			License:     "Stability AI Community License",
+			LicenseURL:  "https://stability.ai/license",
 		},
 	}
 }

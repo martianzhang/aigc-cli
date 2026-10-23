@@ -16,11 +16,11 @@ aigc-cli audio
 
 ```bash
 # OpenAI TTS
-aigc-cli audio speak --text "Hello world" --voice alloy
+aigc-cli audio speak -i "Hello world" --voice alloy
 
 # OpenRouter (10+ TTS models aggregated)
 export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
-aigc-cli audio speak --text "Hello world" --model "openai/tts-1"
+aigc-cli audio speak -i "Hello world" --model "openai/tts-1"
 ```
 
 ## Local TTS (sherpa-onnx)
@@ -32,7 +32,7 @@ Download and use local offline TTS:
 aigc-cli audio init
 
 # Speak with local kokoro model (53 voices)
-aigc-cli audio speak --text "Hello world" --voice zf_xiaoxiao
+aigc-cli audio speak -P local -i "Hello world" --voice zf_xiaoxiao
 ```
 
 Supported voices include Chinese, English, Japanese, Korean, and French.
@@ -149,11 +149,11 @@ Local inference is the built-in `local` provider, so `-P` works exactly like
 
 ```bash
 # OpenAI Whisper
-aigc-cli audio stt --file speech.mp3
+aigc-cli audio transcribe -i speech.mp3
 
 # OpenRouter
 export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
-aigc-cli audio stt --file speech.mp3
+aigc-cli audio transcribe -i speech.mp3
 ```
 
 ## Local STT (sherpa-onnx)
@@ -163,7 +163,7 @@ aigc-cli audio stt --file speech.mp3
 aigc-cli audio init
 
 # Transcribe
-aigc-cli audio stt --file speech.mp3
+aigc-cli audio transcribe -i speech.mp3
 ```
 
 Local STT uses SenseVoice, which performs best for Chinese.

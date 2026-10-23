@@ -78,7 +78,7 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Printf("Available models (type=%s lang=%s):\n", audioInitType, audioInitLang)
 		for _, m := range models {
-			fmt.Printf("  %-16s  %-10s  %-8s  %s\n", m.ID, m.Type, m.Size, m.Description)
+			fmt.Printf("  %-24s  %-6s  %-8s  %s\n", m.ID, m.Type, m.Size, m.Description)
 		}
 		return nil
 	}
@@ -95,7 +95,7 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println("Installed audio models:")
 		for _, m := range installed {
-			fmt.Printf("  %-16s  %-10s  %-8s  %s\n", m.ID, m.Type, m.Size, m.Description)
+			fmt.Printf("  %-24s  %-6s  %-8s  %s\n", m.ID, m.Type, m.Size, m.Description)
 		}
 		return nil
 	}
@@ -193,6 +193,13 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("model %q: %w", info.ID, err)
 		}
 		fmt.Printf("Model %q installed. %s\n", info.ID, modelTryHint(info))
+		if info.License != "" {
+			if info.LicenseURL != "" {
+				fmt.Printf("License: %s (%s)\n", info.License, info.LicenseURL)
+			} else {
+				fmt.Printf("License: %s\n", info.License)
+			}
+		}
 	}
 	return nil
 }
