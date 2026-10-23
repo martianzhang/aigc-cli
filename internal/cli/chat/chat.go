@@ -90,13 +90,10 @@ func runChat(cmd *cobra.Command, args []string) error {
 		return sendChatRequest(cmd, req)
 	}
 
-	// Interactive REPL (TUI) when no --message and not --json
-	if !cmd.Flags().Changed("message") || chatInteractive {
-		if !term.IsTerminal(int(os.Stdin.Fd())) {
-			// Piped input without messages -- non-interactive single turn
-			return sendChatRequest(cmd, req)
-		}
-
+	// Interactive REPL (TUI) when no --message and not --json. Piped stdin is
+	// non-interactive: it carries the message and flows through the agent loop
+	// below, same as --message.
+	if (!cmd.Flags().Changed("message") || chatInteractive) && term.IsTerminal(int(os.Stdin.Fd())) {
 		return runChatTUI(cmd)
 	}
 
@@ -156,7 +153,7 @@ func init() {
 	f.StringVar(&chatJSONFlag, "json", "", "JSON file, string, or \"-\" for stdin")
 	f.BoolVarP(&chatInteractive, "interactive", "i", false, "Enter interactive multi-turn chat mode")
 	f.BoolVar(&chatDryRun, "dry-run", false, "Print the equivalent curl without calling the API")
-	f.StringVar(&chatSearchProvider, "search-provider", "", "Third-party vendor name for the web_search/web_fetch tools: duckduckgo/firecrawl/brave/doubao/deepseek/exa (overrides defaults.search.provider)")
+	f.StringVar(&chatSearchProvider, "search-provider", "", "Third-party vendor name for the web_search/web_fetch tools: duckduckgo/firecrawl/brave/doubao/deepseek/exa/wsa (overrides defaults.search.provider)")
 	f.StringVar(&chatInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")
 }
 

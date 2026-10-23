@@ -10,7 +10,13 @@ aigc-cli chat --message "Hello, who are you?"
 
 # Interactive REPL mode
 aigc-cli chat
+
+# Piped stdin becomes one user message (non-interactive)
+echo "Explain Go context in one line" | aigc-cli chat
+aigc-cli chat < prompt.txt
 ```
+
+Piped stdin is sent as one additional user message with leading/trailing whitespace trimmed. When `--message` is also present, both are combined: every `--message` comes first and the piped text is appended as the final user message. `--json` (including `--json -`) owns stdin instead, and in an interactive terminal stdin belongs to the TUI.
 
 ## Interactive REPL
 
@@ -127,6 +133,9 @@ web_search:
   exa:
     type: exa                  # neural search; also provides Contents (fetch)
     api_key: "exa-xxx"
+  tencent:
+    type: wsa                  # Tencent Yuanbao Search (search only, no fetch)
+    api_key: "sk-xxx"
 
 defaults:
   search:
@@ -246,7 +255,7 @@ With it on, a request carries only the **primitives** plus two meta-tools: the m
 | `--json` | Pass messages as JSON; forwarded **verbatim** when no flags are set, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API. Explicitly-set flags override the matching key | — |
 | `--inject-json` | Merge a JSON object **on top of** the generated body (objects recurse, arrays append, scalars overwrite). Use it for vendor-only fields (native web search, reasoning, routing); takes precedence over `--json` | — |
 | `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
-| `--search-provider` | Vendor name for the `web_search`/`web_fetch` primitives (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`pixabay`/`pexels`); overrides `defaults.search.provider` | — |
+| `--search-provider` | Vendor name for the `web_search`/`web_fetch` primitives (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`); overrides `defaults.search.provider` | — |
 
 ### Context Management
 

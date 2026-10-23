@@ -3,10 +3,13 @@ package chat
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
@@ -14,6 +17,26 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+// chatStdin is os.Stdin by default; tests replace it with a fixed reader.
+var chatStdin io.Reader = os.Stdin
+
+// chatStdinIsTerminal reports whether stdin is an interactive terminal. It is
+// a var so tests can force the piped path.
+var chatStdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
+// readStdinMessage returns piped stdin as a user message. It returns "" for an
+// interactive terminal (the TUI owns stdin) and for empty input.
+func readStdinMessage() (string, error) {
+	if chatStdinIsTerminal() {
+		return "", nil
+	}
+	data, err := io.ReadAll(chatStdin)
+	if err != nil {
+		return "", fmt.Errorf("read stdin: %w", err)
+	}
+	return strings.TrimSpace(string(data)), nil
+}
 
 // buildChatRequest constructs a ChatRequest from --json or individual flags.
 func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
@@ -66,6 +89,25 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		Messages:     flagMessages(),
 		Stream:       !chatNoStream,
 		OutputWriter: options.Stdout(),
+	}
+	// Piped stdin becomes one additional user message, appended after any
+	// --message values. This makes `echo "..." | aigc-cli chat --message "..."`
+	// combine both inputs instead of silently dropping stdin. --json owns
+	// stdin in its own branch above, and a terminal stdin (the TUI) is skipped.
+	text, err := readStdinMessage()
+	if err != nil {
+		return nil, err
+	}
+	if text != "" {
+		expanded, images, warnings := expandMentions(text, readDenyPatterns())
+		for _, warning := range warnings {
+			fmt.Fprintf(options.Stderr(), "⚠️  %s\n", warning)
+		}
+		req.Messages = append(req.Messages, types.ChatMessage{
+			Role:    "user",
+			Content: expanded,
+			Images:  images,
+		})
 	}
 	if cmd.Flags().Changed("temperature") {
 		v := chatTemperature

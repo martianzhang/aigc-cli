@@ -222,6 +222,9 @@ web_search:
   exa:
     type: exa                  # 神经搜索，同时提供 Search 与 Contents（Fetch）
     api_key: "exa-xxx"
+  tencent:
+    type: wsa                  # 腾讯云元宝搜索（仅 Search，不提供 Fetch）
+    api_key: "sk-xxx"
 
 defaults:
   search:
@@ -351,7 +354,7 @@ defaults:
 | `defaults.chat.allow_tool_override` | `true`=LLM参数优先，`false`=配置强制覆盖LLM（默认`false`，省钱） |
 | `defaults.chat.tools_on_demand` | `true`=MCP 工具按需加载（`search_tools`/`load_tools`），降低上下文占用（默认 `false`） |
 | `defaults.chat.read_deny` | `read` 原语的拒绝正则列表（匹配文件路径或文件名）；空 = 全部放行 |
-| `defaults.search.provider` | 共享搜索厂商名（`aigc-cli search` / `kb search` / chat / MCP）；`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`pixabay`/`pexels`；空 = CLI/kb 用 `duckduckgo`，chat/MCP `web_*` 报错 |
+| `defaults.search.provider` | 共享搜索厂商名（`aigc-cli search` / `kb search` / chat / MCP）；`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`；空 = CLI/kb 用 `duckduckgo`，chat/MCP `web_*` 报错 |
 
 ---
 
@@ -380,6 +383,8 @@ aigc-cli chat --model gpt-4o --message "Hello"
 # 单轮模式查看 token 消耗和耗时
 aigc-cli chat --message "hi" -v
 ```
+
+管道内容会作为**一条 user 消息**发送（自动去除首尾空白），支持 `echo ... | aigc-cli chat` 和 `aigc-cli chat < prompt.txt`。与 `--message` 同时使用时**按顺序拼接**：多个 `--message` 在前，管道内容作为最后一条 user 消息。`--json`（含 `--json -`）自己占用 stdin，不会再读消息；交互式终端下 stdin 归 TUI 所有。
 
 单轮模式下 `-v` 输出示例：
 
@@ -422,7 +427,7 @@ aigc-cli chat --message "Hello"
 | `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
 | `--inject-json` | 在 CLI 生成的最终 body 上**追加合并**一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于联网搜索等厂商私有参数，优先级高于 `--json` |
 | `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |
-| `--search-provider` | `web_search`/`web_fetch` 原语使用的第三方厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`pixabay`/`pexels`），覆盖 `defaults.search.provider` |
+| `--search-provider` | `web_search`/`web_fetch` 原语使用的第三方厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`），覆盖 `defaults.search.provider` |
 | `--verbose`, `-v` | 显示 token 消耗、费用和耗时统计（全局 flag） |
 
 ### `--json` 与参数合并
