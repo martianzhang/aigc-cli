@@ -208,6 +208,7 @@ defaults:
       # provider: "openai-asr"
       # language: "zh"
     sfx:
+      # provider: "local"        # 离线 ONNX（需先 audio init --model stable-audio-open-small）
       provider: "elevenlabs"     # 命名 provider 或内置别名 elevenlabs / stability
       # model: "eleven_text_to_sound_v2"  # ElevenLabs 默认；Stability 用 stable-audio-2.5
       # format: "mp3"             # mp3 | wav

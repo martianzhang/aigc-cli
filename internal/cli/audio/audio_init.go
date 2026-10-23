@@ -201,11 +201,11 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 func modelTryHint(info audio.ModelInfo) string {
 	switch info.Type {
 	case audio.ModelSFX:
-		return "Use 'aigc-cli audio sfx --local --input \"heavy metal door slam\"' to try it."
+		return "Use 'aigc-cli audio sfx -P local --input \"heavy metal door slam\"' to try it."
 	case audio.ModelASR:
-		return "Use 'aigc-cli audio transcribe --local --input recording.wav' to try it."
+		return "Use 'aigc-cli audio transcribe -P local --input recording.wav' to try it."
 	default:
-		return "Use 'aigc-cli audio speak --local --input \"Hello\"' to try it."
+		return "Use 'aigc-cli audio speak -P local --input \"Hello\"' to try it."
 	}
 }
 

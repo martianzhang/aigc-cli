@@ -104,7 +104,7 @@ ffmpeg -i video_xxx.mp4 -vf reverse -af areverse out_reversed.mp4
 
 ### 本地 ASR 前转 wav 16k 单声道
 
-本地 sherpa-onnx 识别（`aigc-cli audio asr --local`）需要 16k 单声道 wav：
+本地 sherpa-onnx 识别（`aigc-cli audio asr -P local`）需要 16k 单声道 wav：
 
 ```bash
 ffmpeg -i input.mp3 -ar 16000 -ac 1 out_16k.wav

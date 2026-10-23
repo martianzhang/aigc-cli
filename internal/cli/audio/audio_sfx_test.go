@@ -15,16 +15,16 @@ func withSFXFlags(t *testing.T) *cobra.Command {
 	t.Helper()
 	oldInput, oldDuration, oldLoop, oldInfluence := sfxInput, sfxDuration, sfxLoop, sfxInfluence
 	oldModel, oldFormat, oldPlay := sfxModel, sfxFormat, sfxPlay
-	oldLocal, oldSeed, oldNoNorm := sfxLocal, sfxSeed, sfxNoNormalize
+	oldSeed, oldNoNorm := sfxSeed, sfxNoNormalize
 	t.Cleanup(func() {
 		sfxInput, sfxDuration, sfxLoop, sfxInfluence = oldInput, oldDuration, oldLoop, oldInfluence
 		sfxModel, sfxFormat, sfxPlay = oldModel, oldFormat, oldPlay
-		sfxLocal, sfxSeed, sfxNoNormalize = oldLocal, oldSeed, oldNoNorm
+		sfxSeed, sfxNoNormalize = oldSeed, oldNoNorm
 	})
 
 	sfxInput, sfxDuration, sfxLoop, sfxInfluence = "", 0, false, 0.3
 	sfxModel, sfxFormat, sfxPlay = "", "", false
-	sfxLocal, sfxSeed, sfxNoNormalize = false, 0, false
+	sfxSeed, sfxNoNormalize = 0, false
 
 	cmd := &cobra.Command{Use: "sfx"}
 	registerAudioSFXFlags(cmd)
@@ -247,5 +247,17 @@ func TestCheckOnlineSFXFlags(t *testing.T) {
 	}
 	if err := checkOnlineSFXFlags(cmd); err == nil {
 		t.Error("--no-normalize must be rejected in online mode")
+	}
+}
+
+func TestIsLocalSFXProvider(t *testing.T) {
+	if isLocalSFXProvider(nil) {
+		t.Error("nil provider must not be local")
+	}
+	if isLocalSFXProvider(&provider.EffectiveProvider{Type: types.ProviderOpenAI}) {
+		t.Error("openai provider must not be local")
+	}
+	if !isLocalSFXProvider(&provider.EffectiveProvider{Type: types.ProviderLocal}) {
+		t.Error("provider type local must be local")
 	}
 }

@@ -173,16 +173,27 @@ func overrideStruct(fs, inherited *pflag.FlagSet, structPtr any, section string,
 // point to existing entries in the providers map. Returns on first error.
 // Uses options.CmdProviderMap to keep the command list in one place.
 func validateCmdProviders(cfg *types.Config) {
-	if cfg == nil || cfg.Defaults == nil {
-		return
+	for _, warning := range cmdProviderWarnings(cfg) {
+		fmt.Fprintf(os.Stderr, "Warning: %s\n", warning)
 	}
+}
+
+// cmdProviderWarnings lists defaults.{cmd}.provider references that do not
+// resolve. The built-in "local" sentinel is valid even without a providers
+// entry, so it is never reported.
+func cmdProviderWarnings(cfg *types.Config) []string {
+	if cfg == nil || cfg.Defaults == nil {
+		return nil
+	}
+	var warnings []string
 	for cmdName, info := range options.CmdProviderMap {
 		providerRef, _ := info.Getter(cfg.Defaults)
-		if providerRef == "" {
+		if providerRef == "" || providerRef == options.ProviderNameLocal {
 			continue
 		}
 		if err := provider.ValidateProviderRef(providerRef, cfg.Providers); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: defaults.%s.provider: %v\n", cmdName, err)
+			warnings = append(warnings, fmt.Sprintf("defaults.%s.provider: %v", cmdName, err))
 		}
 	}
+	return warnings
 }

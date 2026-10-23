@@ -22,8 +22,8 @@ var audioCmd = &cobra.Command{
 First use: run 'aigc-cli audio init' to download local TTS/ASR models.
 
 Supports OpenAI, OpenRouter, and APIMart providers with automatic detection.
-All providers use the OpenAI-compatible endpoints. Local inference via --local
-uses ONNX models downloaded with 'audio init'.
+All providers use the OpenAI-compatible endpoints. Local inference via
+'-P local' uses ONNX models downloaded with 'audio init'.
 
 Subcommands:
   speak / tts       Convert text to speech audio
@@ -115,7 +115,6 @@ var (
 	audioSpeechSpeed        float64
 	audioSpeechInstructions string
 	audioSpeechPlay         bool
-	audioSpeechLocal        bool
 
 	// Transcribe flags
 	audioTranscribeModel       string
@@ -123,14 +122,14 @@ var (
 	audioTranscribeFormat      string
 	audioTranscribeLanguage    string
 	audioTranscribeTemperature float64
-	audioTranscribeLocal       bool
 )
 
 // isLocalAudioMode returns true if audio should run as local inference.
-// Local mode is triggered by the --local flag, or when there is no
-// online provider configured (nil, type=local, or empty name+model).
-func isLocalAudioMode(p *provider.EffectiveProvider, localFlag bool) bool {
-	return localFlag || p == nil || p.Type == types.ProviderLocal || (p.Name == "" && p.Model == "")
+// Local mode is selected with the built-in provider local (-P local /
+// defaults.audio.{speak,transcribe}.provider), or when no online provider is
+// configured at all (nil, type=local, or empty name+model).
+func isLocalAudioMode(p *provider.EffectiveProvider) bool {
+	return p == nil || p.Type == types.ProviderLocal || (p.Name == "" && p.Model == "")
 }
 
 func detectAudioFormat(path string) string {
@@ -158,7 +157,6 @@ func registerAudioSpeakFlags(cmd *cobra.Command) {
 	f.Float64VarP(&audioSpeechSpeed, "speed", "s", 0, "Playback speed: 0.25-4.0 (default: 1.0)")
 	f.StringVar(&audioSpeechInstructions, "instructions", "", "Tone/voice instructions (OpenAI gpt-4o-mini-tts only)")
 	f.BoolVar(&audioSpeechPlay, "play", false, "Play audio with system default player after generation")
-	f.BoolVar(&audioSpeechLocal, "local", false, "Use local TTS model instead of cloud API")
 }
 
 func registerAudioTranscribeFlags(cmd *cobra.Command) {
@@ -168,7 +166,6 @@ func registerAudioTranscribeFlags(cmd *cobra.Command) {
 	f.StringVar(&audioTranscribeFormat, "format", "", "Audio format: wav, mp3, flac, m4a, ogg (auto-detected from file extension)")
 	f.StringVarP(&audioTranscribeLanguage, "language", "l", "", "Language hint (ISO-639-1, e.g. en, ja, zh)")
 	f.Float64Var(&audioTranscribeTemperature, "temperature", 0, "Sampling temperature 0-1 (default: 0)")
-	f.BoolVar(&audioTranscribeLocal, "local", false, "Use local ASR model instead of cloud API")
 }
 
 func init() {

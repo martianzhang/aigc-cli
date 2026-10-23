@@ -29,7 +29,7 @@ requested, and prompt adherence is tunable.
 Supported providers (detected from the provider base URL):
   elevenlabs   POST /v1/sound-generation, 0.5-30s, loop + prompt influence
   stability    POST /v2beta/audio/stable-audio-2/text-to-audio, 1-190s
-  local        Stable Audio Open Small (ONNX, CPU, up to 11.9s, wav only)
+  local        Stable Audio Open Small (ONNX, CPU, up to 11.9s, wav only) via -P local
 
 Configure a named provider and select it with --provider, or run
 'aigc-cli audio sfx ... --provider elevenlabs' with ELEVENLABS_API_KEY set:
@@ -49,7 +49,8 @@ Examples:
   aigc-cli audio sfx --input "sci-fi UI confirmation beep" --duration 0.8 \
     --influence 0.8 --format wav
   aigc-cli audio sfx --input "cinematic whoosh" --dry-run
-  aigc-cli audio sfx --local --input "heavy metal door slam" -d 2 --seed 42`,
+  aigc-cli audio sfx -P local -m stable-audio-open-small \
+    --input "heavy metal door slam" -d 2 --seed 42`,
 	RunE: runAudioSFX,
 }
 
@@ -61,7 +62,6 @@ var (
 	sfxModel       string
 	sfxFormat      string
 	sfxPlay        bool
-	sfxLocal       bool
 	sfxSeed        int64
 	sfxNoNormalize bool
 )
@@ -75,7 +75,6 @@ func registerAudioSFXFlags(cmd *cobra.Command) {
 	f.Float64Var(&sfxInfluence, "influence", 0.3, "Prompt adherence 0-1 (ElevenLabs only, default 0.3)")
 	f.StringVarP(&sfxFormat, "format", "f", "", "Audio format: mp3 or wav (default: mp3)")
 	f.BoolVar(&sfxPlay, "play", false, "Play the generated sound after saving")
-	f.BoolVar(&sfxLocal, "local", false, "Use the local ONNX model (Stable Audio Open Small) instead of an online API")
 	f.Int64Var(&sfxSeed, "seed", 0, "Random seed for local generation (0 = time-based)")
 	f.BoolVar(&sfxNoNormalize, "no-normalize", false, "Keep raw local output levels instead of peak-normalizing to -1 dBFS")
 }
@@ -86,17 +85,16 @@ func runAudioSFX(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	if sfxLocal {
+	p := resolveSFXProvider()
+	if isLocalSFXProvider(p) {
 		if err := checkLocalSFXFlags(cmd); err != nil {
 			return err
 		}
-		return runLocalSFX(prompt)
+		return runLocalSFX(prompt, p)
 	}
 	if err := checkOnlineSFXFlags(cmd); err != nil {
 		return err
 	}
-
-	p := resolveSFXProvider()
 	if p == nil {
 		return fmt.Errorf("no provider configured for sound effects")
 	}
@@ -176,6 +174,12 @@ func readSFXInput() (string, error) {
 		return "", fmt.Errorf("sound description is required: set via --input, a file path, or stdin")
 	}
 	return src, nil
+}
+
+// isLocalSFXProvider reports whether provider selection points at local ONNX
+// inference, either through -P/--provider local or defaults.audio.sfx.provider.
+func isLocalSFXProvider(p *provider.EffectiveProvider) bool {
+	return p != nil && p.Type == types.ProviderLocal
 }
 
 // resolveSFXProvider resolves defaults.sfx.provider / --provider, then falls

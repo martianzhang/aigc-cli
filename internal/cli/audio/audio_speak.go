@@ -16,9 +16,9 @@ import (
 )
 
 func runAudioSpeak(cmd *cobra.Command, args []string) error {
-	// ── Check local mode: --local flag, type=local, or no provider+model ──
+	// ── Local mode: -P local, type=local, or no provider+model ──
 	p := options.Shared.ResolveProvider(options.ProviderNameAudioSpeak)
-	if isLocalAudioMode(p, audioSpeechLocal) {
+	if isLocalAudioMode(p) {
 		return runLocalAudioSpeak(cmd)
 	}
 
@@ -109,6 +109,11 @@ func runLocalAudioSpeak(_ *cobra.Command) error {
 	}
 
 	modelID := audioSpeechModel
+	if modelID == "" {
+		if cfg := options.AudioDefaults(); cfg != nil {
+			modelID = cfg.SpeakModel()
+		}
+	}
 	if modelID == "" {
 		modelID = "kokoro" // best balance for mixed EN/ZH
 	}

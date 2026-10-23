@@ -106,24 +106,39 @@ API key and no Python runtime are required.
 # 1. download the model (~507MB; reuses the installed ONNX Runtime)
 aigc-cli audio init --model stable-audio-open-small
 
-# 2. generate (5s default, peak-normalized to -1 dBFS)
-aigc-cli audio sfx --local --input "heavy metal door slam" -d 2
+# 2. generate locally (5s default, peak-normalized to -1 dBFS)
+aigc-cli audio sfx -P local -m stable-audio-open-small \
+  -i "heavy metal door slam" -d 2
 
 # 3. fixed seed / raw levels
-aigc-cli audio sfx --local -i "cinematic whoosh" -d 1.2 --seed 42
-aigc-cli audio sfx --local -i "rain on a roof" -d 8 --no-normalize
+aigc-cli audio sfx -P local -i "cinematic whoosh" -d 1.2 --seed 42
+aigc-cli audio sfx -P local -i "rain on a roof" -d 8 --no-normalize
 ```
+
+To make local the default (no `-P local` needed):
+
+```yaml
+defaults:
+  audio:
+    sfx:
+      provider: local              # or pass -P local per invocation
+      # model: stable-audio-open-small
+```
+
+Local inference is the built-in `local` provider, so `-P` works exactly like
+`image` / `music`; `-m` selects the local model ID (default
+`stable-audio-open-small`).
 
 | Flag | Description |
 |---|---|
-| `--local` | Use the local model |
+| `-P, --provider` | use `local` for local inference |
+| `-m, --model` | local model ID, default `stable-audio-open-small` (absolute paths accepted) |
 | `-d, --duration` | 0.1–11.9s; defaults to 5s when 0 |
 | `--seed` | Reproducible output for the same seed |
 | `--no-normalize` | Keep raw output levels |
-| `-m, --model` | Local model ID, default `stable-audio-open-small` (absolute paths accepted) |
 
 - Output is always **44.1kHz stereo WAV**; `--loop`, `--influence` and
-  `--format mp3` are online-only.
+  `--format mp3` are online-provider-only.
 - The model caps clips at 11.9s and rejects longer requests.
 - Reference speed: about 9s for a 1s clip on Apple Silicon CPU (8 DiT steps +
   VAE decode).

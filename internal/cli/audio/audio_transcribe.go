@@ -18,9 +18,9 @@ import (
 )
 
 func runAudioTranscribe(cmd *cobra.Command, args []string) error {
-	// ── Check local mode: --local flag, type=local, or no provider+model ──
+	// ── Local mode: -P local, type=local, or no provider+model ──
 	p := options.Shared.ResolveProvider(options.ProviderNameAudioTranscribe)
-	if isLocalAudioMode(p, audioTranscribeLocal) {
+	if isLocalAudioMode(p) {
 		return runLocalAudioTranscribe(cmd)
 	}
 

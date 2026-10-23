@@ -11,19 +11,20 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	sfxengine "github.com/martianzhang/aigc-cli/internal/audio/sfx"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
 // checkLocalSFXFlags rejects online-only flags in local mode.
 func checkLocalSFXFlags(cmd *cobra.Command) error {
 	if sfxLoop {
-		return fmt.Errorf("--loop is not supported by --local (use the online ElevenLabs provider)")
+		return fmt.Errorf("--loop is not supported by the local provider (use the online ElevenLabs provider)")
 	}
 	if cmd.Flags().Changed("influence") {
-		return fmt.Errorf("--influence is not supported by --local (use the online ElevenLabs provider)")
+		return fmt.Errorf("--influence is not supported by the local provider (use the online ElevenLabs provider)")
 	}
 	if sfxFormat != "" && sfxFormat != "wav" {
-		return fmt.Errorf("--local produces wav only, got --format %q", sfxFormat)
+		return fmt.Errorf("the local provider produces wav only, got --format %q", sfxFormat)
 	}
 	return nil
 }
@@ -31,17 +32,21 @@ func checkLocalSFXFlags(cmd *cobra.Command) error {
 // checkOnlineSFXFlags rejects local-only flags in online mode.
 func checkOnlineSFXFlags(cmd *cobra.Command) error {
 	if cmd.Flags().Changed("seed") {
-		return fmt.Errorf("--seed only applies to --local; online providers do not accept a seed")
+		return fmt.Errorf("--seed only applies to -P local; online providers do not accept a seed")
 	}
 	if cmd.Flags().Changed("no-normalize") {
-		return fmt.Errorf("--no-normalize only applies to --local")
+		return fmt.Errorf("--no-normalize only applies to -P local")
 	}
 	return nil
 }
 
-// runLocalSFX generates a sound effect with the local ONNX model.
-func runLocalSFX(prompt string) error {
+// runLocalSFX generates a sound effect with the local ONNX model. The model ID
+// comes from --model, then defaults.audio.sfx.model, then the built-in default.
+func runLocalSFX(prompt string, p *provider.EffectiveProvider) error {
 	modelID := sfxModel
+	if modelID == "" && p != nil {
+		modelID = p.Model
+	}
 	if modelID == "" {
 		modelID = audio.SFXDefaultModelID
 	}

@@ -187,23 +187,36 @@ aigc-cli audio sfx -i "whoosh" -d 1 --dry-run
 # 1. 下载模型（约 507MB；会复用已安装的 ONNX Runtime）
 aigc-cli audio init --model stable-audio-open-small
 
-# 2. 生成（默认 5s，峰值自动归一化到 -1 dBFS）
-aigc-cli audio sfx --local --input "heavy metal door slam" -d 2
+# 2. 生成本地音效（默认 5s，峰值自动归一化到 -1 dBFS）
+aigc-cli audio sfx -P local -m stable-audio-open-small \
+  -i "heavy metal door slam" -d 2
 
 # 3. 固定 seed / 保留原始电平
-aigc-cli audio sfx --local -i "cinematic whoosh" -d 1.2 --seed 42
-aigc-cli audio sfx --local -i "rain on a roof" -d 8 --no-normalize
+aigc-cli audio sfx -P local -i "cinematic whoosh" -d 1.2 --seed 42
+aigc-cli audio sfx -P local -i "rain on a roof" -d 8 --no-normalize
 ```
+
+想把本地设为默认（省掉 `-P local`）：
+
+```yaml
+defaults:
+  audio:
+    sfx:
+      provider: local              # 或每次显式 -P local
+      # model: stable-audio-open-small
+```
+
+本地就是内置 provider `local`，与 `image` / `music` 的 `-P` 用法一致；`-m` 指定本地模型 ID（默认 `stable-audio-open-small`）。
 
 | 参数 | 说明 |
 |---|---|
-| `--local` | 使用本地模型 |
+| `-P, --provider` | 填 `local` 使用本地模型 |
+| `-m, --model` | 本地模型 ID，默认 `stable-audio-open-small`（也接受绝对路径） |
 | `-d, --duration` | 0.1–11.9s；0 时默认 5s |
 | `--seed` | 固定随机种子，同 seed 输出可复现 |
 | `--no-normalize` | 不做峰值归一化 |
-| `-m, --model` | 本地模型 ID，默认 `stable-audio-open-small`（也接受绝对路径） |
 
-- 输出固定为 **44.1kHz 立体声 WAV**；`--loop` / `--influence` / `--format mp3` 仅在线模式支持。
+- 输出固定为 **44.1kHz 立体声 WAV**；`--loop` / `--influence` / `--format mp3` 仅在线 provider 支持。
 - 模型最长生成 11.9s；超过会报错。
 - 性能参考：Apple Silicon CPU 上 1s 音频约 9s（8 步 DiT + VAE 解码）。
 - 许可：Stability AI Community License（年收入 100 万美元以下可商用，需保留归属）。
@@ -400,10 +413,10 @@ mcp.WithTool("generate_speech",
 aigc-cli audio init --model kokoro
 
 # 2. 语音合成（默认中文女声晓晓）
-aigc-cli audio speak --local --input "你好，欢迎使用本地语音合成系统。"
+aigc-cli audio speak -P local --input "你好，欢迎使用本地语音合成系统。"
 
 # 3. 或使用 tts 别名
-aigc-cli audio tts --local --input "Hello, this is local TTS."
+aigc-cli audio tts -P local --input "Hello, this is local TTS."
 ```
 
 ### 可用 TTS 模型
@@ -445,20 +458,20 @@ aigc-cli audio init --list-installed
 
 ```bash
 # 使用默认模型（kokoro，中文女声晓晓）
-aigc-cli audio tts --local --input "你好，世界"
+aigc-cli audio tts -P local --input "你好，世界"
 
 # 指定模型
-aigc-cli audio tts --local --model vits-ljs --input "Hello world"
+aigc-cli audio tts -P local --model vits-ljs --input "Hello world"
 
 # 指定音色
-aigc-cli audio tts --local --voice zf_xiaoxiao --input "你好"
-aigc-cli audio tts --local --voice zm_yunjian --input "你好，我是男声"
+aigc-cli audio tts -P local --voice zf_xiaoxiao --input "你好"
+aigc-cli audio tts -P local --voice zm_yunjian --input "你好，我是男声"
 
 # 或直接使用编号
-aigc-cli audio tts --local --voice 45 --input "你好"
+aigc-cli audio tts -P local --voice 45 --input "你好"
 
 # 生成后自动播放
-aigc-cli audio tts --local --input "你好" --play
+aigc-cli audio tts -P local --input "你好" --play
 ```
 
 ### Kokoro 音色列表
@@ -503,6 +516,7 @@ aigc-cli audio init --list-voices --model kokoro
 defaults:
   audio:
     speak:
+      provider: local              # 使用本地 ONNX（等同 -P local）
       model: kokoro                # 本地 TTS 模型 ID
       voice: "zf_xiaoxiao"         # 默认音色（支持名字或数字）
       format: wav                  # 输出格式
@@ -511,7 +525,7 @@ defaults:
 启用后可直接运行：
 
 ```bash
-aigc-cli audio speak --input "你好"  # 自动使用本地模型，无需 --local
+aigc-cli audio speak --input "你好"  # 自动使用本地模型，无需 -P local
 ```
 
 ### 子命令别名

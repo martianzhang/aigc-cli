@@ -104,7 +104,7 @@ ffmpeg -i video_xxx.mp4 -vf reverse -af areverse out_reversed.mp4
 
 ### Convert to 16k Mono WAV before Local ASR
 
-Local sherpa-onnx recognition (`aigc-cli audio asr --local`) requires 16 kHz mono WAV:
+Local sherpa-onnx recognition (`aigc-cli audio asr -P local`) requires 16 kHz mono WAV:
 
 ```bash
 ffmpeg -i input.mp3 -ar 16000 -ac 1 out_16k.wav

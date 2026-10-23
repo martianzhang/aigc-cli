@@ -33,21 +33,20 @@ func TestDetectAudioFormat(t *testing.T) {
 
 func TestIsLocalAudioMode(t *testing.T) {
 	tests := []struct {
-		name  string
-		p     *provider.EffectiveProvider
-		local bool
-		want  bool
+		name string
+		p    *provider.EffectiveProvider
+		want bool
 	}{
-		{"nil provider", nil, false, true},
-		{"local type", &provider.EffectiveProvider{Type: types.ProviderLocal}, false, true},
-		{"empty name and model", &provider.EffectiveProvider{}, false, true},
-		{"online provider", &provider.EffectiveProvider{Name: "openai", Model: "gpt-4o"}, false, false},
-		{"local flag forced", &provider.EffectiveProvider{Name: "openai", Model: "gpt-4o"}, true, true},
+		{"nil provider", nil, true},
+		{"local type", &provider.EffectiveProvider{Type: types.ProviderLocal}, true},
+		{"empty name and model", &provider.EffectiveProvider{}, true},
+		{"online provider", &provider.EffectiveProvider{Name: "openai", Model: "gpt-4o"}, false},
+		{"named provider without model", &provider.EffectiveProvider{Name: "openai"}, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := isLocalAudioMode(tc.p, tc.local); got != tc.want {
-				t.Errorf("isLocalAudioMode(%+v, %v) = %v, want %v", tc.p, tc.local, got, tc.want)
+			if got := isLocalAudioMode(tc.p); got != tc.want {
+				t.Errorf("isLocalAudioMode(%+v) = %v, want %v", tc.p, got, tc.want)
 			}
 		})
 	}

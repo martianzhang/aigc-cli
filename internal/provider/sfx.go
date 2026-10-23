@@ -58,7 +58,7 @@ func GenerateSoundEffect(p *EffectiveProvider, req *SoundEffectRequest) (*SoundE
 		return generateStabilitySFX(p, req)
 	default:
 		return nil, fmt.Errorf(
-			"provider %q does not support sound effects; set providers.<name>.base_url to %s or %s, or use --local",
+			"provider %q does not support sound effects; set providers.<name>.base_url to %s or %s, or use --provider local",
 			firstNonEmpty(p.Name, p.BaseURL), ElevenLabsBaseURL, StabilityBaseURL)
 	}
 }
