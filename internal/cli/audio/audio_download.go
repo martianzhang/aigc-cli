@@ -3,6 +3,8 @@ package audio
 import (
 	"archive/tar"
 	"compress/bzip2"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -23,7 +25,7 @@ func downloadModelFiles(info audio.ModelInfo, modelsBaseDir string, force bool) 
 	for _, f := range info.Files {
 		dest := filepath.Join(modelDir, f.Path)
 		label := info.ID + "/" + f.Path
-		if err := downloadSingleFile(f.URL, dest, label, force); err != nil {
+		if err := downloadSingleFile(f.URL, dest, label, force, f.SHA256); err != nil {
 			return fmt.Errorf("download %s/%s: %w", info.ID, f.Path, err)
 		}
 	}
@@ -40,7 +42,7 @@ func downloadFromURL(url, baseDir, name string, force bool) error {
 	os.MkdirAll(modelDir, 0755)
 	filename := filepath.Base(url)
 	dest := filepath.Join(modelDir, filename)
-	return downloadSingleFile(url, dest, filename, force)
+	return downloadSingleFile(url, dest, filename, force, "")
 }
 
 // sanitizeModelName keeps only the final path element of a caller-supplied
@@ -54,7 +56,9 @@ func sanitizeModelName(name string) (string, error) {
 }
 
 // downloadSingleFile downloads a single file, handling tar.bz2 extraction.
-func downloadSingleFile(url, dest, label string, force bool) error {
+// A non-empty wantSHA verifies both an existing file and the fresh download;
+// mismatches remove the file instead of leaving a corrupt model behind.
+func downloadSingleFile(url, dest, label string, force bool, wantSHA string) error {
 	// For archives, check if the model directory already has content
 	if strings.HasSuffix(label, ".tar.bz2") {
 		extractedDir := strings.TrimSuffix(dest, ".tar.bz2")
@@ -72,12 +76,25 @@ func downloadSingleFile(url, dest, label string, force bool) error {
 			}
 		}
 	} else if _, err := os.Stat(dest); err == nil && !force {
-		fmt.Printf("%s: already exists\n", dest)
-		return nil
+		if wantSHA == "" {
+			fmt.Printf("%s: already exists\n", dest)
+			return nil
+		}
+		if err := verifySHA256(dest, wantSHA); err == nil {
+			fmt.Printf("%s: verified\n", dest)
+			return nil
+		}
+		fmt.Printf("%s: checksum mismatch, re-downloading\n", dest)
 	}
 	fmt.Printf("Downloading %s...\n", url)
 	if err := service.SaveResource(url, dest); err != nil {
 		return fmt.Errorf("download %s: %w", label, err)
+	}
+	if wantSHA != "" {
+		if err := verifySHA256(dest, wantSHA); err != nil {
+			os.Remove(dest)
+			return fmt.Errorf("verify %s: %w", label, err)
+		}
 	}
 	if strings.HasSuffix(label, ".tar.bz2") {
 		extractDir := strings.TrimSuffix(dest, ".tar.bz2")
@@ -86,6 +103,25 @@ func downloadSingleFile(url, dest, label string, force bool) error {
 			return fmt.Errorf("extract: %w", err)
 		}
 		os.Remove(dest)
+	}
+	return nil
+}
+
+// verifySHA256 checks a file against a lowercase hex digest.
+func verifySHA256(path, want string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
+	got := hex.EncodeToString(h.Sum(nil))
+	if !strings.EqualFold(got, want) {
+		return fmt.Errorf("sha256 mismatch: got %s, want %s", got, want)
 	}
 	return nil
 }

@@ -3,10 +3,17 @@ package audio
 import (
 	"archive/tar"
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/martianzhang/aigc-cli/internal/audio"
 )
 
 // cleanTarBz2Base64 is a tar.bz2 containing top/, top/sub/,
@@ -196,5 +203,106 @@ func TestSanitizeModelName(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("sanitizeModelName(%q) = %q, want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func testSHA256(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+func TestVerifySHA256(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "file.bin")
+	body := []byte("hello model")
+	if err := os.WriteFile(path, body, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := verifySHA256(path, testSHA256(body)); err != nil {
+		t.Fatalf("verifySHA256(valid) error = %v", err)
+	}
+	if err := verifySHA256(path, strings.Repeat("0", 64)); err == nil {
+		t.Fatal("verifySHA256(mismatch) = nil, want error")
+	}
+	if err := verifySHA256(filepath.Join(t.TempDir(), "missing"), testSHA256(body)); err == nil {
+		t.Fatal("verifySHA256(missing) = nil, want error")
+	}
+}
+
+func TestDownloadSingleFileVerifiesHash(t *testing.T) {
+	body := []byte("downloaded bytes")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "model.onnx")
+
+	if err := downloadSingleFile(srv.URL, dest, "test/model.onnx", false, testSHA256(body)); err != nil {
+		t.Fatalf("downloadSingleFile(valid hash) error = %v", err)
+	}
+	if got, err := os.ReadFile(dest); err != nil || !bytes.Equal(got, body) {
+		t.Fatalf("downloaded file = %q, %v", got, err)
+	}
+
+	dest2 := filepath.Join(dir, "bad.onnx")
+	err := downloadSingleFile(srv.URL, dest2, "test/bad.onnx", false, strings.Repeat("1", 64))
+	if err == nil {
+		t.Fatal("downloadSingleFile(bad hash) = nil, want error")
+	}
+	if _, statErr := os.Stat(dest2); !os.IsNotExist(statErr) {
+		t.Errorf("hash mismatch must remove %s", dest2)
+	}
+}
+
+func TestDownloadSingleFileSkipsVerifiedExisting(t *testing.T) {
+	body := []byte("cached")
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "cached.onnx")
+	if err := os.WriteFile(dest, body, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+	defer srv.Close()
+
+	if err := downloadSingleFile(srv.URL, dest, "test/cached.onnx", false, testSHA256(body)); err != nil {
+		t.Fatalf("downloadSingleFile() error = %v", err)
+	}
+	if called {
+		t.Error("verified existing file must not be re-downloaded")
+	}
+}
+
+func audioRegistrySFXFiles(t *testing.T) []audio.ModelFile {
+	t.Helper()
+	info, err := audio.Lookup(audio.SFXDefaultModelID)
+	if err != nil {
+		t.Fatalf("lookup sfx model: %v", err)
+	}
+	return info.Files
+}
+
+func TestSFXModelFilesHaveHashes(t *testing.T) {
+	files := audioRegistrySFXFiles(t)
+	if len(files) < 8 {
+		t.Fatalf("sfx file count = %d, want at least 8", len(files))
+	}
+	seen := map[string]bool{}
+	for _, f := range files {
+		if len(f.SHA256) != 64 {
+			t.Errorf("%s: sha256 = %q, want 64 hex chars", f.Path, f.SHA256)
+		}
+		if _, err := hex.DecodeString(f.SHA256); err != nil {
+			t.Errorf("%s: invalid sha256: %v", f.Path, err)
+		}
+		if seen[f.URL] {
+			t.Errorf("duplicate URL %s", f.URL)
+		}
+		seen[f.URL] = true
 	}
 }

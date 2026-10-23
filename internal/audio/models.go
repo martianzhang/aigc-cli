@@ -28,6 +28,7 @@ type ModelFile struct {
 	URL      string // download source (HTTP/HTTPS)
 	Path     string // relative path within the model directory, e.g. "model.onnx"
 	Optional bool   // if true, skip download when the URL is unreachable
+	SHA256   string // expected checksum; empty skips verification
 }
 
 // TTSBackend selects which sherpa-onnx model config to use.
@@ -294,24 +295,33 @@ func Registry() map[string]ModelInfo {
 // sfxModelFiles lists the ONNX bundle hosted on aigc-cli-models. Release assets
 // are flat, so each asset carries the sfx-sao-small- prefix and is installed
 // under its unprefixed name.
+//
+// The asset names are an ABI: never overwrite them in place. Any change to the
+// engine's RequiredFiles, tensor shapes or sampling must publish a new
+// sfx-sao-small-vN-* prefix instead, so older binaries keep downloading the
+// bundle they were built against.
 func sfxModelFiles() []ModelFile {
 	const base = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1/sfx-sao-small-"
-	names := []string{
-		"dit_step.onnx",
-		"dit_step.onnx.data",
-		"t5_text_encoder.onnx",
-		"t5_text_encoder.onnx.data",
-		"vae_decoder.onnx",
-		"vae_decoder.onnx.data",
-		"t5_tokenizer_json.json",
-		"seconds_embedder.json",
-		"LICENSE.txt",
+	files := []struct {
+		name string
+		hash string
+	}{
+		{"dit_step.onnx", "1b52abe1ac0f0b5c8208bed89db538ca860e030ebc09e8a1bb338ea11044531e"},
+		{"dit_step.onnx.data", "9ccaac2be9c02fe6b320a6d4af2a90509b2b76ed61e70c6519ef298d75fe1bb2"},
+		{"t5_text_encoder.onnx", "95d8b885c5d7a855366f5061abc6aafe08a378ab22ecb86c3bad57e9ee673784"},
+		{"t5_text_encoder.onnx.data", "d48426eaafeacd0e20ebd48b67179a7278ee2df6e6ad3801ee4c2bcdc371941e"},
+		{"vae_decoder.onnx", "896a3aa833b84a0a314d11b5b2630c73a1fbe86495e498c375d163d038acafb5"},
+		{"vae_decoder.onnx.data", "a30eded351e419f97a2808d3e7bbe0ab683ba03f864b4dc717abc1798e33761a"},
+		{"t5_tokenizer_json.json", "30ecc5c7c3f2a5e24f1837df50ad6288e12aef9c78a12eede8f67489faec1c45"},
+		{"seconds_embedder.json", "0e08dd6200826d602e55ed20655f9fc30cdc46ef831d2dbde9575ce60495e250"},
+		{"LICENSE.txt", "d6f6b1a4dce5c852bd6d7d9482d002baf0ccdb71e662250b73be9eec8764ee8d"},
+		{"NOTICE.txt", "84383641d45be4b12e130e255990e55eee324706e4635225c90b1a53a96074fd"},
 	}
-	files := make([]ModelFile, 0, len(names))
-	for _, name := range names {
-		files = append(files, ModelFile{URL: base + name, Path: name})
+	out := make([]ModelFile, 0, len(files))
+	for _, f := range files {
+		out = append(out, ModelFile{URL: base + f.name, Path: f.name, SHA256: f.hash})
 	}
-	return files
+	return out
 }
 
 // Lookup returns the model with the given ID, or an error if not found.
