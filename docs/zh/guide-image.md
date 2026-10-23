@@ -30,12 +30,13 @@ aigc-cli image < prompt.txt
 | `--model` | `-m` | 模型名（可通过 `defaults.image.model` 或 `providers.{name}.model` 设默认值） | 通用 |
 | `--provider` | `-P` | 命名 Provider 名称（覆盖 `defaults.image.provider`，见 `docs/zh/examples/config.yaml`） | 通用 |
 | `--size` | `-s` | 图片尺寸：宽高比（`16:9`）、像素（`1024x1024`）、档位（`2K`）或组合形式（`2K@16:9`） | 通用 |
-| `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` | 通用 |
+| `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` | 通用（取值因厂而异） |
+| `--ratio` | | 档位尺寸的宽高比（配合 `--size 2K` 等） | Agnes 2.1+ / OpenRouter |
 | `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp`、`avif`、`jxl` | 通用 |
 | `--compress` | `-z` | 压缩目标：`800KB`/`2MB`（目标大小）或 `85%`（固定 quality） | 通用 |
 | `--n` | | 生成数量 1-4 | 通用 |
 | `--style` | | 风格：`vivid`、`natural`（OpenAI 专用） | OpenAI |
-| `--response-format` | | 响应格式：`url`、`b64_json` | OpenAI/OpenRouter |
+| `--response-format` | | 响应格式：`url`、`b64_json` | OpenAI/OpenRouter/Agnes |
 | `--resolution` | `-r` | 分辨率档：`1k`、`2k`、`4k` | APIMart |
 | `--background` | | 背景模式：`auto`、`opaque`、`transparent`（透明背景需配合 `--output-format png/webp`） | OpenAI/OpenRouter/APIMart |
 | `--moderation` | | 审核强度：`auto`、`low` | APIMart |
@@ -51,6 +52,8 @@ aigc-cli image < prompt.txt
 | `--mode` | | 强制指定模式：`auto`、`sync`、`async` | 通用 |
 | `--dry-run` | | 打印等价 curl（上传型 provider 会先打印每个本地参考图的上传 curl），不调用 API | 通用 |
 | `--preview` | | 生成后自动用系统默认程序打开图片 | 通用 |
+
+> 标注了厂商名的参数只在对应 provider 生效；其它厂商私有字段（如 `style_preset`、`seed`）直接放进 `--inject-json`，不会再新增 CLI 参数。
 
 > ⚠️ **--size 格式因厂商而异**：`--size` 支持四种写法：`<ratio>`（如 `16:9`）、`<pixels>`（如 `1024x1024`）、`<tier>`（如 `2K`），以及新的组合形式 `<tier>@<ratio>`（如 `2K@16:9`）。`@` 前为分辨率档位，`@` 后为宽高比；CLI 会自动拆成 `size` + `ratio`，不含 `@` 的值行为不变。
 

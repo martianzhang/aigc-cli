@@ -374,7 +374,9 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 | `--audio-url` | | 参考音频 URL（可重复） |
 | `--json` | | JSON 输入（文件、字符串或 `-` 表示 stdin） |
 | `--inject-json` | | 在最终 body 上追加合并一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于厂商私有参数，优先级高于 `--json`（详见 chat 指南） |
-| `--tool` | | 工具（如 `web_search`，可重复） |
+
+> **参数适用性**：`--generate-audio`（OpenRouter）、`--tool` / `--video-url` / `--audio-url`（仅部分模型）、`--remix` / `--task-id` / `--raw`（VEO3）、`--job-id`（OpenRouter 任务恢复）。没有列出的厂商私有字段一律走 `--inject-json`，不再新增 CLI 参数。
+| `--tool` | | 工具（如 `web_search`，可重复；仅部分 provider） |
 | `--output` | | 下载目录（默认当前目录） |
 | `--save-prompt` | | 保存 prompt 到 `video_{task_id}.md` |
 | `--gif` | | 生成后把视频转成 GIF，或配合 `-i/--image-url` 转换本地视频（需 ffmpeg 在 PATH） |

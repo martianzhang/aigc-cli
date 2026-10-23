@@ -51,6 +51,10 @@ var videoCmd = &cobra.Command{
 Supports text-to-video, image-to-video, first/last frame video,
 reference video, audio-enabled video, and VEO3 video remix.
 
+Provider-private fields are not flags: pass them with --inject-json, which
+merges into the request body. Flags marked with a provider name in --help
+only take effect on that provider.
+
 Remix mode (--remix):
   VEO3 Remix extends a generated video from 8s to 15s.
   Requires --remix + --task-id + --prompt + --model.
@@ -228,19 +232,19 @@ func init() {
 	f.StringVarP(&vidPrompt, "prompt", "p", "", "Video content description")
 	f.IntVarP(&vidDuration, "duration", "d", 0, "Video duration in seconds (4-15)")
 	f.StringVarP(&vidSize, "size", "s", "", `Aspect ratio: 16:9, 9:16, 1:1, 4:3, 3:4, 21:9, adaptive`)
-	f.StringVarP(&vidResolution, "resolution", "r", "", "Resolution: 480p, 720p, 1080p (remix: 4k)")
+	f.StringVarP(&vidResolution, "resolution", "r", "", "Resolution: 480p, 720p, 1080p (remix: 4k; Pollinations ignores it)")
 	f.IntVar(&vidSeed, "seed", 0, "Random seed for reproducibility")
-	f.BoolVarP(&vidGenerateAudio, "generate-audio", "a", false, "Generate AI audio for the video")
+	f.BoolVarP(&vidGenerateAudio, "generate-audio", "a", false, "Generate AI audio for the video (OpenRouter)")
 	f.BoolVar(&vidReturnLastFrame, "return-last-frame", false, "Save the video's last frame as an image for continuation (provider-returned when available, else extracted locally with ffmpeg)")
 	f.StringArrayVarP(&vidImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable); with --gif/--mp4 and no --prompt, also accepts a local video file")
-	f.StringVar(&vidFirstFrame, "first-frame", "", "First frame image URL or local path")
-	f.StringVar(&vidLastFrame, "last-frame", "", "Last frame image URL or local path")
-	f.StringArrayVar(&vidVideoURLs, "video-url", nil, "Reference video URL (repeatable)")
-	f.StringArrayVar(&vidAudioURLs, "audio-url", nil, "Reference audio URL (repeatable)")
-	f.StringArrayVar(&vidTools, "tool", nil, "Tool type (e.g. web_search, repeatable)")
+	f.StringVar(&vidFirstFrame, "first-frame", "", "First frame image URL or local path (models with first-frame support)")
+	f.StringVar(&vidLastFrame, "last-frame", "", "Last frame image URL or local path (models with last-frame support)")
+	f.StringArrayVar(&vidVideoURLs, "video-url", nil, "Reference video URL (repeatable; models with reference-video support)")
+	f.StringArrayVar(&vidAudioURLs, "audio-url", nil, "Reference audio URL (repeatable; models with reference-audio support)")
+	f.StringArrayVar(&vidTools, "tool", nil, "Tool type (e.g. web_search, repeatable; provider-specific)")
 	f.BoolVar(&vidRemix, "remix", false, "VEO3 Remix mode: extend video from 8s to 15s (requires --task-id)")
 	f.BoolVar(&vidRaw, "raw", false, "Remix: return only the extended portion (VEO3 remix only)")
-	f.StringVar(&vidTaskID, "task-id", "", "Original video task ID for remix (required with --remix)")
+	f.StringVar(&vidTaskID, "task-id", "", "Original video task ID for remix (required with --remix; VEO3)")
 	f.BoolVar(&vidDryRun, "dry-run", false, "Print request parameters without calling API")
 	f.BoolVar(&vidPreview, "preview", false, "Open generated video with system default player")
 	f.BoolVar(&vidGIF, "gif", false, "Convert generated videos to GIF after download, or convert a local video via -i/--image-url")
@@ -251,7 +255,7 @@ Without a prompt: crops the local video (-i file), the original is kept. With a 
 CSS margin shorthand, comma-separated: 40 (all sides) | 40,0 (top/bottom, left/right) | 40,30,20,10 (top,right,bottom,left)`)
 	f.StringVar(&vidFFmpegFlags, "ffmpeg-flags", "", `Extra ffmpeg flags appended after the GIF filter (expert escape hatch)`)
 	f.StringVar(&options.Shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	f.StringVar(&options.Shared.InjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")
+	f.StringVar(&options.Shared.InjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); use it for vendor-private fields; JSON string or file path")
 	f.StringVar(&vidJobID, "job-id", "", "Resume an OpenRouter video job by ID (loads saved job info and downloads the result)")
 
 }

@@ -149,6 +149,8 @@ aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清
 | `--json` | | JSON 输入（文件、字符串，或 `-` 表示 stdin）；不带参数时逐字节原样发送，显式参数覆盖当前后端的对应键 |
 | `--inject-json` | | 在最终 body 上追加合并一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于厂商私有参数，优先级高于 `--json`（详见 chat 指南） |
 | `--dry-run` | | 打印等价 curl，不调用 API |
+
+> 标注了后端的参数只在对应后端生效（未标注的为通用）；其它厂商私有字段走 `--inject-json`。
 | `--provider` | `-P` | 全局：引用命名 Provider（如 `openrouter`） |
 | `--api-key` | | 全局：覆盖 API Key |
 | `--api-base` | | 全局：覆盖 Base URL |

@@ -29,6 +29,10 @@ Works with OpenAI, OpenRouter (sync), and APIMart (async task-based).
 You can specify parameters via flags, or pass a complete JSON request
 via the --json flag (file path, JSON string, or "-" for stdin).
 
+Provider-private fields are not flags: pass them with --inject-json, which
+merges into the request body. Flags marked with a provider name in --help
+only take effect on that provider.
+
 Edit mode (--edit):
   Forces the provider's image-edit protocol using --image-url as the source.
   Requires --edit + --image-url + --prompt.

@@ -22,6 +22,18 @@ aigc-cli image --model "dall-e-3" --size "1024x1024" --prompt "a cat"
 
 ### Provider-specific parameters
 
+Flags marked with a provider below only take effect on that provider. Anything else a
+vendor accepts (for example `style_preset` or `seed`) belongs in `--inject-json`; it is
+merged into the request body instead of becoming another CLI flag.
+
+| Flag | Providers |
+|---|---|
+| `--style` | OpenAI |
+| `--resolution`, `--moderation`, `--output-compression`, `--mask-url` | APIMart |
+| `--background` | OpenAI / OpenRouter / APIMart |
+| `--response-format` | OpenAI / OpenRouter / Agnes |
+| `--ratio` | Agnes 2.1+ / OpenRouter |
+
 The `--size` flag accepts four forms: `<ratio>` (e.g. `16:9`), `<pixels>` (e.g. `1024x1024`), `<tier>` (e.g. `2K`), and the new compound `<tier>@<ratio>` (e.g. `2K@16:9`). The part before `@` is the resolution tier and the part after is the aspect ratio. The CLI splits it into `size` + `ratio`; anything without `@` is unchanged.
 
 | Provider | Accepted `--size` values | Notes |

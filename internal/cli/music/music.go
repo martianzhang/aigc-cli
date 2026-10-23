@@ -60,6 +60,10 @@ The backend is selected by Provider:
   Bailian (阿里云百炼) synchronous (Fun-Music)
     --provider dashscope --model fun-music-v1 (or fun-music-preview)
 
+Provider-private fields are not flags: pass them with --inject-json, which
+merges into the request body. Flags marked with a backend name in --help
+only take effect on that backend.
+
 Subcommands:
   generate (gen)   Submit a music generation task
   query            Get an APIMart music task status and result
@@ -79,14 +83,14 @@ func init() {
 	f := musicGenerateCmd.Flags()
 	f.StringVarP(&musicPrompt, "prompt", "p", "", "Music prompt / description (or style)")
 	f.StringVarP(&musicModel, "model", "m", "", "Backend model: suno (default), flowmusic, or fun-music-v1/-preview")
-	f.StringVar(&musicStyle, "style", "", "Style (suno: style field; fallback for prompt)")
-	f.StringVar(&musicTitle, "title", "", "Track title")
-	f.StringVar(&musicLyrics, "lyrics", "", "Lyrics (enables custom mode on suno)")
-	f.BoolVar(&musicInstrumental, "instrumental", false, "Instrumental only (no vocals)")
-	f.IntVarP(&musicDuration, "duration", "d", 0, "Duration in seconds")
-	f.StringVar(&musicFormat, "format", "", "Audio format (suno backend)")
+	f.StringVar(&musicStyle, "style", "", "Style (suno/flowmusic style field; fallback for prompt)")
+	f.StringVar(&musicTitle, "title", "", "Track title (suno/flowmusic)")
+	f.StringVar(&musicLyrics, "lyrics", "", "Lyrics (suno/flowmusic; enables custom mode on suno)")
+	f.BoolVar(&musicInstrumental, "instrumental", false, "Instrumental only, no vocals (suno/flowmusic; Fun-Music does not support it)")
+	f.IntVarP(&musicDuration, "duration", "d", 0, "Duration in seconds (suno/flowmusic; Fun-Music does not support it)")
+	f.StringVar(&musicFormat, "format", "", "Audio format (suno/OpenRouter/百炼; flowmusic does not support it)")
 	f.StringVar(&musicJSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
-	f.StringVar(&musicInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")
+	f.StringVar(&musicInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); use it for vendor-private fields; JSON string or file path")
 
 	musicCmd.AddCommand(musicGenerateCmd)
 	musicCmd.AddCommand(musicQueryCmd)

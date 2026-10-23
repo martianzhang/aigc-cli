@@ -165,7 +165,7 @@ func registerAudioTranscribeFlags(cmd *cobra.Command) {
 	f.StringVarP(&audioTranscribeModel, "model", "m", "", "STT model (cloud: model name / local: model ID)")
 	f.StringVar(&audioTranscribeFormat, "format", "", "Audio format: wav, mp3, flac, m4a, ogg (auto-detected from file extension)")
 	f.StringVarP(&audioTranscribeLanguage, "language", "l", "", "Language hint (ISO-639-1, e.g. en, ja, zh)")
-	f.Float64Var(&audioTranscribeTemperature, "temperature", 0, "Sampling temperature 0-1 (default: 0)")
+	f.Float64Var(&audioTranscribeTemperature, "temperature", 0, "Sampling temperature 0-1 (OpenAI-compatible APIs; default 0)")
 }
 
 func init() {
