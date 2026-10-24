@@ -4,12 +4,16 @@
 可使用 GPT、Claude、Gemini、DeepSeek 等模型。**不硬编码默认模型**，由 API 服务端决定。
 
 支持两种模式：
-- **交互式多轮**（默认）：不带 `--message` 时自动进入交互式 REPL，多轮连续对话
-- **非交互式单轮**：带 `--message` 或通过管道传入内容，一次请求即结束
+- **交互式多轮**（默认）：不带 `--message` / `--prompt` 时自动进入交互式 REPL，多轮连续对话
+- **非交互式单轮**：带 `--message` / `--prompt` 或通过管道传入内容，一次请求即结束
+
+> `--prompt` / `-p` 是 `--message` 的别名，两者完全等价、可重复，也可混用（按命令行顺序拼接）。下文的 `--message` 均可替换为 `--prompt`。
+>
+> 若参数值是一个**已存在的文件路径**，则读取文件内容作为消息（与 `image` / `video` / `audio` 的 `--prompt` 行为一致）。`-` 仍按字面量发送；管道 stdin 仍作为额外消息追加。
 
 ## 交互式多轮（默认）
 
-不传 `--message` 时自动进入交互模式：
+不传 `--message` / `--prompt` 时自动进入交互模式：
 
 ```bash
 # 直接进入交互式对话
@@ -360,19 +364,21 @@ defaults:
 
 ## 非交互式单轮
 
-传 `--message` 或通过管道传入内容时为单次请求模式：
+传 `--message` / `--prompt` 或通过管道传入内容时为单次请求模式：
 
 ```bash
 # 基本对话（流式输出）
 aigc-cli chat --message "你好，请介绍一下自己"
+aigc-cli chat --prompt "你好，请介绍一下自己"      # 等价写法（也可用 -p）
+aigc-cli chat -p "你好，请介绍一下自己"
 
 # 系统提示词
 aigc-cli chat --system "你是一位诗人" --message "写一首关于AI的诗"
 
-# 多轮对话（多个 --message）
+# 多轮对话（多个 --message / --prompt，可混用）
 aigc-cli chat \
   --message "什么是机器学习？" \
-  --message "能举个例子吗？"
+  --prompt "能举个例子吗？"
 
 # 非流式输出
 echo "Explain Go in 3 words" | aigc-cli chat --no-stream
@@ -384,7 +390,7 @@ aigc-cli chat --model gpt-4o --message "Hello"
 aigc-cli chat --message "hi" -v
 ```
 
-管道内容会作为**一条 user 消息**发送（自动去除首尾空白），支持 `echo ... | aigc-cli chat` 和 `aigc-cli chat < prompt.txt`。与 `--message` 同时使用时**按顺序拼接**：多个 `--message` 在前，管道内容作为最后一条 user 消息。`--json`（含 `--json -`）自己占用 stdin，不会再读消息；交互式终端下 stdin 归 TUI 所有。
+管道内容会作为**一条 user 消息**发送（自动去除首尾空白），支持 `echo ... | aigc-cli chat` 和 `aigc-cli chat < prompt.txt`。与 `--message` / `--prompt` 同时使用时**按顺序拼接**：多个 `--message` / `--prompt` 在前，管道内容作为最后一条 user 消息。`--json`（含 `--json -`）自己占用 stdin，不会再读消息；交互式终端下 stdin 归 TUI 所有。
 
 单轮模式下 `-v` 输出示例：
 
@@ -417,13 +423,14 @@ aigc-cli chat --message "Hello"
 | 参数 | 说明 |
 |---|---|
 | `--message` | 用户消息（可重复，实现多轮对话）。**不传此参数时自动进入交互式多轮模式** |
+| `--prompt`, `-p` | `--message` 的等价别名（可重复；与 `--message` 混用时按命令行顺序拼接） |
 | `--system`, `-s` | 系统提示词，设定 AI 角色 |
 | `--model`, `-m` | 模型名（全局 flag，不传则由各命令使用自己的默认） |
 | `--temperature`, `-t` | 采样温度 0-2，默认 1.0 |
 | `--max-output` | 最大生成 token 数 |
 | `--context-size` | 输入上下文窗口大小（token），0=使用模型默认值。对话超过其 80% 时自动压缩（总结早期消息） |
 | `--no-stream` | 关闭流式输出，等待完整响应 |
-| `--interactive`, `-i` | 强制进入交互式多轮模式 |
+| `--interactive` | 强制进入交互式多轮模式 |
 | `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
 | `--inject-json` | 在 CLI 生成的最终 body 上**追加合并**一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于联网搜索等厂商私有参数，优先级高于 `--json` |
 | `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |

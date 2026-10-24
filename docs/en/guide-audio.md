@@ -2,6 +2,8 @@
 
 aigc-cli supports Text-to-Speech (TTS), Speech-to-Text (STT), and short sound-effect generation (SFX) via both cloud APIs and local offline models.
 
+> `audio speak` and `audio sfx` accept their text input as `--input` or its alias `--prompt` / `-p`. (`audio transcribe --input` is an audio file path, so it has no `--prompt` alias.)
+
 ## Commands
 
 ```
@@ -17,6 +19,7 @@ aigc-cli audio
 ```bash
 # OpenAI TTS
 aigc-cli audio speak -i "Hello world" --voice alloy
+aigc-cli audio speak --prompt "Hello world" --voice alloy   # alias for --input
 
 # OpenRouter (10+ TTS models aggregated)
 export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
@@ -68,6 +71,7 @@ defaults:
 ```bash
 # 1.5-second door slam
 aigc-cli audio sfx --input "heavy metal door slam with echo" --duration 1.5
+aigc-cli audio sfx --prompt "heavy metal door slam with echo" --duration 1.5
 
 # 10-second loopable ambience (vendor-native loop field)
 aigc-cli audio sfx -i "rain on a car roof, steady ambience" -d 10 \
@@ -88,6 +92,7 @@ aigc-cli audio sfx -i "whoosh" -d 1 --dry-run
 | Flag | Default | Description |
 |---|---|---|
 | `-i, --input` | stdin | Sound description (file path / text / pipe) |
+| `-p, --prompt` | — | Alias for `--input` |
 | `-d, --duration` | `0` | Seconds; 0 = vendor decides (ElevenLabs) or 5s (Stability) |
 | `--inject-json` | empty | vendor-native fields (JSON object/file); e.g. `loop`, `prompt_influence` for ElevenLabs, `cfg_scale`/`seed` for Stability |
 | `-m, --model` | vendor default | `eleven_text_to_sound_v2` / `stable-audio-2.5` |

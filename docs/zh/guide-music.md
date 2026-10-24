@@ -23,6 +23,9 @@ aigc-cli music generate --prompt "city pop"
 # 别名 gen
 aigc-cli music gen --prompt "city pop"
 
+# 从文件读取 prompt（值为已存在文件时）
+aigc-cli music gen --prompt prompt.txt
+
 # flowmusic 后端
 aigc-cli music gen --prompt "rock" --model flowmusic
 
@@ -138,7 +141,7 @@ aigc-cli music gen --provider dashscope --model fun-music-v1 --prompt "夏日清
 
 | 参数 | 短参 | 说明 |
 |---|---|---|
-| `--prompt` | `-p` | 音乐描述 / 风格（suno 无歌词时作为 prompt，flowmusic 作为 sound_prompt） |
+| `--prompt` | `-p` | 音乐描述 / 风格（suno 无歌词时作为 prompt，flowmusic 作为 sound_prompt）；值为已存在文件时读取文件内容 |
 | `--model` | `-m` | 后端模型：`suno`（默认）/ `flowmusic` / `fun-music-v1` / `fun-music-preview`；OpenRouter 下为模型 ID |
 | `--style` | | 风格（suno 的 style 字段；prompt 为空时兜底；百炼下与 prompt 拼接） |
 | `--title` | | 曲目名称（百炼不支持，忽略） |

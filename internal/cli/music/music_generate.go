@@ -77,9 +77,13 @@ func runMusic(c client.APIClient, p *provider.EffectiveProvider, req *types.Musi
 // buildMusicGenerateReq builds a typed music request from flags, config
 // defaults, and the --json overlay.
 func buildMusicGenerateReq(cmd *cobra.Command) (*types.MusicGenerateRequest, error) {
+	prompt, err := service.ResolvePromptFile(musicPrompt)
+	if err != nil {
+		return nil, err
+	}
 	req := &types.MusicGenerateRequest{
 		Model:  musicModel,
-		Prompt: musicPrompt,
+		Prompt: prompt,
 		Title:  musicTitle,
 		Style:  musicStyle,
 		Lyrics: musicLyrics,

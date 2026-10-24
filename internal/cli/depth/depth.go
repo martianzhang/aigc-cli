@@ -206,7 +206,7 @@ func registerDepthFlags(cmd *cobra.Command) {
 	f.BoolVar(&depthKeepAudio, "keep-audio", false, "Video: keep the source audio track")
 	f.StringVar(&depthEncodeArgs, "encode-args", "", "Video: extra ffmpeg encode args appended after defaults (same-named options override, e.g. \"-crf 28 -preset slow\")")
 	f.BoolVar(&depthNoSmooth, "no-smooth", false, "Video: disable temporal smoothing (reduces flicker)")
-	f.IntVarP(&depthParallel, "parallel", "p", 0, "Video: number of parallel inference workers (default: auto by CPU cores)")
+	f.IntVar(&depthParallel, "parallel", 0, "Video: number of parallel inference workers (default: auto by CPU cores)")
 	f.BoolVar(&depthPreview, "preview", false, "Open the depth result with the system default viewer")
 	f.BoolVar(&depthSkeleton, "skeleton", false, "Detect human pose and draw COCO17 skeleton on the depth output (image or video)")
 	f.BoolVar(&depthFace, "face", false, "Detect faces, draw landmarks and eyes on the depth output (image or video)")

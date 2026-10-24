@@ -32,6 +32,7 @@ Subcommands:
   transcribe / asr  Convert audio to text
   init              Download local audio models`,
 	Example: `  aigc-cli audio speak --input "Hello world" --voice alloy
+  aigc-cli audio speak --prompt "Hello world" --voice alloy   # alias for --input
   aigc-cli audio speak --input text.txt --voice nova --play
   aigc-cli audio sfx --input "heavy metal door slam" --duration 1.5
   aigc-cli audio transcribe --input recording.wav
@@ -45,11 +46,13 @@ var speechCmd = &cobra.Command{
 	SilenceUsage: true,
 	Long: `Convert text to spoken audio using AI TTS models.
 
-Input can be provided via --input flag, file path, or piped stdin (auto-detected).
-The audio response is saved as a file in the output directory.
+Input can be provided via --input (or its --prompt/-p alias), file path, or
+piped stdin (auto-detected). The audio response is saved as a file in the
+output directory.
 
 Examples:
   aigc-cli audio speak --model gpt-4o-mini-tts --input "Hello world" --voice alloy
+  aigc-cli audio speak --model gpt-4o-mini-tts --prompt "Hello world" --voice alloy
   aigc-cli audio speak --model gpt-4o-mini-tts --input text.txt --voice nova
   echo "Hello" | aigc-cli audio speak --model gpt-4o-mini-tts --voice alloy
   aigc-cli audio speak --model gpt-4o-mini-tts --input "Hi" --voice alloy --format wav --speed 1.2`,
@@ -151,6 +154,7 @@ func detectAudioFormat(path string) string {
 func registerAudioSpeakFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
 	f.StringVarP(&audioSpeechInput, "input", "i", "", "Text input (file path, raw text, or omit to auto-detect piped stdin)")
+	f.StringVarP(&audioSpeechInput, "prompt", "p", "", "Alias for --input (text to speak)")
 	f.StringVarP(&audioSpeechModel, "model", "m", "", "TTS model (cloud: model name / local: model ID)")
 	f.StringVarP(&audioSpeechVoice, "voice", "V", "", "Voice name (e.g. alloy, nova, echo, fable)")
 	f.StringVarP(&audioSpeechFormat, "format", "f", "", "Audio format: mp3, wav, opus, aac, flac, pcm (default: mp3)")

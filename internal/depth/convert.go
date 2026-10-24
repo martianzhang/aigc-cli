@@ -35,7 +35,7 @@ type ConvertOptions struct {
 	Color bool
 	// Parallel 帧级并行推理的 Detector 数量（0 = 自动按机器核数，
 	// 默认 min(性能核, 4)）。每个 Detector 使用 optimalThreads()/Parallel
-	// 线程，避免过订阅。用户可用 --parallel/-p 覆盖。
+	// 线程，避免过订阅。用户可用 --parallel 覆盖。
 	Parallel int
 	// Smooth 时序平滑（默认 true，减轻闪烁）。
 	Smooth bool

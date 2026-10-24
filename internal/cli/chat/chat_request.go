@@ -59,8 +59,12 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		if options.HasFlagChanged(cmd, "model") {
 			set["model"] = options.Shared.Model
 		}
-		if options.HasFlagChanged(cmd, "system") || options.HasFlagChanged(cmd, "message") {
-			set["messages"] = flagMessages()
+		if options.HasFlagChanged(cmd, "system") || messageFlagChanged(cmd) {
+			messages, err := flagMessages()
+			if err != nil {
+				return nil, err
+			}
+			set["messages"] = messages
 		}
 		if options.HasFlagChanged(cmd, "no-stream") {
 			set["stream"] = !chatNoStream
@@ -84,9 +88,13 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		return req, nil
 	}
 
+	messages, err := flagMessages()
+	if err != nil {
+		return nil, err
+	}
 	req := &types.ChatRequest{
 		Model:        options.Shared.Model,
-		Messages:     flagMessages(),
+		Messages:     messages,
 		Stream:       !chatNoStream,
 		OutputWriter: options.Stdout(),
 	}
@@ -119,20 +127,24 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 	return req, nil
 }
 
-func flagMessages() []types.ChatMessage {
+func flagMessages() ([]types.ChatMessage, error) {
 	messages := make([]types.ChatMessage, 0, len(chatMessages)+1)
 	if chatSystem != "" {
 		messages = append(messages, types.ChatMessage{Role: "system", Content: chatSystem})
 	}
 	deny := readDenyPatterns()
 	for _, msg := range chatMessages {
-		expanded, images, warnings := expandMentions(msg, deny)
+		text, err := service.ResolvePromptFile(msg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read message file: %w", err)
+		}
+		expanded, images, warnings := expandMentions(text, deny)
 		for _, warning := range warnings {
 			fmt.Fprintf(options.Stderr(), "⚠️  %s\n", warning)
 		}
 		messages = append(messages, types.ChatMessage{Role: "user", Content: expanded, Images: images})
 	}
-	return messages
+	return messages, nil
 }
 
 // sendChatRequest sends a single chat request and prints the response.

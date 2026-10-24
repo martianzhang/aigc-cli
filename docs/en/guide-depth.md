@@ -59,7 +59,7 @@ Output is saved to the current directory by default (`<name>_depth.png`), or to 
 | `--keep-audio` | Video: keep the source audio track | off |
 | `--encode-args` | Video: extra ffmpeg encode args, **appended after the defaults** — same-named options override them (last wins). Examples: `"-crf 28"` (smaller file), `"-preset slow"` (better compression) | CRF 23, preset medium |
 | `--no-smooth` | Video: disable temporal smoothing (reduces flicker) | off (smoothing on) |
-| `--parallel` / `-p` | Video: number of parallel inference workers. Auto-tuned by CPU cores (default min(perf cores, 4)); raise for large clips, lower to save memory | auto |
+| `--parallel` | Video: number of parallel inference workers. Auto-tuned by CPU cores (default min(perf cores, 4)); raise for large clips, lower to save memory | auto |
 | `--preview` | Open the depth result with the system default viewer | off |
 | `--skeleton` | Detect human poses and draw COCO17 skeleton (19 bones, 17 joints) on the depth output (image or video, per-frame). Requires `aigc-cli depth init --skeleton` | off |
 | `--face` | Detect faces (pure-Go pigo engine) and draw boxes, eyes and 15 facial landmarks on the depth output (image or video, per-frame). Requires `aigc-cli depth init --face` | off |

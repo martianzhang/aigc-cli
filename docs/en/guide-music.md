@@ -23,6 +23,9 @@ aigc-cli music generate --prompt "city pop"
 # Alias gen
 aigc-cli music gen --prompt "city pop"
 
+# Read the prompt from a file (when the value is an existing file)
+aigc-cli music gen --prompt prompt.txt
+
 # flowmusic backend
 aigc-cli music gen --prompt "rock" --model flowmusic
 
@@ -138,7 +141,7 @@ Notes:
 
 | Parameter | Short | Description |
 |---|---|---|
-| `--prompt` | `-p` | Music description / style (suno: prompt when no lyrics; flowmusic: sound_prompt) |
+| `--prompt` | `-p` | Music description / style (suno: prompt when no lyrics; flowmusic: sound_prompt); an existing file path is read as the prompt |
 | `--model` | `-m` | Backend model: `suno` (default) / `flowmusic` / `fun-music-v1` / `fun-music-preview`; on OpenRouter, the model ID |
 | `--style` | | Style (suno's style field; fallback when prompt is empty; joined into the prompt on Bailian) |
 | `--title` | | Track title (not supported by Bailian; ignored) |

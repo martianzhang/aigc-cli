@@ -74,6 +74,43 @@ func TestReadInput(t *testing.T) {
 	})
 }
 
+func TestResolvePromptFile(t *testing.T) {
+	t.Run("existing file is read", func(t *testing.T) {
+		tmp, _ := os.CreateTemp("", "testprompt")
+		tmp.WriteString("from file")
+		tmp.Close()
+		defer os.Remove(tmp.Name())
+
+		got, err := ResolvePromptFile(tmp.Name())
+		if err != nil {
+			t.Fatalf("ResolvePromptFile() error = %v", err)
+		}
+		if got != "from file" {
+			t.Errorf("ResolvePromptFile() = %q, want %q", got, "from file")
+		}
+	})
+
+	t.Run("non-file stays literal", func(t *testing.T) {
+		got, err := ResolvePromptFile("city pop")
+		if err != nil {
+			t.Fatalf("ResolvePromptFile() error = %v", err)
+		}
+		if got != "city pop" {
+			t.Errorf("ResolvePromptFile() = %q, want %q", got, "city pop")
+		}
+	})
+
+	t.Run("dash stays literal", func(t *testing.T) {
+		got, err := ResolvePromptFile("-")
+		if err != nil {
+			t.Fatalf("ResolvePromptFile() error = %v", err)
+		}
+		if got != "-" {
+			t.Errorf("ResolvePromptFile() = %q, want %q", got, "-")
+		}
+	})
+}
+
 func TestReadJSONInput(t *testing.T) {
 	t.Run("inline object", func(t *testing.T) {
 		const raw = `{"prompt":"a cat"}`

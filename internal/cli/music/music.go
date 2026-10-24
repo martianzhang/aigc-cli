@@ -81,7 +81,7 @@ Examples:
 // ============================================================================
 func init() {
 	f := musicGenerateCmd.Flags()
-	f.StringVarP(&musicPrompt, "prompt", "p", "", "Music prompt / description (or style)")
+	f.StringVarP(&musicPrompt, "prompt", "p", "", "Music prompt / description (or style; an existing file path is read)")
 	f.StringVarP(&musicModel, "model", "m", "", "Backend model: suno (default), flowmusic, or fun-music-v1/-preview")
 	f.StringVar(&musicStyle, "style", "", "Style (suno/flowmusic style field; fallback for prompt)")
 	f.StringVar(&musicTitle, "title", "", "Track title (suno/flowmusic)")

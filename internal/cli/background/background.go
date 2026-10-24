@@ -199,7 +199,7 @@ func init() {
 	backgroundCmd.Flags().StringVar(&bgAspectRatio, "ar", "", "shorthand for --aspect-ratio")
 
 	// 输出标志
-	backgroundCmd.Flags().BoolVarP(&bgPreview, "preview", "p", false, "open result in system viewer")
+	backgroundCmd.Flags().BoolVar(&bgPreview, "preview", false, "open result in system viewer")
 
 	// Online LLM 评估标志
 	backgroundCmd.Flags().StringVar(&bgPrompt, "prompt", "", "custom prompt for online LLM assessment (requires --provider)")

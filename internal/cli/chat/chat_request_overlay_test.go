@@ -44,7 +44,7 @@ func newChatTestCmd(t *testing.T) *chatTestCmd {
 	cmd := &cobra.Command{Use: "chat", SilenceUsage: true}
 	f := cmd.Flags()
 	f.StringVarP(&chatSystem, "system", "s", "", "")
-	f.StringArrayVar(&chatMessages, "message", nil, "")
+	addMessageFlags(f)
 	f.Float64VarP(&chatTemperature, "temperature", "t", 0, "")
 	f.IntVar(&chatMaxTokens, "max-output", 0, "")
 	f.IntVar(&dummyInt, "context-size", 0, "")

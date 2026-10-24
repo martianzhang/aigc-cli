@@ -210,7 +210,7 @@ aigc-cli background photo.png --remove --preview
 | `--shadow-color` | | `"#000000"` | 投影颜色 |
 | `--shadow-opacity` | | 40 | 投影不透明度 0-100 |
 | `--output` | `-o` | `.` | 输出目录 |
-| `--preview` | `-p` | false | 在系统预览中打开 |
+| `--preview` |  | false | 在系统预览中打开 |
 | `--prompt` | | `""` | 自定义在线生成提示词（需配合 `--provider` 或 `--api-base`） |
 
 子命令：

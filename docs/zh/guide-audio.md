@@ -3,6 +3,8 @@
 支持文字转语音（Text-to-Speech，TTS）、语音转文字（Speech-to-Text，STT）和短音效生成（SFX），通过统一的 `audio` 命令提供。
 
 > 📝 支持云端 API（OpenAI / OpenRouter / APIMart）和本地离线 TTS（sherpa-onnx）。
+>
+> `audio speak` 和 `audio sfx` 的文本输入 `--input` 也可写作 `--prompt` / `-p`（等价别名，便于与其他生成命令统一）。`audio transcribe` 的 `--input` 是音频文件路径，没有 `--prompt` 别名。
 
 ---
 
@@ -38,6 +40,9 @@ aigc-cli 的 `audio speak` 命令可直接对接以下本地 TTS 服务，无需
 # openedai-speech（推荐）
 aigc-cli audio speak --api-base "http://localhost:8000/v1" \
   --model "tts-1" --input "Hello" --voice "alloy"
+# 等价的 --prompt 写法（-p 亦可）
+aigc-cli audio speak --api-base "http://localhost:8000/v1" \
+  --model "tts-1" --prompt "Hello" --voice "alloy"
 
 # openai-edge-tts（零 GPU）
 aigc-cli audio speak --api-base "http://localhost:5050/v1" \
@@ -161,6 +166,9 @@ aigc-cli audio sfx -i "rain on a car roof, steady ambience" -d 10 \
 aigc-cli audio sfx -i "sci-fi UI confirmation beep" -d 0.8 \
   --inject-json '{"prompt_influence":0.8}' --format wav
 
+# --prompt / -p 是 --input 的等价别名
+aigc-cli audio sfx --prompt "cinematic whoosh" -d 1.2
+
 # 从文件 / stdin 读取描述
 aigc-cli audio sfx -i prompt.txt -d 2
 echo "cinematic whoosh" | aigc-cli audio sfx -d 1.2
@@ -172,6 +180,7 @@ aigc-cli audio sfx -i "whoosh" -d 1 --dry-run
 | 参数 | 默认 | 说明 |
 |---|---|---|
 | `-i, --input` | stdin | 音效描述（文件路径 / 文本 / 管道） |
+| `-p, --prompt` | — | `--input` 的等价别名 |
 | `-d, --duration` | `0` | 时长（秒）；0 = 由厂商决定（ElevenLabs）或 5s（Stability） |
 | `--inject-json` | 空 | 厂商原生字段（JSON 对象/文件）；ElevenLabs 如 `loop`、`prompt_influence`，Stability 如 `cfg_scale`、`seed` |
 | `-m, --model` | 厂商默认 | `eleven_text_to_sound_v2` / `stable-audio-2.5` |
@@ -319,6 +328,10 @@ aigc-cli audio speak --model "openai/gpt-4o-mini-tts" \
   --input "你好，世界" \
   --voice "alloy" \
   --format "mp3"
+
+# --prompt / -p 等价于 --input
+aigc-cli audio speak --model "openai/gpt-4o-mini-tts" \
+  --prompt "你好，世界" --voice "alloy" --format "mp3"
 
 # 从文件读取
 aigc-cli audio speak --model "openai/gpt-4o-mini-tts" --input text.txt --voice nova

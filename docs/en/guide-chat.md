@@ -7,6 +7,8 @@ Use `aigc-cli chat` for interactive multi-turn AI conversations with tool-callin
 ```bash
 # Single message
 aigc-cli chat --message "Hello, who are you?"
+aigc-cli chat --prompt "Hello, who are you?"    # alias (also -p)
+aigc-cli chat -p "Hello, who are you?"
 
 # Interactive REPL mode
 aigc-cli chat
@@ -16,7 +18,11 @@ echo "Explain Go context in one line" | aigc-cli chat
 aigc-cli chat < prompt.txt
 ```
 
-Piped stdin is sent as one additional user message with leading/trailing whitespace trimmed. When `--message` is also present, both are combined: every `--message` comes first and the piped text is appended as the final user message. `--json` (including `--json -`) owns stdin instead, and in an interactive terminal stdin belongs to the TUI.
+`--prompt` / `-p` is an alias for `--message`: both are repeatable and may be mixed (values are combined in command-line order).
+
+If a `--message` / `--prompt` value names an **existing file**, its contents are used as the message (matching `--prompt` on `image` / `video` / `audio`). `-` stays literal, and piped stdin is still appended as an extra message.
+
+Piped stdin is sent as one additional user message with leading/trailing whitespace trimmed. When `--message` / `--prompt` flags are also present, both are combined: every flag value comes first and the piped text is appended as the final user message. `--json` (including `--json -`) owns stdin instead, and in an interactive terminal stdin belongs to the TUI.
 
 ## Interactive REPL
 
@@ -246,7 +252,8 @@ With it on, a request carries only the **primitives** plus two meta-tools: the m
 
 | Parameter | Description | Default |
 |---|---|---|
-| `--message` / `-m` | Single message (non-interactive) | — |
+| `--message` | User message (repeatable; non-interactive mode) | — |
+| `--prompt`, `-p` | Alias for `--message` (repeatable; mixed use preserves command-line order) | — |
 | `--model` | Model name | `deepseek-v4-flash` |
 | `--temperature` | Response temperature | `0.7` |
 | `--max-output` | Max response tokens | `4096` |

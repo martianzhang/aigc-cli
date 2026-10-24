@@ -34,6 +34,20 @@ func ReadInput(input string) ([]byte, error) {
 	}
 }
 
+// ResolvePromptFile returns the contents of input when it names an existing
+// file; otherwise it returns input unchanged. Unlike ReadInput it does not
+// treat "-" as stdin, so a literal "-" keeps its old meaning.
+func ResolvePromptFile(input string) (string, error) {
+	if input == "" || !IsFile(input) {
+		return input, nil
+	}
+	data, err := os.ReadFile(input)
+	if err != nil {
+		return "", fmt.Errorf("failed to read prompt file %q: %w", input, err)
+	}
+	return string(data), nil
+}
+
 // ReadJSONInput resolves a JSON payload from stdin ("-"), a file path, or an
 // inline JSON literal (must start with '{', '[' or '"'). A value that is none
 // of those is reported as a missing file, so a mistyped path says

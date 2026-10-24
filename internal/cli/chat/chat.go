@@ -49,6 +49,11 @@ Streaming output is enabled by default.
 Agentic Chat:
   Chat supports tool calling by default.
 
+Messages:
+  --message is repeatable (one user turn per value). --prompt / -p is an
+  alias, so either flag works; mixing them keeps command-line order. When a
+  value names an existing file, its contents are used as the message.
+
 Context Management:
   Use --context-size to limit input context. When the conversation exceeds
   80% of the limit, older messages are automatically summarized to stay
@@ -62,6 +67,7 @@ Modes:
 
 Examples:
   aigc-cli chat --message "Hello, who are you?"
+  aigc-cli chat --prompt "Hello, who are you?"        # alias for --message
   aigc-cli chat --context-size 8192 --max-output 2048
   aigc-cli chat --json '{"model":"gpt-5","messages":[{"role":"user","content":"Hi"}]}'`,
 	RunE: runChat,
@@ -93,7 +99,7 @@ func runChat(cmd *cobra.Command, args []string) error {
 	// Interactive REPL (TUI) when no --message and not --json. Piped stdin is
 	// non-interactive: it carries the message and flows through the agent loop
 	// below, same as --message.
-	if (!cmd.Flags().Changed("message") || chatInteractive) && term.IsTerminal(int(os.Stdin.Fd())) {
+	if (!messageFlagChanged(cmd) || chatInteractive) && term.IsTerminal(int(os.Stdin.Fd())) {
 		return runChatTUI(cmd)
 	}
 
@@ -145,13 +151,13 @@ func applyChatConfigDefaults(cmd *cobra.Command, cfg *types.ChatDefaults) {
 func init() {
 	f := chatCmd.Flags()
 	f.StringVarP(&chatSystem, "system", "s", "", "System prompt to set AI behavior")
-	f.StringArrayVar(&chatMessages, "message", nil, "User message (repeatable for multi-turn)")
+	addMessageFlags(f)
 	f.Float64VarP(&chatTemperature, "temperature", "t", 0, "Sampling temperature (0-2)")
 	f.IntVar(&chatMaxTokens, "max-output", 0, "Maximum tokens in response")
 	f.IntVar(&chatContextSize, "context-size", 0, "Maximum input context size in tokens (0 = model default). Auto-compacts at 80% by summarizing older messages.")
 	f.BoolVar(&chatNoStream, "no-stream", false, "Disable streaming, wait for full response")
 	f.StringVar(&chatJSONFlag, "json", "", "JSON file, string, or \"-\" for stdin")
-	f.BoolVarP(&chatInteractive, "interactive", "i", false, "Enter interactive multi-turn chat mode")
+	f.BoolVar(&chatInteractive, "interactive", false, "Enter interactive multi-turn chat mode")
 	f.BoolVar(&chatDryRun, "dry-run", false, "Print the equivalent curl without calling the API")
 	f.StringVar(&chatSearchProvider, "search-provider", "", "Third-party vendor name for the web_search/web_fetch tools: duckduckgo/firecrawl/brave/doubao/deepseek/exa/wsa (overrides defaults.search.provider)")
 	f.StringVar(&chatInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")

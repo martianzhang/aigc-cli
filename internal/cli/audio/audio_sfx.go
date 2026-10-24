@@ -25,7 +25,8 @@ var sfxCmd = &cobra.Command{
 
 Unlike the music command, this targets one-shots: whooshes, impacts, UI
 sounds, footsteps and ambience. Duration is explicit; vendor-specific knobs
-(loop, prompt_influence, cfg_scale, …) go through --inject-json.
+(loop, prompt_influence, cfg_scale, …) go through --inject-json. The sound
+description is accepted via --input or its --prompt/-p alias.
 
 Supported providers (detected from the provider base URL):
   elevenlabs   POST /v1/sound-generation, 0.5-30s
@@ -46,6 +47,7 @@ Configure a named provider and select it with --provider, or run
 
 Examples:
   aigc-cli audio sfx --input "heavy metal door slam with echo" --duration 1.5
+  aigc-cli audio sfx --prompt "heavy metal door slam with echo" --duration 1.5
   aigc-cli audio sfx --input "rain on a car roof" --duration 10 \
     --inject-json '{"loop":true,"prompt_influence":0.5}'
   aigc-cli audio sfx --input "sci-fi UI confirmation beep" --duration 0.8 \
@@ -69,6 +71,7 @@ var (
 func registerAudioSFXFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
 	f.StringVarP(&sfxInput, "input", "i", "", "Sound description (file path, raw text, or omit to auto-detect piped stdin)")
+	f.StringVarP(&sfxInput, "prompt", "p", "", "Alias for --input (sound description)")
 	f.StringVarP(&sfxModel, "model", "m", "", "SFX model (online default: eleven_text_to_sound_v2 / stable-audio-2.5; local default: stable-audio-open-small)")
 	f.Float64VarP(&sfxDuration, "duration", "d", 0, "Duration in seconds (0 = let the provider decide)")
 	f.StringVar(&sfxInject, "inject-json", "", "JSON object (file path or inline); online: vendor fields (e.g. loop, prompt_influence), local: steps/sigma_max/seed/normalize")
