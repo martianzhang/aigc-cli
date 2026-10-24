@@ -219,6 +219,9 @@ echo 'source <(aigc-cli completion bash)' >> ~/.bashrc
 # 自动选择数据源
 aigc-cli models
 
+# 列出已配置的 Provider（名称 / 类型 / Host / 是否配置 Key；不发起网络请求）
+aigc-cli models --list-providers
+
 # APIMart 市场（按类型筛选）
 aigc-cli models --type image
 aigc-cli models --type video
@@ -249,7 +252,7 @@ aigc-cli models --api-base "https://api.openai.com/v1"
 
 > **`--dry-run`**：只渲染等价的 `curl` 命令（API Key 已脱敏），不发起任何网络请求。列表、单模型详情、市场（`--type`）、定价（`--price`）与 OpenRouter 发现均支持；市场分页只打印第一页，后续页码以注释说明。
 
-> **API Key**：无参数调用（或查询单个模型，如 `aigc-cli models gpt-4o`）会请求 `/v1/models`，需要 API Key。未指定 `--provider` 且全局未配置 `api_key` / `OPENAI_API_KEY` 时，命令会直接报错并提示已配置密钥的 Provider；用 `--provider <name>` 指定 Provider，或通过 `--api-key` / 环境变量 `OPENAI_API_KEY` 提供密钥。`--type` / `--price`（市场与定价）免认证，无需 API Key。
+> **API Key**：无参数调用（或查询单个模型，如 `aigc-cli models gpt-4o`）会请求 `/v1/models`，需要 API Key。未指定 `--provider` 且全局未配置 `api_key` / `OPENAI_API_KEY` 时，命令会先打印配置的候选 Provider 列表（名称 / 类型 / Host / 是否配置 Key），再提示用 `--provider <name>` 选择；也可随时用 `--list-providers` 单独查看该列表（不发起网络请求、不需要 Key）。`--type` / `--price`（市场与定价）免认证，无需 API Key。
 
 ## 查询任务状态
 

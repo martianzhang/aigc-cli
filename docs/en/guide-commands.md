@@ -12,6 +12,9 @@ Query available models and pricing:
 # List all models
 aigc-cli models
 
+# List configured providers (name / type / host / key status; no network request)
+aigc-cli models --list-providers
+
 # List by type
 aigc-cli models --type image
 aigc-cli models --type video
@@ -36,7 +39,7 @@ aigc-cli models --type image --dry-run
 
 > **`--dry-run`**: renders the equivalent `curl` command (API key masked) and makes no network request. It works for the plain list, single-model detail, marketplace (`--type`), pricing (`--price`), and OpenRouter discovery; marketplace pagination only renders the first page and notes the follow-up pages in a comment.
 
-> **API key**: calling with no arguments (or with a bare model name, e.g. `aigc-cli models gpt-4o`) hits `/v1/models` and requires an API key. Without `--provider` and a global `api_key` / `OPENAI_API_KEY`, the command fails fast with a clear error listing the configured providers; use `--provider <name>` to pick one, or supply `--api-key`. `--type` and `--price` (marketplace and pricing) are auth-free — no key needed.
+> **API key**: calling with no arguments (or with a bare model name, e.g. `aigc-cli models gpt-4o`) hits `/v1/models` and requires an API key. Without `--provider` and a global `api_key` / `OPENAI_API_KEY`, the command prints the configured providers as candidates (name / type / host / key status) and then tells you to pick one with `--provider <name>`. Run `aigc-cli models --list-providers` to print that table on its own — it makes no network request and needs no key. `--type` and `--price` (marketplace and pricing) are auth-free — no key needed.
 
 ## task
 

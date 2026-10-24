@@ -171,7 +171,8 @@ aigc-cli
 ├── fetch      URL or local file → Markdown; media URL → saved file (built-in, or DeepSeek/Exa) →  docs/en/guide-commands.md
 ├── knowledgebase / kb  Local knowledge base (FTS5 + semantic search, pluggable embeddings) →  docs/en/guide-knowledgebase.md
 ├── models / model                                                                    →  docs/en/guide-commands.md
-│   └── --price    View model pricing
+│   ├── --price    View model pricing
+│   └── --list-providers  List configured providers (name/type/host/key status)
 ├── task       Query async task status (APIMart compatible)
 ├── balance    Query balance (APIMart / OpenRouter / DeepSeek / Moonshot)
 ├── config     Read/edit config.yaml (get/set/list; secrets masked & auto-encrypted)  →  docs/en/guide-commands.md

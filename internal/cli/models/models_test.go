@@ -435,6 +435,148 @@ func TestModelsDryRunMakesNoRequests(t *testing.T) {
 	}
 }
 
+// resetModelsFlags isolates tests that touch the package-level flag variables.
+func resetModelsFlags(t *testing.T) {
+	t.Helper()
+	prevModelType, prevPrice, prevDryRun, prevList, prevD := modelType, priceArg, modelsDryRun, modelsListProviders, d
+	t.Cleanup(func() {
+		modelType, priceArg, modelsDryRun, modelsListProviders, d = prevModelType, prevPrice, prevDryRun, prevList, prevD
+	})
+	modelType, priceArg, modelsDryRun, modelsListProviders = "", "", false, false
+}
+
+func TestHostOf(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"", "-"},
+		{"https://api.example.com/v1", "api.example.com"},
+		{"api.example.com", "api.example.com"},
+		{"api.example.com/v1", "api.example.com"},
+		{"https://user:pass@host.example:8080/v1?x=1", "host.example"},
+		{"://bad", "-"},
+	}
+	for _, tc := range tests {
+		if got := hostOf(tc.in); got != tc.want {
+			t.Errorf("hostOf(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestRunModelsListProviders(t *testing.T) {
+	resetModelsFlags(t)
+	d = Deps{
+		APIBase: "https://api.apimart.ai",
+		Providers: map[string]*types.NamedProvider{
+			"zeta":   {APIKey: "secret-zeta", BaseURL: "https://api.zeta.example/v1"},
+			"alpha":  {APIKey: "secret-alpha", BaseURL: "https://alpha.example"},
+			"nokey":  {BaseURL: "https://nokey.example"},
+			"loop":   {BaseURL: "http://127.0.0.1:11434/v1"},
+			"ollama": {Type: types.ProviderOllama, BaseURL: "http://localhost:11434/v1"},
+			"nil":    nil,
+		},
+		ResolveProvider: func(string) *provider.EffectiveProvider {
+			t.Fatal("--list-providers must not resolve or call a provider")
+			return nil
+		},
+	}
+
+	cmd := NewCommand(func() Deps { return d })
+	cmd.SetArgs([]string{"--list-providers"})
+	out := captureStdout(t, func() {
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("execute() error = %v", err)
+		}
+	})
+
+	for _, want := range []string{
+		"Configured providers (5)", "NAME", "TYPE", "HOST", "KEY",
+		"alpha", "api.zeta.example", "nokey", "nokey.example", "loop",
+		"ollama", "n/a", "yes", "no", "aigc-cli models --provider <name>",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output = %q, want it to contain %q", out, want)
+		}
+	}
+	if strings.Index(out, "alpha") > strings.Index(out, "zeta") {
+		t.Errorf("output = %q, want providers sorted alphabetically", out)
+	}
+	for _, leak := range []string{"secret-alpha", "secret-zeta"} {
+		if strings.Contains(out, leak) {
+			t.Errorf("output = %q, must never print API key values", out)
+		}
+	}
+}
+
+func TestRunModelsListProvidersEmpty(t *testing.T) {
+	resetModelsFlags(t)
+	d = Deps{ResolveProvider: func(string) *provider.EffectiveProvider { return nil }}
+
+	cmd := NewCommand(func() Deps { return d })
+	cmd.SetArgs([]string{"--list-providers"})
+	out := captureStdout(t, func() {
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("execute() error = %v", err)
+		}
+	})
+	if !strings.Contains(out, "No providers configured") {
+		t.Errorf("output = %q, want the empty-provider hint", out)
+	}
+}
+
+func TestRunModelsNoKeyListsCandidates(t *testing.T) {
+	resetModelsFlags(t)
+	p := &provider.EffectiveProvider{BaseURL: "https://api.nokey.example/v1", Type: types.ProviderOpenAI}
+	d = Deps{
+		APIBase: "https://api.apimart.ai",
+		Providers: map[string]*types.NamedProvider{
+			"apimart": {APIKey: "secret-apimart", BaseURL: "https://api.apimart.ai"},
+			"keyless": {BaseURL: "https://keyless.example"},
+		},
+		ResolveProvider: func(string) *provider.EffectiveProvider { return p },
+	}
+
+	cmd := NewCommand(func() Deps { return d })
+	cmd.SetArgs([]string{})
+	var execErr error
+	out := captureStdout(t, func() { execErr = cmd.Execute() })
+
+	if execErr == nil || !strings.Contains(execErr.Error(), "no API key") {
+		t.Fatalf("execute() error = %v, want a missing-key error", execErr)
+	}
+	for _, want := range []string{
+		"No API key for models", "Candidate providers (2)",
+		"apimart", "api.apimart.ai", "keyless", "keyless.example",
+		"Pick one with: aigc-cli models --provider <name>",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output = %q, want it to contain %q", out, want)
+		}
+	}
+	if strings.Contains(out, "secret-apimart") {
+		t.Errorf("output = %q, must never print API key values", out)
+	}
+}
+
+func TestRunModelsNoKeyNoProviders(t *testing.T) {
+	resetModelsFlags(t)
+	p := &provider.EffectiveProvider{BaseURL: "https://api.nokey.example/v1", Type: types.ProviderOpenAI}
+	d = Deps{ResolveProvider: func(string) *provider.EffectiveProvider { return p }}
+
+	cmd := NewCommand(func() Deps { return d })
+	cmd.SetArgs([]string{})
+	var execErr error
+	out := captureStdout(t, func() { execErr = cmd.Execute() })
+
+	if execErr == nil || !strings.Contains(execErr.Error(), "no API key") {
+		t.Fatalf("execute() error = %v, want a missing-key error", execErr)
+	}
+	if !strings.Contains(out, "No providers configured") {
+		t.Errorf("output = %q, want the no-provider hint", out)
+	}
+}
+
 func TestRunModelsDetailNotFoundInList(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

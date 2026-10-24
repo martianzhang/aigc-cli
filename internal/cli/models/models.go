@@ -21,9 +21,10 @@ type Deps struct {
 var d Deps
 
 var (
-	modelType    string
-	priceArg     string
-	modelsDryRun bool
+	modelType           string
+	priceArg            string
+	modelsDryRun        bool
+	modelsListProviders bool
 )
 
 var knownMediaTypes = map[string]bool{"image": true, "video": true, "chat": true}
@@ -47,12 +48,21 @@ Model detail: pass the model name as an argument or via --model/-m.
 Marketplace flags (use the APIMart-compatible marketplace API at the
 configured base URL):
   --type, -t <type>      Filter by media type: image, video, chat
-  --price, -p [model]    Show pricing, or specify a model name for details
+  --price [model]        Show pricing, or specify a model name for details
+
+Provider list:
+  --list-providers       List configured providers (name, type, host and
+                         whether a key is set) without calling any API
+
+When no API key is resolved, the command prints the configured providers as
+candidates instead of failing with a bare error.
 
 Use --dry-run to print the equivalent curl request without calling the API.
 
 Examples:
   aigc-cli models
+  aigc-cli models --list-providers
+  aigc-cli models --provider apimart
   aigc-cli models --type image
   aigc-cli models --price
   aigc-cli models --price gpt-4o
@@ -65,12 +75,17 @@ Examples:
 		},
 	}
 	cmd.Flags().StringVarP(&modelType, "type", "t", "", "Filter by media type (APIMart marketplace): image, video, chat")
-	cmd.Flags().StringVarP(&priceArg, "price", "p", "", "Show pricing column (no arg) or model pricing details (with model name) (APIMart only)")
+	cmd.Flags().StringVar(&priceArg, "price", "", "Show pricing column (no arg) or model pricing details (with model name) (APIMart only)")
 	cmd.Flags().BoolVar(&modelsDryRun, "dry-run", false, "Print the equivalent curl request without calling the API")
+	cmd.Flags().BoolVar(&modelsListProviders, "list-providers", false, "List configured providers without calling any API")
 	return cmd
 }
 
 func runModels(cmd *cobra.Command, args []string) error {
+	if modelsListProviders {
+		return runListProviders()
+	}
+
 	p := d.ResolveProvider("models")
 	isOpenRouter := p.ProviderType == provider.OpenRouter
 
@@ -102,6 +117,13 @@ func runModels(cmd *cobra.Command, args []string) error {
 			return runModelsOpenRouterDiscovery(p, mediaType)
 		}
 		return runModelsMarketplace(mediaType)
+	}
+
+	// Both the plain listing and single-model detail call /v1/models, which
+	// needs a key. Print the configured providers as candidates instead of a
+	// bare error so the user can pick one immediately.
+	if (modelName != "" || len(args) == 0) && missingKey(p) {
+		return noKeyFallback(p)
 	}
 
 	if modelName != "" {
