@@ -22,6 +22,7 @@ const (
 	tuiIdle       tuiState = iota // waiting for user input
 	tuiProcessing                 // agent loop running, streaming response
 	tuiToolCall                   // tool call in progress
+	tuiConfirming                 // waiting for the user to approve a tool call
 )
 
 // ---------------------------------------------------------------------------
@@ -73,6 +74,24 @@ type agentDone struct {
 
 // clearChat signals clearing the conversation.
 type clearChat struct{}
+
+// confirmRequest asks the UI to approve a privileged tool call. The agent
+// goroutine blocks on reply (or on its context) until the user answers.
+type confirmRequest struct {
+	turn    uint64
+	name    string
+	summary string
+	detail  string // full multi-line command (bash); empty for other tools
+	reply   chan confirmDecision
+}
+
+// pendingConfirm is the UI-side view of a confirmRequest.
+type pendingConfirm struct {
+	name    string
+	summary string
+	detail  string
+	reply   chan confirmDecision
+}
 
 // compactDone is sent when the conversation has been compacted.
 type compactDone struct {
@@ -140,6 +159,12 @@ type chatModel struct {
 	// It is bumped whenever the user starts or interrupts one, so messages
 	// from a cancelled turn can be recognised and dropped.
 	turnID uint64
+
+	// confirm decides which tool calls need user approval. nil disables
+	// confirmation (used by tests and by non-TUI callers).
+	confirm *confirmPolicy
+	// pending is non-nil while the UI is waiting for a y/a/n answer.
+	pending *pendingConfirm
 
 	// Conversation history for API requests (types.ChatMessage, not TUI message)
 	history []types.ChatMessage

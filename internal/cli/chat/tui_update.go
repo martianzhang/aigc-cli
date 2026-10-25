@@ -90,6 +90,22 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	// ---- tool confirmation -------------------------------------------------
+	case confirmRequest:
+		if msg.turn != m.turnID {
+			// The turn was already interrupted; answer so the goroutine can
+			// unblock instead of waiting until its context is observed.
+			select {
+			case msg.reply <- confirmDeny:
+			default:
+			}
+			return m, nil
+		}
+		m.pending = &pendingConfirm{name: msg.name, summary: msg.summary, detail: msg.detail, reply: msg.reply}
+		m.state = tuiConfirming
+		m.input.Blur()
+		return m, nil
+
 	// ---- tool calls ------------------------------------------------------
 	case toolStart:
 		if msg.turn != m.turnID {
@@ -112,7 +128,11 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.state = tuiProcessing
-		m.toolMsg = fmt.Sprintf("✓ %s: %s", msg.name, msg.summary)
+		mark := "✓"
+		if msg.summary == deniedSummary {
+			mark = "✗"
+		}
+		m.toolMsg = fmt.Sprintf("%s %s: %s", mark, msg.name, msg.summary)
 		found := false
 		for i, tm := range slices.Backward(m.messages) {
 			if tm.role == "tool" && tm.tool == msg.name {

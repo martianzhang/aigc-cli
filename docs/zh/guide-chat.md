@@ -72,6 +72,7 @@ aigc-cli chat -v
 | `@path` | 引用本地文件：文本内联、图片作为附件（`Tab` 补全路径；受 `defaults.chat.read_deny` 限制） |
 | `PgUp` `PgDn` / 鼠标滚轮 | 上下滚动对话输出（选中文本需按住终端「绕过鼠标报告」的键再拖拽：**iTerm2 是 `⌥ Option`**，多数终端是 `Shift`；`/copy` 可复制最后一条回复） |
 | `Ctrl+O` | 展开 / 收起最后一条工具输出（超过 20 行的输出默认折叠） |
+| 确认提示 | `y` 本次允许 / `a` 本进程总是允许 / `n` 拒绝 / `Esc` 拒绝并中断 |
 | `!<command>` | 执行 Shell 命令（输出区会带 `$ 命令` 前缀，便于看清执行了什么） |
 
 > **多行输入：** 按 `Alt+Enter` 或 `Ctrl+J` 换行，`Enter` 提交消息。
@@ -351,6 +352,36 @@ defaults:
 
 开启后，请求里只发送**原语**加两个元工具；模型先用 `search_tools`（按关键词返回工具名 + 一行简介）找到需要的工具，再调用 `load_tools` 加载——被加载工具的完整 schema 才会在**后续轮次**进入上下文。原语始终可用，不受影响。
 
+### 工具执行确认（TUI）
+
+在交互式 TUI 中，命中确认规则的**特权工具**会先暂停，显示工具卡片并在输入区弹出确认提示：
+
+| 按键 | 含义 |
+|---|---|
+| `y` | 本次允许 |
+| `a` | 本进程内该工具**总是允许**（不写入配置，退出即失效） |
+| `n` | 拒绝；模型收到 `User denied this tool call.`，可继续对话或换一种做法 |
+| `Esc` | 拒绝并中断当前轮 |
+
+默认确认 `bash` / `write` / `edit`。用 `defaults.chat.confirm_tools` 自定义（Go regexp，匹配 `"<tool> <target>"`）：
+
+```yaml
+defaults:
+  chat:
+    confirm_tools:
+      - '^bash\b'                   # 所有 shell
+      - '^(write|edit) .*\.env$'    # 只拦截 .env 的写入/编辑
+      - '^generate_image\b'         # 生成图片（按次计费）
+      - '^bash .*rm\s+-rf'          # 只拦截危险的 rm -rf
+```
+
+- `target` 的取值：`bash` = 完整命令行；写文件类工具 = 文件路径；`url` 类工具 = URL；搜索类工具 = query；其他工具 = 压缩后的参数 JSON。
+- 多行 shell 命令中的 `.` 默认不跨行；需要跨行匹配时在 pattern 前加 `(?s)`，例如 `(?s)^bash .*rm\s+-rf`。
+- **缺省**（未配置）为 `^bash\b`、`^write\b`、`^edit\b`；显式写成 `confirm_tools: []` 表示**关闭确认**。
+- 正则写错会在进入 TUI 前直接报错，不会静默关闭确认。
+- 仅 TUI 生效；`--message` / 管道等非交互路径不弹确认。
+- 用户自己输入的 `!shell` 和 `/<tool>` 直调不弹确认（视为显式意图）。
+
 ### 参数
 
 | 参数 | 说明 |
@@ -361,6 +392,7 @@ defaults:
 | `defaults.chat.allow_tool_override` | `true`=LLM参数优先，`false`=配置强制覆盖LLM（默认`false`，省钱） |
 | `defaults.chat.tools_on_demand` | `true`=MCP 工具按需加载（`search_tools`/`load_tools`），降低上下文占用（默认 `false`） |
 | `defaults.chat.read_deny` | `read` 原语的拒绝正则列表（匹配文件路径或文件名）；空 = 全部放行 |
+| `defaults.chat.confirm_tools` | TUI 中执行前需确认的工具正则列表（匹配 `"<tool> <target>"`）；缺省 = `^bash\b` / `^write\b` / `^edit\b`，显式 `[]` = 全部关闭 |
 | `defaults.search.provider` | 共享搜索厂商名（`aigc-cli search` / `kb search` / chat / MCP）；`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`；空 = CLI/kb 用 `duckduckgo`，chat/MCP `web_*` 报错 |
 
 ---

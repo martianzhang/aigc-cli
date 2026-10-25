@@ -235,6 +235,7 @@ type ChatDefaults struct {
 	AllowToolOverride bool     `mapstructure:"allow_tool_override" yaml:"allow_tool_override,omitempty"` // true=LLM参数可覆盖配置, false=配置强制覆盖LLM（默认false,省钱）
 	ToolsOnDemand     bool     `mapstructure:"tools_on_demand" yaml:"tools_on_demand,omitempty"`         // true=MCP 工具按需加载（search_tools/load_tools），减少上下文占用
 	ReadDeny          []string `mapstructure:"read_deny" yaml:"read_deny,omitempty"`                     // read 原语的拒绝正则（匹配文件路径或文件名）；空=全部放行
+	ConfirmTools      []string `mapstructure:"confirm_tools" yaml:"confirm_tools,omitempty"`             // 执行前需确认的工具正则（匹配 "<tool> <target>"）；nil=默认 bash/write/edit
 }
 
 // ImageDefaults holds default values for image generation.

@@ -24,6 +24,13 @@ func runChatTUI(cmd *cobra.Command) error {
 		options.Shared.Model = chatCfg.Model
 	}
 
+	// Compile the tool-confirmation policy up front so an invalid regex fails
+	// before the TUI takes over the screen.
+	confirm, err := newConfirmPolicy(chatCfg)
+	if err != nil {
+		return err
+	}
+
 	maxIterations := 10
 	if chatCfg != nil && chatCfg.MaxIterations > 0 {
 		maxIterations = chatCfg.MaxIterations
@@ -72,6 +79,7 @@ func runChatTUI(cmd *cobra.Command) error {
 	tuiModel.history = history
 	tuiModel.rt = rt
 	tuiModel.provider = providerName
+	tuiModel.confirm = confirm
 
 	// Create the Bubble Tea program with alt screen. Mouse capture is enabled so
 	// the wheel scrolls the chat viewport; hold the terminal's mouse-reporting
@@ -95,7 +103,7 @@ func runChatTUI(cmd *cobra.Command) error {
 	setProgram(p)
 
 	// Run
-	_, err := p.Run()
+	_, err = p.Run()
 	setProgram(nil)
 	return err
 }

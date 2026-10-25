@@ -237,6 +237,9 @@ defaults:
     context_size: 32768         # Max input context tokens; 0=model default. Auto-compacts at 80%
     # tools_on_demand: true     # Load MCP tools on demand (search_tools/load_tools) to save context
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$']  # read primitive denylist regexes (path or basename; empty = allow all)
+    # confirm_tools:            # Regexes matched against "<tool> <target>"; default bash/write/edit; [] disables
+    #   - '^bash\b'
+    #   - '^(write|edit) .*\.env$'
   # ── Optional: shared web-search vendor (aigc-cli search / kb search / chat / MCP)──
   # search:
   #   provider: duckduckgo   # vendor name (duckduckgo / firecrawl / brave / doubao / deepseek / exa / pixabay / pexels)

@@ -82,20 +82,46 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 			localHistory = append(localHistory, choice.Message)
 
 			for _, tc := range choice.Message.ToolCalls {
-				prog.Send(toolStart{
-					turn:    turn,
-					name:    tc.Function.Name,
-					summary: toolCallSummary(tc.Function.Name, tc.Function.Arguments),
-					diff:    toolCallDiff(tc.Function.Name, tc.Function.Arguments),
-				})
+				select {
+				case <-ctx.Done():
+					prog.Send(agentDone{turn: turn, err: ctx.Err(), history: localHistory})
+					return
+				default:
+				}
 
-				// Redirect stderr during tool execution
-				restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
-				toolResult := m.rt.Execute(ctx, turnClient, tc)
-				restoreStderr()
+				summary := toolCallSummary(tc.Function.Name, tc.Function.Arguments)
+				diff := toolCallDiff(tc.Function.Name, tc.Function.Arguments)
+				prog.Send(toolStart{turn: turn, name: tc.Function.Name, summary: summary, diff: diff})
 
-				summary := summarizeToolResult(tc.Function.Name, toolResult)
-				prog.Send(toolDone{turn: turn, name: tc.Function.Name, summary: summary, content: toolResult})
+				denied := false
+				if m.confirm.needs(tc.Function.Name, tc.Function.Arguments) {
+					detail := confirmDetail(tc.Function.Name, tc.Function.Arguments)
+					denied = m.requestToolConfirmation(ctx, prog, turn, tc.Function.Name, summary, detail) == confirmDeny
+					if ctx.Err() != nil {
+						// The user interrupted while the prompt was open.
+						prog.Send(agentDone{turn: turn, err: ctx.Err(), history: localHistory})
+						return
+					}
+				}
+
+				var toolResult string
+				if denied {
+					toolResult = "User denied this tool call."
+					prog.Send(toolDone{
+						turn: turn, name: tc.Function.Name,
+						summary: deniedSummary, content: toolResult,
+					})
+				} else {
+					// Redirect stderr during tool execution
+					restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
+					toolResult = m.rt.Execute(ctx, turnClient, tc)
+					restoreStderr()
+
+					prog.Send(toolDone{
+						turn: turn, name: tc.Function.Name,
+						summary: summarizeToolResult(tc.Function.Name, toolResult), content: toolResult,
+					})
+				}
 
 				localHistory = append(localHistory, types.ChatMessage{
 					Role:       "tool",

@@ -253,6 +253,36 @@ defaults:
 
 With it on, a request carries only the **primitives** plus two meta-tools: the model calls `search_tools` (keyword → tool names + one-line descriptions) to find what it needs, then `load_tools` to enable them — the full schemas enter context on **subsequent** turns. Primitives are always available and unaffected.
 
+### Tool confirmation (TUI)
+
+In interactive mode, a privileged tool that matches a confirmation rule pauses before execution. The tool card stays visible and the input box is replaced by a prompt:
+
+| Key | Meaning |
+|---|---|
+| `y` | Allow this call |
+| `a` | Always allow this tool for the rest of the process (not persisted) |
+| `n` | Deny; the model receives `User denied this tool call.` and can continue |
+| `Esc` | Deny and interrupt the current turn |
+
+`bash`, `write` and `edit` are confirmed by default. Customise with `defaults.chat.confirm_tools` (Go regexp, matched against `"<tool> <target>"`):
+
+```yaml
+defaults:
+  chat:
+    confirm_tools:
+      - '^bash\b'                   # every shell command
+      - '^(write|edit) .*\.env$'    # only .env writes/edits
+      - '^generate_image\b'         # image generation (billed per call)
+      - '^bash .*rm\s+-rf'          # only dangerous rm -rf
+```
+
+- `target` is: the full command for `bash`, the path for file tools, the URL for `url` tools, the query for search tools, and compacted argument JSON otherwise.
+- `.` does not cross newlines in multi-line shell commands; prefix the pattern with `(?s)` when you need that, e.g. `(?s)^bash .*rm\s+-rf`.
+- **Default** (key absent) is `^bash\b`, `^write\b`, `^edit\b`; an explicit `confirm_tools: []` turns confirmation off.
+- An invalid regex fails before the TUI starts instead of silently disabling the check.
+- TUI only: `--message` / piped input never prompt.
+- User-initiated `!shell` and `/<tool>` calls are treated as explicit intent and are not confirmed.
+
 ## Parameters
 
 | Parameter | Description | Default |

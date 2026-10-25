@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -14,6 +15,15 @@ import (
 func (m *chatModel) cancelTurn() (tea.Model, tea.Cmd) {
 	if m.cancel != nil {
 		m.cancel()
+	}
+	// Unblock a tool goroutine waiting for confirmation.
+	if m.pending != nil {
+		p := m.pending
+		m.pending = nil
+		select {
+		case p.reply <- confirmDeny:
+		default:
+		}
 	}
 	// Bump the turn id first: the cancellation may already have released a
 	// chunk or agentDone, and those must not touch the next turn's state.
@@ -62,7 +72,65 @@ func (m *chatModel) toggleLastToolExpanded() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleConfirmKey answers a pending tool confirmation. Only y/a/n and the
+// interrupt keys are accepted; everything else is ignored so the prompt cannot
+// be dismissed by accident.
+func (m *chatModel) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyRunes:
+		switch strings.ToLower(string(msg.Runes)) {
+		case "y":
+			return m.resolveConfirm(confirmOnce)
+		case "a":
+			return m.resolveConfirm(confirmAlways)
+		case "n":
+			return m.resolveConfirm(confirmDeny)
+		}
+	case tea.KeyEscape, tea.KeyCtrlC:
+		// Cancel the context before answering so the tool goroutine cannot
+		// squeeze in an execution between the deny and the turn cancellation.
+		if m.cancel != nil {
+			m.cancel()
+		}
+		m.resolveConfirm(confirmDeny)
+		return m.cancelTurn()
+	}
+	return m, nil
+}
+
+// resolveConfirm sends the decision to the waiting tool goroutine and restores
+// the normal input state.
+func (m *chatModel) resolveConfirm(decision confirmDecision) (tea.Model, tea.Cmd) {
+	p := m.pending
+	if p == nil {
+		return m, nil
+	}
+	m.pending = nil
+	if decision == confirmAlways {
+		m.confirm.allowAlways(p.name)
+	}
+	select {
+	case p.reply <- decision:
+	default:
+	}
+
+	if decision == confirmDeny {
+		m.state = tuiProcessing
+		m.toolMsg = fmt.Sprintf("✗ %s denied by user", p.name)
+	} else {
+		m.state = tuiToolCall
+		m.toolMsg = fmt.Sprintf("🛠️  Running %s …", p.name)
+	}
+	m.input.Focus()
+	return m, nil
+}
+
 func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// A pending tool confirmation owns the keyboard until answered.
+	if m.pending != nil {
+		return m.handleConfirmKey(msg)
+	}
+
 	// Global keys work regardless of state
 	switch msg.Type {
 	case tea.KeyCtrlC:

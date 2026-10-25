@@ -228,6 +228,9 @@ defaults:
     context_size: 32768 # 输入上下文窗口大小（token），0=使用模型默认值。超过 80% 自动压缩
     # tools_on_demand: true # MCP 工具按需加载（search_tools/load_tools），降低上下文占用
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$'] # read 原语拒绝正则（匹配路径或文件名，默认空=全部放行）
+    # confirm_tools:            # 执行前需确认的工具正则（匹配 "<tool> <target>"）；缺省 bash/write/edit，[] 关闭
+    #   - '^bash\b'
+    #   - '^(write|edit) .*\.env$'
   # ── 可选：Web 搜索默认厂商（aigc-cli search / kb search / chat / MCP 共用）──
   # search:
   #   provider: duckduckgo   # 厂商名（duckduckgo / firecrawl / brave / doubao / deepseek / exa / pixabay / pexels）

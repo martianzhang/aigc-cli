@@ -25,12 +25,17 @@ func (m *chatModel) View() string {
 	b.WriteByte('\n')
 
 	// Input area — use shell style when in ! mode
-	inputStyle := m.styles.inputBox
-	if strings.HasPrefix(m.input.Value(), "!") {
-		inputStyle = m.styles.shellInputBox
+	var inputView string
+	if m.pending != nil {
+		inputView = m.renderConfirmBox()
+	} else {
+		inputStyle := m.styles.inputBox
+		if strings.HasPrefix(m.input.Value(), "!") {
+			inputStyle = m.styles.shellInputBox
+		}
+		inputWidth := max(m.width-4, 10)
+		inputView = inputStyle.Width(inputWidth).Render(m.input.View())
 	}
-	inputWidth := max(m.width-4, 10)
-	inputView := inputStyle.Width(inputWidth).Render(m.input.View())
 	b.WriteString(inputView)
 	b.WriteByte('\n')
 
@@ -129,9 +134,49 @@ func (m *chatModel) renderStatus() string {
 		return m.spinner.View() + " Processing…  |  Esc: Cancel"
 	case tuiToolCall:
 		return m.spinner.View() + " " + m.toolMsg + "  |  Esc: Cancel"
+	case tuiConfirming:
+		if m.pending != nil {
+			return fmt.Sprintf("⚠️  Confirm %s  |  y: once  a: always  n: deny  |  Esc: deny & stop", m.pending.name)
+		}
+		return "⚠️  Waiting for confirmation…"
 	default:
 		return ""
 	}
+}
+
+// renderConfirmBox replaces the input area while a tool call is awaiting
+// approval. The tool card above already shows the command and diff.
+func (m *chatModel) renderConfirmBox() string {
+	p := m.pending
+	width := max(m.width-6, 20)
+	lines := []string{
+		m.styles.toolMsg.Render("┃") + " " + m.styles.errMsg.Bold(true).Render("Confirm "+p.name),
+	}
+
+	if p.detail != "" {
+		// Full command for bash: the card header is single-line, so show the
+		// script here before asking for approval.
+		cmdLines := strings.Split(strings.TrimRight(p.detail, "\n"), "\n")
+		const maxCmdLines = 8
+		for i, line := range cmdLines {
+			if i >= maxCmdLines {
+				lines = append(lines, "  "+m.styles.sysMsg.Render(
+					fmt.Sprintf("… %d more lines (see tool card)", len(cmdLines)-maxCmdLines)))
+				break
+			}
+			prefix := "    "
+			if i == 0 {
+				prefix = "  $ "
+			}
+			lines = append(lines, prefix+m.styles.toolArg.Render(clipString(line, width)))
+		}
+	} else if p.summary != "" {
+		lines = append(lines, "  "+m.styles.toolArg.Render(clipString(p.summary, width)))
+	}
+
+	lines = append(lines, "  "+m.styles.sysMsg.Render(
+		"[y] allow once   [a] allow for this session   [n] deny   Esc: deny & stop"))
+	return m.styles.shellInputBox.Width(max(m.width-4, 10)).Render(strings.Join(lines, "\n"))
 }
 
 // ---------------------------------------------------------------------------
