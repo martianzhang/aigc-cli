@@ -2,28 +2,79 @@ package chat
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbletea"
 )
 
+// cancelTurn stops the in-flight turn and invalidates any messages it may still
+// send back. Partial streamed output is kept (and marked) instead of being
+// silently thrown away, so an interrupted generation is not lost.
+func (m *chatModel) cancelTurn() (tea.Model, tea.Cmd) {
+	if m.cancel != nil {
+		m.cancel()
+	}
+	// Bump the turn id first: the cancellation may already have released a
+	// chunk or agentDone, and those must not touch the next turn's state.
+	m.turnID++
+
+	partial := strings.TrimRight(m.streamBuf.String(), " \t\r\n")
+	m.streamBuf.Reset()
+	if partial != "" {
+		m.messages = append(m.messages, message{
+			role:    "assistant",
+			content: partial + "\n\n_[interrupted]_",
+		})
+	}
+
+	// A tool call that was still running when the user interrupted is shown as
+	// cancelled rather than forever "Running …".
+	for i, tm := range slices.Backward(m.messages) {
+		if tm.role == "tool" && strings.Contains(tm.content, "Running ") {
+			m.messages[i].content = "Cancelled."
+			break
+		}
+	}
+
+	if m.compacting {
+		m.messages = append(m.messages, message{role: "system", content: "Compaction cancelled."})
+	}
+
+	m.compacting = false
+	m.busy = false
+	m.state = tuiIdle
+	m.err = nil
+	m.input.Focus()
+	m.refreshViewport()
+	return m, nil
+}
+
 func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Global keys work regardless of state
 	switch msg.Type {
-	case tea.KeyCtrlC, tea.KeyCtrlD:
+	case tea.KeyCtrlC:
+		// While a turn is running Ctrl+C interrupts it; idle Ctrl+C quits.
+		// This matches the mental model of claude/codex and avoids killing the
+		// whole session when the user only wants to stop a long generation.
+		if m.state != tuiIdle {
+			return m.cancelTurn()
+		}
+		m.cancel()
+		return m, tea.Quit
+
+	case tea.KeyCtrlD:
+		// Don't discard a non-empty draft on an accidental Ctrl+D.
+		if strings.TrimSpace(m.input.Value()) != "" {
+			return m, nil
+		}
 		m.cancel()
 		return m, tea.Quit
 
 	case tea.KeyEscape:
 		if m.state != tuiIdle {
-			// Cancel running operation
-			m.cancel()
-			m.ctx, m.cancel = context.WithCancel(context.Background())
-			m.state = tuiIdle
-			m.streamBuf.Reset()
-			m.input.Focus()
-			m.input.Reset()
-			return m, nil
+			// Cancel the running operation for real (HTTP request + tools).
+			return m.cancelTurn()
 		}
 		// In idle state, some terminals send ESC separately before Enter
 		// as Alt+Enter. We mark altPending so the next Enter is treated
@@ -144,10 +195,14 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 		m.state = tuiProcessing
 		m.compacting = true
 		m.err = nil
+		m.turnID++
+		turn := m.turnID
+		ctx, cancel := context.WithCancel(context.Background())
+		m.ctx, m.cancel = ctx, cancel
 		m.mu.Lock()
 		count := len(m.history)
 		m.mu.Unlock()
-		go m.compactConversation(count)
+		go m.compactConversation(ctx, turn, count)
 		return m, m.spinner.Tick
 
 	case strings.HasPrefix(input, "/preview"):

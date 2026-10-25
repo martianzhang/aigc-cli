@@ -43,6 +43,10 @@ The REPL supports:
 - Slash commands, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
 - `@path` file references: text files are inlined, images are attached (Tab completes paths; governed by `defaults.chat.read_deny`)
 
+Interrupting and exiting:
+- `Esc` or `Ctrl+C` while a turn is running interrupts it for real: the HTTP request and any running `bash`/MCP tool stop, and partial output is kept with an `[interrupted]` marker.
+- `Ctrl+C` while idle exits. `Ctrl+D` also exits, but is ignored while the input box has a draft so typed text is not lost.
+
 ## File References (@)
 
 Reference local files in a message with `@path` — no need to paste their contents.

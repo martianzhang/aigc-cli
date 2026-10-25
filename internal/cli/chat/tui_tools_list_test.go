@@ -85,7 +85,7 @@ func TestShowTools_listKeepsOneLinePerTool(t *testing.T) {
 }
 
 func TestShowTools_detailPrintsFullDescription(t *testing.T) {
-	newModel := func() chatModel {
+	newModel := func() *chatModel {
 		m := newChatModel(nil, nil, 10, "m", "", nil, false, 0, 0, 0)
 		m.agentTools = []types.ToolDefinition{
 			toolDef("convert_depth", "Convert an image or video into a grayscale depth map.\n\nExamples:\n  convert_depth input_path=\"/a.jpg\""),

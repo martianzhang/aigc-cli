@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -47,10 +48,17 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 				tool:    cmdName,
 			})
 
+			// Direct calls get their own cancellable turn so Esc stops the tool.
+			m.turnID++
+			turn := m.turnID
+			ctx, cancel := context.WithCancel(context.Background())
+			m.ctx, m.cancel = ctx, cancel
+			turnClient := m.client.WithContext(ctx)
+
 			// Run in goroutine
 			go func() {
 				prog := getProgram()
-				prog.Send(toolStart{name: cmdName})
+				prog.Send(toolStart{turn: turn, name: cmdName})
 
 				// Take snapshot of history (same principle as runTUIAgentLoop)
 				m.mu.Lock()
@@ -68,11 +76,11 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 				})
 
 				// Redirect stderr during tool execution
-				restoreStderr := options.SetStderr(&logWriter{prog: prog})
-				result := m.rt.Execute(m.client, tc)
+				restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
+				result := m.rt.Execute(ctx, turnClient, tc)
 				restoreStderr()
 				summary := summarizeToolResult(cmdName, result)
-				prog.Send(toolDone{name: cmdName, summary: summary, content: result})
+				prog.Send(toolDone{turn: turn, name: cmdName, summary: summary, content: result})
 
 				localHistory = append(localHistory, types.ChatMessage{
 					Role:       "tool",
@@ -80,7 +88,7 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 					Content:    result,
 				})
 
-				prog.Send(agentDone{history: localHistory})
+				prog.Send(agentDone{turn: turn, history: localHistory})
 			}()
 
 			return m, m.spinner.Tick
@@ -177,10 +185,11 @@ func (m *chatModel) handlePreview(input string) (tea.Model, tea.Cmd) {
 	}
 
 	// Temporarily switch out of alt screen for the preview
+	turn := m.turnID
 	go func() {
 		prog := getProgram()
 		if err := service.PreviewFile(filePath); err != nil {
-			prog.Send(logMsg(fmt.Sprintf("Preview failed: %v", err)))
+			prog.Send(logMsg{turn: turn, text: fmt.Sprintf("Preview failed: %v", err)})
 		}
 	}()
 

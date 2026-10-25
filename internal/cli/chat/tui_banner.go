@@ -74,8 +74,9 @@ func (m *chatModel) showHelp() {
   !<command>           Run a shell command
   PgUp/PgDn or wheel  Scroll conversation output
   Shift+drag           Select text — iTerm2: ⌥ Option + drag (mouse capture is on for scrolling)
-  Ctrl+C/D             Quit
-  Esc                  Cancel current operation
+  Ctrl+C               Interrupt the current turn; when idle, quit
+  Ctrl+D               Quit (ignored while a draft is present)
+  Esc                  Interrupt the current turn (partial output is kept)
   F1                   Show this help`
 	m.messages = append(m.messages, message{role: "system", content: help})
 	m.refreshViewport()

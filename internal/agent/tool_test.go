@@ -1,11 +1,14 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHasExecutable(t *testing.T) {
@@ -145,5 +148,25 @@ func TestGrep(t *testing.T) {
 func TestShellCommand(t *testing.T) {
 	if got := ShellCommand("echo hi"); strings.TrimSpace(got) != "hi" {
 		t.Errorf("ShellCommand = %q, want hi", got)
+	}
+}
+
+// TestShellCommandContextCancelled guards that interrupting a turn kills a
+// long-running shell command instead of waiting for the 30s fallback timeout.
+func TestShellCommandContextCancelled(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("sleep is not available on windows")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		cancel()
+	}()
+
+	start := time.Now()
+	ShellCommandContext(ctx, "sleep 5")
+	elapsed := time.Since(start)
+	if elapsed > 2*time.Second {
+		t.Errorf("ShellCommandContext took %v after cancellation, want < 2s", elapsed)
 	}
 }

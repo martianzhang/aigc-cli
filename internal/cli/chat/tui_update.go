@@ -15,7 +15,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-func (m chatModel) Init() tea.Cmd {
+func (m *chatModel) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
 		textarea.Blink,
@@ -26,7 +26,7 @@ func (m chatModel) Init() tea.Cmd {
 // Update — the "brain" of the MVU pattern
 // ---------------------------------------------------------------------------
 
-func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	// ---- window / terminal events ----------------------------------------
 	case tea.WindowSizeMsg:
@@ -64,7 +64,10 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// ---- streaming -------------------------------------------------------
 	case streamChunk:
-		m.streamBuf.WriteString(strings.ReplaceAll(string(msg), "\r", ""))
+		if msg.turn != m.turnID {
+			return m, nil // late chunk from an interrupted turn
+		}
+		m.streamBuf.WriteString(strings.ReplaceAll(msg.text, "\r", ""))
 		rendered := m.renderMessagesWithStream()
 		// Only stick to the bottom when the user is already there, so scrolling
 		// up to read during streaming is not immediately yanked back down.
@@ -77,7 +80,10 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// ---- log messages (stderr redirect from tool execution) --------------
 	case logMsg:
-		text := strings.TrimRight(string(msg), "\r\n")
+		if msg.turn != m.turnID {
+			return m, nil
+		}
+		text := strings.TrimRight(msg.text, "\r\n")
 		if text != "" {
 			m.messages = append(m.messages, message{role: "system", content: text})
 			m.refreshViewport()
@@ -86,6 +92,9 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// ---- tool calls ------------------------------------------------------
 	case toolStart:
+		if msg.turn != m.turnID {
+			return m, nil
+		}
 		m.state = tuiToolCall
 		m.toolMsg = fmt.Sprintf("🛠️  Running %s …", msg.name)
 		m.messages = append(m.messages, message{
@@ -97,6 +106,9 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.spinner.Tick
 
 	case toolDone:
+		if msg.turn != m.turnID {
+			return m, nil
+		}
 		m.state = tuiProcessing
 		m.toolMsg = fmt.Sprintf("✓ %s: %s", msg.name, msg.summary)
 		for i, tm := range slices.Backward(m.messages) {
@@ -114,6 +126,9 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// ---- agent loop finished ---------------------------------------------
 	case agentDone:
+		if msg.turn != m.turnID {
+			return m, nil // result of an interrupted turn
+		}
 		m.state = tuiIdle
 		m.busy = false
 		// Replace history with the goroutine's accumulated snapshot.
@@ -172,6 +187,9 @@ func (m chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// ---- compact conversation -------------------------------------------
 	case compactDone:
+		if msg.turn != m.turnID {
+			return m, nil
+		}
 		m.state = tuiIdle
 		m.compacting = false
 		m.busy = false

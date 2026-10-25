@@ -77,7 +77,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 				printToolArgs(tc.Function.Arguments)
 
 				toolStart := time.Now()
-				toolResult := rt.Execute(c, tc)
+				toolResult := rt.Execute(ctx, c, tc)
 				elapsed := time.Since(toolStart).Round(time.Millisecond)
 
 				resultSummary := summarizeToolResult(tc.Function.Name, toolResult)

@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m chatModel) View() string {
+func (m *chatModel) View() string {
 	if !m.ready {
 		return "\n  Initializing…"
 	}

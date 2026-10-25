@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sync"
@@ -13,10 +14,11 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-func (m *chatModel) runTUIAgentLoop() {
+func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 	prog := getProgram()
 	turnCount := 0
 	agentStart := time.Now()
+	turnClient := m.client.WithContext(ctx)
 
 	// Take a snapshot of current history (already includes the latest user
 	// message appended by handleUserMessage on the main thread).
@@ -31,8 +33,8 @@ func (m *chatModel) runTUIAgentLoop() {
 
 	for turnCount < m.maxIters {
 		select {
-		case <-m.ctx.Done():
-			prog.Send(agentDone{err: m.ctx.Err(), history: localHistory})
+		case <-ctx.Done():
+			prog.Send(agentDone{turn: turn, err: ctx.Err(), history: localHistory})
 			return
 		default:
 		}
@@ -57,17 +59,17 @@ func (m *chatModel) runTUIAgentLoop() {
 		}
 
 		// progWriter sends content to the assistant message area.
-		pw := &progWriter{prog: prog}
+		pw := &progWriter{prog: prog, turn: turn}
 		req.OutputWriter = pw
 
 		// Redirect options.Stderr() so tool-execution config output goes to
 		// the TUI as logMsg rather than raw stderr.
-		restoreStderr := options.SetStderr(&logWriter{prog: prog})
-		result, err := m.client.ChatCompletion(req)
+		restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
+		result, err := turnClient.ChatCompletion(req)
 		restoreStderr()
 
 		if err != nil {
-			prog.Send(agentDone{err: err, history: localHistory})
+			prog.Send(agentDone{turn: turn, err: err, history: localHistory})
 			return
 		}
 		if len(result.Choices) == 0 {
@@ -80,15 +82,15 @@ func (m *chatModel) runTUIAgentLoop() {
 			localHistory = append(localHistory, choice.Message)
 
 			for _, tc := range choice.Message.ToolCalls {
-				prog.Send(toolStart{name: tc.Function.Name})
+				prog.Send(toolStart{turn: turn, name: tc.Function.Name})
 
 				// Redirect stderr during tool execution
-				restoreStderr := options.SetStderr(&logWriter{prog: prog})
-				toolResult := m.rt.Execute(m.client, tc)
+				restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
+				toolResult := m.rt.Execute(ctx, turnClient, tc)
 				restoreStderr()
 
 				summary := summarizeToolResult(tc.Function.Name, toolResult)
-				prog.Send(toolDone{name: tc.Function.Name, summary: summary, content: toolResult})
+				prog.Send(toolDone{turn: turn, name: tc.Function.Name, summary: summary, content: toolResult})
 
 				localHistory = append(localHistory, types.ChatMessage{
 					Role:       "tool",
@@ -97,15 +99,13 @@ func (m *chatModel) runTUIAgentLoop() {
 				})
 			}
 
-			// Auto-compact if context is getting full
+			// Auto-compact if context is getting full. Its progress goes through
+			// the same log writer so nothing is written straight to the terminal
+			// (which would corrupt the alt-screen).
 			if m.contextSize > 0 {
-				before := agent.EstimateHistoryTokens(localHistory)
-				localHistory = agent.AutoCompactIfNeeded(m.client, m.model, m.temperature, m.maxTokens, m.contextSize, localHistory, options.Stderr())
-				after := agent.EstimateHistoryTokens(localHistory)
-				if after < before {
-					prog.Send(logMsg(fmt.Sprintf("[auto-compact] %d → %d tokens (saved %d)\r\n",
-						before, after, before-after)))
-				}
+				localHistory = agent.AutoCompactIfNeeded(
+					turnClient, m.model, m.temperature, m.maxTokens, m.contextSize,
+					localHistory, &logWriter{prog: prog, turn: turn})
 			}
 			continue
 		}
@@ -113,6 +113,7 @@ func (m *chatModel) runTUIAgentLoop() {
 		// Text response — already streamed via progWriter.
 		if turnCount >= m.maxIters {
 			prog.Send(toolDone{
+				turn:    turn,
 				name:    "info",
 				summary: fmt.Sprintf("Reached maximum iterations (%d). Start a new message to continue.", m.maxIters),
 			})
@@ -120,6 +121,7 @@ func (m *chatModel) runTUIAgentLoop() {
 
 		localHistory = append(localHistory, choice.Message)
 		prog.Send(agentDone{
+			turn:         turn,
 			result:       result,
 			elapsed:      time.Since(agentStart),
 			err:          nil,
@@ -129,7 +131,7 @@ func (m *chatModel) runTUIAgentLoop() {
 		return
 	}
 
-	prog.Send(agentDone{history: localHistory})
+	prog.Send(agentDone{turn: turn, history: localHistory})
 }
 
 // ---------------------------------------------------------------------------
@@ -140,11 +142,12 @@ func (m *chatModel) runTUIAgentLoop() {
 // Used for AI response streaming content.
 type progWriter struct {
 	prog *tea.Program
+	turn uint64
 }
 
 func (w *progWriter) Write(p []byte) (int, error) {
 	if w.prog != nil {
-		w.prog.Send(streamChunk(string(p)))
+		w.prog.Send(streamChunk{turn: w.turn, text: string(p)})
 	}
 	return len(p), nil
 }
@@ -155,11 +158,12 @@ var _ io.Writer = (*progWriter)(nil)
 // Used for capturing options.Stderr() output during tool execution.
 type logWriter struct {
 	prog *tea.Program
+	turn uint64
 }
 
 func (w *logWriter) Write(p []byte) (int, error) {
 	if w.prog != nil {
-		w.prog.Send(logMsg(string(p)))
+		w.prog.Send(logMsg{turn: w.turn, text: string(p)})
 	}
 	return len(p), nil
 }

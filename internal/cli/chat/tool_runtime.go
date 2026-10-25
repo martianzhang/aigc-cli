@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -90,9 +91,10 @@ func (rt *toolRuntime) RequestTools() []types.ToolDefinition {
 }
 
 // Execute runs a single tool call, handling the on-demand meta-tools first.
-func (rt *toolRuntime) Execute(c *client.Client, tc types.ToolCall) string {
+// ctx is passed through so interrupting a turn also stops bash/MCP execution.
+func (rt *toolRuntime) Execute(ctx context.Context, c *client.Client, tc types.ToolCall) string {
 	if rt == nil {
-		return executeToolCallMCP(c, nil, tc)
+		return executeToolCallMCP(ctx, c, nil, tc)
 	}
 	switch tc.Function.Name {
 	case searchToolsName:
@@ -100,7 +102,7 @@ func (rt *toolRuntime) Execute(c *client.Client, tc types.ToolCall) string {
 	case loadToolsName:
 		return rt.loadTools(tc.Function.Arguments)
 	}
-	return executeToolCallMCP(c, rt.mcp, tc)
+	return executeToolCallMCP(ctx, c, rt.mcp, tc)
 }
 
 const (

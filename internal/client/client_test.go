@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -540,5 +541,35 @@ func TestSanitizeImageRequest(t *testing.T) {
 			result := c.sanitizeImageRequest(fullReq)
 			tt.expect(t, result)
 		})
+	}
+}
+
+// TestWithContextReturnsIndependentClient verifies that WithContext binds a
+// cancellation context to a copy and leaves the shared client untouched.
+func TestWithContextReturnsIndependentClient(t *testing.T) {
+	c := New("test-key", "https://example.com", "")
+	ctx, cancel := context.WithCancel(context.Background())
+	withCtx := c.WithContext(ctx)
+	if withCtx == c {
+		t.Fatal("WithContext returned the same client pointer")
+	}
+	if withCtx.GetContext() != ctx {
+		t.Error("WithContext did not bind the supplied context")
+	}
+
+	cancel()
+	if withCtx.GetContext().Err() == nil {
+		t.Error("cancelling the bound context did not affect the copy")
+	}
+	if c.GetContext().Err() != nil {
+		t.Error("WithContext mutated the original client's context")
+	}
+}
+
+// TestWithContextNilClient keeps the nil-receiver path safe for wrappers.
+func TestWithContextNilClient(t *testing.T) {
+	var c *Client
+	if got := c.WithContext(context.Background()); got != nil {
+		t.Errorf("nil client WithContext = %v, want nil", got)
 	}
 }

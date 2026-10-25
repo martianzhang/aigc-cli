@@ -78,7 +78,7 @@ func runChatTUI(cmd *cobra.Command) error {
 	// bypass key to select text natively (Shift on most terminals, Option/⌥ on
 	// iTerm2).
 	p := tea.NewProgram(
-		&tuiModel,
+		tuiModel,
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)

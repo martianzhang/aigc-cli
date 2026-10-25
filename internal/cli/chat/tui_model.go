@@ -62,7 +62,7 @@ func defaultChatStyles() chatStyles {
 // ---------------------------------------------------------------------------
 
 func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl, sys string,
-	cobraCmd *cobra.Command, verb bool, temp float64, maxTok, ctxSize int) chatModel {
+	cobraCmd *cobra.Command, verb bool, temp float64, maxTok, ctxSize int) *chatModel {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -91,7 +91,7 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 	// Pre-fill with welcome message so renderMessages always renders messages
 	welcomeMsg := buildWelcomeBanner()
 
-	return chatModel{
+	return &chatModel{
 		state:       tuiIdle,
 		client:      c,
 		agentTools:  tools,

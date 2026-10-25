@@ -13,6 +13,12 @@ import (
 // Bash parses a {"command": "..."} tool call and executes it via ShellCommand.
 // Privileged primitive (requires explicit tools_enable opt-in).
 func Bash(argsJSON string) string {
+	return BashContext(context.Background(), argsJSON)
+}
+
+// BashContext is Bash with a caller-supplied context, so a cancelled turn can
+// stop the child process instead of waiting for the 30s fallback timeout.
+func BashContext(ctx context.Context, argsJSON string) string {
 	var args struct {
 		Command string `json:"command"`
 	}
@@ -22,11 +28,16 @@ func Bash(argsJSON string) string {
 	if strings.TrimSpace(args.Command) == "" {
 		return "Error: command is required"
 	}
-	return ShellCommand(args.Command)
+	return ShellCommandContext(ctx, args.Command)
 }
 
 func ShellCommand(cmdLine string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	return ShellCommandContext(context.Background(), cmdLine)
+}
+
+// ShellCommandContext runs cmdLine with a 30s timeout derived from ctx.
+func ShellCommandContext(ctx context.Context, cmdLine string) string {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	if runtime.GOOS == "windows" {

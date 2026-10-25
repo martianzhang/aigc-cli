@@ -1,19 +1,19 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/charmbracelet/bubbletea"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // pushHistory adds a non-empty command to history, deduplicating the last entry.
 // compactConversation sends the full history to the API for summarisation
 // and sends a compactDone message back to the TUI with the result.
-func (m *chatModel) compactConversation(count int) {
+func (m *chatModel) compactConversation(ctx context.Context, turn uint64, count int) {
 	prog := getProgram()
 
 	m.mu.Lock()
@@ -22,17 +22,18 @@ func (m *chatModel) compactConversation(count int) {
 	m.mu.Unlock()
 
 	if len(history) == 0 {
-		prog.Send(compactDone{err: fmt.Errorf("no conversation to compact")})
+		prog.Send(compactDone{turn: turn, err: fmt.Errorf("no conversation to compact")})
 		return
 	}
 
-	result := agent.CompactConversation(m.client, m.model, m.temperature, m.maxTokens, history, options.Stderr())
+	result := agent.CompactConversation(m.client.WithContext(ctx), m.model, m.temperature, m.maxTokens, history, &logWriter{prog: prog, turn: turn})
 	if result == nil {
-		prog.Send(compactDone{err: fmt.Errorf("compaction failed")})
+		prog.Send(compactDone{turn: turn, err: fmt.Errorf("compaction failed")})
 		return
 	}
 
 	prog.Send(compactDone{
+		turn:       turn,
 		summary:    fmt.Sprintf("Compacted %d messages into 1 summary:\n\n%s", count, result.Summary),
 		newHistory: result.History,
 	})
@@ -65,11 +66,19 @@ func (m *chatModel) handleUserMessage(input string) (tea.Model, tea.Cmd) {
 	m.streamBuf.Reset()
 	m.err = nil
 
+	// Each turn gets a fresh cancellable context so Esc can stop the HTTP
+	// request and any tool it is running, and a turn id so late messages from
+	// an interrupted turn are dropped.
+	m.turnID++
+	turn := m.turnID
+	ctx, cancel := context.WithCancel(context.Background())
+	m.ctx, m.cancel = ctx, cancel
+
 	// Render user message immediately
 	m.refreshViewport()
 
 	// Start agent loop in a goroutine
-	go m.runTUIAgentLoop()
+	go m.runTUIAgentLoop(ctx, turn)
 
 	return m, m.spinner.Tick
 }

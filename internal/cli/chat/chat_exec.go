@@ -55,7 +55,7 @@ func resolveFileRef(v any) any {
 
 // executeToolCall executes a single built-in primitive tool call.
 func executeToolCall(c *client.Client, tc types.ToolCall) string {
-	return executeToolCallMCP(c, nil, tc)
+	return executeToolCallMCP(context.Background(), c, nil, tc)
 }
 
 // executeToolCallMCP executes a tool call, preferring the built-in primitive
@@ -64,10 +64,11 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 // Built-in primitives win deliberately: an MCP server must not be able to
 // silently replace `read`/`bash`/`search`/… with its own implementation. This
 // pairs with the name-dedup in toolRuntime.RequestTools, so a colliding MCP tool
-// is neither sent nor executed. mcp may be nil.
-func executeToolCallMCP(_ *client.Client, mcp *mcpcli.Manager, tc types.ToolCall) string {
+// is neither sent nor executed. mcp may be nil. ctx cancels long-running
+// primitives (bash, MCP calls) when the user interrupts a turn.
+func executeToolCallMCP(ctx context.Context, _ *client.Client, mcp *mcpcli.Manager, tc types.ToolCall) string {
 	if !agent.IsPrimitive(tc.Function.Name) && mcp.Has(tc.Function.Name) {
-		out, err := mcp.Call(context.Background(), tc.Function.Name, tc.Function.Arguments)
+		out, err := mcp.Call(ctx, tc.Function.Name, tc.Function.Arguments)
 		if err != nil {
 			return fmt.Sprintf("Error: %v", err)
 		}
@@ -95,7 +96,7 @@ func executeToolCallMCP(_ *client.Client, mcp *mcpcli.Manager, tc types.ToolCall
 	case "edit":
 		return agent.EditFile(args)
 	case "bash":
-		return agent.Bash(args)
+		return agent.BashContext(ctx, args)
 	case "grep":
 		return agent.Grep(args)
 	case "find":

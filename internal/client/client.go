@@ -81,6 +81,19 @@ func (c *Client) SetContext(ctx context.Context) {
 	c.ctx = ctx
 }
 
+// WithContext returns a shallow copy of the client bound to ctx. The HTTP
+// client, credentials and headers are shared; only the cancellation context
+// differs. Use this when a caller needs per-request cancellation without
+// mutating a shared client (for example, one chat turn in a TUI).
+func (c *Client) WithContext(ctx context.Context) *Client {
+	if c == nil {
+		return nil
+	}
+	cp := *c
+	cp.ctx = ctx
+	return &cp
+}
+
 // requestContext returns the client's context or context.Background().
 func (c *Client) requestContext() context.Context {
 	return c.GetContext()

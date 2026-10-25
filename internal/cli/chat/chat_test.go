@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -340,14 +341,14 @@ func TestToolRuntime_onDemandHidesMCPUntilLoaded(t *testing.T) {
 		t.Fatal("meta-tools should be exposed in on-demand mode")
 	}
 
-	if got := rt.Execute(nil, types.ToolCall{Function: types.ToolCallFunction{Name: loadToolsName, Arguments: `{"names":["generate_image"]}`}}); !strings.Contains(got, "Loaded") {
+	if got := rt.Execute(context.Background(), nil, types.ToolCall{Function: types.ToolCallFunction{Name: loadToolsName, Arguments: `{"names":["generate_image"]}`}}); !strings.Contains(got, "Loaded") {
 		t.Fatalf("load_tools = %q", got)
 	}
 	if !toolNames(rt.RequestTools())["generate_image"] {
 		t.Error("MCP tool should be visible after load_tools")
 	}
 
-	if got := rt.Execute(nil, types.ToolCall{Function: types.ToolCallFunction{Name: searchToolsName, Arguments: `{"query":"image"}`}}); !strings.Contains(got, "generate_image") {
+	if got := rt.Execute(context.Background(), nil, types.ToolCall{Function: types.ToolCallFunction{Name: searchToolsName, Arguments: `{"query":"image"}`}}); !strings.Contains(got, "generate_image") {
 		t.Errorf("search_tools = %q", got)
 	}
 }

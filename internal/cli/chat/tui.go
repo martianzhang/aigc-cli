@@ -29,18 +29,29 @@ const (
 // ---------------------------------------------------------------------------
 
 // streamChunk is sent for each streaming content delta from the API.
-type streamChunk string
+// turn identifies the agent turn that produced it: after the user interrupts,
+// late chunks from the cancelled turn are dropped instead of leaking into the
+// next response.
+type streamChunk struct {
+	turn uint64
+	text string
+}
 
 // logMsg is sent for status/log output during tool execution (e.g. config info).
-type logMsg string
+type logMsg struct {
+	turn uint64
+	text string
+}
 
 // toolStart is sent when a tool call begins.
 type toolStart struct {
+	turn uint64
 	name string
 }
 
 // toolDone is sent when a tool call completes.
 type toolDone struct {
+	turn    uint64
 	name    string // tool name
 	summary string // one-line summary for status bar
 	content string // full output for the message area (empty = use summary)
@@ -50,6 +61,7 @@ type toolDone struct {
 // history carries the complete accumulated history from the goroutine;
 // the main thread replaces m.history with it (fixes tool_calls + tool result loss).
 type agentDone struct {
+	turn         uint64
 	result       *types.ChatResponse
 	elapsed      time.Duration
 	err          error
@@ -62,6 +74,7 @@ type clearChat struct{}
 
 // compactDone is sent when the conversation has been compacted.
 type compactDone struct {
+	turn       uint64
 	summary    string
 	err        error
 	newHistory []types.ChatMessage // new history built by the goroutine
@@ -111,6 +124,11 @@ type chatModel struct {
 
 	// busy prevents new user input while an agent loop is in progress.
 	busy bool
+
+	// turnID identifies the current async operation (agent turn or compact).
+	// It is bumped whenever the user starts or interrupts one, so messages
+	// from a cancelled turn can be recognised and dropped.
+	turnID uint64
 
 	// Conversation history for API requests (types.ChatMessage, not TUI message)
 	history []types.ChatMessage
