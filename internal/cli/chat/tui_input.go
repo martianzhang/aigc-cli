@@ -164,9 +164,18 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyUp:
+		// Move within a multi-line draft first; only step back into the command
+		// history from the very first line.
+		if !m.cursorOnFirstRow() {
+			return m, m.updateInput(msg)
+		}
 		return m.handleHistoryPrev()
 
 	case tea.KeyDown:
+		// Mirror of Up: move within the draft until the last line is reached.
+		if !m.cursorOnLastRow() {
+			return m, m.updateInput(msg)
+		}
 		return m.handleHistoryNext()
 
 	case tea.KeyTab:
@@ -193,14 +202,12 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.Type {
 	case tea.KeyEnter:
-		// Alt+Enter or altPending (ESC then Enter) → insert newline
+		// Any Enter carrying a modifier — Alt+Enter, or the Esc-then-Enter
+		// pair some terminals send for it — inserts a line break instead of
+		// submitting. Shift/Ctrl+Enter arrive here as Ctrl+J after
+		// modifiedEnterReader rewrites them.
 		if msg.Alt || m.altPending {
-			m.altPending = false
-			var cmd tea.Cmd
-			m.input, cmd = m.input.Update(msg)
-			m.cycleMatches = nil
-			m.cycleIdx = -1
-			return m, cmd
+			return m, m.insertNewline()
 		}
 		if m.busy || m.compacting {
 			return m, nil
@@ -210,12 +217,7 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyCtrlJ:
 		// Ctrl+J (= Ctrl+Enter, 0x0A line feed) → insert newline.
 		// Universally reliable on ALL terminals.
-		m.altPending = false
-		m.cycleMatches = nil
-		m.cycleIdx = -1
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(tea.KeyMsg{Type: tea.KeyEnter})
-		return m, cmd
+		return m, m.insertNewline()
 
 	default:
 		// Reset completion cycle on any regular key press
@@ -223,10 +225,39 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cycleIdx = -1
 		// Any key press cancels a pending Alt sequence
 		m.altPending = false
-		var cmd tea.Cmd
-		m.input, cmd = m.input.Update(msg)
-		return m, cmd
+		return m, m.updateInput(msg)
 	}
+}
+
+// cursorOnFirstRow reports whether the cursor is on the first visual row of the
+// draft (first logical line, first wrapped row).
+func (m *chatModel) cursorOnFirstRow() bool {
+	li := m.input.LineInfo()
+	return m.input.Line() == 0 && li.RowOffset == 0
+}
+
+// cursorOnLastRow reports whether the cursor is on the last visual row of the
+// draft (last logical line, last wrapped row).
+func (m *chatModel) cursorOnLastRow() bool {
+	li := m.input.LineInfo()
+	return m.input.Line() == m.input.LineCount()-1 && li.RowOffset >= li.Height-1
+}
+
+// updateInput forwards a message to the textarea.
+func (m *chatModel) updateInput(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	return cmd
+}
+
+// insertNewline appends a line break to the draft. Modified Enter messages are
+// normalised to a plain Enter for the textarea, whose InsertNewline binding
+// does not match "alt+enter".
+func (m *chatModel) insertNewline() tea.Cmd {
+	m.altPending = false
+	m.cycleMatches = nil
+	m.cycleIdx = -1
+	return m.updateInput(tea.KeyMsg{Type: tea.KeyEnter})
 }
 
 // ---------------------------------------------------------------------------

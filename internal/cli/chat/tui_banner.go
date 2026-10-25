@@ -72,6 +72,9 @@ func (m *chatModel) showHelp() {
   @path                Attach a file: text is inlined, images are sent as media
                        (Tab completes paths; defaults.chat.read_deny still applies)
   !<command>           Run a shell command
+  Enter                Send the message
+  Shift/Alt+Enter      Insert a line break (Ctrl+J works everywhere)
+  Up/Down              History — or move the cursor inside a multi-line draft
   PgUp/PgDn or wheel  Scroll conversation output
   Ctrl+O               Expand/collapse the last tool output
   Shift+drag           Select text — iTerm2: ⌥ Option + drag (mouse capture is on for scrolling)

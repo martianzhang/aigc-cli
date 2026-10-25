@@ -85,10 +85,18 @@ func runChatTUI(cmd *cobra.Command) error {
 	// the wheel scrolls the chat viewport; hold the terminal's mouse-reporting
 	// bypass key to select text natively (Shift on most terminals, Option/⌥ on
 	// iTerm2).
+	//
+	// Modified Enter (Alt/Shift/Ctrl) must insert a newline rather than submit.
+	// Ask the terminal to report modified keys and translate the sequences it
+	// sends back to what Bubble Tea understands — v1 has no parser for them.
+	fmt.Fprint(os.Stdout, enableModifiedKeys)
+	defer fmt.Fprint(os.Stdout, disableModifiedKeys)
+
 	p := tea.NewProgram(
 		tuiModel,
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
+		tea.WithInput(newModifiedKeyInput(os.Stdin)),
 	)
 
 	// Listen for SIGTERM to cleanly exit

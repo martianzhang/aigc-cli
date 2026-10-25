@@ -37,23 +37,29 @@ aigc-cli chat -v
 进入交互模式后，终端会切换到全屏 TUI，包含以下区域：
 
 ```
-┌──────────────────────────────────────┐
-│ 💬 Chat with AI — Model: deepseek-v4  │  ← 顶部栏
-├──────────────────────────────────────┤
-│                                      │
-│  You: 1+1等于几？                    │  ← 消息区
-│  ─────────────────────────────────   │     （可滚动画板）
-│  Assistant: 2                        │
-│                                      │
-│  🛠️  generate_image a cat under stars │
-│  ✓ Successfully generated 1 image(s) │
-│                                      │
-├──────────────────────────────────────┤
-│ 输入消息... (Enter to send)            │  ← 输入框
-├──────────────────────────────────────┤
-│ ● Ready | Provider: apimart | Model: deepseek-v4 | F1 │  ← 状态栏
-└──────────────────────────────────────┘
+💬 Chat with AI  —  Model: deepseek-v4              ← 顶部栏
+                                                     （以下为可滚动的消息区）
+    ___       ____      ______     _____
+   /   |     /  _/    / _____/    / ___/            ← 欢迎 logo（常驻滚动区）
+  / /| |     / /     / /  ___    / /
+ / ___ |   _/ /     / /___/ /   / /___
+/_/  |_|  /___/     \_____/     \____/
+  ──────────────────────────────────────
+  💬  Type a message to start chatting
+
+┃ You:                                               ← 蓝色左边条覆盖整块消息
+┃ 1+1等于几？
+┃ Assistant:                                         ← 绿色左边条覆盖整块消息
+┃ 2
+🛠️  generate_image a cat under stars                  ← 工具调用（参数 + 结果）
+  ✓ Successfully generated 1 image(s)
+
+────────────────────────────────────────────────      ← 分隔线（对话区与输入框）
+┃ Enter: send · Alt/Shift+Enter: newline             ← 输入框（随内容 1–5 行）
+● Ready | Provider: apimart | Model: deepseek-v4     ← 状态栏
 ```
+
+> 欢迎页的 AIGC logo 会一直保留在可滚动消息区的最上方，不会因为发出第一条消息而消失。
 
 ### 命令与快捷键
 
@@ -74,9 +80,15 @@ aigc-cli chat -v
 | `Ctrl+O` | 展开 / 收起最后一条工具输出（超过 20 行的输出默认折叠） |
 | 确认提示 | `y` 本次允许 / `a` 本进程总是允许 / `n` 拒绝 / `Esc` 拒绝并中断 |
 | `!<command>` | 执行 Shell 命令（输出区会带 `$ 命令` 前缀，便于看清执行了什么） |
+| `Shift+Enter` `Alt+Enter` `Ctrl+J` | 输入框内换行（`Enter` 提交消息） |
+| `↑` `↓` | 多行草稿里上下移动光标；已在首行 / 末行时改为翻阅命令历史 |
 
-> **多行输入：** 按 `Alt+Enter` 或 `Ctrl+J` 换行，`Enter` 提交消息。
-> 输入框最高支持 5 行，超出会自动滚动。
+> **多行输入：** 按 `Shift+Enter`、`Alt+Enter` 或 `Ctrl+J` 换行，`Enter` 提交消息。
+> 输入框初始 1 行，最多显示 5 行，超出后在框内滚动（右侧状态不受影响）。
+>
+> `Shift+Enter` 依赖终端「上报修饰键」的能力：启动 TUI 时会发送 `CSI > 4 ; 2 m`（xterm `modifyOtherKeys`），
+> 支持该协议的终端（xterm、iTerm2、kitty、WezTerm、Ghostty 等）即可识别；
+> macOS 自带 Terminal.app 不支持，请改用 `Alt+Enter` / `Ctrl+J`，或在终端设置里把 Option 键设为 Meta。
 
 ### 交互示例
 

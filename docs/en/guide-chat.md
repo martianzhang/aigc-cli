@@ -44,6 +44,15 @@ The REPL supports:
 - Slash commands, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
 - `@path` file references: text files are inlined, images are attached (Tab completes paths; governed by `defaults.chat.read_deny`)
 
+Layout:
+- The startup banner (logo + shortcut hints) stays at the top of the scrollable transcript for the whole session; it is not dropped when you send the first message.
+- Messages are rendered as blocks with a coloured left bar (`┃`) that spans every line — blue for `You:`, green for `Assistant:`. Long lines, including CJK text and URLs, are wrapped to the terminal width instead of being cut off.
+- The input box starts at one row and grows with the draft up to five rows, then scrolls internally. A thin rule separates it from the transcript above, so the input stays anchored when the messages fill the screen.
+
+Multi-line input: `Shift+Enter`, `Alt+Enter` and `Ctrl+J` all insert a line break; plain `Enter` sends the message. On startup the TUI enables xterm's `modifyOtherKeys` protocol (`CSI > 4 ; 2 m`) so modified Enter keys can be told apart from a plain one. This works on xterm, iTerm2, kitty, WezTerm and Ghostty; Apple's Terminal.app does not report those keys — use `Alt+Enter` / `Ctrl+J` there (or enable "Use Option as Meta key").
+
+`↑` / `↓` move the cursor inside a multi-line draft; on the first/last line they step through the command history instead.
+
 Interrupting and exiting:
 - `Esc` or `Ctrl+C` while a turn is running interrupts it for real: the HTTP request and any running `bash`/MCP tool stop, and partial output is kept with an `[interrupted]` marker.
 - `Ctrl+C` while idle exits. `Ctrl+D` also exits, but is ignored while the input box has a draft so typed text is not lost.
