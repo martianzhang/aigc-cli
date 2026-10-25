@@ -39,19 +39,22 @@ func (m *chatModel) compactConversation(ctx context.Context, turn uint64, count 
 	})
 }
 
-func (m *chatModel) handleUserMessage(input string) (tea.Model, tea.Cmd) {
-	// Resolve @file mentions: text files inline, images become attachments.
-	expanded, images, warnings := expandMentions(input, readDenyPatterns())
-
-	// Remove initial welcome message on first real message
-	if len(m.messages) == 1 && m.messages[0].role == "system" {
-		m.messages = nil
-	}
+// appendUserMessage records what the user typed in the transcript. The welcome
+// banner is left in place so the logo and the shortcut hints stay visible in
+// the scrollback for the whole session.
+func (m *chatModel) appendUserMessage(input string, warnings []string) {
 	// Display the text the user typed (not the inlined expansion).
 	m.messages = append(m.messages, message{role: "user", content: input})
 	for _, warning := range warnings {
 		m.messages = append(m.messages, message{role: "system", content: "⚠️  " + warning})
 	}
+}
+
+func (m *chatModel) handleUserMessage(input string) (tea.Model, tea.Cmd) {
+	// Resolve @file mentions: text files inline, images become attachments.
+	expanded, images, warnings := expandMentions(input, readDenyPatterns())
+
+	m.appendUserMessage(input, warnings)
 
 	// Add to API history
 	m.mu.Lock()

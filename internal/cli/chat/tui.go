@@ -138,6 +138,9 @@ type chatModel struct {
 	err     error
 	toolMsg string // current tool call description shown in status
 
+	// inputRows is how many rows the input box currently shows (1..maxInputLines).
+	inputRows int
+
 	// Chat history displayed in the viewport
 	messages []message
 
@@ -221,9 +224,12 @@ type chatStyles struct {
 	messages      lipgloss.Style
 	inputBox      lipgloss.Style
 	shellInputBox lipgloss.Style
+	separator     lipgloss.Style
 	statusBar     lipgloss.Style
 	userMsg       lipgloss.Style
 	asstMsg       lipgloss.Style
+	userBlock     lipgloss.Style
+	asstBlock     lipgloss.Style
 	sysMsg        lipgloss.Style
 	toolMsg       lipgloss.Style
 	toolArg       lipgloss.Style

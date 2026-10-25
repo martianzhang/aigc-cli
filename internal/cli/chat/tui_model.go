@@ -38,6 +38,10 @@ func defaultChatStyles() chatStyles {
 			Border(lipgloss.Border{Left: "┃"}, false, false, false, true).
 			BorderForeground(lipgloss.Color("#DD8833")).
 			PaddingLeft(1),
+		// Thin rule between the transcript and the input box, so the input stays
+		// visually anchored when the messages fill the screen.
+		separator: lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#8FB9DA", Dark: "#4E7FA6"}),
 		statusBar: lipgloss.NewStyle().
 			Padding(0, 1).
 			Background(lipgloss.Color("#222222")).
@@ -47,6 +51,16 @@ func defaultChatStyles() chatStyles {
 			Bold(true),
 		asstMsg: lipgloss.NewStyle().
 			Foreground(asstCol),
+		// Whole message blocks carry the left bar, so the highlight runs the
+		// full height of the message and multi-line bodies stay aligned.
+		userBlock: lipgloss.NewStyle().
+			Border(lipgloss.Border{Left: "┃"}, false, false, false, true).
+			BorderForeground(userCol).
+			PaddingLeft(1),
+		asstBlock: lipgloss.NewStyle().
+			Border(lipgloss.Border{Left: "┃"}, false, false, false, true).
+			BorderForeground(asstCol).
+			PaddingLeft(1),
 		sysMsg: lipgloss.NewStyle().
 			Foreground(subtle).
 			Italic(true),
@@ -78,13 +92,20 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 
 	ti := textarea.New()
 	ti.Focus()
-	ti.Placeholder = "Enter to send · Alt+Enter newline · wheel/PgUp scroll"
+	ti.Placeholder = "Enter: send · Alt/Shift+Enter: newline"
 	ti.Prompt = ""
 	ti.ShowLineNumbers = false
 	ti.CharLimit = 0
 	// 999 effectively removes the width cap — real width is set via SetWidth on resize
 	ti.MaxWidth = 999
-	ti.MaxHeight = 5
+	// The textarea always draws maxInputLines rows; the box itself is trimmed
+	// to the rows the draft needs (see inputBlock), which keeps the layout
+	// tight without resizing the widget as the cursor moves.
+	ti.MaxHeight = 0
+	ti.SetHeight(maxInputLines)
+	// Zero-width marker used to tell the textarea's padding rows apart from a
+	// blank line that is actually part of the draft.
+	ti.EndOfBufferCharacter = inputPadding
 	// Minimal style — no cursor line highlight
 	ti.FocusedStyle.CursorLine = lipgloss.NewStyle()
 
@@ -113,6 +134,7 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 		maxTokens:   maxTok,
 		contextSize: ctxSize,
 		input:       ti,
+		inputRows:   1,
 		spinner:     s,
 		messages:    []message{{role: "system", content: welcomeMsg}},
 		completions: completions,

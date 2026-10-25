@@ -27,6 +27,11 @@ func (m *chatModel) Init() tea.Cmd {
 // ---------------------------------------------------------------------------
 
 func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// The input box follows the draft (newlines, paste, history) and the
+	// viewport takes the remaining rows, so re-sync the layout after every
+	// message.
+	defer m.syncLayout()
+
 	switch msg := msg.(type) {
 	// ---- window / terminal events ----------------------------------------
 	case tea.WindowSizeMsg:
@@ -34,9 +39,7 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.styles.header = m.styles.header.Width(msg.Width - 2)
 		m.input.SetWidth(msg.Width - 6)
-		// Reserve at least 6 lines for chrome (header + input box + status bar + padding)
-		chromeHeight := 6
-		vpHeight := max(msg.Height-chromeHeight, 3)
+		vpHeight := m.viewportHeight()
 		if !m.ready {
 			m.viewport = viewport.New(msg.Width-2, vpHeight)
 			m.viewport.YPosition = 1
@@ -168,11 +171,13 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Fallback for direct calls that may not carry full history
 			m.history = append(m.history, *msg.assistantMsg)
 		}
-		// Flush stream buffer into a proper message
-		if m.streamBuf.Len() > 0 {
+		// Flush stream buffer into a proper message. Trailing/leading blank
+		// lines the model streamed would otherwise show up as empty rows, so
+		// the content is trimmed here (blank lines inside the reply survive).
+		if content := strings.TrimSpace(strings.ReplaceAll(m.streamBuf.String(), "\r", "")); content != "" {
 			m.messages = append(m.messages, message{
 				role:    "assistant",
-				content: strings.ReplaceAll(m.streamBuf.String(), "\r", ""),
+				content: content,
 			})
 		}
 		m.streamBuf.Reset()
