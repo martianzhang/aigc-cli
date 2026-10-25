@@ -118,6 +118,26 @@ func runLocalAudioSpeak(_ *cobra.Command) error {
 		modelID = "kokoro" // best balance for mixed EN/ZH
 	}
 
+	if audioDryRun {
+		voice := audioSpeechVoice
+		if voice == "" {
+			if cfg := options.AudioDefaults(); cfg != nil {
+				voice = cfg.SpeakVoice()
+			}
+		}
+		if voice == "" {
+			voice = "default"
+		}
+		printLocalDryRun("audio speak", []localDryRunField{
+			{"model", modelID},
+			{"voice", fmt.Sprintf("%s (sid=%d)", voice, resolveSID(audioSpeechVoice))},
+			{"format", "wav"},
+			{"input", fmt.Sprintf("%d chars", len(req.Input))},
+			{"output", plannedAudioOutput("wav")},
+		})
+		return nil
+	}
+
 	modelDir := filepath.Join(audioModelsDir(), modelID)
 	if _, err := os.Stat(modelDir); err != nil {
 		return fmt.Errorf("model %q not found at %s\nRun 'aigc-cli audio init --model %s' to download it", modelID, modelDir, modelID)

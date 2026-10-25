@@ -232,6 +232,7 @@ defaults:
 - 输出固定为 **44.1kHz 立体声 WAV**；`--format mp3` 仅在线 provider 支持，本地会拒绝。`--inject-json` 在线/本地都支持，只是键不同。
 - 模型最长生成 11.9s；超过会报错。
 - 性能参考：Apple Silicon CPU 上 1s 音频约 9s（8 步 DiT + VAE 解码）。
+- `--dry-run` 只打印解析后的计划（模型、时长、seed/steps、计划输出路径），不加载模型、不写文件。
 - 许可：Stability AI Community License（年收入 100 万美元以下可商用，需保留归属）。
 
 ---
@@ -434,6 +435,9 @@ aigc-cli audio speak -P local --input "你好，欢迎使用本地语音合成�
 
 # 3. 或使用 tts 别名
 aigc-cli audio tts -P local --input "Hello, this is local TTS."
+
+# 4. 只看本地计划（不加载模型、不写文件）
+aigc-cli audio speak -P local --input "你好" --dry-run
 ```
 
 ### 可用 TTS 模型

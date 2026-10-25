@@ -36,6 +36,9 @@ aigc-cli audio init
 
 # Speak with local kokoro model (53 voices)
 aigc-cli audio speak -P local -i "Hello world" --voice zf_xiaoxiao
+
+# Print the local plan only (no model load, no file written)
+aigc-cli audio speak -P local -i "Hello world" --dry-run
 ```
 
 Supported voices include Chinese, English, Japanese, Korean, and French.
@@ -152,6 +155,8 @@ Local inference is the built-in `local` provider, so `-P` works exactly like
 - The model caps clips at 11.9s and rejects longer requests.
 - Reference speed: about 9s for a 1s clip on Apple Silicon CPU (8 DiT steps +
   VAE decode).
+- `--dry-run` prints the resolved plan (model, duration, seed/steps, planned
+  output path) without loading the model or writing a file.
 - License: Stability AI Community License (commercial use under $1M revenue,
   attribution retained).
 
@@ -174,6 +179,9 @@ aigc-cli audio init
 
 # Transcribe
 aigc-cli audio transcribe -i speech.mp3
+
+# Print the local plan only (no model load, no file written)
+aigc-cli audio transcribe -i speech.mp3 --dry-run
 ```
 
 Local STT uses SenseVoice, which performs best for Chinese.

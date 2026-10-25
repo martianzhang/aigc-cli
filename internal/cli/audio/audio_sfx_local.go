@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
@@ -39,13 +40,6 @@ func runLocalSFX(prompt string, p *provider.EffectiveProvider, inject json.RawMe
 		// Escape hatch: --model /path/to/bundle for development and tests.
 		modelDir = modelID
 	}
-	if _, err := os.Stat(modelDir); err != nil {
-		return fmt.Errorf("model %q not found at %s\nRun 'aigc-cli audio init --model %s' to download it", modelID, modelDir, modelID)
-	}
-	libPath, err := onnxrt.LibPath(modelsRoot)
-	if err != nil {
-		return fmt.Errorf("%w\nRun 'aigc-cli audio init --model %s' to install ONNX Runtime", err, modelID)
-	}
 
 	seconds := sfxDuration
 	if seconds == 0 {
@@ -73,6 +67,40 @@ func runLocalSFX(prompt string, p *provider.EffectiveProvider, inject json.RawMe
 	}
 	if err := req.Validate(); err != nil {
 		return err
+	}
+
+	if audioDryRun {
+		seed := "random"
+		if tuning.Seed != nil {
+			seed = strconv.FormatInt(*tuning.Seed, 10)
+		}
+		steps := tuning.Steps
+		if steps == 0 {
+			steps = 8 // distilled default
+		}
+		sigmaMax := tuning.SigmaMax
+		if sigmaMax == 0 {
+			sigmaMax = 1
+		}
+		printLocalDryRun("audio sfx", []localDryRunField{
+			{"model", modelID},
+			{"prompt", fmt.Sprintf("%d chars", len(prompt))},
+			{"duration", fmt.Sprintf("%.2fs", seconds)},
+			{"seed", seed},
+			{"steps", strconv.Itoa(steps)},
+			{"sigma_max", fmt.Sprintf("%g", sigmaMax)},
+			{"normalize", strconv.FormatBool(normalize)},
+			{"output", plannedAudioOutput("wav")},
+		})
+		return nil
+	}
+
+	if _, err := os.Stat(modelDir); err != nil {
+		return fmt.Errorf("model %q not found at %s\nRun 'aigc-cli audio init --model %s' to download it", modelID, modelDir, modelID)
+	}
+	libPath, err := onnxrt.LibPath(modelsRoot)
+	if err != nil {
+		return fmt.Errorf("%w\nRun 'aigc-cli audio init --model %s' to install ONNX Runtime", err, modelID)
 	}
 
 	engine, err := sfxengine.NewEngine(modelDir, libPath)

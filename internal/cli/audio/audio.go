@@ -181,8 +181,9 @@ func init() {
 	audioCmd.AddCommand(playCmd)
 	audioCmd.AddCommand(transcribeCmd)
 
-	// --dry-run is shared by speak/sfx/transcribe.
-	audioCmd.PersistentFlags().BoolVar(&audioDryRun, "dry-run", false, "Print curl command without calling API")
+	// --dry-run is shared by speak/sfx/transcribe: online providers print the
+	// equivalent curl, local ONNX prints the resolved plan.
+	audioCmd.PersistentFlags().BoolVar(&audioDryRun, "dry-run", false, "Print the plan without running inference or calling an API (curl for online, resolved parameters for local)")
 }
 
 // Cmd returns the audio command tree.

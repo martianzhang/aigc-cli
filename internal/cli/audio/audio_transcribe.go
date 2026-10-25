@@ -166,6 +166,15 @@ func runLocalAudioTranscribe(_ *cobra.Command) error {
 		modelID = "sense-voice"
 	}
 
+	if audioDryRun {
+		printLocalDryRun("audio transcribe", []localDryRunField{
+			{"model", modelID},
+			{"input", input},
+			{"output", plannedTranscriptionOutput(input)},
+		})
+		return nil
+	}
+
 	modelDir := filepath.Join(audioModelsDir(), modelID)
 	if _, err := os.Stat(modelDir); err != nil {
 		return fmt.Errorf("model %q not found at %s\nRun 'aigc-cli audio init --model %s' to download it", modelID, modelDir, modelID)
