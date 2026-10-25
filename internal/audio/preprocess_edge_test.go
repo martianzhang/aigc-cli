@@ -231,6 +231,42 @@ func TestDecodeWAV_truncatedSampleData(t *testing.T) {
 	}
 }
 
+// streamingWAVHeader builds a 44-byte header whose RIFF and data sizes carry
+// the all-ones sentinel used by streaming encoders (e.g. Ollama TTS).
+func streamingWAVHeader(channels, bitsPerSample uint16, sampleRate uint32) []byte {
+	hdr := buildWAVHeader(1, channels, bitsPerSample, sampleRate, 0)
+	binary.LittleEndian.PutUint32(hdr[4:8], unknownChunkSize)   // RIFF size unknown
+	binary.LittleEndian.PutUint32(hdr[40:44], unknownChunkSize) // data size unknown
+	return hdr
+}
+
+func TestDecodeWAV_streamingSentinelSizes(t *testing.T) {
+	payload := samplesLE16(1, 2, 3, 4)
+	hdr := streamingWAVHeader(1, 16, 24000)
+
+	got, err := DecodeWAV(bytes.NewReader(wrapWAV(hdr, payload)))
+	if err != nil {
+		t.Fatalf("DecodeWAV: %v", err)
+	}
+	if got.SampleRate != 24000 {
+		t.Errorf("sample rate: got %d, want 24000", got.SampleRate)
+	}
+	if got.Channels != 1 {
+		t.Errorf("channels: got %d, want 1", got.Channels)
+	}
+	assertSamplesEqual(t, got.Samples, []int16{1, 2, 3, 4})
+}
+
+func TestDecodeWAV_streamingSentinelEmptyPayload(t *testing.T) {
+	_, err := DecodeWAV(bytes.NewReader(streamingWAVHeader(1, 16, 24000)))
+	if err == nil {
+		t.Fatal("expected error for empty streaming payload")
+	}
+	if !strings.Contains(err.Error(), "data chunk not found") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestDecodeWAV_extraChunkBeforeData(t *testing.T) {
 	payload := samplesLE16(100, -100, 32767, -32768)
 	hdr := buildWAVHeader(1, 1, 16, 8000, uint32(len(payload)))
@@ -589,5 +625,54 @@ func TestFindDataChunk_notFound(t *testing.T) {
 				t.Errorf("findDataChunk: got %d, want -1", got)
 			}
 		})
+	}
+}
+
+// --- NormalizeWAVSizes ---
+
+func TestNormalizeWAVSizes_streamingSentinel(t *testing.T) {
+	payload := samplesLE16(7, -7, 0, 32767)
+	data := wrapWAV(streamingWAVHeader(1, 16, 24000), payload)
+
+	NormalizeWAVSizes(data)
+
+	if got, want := binary.LittleEndian.Uint32(data[4:8]), uint32(len(data)-8); got != want {
+		t.Errorf("RIFF size: got %d, want %d", got, want)
+	}
+	if got, want := binary.LittleEndian.Uint32(data[40:44]), uint32(len(payload)); got != want {
+		t.Errorf("data size: got %d, want %d", got, want)
+	}
+
+	// The repaired stream must decode through the strict path.
+	got, err := DecodeWAV(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("DecodeWAV after normalize: %v", err)
+	}
+	assertSamplesEqual(t, got.Samples, []int16{7, -7, 0, 32767})
+}
+
+func TestNormalizeWAVSizes_leavesValidHeaderAlone(t *testing.T) {
+	payload := samplesLE16(1, 2)
+	data := wrapWAV(buildWAVHeader(1, 1, 16, 8000, uint32(len(payload))), payload)
+	before := append([]byte(nil), data...)
+
+	NormalizeWAVSizes(data)
+
+	if !bytes.Equal(data, before) {
+		t.Error("valid WAV header was modified")
+	}
+}
+
+func TestNormalizeWAVSizes_nonWAV(t *testing.T) {
+	for _, data := range [][]byte{
+		nil,
+		[]byte("short"),
+		[]byte("NOTARIFFANDNOTWAVE-BUT-LONG-ENOUGH"),
+	} {
+		before := append([]byte(nil), data...)
+		NormalizeWAVSizes(data)
+		if !bytes.Equal(data, before) {
+			t.Errorf("non-WAV data was modified: %q", data)
+		}
 	}
 }

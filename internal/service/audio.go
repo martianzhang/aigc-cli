@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 )
 
@@ -34,6 +35,12 @@ func SaveAudioFile(data []byte, format, outputDir string) (string, error) {
 
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Streaming WAV providers (Ollama TTS) leave placeholder chunk sizes in the
+	// header; fill in the real sizes so the saved file plays in strict players.
+	if ext == ".wav" {
+		audio.NormalizeWAVSizes(data)
 	}
 
 	filename := filepath.Join(dir, fmt.Sprintf("audio_%d%s", time.Now().Unix(), ext))

@@ -33,6 +33,11 @@ func ReadWAV(path string) (*AudioData, error) {
 	return DecodeWAV(f)
 }
 
+// unknownChunkSize is the all-ones chunk size written by streaming WAV encoders
+// (for example Ollama's /v1/audio/speech endpoint) that emit the header before
+// the final length is known. It means "the payload runs until EOF".
+const unknownChunkSize = 0xFFFFFFFF
+
 // DecodeWAV decodes WAV audio from a reader and returns PCM 16-bit mono samples.
 func DecodeWAV(r io.Reader) (*AudioData, error) {
 	var header [44]byte
@@ -66,10 +71,23 @@ func DecodeWAV(r io.Reader) (*AudioData, error) {
 		return nil, fmt.Errorf("data chunk not found")
 	}
 
-	// Read raw sample data
-	raw := make([]byte, dataSize)
-	if _, err := io.ReadFull(r, raw); err != nil {
-		return nil, fmt.Errorf("read samples: %w", err)
+	// Read raw sample data. A streaming header declares the all-ones sentinel
+	// instead of a real length, so the payload must be read until EOF.
+	var raw []byte
+	if dataSize == unknownChunkSize {
+		payload, err := io.ReadAll(r)
+		if err != nil {
+			return nil, fmt.Errorf("read samples: %w", err)
+		}
+		raw = payload
+	} else {
+		raw = make([]byte, dataSize)
+		if _, err := io.ReadFull(r, raw); err != nil {
+			return nil, fmt.Errorf("read samples: %w", err)
+		}
+	}
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("data chunk not found")
 	}
 
 	// Decode to mono int16
@@ -83,12 +101,13 @@ func DecodeWAV(r io.Reader) (*AudioData, error) {
 }
 
 // findDataChunk locates the "data" chunk in a WAV stream, reading past any
-// extra chunks between fmt and data. Returns the data chunk size.
-// header is the first 44 bytes; extra reads go through r.
-func findDataChunk(header []byte, r io.Reader) int {
+// extra chunks between fmt and data. Returns the data chunk size, or -1 when
+// no data chunk is present. int64 keeps the all-ones sentinel intact on 32-bit
+// builds. header is the first 44 bytes; extra reads go through r.
+func findDataChunk(header []byte, r io.Reader) int64 {
 	// First check if data chunk is at the expected offset (byte 40)
 	if len(header) >= 44 && string(header[36:40]) == "data" {
-		return int(binary.LittleEndian.Uint32(header[40:44]))
+		return int64(binary.LittleEndian.Uint32(header[40:44]))
 	}
 
 	// Data chunk is elsewhere — scan forward past extra chunks
@@ -100,7 +119,7 @@ func findDataChunk(header []byte, r io.Reader) int {
 	remaining := header[offset:]
 	if len(remaining) >= 8 {
 		if string(remaining[0:4]) == "data" {
-			return int(binary.LittleEndian.Uint32(remaining[4:8]))
+			return int64(binary.LittleEndian.Uint32(remaining[4:8]))
 		}
 		// skip extra chunk (offset tracking not needed; falls through to stream scan)
 	}
@@ -111,12 +130,12 @@ func findDataChunk(header []byte, r io.Reader) int {
 		if _, err := io.ReadFull(r, chunkHeader[:]); err != nil {
 			return -1
 		}
-		chunkSize := int(binary.LittleEndian.Uint32(chunkHeader[4:8]))
+		size := int64(binary.LittleEndian.Uint32(chunkHeader[4:8]))
 		if string(chunkHeader[0:4]) == "data" {
-			return chunkSize
+			return size
 		}
 		// Skip this chunk (round up to even boundary per RIFF spec)
-		skip := chunkSize
+		skip := size
 		if skip%2 != 0 {
 			skip++
 		}
@@ -262,6 +281,48 @@ func EncodeWAV(w io.Writer, data *AudioData) error {
 		}
 	}
 	return nil
+}
+
+// NormalizeWAVSizes rewrites placeholder chunk sizes in a WAV byte slice in
+// place, so players and tools that trust the header accept the file.
+//
+// Streaming encoders (Ollama's /v1/audio/speech, some HTTP TTS relays) emit
+// the all-ones sentinel for the RIFF and data sizes because the length is not
+// known when the header is written. Once the stream is complete the real sizes
+// are known, and leaving the sentinel makes strict parsers reject the file.
+// Data is left untouched when it is not a WAV stream or carries real sizes.
+func NormalizeWAVSizes(data []byte) {
+	if len(data) < 12 || string(data[0:4]) != "RIFF" || string(data[8:12]) != "WAVE" {
+		return
+	}
+
+	// Walk the chunk list; a sentinel size marks the final chunk.
+	for off := 12; off+8 <= len(data); {
+		id := string(data[off : off+4])
+		size := binary.LittleEndian.Uint32(data[off+4 : off+8])
+		if size == unknownChunkSize {
+			if id == "data" {
+				if payload := int64(len(data) - off - 8); payload >= 0 && payload <= unknownChunkSize {
+					binary.LittleEndian.PutUint32(data[off+4:off+8], uint32(payload))
+				}
+			}
+			break
+		}
+		next := int64(off) + 8 + int64(size)
+		if size%2 != 0 {
+			next++ // chunks are padded to an even boundary
+		}
+		if next <= int64(off) || next > int64(len(data)) {
+			break
+		}
+		off = int(next)
+	}
+
+	if binary.LittleEndian.Uint32(data[4:8]) == unknownChunkSize {
+		if size := int64(len(data) - 8); size >= 0 && size <= unknownChunkSize {
+			binary.LittleEndian.PutUint32(data[4:8], uint32(size))
+		}
+	}
 }
 
 // Resample changes the sample rate of PCM audio using linear interpolation.
