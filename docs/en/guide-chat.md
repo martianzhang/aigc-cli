@@ -373,7 +373,7 @@ aigc-cli chat -P mimo --model mimo-v2.6-flash \
 - Also supported: `max_keyword` (max keywords per turn, 1–50, default 5), `limit` (max results per search, 1–50, default 5), and `user_location` (`{"type":"approximate","city":"Beijing",…}`).
 - `thinking.type` accepts `enabled`/`disabled` (MiMo defaults to `enabled`).
 - **Prerequisite**: enable the web-search plugin in the [MiMo console](https://platform.xiaomimimo.com/#/console/plugin) first, otherwise the API answers `webSearchEnabled is false` (the request body itself is correct).
-- Citations are collected into a `Sources:` list on stderr (capped at 10; `-v` lists all). With `-v`, the usage line also reports `Web search: N call(s), M page(s)`.
+- Citations are collected into a `Sources:` list: non-interactive mode writes it to stderr, and the **TUI shows it below the reply** (capped at 10; `-v` lists all; URLs are clickable in terminals that support OSC 8). With `-v`, the usage line also reports `Web search: N call(s), M page(s)`.
 
 ## Provider Type
 

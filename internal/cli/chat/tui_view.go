@@ -108,6 +108,8 @@ func (m *chatModel) renderOneMessage(msg message) string {
 		return header + " " + label + "\n" + indent + rendered
 	case "system":
 		return m.styles.sysMsg.Render(msg.content)
+	case "sources":
+		return m.styles.sourcesMsg.Render(msg.content)
 	case "tool":
 		if msg.tool == "" {
 			return m.styles.toolMsg.Render("┃") + " " + msg.content

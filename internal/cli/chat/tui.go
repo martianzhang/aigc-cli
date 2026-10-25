@@ -230,5 +230,6 @@ type chatStyles struct {
 	diffAdd       lipgloss.Style
 	diffDel       lipgloss.Style
 	diffCtx       lipgloss.Style
+	sourcesMsg    lipgloss.Style
 	errMsg        lipgloss.Style
 }

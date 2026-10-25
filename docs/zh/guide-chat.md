@@ -545,7 +545,7 @@ aigc-cli chat -P mimo --model mimo-v2.6-flash \
 - 还可写 `max_keyword`（单轮最大关键词数，1–50，默认 5）、`limit`（单次返回的最大结果条数，1–50，默认 5）、`user_location`（`{"type":"approximate","city":"北京",…}`）。
 - `thinking.type` 可设为 `enabled`/`disabled` 控制思维链（MiMo 默认 `enabled`）。
 - **前置条件**：需先在 [MiMo 控制台](https://platform.xiaomimimo.com/#/console/plugin) 开通「联网服务插件」，否则接口返回 `webSearchEnabled is false`（请求体本身是正确的）。
-- 响应中的引用会由 CLI 汇总到 stderr 的 `Sources:` 列表（默认最多 10 条，`-v` 列出全部）；`-v` 的用量行还会显示联网调用量 `Web search: N call(s), M page(s)`。
+- 响应中的引用会汇总为 `Sources:` 列表：非交互模式写到 stderr，**TUI 中显示在回复下方**（默认最多 10 条，`-v` 列出全部；URL 在支持的终端里可点击）；`-v` 的用量行还会显示联网调用量 `Web search: N call(s), M page(s)`。
 
 ### Provider 协议类型
 

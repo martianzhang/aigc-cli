@@ -60,6 +60,8 @@ func defaultChatStyles() chatStyles {
 			Foreground(errCol),
 		diffCtx: lipgloss.NewStyle().
 			Foreground(subtle),
+		sourcesMsg: lipgloss.NewStyle().
+			Foreground(subtle),
 		errMsg: lipgloss.NewStyle().
 			Foreground(errCol),
 	}

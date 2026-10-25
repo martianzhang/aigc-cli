@@ -104,3 +104,60 @@ func TestWebSearchLineIsMiMoOnly(t *testing.T) {
 		t.Errorf("webSearchLine(nil) = %q, want empty", got)
 	}
 }
+
+func TestCollectSourcesDedupesAndSkipsEmptyURLs(t *testing.T) {
+	res := &types.ChatResponse{Choices: []types.ChatChoice{{Message: types.ChatMessage{
+		Annotations: []types.ChatAnnotation{
+			{URL: "https://a.example", Title: "A"},
+			{URL: "https://a.example", Title: "A again"},
+			{Title: "no url"},
+			{URL: "https://b.example"},
+		},
+	}}}}
+	got := collectSources(res)
+	if len(got) != 2 {
+		t.Fatalf("collectSources = %d entries, want 2", len(got))
+	}
+	if got[0].Title != "A" || got[1].URL != "https://b.example" {
+		t.Errorf("collectSources = %+v, want first occurrence order preserved", got)
+	}
+	if collectSources(nil) != nil {
+		t.Error("collectSources(nil) should be nil")
+	}
+}
+
+func TestFormatSourcesCapsAndHyperlinks(t *testing.T) {
+	var anns []types.ChatAnnotation
+	for i := 0; i < sourcesDefaultCap+2; i++ {
+		anns = append(anns, types.ChatAnnotation{
+			URL:   fmt.Sprintf("https://example.com/%d", i),
+			Title: fmt.Sprintf("Title %d", i),
+		})
+	}
+
+	out := formatSources(anns, false)
+	if !strings.Contains(out, fmt.Sprintf("Sources (%d):", sourcesDefaultCap+2)) {
+		t.Errorf("output = %q, want the true total", out)
+	}
+	if !strings.Contains(out, "… and 2 more (use -v to list all)") {
+		t.Errorf("output = %q, want the truncation hint", out)
+	}
+	if strings.Contains(out, "https://example.com/10") {
+		t.Errorf("output = %q, want entries beyond the cap hidden", out)
+	}
+	// Only the URL is wrapped in OSC 8, so the title stays plain.
+	if !strings.Contains(out, "Title 0") {
+		t.Errorf("output = %q, want the citation title", out)
+	}
+	if !strings.Contains(out, "\x1b]8;;https://example.com/0\x1b\\") {
+		t.Errorf("output = %q, want an OSC 8 hyperlink", out)
+	}
+
+	full := formatSources(anns, true)
+	if strings.Contains(full, "and 2 more") {
+		t.Errorf("verbose output should not truncate: %q", full)
+	}
+	if !strings.Contains(full, "https://example.com/11") {
+		t.Errorf("verbose output should include the last citation: %q", full)
+	}
+}

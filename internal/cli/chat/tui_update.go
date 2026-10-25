@@ -189,25 +189,35 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					content: fmt.Sprintf("Error: %v", msg.err),
 				})
 			}
-		} else if msg.result != nil && m.verbose {
-			// Verbose stats
-			parts := []string{}
-			if msg.result.Model != "" {
-				parts = append(parts, fmt.Sprintf("Model: %s", msg.result.Model))
-			}
-			if msg.result.Usage != nil {
-				parts = append(parts, fmt.Sprintf("Tokens: %d↑ + %d↓ = %d",
-					msg.result.Usage.PromptTokens, msg.result.Usage.CompletionTokens, msg.result.Usage.TotalTokens))
-				if msg.result.Usage.Cost > 0 {
-					parts = append(parts, fmt.Sprintf("Cost: $%.6f", msg.result.Usage.Cost))
-				}
-			}
-			parts = append(parts, fmt.Sprintf("Time: %v", msg.elapsed.Round(time.Millisecond)))
-			if len(parts) > 0 {
+		} else if msg.result != nil {
+			// Provider-side web search citations. These were previously only
+			// printed on the non-TUI path, so the TUI silently lost them.
+			if sources := collectSources(msg.result); len(sources) > 0 {
 				m.messages = append(m.messages, message{
-					role:    "system",
-					content: "──  " + strings.Join(parts, "  │  "),
+					role:    "sources",
+					content: formatSources(sources, m.verbose),
 				})
+			}
+			if m.verbose {
+				// Verbose stats
+				parts := []string{}
+				if msg.result.Model != "" {
+					parts = append(parts, fmt.Sprintf("Model: %s", msg.result.Model))
+				}
+				if msg.result.Usage != nil {
+					parts = append(parts, fmt.Sprintf("Tokens: %d↑ + %d↓ = %d",
+						msg.result.Usage.PromptTokens, msg.result.Usage.CompletionTokens, msg.result.Usage.TotalTokens))
+					if msg.result.Usage.Cost > 0 {
+						parts = append(parts, fmt.Sprintf("Cost: $%.6f", msg.result.Usage.Cost))
+					}
+				}
+				parts = append(parts, fmt.Sprintf("Time: %v", msg.elapsed.Round(time.Millisecond)))
+				if len(parts) > 0 {
+					m.messages = append(m.messages, message{
+						role:    "system",
+						content: "──  " + strings.Join(parts, "  │  "),
+					})
+				}
 			}
 		}
 		m.refreshViewport()
