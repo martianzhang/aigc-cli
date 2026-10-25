@@ -50,6 +50,18 @@ func (m *chatModel) cancelTurn() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// toggleLastToolExpanded expands or collapses the most recent tool output.
+func (m *chatModel) toggleLastToolExpanded() (tea.Model, tea.Cmd) {
+	for i, msg := range slices.Backward(m.messages) {
+		if msg.role == "tool" && msg.tool != "" {
+			m.messages[i].expanded = !msg.expanded
+			m.refreshViewport()
+			break
+		}
+	}
+	return m, nil
+}
+
 func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Global keys work regardless of state
 	switch msg.Type {
@@ -91,6 +103,9 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyTab:
 		return m.handleTabCompletion()
+
+	case tea.KeyCtrlO:
+		return m.toggleLastToolExpanded()
 
 	case tea.KeyPgUp, tea.KeyPgDown:
 		// Page scrolling works even while processing

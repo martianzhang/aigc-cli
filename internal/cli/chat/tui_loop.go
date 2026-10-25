@@ -82,7 +82,12 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 			localHistory = append(localHistory, choice.Message)
 
 			for _, tc := range choice.Message.ToolCalls {
-				prog.Send(toolStart{turn: turn, name: tc.Function.Name})
+				prog.Send(toolStart{
+					turn:    turn,
+					name:    tc.Function.Name,
+					summary: toolCallSummary(tc.Function.Name, tc.Function.Arguments),
+					diff:    toolCallDiff(tc.Function.Name, tc.Function.Arguments),
+				})
 
 				// Redirect stderr during tool execution
 				restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})

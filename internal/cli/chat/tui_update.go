@@ -98,9 +98,11 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = tuiToolCall
 		m.toolMsg = fmt.Sprintf("🛠️  Running %s …", msg.name)
 		m.messages = append(m.messages, message{
-			role:    "tool",
-			content: fmt.Sprintf("Running %s …", msg.name),
-			tool:    msg.name,
+			role:        "tool",
+			content:     fmt.Sprintf("Running %s …", msg.name),
+			tool:        msg.name,
+			toolSummary: msg.summary,
+			toolDiff:    msg.diff,
 		})
 		m.refreshViewport()
 		return m, m.spinner.Tick
@@ -111,6 +113,7 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state = tuiProcessing
 		m.toolMsg = fmt.Sprintf("✓ %s: %s", msg.name, msg.summary)
+		found := false
 		for i, tm := range slices.Backward(m.messages) {
 			if tm.role == "tool" && tm.tool == msg.name {
 				content := msg.content
@@ -118,8 +121,13 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					content = fmt.Sprintf("✓ %s", msg.summary)
 				}
 				m.messages[i].content = content
+				found = true
 				break
 			}
+		}
+		// Status-only notifications (e.g. max iterations) have no tool card.
+		if !found && msg.summary != "" {
+			m.messages = append(m.messages, message{role: "system", content: msg.summary})
 		}
 		m.refreshViewport()
 		return m, nil

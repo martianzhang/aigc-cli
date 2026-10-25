@@ -73,6 +73,7 @@ func (m *chatModel) showHelp() {
                        (Tab completes paths; defaults.chat.read_deny still applies)
   !<command>           Run a shell command
   PgUp/PgDn or wheel  Scroll conversation output
+  Ctrl+O               Expand/collapse the last tool output
   Shift+drag           Select text — iTerm2: ⌥ Option + drag (mouse capture is on for scrolling)
   Ctrl+C               Interrupt the current turn; when idle, quit
   Ctrl+D               Quit (ignored while a draft is present)

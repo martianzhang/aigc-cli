@@ -41,12 +41,9 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 			m.state = tuiToolCall
 			m.toolMsg = fmt.Sprintf("🛠️  Direct call: %s …", cmdName)
 
-			// Add pending message
-			m.messages = append(m.messages, message{
-				role:    "tool",
-				content: fmt.Sprintf("Running %s …", cmdName),
-				tool:    cmdName,
-			})
+			// The tool card is created by the toolStart message below (the
+			// goroutine owns diff/summary computation). Appending one here too
+			// used to leave a stale "Running …" line behind after completion.
 
 			// Direct calls get their own cancellable turn so Esc stops the tool.
 			m.turnID++
@@ -58,7 +55,12 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 			// Run in goroutine
 			go func() {
 				prog := getProgram()
-				prog.Send(toolStart{turn: turn, name: cmdName})
+				prog.Send(toolStart{
+					turn:    turn,
+					name:    cmdName,
+					summary: toolCallSummary(cmdName, argsJSON),
+					diff:    toolCallDiff(cmdName, argsJSON),
+				})
 
 				// Take snapshot of history (same principle as runTUIAgentLoop)
 				m.mu.Lock()

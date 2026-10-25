@@ -45,7 +45,7 @@ aigc-cli chat -v
 │  ─────────────────────────────────   │     （可滚动画板）
 │  Assistant: 2                        │
 │                                      │
-│  🛠️  generate_image:                 │
+│  🛠️  generate_image a cat under stars │
 │  ✓ Successfully generated 1 image(s) │
 │                                      │
 ├──────────────────────────────────────┤
@@ -71,6 +71,7 @@ aigc-cli chat -v
 | `/preview <file>` | 预览图片/视频 |
 | `@path` | 引用本地文件：文本内联、图片作为附件（`Tab` 补全路径；受 `defaults.chat.read_deny` 限制） |
 | `PgUp` `PgDn` / 鼠标滚轮 | 上下滚动对话输出（选中文本需按住终端「绕过鼠标报告」的键再拖拽：**iTerm2 是 `⌥ Option`**，多数终端是 `Shift`；`/copy` 可复制最后一条回复） |
+| `Ctrl+O` | 展开 / 收起最后一条工具输出（超过 20 行的输出默认折叠） |
 | `!<command>` | 执行 Shell 命令（输出区会带 `$ 命令` 前缀，便于看清执行了什么） |
 
 > **多行输入：** 按 `Alt+Enter` 或 `Ctrl+J` 换行，`Enter` 提交消息。
@@ -158,6 +159,7 @@ aigc-cli chat --message "生成一段日落海滩的视频"
 - 每次用户消息，LLM 最多连续调 10 次工具，可通过 `defaults.chat.max_iterations` 配置
 - 工具执行时读取 `defaults.image` / `defaults.video` 作为 LLM 没指定参数时的兜底
 - 每个工具执行后显示耗时和结果摘要（如 `[tool] done in 3.2s: Successfully generated 1 image(s)`）
+- 工具调用以卡片展示参数与结果：`bash` 显示完整命令行，`write` / `edit` 显示 `+/-` diff 预览；结果超过 20 行时自动折叠，按 `Ctrl+O` 展开或收起
 - 长耗时操作（图片/视频/MJ 生成）支持 `Ctrl+C` 中断，立即返回 prompt
 
 ### 可用工具（原语）

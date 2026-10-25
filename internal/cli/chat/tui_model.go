@@ -52,6 +52,14 @@ func defaultChatStyles() chatStyles {
 			Italic(true),
 		toolMsg: lipgloss.NewStyle().
 			Foreground(toolCol),
+		toolArg: lipgloss.NewStyle().
+			Foreground(subtle),
+		diffAdd: lipgloss.NewStyle().
+			Foreground(asstCol),
+		diffDel: lipgloss.NewStyle().
+			Foreground(errCol),
+		diffCtx: lipgloss.NewStyle().
+			Foreground(subtle),
 		errMsg: lipgloss.NewStyle().
 			Foreground(errCol),
 	}

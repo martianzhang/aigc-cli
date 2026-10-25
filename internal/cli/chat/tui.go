@@ -45,8 +45,10 @@ type logMsg struct {
 
 // toolStart is sent when a tool call begins.
 type toolStart struct {
-	turn uint64
-	name string
+	turn    uint64
+	name    string
+	summary string // one-line argument summary for the tool header
+	diff    string // optional pre-rendered diff (write/edit)
 }
 
 // toolDone is sent when a tool call completes.
@@ -90,6 +92,15 @@ type message struct {
 	role    string // "user", "assistant", "system", "tool"
 	content string
 	tool    string // tool name for tool messages
+
+	// toolSummary is the one-line argument summary shown next to the tool name
+	// (e.g. the bash command, or "file.go (-2/+5 lines)" for an edit).
+	toolSummary string
+	// toolDiff is a pre-rendered +/- diff for write/edit calls.
+	toolDiff string
+	// expanded controls whether a long tool output is shown in full. Ctrl+O
+	// toggles it for the most recent tool message.
+	expanded bool
 }
 
 // ---------------------------------------------------------------------------
@@ -190,5 +201,9 @@ type chatStyles struct {
 	asstMsg       lipgloss.Style
 	sysMsg        lipgloss.Style
 	toolMsg       lipgloss.Style
+	toolArg       lipgloss.Style
+	diffAdd       lipgloss.Style
+	diffDel       lipgloss.Style
+	diffCtx       lipgloss.Style
 	errMsg        lipgloss.Style
 }
