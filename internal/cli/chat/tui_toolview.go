@@ -284,21 +284,21 @@ func firstLine(s string) string {
 }
 
 // clipString truncates s to maxWidth display columns, appending an ellipsis.
+// It verifies the measured width of the result, which keeps emoji and other
+// wide clusters from overshooting by one column.
 func clipString(s string, maxWidth int) string {
 	if maxWidth <= 0 || lipgloss.Width(s) <= maxWidth {
 		return s
 	}
-	var b strings.Builder
-	width := 0
-	for _, r := range s {
-		rw := lipgloss.Width(string(r))
-		if width+rw > maxWidth-1 {
-			break
+	runes := []rune(s)
+	for len(runes) > 0 {
+		candidate := string(runes) + "…"
+		if lipgloss.Width(candidate) <= maxWidth {
+			return candidate
 		}
-		b.WriteRune(r)
-		width += rw
+		runes = runes[:len(runes)-1]
 	}
-	return b.String() + "…"
+	return "…"
 }
 
 // ---------------------------------------------------------------------------

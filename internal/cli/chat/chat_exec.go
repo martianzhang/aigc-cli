@@ -140,8 +140,5 @@ func summarizeToolResult(_, result string) string {
 	if strings.HasPrefix(firstLine, "Error:") {
 		return firstLine
 	}
-	if len(firstLine) > 80 {
-		firstLine = firstLine[:80] + "..."
-	}
-	return firstLine
+	return clipString(firstLine, 80)
 }

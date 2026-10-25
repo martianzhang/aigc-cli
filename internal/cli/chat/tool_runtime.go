@@ -210,8 +210,5 @@ func shortDescription(desc string) string {
 		line = desc[:idx]
 	}
 	line = strings.TrimSpace(line)
-	if len(line) > 100 {
-		line = line[:100] + "..."
-	}
-	return line
+	return clipString(line, 100)
 }

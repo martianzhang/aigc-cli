@@ -83,7 +83,7 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.turn != m.turnID {
 			return m, nil
 		}
-		text := strings.TrimRight(msg.text, "\r\n")
+		text := normalizeLogText(msg.text)
 		if text != "" {
 			m.messages = append(m.messages, message{role: "system", content: text})
 			m.refreshViewport()
@@ -265,8 +265,12 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.streamBuf.Reset()
 		m.err = nil
+		m.pending = nil
 		m.input.Reset()
-		m.viewport.SetContent("")
+		m.input.Focus()
+		// Re-render so msgCache no longer holds the cleared transcript;
+		// otherwise the next streamed chunk resurrects the old conversation.
+		m.refreshViewport()
 		m.viewport.GotoBottom()
 		return m, nil
 
@@ -287,4 +291,17 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// handleKeyMsg processes keyboard events.
+// normalizeLogText cleans up stderr captured from tool execution before it is
+// shown in the message area. Carriage returns are used for progress bars; for
+// each line we keep only the text after the last \r (the final state), and
+// trailing newlines are dropped.
+func normalizeLogText(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		if idx := strings.LastIndex(line, "\r"); idx >= 0 {
+			lines[i] = line[idx+1:]
+		}
+	}
+	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
+}

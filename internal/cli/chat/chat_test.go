@@ -112,11 +112,11 @@ func TestBuildAgentTools_filterSinglePrimitive(t *testing.T) {
 
 func TestSummarizeToolResult_truncated(t *testing.T) {
 	got := summarizeToolResult("test", "This is a very long result that should definitely be truncated because it exceeds eighty characters in total length")
-	if len(got) > 83 {
-		t.Errorf("summarizeToolResult() = %q (len=%d), want <= 83", got, len(got))
+	if n := len([]rune(got)); n > 81 {
+		t.Errorf("summarizeToolResult() = %q (runes=%d), want <= 81", got, n)
 	}
-	if !strings.HasSuffix(got, "...") {
-		t.Errorf("summarizeToolResult() = %q, should end with '...'", got)
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("summarizeToolResult() = %q, should end with an ellipsis", got)
 	}
 }
 

@@ -120,15 +120,19 @@ func (m *chatModel) renderOneMessage(msg message) string {
 	}
 }
 
-// renderStatus builds the status bar text.
+// renderStatus builds the status bar text. Idle and confirmation states are
+// clipped to the terminal width, so a long error message cannot wrap and break
+// the layout. Spinner states are left alone because their ANSI escapes would
+// confuse the rune-based clipper.
 func (m *chatModel) renderStatus() string {
 	info := m.providerModelDisplay()
+	width := max(m.width-2, 20)
 	switch m.state {
 	case tuiIdle:
 		if m.err != nil {
-			return fmt.Sprintf("⚠️  Error: %v  |  %s  |  F1: Help  |  Ctrl+C: Quit", m.err, info)
+			return clipString(fmt.Sprintf("⚠️  Error: %v  |  %s  |  F1: Help  |  Ctrl+C: Quit", m.err, info), width)
 		}
-		return fmt.Sprintf("● Ready  |  %s  |  F1: Help  |  Ctrl+C: Quit", info)
+		return clipString(fmt.Sprintf("● Ready  |  %s  |  F1: Help  |  Ctrl+C: Quit", info), width)
 	case tuiProcessing:
 		if m.compacting {
 			return m.spinner.View() + " Compacting…  |  Esc: Cancel"
@@ -138,7 +142,7 @@ func (m *chatModel) renderStatus() string {
 		return m.spinner.View() + " " + m.toolMsg + "  |  Esc: Cancel"
 	case tuiConfirming:
 		if m.pending != nil {
-			return fmt.Sprintf("⚠️  Confirm %s  |  y: once  a: always  n: deny  |  Esc: deny & stop", m.pending.name)
+			return clipString(fmt.Sprintf("⚠️  Confirm %s  |  y: once  a: always  n: deny  |  Esc: deny & stop", m.pending.name), width)
 		}
 		return "⚠️  Waiting for confirmation…"
 	default:
