@@ -77,7 +77,8 @@ func (m *chatModel) showHelp() {
   Up/Down              History — or move the cursor inside a multi-line draft
   PgUp/PgDn or wheel  Scroll conversation output
   Ctrl+O               Expand/collapse the last tool output
-  Shift+drag           Select text — iTerm2: ⌥ Option + drag (mouse capture is on for scrolling)
+  Drag                 Select transcript rows and copy them without the frame
+  Shift+drag           Native terminal selection — iTerm2: ⌥ Option + drag
   Ctrl+C               Interrupt the current turn; when idle, quit
   Ctrl+D               Quit (ignored while a draft is present)
   Esc                  Interrupt the current turn (partial output is kept)

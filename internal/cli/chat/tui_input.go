@@ -126,6 +126,12 @@ func (m *chatModel) resolveConfirm(decision confirmDecision) (tea.Model, tea.Cmd
 }
 
 func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// A stale selection (e.g. the release arrived outside the window) should not
+	// survive keyboard input.
+	if m.selActive {
+		m.clearSelection()
+	}
+
 	// A pending tool confirmation owns the keyboard until answered.
 	if m.pending != nil {
 		return m.handleConfirmKey(msg)

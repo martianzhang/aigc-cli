@@ -56,8 +56,19 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 
-	// ---- mouse wheel scrolls the message viewport ------------------------
+	// ---- mouse: drag-select copies clean text, wheel scrolls --------------
 	case tea.MouseMsg:
+		switch {
+		case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
+			m.startSelection(msg)
+			return m, nil
+		case m.selActive && msg.Action == tea.MouseActionMotion:
+			m.dragSelection(msg)
+			return m, nil
+		case m.selActive && msg.Action == tea.MouseActionRelease:
+			m.finishSelection()
+			return m, nil
+		}
 		// Without this the wheel falls through to the terminal, which scrolls the
 		// main-screen scrollback and reveals the shell history behind the alt
 		// screen. Forwarding to the viewport keeps scrolling inside the chat.

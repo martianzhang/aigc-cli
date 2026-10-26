@@ -67,14 +67,28 @@ func (m *chatModel) View() string {
 }
 
 // renderMessages returns the rendered viewport content from stored messages.
-// Updates msgCache so streamChunk rendering can skip re-rendering all messages.
+// Updates msgCache so streamChunk rendering can skip re-rendering all messages,
+// and records which lines belong to which message (with the separator needed to
+// rebuild soft-wrapped text) for copy-on-select.
 func (m *chatModel) renderMessages() string {
 	var b strings.Builder
+	m.msgRanges = m.msgRanges[:0]
+	line := 0
 	for i, msg := range m.messages {
 		if i > 0 {
+			// The separator newline only terminates the previous message; the
+			// next one starts on the following line, which is `line` already.
 			b.WriteByte('\n')
 		}
-		b.WriteString(m.renderOneMessage(msg))
+		rendered, seps := m.renderOneMessage(msg)
+		m.msgRanges = append(m.msgRanges, msgRange{
+			role:  msg.role,
+			start: line,
+			end:   line + len(seps),
+			seps:  seps,
+		})
+		line += len(seps)
+		b.WriteString(rendered)
 	}
 	m.msgCache = b.String()
 	return m.msgCache
@@ -91,7 +105,7 @@ func (m *chatModel) renderMessagesWithStream() string {
 	// preview keeps the raw text. It still goes through the same message block,
 	// though, so the label, the left bar and the indentation do not jump when
 	// the turn finishes.
-	preview := m.renderMessageBlock(m.styles.asstBlock, m.styles.asstMsg.Render("Assistant:"), body)
+	preview, _ := m.renderMessageBlock(m.styles.asstBlock, m.styles.asstMsg.Render("Assistant:"), body)
 	if m.msgCache == "" {
 		return preview
 	}
@@ -108,10 +122,18 @@ func (m *chatModel) renderMarkdown(text string) string {
 	if text == "" || !containsMarkdown(text) {
 		return text
 	}
-	// Wrap to the message area instead of glamour's fixed 80-column default.
+	// Render at a much wider limit than the message area: glamour pads every
+	// line to its wrap width and its own wrapping cannot be undone, so all
+	// wrapping is left to wrapANSI (which records how to rejoin copied text).
+	// Tables are the exception — glamour sizes their columns from the wrap
+	// width, so they need the real message width to stay readable.
+	wrapWidth := max(m.bodyWidth()*4, 512)
+	if hasMarkdownTable(text) {
+		wrapWidth = max(m.bodyWidth(), 20)
+	}
 	renderer, err := glamour.NewTermRenderer(
 		glamour.WithStyles(chatMarkdownStyles),
-		glamour.WithWordWrap(max(m.width-8, 20)),
+		glamour.WithWordWrap(wrapWidth),
 	)
 	if err != nil {
 		return text
@@ -120,7 +142,77 @@ func (m *chatModel) renderMarkdown(text string) string {
 	if err != nil {
 		return text
 	}
-	return strings.TrimSpace(rendered)
+	return trimMarkdownPadding(rendered)
+}
+
+// hasMarkdownTable reports whether the source contains a GFM table (a header
+// row followed by a delimiter row).
+func hasMarkdownTable(s string) bool {
+	lines := strings.Split(s, "\n")
+	for i := 1; i < len(lines); i++ {
+		if !strings.Contains(lines[i-1], "|") || strings.Count(lines[i], "|") < 2 {
+			continue
+		}
+		if isTableDelimiter(lines[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// isTableDelimiter reports whether line looks like "|---|:--:|".
+func isTableDelimiter(line string) bool {
+	line = strings.TrimSpace(line)
+	if !strings.Contains(line, "-") {
+		return false
+	}
+	for _, r := range line {
+		switch r {
+		case '|', '-', ':', ' ', '\t':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// trimMarkdownPadding removes the blank rows and the styled padding cells that
+// glamour writes at the end of each line (it pads to its wrap width).
+func trimMarkdownPadding(rendered string) string {
+	lines := strings.Split(strings.TrimSpace(rendered), "\n")
+	for i, line := range lines {
+		lines[i] = trimLineRight(line)
+	}
+	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
+}
+
+// trimLineRight drops trailing spaces from a styled line without breaking the
+// escape sequences: it keeps everything up to the last visible non-space cell
+// and closes any style that was still open.
+func trimLineRight(s string) string {
+	var (
+		state byte
+		p     = xansi.NewParser()
+		last  int
+	)
+	for i := 0; i < len(s); {
+		seq, w, n, newState := xansi.DecodeSequence(s[i:], state, p)
+		if n <= 0 {
+			seq, w, n = s[i:i+1], 1, 1
+		}
+		i += n
+		state = newState
+		if w > 0 && seq != " " {
+			last = i
+		}
+	}
+	if last == 0 {
+		return ""
+	}
+	if last == len(s) {
+		return s
+	}
+	return s[:last] + "\x1b[0m"
 }
 
 // containsMarkdown reports whether text likely contains markdown formatting.
@@ -132,36 +224,50 @@ func containsMarkdown(s string) bool {
 		strings.HasPrefix(s, "-") || strings.HasPrefix(s, "1.")
 }
 
-func (m *chatModel) renderOneMessage(msg message) string {
+func (m *chatModel) renderOneMessage(msg message) (string, []string) {
 	switch msg.role {
 	case "user":
 		return m.renderMessageBlock(m.styles.userBlock, m.styles.userMsg.Render("You:"), msg.content)
 	case "assistant":
 		return m.renderMessageBlock(m.styles.asstBlock, m.styles.asstMsg.Render("Assistant:"), m.renderMarkdown(msg.content))
 	case "system":
-		return m.styles.sysMsg.Render(strings.TrimRight(msg.content, "\n"))
+		return hardLineBreaks(m.styles.sysMsg.Render(strings.TrimRight(msg.content, "\n")))
 	case "sources":
-		return m.styles.sourcesMsg.Render(strings.TrimRight(msg.content, "\n"))
+		return hardLineBreaks(m.styles.sourcesMsg.Render(strings.TrimRight(msg.content, "\n")))
 	case "tool":
 		if msg.tool == "" {
-			return m.styles.toolMsg.Render("┃") + " " + msg.content
+			return hardLineBreaks(m.styles.toolMsg.Render("┃") + " " + msg.content)
 		}
-		return m.renderToolMessage(msg)
+		return hardLineBreaks(m.renderToolMessage(msg))
 	default:
-		return msg.content
+		return hardLineBreaks(msg.content)
 	}
+}
+
+// hardLineBreaks marks every line of s as separated by a real newline.
+func hardLineBreaks(s string) (string, []string) {
+	seps := make([]string, strings.Count(s, "\n")+1)
+	for i := 1; i < len(seps); i++ {
+		seps[i] = "\n"
+	}
+	return s, seps
 }
 
 // renderMessageBlock draws a role label and its body inside a coloured left
 // bar. Wrapping the whole block — instead of prefixing just the label line —
 // keeps the highlight running down the full height of the message and gives
-// multi-line bodies a hanging indent.
-func (m *chatModel) renderMessageBlock(block lipgloss.Style, label, body string) string {
+// multi-line bodies a hanging indent. The returned separators let a copied
+// selection undo wrapping instead of turning it into hard newlines.
+func (m *chatModel) renderMessageBlock(block lipgloss.Style, label, body string) (string, []string) {
 	body = strings.TrimRight(body, "\n")
 	if body == "" {
-		return block.Render(label)
+		return block.Render(label), []string{""}
 	}
-	return block.Render(label + "\n" + wrapANSI(body, m.bodyWidth()))
+	wrapped, joins := wrapANSI(body, m.bodyWidth())
+	seps := make([]string, 0, len(joins)+2)
+	seps = append(seps, "", "\n")
+	seps = append(seps, joins...)
+	return block.Render(label + "\n" + wrapped), seps
 }
 
 // bodyWidth is the number of columns available for message text: the terminal
@@ -173,64 +279,138 @@ func (m *chatModel) bodyWidth() int {
 	return max(m.width-6, 16)
 }
 
-// wrapANSI hard-wraps s to width display columns, breaking long runs that have
-// no word boundary (CJK text, URLs). Escape sequences are copied through and
-// the active SGR style is re-applied after every inserted line break, so
-// colours survive the wrap (glamour's own word wrap only breaks at spaces).
-func wrapANSI(s string, width int) string {
+// wrapToken is one escape sequence or one grapheme cluster of a line.
+type wrapToken struct {
+	seq string
+	w   int
+}
+
+// wrapANSI wraps s to width display columns, preferring spaces as break points
+// so English words stay intact; runs without spaces (CJK, long tokens) are
+// hard-wrapped. Escape sequences are preserved and the active SGR style is
+// re-applied after every break, so colours survive the wrap.
+//
+// It also returns one separator per line after the first, describing how to
+// rebuild the original text: "\n" for a real line break, " " for a wrap at a
+// space and "" for a hard wrap. Copy-on-select uses them so a wrapped line does
+// not turn into an artificial newline.
+func wrapANSI(s string, width int) (string, []string) {
 	if width < 1 {
-		return s
+		_, seps := hardLineBreaks(s)
+		return s, seps[1:]
 	}
+
+	// Split the source into hard lines of tokens (escape sequences included).
 	var (
-		out    strings.Builder
-		active strings.Builder // SGR state to restore after a line break
-		col    int
-		state  byte
-		parser = xansi.NewParser()
+		srcLines [][]wrapToken
+		cur      []wrapToken
+		state    byte
+		parser   = xansi.NewParser()
 	)
 	for i := 0; i < len(s); {
 		seq, w, n, newState := xansi.DecodeSequence(s[i:], state, parser)
 		if n <= 0 {
-			out.WriteByte(s[i])
-			i++
-			continue
+			seq, w, n = s[i:i+1], 1, 1
 		}
 		i += n
 		state = newState
+		if seq == "\n" {
+			srcLines = append(srcLines, cur)
+			cur = nil
+			continue
+		}
+		cur = append(cur, wrapToken{seq: seq, w: w})
+	}
+	srcLines = append(srcLines, cur)
 
-		switch {
-		case seq == "\n":
-			if active.Len() > 0 {
-				out.WriteString("\x1b[0m\n")
-				out.WriteString(active.String())
-			} else {
+	var (
+		out    strings.Builder
+		joins  []string
+		active string // logical SGR state, re-applied at the start of each row
+		first  = true
+	)
+	for _, toks := range srcLines {
+		visual, lineJoins := splitVisualLine(toks, width)
+		for vi, row := range visual {
+			if !first {
 				out.WriteByte('\n')
-			}
-			col = 0
-		case strings.HasPrefix(seq, "\x1b["):
-			out.WriteString(seq)
-			if strings.HasSuffix(seq, "m") {
-				if seq == "\x1b[0m" || seq == "\x1b[m" {
-					active.Reset()
+				if vi == 0 {
+					joins = append(joins, "\n")
 				} else {
-					active.WriteString(seq)
+					joins = append(joins, lineJoins[vi-1])
 				}
 			}
-		default:
-			if w > 0 && col > 0 && col+w > width {
-				if active.Len() > 0 {
-					out.WriteString("\x1b[0m\n")
-					out.WriteString(active.String())
-				} else {
-					out.WriteByte('\n')
-				}
-				col = 0
+			first = false
+			if active != "" {
+				out.WriteString(active)
 			}
-			out.WriteString(seq)
-			col += w
+			for _, t := range row {
+				out.WriteString(t.seq)
+				if !isSGR(t.seq) {
+					continue
+				}
+				if t.seq == "\x1b[0m" || t.seq == "\x1b[m" {
+					active = ""
+				} else {
+					active += t.seq
+				}
+			}
+			if active != "" {
+				// Close the row so the style cannot leak past it; it is
+				// re-applied above on the next row.
+				out.WriteString("\x1b[0m")
+			}
 		}
 	}
-	return out.String()
+	return out.String(), joins
+}
+
+// isSGR reports whether seq is an SGR (colour/attribute) escape sequence.
+func isSGR(seq string) bool {
+	return strings.HasPrefix(seq, "\x1b[") && strings.HasSuffix(seq, "m")
+}
+
+// splitVisualLine greedily wraps one hard line into visual rows, preferring the
+// last space on the row as the break point. It returns the rows and, for every
+// row but the last, the separator that rejoins it to the next one.
+func splitVisualLine(toks []wrapToken, width int) ([][]wrapToken, []string) {
+	if len(toks) == 0 {
+		return [][]wrapToken{{}}, nil
+	}
+	var (
+		visual [][]wrapToken
+		joins  []string
+	)
+	for len(toks) > 0 {
+		w, cut, lastSpace := 0, 0, -1
+		for i, t := range toks {
+			if t.w > 0 {
+				if w+t.w > width && w > 0 {
+					break
+				}
+				w += t.w
+			}
+			cut = i + 1
+			if t.seq == " " {
+				lastSpace = i
+			}
+		}
+		if cut == 0 {
+			cut = 1
+		}
+		join := ""
+		if cut < len(toks) && lastSpace > 0 {
+			cut = lastSpace
+			join = " "
+		}
+		visual = append(visual, toks[:cut])
+		toks = toks[cut:]
+		if join == " " {
+			toks = toks[1:] // the space moved into the join
+		}
+		joins = append(joins, join)
+	}
+	return visual, joins[:len(joins)-1]
 }
 
 // renderStatus builds the status bar text. Idle and confirmation states are

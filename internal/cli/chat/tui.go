@@ -141,6 +141,16 @@ type chatModel struct {
 	// inputRows is how many rows the input box currently shows (1..maxInputLines).
 	inputRows int
 
+	// Mouse text selection over the transcript (copy on release).
+	selActive bool
+	selAnchor int // transcript line where the drag started
+	selFocus  int // current end of the drag
+	selMoved  bool
+
+	// msgRanges maps each rendered transcript line back to the message that
+	// produced it, so copied rows can drop the decoration of their block.
+	msgRanges []msgRange
+
 	// Chat history displayed in the viewport
 	messages []message
 

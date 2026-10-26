@@ -26,10 +26,11 @@ func TestRenderMessageBlockFullHeightBar(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			lines := strings.Split(stripANSI(m.renderOneMessage(message{
+			rendered, _ := m.renderOneMessage(message{
 				role:    tc.role,
 				content: "第一行\n第二行",
-			})), "\n")
+			})
+			lines := strings.Split(stripANSI(rendered), "\n")
 
 			want := []string{"┃ " + tc.label, "┃ 第一行", "┃ 第二行"}
 			if len(lines) != len(want) {
@@ -57,7 +58,8 @@ func TestRenderOneMessageTrimsBlankLines(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := stripANSI(m.renderOneMessage(message{role: tc.role, content: tc.content}))
+			rendered, _ := m.renderOneMessage(message{role: tc.role, content: tc.content})
+			got := stripANSI(rendered)
 			lines := strings.Split(got, "\n")
 			for i := range lines {
 				lines[i] = strings.TrimRight(lines[i], " ")
@@ -116,7 +118,8 @@ func TestStreamPreviewUsesMessageBlock(t *testing.T) {
 // only whitespace) renders just the label, without a stray blank row.
 func TestRenderMessageBlockEmptyBody(t *testing.T) {
 	m := newTestModel(t)
-	got := stripANSI(m.renderOneMessage(message{role: "assistant", content: "  \n"}))
+	rendered, _ := m.renderOneMessage(message{role: "assistant", content: "  \n"})
+	got := stripANSI(rendered)
 	if got != "┃ Assistant:" {
 		t.Errorf("rendered = %q, want %q", got, "┃ Assistant:")
 	}
@@ -181,7 +184,7 @@ func TestBodyWidthUnset(t *testing.T) {
 	if got := m.bodyWidth(); got != 0 {
 		t.Errorf("bodyWidth = %d, want 0", got)
 	}
-	if got := wrapANSI("abc", m.bodyWidth()); got != "abc" {
+	if got, _ := wrapANSI("abc", m.bodyWidth()); got != "abc" {
 		t.Errorf("wrapANSI = %q, want it unchanged", got)
 	}
 }
@@ -189,7 +192,7 @@ func TestBodyWidthUnset(t *testing.T) {
 // TestWrapANSIWrapsCJK guards that long runs without spaces (Chinese text,
 // URLs) are broken instead of being truncated by the viewport.
 func TestWrapANSIWrapsCJK(t *testing.T) {
-	got := wrapANSI(strings.Repeat("很长的中文说明", 12), 20)
+	got, _ := wrapANSI(strings.Repeat("很长的中文说明", 12), 20)
 	lines := strings.Split(got, "\n")
 	if len(lines) < 2 {
 		t.Fatalf("long CJK text was not wrapped: %q", got)
@@ -204,7 +207,7 @@ func TestWrapANSIWrapsCJK(t *testing.T) {
 // TestWrapANSIKeepsColour guards that the active style is re-applied after an
 // inserted break, so wrapped text does not turn uncoloured.
 func TestWrapANSIKeepsColour(t *testing.T) {
-	got := wrapANSI("\x1b[31m"+strings.Repeat("红色中文", 10)+"\x1b[0m", 10)
+	got, _ := wrapANSI("\x1b[31m"+strings.Repeat("红色中文", 10)+"\x1b[0m", 10)
 	lines := strings.Split(got, "\n")
 	if len(lines) < 2 {
 		t.Fatalf("styled text was not wrapped: %q", got)
@@ -223,7 +226,8 @@ func TestRenderMessageBlockWrapsCJKMarkdown(t *testing.T) {
 	m.width = 40
 	body := "**说明：**" + strings.Repeat("这是一段很长的中文说明。", 6)
 
-	flat := stripANSI(m.renderOneMessage(message{role: "assistant", content: body}))
+	rendered, _ := m.renderOneMessage(message{role: "assistant", content: body})
+	flat := stripANSI(rendered)
 	for _, line := range strings.Split(flat, "\n") {
 		if w := lipgloss.Width(strings.TrimRight(line, " ")); w > m.bodyWidth()+2 {
 			t.Errorf("line width = %d, want <= %d: %q", w, m.bodyWidth()+2, line)
@@ -335,9 +339,10 @@ func TestRenderMarkdownWrapsToMessageWidth(t *testing.T) {
 	m.width = 50
 	body := "**Summary:** " + strings.Repeat("this sentence is long enough to need wrapping. ", 5)
 
-	for _, line := range strings.Split(m.renderMarkdown(body), "\n") {
-		if w := lipgloss.Width(line); w > m.width-4 {
-			t.Errorf("rendered line width = %d, want <= %d: %q", w, m.width-4, stripANSI(line))
+	rendered, _ := m.renderOneMessage(message{role: "assistant", content: body})
+	for _, line := range strings.Split(stripANSI(rendered), "\n") {
+		if w := lipgloss.Width(strings.TrimRight(line, " ")); w > m.bodyWidth()+2 {
+			t.Errorf("rendered line width = %d, want <= %d: %q", w, m.bodyWidth()+2, line)
 		}
 	}
 }
