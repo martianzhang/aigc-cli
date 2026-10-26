@@ -193,7 +193,7 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.streamBuf.Reset()
 		m.input.Focus()
-		m.input.Reset()
+		// Keep whatever the user drafted while the reply was streaming.
 
 		if msg.err != nil {
 			if msg.err == context.Canceled {
@@ -248,7 +248,7 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.compacting = false
 		m.busy = false
 		m.input.Focus()
-		m.input.Reset()
+		// Keep whatever the user drafted while compaction was running.
 
 		if msg.err != nil {
 			m.err = msg.err

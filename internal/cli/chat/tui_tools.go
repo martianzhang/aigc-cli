@@ -37,7 +37,6 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 			}
 
 			m.input.Reset()
-			m.input.Blur()
 			m.state = tuiToolCall
 			m.toolMsg = fmt.Sprintf("🛠️  Direct call: %s …", cmdName)
 

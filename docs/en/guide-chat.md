@@ -50,7 +50,7 @@ Layout:
 - Messages are rendered as blocks with a coloured left bar (`┃`) that spans every line — blue for `You:`, green for `Assistant:`. Long lines, including CJK text and URLs, are wrapped to the terminal width instead of being cut off.
 - The input box starts at one row and grows with the draft up to five rows, then scrolls internally. A thin rule separates it from the transcript above, so the input stays anchored when the messages fill the screen.
 
-Multi-line input: `Shift+Enter`, `Alt+Enter` and `Ctrl+J` all insert a line break; plain `Enter` sends the message. On startup the TUI enables xterm's `modifyOtherKeys` protocol (`CSI > 4 ; 2 m`) so modified Enter keys can be told apart from a plain one. This works on xterm, iTerm2, kitty, WezTerm and Ghostty; Apple's Terminal.app does not report those keys — use `Alt+Enter` / `Ctrl+J` there (or enable "Use Option as Meta key").
+Multi-line input: `Shift+Enter`, `Alt+Enter` and `Ctrl+J` all insert a line break; plain `Enter` sends the message. The draft stays editable while a reply is streaming: `Enter` only adds a line break then, and sending waits until the turn finishes. On startup the TUI enables xterm's `modifyOtherKeys` protocol (`CSI > 4 ; 2 m`) so modified Enter keys can be told apart from a plain one. This works on xterm, iTerm2, kitty, WezTerm and Ghostty; Apple's Terminal.app does not report those keys — use `Alt+Enter` / `Ctrl+J` there (or enable "Use Option as Meta key").
 
 `↑` / `↓` move the cursor inside a multi-line draft; on the first/last line they step through the command history instead.
 

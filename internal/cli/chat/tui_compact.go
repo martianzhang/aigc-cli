@@ -60,8 +60,9 @@ func (m *chatModel) handleUserMessage(input string) (tea.Model, tea.Cmd) {
 	m.mu.Lock()
 	m.history = append(m.history, types.ChatMessage{Role: "user", Content: expanded, Images: images})
 	m.mu.Unlock()
+	// The input stays focused and empty so the next message can be drafted
+	// while the reply streams in; Enter is blocked until the turn finishes.
 	m.input.Reset()
-	m.input.Blur()
 
 	// Switch state
 	m.state = tuiProcessing

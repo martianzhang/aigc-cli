@@ -298,6 +298,77 @@ func TestModifiedEnterInsertsNewline(t *testing.T) {
 	}
 }
 
+// TestTypingWhileProcessing guards that the draft stays editable while a reply
+// is streaming in.
+func TestTypingWhileProcessing(t *testing.T) {
+	m := newTestModel(t)
+	m.state = tuiProcessing
+	m.busy = true
+	m.input.Reset()
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("next question")})
+	m = updated.(*chatModel)
+
+	if got := m.input.Value(); got != "next question" {
+		t.Errorf("draft = %q, want it typed while the turn was running", got)
+	}
+}
+
+// TestEnterWhileProcessingDoesNotSubmit guards that Enter cannot start a second
+// turn and that the draft survives.
+func TestEnterWhileProcessingDoesNotSubmit(t *testing.T) {
+	m := newTestModel(t)
+	m.state = tuiProcessing
+	m.busy = true
+	before := len(m.messages)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("next")})
+	m = updated.(*chatModel)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(*chatModel)
+
+	if len(m.messages) != before {
+		t.Errorf("messages changed (%d -> %d): the draft was submitted mid-turn", before, len(m.messages))
+	}
+	if m.state != tuiProcessing || !m.busy {
+		t.Errorf("state = %v busy = %v, want processing/true", m.state, m.busy)
+	}
+	if got := m.input.Value(); got != "next\n" {
+		t.Errorf("draft = %q, want a line break instead of a submit", got)
+	}
+}
+
+// TestDraftSurvivesAgentDone guards that finishing a turn does not wipe what the
+// user typed while waiting.
+func TestDraftSurvivesAgentDone(t *testing.T) {
+	m := newTestModel(t)
+	m.state = tuiProcessing
+	m.busy = true
+	m.turnID = 1
+	m.input.SetValue("/help")
+
+	updated, _ := m.Update(agentDone{turn: 1})
+	m = updated.(*chatModel)
+
+	if got := m.input.Value(); got != "/help" {
+		t.Errorf("draft after the turn = %q, want it preserved", got)
+	}
+	if m.busy || m.state != tuiIdle {
+		t.Errorf("state = %v busy = %v, want idle/false", m.state, m.busy)
+	}
+
+	// Enter now submits the preserved draft (a command, so no network call).
+	before := len(m.messages)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(*chatModel)
+	if len(m.messages) <= before {
+		t.Error("pressing Enter after the turn did not run the preserved draft")
+	}
+	if got := m.input.Value(); got != "" {
+		t.Errorf("draft after submit = %q, want it cleared", got)
+	}
+}
+
 // TestEscThenEnterInsertsNewline guards terminals that send Alt+Enter as a
 // separate Esc followed by Enter.
 func TestEscThenEnterInsertsNewline(t *testing.T) {

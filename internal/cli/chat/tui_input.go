@@ -201,11 +201,8 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// While processing, ignore most input
-	if m.state != tuiIdle {
-		return m, nil
-	}
-
+	// While a turn is running the draft can still be edited; only sending it is
+	// deferred until the reply finishes (see the Enter case below).
 	switch msg.Type {
 	case tea.KeyEnter:
 		// Any Enter carrying a modifier — Alt+Enter, or the Esc-then-Enter
@@ -216,7 +213,13 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, m.insertNewline()
 		}
 		if m.busy || m.compacting {
-			return m, nil
+			// A turn is still running: the draft can be edited, but sending it
+			// has to wait. Enter just adds a line break so the keystroke is not
+			// silently swallowed.
+			if strings.TrimSpace(m.input.Value()) == "" {
+				return m, nil
+			}
+			return m, m.insertNewline()
 		}
 		return m.handleSubmitInput()
 
