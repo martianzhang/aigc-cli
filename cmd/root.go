@@ -13,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/secret"
+	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/vault"
 )
@@ -112,6 +113,15 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 		}
 		provider.SetDirectMode(shared.NoProxy)
 
+		// Long-running commands keep a live tab indicator; make sure Ctrl-C clears
+		// it. Commands that own their terminal or signal handling opt out.
+		switch cmd.Name() {
+		case "chat", "mcp", "completion":
+		default:
+			titleForCommand(cmd)
+			terminal.ClearOnInterrupt()
+		}
+
 		// An explicitly passed --config that is absent is user error: fail fast
 		// instead of silently running with env/defaults only.
 		if err := requireExplicitConfigPath(shared.CfgFile); err != nil {
@@ -167,6 +177,8 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 // Usage errors gain concise, command-scoped hints via guidance.Explain.
 func Execute() {
 	executed, err := rootCmd.ExecuteC()
+	// Clear the tab progress indicator before any exit path, including errors.
+	terminal.Default().Finish("")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		for _, line := range guidance.Explain(executed, err) {

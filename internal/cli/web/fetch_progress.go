@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"golang.org/x/term"
+
+	"github.com/martianzhang/aigc-cli/internal/terminal"
 )
 
 // mediaProgress renders a single-line download progress on a terminal and a
@@ -18,6 +20,7 @@ type mediaProgress struct {
 	tty     bool
 	start   time.Time
 	lineLen int
+	prog    *terminal.Progress
 }
 
 func newMediaProgress(w io.Writer) *mediaProgress {
@@ -25,12 +28,31 @@ func newMediaProgress(w io.Writer) *mediaProgress {
 	if f, ok := w.(*os.File); ok {
 		tty = term.IsTerminal(int(f.Fd()))
 	}
-	return &mediaProgress{w: w, tty: tty, start: time.Now()}
+	prog := terminal.Default()
+	prog.Stage("download")
+	return &mediaProgress{w: w, tty: tty, start: time.Now(), prog: prog}
+}
+
+// report mirrors the byte progress into the terminal title/tab indicator. It
+// runs for non-TTY streams too; the reporter itself is a no-op when disabled.
+func (p *mediaProgress) report(done, total int64) {
+	if p == nil || p.prog == nil {
+		return
+	}
+	if total > 0 {
+		p.prog.Percent(int(min(done, total) * 100 / total))
+		return
+	}
+	p.prog.Busy()
 }
 
 // Update redraws the progress line at most as often as saveMedia calls it.
 func (p *mediaProgress) Update(done, total int64) {
-	if p == nil || !p.tty || p.w == nil {
+	if p == nil {
+		return
+	}
+	p.report(done, total)
+	if !p.tty || p.w == nil {
 		return
 	}
 	elapsed := time.Since(p.start)
@@ -65,6 +87,9 @@ func (p *mediaProgress) Finish(done int64) {
 	if p == nil || p.w == nil {
 		return
 	}
+	if p.prog != nil {
+		p.prog.Finish("download complete")
+	}
 	if p.tty && p.lineLen > 0 {
 		fmt.Fprint(p.w, "\r"+strings.Repeat(" ", p.lineLen)+"\r")
 	}
@@ -79,7 +104,13 @@ func (p *mediaProgress) Finish(done int64) {
 
 // Abort clears a partially drawn progress line after an error.
 func (p *mediaProgress) Abort() {
-	if p == nil || !p.tty || p.w == nil || p.lineLen == 0 {
+	if p == nil {
+		return
+	}
+	if p.prog != nil {
+		p.prog.Finish("download aborted")
+	}
+	if !p.tty || p.w == nil || p.lineLen == 0 {
 		return
 	}
 	fmt.Fprint(p.w, "\r"+strings.Repeat(" ", p.lineLen)+"\r")

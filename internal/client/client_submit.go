@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -312,6 +313,9 @@ func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData
 	}
 
 	isTTY := isTerminal()
+	prog := terminal.Default()
+	prog.StageIfEmpty("task")
+	defer prog.Clear()
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	si := 0
 	start := time.Now()
@@ -348,6 +352,7 @@ func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData
 			return nil, fmt.Errorf("failed to query task: %w", err)
 		}
 
+		prog.Percent(task.Progress)
 		if isTTY {
 			bar := progressBar(task.Progress, 20)
 			fmt.Printf("\r  %s %s %d%% ", spinner[si%len(spinner)], bar, task.Progress)

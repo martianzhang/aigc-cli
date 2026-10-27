@@ -247,6 +247,28 @@ aigc-cli image --prompt "..." --no-proxy
 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量，适用于「国内接口不想走代理」这类单次例外。
 它与显式传入的 `--http-proxy <URL>` 互斥，同时使用会直接报错。
 
+## 终端标题与进度指示
+
+长任务（异步出图/出视频/Midjourney/音乐轮询、大文件下载、本地 ONNX 推理）运行时，CLI 会把当前进度写进终端的**标签标题**，并在支持的终端里点亮**原生进度条**，切换标签页也能看到还剩多少：
+
+```text
+aigc-cli · video 45%        # 服务端给出了百分比
+aigc-cli · image … 1m20s    # 服务端只排队不报进度，显示已等待时长
+```
+
+- 命令一启动就会占位（`aigc-cli · <命令> …`），所以 ModelScope / OpenRouter 这类「只排队、不回进度」的接口也不会看起来卡死；有百分比的接口会换成 `45%`。
+- 标题写入 `stderr`；`stdout` 保持纯数据（JSON、保存路径、MCP stdio 协议均不受影响）。
+- `chat` 交互界面也会同步状态：`aigc-cli · chat`（空闲）、`aigc-cli · chat …`（生成中）、`aigc-cli · chat · tool …`（工具调用）、`aigc-cli · chat · confirm …`（等待确认）。
+- **只在认识的终端上写入，不认识的一律不写**（宁可少了这个功能，也不让转义字节变成乱码）：
+  - `TERM` 属于 `xterm` / `screen` / `tmux` / `rxvt` / `alacritty` / `wezterm` / `kitty` / `ghostty` / `foot` / `konsole` / `vte` / `cygwin` / `msys` / `st-` / `eterm`；
+  - 或 `TERM_PROGRAM` 为 iTerm2（含 `LC_TERMINAL`）/ Terminal.app / WezTerm / Ghostty / VS Code / Hyper / Tabby / mintty；
+  - 或 Windows 控制台（`TERM` 未设置，且已成功开启 ANSI/VT 模式）。
+  - 反例：Linux VT（`TERM=linux`）、`TERM=dumb`、以及任何未识别的 `TERM` 全程不输出。
+- 进度条走 OSC `9;4`，只在 iTerm2、Windows Terminal（`WT_SESSION`）、WezTerm、Ghostty、kitty、VS Code 上启用，其余终端只改标题；tmux 下默认只改标题（除非开启 `allow-passthrough`）。
+- Windows：Windows Terminal 里 PowerShell / cmd / Git Bash 都正常；老式 conhost 会先尝试打开 `ENABLE_VIRTUAL_TERMINAL_PROCESSING`，失败则完全不写。
+- 非终端（管道、重定向、CI）下完全不输出任何转义序列。
+- 开关：`AIGC_CLI_NO_TITLE=1` 全关（优先级最高）；`AIGC_CLI_TITLE=1` 在未识别的终端上强制开标题；`AIGC_CLI_TITLE_BAR=1` 强制开 OSC `9;4` 进度条。
+
 ## 优先级规则
 
 **CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值**

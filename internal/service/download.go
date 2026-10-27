@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
+	"github.com/martianzhang/aigc-cli/internal/terminal"
 )
 
 // ExtractExt returns the file extension from a URL, defaulting to ".mp4".
@@ -252,6 +253,30 @@ func extFromSource(source string) string {
 	return ext
 }
 
+// progressThreshold is the response size above which a download is mirrored into
+// the terminal title/tab indicator. Small API assets (thumbnails, JSON) would
+// only cause title flicker.
+const progressThreshold int64 = 1 << 20
+
+// progressReader reports read progress to prog while a body streams to disk.
+type progressReader struct {
+	r     io.Reader
+	total int64
+	done  int64
+	prog  *terminal.Progress
+	last  int
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	p.done += int64(n)
+	if pct := int(min(p.done, p.total) * 100 / p.total); pct != p.last {
+		p.last = pct
+		p.prog.Percent(pct)
+	}
+	return n, err
+}
+
 // saveHTTPResponse writes the HTTP response body to dest atomically.
 func saveHTTPResponse(resp *http.Response, dest string) error {
 	if resp.StatusCode != http.StatusOK {
@@ -267,7 +292,15 @@ func saveHTTPResponse(resp *http.Response, dest string) error {
 		return fmt.Errorf("download failed: %w", err)
 	}
 
-	if _, err := fsutil.WriteFileAtomicFromReader(dest, body, 0644); err != nil {
+	var src io.Reader = body
+	if resp.ContentLength >= progressThreshold {
+		prog := terminal.Default()
+		prog.Stage("download")
+		defer prog.Finish("download")
+		src = &progressReader{r: body, total: resp.ContentLength, prog: prog, last: -1}
+	}
+
+	if _, err := fsutil.WriteFileAtomicFromReader(dest, src, 0644); err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 	return nil

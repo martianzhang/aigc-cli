@@ -1,12 +1,17 @@
 package service
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
+
+	"github.com/martianzhang/aigc-cli/internal/terminal"
 )
 
 func TestExtractExt_mp4(t *testing.T) {
@@ -333,6 +338,47 @@ func TestSaveResourceEmptyBodyKeepsExisting(t *testing.T) {
 	}
 	if string(data) != "original" {
 		t.Errorf("destination = %q, want the original content", data)
+	}
+}
+
+// TestSaveResourceLargeBodyStreamsWithProgress covers the progress-reporting
+// read path: responses at/above progressThreshold are wrapped so the terminal
+// title can follow the download, and the bytes still land intact.
+func TestSaveResourceLargeBodyStreamsWithProgress(t *testing.T) {
+	body := bytes.Repeat([]byte("0123456789abcdef"), int((progressThreshold+1024)/16))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "big.mp4")
+	if err := SaveResource(srv.URL+"/big.mp4", dest); err != nil {
+		t.Fatalf("SaveResource() error = %v", err)
+	}
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(body) {
+		t.Fatalf("saved %d bytes, want %d", len(got), len(body))
+	}
+}
+
+// TestProgressReaderClampsOvershoot guards the percentage math against servers
+// that send more bytes than Content-Length promised.
+func TestProgressReaderClampsOvershoot(t *testing.T) {
+	src := bytes.NewReader(bytes.Repeat([]byte("x"), 64))
+	var out bytes.Buffer
+	pr := &progressReader{r: src, total: 32, prog: terminal.New(&bytes.Buffer{}), last: -1}
+	if _, err := io.Copy(&out, pr); err != nil {
+		t.Fatalf("copy error = %v", err)
+	}
+	if out.Len() != 64 || pr.done != 64 {
+		t.Fatalf("copied %d bytes (done %d), want 64", out.Len(), pr.done)
+	}
+	if pr.last != 100 {
+		t.Errorf("last reported percent = %d, want 100 (clamped)", pr.last)
 	}
 }
 

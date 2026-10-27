@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -46,6 +47,9 @@ func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*type
 	}
 
 	isTTY := isTerminal()
+	prog := terminal.Default()
+	prog.StageIfEmpty("midjourney")
+	defer prog.Clear()
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	si := 0
 	start := time.Now()
@@ -86,6 +90,7 @@ func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*type
 		if task.Progress != "" {
 			fmt.Sscanf(task.Progress, "%d%%", &progress)
 		}
+		prog.Percent(progress)
 
 		if isTTY {
 			bar := progressBar(progress, 20)

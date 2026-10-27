@@ -90,6 +90,9 @@ The file may contain API keys, so it is written with owner-only permissions (`06
 | `AIGC_CLI_NO_KEYRING` | Non-empty: never touch the system keyring (no read, no generate) |
 | `HTTP_PROXY` / `HTTPS_PROXY` | HTTP proxy |
 | `DOUBAO_API_KEY` | Doubao (Volcengine) search API Key |
+| `AIGC_CLI_NO_TITLE` | Non-empty: never write the tab title / progress indicator |
+| `AIGC_CLI_TITLE` | `1`: force titles on for an unrecognized terminal |
+| `AIGC_CLI_TITLE_BAR` | `1`: force the OSC 9;4 progress bar on unrecognized terminals |
 
 ## Proxy
 
@@ -143,6 +146,32 @@ aigc-cli image --prompt "..." --no-proxy
 `--no-proxy` ignores the global `http_proxy`, every `providers.*.http_proxy`, and the
 `HTTP_PROXY` / `HTTPS_PROXY` environment variables. It is mutually exclusive with an
 explicit `--http-proxy <URL>`; combining them is an error.
+
+## Terminal Title & Progress
+
+While a long task runs (async image/video generation, Midjourney/music polling,
+large downloads, local ONNX inference) the CLI writes its progress into the
+**terminal tab title** and, where the terminal supports it, lights up the
+**native progress indicator**, so a background tab still shows how far along the
+job is:
+
+```text
+aigc-cli · video 45%        # the provider reports a percentage
+aigc-cli · image … 1m20s    # the provider only queues — show elapsed time
+```
+
+- The title is claimed as soon as the command starts (`aigc-cli · <command> …`), so providers that just queue a job (ModelScope, OpenRouter video) never look hung; providers that report progress replace the ellipsis with `45%`.
+- Titles go to `stderr`; `stdout` stays pure data (JSON, saved paths, the MCP stdio protocol).
+- The `chat` TUI mirrors its own state: `aigc-cli · chat` (idle), `aigc-cli · chat …` (streaming), `aigc-cli · chat · tool …` (tool call), `aigc-cli · chat · confirm …` (waiting for approval).
+- **Only recognized terminals get written to** — an unrecognized one gets nothing, because a lost title always beats garbage on screen:
+  - `TERM` starting with `xterm`, `screen`, `tmux`, `rxvt`, `alacritty`, `wezterm`, `kitty`, `ghostty`, `foot`, `konsole`, `vte`, `cygwin`, `msys`, `st-`, `eterm`;
+  - or `TERM_PROGRAM` in iTerm2 (`LC_TERMINAL` too) / Terminal.app / WezTerm / Ghostty / VS Code / Hyper / Tabby / mintty;
+  - or a Windows console (no `TERM`, and VT mode was switched on successfully).
+  - Never: Linux VT (`TERM=linux`), `TERM=dumb`, any unknown `TERM`.
+- The indicator uses OSC `9;4`, enabled only for iTerm2, Windows Terminal (`WT_SESSION`), WezTerm, Ghostty, kitty and VS Code; every other terminal gets title-only, and tmux gets title-only too (unless `allow-passthrough` is on).
+- Windows: Windows Terminal works for PowerShell, cmd and Git Bash; a legacy conhost first has `ENABLE_VIRTUAL_TERMINAL_PROCESSING` enabled and is skipped entirely when that fails.
+- Nothing is written when the stream is not a terminal (pipes, redirects, CI).
+- Switches: `AIGC_CLI_NO_TITLE=1` disables everything (highest priority), `AIGC_CLI_TITLE=1` forces titles on for an unrecognized terminal, `AIGC_CLI_TITLE_BAR=1` forces the OSC `9;4` bar.
 
 ## Provider Configuration
 

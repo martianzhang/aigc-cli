@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -43,6 +44,9 @@ func (c *Client) MusicPollTask(taskID string, maxWait time.Duration) (*types.Mus
 	}
 
 	isTTY := isTerminal()
+	prog := terminal.Default()
+	prog.StageIfEmpty("music")
+	defer prog.Clear()
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	si := 0
 	start := time.Now()
@@ -78,6 +82,7 @@ func (c *Client) MusicPollTask(taskID string, maxWait time.Duration) (*types.Mus
 		}
 
 		progress := min(max(task.Progress, 0), 100)
+		prog.Percent(progress)
 
 		if isTTY {
 			bar := progressBar(progress, 20)

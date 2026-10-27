@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/terminal"
 )
 
 func TestFormatByteSize(t *testing.T) {
@@ -74,4 +76,26 @@ func TestMediaProgressNonTTYOnlyFinishes(t *testing.T) {
 	if !strings.Contains(buf.String(), "downloaded 100 B") {
 		t.Errorf("finish = %q, want the final size", buf.String())
 	}
+}
+
+// TestMediaProgressReportsThroughReporter checks the wiring to the shared
+// terminal reporter: determinate and indeterminate phases both run, and a
+// non-TTY stream still gets no escape bytes.
+func TestMediaProgressReportsThroughReporter(t *testing.T) {
+	var osc bytes.Buffer
+	p := &mediaProgress{w: &bytes.Buffer{}, start: time.Now(), prog: terminal.New(&osc)}
+	p.Update(50, 100) // determinate branch
+	p.Update(1, 0)    // no Content-Length -> indeterminate branch
+	p.Update(0, 0)
+	p.Abort()
+	p.Finish(100)
+	if osc.Len() != 0 {
+		t.Errorf("wrote %q to a non-terminal reporter, want nothing", osc.String())
+	}
+
+	// A nil reporter must stay safe for zero-value mediaProgress values.
+	zero := &mediaProgress{}
+	zero.Update(1, 1)
+	zero.Abort()
+	zero.Finish(1)
 }

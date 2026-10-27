@@ -22,6 +22,7 @@ var chatMarkdownStyles = func() ansi.StyleConfig {
 }()
 
 func (m *chatModel) View() string {
+	m.syncTitle()
 	if !m.ready {
 		return "\n  Initializing…"
 	}
