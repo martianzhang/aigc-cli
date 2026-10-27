@@ -407,8 +407,9 @@ func (c *Client) handleResponsesSSE(resp *http.Response, w io.Writer) (*types.Ch
 		return nil, fmt.Errorf("responses SSE read error: %w", err)
 	}
 
-	// Print trailing newline if any text content was written.
-	if contentBuf.Len() > 0 {
+	// Print trailing newline if any text content was written and it does not
+	// already end with one (an existing newline must not be doubled).
+	if c := contentBuf.String(); c != "" && !strings.HasSuffix(c, "\n") {
 		fmt.Fprintln(w)
 	}
 

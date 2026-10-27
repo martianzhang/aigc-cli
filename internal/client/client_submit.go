@@ -295,8 +295,10 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 	}
 	full.Choices[0].Message.Annotations = annotations
 
-	// Only print trailing newline if we wrote text content
-	if full.Choices[0].Message.Content != "" {
+	// Terminate the streamed line so the shell prompt starts on a fresh line —
+	// but only when the reply does not already end with one, otherwise every
+	// answer would be followed by a stray blank line.
+	if c := full.Choices[0].Message.Content; c != "" && !strings.HasSuffix(c, "\n") {
 		fmt.Fprintln(w)
 	}
 	return full, nil

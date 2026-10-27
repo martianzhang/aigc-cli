@@ -55,7 +55,9 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 		options.SetIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
 
 		if turnCount > 1 {
-			fmt.Fprint(options.Stderr(), "\r\n---\r\n")
+			// No leading blank line: the streamed reply already ended with a
+			// newline (or produced no output at all for a tool-only turn).
+			fmt.Fprint(options.Stderr(), "---\r\n")
 		}
 
 		result, err := c.ChatCompletion(req)
@@ -73,7 +75,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 			*history = append(*history, choice.Message)
 
 			for _, tc := range choice.Message.ToolCalls {
-				fmt.Fprintf(options.Stderr(), "\r\n[tool] %s:\r\n", tc.Function.Name)
+				fmt.Fprintf(options.Stderr(), "[tool] %s:\r\n", tc.Function.Name)
 				printToolArgs(tc.Function.Arguments)
 
 				toolStart := time.Now()
@@ -81,7 +83,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 				elapsed := time.Since(toolStart).Round(time.Millisecond)
 
 				resultSummary := summarizeToolResult(tc.Function.Name, toolResult)
-				fmt.Fprintf(options.Stderr(), "\r\n[tool] done in %v: %s\r\n", elapsed, resultSummary)
+				fmt.Fprintf(options.Stderr(), "[tool] done in %v: %s\r\n", elapsed, resultSummary)
 
 				*history = append(*history, types.ChatMessage{
 					Role:       "tool",
@@ -93,7 +95,9 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 		}
 
 		// Text response: streamed by handleSSE when streaming, printed here otherwise.
-		if chatNoStream && choice.Message.Content != "" {
+		// A whitespace-only reply (the assistant content of a tool-call turn) is
+		// dropped rather than printed as a run of blank lines.
+		if chatNoStream && strings.TrimSpace(choice.Message.Content) != "" {
 			fmt.Fprintln(options.Stdout(), choice.Message.Content)
 		}
 		*history = append(*history, choice.Message)
@@ -106,7 +110,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 		}
 
 		if turnCount >= maxIterations {
-			fmt.Fprintf(options.Stderr(), "\r\nReached maximum iterations (%d). Start a new message to continue.\r\n", maxIterations)
+			fmt.Fprintf(options.Stderr(), "Reached maximum iterations (%d). Start a new message to continue.\r\n", maxIterations)
 		}
 
 		return nil

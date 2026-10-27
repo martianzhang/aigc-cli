@@ -337,6 +337,9 @@ func TestHandleAnthropicSSE_trailingNewline(t *testing.T) {
 		wantOut string
 	}{
 		{"text delta terminated by newline", "Pong!", "Pong!\n"},
+		// The reply already ends with a newline: do not add a second one, or every
+		// answer is followed by a stray blank line.
+		{"text delta already ends with newline", "Pong!\n", "Pong!\n"},
 		{"empty content prints nothing", "", ""},
 	}
 

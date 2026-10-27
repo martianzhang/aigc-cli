@@ -234,8 +234,9 @@ func (c *Client) handleAnthropicSSE(resp *http.Response, w io.Writer) (*types.Ch
 
 	// Terminate the streamed line so the shell prompt starts on a fresh line.
 	// Without it the cursor is left mid-line and zsh renders its stray '%'
-	// end-of-line mark. Mirrors handleSSE and handleResponsesSSE.
-	if full.Choices[0].Message.Content != "" {
+	// end-of-line mark; an existing trailing newline must not be doubled.
+	// Mirrors handleSSE and handleResponsesSSE.
+	if c := full.Choices[0].Message.Content; c != "" && !strings.HasSuffix(c, "\n") {
 		fmt.Fprintln(w)
 	}
 
