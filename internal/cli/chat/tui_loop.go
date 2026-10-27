@@ -94,9 +94,11 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 				prog.Send(toolStart{turn: turn, name: tc.Function.Name, summary: summary, diff: diff})
 
 				denied := false
+				var answer confirmReply
 				if m.confirm.needs(tc.Function.Name, tc.Function.Arguments) {
 					detail := confirmDetail(tc.Function.Name, tc.Function.Arguments)
-					denied = m.requestToolConfirmation(ctx, prog, turn, tc.Function.Name, summary, detail) == confirmDeny
+					answer = m.requestToolConfirmation(ctx, prog, turn, tc.Function.Name, summary, detail)
+					denied = answer.decision != confirmOnce && answer.decision != confirmAlways
 					if ctx.Err() != nil {
 						// The user interrupted while the prompt was open.
 						prog.Send(agentDone{turn: turn, err: ctx.Err(), history: localHistory})
@@ -106,10 +108,13 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 
 				var toolResult string
 				if denied {
-					toolResult = "User denied this tool call."
+					// Covers both a plain denial and a "do it differently" suggestion:
+					// either way the tool does not run, but a suggestion also hands the
+					// user's instruction to the model so it can retry in this turn.
+					toolResult = deniedToolResult(answer)
 					prog.Send(toolDone{
 						turn: turn, name: tc.Function.Name,
-						summary: deniedSummary, content: toolResult,
+						summary: deniedSummaryFor(answer), content: toolResult,
 					})
 				} else {
 					// Redirect stderr during tool execution

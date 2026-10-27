@@ -272,7 +272,23 @@ In interactive mode, a privileged tool that matches a confirmation rule pauses b
 | `y` | Allow this call |
 | `a` | Always allow this tool for the rest of the process (not persisted) |
 | `n` | Deny; the model receives `User denied this tool call.` and can continue |
+| `s` | Deny **and** tell the model what to do instead (see below) |
 | `Esc` | Deny and interrupt the current turn |
+
+#### `s`: reject with guidance
+
+A plain denial leaves the model with only `User denied this tool call.`, so it often retries the same thing or stalls; correcting it in a separate message costs another round trip. `s` lets you type the correction into the prompt: the tool still does **not** run, but the model receives, within the same response:
+
+```
+The user rejected this tool call and asked for a different approach: use read for that file instead of bash
+```
+
+and can switch tools or approach immediately.
+
+- `Enter` sends; an empty box counts as `n` (nothing to pass on). `Alt+Enter` / `Shift+Enter` add a newline.
+- `Esc` returns to the `y/a/n/s` prompt without answering.
+- The suggestion box borrows the input box: your draft is saved on entry and restored on exit, so nothing is lost.
+- `s` never adds the tool to "always allow" — the next call is still confirmed.
 
 `bash`, `write` and `edit` are confirmed by default. Customise with `defaults.chat.confirm_tools` (Go regexp, matched against `"<tool> <target>"`):
 

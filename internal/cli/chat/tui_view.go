@@ -439,7 +439,10 @@ func (m *chatModel) renderStatus() string {
 		return m.spinner.View() + " " + m.toolMsg + "  |  Esc: Cancel"
 	case tuiConfirming:
 		if m.pending != nil {
-			return clipString(fmt.Sprintf("⚠️  Confirm %s  |  y: once  a: always  n: deny  |  Esc: deny & stop", m.pending.name), width)
+			if m.suggesting {
+				return clipString(fmt.Sprintf("✏️  Tell the model what to do instead  |  Enter: send  Esc: back  |  %s", m.pending.name), width)
+			}
+			return clipString(fmt.Sprintf("⚠️  Confirm %s  |  y: once  a: always  n: deny  s: suggest  |  Esc: deny & stop", m.pending.name), width)
 		}
 		return "⚠️  Waiting for confirmation…"
 	default:
@@ -477,9 +480,23 @@ func (m *chatModel) renderConfirmBox() string {
 		lines = append(lines, "  "+m.styles.toolArg.Render(clipString(p.summary, width)))
 	}
 
-	lines = append(lines, "  "+m.styles.sysMsg.Render(
-		"[y] allow once   [a] allow for this session   [n] deny   Esc: deny & stop"))
+	lines = append(lines, "  "+m.styles.sysMsg.Render(confirmPromptHint(m.suggesting)))
+	if m.suggesting {
+		if typed := strings.TrimRight(m.input.Value(), "\n"); typed != "" {
+			for _, line := range strings.Split(typed, "\n") {
+				lines = append(lines, "  "+m.styles.toolArg.Render(clipString(line, width)))
+			}
+		}
+	}
 	return m.styles.shellInputBox.Width(max(m.width-4, 10)).Render(strings.Join(lines, "\n"))
+}
+
+// confirmPromptHint is the key legend at the bottom of the confirmation box.
+func confirmPromptHint(suggesting bool) string {
+	if suggesting {
+		return "tell the model what to do instead — [Enter] send   [Esc] back   (empty Enter = deny)"
+	}
+	return "[y] allow once   [a] allow for this session   [n] deny   [s] suggest   Esc: deny & stop"
 }
 
 // ---------------------------------------------------------------------------

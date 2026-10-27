@@ -82,7 +82,7 @@ type confirmRequest struct {
 	name    string
 	summary string
 	detail  string // full multi-line command (bash); empty for other tools
-	reply   chan confirmDecision
+	reply   chan confirmReply
 }
 
 // pendingConfirm is the UI-side view of a confirmRequest.
@@ -90,7 +90,7 @@ type pendingConfirm struct {
 	name    string
 	summary string
 	detail  string
-	reply   chan confirmDecision
+	reply   chan confirmReply
 }
 
 // compactDone is sent when the conversation has been compacted.
@@ -176,8 +176,12 @@ type chatModel struct {
 	// confirm decides which tool calls need user approval. nil disables
 	// confirmation (used by tests and by non-TUI callers).
 	confirm *confirmPolicy
-	// pending is non-nil while the UI is waiting for a y/a/n answer.
+	// pending is non-nil while the UI is waiting for a y/a/n/s answer.
 	pending *pendingConfirm
+	// suggesting is true while the user types a "do it differently" note (s).
+	// draft holds the input-box text that note replaces, restored afterwards.
+	suggesting bool
+	draft      string
 
 	// Conversation history for API requests (types.ChatMessage, not TUI message)
 	history []types.ChatMessage

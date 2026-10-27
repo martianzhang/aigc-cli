@@ -20,8 +20,12 @@ func (m *chatModel) cancelTurn() (tea.Model, tea.Cmd) {
 	if m.pending != nil {
 		p := m.pending
 		m.pending = nil
+		if m.suggesting {
+			m.suggesting = false
+			m.restoreDraft()
+		}
 		select {
-		case p.reply <- confirmDeny:
+		case p.reply <- confirmReply{decision: confirmDeny}:
 		default:
 		}
 	}
@@ -72,19 +76,24 @@ func (m *chatModel) toggleLastToolExpanded() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleConfirmKey answers a pending tool confirmation. Only y/a/n and the
+// handleConfirmKey answers a pending tool confirmation. Only y/a/n/s and the
 // interrupt keys are accepted; everything else is ignored so the prompt cannot
 // be dismissed by accident.
 func (m *chatModel) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.suggesting {
+		return m.handleSuggestKey(msg)
+	}
 	switch msg.Type {
 	case tea.KeyRunes:
 		switch strings.ToLower(string(msg.Runes)) {
 		case "y":
-			return m.resolveConfirm(confirmOnce)
+			return m.resolveConfirm(confirmOnce, "")
 		case "a":
-			return m.resolveConfirm(confirmAlways)
+			return m.resolveConfirm(confirmAlways, "")
 		case "n":
-			return m.resolveConfirm(confirmDeny)
+			return m.resolveConfirm(confirmDeny, "")
+		case "s":
+			return m.startSuggesting(), nil
 		}
 	case tea.KeyEscape, tea.KeyCtrlC:
 		// Cancel the context before answering so the tool goroutine cannot
@@ -92,32 +101,96 @@ func (m *chatModel) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cancel != nil {
 			m.cancel()
 		}
-		m.resolveConfirm(confirmDeny)
+		m.resolveConfirm(confirmDeny, "")
 		return m.cancelTurn()
 	}
 	return m, nil
 }
 
+// startSuggesting switches the confirmation prompt into text entry, so the user
+// can tell the model what to do instead. The draft already in the input box is
+// saved and restored when the prompt closes — a half-written message must not be
+// lost just because a tool call asked for approval.
+func (m *chatModel) startSuggesting() tea.Model {
+	m.suggesting = true
+	m.draft = m.input.Value()
+	m.input.Reset()
+	m.input.Focus()
+	return m
+}
+
+// handleSuggestKey handles keys while the user writes a suggestion.
+//
+//   - Enter with text: deny the call and hand the text to the model.
+//   - Enter on an empty box: same as `n` (nothing to pass on).
+//   - Esc: back to the y/a/n/s prompt without answering.
+//   - Ctrl+C: deny and interrupt the turn, like everywhere else.
+func (m *chatModel) handleSuggestKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyEnter:
+		if msg.Alt {
+			return m, m.insertNewline()
+		}
+		text := strings.TrimSpace(m.input.Value())
+		if text == "" {
+			return m.resolveConfirm(confirmDeny, "")
+		}
+		return m.resolveConfirm(confirmSuggest, text)
+	case tea.KeyEscape:
+		m.suggesting = false
+		m.restoreDraft()
+		m.input.Blur()
+		return m, nil
+	case tea.KeyCtrlC:
+		if m.cancel != nil {
+			m.cancel()
+		}
+		m.resolveConfirm(confirmDeny, "")
+		return m.cancelTurn()
+	}
+	return m, m.updateInput(msg)
+}
+
+// restoreDraft puts back the input-box text that the suggestion box replaced.
+func (m *chatModel) restoreDraft() {
+	draft := m.draft
+	m.draft = ""
+	m.input.Reset()
+	if draft == "" {
+		return
+	}
+	m.input.SetValue(draft)
+	m.input.CursorEnd()
+}
+
 // resolveConfirm sends the decision to the waiting tool goroutine and restores
 // the normal input state.
-func (m *chatModel) resolveConfirm(decision confirmDecision) (tea.Model, tea.Cmd) {
+func (m *chatModel) resolveConfirm(decision confirmDecision, feedback string) (tea.Model, tea.Cmd) {
 	p := m.pending
 	if p == nil {
 		return m, nil
 	}
 	m.pending = nil
+	if m.suggesting {
+		m.suggesting = false
+		m.restoreDraft()
+	}
 	if decision == confirmAlways {
 		m.confirm.allowAlways(p.name)
 	}
 	select {
-	case p.reply <- decision:
+	case p.reply <- confirmReply{decision: decision, feedback: feedback}:
 	default:
 	}
 
-	if decision == confirmDeny {
+	switch decision {
+	case confirmDeny:
 		m.state = tuiProcessing
 		m.toolMsg = fmt.Sprintf("✗ %s denied by user", p.name)
-	} else {
+	case confirmSuggest:
+		m.state = tuiProcessing
+		m.toolMsg = fmt.Sprintf("✗ %s denied · %s", p.name, clipString(feedback, 40))
+	default:
 		m.state = tuiToolCall
 		m.toolMsg = fmt.Sprintf("🛠️  Running %s …", p.name)
 	}

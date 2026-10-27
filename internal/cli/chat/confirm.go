@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/charmbracelet/bubbletea"
@@ -18,7 +19,18 @@ const (
 	confirmDeny confirmDecision = iota
 	confirmOnce
 	confirmAlways
+	// confirmSuggest denies the call but carries the user's own instruction back
+	// to the model, so it can retry with a different approach in the same turn
+	// instead of dead-ending on a bare denial.
+	confirmSuggest
 )
+
+// confirmReply is the user's answer to a confirmRequest. feedback is only set
+// for confirmSuggest and holds the text typed in the prompt.
+type confirmReply struct {
+	decision confirmDecision
+	feedback string
+}
 
 // defaultConfirmPatterns keeps the safe default: the three tools that can
 // change the machine or the project ask once per call. Users can replace this
@@ -32,6 +44,28 @@ var defaultConfirmPatterns = []string{
 
 // deniedSummary is the toolDone summary used when the user rejects a call.
 const deniedSummary = "denied by user"
+
+// deniedToolResult is the tool result the model sees when the user rejects a
+// call. A suggestion turns the rejection into guidance the model can act on
+// immediately, rather than a dead end that needs a second user message.
+func deniedToolResult(r confirmReply) string {
+	if r.decision == confirmSuggest {
+		if text := strings.TrimSpace(r.feedback); text != "" {
+			return "The user rejected this tool call and asked for a different approach: " + text
+		}
+	}
+	return "User denied this tool call."
+}
+
+// deniedSummaryFor is the one-line tool-card summary for a rejection.
+func deniedSummaryFor(r confirmReply) string {
+	if r.decision == confirmSuggest {
+		if text := strings.TrimSpace(r.feedback); text != "" {
+			return deniedSummary + " · " + clipString(text, 40)
+		}
+	}
+	return deniedSummary
+}
 
 // confirmPolicy decides whether a tool call needs user confirmation. Patterns
 // are matched against "<tool> <target>" (see confirmMatchText). Tools the user
@@ -142,14 +176,14 @@ func confirmMatchText(tool, argsJSON string) string {
 // requestToolConfirmation asks the UI to approve a tool call and blocks until
 // the user answers or the turn is cancelled. detail carries the full command
 // for bash so a multi-line script can be inspected before approval.
-func (m *chatModel) requestToolConfirmation(ctx context.Context, prog *tea.Program, turn uint64, name, summary, detail string) confirmDecision {
-	reply := make(chan confirmDecision, 1)
+func (m *chatModel) requestToolConfirmation(ctx context.Context, prog *tea.Program, turn uint64, name, summary, detail string) confirmReply {
+	reply := make(chan confirmReply, 1)
 	prog.Send(confirmRequest{turn: turn, name: name, summary: summary, detail: detail, reply: reply})
 	select {
-	case decision := <-reply:
-		return decision
+	case answer := <-reply:
+		return answer
 	case <-ctx.Done():
-		return confirmDeny
+		return confirmReply{decision: confirmDeny}
 	}
 }
 

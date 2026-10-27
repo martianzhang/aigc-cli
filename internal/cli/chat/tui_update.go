@@ -110,7 +110,7 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// The turn was already interrupted; answer so the goroutine can
 			// unblock instead of waiting until its context is observed.
 			select {
-			case msg.reply <- confirmDeny:
+			case msg.reply <- confirmReply{decision: confirmDeny}:
 			default:
 			}
 			return m, nil
