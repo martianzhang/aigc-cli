@@ -109,7 +109,8 @@ OpenRouter 有两种图片生成路径：
 |---|---|---|
 | `GET /v1/images/models` | 图片模型列表（含参数/能力描述） | [List image models](https://openrouter.ai/docs/api/api-reference/images/list-image-models) |
 | `GET /v1/videos/models` | 视频模型列表 | [List video models](https://openrouter.ai/docs/api/api-reference/video-generation/list-videos-models) |
-| `GET /v1/models` | 通用模型列表 | [List models](https://openrouter.ai/docs/api/api-reference/models/get-models) |
+| `GET /v1/models` | 通用模型列表（默认仅 text 输出） | [List models](https://openrouter.ai/docs/api/api-reference/models/get-models) |
+| `GET /v1/models?output_modalities=<类型>` | 按输出模态发现模型：text / image / video / audio / speech / transcription / embeddings / rerank / decisions / all | [Model Discovery](https://openrouter.ai/docs/guides/overview/models) |
 
 ### 3.5 音频
 

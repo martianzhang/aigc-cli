@@ -27,12 +27,25 @@ var (
 	modelsListProviders bool
 )
 
-var knownMediaTypes = map[string]bool{"image": true, "video": true, "chat": true}
+// priceListValue is the sentinel pflag stores for a bare `--price` (the flag
+// takes an optional model name).
+const priceListValue = "__list__"
+
+var knownMediaTypes = func() map[string]bool {
+	out := make(map[string]bool, len(openRouterModalities))
+	for k := range openRouterModalities {
+		out[k] = true
+	}
+	return out
+}()
+
+// marketplaceTypes are the media types the APIMart marketplace API understands.
+var marketplaceTypes = map[string]bool{"image": true, "video": true, "chat": true}
 
 // NewCommand builds the `models` command. deps is resolved at run time.
 func NewCommand(deps func() Deps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "models [--type image|video|chat] [--price [model-name]]",
+		Use:          "models [--type <type>] [--price [model-name]]",
 		Aliases:      []string{"model"},
 		Short:        "List available AI models (also: model)",
 		SilenceUsage: true,
@@ -45,10 +58,17 @@ Model detail: pass the model name as an argument or via --model/-m.
   aigc-cli models gpt-4o
   aigc-cli models --model gpt-4o
 
-Marketplace flags (use the APIMart-compatible marketplace API at the
-configured base URL):
-  --type, -t <type>      Filter by media type: image, video, chat
-  --price [model]        Show pricing, or specify a model name for details
+Type filter:
+  --type, -t <type>      Filter by model type. OpenRouter supports every
+                         output modality: text (chat), image, video, audio,
+                         speech (tts), transcription (stt), embeddings,
+                         rerank, decisions, all. APIMart supports image,
+                         video and chat.
+
+Pricing:
+  --price [model]        Show the pricing column, or one model's pricing.
+                         APIMart uses its pricing API; OpenRouter prints the
+                         model record (which includes pricing).
 
 Provider list:
   --list-providers       List configured providers (name, type, host and
@@ -64,8 +84,10 @@ Examples:
   aigc-cli models --list-providers
   aigc-cli models --provider apimart
   aigc-cli models --type image
+  aigc-cli models --provider openrouter --type speech
+  aigc-cli models --provider openrouter --type all
   aigc-cli models --price
-  aigc-cli models --price gpt-4o
+  aigc-cli models --price gpt-image-2-official
   aigc-cli models --model gpt-4o
   aigc-cli models gpt-4o --dry-run`,
 		Args: cobra.MaximumNArgs(1),
@@ -74,8 +96,9 @@ Examples:
 			return runModels(cmd, args)
 		},
 	}
-	cmd.Flags().StringVarP(&modelType, "type", "t", "", "Filter by media type (APIMart marketplace): image, video, chat")
-	cmd.Flags().StringVar(&priceArg, "price", "", "Show pricing column (no arg) or model pricing details (with model name) (APIMart only)")
+	cmd.Flags().StringVarP(&modelType, "type", "t", "", "Filter by model type (OpenRouter: text, image, video, audio, speech, transcription, embeddings, rerank, decisions, all)")
+	cmd.Flags().StringVar(&priceArg, "price", "", "Show pricing column (no arg) or model pricing details (with model name)")
+	cmd.Flags().Lookup("price").NoOptDefVal = priceListValue
 	cmd.Flags().BoolVar(&modelsDryRun, "dry-run", false, "Print the equivalent curl request without calling the API")
 	cmd.Flags().BoolVar(&modelsListProviders, "list-providers", false, "List configured providers without calling any API")
 	return cmd
@@ -89,31 +112,52 @@ func runModels(cmd *cobra.Command, args []string) error {
 	p := d.ResolveProvider("models")
 	isOpenRouter := p.ProviderType == provider.OpenRouter
 
-	mediaType := ""
-	if modelType != "" {
-		mediaType = modelType
-	} else if len(args) > 0 {
+	// The --type flag wins; otherwise a positional value may name a type.
+	mediaType := modelType
+	if mediaType == "" && len(args) > 0 && knownMediaTypes[args[0]] {
 		mediaType = args[0]
 	}
 
-	// A non-media-type positional argument is a model name. When none is
-	// given, fall back to the global --model/-m flag so `models -m <name>`
-	// behaves like `models <name>`.
+	// A positional value that is not a type is a model name. When there is no
+	// positional argument, fall back to the global --model/-m flag so
+	// `models -m <name>` behaves like `models <name>`.
 	modelName := ""
-	if len(args) > 0 && !knownMediaTypes[args[0]] {
+	switch {
+	case len(args) > 0 && !knownMediaTypes[args[0]]:
 		modelName = args[0]
-	} else if len(args) == 0 {
+	case len(args) == 0:
 		modelName = d.Model
 	}
 
 	priceChanged := cmd.Flags().Changed("price")
-	if priceChanged && priceArg != "" {
-		return runModelsPricing(priceArg)
+	cmdPriceChanged = priceChanged
+	if priceChanged {
+		priceModel := priceArg
+		if priceModel == priceListValue {
+			priceModel = ""
+		}
+		// The price flag's value is optional, so `--price <model>` leaves the
+		// model name as a positional argument instead of the flag value.
+		if priceModel == "" {
+			priceModel = modelName
+		}
+		if priceModel != "" {
+			if isOpenRouter {
+				// OpenRouter's /model/{author}/{slug} record carries pricing
+				// for every modality; the APIMart pricing API does not know
+				// these models.
+				return runModelsDetail(priceModel, p)
+			}
+			return runModelsPricing(priceModel)
+		}
+		if isOpenRouter {
+			return runModelsOpenRouterDiscovery(p, mediaType)
+		}
+		return runModelsMarketplace(mediaType)
 	}
 
-	if priceChanged || modelType != "" {
-		cmdPriceChanged = priceChanged
-		if isOpenRouter && knownMediaTypes[mediaType] {
+	if modelType != "" {
+		if isOpenRouter {
 			return runModelsOpenRouterDiscovery(p, mediaType)
 		}
 		return runModelsMarketplace(mediaType)
@@ -130,11 +174,11 @@ func runModels(cmd *cobra.Command, args []string) error {
 		return runModelsDetail(modelName, p)
 	}
 
-	if len(args) > 0 {
+	if mediaType != "" {
 		if isOpenRouter {
-			return runModelsOpenRouterDiscovery(p, args[0])
+			return runModelsOpenRouterDiscovery(p, mediaType)
 		}
-		return runModelsMarketplace(args[0])
+		return runModelsMarketplace(mediaType)
 	}
 
 	return runModelsOpenAI(p)

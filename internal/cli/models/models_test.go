@@ -152,6 +152,180 @@ func TestOpenRouterModelsLocalServer(t *testing.T) {
 	}
 }
 
+func TestNormalizeOpenRouterModality(t *testing.T) {
+	tests := []struct {
+		in      string
+		want    string
+		wantErr bool
+	}{
+		{"", "text", false},
+		{"chat", "text", false},
+		{"text", "text", false},
+		{"image", "image", false},
+		{"video", "video", false},
+		{"audio", "audio", false},
+		{"music", "audio", false},
+		{"speech", "speech", false},
+		{"tts", "speech", false},
+		{"transcription", "transcription", false},
+		{"stt", "transcription", false},
+		{"asr", "transcription", false},
+		{"embeddings", "embeddings", false},
+		{"embedding", "embeddings", false},
+		{"rerank", "rerank", false},
+		{"decisions", "decisions", false},
+		{"decision", "decisions", false},
+		{"all", "all", false},
+		{" SPEECH ", "speech", false},
+		{"bogus", "", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.in, func(t *testing.T) {
+			got, err := normalizeOpenRouterModality(tc.in)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("normalizeOpenRouterModality(%q) = %q, want error", tc.in, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("normalizeOpenRouterModality(%q) error = %v", tc.in, err)
+			}
+			if got != tc.want {
+				t.Errorf("normalizeOpenRouterModality(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRunModelsOpenRouterStandardDiscovery(t *testing.T) {
+	var gotPath, gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotQuery = r.URL.Path, r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"data": [
+				{
+					"id": "heygen/heygen-voice-1-turbo:free",
+					"name": "HeyGen: HeyGen Voice Turbo (free)",
+					"architecture": {"input_modalities": ["text"], "output_modalities": ["speech"]},
+					"supported_voices": ["nadine", "bram"],
+					"pricing": {"prompt": "0", "completion": "0", "overrides": [1, 2]},
+					"expiration_date": "2026-11-30"
+				},
+				{
+					"id": "acme/voice",
+					"name": "Acme Voice",
+					"architecture": {"input_modalities": ["text"], "output_modalities": ["speech"]},
+					"pricing": {"prompt": "0.000004", "completion": "0"}
+				}
+			]
+		}`))
+	}))
+	defer srv.Close()
+
+	prevPrice := cmdPriceChanged
+	cmdPriceChanged = true
+	defer func() { cmdPriceChanged = prevPrice }()
+
+	p := &provider.EffectiveProvider{BaseURL: srv.URL + "/api/v1", ProviderType: provider.OpenRouter}
+	var err error
+	out := captureStdout(t, func() { err = runModelsOpenRouterDiscovery(p, "tts") })
+	if err != nil {
+		t.Fatalf("runModelsOpenRouterDiscovery() error = %v", err)
+	}
+
+	if gotPath != "/api/v1/models" {
+		t.Errorf("request path = %q, want /api/v1/models", gotPath)
+	}
+	if gotQuery != "output_modalities=speech" {
+		t.Errorf("query = %q, want output_modalities=speech", gotQuery)
+	}
+	for _, want := range []string{
+		"Text-to-Speech Models (2)",
+		"heygen/heygen-voice-1-turbo:free  (free)",
+		"voices: nadine, bram",
+		"$4/M in",
+		"expires 2026-11-30",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output = %q, want it to contain %q", out, want)
+		}
+	}
+}
+
+func TestRunModelsOpenRouterTextIsCompact(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":[{"id":"acme/chat:free","name":"Acme Chat","architecture":{"input_modalities":["text"],"output_modalities":["text"]},"pricing":{"prompt":"0","completion":"0"}}]}`))
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{BaseURL: srv.URL + "/api/v1", ProviderType: provider.OpenRouter}
+	var err error
+	out := captureStdout(t, func() { err = runModelsOpenRouterDiscovery(p, "chat") })
+	if err != nil {
+		t.Fatalf("runModelsOpenRouterDiscovery() error = %v", err)
+	}
+	if !strings.Contains(out, "Text / Chat Models (1)") {
+		t.Errorf("output = %q, want the text/chat header", out)
+	}
+	if !strings.Contains(out, "acme/chat:free  (free)") {
+		t.Errorf("output = %q, want the compact free marker", out)
+	}
+	if strings.Contains(out, "─ Acme Chat") {
+		t.Errorf("output = %q, want one line per model for text listings", out)
+	}
+}
+
+func TestRunModelsOpenRouterUnknownType(t *testing.T) {
+	p := &provider.EffectiveProvider{BaseURL: "https://openrouter.ai/api/v1", ProviderType: provider.OpenRouter}
+	err := runModelsOpenRouterDiscovery(p, "bogus")
+	if err == nil || !strings.Contains(err.Error(), "unknown model type") {
+		t.Fatalf("runModelsOpenRouterDiscovery() error = %v, want unknown-type error", err)
+	}
+}
+
+func TestRunModelsMarketplaceUnknownType(t *testing.T) {
+	err := runModelsMarketplace("speech")
+	if err == nil || !strings.Contains(err.Error(), "unknown model type") {
+		t.Fatalf("runModelsMarketplace() error = %v, want unknown-type error", err)
+	}
+}
+
+func TestModelsBarePriceFlag(t *testing.T) {
+	resetModelsFlags(t)
+
+	var gotPath, gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotQuery = r.URL.Path, r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":[{"id":"acme/chat","architecture":{"input_modalities":["text"],"output_modalities":["text"]},"pricing":{"prompt":"0.000002","completion":"0.000004"}}]}`))
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{
+		BaseURL:      srv.URL + "/api/v1",
+		APIKey:       "sk-test",
+		ProviderType: provider.OpenRouter,
+	}
+	d = Deps{ResolveProvider: func(string) *provider.EffectiveProvider { return p }}
+
+	cmd := NewCommand(func() Deps { return d })
+	cmd.SetArgs([]string{"--price"})
+	var err error
+	out := captureStdout(t, func() { err = cmd.Execute() })
+	if err != nil {
+		t.Fatalf("execute() error = %v", err)
+	}
+	if gotPath != "/api/v1/models" || gotQuery != "output_modalities=text" {
+		t.Errorf("request = %q?%q, want the standard text listing", gotPath, gotQuery)
+	}
+	if !strings.Contains(out, "$2/M in · $4/M out") {
+		t.Errorf("output = %q, want the pricing column", out)
+	}
+}
+
 func TestRequireAPIKey(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -393,9 +567,10 @@ func TestModelsDryRunMakesNoRequests(t *testing.T) {
 		ProviderType: provider.OpenAI,
 	}
 
-	prevDryRun, prevD := modelsDryRun, d
-	defer func() { modelsDryRun, d = prevDryRun, prevD }()
+	prevDryRun, prevD, prevPrice := modelsDryRun, d, cmdPriceChanged
+	defer func() { modelsDryRun, d, cmdPriceChanged = prevDryRun, prevD, prevPrice }()
 	modelsDryRun = true
+	cmdPriceChanged = false
 	d = Deps{APIBase: srv.URL}
 
 	cases := []struct {
@@ -409,6 +584,14 @@ func TestModelsDryRunMakesNoRequests(t *testing.T) {
 			or := &provider.EffectiveProvider{BaseURL: srv.URL + "/api/v1", ProviderType: provider.OpenRouter}
 			return runModelsOpenRouterDiscovery(or, "image")
 		}, "curl -X GET " + srv.URL + "/api/v1/images/models"},
+		{"discovery speech", func() error {
+			or := &provider.EffectiveProvider{BaseURL: srv.URL + "/api/v1", ProviderType: provider.OpenRouter}
+			return runModelsOpenRouterDiscovery(or, "speech")
+		}, "curl -X GET " + srv.URL + "/api/v1/models?output_modalities=speech"},
+		{"discovery all", func() error {
+			or := &provider.EffectiveProvider{BaseURL: srv.URL + "/api/v1", ProviderType: provider.OpenRouter}
+			return runModelsOpenRouterDiscovery(or, "all")
+		}, "curl -X GET " + srv.URL + "/api/v1/models?output_modalities=all"},
 		{"openrouter detail", func() error {
 			or := &provider.EffectiveProvider{BaseURL: srv.URL + "/api/v1", APIKey: "sk-test", ProviderType: provider.OpenRouter}
 			return runModelsOpenRouterDetail("openai/gpt-4o", or)
@@ -438,11 +621,14 @@ func TestModelsDryRunMakesNoRequests(t *testing.T) {
 // resetModelsFlags isolates tests that touch the package-level flag variables.
 func resetModelsFlags(t *testing.T) {
 	t.Helper()
-	prevModelType, prevPrice, prevDryRun, prevList, prevD := modelType, priceArg, modelsDryRun, modelsListProviders, d
+	prevModelType, prevPrice, prevDryRun, prevList := modelType, priceArg, modelsDryRun, modelsListProviders
+	prevD, prevPriceChanged := d, cmdPriceChanged
 	t.Cleanup(func() {
-		modelType, priceArg, modelsDryRun, modelsListProviders, d = prevModelType, prevPrice, prevDryRun, prevList, prevD
+		modelType, priceArg, modelsDryRun, modelsListProviders = prevModelType, prevPrice, prevDryRun, prevList
+		d, cmdPriceChanged = prevD, prevPriceChanged
 	})
 	modelType, priceArg, modelsDryRun, modelsListProviders = "", "", false, false
+	cmdPriceChanged = false
 }
 
 func TestHostOf(t *testing.T) {
@@ -592,5 +778,68 @@ func TestRunModelsDetailNotFoundInList(t *testing.T) {
 	err := runModelsDetail("missing/model", p)
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("runModelsDetail() error = %v, want not-found after listing", err)
+	}
+}
+
+func TestRunModelsOpenRouterImagePriceUsesStandardEndpoint(t *testing.T) {
+	var gotPath, gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotQuery = r.URL.Path, r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":[{"id":"acme/image","architecture":{"input_modalities":["text"],"output_modalities":["image"]},"pricing":{"image":"0.04"}}]}`))
+	}))
+	defer srv.Close()
+
+	prevPrice := cmdPriceChanged
+	cmdPriceChanged = true
+	defer func() { cmdPriceChanged = prevPrice }()
+
+	p := &provider.EffectiveProvider{BaseURL: srv.URL + "/api/v1", ProviderType: provider.OpenRouter}
+	var err error
+	out := captureStdout(t, func() { err = runModelsOpenRouterDiscovery(p, "image") })
+	if err != nil {
+		t.Fatalf("runModelsOpenRouterDiscovery() error = %v", err)
+	}
+	if gotPath != "/api/v1/models" {
+		t.Errorf("path = %q, want the standard /api/v1/models endpoint when pricing is shown", gotPath)
+	}
+	if gotQuery != "output_modalities=image" {
+		t.Errorf("query = %q, want output_modalities=image", gotQuery)
+	}
+	if !strings.Contains(out, "$0.04/image") {
+		t.Errorf("output = %q, want per-image pricing", out)
+	}
+}
+
+func TestModelsPriceModelRoutesToOpenRouterDetail(t *testing.T) {
+	resetModelsFlags(t)
+
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":{"id":"acme/chat","pricing":{"prompt":"0.000002"}}}`))
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{
+		BaseURL:      srv.URL + "/api/v1",
+		APIKey:       "sk-test",
+		ProviderType: provider.OpenRouter,
+	}
+	d = Deps{ResolveProvider: func(string) *provider.EffectiveProvider { return p }}
+
+	cmd := NewCommand(func() Deps { return d })
+	cmd.SetArgs([]string{"--price", "acme/chat"})
+	var err error
+	out := captureStdout(t, func() { err = cmd.Execute() })
+	if err != nil {
+		t.Fatalf("execute() error = %v", err)
+	}
+	if gotPath != "/api/v1/model/acme/chat" {
+		t.Errorf("path = %q, want the singular model endpoint", gotPath)
+	}
+	if !strings.Contains(out, `"pricing"`) {
+		t.Errorf("output = %q, want the model record", out)
 	}
 }

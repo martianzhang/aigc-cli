@@ -211,9 +211,9 @@ echo 'source <(aigc-cli completion bash)' >> ~/.bashrc
 
 | base_url | `--type` 行为 | `--price` 行为 | 无参数行为 |
 |---|---|---|---|
-| APIMart 域名 | `GET /api/marketplace/models?type=...` | APIMart 定价 API | `GET /v1/models` |
-| OpenRouter 域名 | `GET /v1/images\|videos/models`（能力发现） | — | `GET /v1/models` |
-| 其他（OpenAI 等） | `GET /v1/models` | — | `GET /v1/models` |
+| APIMart 域名 | `GET /api/marketplace/models?type=...`（image / video / chat） | APIMart 定价 API | `GET /v1/models` |
+| OpenRouter 域名 | `GET /v1/models?output_modalities=<类型>`（支持全部输出模态）；image / video 改走 `GET /v1/images\|videos/models` 以展示分辨率、宽高比与参数范围 | 单模型记录 `GET /v1/model/{author}/{slug}`（含定价） | `GET /v1/models` |
+| 其他（OpenAI 等） | `GET /api/marketplace/models`（APIMart 市场；仅 image / video / chat） | APIMart 定价 API | `GET /v1/models` |
 
 ```bash
 # 自动选择数据源
@@ -231,9 +231,21 @@ aigc-cli models --type chat
 aigc-cli models --price gpt-image-2-official
 
 # OpenRouter 模型发现（免认证，无需 API Key）
-# 自动调用 /v1/images/models 或 /v1/videos/models
-aigc-cli models --provider openrouter --type image   # 展示架构、参数、能力
+# 支持全部输出模态：text/chat、image、video、audio、speech(tts)、
+# transcription(stt)、embeddings、rerank、decisions、all
+aigc-cli models --provider openrouter --type image          # 分辨率、宽高比、参数范围
 aigc-cli models --provider openrouter --type video
+aigc-cli models --provider openrouter --type speech         # TTS 模型 + 可用音色 + 到期时间
+aigc-cli models --provider openrouter --type transcription  # 语音转文字
+aigc-cli models --provider openrouter --type embeddings
+aigc-cli models --provider openrouter --type rerank
+aigc-cli models --provider openrouter --type decisions
+aigc-cli models --provider openrouter --type all            # 全部模型，附输出模态标签
+aigc-cli models --provider openrouter --type tts            # 别名：tts → speech
+
+# 带价格列（OpenRouter 按 token 计价，展示为 $/M tokens；:free 变体标注 (free)）
+aigc-cli models --provider openrouter --type speech --price
+aigc-cli models --provider openrouter --price               # 默认 text 列表 + 价格列
 
 # 查询单个模型详情（展示上下文窗口、定价、模态、支持参数）
 aigc-cli models --provider openrouter openai/gpt-4o
@@ -248,11 +260,13 @@ aigc-cli models --type image --dry-run
 aigc-cli models --api-base "https://api.openai.com/v1"
 ```
 
+> **OpenRouter 类型别名**：`chat`/`llm` → `text`，`music` → `audio`，`tts` → `speech`，`stt`/`asr` → `transcription`，`embedding`/`embed` → `embeddings`，`reranking` → `rerank`，`decision` → `decisions`。类型也可以作为位置参数（如 `aigc-cli models -P openrouter speech`）。未知类型会直接报错并列出全部可用值；APIMart 市场只接受 `image` / `video` / `chat`。
+
 > **单模型查询**：`aigc-cli models <模型名>` 或 `aigc-cli models --model <模型名>` 展示单个模型的详情（位置参数优先）。OpenRouter 走其**单数端点** `GET /v1/model/{author}/{slug}`（与列表的复数 `/models` 不同），并**原样输出接口返回的 JSON（仅格式化缩进，不做字段解析）**；其他 Provider 直接拉取 `GET /v1/models` 列表并按模型名过滤（不再探测 `GET /v1/models/{id}`——多数 Provider 并不支持该端点），无需额外配置。
 
 > **`--dry-run`**：只渲染等价的 `curl` 命令（API Key 已脱敏），不发起任何网络请求。列表、单模型详情、市场（`--type`）、定价（`--price`）与 OpenRouter 发现均支持；市场分页只打印第一页，后续页码以注释说明。
 
-> **API Key**：无参数调用（或查询单个模型，如 `aigc-cli models gpt-4o`）会请求 `/v1/models`，需要 API Key。未指定 `--provider` 且全局未配置 `api_key` / `OPENAI_API_KEY` 时，命令会先打印配置的候选 Provider 列表（名称 / 类型 / Host / 是否配置 Key），再提示用 `--provider <name>` 选择；也可随时用 `--list-providers` 单独查看该列表（不发起网络请求、不需要 Key）。`--type` / `--price`（市场与定价）免认证，无需 API Key。
+> **API Key**：无参数调用（或查询单个模型，如 `aigc-cli models gpt-4o`）会请求 `/v1/models`，需要 API Key。未指定 `--provider` 且全局未配置 `api_key` / `OPENAI_API_KEY` 时，命令会先打印配置的候选 Provider 列表（名称 / 类型 / Host / 是否配置 Key），再提示用 `--provider <name>` 选择；也可随时用 `--list-providers` 单独查看该列表（不发起网络请求、不需要 Key）。`--type`（类型发现，含 OpenRouter 的全部输出模态）与不带模型名的 `--price`（市场列表 + 价格列）免认证，无需 API Key；`--price <模型名>` 在 APIMart 走公开定价 API（免认证），在 OpenRouter 走 `GET /v1/model/{author}/{slug}`（需要 Key）。
 
 ## 查询任务状态
 
@@ -402,6 +416,7 @@ Run 'aigc-cli image --help' for usage and examples.
 | `POST /v1/video/create` | 文生视频 | OpenLux ✅ | [OpenLux 官方文档](https://doc.openlux.ai/en/tutorials/00-intro) |
 | `GET /v1/images/models` | 图片模型发现（免认证，含参数能力描述） | OpenRouter ✅ | [OpenRouter Image Models](https://openrouter.ai/docs/api/api-reference/images/list-image-models) |
 | `GET /v1/videos/models` | 视频模型发现（免认证） | OpenRouter ✅ | [OpenRouter Video Models](https://openrouter.ai/docs/api/api-reference/video-generation/list-videos-models) |
+| `GET /v1/models?output_modalities=` | 按输出模态发现模型（text / image / video / audio / speech / transcription / embeddings / rerank / decisions / all） | OpenRouter ✅ | [OpenRouter Models](https://openrouter.ai/docs/guides/overview/models) |
 | `POST /v1/midjourney/generations` (及 16 个子端点) | Midjourney 图生/编辑 | APIMart ✅ | [APIMart Docs](https://docs.apimart.ai/en) |
 | `POST /v1/uploads/images` | 上传图片 | APIMart ✅ | [APIMart Docs](https://docs.apimart.ai/en) |
 | `GET /v1/tasks/{task_id}` | 查询任务状态 | APIMart ✅ | [APIMart Docs](https://docs.apimart.ai/en) |

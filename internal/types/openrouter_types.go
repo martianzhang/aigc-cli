@@ -1,7 +1,11 @@
 // Package types — OpenRouter-specific API types for image and video generation.
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strconv"
+	"strings"
+)
 
 // OpenRouterUsage holds token and cost information.
 type OpenRouterUsage struct {
@@ -98,4 +102,83 @@ type OpenRouterParamDescriptor struct {
 	Values []string `json:"values,omitempty"` // enum values
 	Min    *int     `json:"min,omitempty"`    // range min
 	Max    *int     `json:"max,omitempty"`    // range max
+}
+
+// ---------------------------------------------------------------------------
+// OpenRouter Standard Models API — GET /api/v1/models?output_modalities=...
+// ---------------------------------------------------------------------------
+
+// OpenRouterModelList is the standard Models API response. It covers every
+// output modality: text, image, video, audio, speech, transcription,
+// embeddings, rerank and decisions.
+type OpenRouterModelList struct {
+	Data       []OpenRouterModel `json:"data"`
+	TotalCount int               `json:"total_count,omitempty"`
+}
+
+// OpenRouterModel is one entry from the standard Models API. Unlike
+// OpenRouterMediaModel (the dedicated image/video endpoints), this shape is
+// shared by every modality and carries pricing, voices and expiry.
+type OpenRouterModel struct {
+	ID                  string                       `json:"id"`
+	CanonicalSlug       string                       `json:"canonical_slug,omitempty"`
+	Name                string                       `json:"name"`
+	Description         string                       `json:"description,omitempty"`
+	Created             int64                        `json:"created,omitempty"`
+	ContextLength       int                          `json:"context_length,omitempty"`
+	Architecture        *OpenRouterModelArchitecture `json:"architecture,omitempty"`
+	SupportedParameters []string                     `json:"supported_parameters,omitempty"`
+	DefaultParameters   map[string]any               `json:"default_parameters,omitempty"`
+	SupportedVoices     []string                     `json:"supported_voices,omitempty"`
+	Pricing             OpenRouterPricing            `json:"pricing,omitempty"`
+	ExpirationDate      *string                      `json:"expiration_date,omitempty"`
+}
+
+// IsFree reports whether the entry is an explicit ":free" catalog variant.
+// Pricing that merely lists zeros is not treated as free here (some media
+// models, e.g. music, report zeros per token but charge per generation).
+func (m OpenRouterModel) IsFree() bool {
+	return strings.HasSuffix(m.ID, ":free")
+}
+
+// OpenRouterPricing holds OpenRouter's per-unit prices. Values are JSON
+// strings for regular fields (and arrays/objects for special ones such as
+// "overrides"), so the map stays loosely typed and is read through Price.
+type OpenRouterPricing map[string]any
+
+// Price returns the numeric value of one pricing field. JSON strings and
+// numbers are accepted; missing, array or object fields report false.
+func (p OpenRouterPricing) Price(key string) (float64, bool) {
+	raw, ok := p[key]
+	if !ok {
+		return 0, false
+	}
+	switch v := raw.(type) {
+	case string:
+		f, err := strconv.ParseFloat(v, 64)
+		return f, err == nil
+	case float64:
+		return v, true
+	case json.Number:
+		f, err := v.Float64()
+		return f, err == nil
+	}
+	return 0, false
+}
+
+// IsFree reports whether every numeric price is zero. A missing or
+// non-numeric pricing map is not treated as free.
+func (p OpenRouterPricing) IsFree() bool {
+	priced := false
+	for key := range p {
+		f, ok := p.Price(key)
+		if !ok {
+			continue
+		}
+		if f > 0 {
+			return false
+		}
+		priced = true
+	}
+	return priced
 }

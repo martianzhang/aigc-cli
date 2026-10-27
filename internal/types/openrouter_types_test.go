@@ -186,3 +186,96 @@ func TestOpenRouterVideoStatusResponse_completed(t *testing.T) {
 		t.Errorf("TotalCost = %f", resp.Usage.TotalCost)
 	}
 }
+
+func TestOpenRouterModelList_unmarshal(t *testing.T) {
+	data := `{
+		"data": [
+			{
+				"id": "heygen/heygen-voice-1-turbo:free",
+				"name": "HeyGen: HeyGen Voice Turbo (free)",
+				"architecture": {"input_modalities": ["text"], "output_modalities": ["speech"]},
+				"supported_parameters": ["voice", "speed"],
+				"default_parameters": {"speed": 1},
+				"supported_voices": ["nadine", "bram"],
+				"pricing": {"prompt": "0", "completion": "0", "overrides": [1, 2]},
+				"expiration_date": "2026-11-30"
+			}
+		]
+	}`
+
+	var list OpenRouterModelList
+	if err := json.Unmarshal([]byte(data), &list); err != nil {
+		t.Fatalf("failed to unmarshal standard model list: %v", err)
+	}
+	if len(list.Data) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(list.Data))
+	}
+	m := list.Data[0]
+	if m.ID != "heygen/heygen-voice-1-turbo:free" || !m.IsFree() {
+		t.Errorf("ID/IsFree = %q/%v, want the free variant", m.ID, m.IsFree())
+	}
+	if len(m.SupportedVoices) != 2 || m.SupportedVoices[0] != "nadine" {
+		t.Errorf("SupportedVoices = %v", m.SupportedVoices)
+	}
+	if len(m.SupportedParameters) != 2 || m.SupportedParameters[0] != "voice" {
+		t.Errorf("SupportedParameters = %v", m.SupportedParameters)
+	}
+	if m.Architecture == nil || m.Architecture.OutputModalities[0] != "speech" {
+		t.Errorf("Architecture = %+v", m.Architecture)
+	}
+	if m.ExpirationDate == nil || *m.ExpirationDate != "2026-11-30" {
+		t.Errorf("ExpirationDate = %v", m.ExpirationDate)
+	}
+	if !m.Pricing.IsFree() {
+		t.Error("Pricing.IsFree() = false, want true for all-zero prices (list field must be ignored)")
+	}
+}
+
+func TestOpenRouterPricing_Price(t *testing.T) {
+	p := OpenRouterPricing{
+		"prompt":     "0.000004",
+		"completion": 0.00001,
+		"image":      json.Number("0.04"),
+		"overrides":  []any{1.0},
+	}
+	tests := []struct {
+		key  string
+		want float64
+		ok   bool
+	}{
+		{"prompt", 0.000004, true},
+		{"completion", 0.00001, true},
+		{"image", 0.04, true},
+		{"overrides", 0, false},
+		{"missing", 0, false},
+	}
+	for _, tc := range tests {
+		got, ok := p.Price(tc.key)
+		if ok != tc.ok || got != tc.want {
+			t.Errorf("Price(%q) = %v, %v; want %v, %v", tc.key, got, ok, tc.want, tc.ok)
+		}
+	}
+	if p.IsFree() {
+		t.Error("IsFree() = true, want false with positive prices")
+	}
+	if (OpenRouterPricing{}).IsFree() {
+		t.Error("empty pricing must not report free")
+	}
+}
+
+func TestOpenRouterModelIsFree(t *testing.T) {
+	tests := []struct {
+		id   string
+		want bool
+	}{
+		{"heygen/heygen-voice-1-turbo:free", true},
+		{"heygen/heygen-voice-1-turbo", false},
+		{"google/lyria-3-pro-preview", false}, // zero per-token price, but not a free variant
+	}
+	for _, tc := range tests {
+		m := OpenRouterModel{ID: tc.id}
+		if got := m.IsFree(); got != tc.want {
+			t.Errorf("IsFree(%q) = %v, want %v", tc.id, got, tc.want)
+		}
+	}
+}

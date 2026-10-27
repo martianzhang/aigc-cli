@@ -19,11 +19,19 @@ aigc-cli models --list-providers
 aigc-cli models --type image
 aigc-cli models --type video
 
-# OpenRouter model discovery (auth-free; GET /v1/images/models or /v1/videos/models)
+# OpenRouter model discovery (auth-free, no API key; every output modality)
 aigc-cli models --provider openrouter --type video
+aigc-cli models --provider openrouter --type speech         # TTS models + voices
+aigc-cli models --provider openrouter --type transcription  # speech-to-text
+aigc-cli models --provider openrouter --type embeddings
+aigc-cli models --provider openrouter --type rerank
+aigc-cli models --provider openrouter --type decisions
+aigc-cli models --provider openrouter --type all            # everything, with output modality tags
+aigc-cli models --provider openrouter --type tts            # alias: tts → speech
 
-# View model pricing
+# View model pricing (OpenRouter: $/M tokens; ":free" variants are tagged)
 aigc-cli models --price
+aigc-cli models --provider openrouter --type speech --price
 
 # Single model detail (context window, pricing, modalities, params)
 aigc-cli models --provider openrouter openai/gpt-4o
@@ -35,11 +43,13 @@ aigc-cli models --model gpt-4o --dry-run
 aigc-cli models --type image --dry-run
 ```
 
+> **OpenRouter types**: `--type` accepts every OpenRouter output modality — `text` (default), `image`, `video`, `audio`, `speech`, `transcription`, `embeddings`, `rerank`, `decisions` and `all`. Aliases: `chat`/`llm` → `text`, `music` → `audio`, `tts` → `speech`, `stt`/`asr` → `transcription`, `embedding`/`embed` → `embeddings`, `reranking` → `rerank`, `decision` → `decisions`. A type may also be positional (`aigc-cli models -P openrouter speech`). Unknown types fail with the full list; the APIMart marketplace accepts only `image`, `video` and `chat`. Image/video discovery uses the dedicated generation endpoints (resolutions, aspect ratios, parameter ranges); every other modality and `--price` use `GET /v1/models?output_modalities=<type>`.
+
 > **Single-model lookup**: `aigc-cli models <model>` or `aigc-cli models --model <model>` prints one model's details (the positional argument wins). For OpenRouter it calls the **singular** `GET /v1/model/{author}/{slug}` endpoint (not the plural `/models` used for listing) and **prints the response JSON verbatim** (pretty-printed, no field parsing). Other providers fetch the `GET /v1/models` list and filter by model id (the `GET /v1/models/{id}` endpoint is never probed — most providers do not serve it), with no extra configuration.
 
 > **`--dry-run`**: renders the equivalent `curl` command (API key masked) and makes no network request. It works for the plain list, single-model detail, marketplace (`--type`), pricing (`--price`), and OpenRouter discovery; marketplace pagination only renders the first page and notes the follow-up pages in a comment.
 
-> **API key**: calling with no arguments (or with a bare model name, e.g. `aigc-cli models gpt-4o`) hits `/v1/models` and requires an API key. Without `--provider` and a global `api_key` / `OPENAI_API_KEY`, the command prints the configured providers as candidates (name / type / host / key status) and then tells you to pick one with `--provider <name>`. Run `aigc-cli models --list-providers` to print that table on its own — it makes no network request and needs no key. `--type` and `--price` (marketplace and pricing) are auth-free — no key needed.
+> **API key**: calling with no arguments (or with a bare model name, e.g. `aigc-cli models gpt-4o`) hits `/v1/models` and requires an API key. Without `--provider` and a global `api_key` / `OPENAI_API_KEY`, the command prints the configured providers as candidates (name / type / host / key status) and then tells you to pick one with `--provider <name>`. Run `aigc-cli models --list-providers` to print that table on its own — it makes no network request and needs no key. `--type` (type discovery, including every OpenRouter modality) and `--price` without a model name (marketplace listing with a price column) are auth-free. `--price <model>` uses APIMart's public pricing API or, for OpenRouter, the keyed `GET /v1/model/{author}/{slug}` endpoint.
 
 ## task
 

@@ -13,6 +13,9 @@ import (
 // runModelsMarketplace fetches models from the APIMart marketplace API.
 // The marketplace is a public API (no auth required).
 func runModelsMarketplace(mediaType string) error {
+	if mediaType != "" && !marketplaceTypes[mediaType] {
+		return fmt.Errorf("unknown model type %q for this provider; supported: image, video, chat (use --provider openrouter for text, audio, speech, transcription, embeddings, rerank, decisions or all)", mediaType)
+	}
 	base := d.APIBase
 	if base == "" {
 		base = types.DefaultAPIBaseURL
