@@ -88,6 +88,7 @@ aigc-cli chat --message "explain @main.go"
 - `@` reads share the exact policy of the `read` tool: patterns in `defaults.chat.read_deny` block them the same way. A blocked file is never read — only a warning is shown.
 - Binary files are never inlined as text, so garbled bytes cannot be pushed into the context.
 - Applies to **user messages only**; `@` inside tool-call arguments is expanded by separate logic (see the `read` primitive below).
+- **`--json` does not support `@` attachments**: a `--json` body is sent verbatim, so an image attachment has nowhere to go. Combining the two fails fast with a hint to use `--message` instead; a hand-written multimodal `content` array in the body is likewise unsupported — pass it with `--inject-json`.
 
 ## Tool Calling
 

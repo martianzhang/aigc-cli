@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -112,6 +114,68 @@ func TestBuildChatRequestTerminalDoesNotReadStdin(t *testing.T) {
 	tc := newChatTestCmd(t)
 	if _, err := buildChatRequest(tc.cmd); err != nil {
 		t.Fatalf("buildChatRequest: %v", err)
+	}
+}
+
+func TestBuildChatRequestJSONRejectsImageMention(t *testing.T) {
+	dir := t.TempDir()
+	imgPath := filepath.Join(dir, "pic.png")
+	if err := os.WriteFile(imgPath, pngMagic, 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	tc := newChatTestCmd(t)
+	setTestFlag(t, tc.cmd.Flags(), "json", `{"model":"m","messages":[{"role":"user","content":"hi"}]}`)
+	setTestFlag(t, tc.cmd.Flags(), "message", "what is @"+imgPath)
+
+	_, err := buildChatRequest(tc.cmd)
+	if err == nil {
+		t.Fatal("buildChatRequest() error = nil, want --json + image mention rejected")
+	}
+	// The error must tell the user what to do instead of leaking a Go type error.
+	for _, want := range []string{"--json", "pic.png", "--message"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %q, want it to mention %q", err, want)
+		}
+	}
+}
+
+func TestBuildChatRequestJSONTextMentionStillInlines(t *testing.T) {
+	dir := t.TempDir()
+	txtPath := filepath.Join(dir, "a.txt")
+	if err := os.WriteFile(txtPath, []byte("hello world"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	tc := newChatTestCmd(t)
+	setTestFlag(t, tc.cmd.Flags(), "json", `{"model":"m","messages":[{"role":"user","content":"hi"}]}`)
+	setTestFlag(t, tc.cmd.Flags(), "message", "explain @"+txtPath)
+
+	req, err := buildChatRequest(tc.cmd)
+	if err != nil {
+		t.Fatalf("buildChatRequest: %v", err)
+	}
+	if !strings.Contains(string(req.RawJSON), "hello world") {
+		t.Errorf("RawJSON = %s, want the inlined text file", req.RawJSON)
+	}
+}
+
+func TestBuildChatRequestJSONRejectsContentParts(t *testing.T) {
+	const body = `{"model":"m","messages":[{"role":"user","content":[` +
+		`{"type":"text","text":"describe"},` +
+		`{"type":"image_url","image_url":{"url":"data:image/png;base64,AAA"}}]}]}`
+
+	tc := newChatTestCmd(t)
+	setTestFlag(t, tc.cmd.Flags(), "json", body)
+
+	_, err := buildChatRequest(tc.cmd)
+	if err == nil {
+		t.Fatal("buildChatRequest() error = nil, want content parts rejected")
+	}
+	for _, want := range []string{"messages[0].content", "--inject-json"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %q, want it to mention %q", err, want)
+		}
 	}
 }
 

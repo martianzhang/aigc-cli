@@ -50,6 +50,9 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read JSON input: %w", err)
 		}
+		if err := rejectJSONContentParts(data); err != nil {
+			return nil, err
+		}
 		req := &types.ChatRequest{}
 		if err := json.Unmarshal(data, req); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
@@ -62,6 +65,9 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		if options.HasFlagChanged(cmd, "system") || messageFlagChanged(cmd) {
 			messages, err := flagMessages()
 			if err != nil {
+				return nil, err
+			}
+			if err := rejectJSONAttachments(messages); err != nil {
 				return nil, err
 			}
 			set["messages"] = messages
@@ -125,6 +131,49 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 
 	req.InjectJSON = inject
 	return req, nil
+}
+
+// rejectJSONAttachments refuses an image @-mention combined with --json.
+//
+// --json sends the request body verbatim (RawJSON wins over the typed fields),
+// so an attachment has nowhere to go: merging the messages back into the raw
+// body round-trips them through JSON text, where an image becomes a content
+// parts array that ChatMessage.Content (a string) cannot accept. Rejecting the
+// combination here replaces an opaque decode failure with an actionable error.
+func rejectJSONAttachments(messages []types.ChatMessage) error {
+	for _, m := range messages {
+		if len(m.Images) == 0 {
+			continue
+		}
+		return fmt.Errorf(
+			"--json sends the request body verbatim, so an image attachment (%s) cannot be added; "+
+				"drop --json and attach it with --message \"... @%s\" instead",
+			m.Images[0].Name, m.Images[0].Name)
+	}
+	return nil
+}
+
+// rejectJSONContentParts refuses a --json body whose message content is a
+// multimodal parts array. The typed ChatMessage models string content only, so
+// such a body would fail deep inside the decode with a bare Go type error;
+// --inject-json is not typed and appends the same parts verbatim.
+func rejectJSONContentParts(data []byte) error {
+	var probe struct {
+		Messages []struct {
+			Content json.RawMessage `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return nil // malformed bodies are reported by the caller
+	}
+	for i, m := range probe.Messages {
+		if len(m.Content) > 0 && m.Content[0] == '[' {
+			return fmt.Errorf(
+				"--json does not support multimodal content parts (messages[%d].content is an array); "+
+					"pass them with --inject-json instead", i)
+		}
+	}
+	return nil
 }
 
 func flagMessages() ([]types.ChatMessage, error) {
