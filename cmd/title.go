@@ -21,3 +21,21 @@ func titleForCommand(cmd *cobra.Command) {
 	}
 	prog.BusyStage(cmd.Name())
 }
+
+// ownsTerminal reports whether the command being executed manages its own
+// terminal (alt screen, raw mode, signal handling), so the shared tab indicator
+// and Ctrl-C cleanup must stay out of its way.
+//
+// A bare `aigc-cli` has no subcommand: root's RunE hands off to the chat TUI, so
+// it owns the terminal exactly like `aigc-cli chat` does even though the
+// executed command is the root one.
+func ownsTerminal(cmd *cobra.Command) bool {
+	if cmd.Root() == cmd {
+		return true
+	}
+	switch cmd.Name() {
+	case "chat", "mcp", "completion":
+		return true
+	}
+	return false
+}

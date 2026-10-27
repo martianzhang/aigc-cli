@@ -115,9 +115,7 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 
 		// Long-running commands keep a live tab indicator; make sure Ctrl-C clears
 		// it. Commands that own their terminal or signal handling opt out.
-		switch cmd.Name() {
-		case "chat", "mcp", "completion":
-		default:
+		if !ownsTerminal(cmd) {
 			titleForCommand(cmd)
 			terminal.ClearOnInterrupt()
 		}
