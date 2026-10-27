@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/term"
@@ -405,5 +406,91 @@ func TestPlainEnterSubmits(t *testing.T) {
 	}
 	if m.input.Value() != "" {
 		t.Errorf("draft = %q, want it cleared after submit", m.input.Value())
+	}
+}
+
+// TestWordBackwardDoesNotHang guards the textarea wordLeft() infinite loop
+// (bubbles@v1.0.0 textarea.go): when only whitespace sits left of the cursor,
+// characterLeft() stops moving and the loop's break condition never fires. The
+// TUI used to pin a core at 100% and stop answering keys — Ctrl-C included,
+// since raw mode delivers it as a byte rather than a signal.
+func TestWordBackwardDoesNotHang(t *testing.T) {
+	altLeft := tea.KeyMsg{Type: tea.KeyLeft, Alt: true}
+
+	cases := []struct {
+		name    string
+		draft   string
+		toStart bool // move the cursor to the very beginning first
+		wantRow int
+		wantCol int
+	}{
+		// Nothing but whitespace left of the cursor: it belongs at the start.
+		{name: "empty draft", draft: "", wantRow: 0, wantCol: 0},
+		{name: "spaces only", draft: "   ", wantRow: 0, wantCol: 0},
+		{name: "leading space", draft: " foo", toStart: true, wantRow: 0, wantCol: 0},
+		{name: "leading tab", draft: "\tfoo", toStart: true, wantRow: 0, wantCol: 0},
+		{name: "empty first line", draft: "\nfoo", toStart: true, wantRow: 0, wantCol: 0},
+		{name: "blank lines then spaces", draft: "\n\n   ", wantRow: 0, wantCol: 0},
+		// A real word is still reachable across the blank lines.
+		{name: "blank lines then indent", draft: "\n\n   foo", wantRow: 2, wantCol: 3},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := newTestModel(t)
+			m.input.SetValue(tc.draft)
+			if tc.toStart {
+				m.moveInputToBegin()
+			}
+
+			done := make(chan struct{})
+			go func() {
+				_, _ = m.Update(altLeft)
+				close(done)
+			}()
+			select {
+			case <-done:
+			case <-time.After(2 * time.Second):
+				t.Fatalf("alt+left on %q hung in textarea.wordLeft", tc.draft)
+			}
+
+			li := m.input.LineInfo()
+			row, col := m.input.Line(), li.StartColumn+li.ColumnOffset
+			if row != tc.wantRow || col != tc.wantCol {
+				t.Errorf("cursor = (%d,%d), want (%d,%d)", row, col, tc.wantRow, tc.wantCol)
+			}
+		})
+	}
+}
+
+// TestWordBackwardMovesOneWord guards that the hang fix did not break normal
+// word-wise movement inside a draft.
+func TestWordBackwardMovesOneWord(t *testing.T) {
+	m := newTestModel(t)
+	m.input.SetValue("foo bar")
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyLeft, Alt: true})
+	m = updated.(*chatModel)
+
+	li := m.input.LineInfo()
+	if row := m.input.Line(); row != 0 {
+		t.Fatalf("cursor row = %d, want 0", row)
+	}
+	if col := li.StartColumn + li.ColumnOffset; col != 4 {
+		t.Errorf("cursor col = %d, want 4 (start of %q)", col, "bar")
+	}
+}
+
+// TestWordBackwardAfterTrailingSpaces guards the case where whitespace sits
+// between the cursor and the previous word: it must still land on that word.
+func TestWordBackwardAfterTrailingSpaces(t *testing.T) {
+	m := newTestModel(t)
+	m.input.SetValue("foo bar  ")
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyLeft, Alt: true})
+	m = updated.(*chatModel)
+
+	li := m.input.LineInfo()
+	if col := li.StartColumn + li.ColumnOffset; col != 4 {
+		t.Errorf("cursor col = %d, want 4 (start of %q)", col, "bar")
 	}
 }

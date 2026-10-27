@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbletea"
 )
 
@@ -307,6 +308,16 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cycleIdx = -1
 		// Any key press cancels a pending Alt sequence
 		m.altPending = false
+		// bubbles' textarea.wordLeft() loops forever once only whitespace is
+		// left of the cursor: characterLeft() can no longer move, so the loop's
+		// break condition never fires (bubbles@v1.0.0 textarea.go wordLeft).
+		// The event loop then pins a core and stops draining keys — including
+		// Ctrl-C, which arrives as a byte rather than a signal while the
+		// terminal is in raw mode. Running out of words simply means "go to the
+		// start of the draft", so place the cursor there ourselves.
+		if key.Matches(msg, m.input.KeyMap.WordBackward) && m.onlyWhitespaceBeforeCursor() {
+			return m, m.moveInputToBegin()
+		}
 		return m, m.updateInput(msg)
 	}
 }
@@ -330,6 +341,35 @@ func (m *chatModel) updateInput(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return cmd
+}
+
+// moveInputToBegin puts the textarea cursor at the very start of the draft. The
+// widget exposes no absolute setter, so drive its own InputBegin binding.
+func (m *chatModel) moveInputToBegin() tea.Cmd {
+	return m.updateInput(tea.KeyMsg{Type: tea.KeyCtrlHome})
+}
+
+// onlyWhitespaceBeforeCursor reports whether everything left of the textarea
+// cursor in the draft is whitespace (or nothing at all). That is the state in
+// which the textarea's wordLeft() cannot make progress and spins forever.
+func (m *chatModel) onlyWhitespaceBeforeCursor() bool {
+	lines := strings.Split(m.input.Value(), "\n")
+	row := m.input.Line()
+	if row < 0 || row >= len(lines) {
+		return false
+	}
+	for _, line := range lines[:row] {
+		if strings.TrimSpace(line) != "" {
+			return false
+		}
+	}
+	// The textarea soft-wraps long lines, so LineInfo's ColumnOffset is relative
+	// to the visual row: add StartColumn for the logical column in the line.
+	li := m.input.LineInfo()
+	col := li.StartColumn + li.ColumnOffset
+	runes := []rune(lines[row])
+	col = min(max(col, 0), len(runes))
+	return strings.TrimSpace(string(runes[:col])) == ""
 }
 
 // insertNewline appends a line break to the draft. Modified Enter messages are

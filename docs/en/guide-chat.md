@@ -54,6 +54,8 @@ Multi-line input: `Shift+Enter`, `Alt+Enter` and `Ctrl+J` all insert a line brea
 
 `↑` / `↓` move the cursor inside a multi-line draft; on the first/last line they step through the command history instead.
 
+`Option/Alt+←` (or `Option/Alt+B`) moves the cursor back one word; when only whitespace is left of the cursor it jumps to the start of the draft.
+
 Interrupting and exiting:
 - `Esc` or `Ctrl+C` while a turn is running interrupts it for real: the HTTP request and any running `bash`/MCP tool stop, and partial output is kept with an `[interrupted]` marker.
 - `Ctrl+C` while idle exits. `Ctrl+D` also exits, but is ignored while the input box has a draft so typed text is not lost.

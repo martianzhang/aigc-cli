@@ -85,6 +85,7 @@ aigc-cli chat -v
 | `!<command>` | 执行 Shell 命令（输出区会带 `$ 命令` 前缀，便于看清执行了什么） |
 | `Shift+Enter` `Alt+Enter` `Ctrl+J` | 输入框内换行（`Enter` 提交消息） |
 | `↑` `↓` | 多行草稿里上下移动光标；已在首行 / 末行时改为翻阅命令历史 |
+| `Option/Alt+←` `Option/Alt+B` | 光标按词左移；左边只剩空白（已在草稿开头）时跳到草稿开头 |
 
 > **多行输入：** 按 `Shift+Enter`、`Alt+Enter` 或 `Ctrl+J` 换行，`Enter` 提交消息。
 > 回复生成过程中输入框仍可正常编辑（草稿不会丢），此时 `Enter` 只换行、不会打断当前回复；等回复结束后再按 `Enter` 发送。
