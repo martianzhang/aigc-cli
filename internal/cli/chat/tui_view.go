@@ -30,7 +30,7 @@ func (m *chatModel) View() string {
 	var b strings.Builder
 
 	// Header
-	headerText := clipString(fmt.Sprintf("💬 Chat with AI  —  Model: %s", m.modelDisplay()), max(m.width-4, 20))
+	headerText := clipString(fmt.Sprintf("💬 %s  —  Model: %s", m.sessionTitle(), m.modelDisplay()), max(m.width-4, 20))
 	b.WriteString(m.styles.header.Render(headerText))
 	b.WriteByte('\n')
 
@@ -421,6 +421,9 @@ func splitVisualLine(toks []wrapToken, width int) ([][]wrapToken, []string) {
 // confuse the rune-based clipper.
 func (m *chatModel) renderStatus() string {
 	info := m.providerModelDisplay()
+	if rec := m.sessionDisplay(); rec != "" {
+		info += "  |  " + rec
+	}
 	// The status bar style has one column of horizontal padding on each side,
 	// so clip below its full width to keep the text from wrapping onto a
 	// second row on narrow terminals.

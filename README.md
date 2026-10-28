@@ -50,6 +50,8 @@ export OPENAI_API_KEY="sk-xxx"
 
 aigc-cli image --prompt "a cat under the stars"
 aigc-cli chat --message "Hello, who are you?"
+aigc-cli chat --save                          # persist this chat as JSONL
+aigc-cli chat --session <id|file>             # resume a stored session
 ```
 
 ### Using OpenRouter (change env vars, commands stay the same)
@@ -251,7 +253,7 @@ aigc-cli midjourney (or mj)
 | [Depth Conversion](docs/en/guide-depth.md) | Image/video → depth map, Depth Anything V2 models, parameters |
 | [Image Upscaling](docs/en/guide-upscale.md) | Local 2x/4x super-resolution, Real-ESRGAN/Real-CUGAN/Swin2SR models, parameters |
 | [Midjourney](docs/en/guide-midjourney.md) | 17 subcommands complete guide: imagine, blend, upscale etc. |
-| [AI Chat](docs/en/guide-chat.md) | Interactive multi-turn REPL, streaming, verbose stats |
+| [AI Chat](docs/en/guide-chat.md) | Interactive multi-turn REPL, streaming, JSONL session save/resume, verbose stats |
 | [AIGC Detection](docs/en/guide-detect.md) | Multi-signal fusion, ONNX models, FFT spectrum, emoji output |
 | [Prompt Ideas](docs/en/guide-ideas.md) | Local BM25 search + online libraries (aipromptslibrary, prompts.chat, openart, civitai, youmind) |
 | [Knowledge Base](docs/en/guide-knowledgebase.md) | Local KB: FTS5 + semantic search, vault, web search |

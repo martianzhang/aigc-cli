@@ -31,6 +31,12 @@ func (m *chatModel) compactConversation(ctx context.Context, turn uint64, count 
 		prog.Send(compactDone{turn: turn, err: fmt.Errorf("compaction failed")})
 		return
 	}
+	if m.sess != nil {
+		if err := m.sess.AppendCompaction(result.Summary, result.Tokens+result.TokenSaved, result.Tokens, m.model); err != nil {
+			prog.Send(compactDone{turn: turn, err: err})
+			return
+		}
+	}
 
 	prog.Send(compactDone{
 		turn:       turn,
@@ -57,9 +63,15 @@ func (m *chatModel) handleUserMessage(input string) (tea.Model, tea.Cmd) {
 	m.appendUserMessage(input, warnings)
 
 	// Add to API history
+	userMessage := types.ChatMessage{Role: "user", Content: expanded, Images: images}
 	m.mu.Lock()
-	m.history = append(m.history, types.ChatMessage{Role: "user", Content: expanded, Images: images})
+	m.history = append(m.history, userMessage)
 	m.mu.Unlock()
+	if m.sess != nil {
+		if err := m.sess.AppendMessage(userMessage, "", m.toolOutputMax); err != nil {
+			m.messages = append(m.messages, message{role: "system", content: fmt.Sprintf("Session write failed: %v", err)})
+		}
+	}
 	// The input stays focused and empty so the next message can be drafted
 	// while the reply streams in; Enter is blocked until the turn finishes.
 	m.input.Reset()

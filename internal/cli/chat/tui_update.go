@@ -290,6 +290,11 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.system != "" {
 			m.history = append(m.history, types.ChatMessage{Role: "system", Content: m.system})
 		}
+		if m.sess != nil {
+			if err := m.sess.AppendClear(); err != nil {
+				m.messages = append(m.messages, message{role: "system", content: fmt.Sprintf("Session clear failed: %v", err)})
+			}
+		}
 		m.streamBuf.Reset()
 		m.err = nil
 		m.pending = nil

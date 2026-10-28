@@ -91,14 +91,22 @@ func CompactConversation(c *client.Client, model string, temperature float64, ma
 
 // AutoCompactIfNeeded compacts the history when it exceeds 80% of contextSize.
 func AutoCompactIfNeeded(c *client.Client, model string, temperature float64, maxTokens int, contextSize int, history []types.ChatMessage, stderr io.Writer) []types.ChatMessage {
+	history, _ = AutoCompactIfNeededResult(c, model, temperature, maxTokens, contextSize, history, stderr)
+	return history
+}
+
+// AutoCompactIfNeededResult is AutoCompactIfNeeded plus the compaction result
+// for callers that persist the summary (sessions). result is nil when no
+// compaction ran.
+func AutoCompactIfNeededResult(c *client.Client, model string, temperature float64, maxTokens int, contextSize int, history []types.ChatMessage, stderr io.Writer) ([]types.ChatMessage, *CompactResult) {
 	if contextSize <= 0 {
-		return history
+		return history, nil
 	}
 
 	currentTokens := EstimateHistoryTokens(history)
 	threshold := int(float64(contextSize) * 0.8)
 	if currentTokens <= threshold {
-		return history
+		return history, nil
 	}
 
 	fmt.Fprintf(stderr, "\r\n[auto-compact] context %d tokens > %d threshold (limit %d), compacting...\r\n",
@@ -107,10 +115,10 @@ func AutoCompactIfNeeded(c *client.Client, model string, temperature float64, ma
 	result := CompactConversation(c, model, temperature, maxTokens, history, stderr)
 	if result == nil {
 		fmt.Fprintln(stderr, "\r\n[auto-compact] compaction failed, continuing with full history")
-		return history
+		return history, nil
 	}
 
 	fmt.Fprintf(stderr, "\r\n[auto-compact] compacted: %d → %d tokens (saved %d)\r\n",
 		currentTokens, result.Tokens, result.TokenSaved)
-	return result.History
+	return result.History, result
 }

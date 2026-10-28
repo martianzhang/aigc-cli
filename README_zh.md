@@ -50,6 +50,8 @@ export OPENAI_API_KEY="sk-xxx"
 
 aigc-cli image --prompt "一只猫在星空下"
 aigc-cli chat --message "你是谁？"
+aigc-cli chat --save                          # 保存为 JSONL 会话
+aigc-cli chat --session <id|file>             # 恢复已有会话
 ```
 
 ### 使用 OpenRouter（改环境变量，命令不用动）
@@ -246,7 +248,7 @@ aigc-cli midjourney (或 mj)
 | [深度转换](docs/zh/guide-depth.md) | 图片/视频 → 深度图，Depth Anything V2 模型，参数说明 |
 | [图像放大](docs/zh/guide-upscale.md) | 本地 2x/4x 超分辨率放大，Real-ESRGAN/Real-CUGAN/Swin2SR 模型与参数 |
 | [Midjourney 生成](docs/zh/guide-midjourney.md) | 17 个子命令完整说明：imagine、blend、upscale 等 |
-| [AI 对话](docs/zh/guide-chat.md) | 交互式多轮 REPL、流式输出、verbose 统计 |
+| [AI 对话](docs/zh/guide-chat.md) | 交互式多轮 REPL、流式输出、JSONL 会话保存/恢复、verbose 统计 |
 | [AIGC 检测](docs/zh/guide-detect.md) | 多信号融合、ONNX 模型、FFT 频谱、emoji 输出 |
 | [提示词灵感](docs/zh/guide-ideas.md) | 本地 BM25 搜索 + 在线提示词库（aipromptslibrary、prompts.chat、openart、civitai） |
 | [知识库](docs/zh/guide-knowledgebase.md) | 本地知识库：FTS5 + 语义搜索、保险箱、web search |

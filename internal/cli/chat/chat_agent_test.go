@@ -15,6 +15,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/session"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -149,5 +150,57 @@ func TestRunAgentLoop_noLeadingBlankLine(t *testing.T) {
 	}
 	if got := out.String(); got != "hello\n" {
 		t.Errorf("stdout = %q, want %q", got, "hello\n")
+	}
+}
+
+func TestRunAgentLoopWithSessionPersistsMessages(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}`)
+	}))
+	defer srv.Close()
+
+	prevModel, prevNoStream := options.Shared.Model, chatNoStream
+	options.Shared.Model, chatNoStream = "test-model", true
+	restoreOut := options.SetStdout(io.Discard)
+	restoreErr := options.SetStderr(io.Discard)
+	t.Cleanup(func() {
+		options.Shared.Model, chatNoStream = prevModel, prevNoStream
+		restoreOut()
+		restoreErr()
+	})
+
+	dir := t.TempDir()
+	path := dir + "/agent.jsonl"
+	sess, err := session.New(path, session.Header{ID: "agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sess.AppendSystem("sys"); err != nil {
+		t.Fatal(err)
+	}
+	if err := sess.AppendMessage(types.ChatMessage{Role: "user", Content: "hi"}, "", 0); err != nil {
+		t.Fatal(err)
+	}
+	history := sess.History()
+
+	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
+	if err := runAgentLoopWithSession(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd(), nil, sess, session.DefaultToolOutputMaxBytes); err != nil {
+		t.Fatalf("runAgentLoopWithSession() error = %v", err)
+	}
+	if err := sess.Close("exit"); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := session.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := loaded.History()
+	if len(got) != 3 {
+		t.Fatalf("persisted history len = %d, want 3: %+v", len(got), got)
+	}
+	if got[2].Role != "assistant" || got[2].Content != "hello" {
+		t.Errorf("persisted assistant = %+v", got[2])
 	}
 }

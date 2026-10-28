@@ -224,18 +224,21 @@ type VisionDefaults struct {
 
 // ChatDefaults holds default values for chat completion.
 type ChatDefaults struct {
-	Provider          string   `mapstructure:"provider" yaml:"provider,omitempty"`
-	Model             string   `mapstructure:"model" yaml:"model,omitempty"`
-	Temperature       float64  `mapstructure:"temperature" yaml:"temperature,omitempty"`
-	MaxTokens         int      `mapstructure:"max_tokens" yaml:"max_tokens,omitempty"`
-	ContextSize       int      `mapstructure:"context_size" yaml:"context_size,omitempty"`               // 输入上下文窗口大小（token），0=使用模型默认值。超过时自动压缩对话
-	MaxIterations     int      `mapstructure:"max_iterations" yaml:"max_iterations,omitempty"`           // 每次用户消息，LLM 最多连续调工具次数（默认 10）
-	Tools             []string `mapstructure:"tools" yaml:"tools,omitempty"`                             // 允许的工具白名单（glob 模式），空或["*"]=全部允许
-	DisableTools      []string `mapstructure:"disable_tools" yaml:"disable_tools,omitempty"`             // 禁用的工具黑名单（glob 模式），覆盖 tools
-	AllowToolOverride bool     `mapstructure:"allow_tool_override" yaml:"allow_tool_override,omitempty"` // true=LLM参数可覆盖配置, false=配置强制覆盖LLM（默认false,省钱）
-	ToolsOnDemand     bool     `mapstructure:"tools_on_demand" yaml:"tools_on_demand,omitempty"`         // true=MCP 工具按需加载（search_tools/load_tools），减少上下文占用
-	ReadDeny          []string `mapstructure:"read_deny" yaml:"read_deny,omitempty"`                     // read 原语的拒绝正则（匹配文件路径或文件名）；空=全部放行
-	ConfirmTools      []string `mapstructure:"confirm_tools" yaml:"confirm_tools,omitempty"`             // 执行前需确认的工具正则（匹配 "<tool> <target>"）；nil=默认 bash/write/edit
+	Provider                  string   `mapstructure:"provider" yaml:"provider,omitempty"`
+	Model                     string   `mapstructure:"model" yaml:"model,omitempty"`
+	Temperature               float64  `mapstructure:"temperature" yaml:"temperature,omitempty"`
+	MaxTokens                 int      `mapstructure:"max_tokens" yaml:"max_tokens,omitempty"`
+	ContextSize               int      `mapstructure:"context_size" yaml:"context_size,omitempty"`                                   // 输入上下文窗口大小（token），0=使用模型默认值。超过时自动压缩对话
+	MaxIterations             int      `mapstructure:"max_iterations" yaml:"max_iterations,omitempty"`                               // 每次用户消息，LLM 最多连续调工具次数（默认 10）
+	Tools                     []string `mapstructure:"tools" yaml:"tools,omitempty"`                                                 // 允许的工具白名单（glob 模式），空或["*"]=全部允许
+	DisableTools              []string `mapstructure:"disable_tools" yaml:"disable_tools,omitempty"`                                 // 禁用的工具黑名单（glob 模式），覆盖 tools
+	AllowToolOverride         bool     `mapstructure:"allow_tool_override" yaml:"allow_tool_override,omitempty"`                     // true=LLM参数可覆盖配置, false=配置强制覆盖LLM（默认false,省钱）
+	ToolsOnDemand             bool     `mapstructure:"tools_on_demand" yaml:"tools_on_demand,omitempty"`                             // true=MCP 工具按需加载（search_tools/load_tools），减少上下文占用
+	ReadDeny                  []string `mapstructure:"read_deny" yaml:"read_deny,omitempty"`                                         // read 原语的拒绝正则（匹配文件路径或文件名）；空=全部放行
+	ConfirmTools              []string `mapstructure:"confirm_tools" yaml:"confirm_tools,omitempty"`                                 // 执行前需确认的工具正则（匹配 "<tool> <target>"）；nil=默认 bash/write/edit
+	Save                      bool     `mapstructure:"save" yaml:"save,omitempty"`                                                   // true=每次 chat 自动保存为 JSONL 会话（默认关闭）
+	SessionDir                string   `mapstructure:"session_dir" yaml:"session_dir,omitempty"`                                     // 会话目录；空=~/.config/aigc-cli/sessions
+	SessionToolOutputMaxBytes int      `mapstructure:"session_tool_output_max_bytes" yaml:"session_tool_output_max_bytes,omitempty"` // 单条工具输出落盘上限（字节）；0=32768
 }
 
 // ImageDefaults holds default values for image generation.

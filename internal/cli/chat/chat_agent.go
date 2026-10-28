@@ -13,13 +13,20 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/session"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// runAgentLoop executes the tool-calling loop: send request -> check tool_calls -> execute -> repeat.
+// runAgentLoop executes the tool-calling loop without persisting a session.
+func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command, p *provider.EffectiveProvider) error {
+	return runAgentLoopWithSession(ctx, c, rt, history, maxIterations, cmd, p, nil, 0)
+}
+
+// runAgentLoopWithSession executes the tool-calling loop and appends every
+// message (user messages are written by the caller) to sess when it is non-nil.
 // history is modified in-place (appended with assistant + tool messages).
 // If ctx is cancelled (Ctrl+C), returns immediately with context.Canceled.
-func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command, p *provider.EffectiveProvider) error {
+func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command, p *provider.EffectiveProvider, sess *session.Session, toolOutputMax int) error {
 	// Merge defaults.chat.model into options.Shared.Model if empty
 	if options.Shared.Model == "" {
 		if cfg := options.ChatDefaults(); cfg != nil && cfg.Model != "" {
@@ -39,7 +46,13 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 		turnCount++
 
 		// Auto-compact before building request if context is getting full
-		*history = agent.AutoCompactIfNeeded(c, options.Shared.Model, chatTemperature, chatMaxTokens, chatContextSize, *history, options.Stderr())
+		newHistory, compaction := agent.AutoCompactIfNeededResult(c, options.Shared.Model, chatTemperature, chatMaxTokens, chatContextSize, *history, options.Stderr())
+		*history = newHistory
+		if sess != nil && compaction != nil {
+			if err := sess.AppendCompaction(compaction.Summary, compaction.Tokens+compaction.TokenSaved, compaction.Tokens, options.Shared.Model); err != nil {
+				return err
+			}
+		}
 
 		req := &types.ChatRequest{
 			Model:        options.Shared.Model,
@@ -73,6 +86,11 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 		// Check for tool calls
 		if choice.FinishReason == "tool_calls" && len(choice.Message.ToolCalls) > 0 {
 			*history = append(*history, choice.Message)
+			if sess != nil {
+				if err := sess.AppendMessage(choice.Message, "", toolOutputMax); err != nil {
+					return err
+				}
+			}
 
 			for _, tc := range choice.Message.ToolCalls {
 				fmt.Fprintf(options.Stderr(), "[tool] %s:\r\n", tc.Function.Name)
@@ -85,11 +103,17 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 				resultSummary := summarizeToolResult(tc.Function.Name, toolResult)
 				fmt.Fprintf(options.Stderr(), "[tool] done in %v: %s\r\n", elapsed, resultSummary)
 
-				*history = append(*history, types.ChatMessage{
+				toolMessage := types.ChatMessage{
 					Role:       "tool",
 					ToolCallID: tc.ID,
 					Content:    toolResult,
-				})
+				}
+				*history = append(*history, toolMessage)
+				if sess != nil {
+					if err := sess.AppendMessage(toolMessage, tc.Function.Name, toolOutputMax); err != nil {
+						return err
+					}
+				}
 			}
 			continue
 		}
@@ -101,6 +125,11 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 			fmt.Fprintln(options.Stdout(), choice.Message.Content)
 		}
 		*history = append(*history, choice.Message)
+		if sess != nil {
+			if err := sess.AppendMessage(choice.Message, "", toolOutputMax); err != nil {
+				return err
+			}
+		}
 
 		// Web-search citations (to stderr, when the provider attached any)
 		printSources(result)

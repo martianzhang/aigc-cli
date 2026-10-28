@@ -40,6 +40,21 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 		}
 		turnCount++
 
+		// Auto-compact before building the request. This also covers a resumed
+		// session whose stored history is already close to the context limit.
+		if m.contextSize > 0 {
+			var compaction *agent.CompactResult
+			localHistory, compaction = agent.AutoCompactIfNeededResult(
+				turnClient, m.model, m.temperature, m.maxTokens, m.contextSize,
+				localHistory, &logWriter{prog: prog, turn: turn})
+			if compaction != nil && m.sess != nil {
+				if err := m.sess.AppendCompaction(compaction.Summary, compaction.Tokens+compaction.TokenSaved, compaction.Tokens, m.model); err != nil {
+					prog.Send(agentDone{turn: turn, err: err, history: localHistory})
+					return
+				}
+			}
+		}
+
 		req := &types.ChatRequest{
 			Model:      m.model,
 			Messages:   localHistory,
@@ -80,6 +95,12 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 		// Tool calls
 		if choice.FinishReason == "tool_calls" && len(choice.Message.ToolCalls) > 0 {
 			localHistory = append(localHistory, choice.Message)
+			if m.sess != nil {
+				if err := m.sess.AppendMessage(choice.Message, "", m.toolOutputMax); err != nil {
+					prog.Send(agentDone{turn: turn, err: err, history: localHistory})
+					return
+				}
+			}
 
 			for _, tc := range choice.Message.ToolCalls {
 				select {
@@ -128,21 +149,20 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 					})
 				}
 
-				localHistory = append(localHistory, types.ChatMessage{
+				toolMessage := types.ChatMessage{
 					Role:       "tool",
 					ToolCallID: tc.ID,
 					Content:    toolResult,
-				})
+				}
+				localHistory = append(localHistory, toolMessage)
+				if m.sess != nil {
+					if err := m.sess.AppendMessage(toolMessage, tc.Function.Name, m.toolOutputMax); err != nil {
+						prog.Send(agentDone{turn: turn, err: err, history: localHistory})
+						return
+					}
+				}
 			}
 
-			// Auto-compact if context is getting full. Its progress goes through
-			// the same log writer so nothing is written straight to the terminal
-			// (which would corrupt the alt-screen).
-			if m.contextSize > 0 {
-				localHistory = agent.AutoCompactIfNeeded(
-					turnClient, m.model, m.temperature, m.maxTokens, m.contextSize,
-					localHistory, &logWriter{prog: prog, turn: turn})
-			}
 			continue
 		}
 
@@ -156,6 +176,12 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 		}
 
 		localHistory = append(localHistory, choice.Message)
+		if m.sess != nil {
+			if err := m.sess.AppendMessage(choice.Message, "", m.toolOutputMax); err != nil {
+				prog.Send(agentDone{turn: turn, err: err, history: localHistory})
+				return
+			}
+		}
 		prog.Send(agentDone{
 			turn:         turn,
 			result:       result,

@@ -56,3 +56,17 @@ func TestAutoCompactIfNeededDisabled(t *testing.T) {
 		t.Fatalf("history changed with contextSize=0")
 	}
 }
+
+func TestAutoCompactIfNeededResultNoCompaction(t *testing.T) {
+	hist := []types.ChatMessage{
+		{Role: "system", Content: "sys"},
+		{Role: "user", Content: "hi"},
+	}
+	got, result := AutoCompactIfNeededResult(nil, "model", 0, 0, 0, hist, io.Discard)
+	if result != nil {
+		t.Fatalf("result = %+v, want nil", result)
+	}
+	if len(got) != len(hist) {
+		t.Fatalf("history changed: got %d messages, want %d", len(got), len(hist))
+	}
+}

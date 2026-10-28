@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/session"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -201,6 +202,11 @@ type chatModel struct {
 	system     string
 	cmd        *cobra.Command
 	verbose    bool
+
+	// sess is non-nil when --save / --session is active. toolOutputMax caps
+	// the tool result text stored in the session file.
+	sess          *session.Session
+	toolOutputMax int
 
 	// Cobra flag values used when building requests
 	temperature float64

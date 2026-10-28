@@ -235,6 +235,9 @@ defaults:
     model: "deepseek-v4-flash"
     max_tokens: 4096            # Max response tokens
     context_size: 32768         # Max input context tokens; 0=model default. Auto-compacts at 80%
+    # save: false              # Save every chat as a JSONL session
+    # session_dir: "~/.config/aigc-cli/sessions"  # Session directory
+    # session_tool_output_max_bytes: 32768  # Max bytes stored per tool result
     # tools_on_demand: true     # Load MCP tools on demand (search_tools/load_tools) to save context
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$']  # read primitive denylist regexes (path or basename; empty = allow all)
     # confirm_tools:            # Regexes matched against "<tool> <target>"; default bash/write/edit; [] disables

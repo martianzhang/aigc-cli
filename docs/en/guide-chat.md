@@ -42,7 +42,7 @@ The REPL supports:
 - Scroll the conversation with PgUp/PgDn or the mouse wheel
 - **Drag with the left mouse button to select transcript rows and copy them**: on release the selected text is written to the clipboard with the `┃` frame and trailing padding stripped, and display-only line wrapping is rejoined, so multi-line copies paste cleanly. Hold `Shift` (or `Option`/`⌥` on iTerm2) to use the terminal's own selection instead; `/copy` copies the last assistant response verbatim
 - Tool calls render as cards: `bash` shows the first line of the command, abbreviated to 100 columns (multi-line scripts end with `…`); **click the card or press `Ctrl+O`** to see the full command. `write`/`edit` show a `+/-` diff preview, and results longer than 20 lines are folded (click or `Ctrl+O` expands or collapses the card)
-- Slash commands, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
+- Slash commands, `/name [text]` to show or set the session name, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
 - `@path` file references: text files are inlined, images are attached (Tab completes paths; governed by `defaults.chat.read_deny`)
 
 Layout:
@@ -59,6 +59,42 @@ Multi-line input: `Shift+Enter`, `Alt+Enter` and `Ctrl+J` all insert a line brea
 Interrupting and exiting:
 - `Esc` or `Ctrl+C` while a turn is running interrupts it for real: the HTTP request and any running `bash`/MCP tool stop, and partial output is kept with an `[interrupted]` marker.
 - `Ctrl+C` while idle exits. `Ctrl+D` also exits, but is ignored while the input box has a draft so typed text is not lost.
+
+## Sessions (`--save` / `--session`)
+
+Chat is **not saved by default**. `--save` starts a new JSONL session; `--session <id|file>` resumes one and keeps appending.
+
+```bash
+# New session with an automatic id
+aigc-cli chat --save
+
+# Resume by id (looked up in the session directory)
+aigc-cli chat --session 20261028T101500Z-ab12cd
+
+# Resume by path; a missing file is created at that path
+aigc-cli chat --session ./logs/review.jsonl
+
+# Custom session directory
+aigc-cli chat --save --session-dir ./sessions
+
+# Name a session; --name also renames on resume
+aigc-cli chat --save --name "review auth"
+aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
+```
+
+- Default directory: `~/.config/aigc-cli/sessions/`; files are `0600`, the directory is `0700`.
+- A `--session` id is resolved only in the session directory. A missing id is an error, so a typo never silently starts a new session. A path that does not exist is created (including parent directories).
+- `--save` and `--session` are mutually exclusive. `--json` cannot be combined with either. `--dry-run --session` builds the request from the stored history without writing.
+- Resume restores **conversation history**. The system prompt (including AGENTS.md) is stored with the session and reused, so a resumed session keeps the prompt it actually ran with. `--system` is allowed for a new session; an existing session that already has a system prompt rejects it.
+- Model/provider come from the current flags or config; `--model` can switch models while continuing the same session.
+- Image attachments store metadata only (name, MIME type, byte count), never base64. Resumed history keeps the `[attached image: path]` text.
+- Tool output is capped at 32 KiB per result by default; longer output is truncated with `[truncated: showing N of M bytes]`. Configure with `defaults.chat.session_tool_output_max_bytes`.
+- The session file is a complete log: `/compact` and auto-compaction never delete messages, they append a `compaction` record. On resume the model only receives the latest summary plus messages after the compaction point, so a large file does not mean a large context.
+- If `--context-size` is not set explicitly, resume uses the value recorded when the session was created. If the restored projection is still over the limit, it is compacted once before the first request.
+- `--name <text>` sets the session name; inside the TUI, `/name <text>` renames it. The header shows the name, falls back to `Session <id>` for an unnamed session, and keeps `Chat with AI` when no session is active.
+- The TUI status bar shows `rec: <filename>`; a newly created session prints its path and a ready-to-run resume command (`aigc-cli chat --session <id>`, plus `--session-dir` when a custom directory is used).
+
+The first JSONL line is a `header` (schema, id, cwd, provider, model, context_size). Subsequent records are `system` / `message` / `compaction` / `clear` / `session_info` / `end`. `session_info` stores the session name; the latest record wins. The file can be analyzed with `jq` or `grep`, or copied as an export.
 
 ## File References (@)
 
@@ -328,6 +364,10 @@ defaults:
 | `--json` | Pass messages as JSON; forwarded **verbatim** when no flags are set, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API. Explicitly-set flags override the matching key | — |
 | `--inject-json` | Merge a JSON object **on top of** the generated body (objects recurse, arrays append, scalars overwrite). Use it for vendor-only fields (native web search, reasoning, routing); takes precedence over `--json` | — |
 | `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
+| `--save` | Start a new JSONL session | off |
+| `--session-dir` | Session directory | `~/.config/aigc-cli/sessions` |
+| `--session` | Resume a session by id or JSONL path (implies saving) | — |
+| `--name` | Set the session name; renames on resume (requires `--save` or `--session`) | — |
 | `--search-provider` | Vendor name for the `web_search`/`web_fetch` primitives (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`); overrides `defaults.search.provider` | — |
 
 ### Context Management
@@ -335,6 +375,14 @@ defaults:
 When `--context-size` is set, the conversation history is automatically summarized
 (compacted) once it exceeds 80% of the limit, freeing space without manual action.
 You can also type `/compact` in interactive mode to trigger compaction manually.
+
+### Session settings
+
+| Setting | Description | Default |
+|---|---|---|
+| `defaults.chat.save` | Save every chat as a JSONL session | `false` |
+| `defaults.chat.session_dir` | Session directory | `~/.config/aigc-cli/sessions` |
+| `defaults.chat.session_tool_output_max_bytes` | Max bytes stored per tool result | `32768` |
 
 ## JSON Mode
 

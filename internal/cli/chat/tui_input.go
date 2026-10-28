@@ -478,6 +478,16 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 		m.input.Reset()
 		return m, nil
 
+	case input == "/name":
+		m.showSessionName()
+		m.input.Reset()
+		return m, nil
+
+	case strings.HasPrefix(input, "/name "):
+		m.setSessionName(strings.TrimSpace(strings.TrimPrefix(input, "/name")))
+		m.input.Reset()
+		return m, nil
+
 	case input == "/compact":
 		m.input.Reset()
 		m.input.Blur()

@@ -34,6 +34,14 @@ var (
 	// chatInjectRaw is chatInjectJSON parsed once by buildChatRequest, so the
 	// agent loop and TUI (which rebuild the request each turn) can re-apply it.
 	chatInjectRaw json.RawMessage
+	// chatSave enables JSONL session persistence for a new session.
+	chatSave bool
+	// chatSessionDir overrides the default session directory.
+	chatSessionDir string
+	// chatSession resumes an existing session by id or file path.
+	chatSession string
+	// chatName names a new session, or renames a resumed one.
+	chatName string
 )
 
 // chatCmd represents the `aigc-cli chat` command.
@@ -48,6 +56,11 @@ Streaming output is enabled by default.
 
 Agentic Chat:
   Chat supports tool calling by default.
+
+Sessions:
+  Chat is not saved by default. --save writes a new JSONL session under the
+  session directory; --session resumes an id or file path (and keeps saving).
+  --name sets or changes the session name shown in the TUI header.
 
 Messages:
   --message is repeatable (one user turn per value). --prompt / -p is an
@@ -69,6 +82,9 @@ Examples:
   aigc-cli chat --message "Hello, who are you?"
   aigc-cli chat --prompt "Hello, who are you?"        # alias for --message
   aigc-cli chat --context-size 8192 --max-output 2048
+  aigc-cli chat --save --name "review auth"
+  aigc-cli chat --session 20261028T101500Z-ab12cd
+  aigc-cli chat --session ./logs/review.jsonl
   aigc-cli chat --json '{"model":"gpt-5","messages":[{"role":"user","content":"Hi"}]}'`,
 	RunE: runChat,
 }
@@ -76,6 +92,9 @@ Examples:
 func runChat(cmd *cobra.Command, args []string) error {
 	chatCfg := options.ChatDefaults()
 	applyChatConfigDefaults(cmd, chatCfg)
+	if err := validateSessionFlags(); err != nil {
+		return err
+	}
 
 	// --json mode is always single-turn
 	if chatJSONFlag != "" {
@@ -91,8 +110,20 @@ func runChat(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// --dry-run is single-turn: a preview must never open the interactive TUI.
+	// --dry-run is single-turn: a preview must never open the interactive TUI
+	// and must never create a session file.
 	if chatDryRun {
+		if chatSession != "" {
+			sess, err := loadChatSessionReadOnly(chatCfg)
+			if err != nil {
+				return err
+			}
+			history, err := buildHistoryFromSession(sess, req.Messages, chatCfg, false)
+			if err != nil {
+				return err
+			}
+			req.Messages = history
+		}
 		return sendChatRequest(cmd, req)
 	}
 
@@ -101,6 +132,25 @@ func runChat(cmd *cobra.Command, args []string) error {
 	// below, same as --message.
 	if (!messageFlagChanged(cmd) || chatInteractive) && term.IsTerminal(int(os.Stdin.Fd())) {
 		return runChatTUI(cmd)
+	}
+
+	sess, created, err := openChatSession(chatCfg)
+	if err != nil {
+		return err
+	}
+	if sess != nil {
+		defer func() {
+			closeSession(sess)
+			printSessionPath(sess, created)
+		}()
+		if !cmd.Flags().Changed("context-size") && chatContextSize == 0 {
+			chatContextSize = sess.Header().ContextSize
+		}
+	}
+
+	history, err := buildHistoryFromSession(sess, req.Messages, chatCfg, true)
+	if err != nil {
+		return err
 	}
 
 	// Non-interactive with --message(s): the agent loop below performs the
@@ -119,11 +169,7 @@ func runChat(cmd *cobra.Command, args []string) error {
 
 	p := options.Shared.ResolveProvider(options.ProviderNameChat)
 	c := client.NewFromProvider(p)
-	history := req.Messages
-	if ctx := loadAgentsContext(); ctx != "" && (len(history) == 0 || history[0].Role != "system") {
-		history = append([]types.ChatMessage{{Role: "system", Content: ctx}}, history...)
-	}
-	err = runAgentLoop(ctx, c, rt, &history, maxIterations, cmd, p)
+	err = runAgentLoopWithSession(ctx, c, rt, &history, maxIterations, cmd, p, sess, sessionToolOutputMax(chatCfg))
 	if err != nil {
 		return err
 	}
@@ -146,6 +192,15 @@ func applyChatConfigDefaults(cmd *cobra.Command, cfg *types.ChatDefaults) {
 	if !cmd.Flags().Changed("max-output") && cfg.MaxTokens > 0 {
 		chatMaxTokens = cfg.MaxTokens
 	}
+	// Config defaults never conflict with an explicit session: --session
+	// already implies saving. They also stay out of --json / --dry-run,
+	// which do not write files.
+	if !cmd.Flags().Changed("save") && cfg.Save && chatSession == "" && chatJSONFlag == "" && !chatDryRun {
+		chatSave = true
+	}
+	if !cmd.Flags().Changed("session-dir") && cfg.SessionDir != "" {
+		chatSessionDir = cfg.SessionDir
+	}
 }
 
 func init() {
@@ -161,6 +216,10 @@ func init() {
 	f.BoolVar(&chatDryRun, "dry-run", false, "Print the equivalent curl without calling the API")
 	f.StringVar(&chatSearchProvider, "search-provider", "", "Third-party vendor name for the web_search/web_fetch tools: duckduckgo/firecrawl/brave/doubao/deepseek/exa/wsa (overrides defaults.search.provider)")
 	f.StringVar(&chatInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")
+	f.BoolVar(&chatSave, "save", false, "Save this chat as a JSONL session (default dir: ~/.config/aigc-cli/sessions)")
+	f.StringVar(&chatSessionDir, "session-dir", "", "Session directory (default ~/.config/aigc-cli/sessions)")
+	f.StringVar(&chatSession, "session", "", "Resume a session by id or JSONL file path (implies saving)")
+	f.StringVar(&chatName, "name", "", "Session name (requires --save or --session; renames on resume)")
 }
 
 // Cmd returns the chat command.

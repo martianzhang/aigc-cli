@@ -37,7 +37,7 @@ aigc-cli chat -v
 进入交互模式后，终端会切换到全屏 TUI，包含以下区域：
 
 ```
-💬 Chat with AI  —  Model: deepseek-v4              ← 顶部栏
+💬 <会话名 / Session <id> / Chat with AI>  —  Model: deepseek-v4   ← 顶部栏
                                                      （以下为可滚动的消息区）
     ___       ____      ______     _____
    /   |     /  _/    / _____/    / ___/            ← 欢迎 logo（常驻滚动区）
@@ -80,6 +80,8 @@ aigc-cli chat -v
 | 鼠标左键拖拽 | 选中消息区的若干行，松手后**自动复制**（去掉 `┃` 左边条与行尾空白；显示时的自动换行会还原成一行，不会引入多余换行） |
 | `Shift` / `⌥` + 拖拽 | 终端原生选择（想要终端自己的复制行为时用；iTerm2 是 `⌥ Option`） |
 | `/copy` | 复制最后一条助手回复（原文，未经渲染） |
+| `/name` | 显示当前 session 的 id、名字和文件路径 |
+| `/name <text>` | 设置或重命名当前 session；名字显示在顶部栏 |
 | `Ctrl+O` | 展开 / 收起最后一条工具卡片（完整命令 + 全部输出；超过 20 行的输出默认折叠） |
 | 鼠标单击工具卡片 | 展开 / 收起被点中的那张工具卡片（长 `bash` 命令或长输出默认缩略，单击即可看全文；拖动仍是选中复制） |
 | 确认提示 | `y` 本次允许 / `a` 本进程总是允许 / `n` 拒绝 / `s` 拒绝并给模型一句改进建议 / `Esc` 拒绝并中断 |
@@ -115,6 +117,42 @@ $ aigc-cli chat -v
 ---  Model: deepseek-v4-flash  |  Tokens: 15↑ + 8↓ = 23  |  Cost: $0.000001  |  Time: 1.234s
 >>>
 ```
+
+## 会话保存与恢复（--save / --session）
+
+聊天默认**不保存**。`--save` 开始一次新会话并写入 JSONL；`--session <id|file>` 恢复指定会话并继续写入。
+
+```bash
+# 新会话：自动生成 session id
+aigc-cli chat --save
+
+# 按 id 恢复（在会话目录中查找）
+aigc-cli chat --session 20261028T101500Z-ab12cd
+
+# 按文件恢复；文件不存在时在该路径新建
+aigc-cli chat --session ./logs/review.jsonl
+
+# 自定义会话目录
+aigc-cli chat --save --session-dir ./sessions
+
+# 命名会话；恢复时也可以改名
+aigc-cli chat --save --name "review auth"
+aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
+```
+
+- 默认目录 `~/.config/aigc-cli/sessions/`，文件权限 `0600`，目录 `0700`。
+- `--session` 传 id 时只在会话目录查找；id 不存在直接报错，避免打错字静默新建。传路径时文件不存在会在该路径新建（含父目录）。
+- `--save` 与 `--session` 互斥；`--json` 不能与它们组合；`--dry-run` 可以配合 `--session` 做只读预览，不会写文件。
+- 恢复的是**对话历史**。system prompt（含 AGENTS.md）随会话保存，恢复时使用当时保存的版本；新建会话可以用 `--system`，已有 system 的会话不能再传 `--system`。
+- 模型 / provider 使用当前命令行或配置；可以在恢复后用 `--model` 切换模型继续同一会话。
+- 图片附件只保存元数据（文件名、MIME、字节数），不保存 base64。恢复后的历史保留 `[attached image: path]` 文本。
+- 工具输出默认单条上限 32 KiB；超出部分截断并标记 `[truncated: showing N of M bytes]`。用 `defaults.chat.session_tool_output_max_bytes` 调整。
+- 会话文件是完整日志：`/compact` 或自动压缩不会删除旧消息，只追加 `compaction` 记录。恢复时模型只看「最新摘要 + 压缩点之后的消息」，因此文件再大也不会把完整历史塞进上下文。
+- 未显式指定 `--context-size` 时，恢复会沿用会话创建时记录的值；如果恢复后的投影仍然超限，会在首次请求前自动压缩一次。
+- `--name <text>` 设置会话名；TUI 里也可以用 `/name <text>` 改名。名字显示在顶部栏，未命名时显示 `Session <id>`，没有 session 时仍是 `Chat with AI`。
+- TUI 状态栏显示 `rec: <文件名>`；新建会话退出时会打印文件路径和可直接执行的恢复命令（`aigc-cli chat --session <id>`，自定义目录会带上 `--session-dir`）。
+
+JSONL 首行是 `header`（schema、id、cwd、provider、model、context_size），后续记录类型为 `system` / `message` / `compaction` / `clear` / `session_info` / `end`。`session_info` 保存会话名，最新一条生效。可以直接用 `jq`、`grep` 等工具分析，也可以复制文件作为导出。
 
 ## 文件引用（@）
 
@@ -285,6 +323,7 @@ defaults:
 | `!<shell_cmd>` | 执行系统命令，如 `!ls -la`（30s 超时）；结果区会回显 `$ 命令` 再附输出 |
 | `/preview <file>` | 用系统默认程序打开图片/视频 |
 | `/tools` | 列出所有可用工具（每个工具一行摘要）；`/tools <名称>` 查看完整说明 |
+| `/name [text]` | 显示或设置当前 session 名字（顶部栏显示） |
 | `/help` | 显示帮助 |
 
 ### 配置工具白名单/黑名单
@@ -430,6 +469,9 @@ defaults:
 | `defaults.chat.tools_on_demand` | `true`=MCP 工具按需加载（`search_tools`/`load_tools`），降低上下文占用（默认 `false`） |
 | `defaults.chat.read_deny` | `read` 原语的拒绝正则列表（匹配文件路径或文件名）；空 = 全部放行 |
 | `defaults.chat.confirm_tools` | TUI 中执行前需确认的工具正则列表（匹配 `"<tool> <target>"`）；缺省 = `^bash\b` / `^write\b` / `^edit\b`，显式 `[]` = 全部关闭 |
+| `defaults.chat.save` | `true` = 每次 chat 自动保存为 JSONL 会话（默认 `false`） |
+| `defaults.chat.session_dir` | 会话目录；空 = `~/.config/aigc-cli/sessions` |
+| `defaults.chat.session_tool_output_max_bytes` | 单条工具输出落盘上限（字节，默认 `32768`） |
 | `defaults.search.provider` | 共享搜索厂商名（`aigc-cli search` / `kb search` / chat / MCP）；`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`；空 = CLI/kb 用 `duckduckgo`，chat/MCP `web_*` 报错 |
 
 ---
@@ -506,6 +548,10 @@ aigc-cli chat --message "Hello"
 | `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
 | `--inject-json` | 在 CLI 生成的最终 body 上**追加合并**一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于联网搜索等厂商私有参数，优先级高于 `--json` |
 | `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |
+| `--save` | 新建 JSONL 会话；默认目录 `~/.config/aigc-cli/sessions` |
+| `--session-dir` | 会话目录（默认 `~/.config/aigc-cli/sessions`） |
+| `--session` | 按 id 或 JSONL 路径恢复会话（隐含保存） |
+| `--name` | 设置会话名；恢复时是改名（需配合 `--save` 或 `--session`） |
 | `--search-provider` | `web_search`/`web_fetch` 原语使用的第三方厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`），覆盖 `defaults.search.provider` |
 | `--verbose`, `-v` | 显示 token 消耗、费用和耗时统计（全局 flag） |
 

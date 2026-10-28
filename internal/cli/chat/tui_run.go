@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -45,16 +44,44 @@ func runChatTUI(cmd *cobra.Command) error {
 	rt := newToolRuntime(chatCfg, mcpMgr)
 	agentTools := rt.RequestTools()
 	c := options.NewClient("chat")
-	// Initialize history with system prompt + current date context
+
+	sess, created, err := openChatSession(chatCfg)
+	if err != nil {
+		return err
+	}
+	if sess != nil {
+		defer func() {
+			closeSession(sess)
+			printSessionPath(sess, created)
+		}()
+		if sess.System() != "" && chatSystem != "" {
+			return fmt.Errorf("--session cannot be combined with --system; the system prompt is stored in the session")
+		}
+		if !cmd.Flags().Changed("context-size") && chatContextSize == 0 {
+			chatContextSize = sess.Header().ContextSize
+		}
+	}
+
+	// Initialize history with the stored system prompt, or build the current
+	// one for a new session. The system prompt is persisted with the session,
+	// so resuming uses the prompt the conversation actually ran with.
 	history := []types.ChatMessage{}
-	sysContent := fmt.Sprintf("今天是 %s。你只需要在用户明确询问日期时才回答日期，其他时候不要主动提及。", time.Now().Format("2006年1月2日"))
-	if chatSystem != "" {
-		sysContent += "\n" + chatSystem
+	sysContent := ""
+	resumed := sess != nil && !created
+	if sess != nil && sess.System() != "" {
+		sysContent = sess.System()
+		history = sess.History()
+	} else {
+		sysContent = buildTUISystemPrompt()
+		if sess != nil {
+			if err := sess.AppendSystem(sysContent); err != nil {
+				return err
+			}
+			history = sess.History()
+		} else {
+			history = append(history, types.ChatMessage{Role: "system", Content: sysContent})
+		}
 	}
-	if ctx := loadAgentsContext(); ctx != "" {
-		sysContent += "\n\n" + ctx
-	}
-	history = append(history, types.ChatMessage{Role: "system", Content: sysContent})
 
 	model := options.Shared.Model
 	if model == "" && chatCfg != nil {
@@ -74,12 +101,18 @@ func runChatTUI(cmd *cobra.Command) error {
 	}
 
 	// Build the TUI model
-	tuiModel := newChatModel(c, agentTools, maxIterations, model, chatSystem, cmd, options.Shared.Verbose,
+	tuiModel := newChatModel(c, agentTools, maxIterations, model, sysContent, cmd, options.Shared.Verbose,
 		chatTemperature, chatMaxTokens, chatContextSize)
 	tuiModel.history = history
 	tuiModel.rt = rt
 	tuiModel.provider = providerName
 	tuiModel.confirm = confirm
+	tuiModel.sess = sess
+	tuiModel.toolOutputMax = sessionToolOutputMax(chatCfg)
+	if resumed && sess != nil {
+		tuiModel.messages = append(tuiModel.messages, resumedNotice(sess, len(history)))
+		tuiModel.messages = append(tuiModel.messages, resumedChatMessages(history)...)
+	}
 
 	// Create the Bubble Tea program with alt screen. Mouse capture is enabled so
 	// the wheel scrolls the chat viewport; hold the terminal's mouse-reporting

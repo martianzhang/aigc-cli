@@ -114,7 +114,7 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 	s.Spinner = spinner.Dot
 
 	// Build completion list from tool definitions
-	completions := []string{"/exit", "/quit", "/q", "/clear", "/reset", "/new", "/help", "/?", "/tools", "/copy"}
+	completions := []string{"/exit", "/quit", "/q", "/clear", "/reset", "/new", "/help", "/?", "/tools", "/copy", "/name"}
 	for _, t := range tools {
 		completions = append(completions, "/"+t.Function.Name)
 	}
