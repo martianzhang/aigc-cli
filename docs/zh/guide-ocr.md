@@ -110,9 +110,9 @@ defaults:
 # --provider：临时切换厂商（覆盖 defaults.ocr.provider）
 aigc-cli ocr scan test.png --provider ollama
 
-# --model：临时切换模型（覆盖 defaults.ocr.model）
+# --model：临时切换模型（覆盖 defaults.ocr.model），可简写 -m
 aigc-cli ocr scan test.png --model deepseek-ocr
-aigc-cli ocr scan test.png --model glm-ocr
+aigc-cli ocr scan test.png -m glm-ocr
 
 # --prompt / -p / --ask：自定义识别提示词（覆盖模型默认）
 # 各模型有各自的推荐 prompt 格式：
@@ -122,10 +122,13 @@ aigc-cli ocr scan test.png --model deepseek-ocr -p "<|grounding|>Convert the doc
 aigc-cli ocr scan test.png --model glm-ocr -p "Text Recognition:"
 aigc-cli ocr scan test.png --model glm-ocr --ask "Table Recognition:"
 aigc-cli ocr scan test.png --model glm-ocr -p "Figure Recognition:"
+aigc-cli ocr scan test.png --model minicpm-ocr --ask "Table Recognition:"
 
 # --provider + --model + --prompt 可组合使用
 aigc-cli ocr scan test.png --provider ollama --model deepseek-ocr -p "Free OCR."
 ```
+
+> **请求驱动的 OCR 模型**（`minicpm-ocr` 等）必须显式传 `-p`。它们不是通用视觉模型：不传 `--prompt` 时走的是通用提示词，识别结果可能变成“描述图片”甚至编造版面 HTML。空图/无文字图尤其明显。
 
 ### 模型 prompt 参考
 
@@ -138,6 +141,9 @@ aigc-cli ocr scan test.png --provider ollama --model deepseek-ocr -p "Free OCR."
 | **glm-ocr** | 文字识别 | `Text Recognition:` |
 | **glm-ocr** | 表格识别 | `Table Recognition:` |
 | **glm-ocr** | 图表识别 | `Figure Recognition:` |
+| **minicpm-ocr** | 文字识别 | `Text Recognition:` |
+| **minicpm-ocr** | 表格识别（输出 OTSL） | `Table Recognition:` |
+| **minicpm-ocr** | 公式识别（输出 LaTeX） | `Formula Recognition:` |
 | **通用模型** (gpt-4o, llava 等) | 自定义描述 | `请识别图中的文字`（中文）或自由输入 |
 
 ### 输出行为
@@ -145,6 +151,7 @@ aigc-cli ocr scan test.png --provider ollama --model deepseek-ocr -p "Free OCR."
 - 默认保存为 `.md` 文件，路径与原图相同（`image.png` → `image.md`）
 - 不传 `--preview` 时仅输出 `Saved: path/to/file.md` 到 stderr
 - 传 `--preview` 时额外打印识别内容到终端
+- 传 `-o -` 时只打印到 stdout，**不写文件**（适合管道：`aigc-cli ocr scan p.png -o - | pbcopy`）
 
 ---
 
@@ -154,7 +161,8 @@ aigc-cli ocr scan test.png --provider ollama --model deepseek-ocr -p "Free OCR."
 默认命名: input_name.md          （如果 input_name 是 image.png）
 冲突时:   ocr_1712345678.md      （当前时间戳）
 
-通过 -o 指定: 直接使用给定路径
+stdin 输入: 默认写入当前目录，可用 -o <目录> 指定
+-o -      : 输出到 stdout，不写文件
 ```
 
 ### 输出示例（Markdown）

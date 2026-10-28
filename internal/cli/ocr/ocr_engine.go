@@ -73,7 +73,20 @@ func NewOCREngineWithLang(modelsDir, lang string) (*ocr.Engine, error) {
 }
 
 // saveOCRResult saves an OCR result to a Markdown file and optionally previews it.
+// With `-o -` the text goes to stdout and no file is written.
 func saveOCRResult(_ *cobra.Command, result *ocr.OCRResult, inputPath string) error {
+	rawText := ""
+	if len(result.Pages) == 0 || len(result.Pages[0].Lines) == 0 {
+		rawText = "(no text detected)"
+	} else {
+		rawText = result.Text
+	}
+
+	if writesToStdout(options.Shared.OutputDir) {
+		printText(rawText)
+		return nil
+	}
+
 	outPath := ""
 	outExt := ".md"
 	if inputPath != "" && inputPath != "stdin" {
@@ -88,13 +101,6 @@ func saveOCRResult(_ *cobra.Command, result *ocr.OCRResult, inputPath string) er
 			return fmt.Errorf("create output dir: %w", err)
 		}
 		outPath = filepath.Join(dir, fmt.Sprintf("ocr_%d%s", time.Now().Unix(), outExt))
-	}
-
-	rawText := ""
-	if len(result.Pages) == 0 || len(result.Pages[0].Lines) == 0 {
-		rawText = "(no text detected)"
-	} else {
-		rawText = result.Text
 	}
 
 	if err := os.WriteFile(outPath, []byte(rawText+"\n"), 0644); err != nil {
@@ -114,6 +120,20 @@ func saveOCRResult(_ *cobra.Command, result *ocr.OCRResult, inputPath string) er
 	}
 
 	return nil
+}
+
+// writesToStdout reports whether OCR output should go to stdout instead of a
+// .md file. `-o -` is the conventional stdout marker.
+func writesToStdout(outputDir string) bool {
+	return outputDir == "-"
+}
+
+// printText writes OCR text to stdout, guaranteeing exactly one trailing newline.
+func printText(text string) {
+	fmt.Print(text)
+	if !strings.HasSuffix(text, "\n") {
+		fmt.Println()
+	}
 }
 
 // DefaultModelsDir returns the shared ONNX models directory (where ONNX Runtime lives).

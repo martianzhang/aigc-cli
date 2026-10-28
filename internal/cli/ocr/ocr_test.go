@@ -2,6 +2,23 @@ package ocr
 
 import "testing"
 
+func TestWritesToStdout(t *testing.T) {
+	tests := []struct {
+		outputDir string
+		want      bool
+	}{
+		{"-", true},
+		{".", false},
+		{"", false},
+		{"out", false},
+	}
+	for _, tc := range tests {
+		if got := writesToStdout(tc.outputDir); got != tc.want {
+			t.Errorf("writesToStdout(%q) = %v, want %v", tc.outputDir, got, tc.want)
+		}
+	}
+}
+
 func TestParsePageRange(t *testing.T) {
 	tests := []struct {
 		name string

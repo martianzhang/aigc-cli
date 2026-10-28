@@ -45,6 +45,10 @@ var ocrScanCmd = &cobra.Command{
 	SilenceUsage: true,
 	Args:         cobra.MaximumNArgs(1),
 	RunE:         runOCRScan,
+	Example: `  aigc-cli ocr scan invoice.png
+  aigc-cli ocr scan invoice.png --preview
+  aigc-cli ocr scan invoice.png -o -                # print to stdout, write no file
+  aigc-cli ocr scan report.pdf --pages "1-3"`,
 }
 
 var ocrScanPreview bool
@@ -69,14 +73,17 @@ func init() {
 	ocrScanCmd.Flags().StringVar(&ocrScanLang, "lang", "auto", "Language: auto, zh (Chinese), en (English)")
 	ocrScanCmd.Flags().StringVar(&ocrScanPages, "pages", "", "Page range for PDF input (e.g. \"1-3,5\")")
 	ocrScanCmd.Flags().BoolVar(&ocrScanSpellcheck, "spellcheck", true, "Auto-correct spelling errors using dictionary")
-	ocrScanCmd.Flags().StringVar(&ocrScanModel, "model", "", "Model name for online OCR (overrides defaults.ocr.model)")
+	ocrScanCmd.Flags().StringVarP(&ocrScanModel, "model", "m", "", "Model name for online OCR (overrides defaults.ocr.model)")
 	ocrScanCmd.Flags().StringVarP(&ocrScanPrompt, "prompt", "p", "", `Custom prompt for online OCR. Overrides model default.
+Request-driven OCR models need their own wording — pass it explicitly.
 Examples:
+  --prompt "Text Recognition:"                          (minicpm-ocr, text mode)
+  --prompt "Table Recognition:"                         (minicpm-ocr / glm-ocr, table mode)
+  --prompt "Formula Recognition:"                       (minicpm-ocr, formula mode)
+  --prompt "Figure Recognition:"                        (glm-ocr, figure mode)
   --prompt "Free OCR."                                  (deepseek-ocr)
   --prompt "<|grounding|>Convert the document to markdown." (deepseek-ocr, layout-aware markdown)
-  --prompt "Table Recognition:"                         (glm-ocr, table mode)
-  --prompt "Figure Recognition:"                        (glm-ocr, figure mode)
-  --prompt "请识别图中的文字"                               (general)`)
+  --prompt "请识别图中的文字"                               (general vision models)`)
 	ocrScanCmd.Flags().StringVar(&ocrScanPrompt, "ask", "", "Alias for --prompt")
 	ocrScanCmd.Flags().StringVar(&ocrScanEngine, "engine", "auto", "Processing engine: auto, pdf (rule-based), ocr")
 	ocrCmd.AddCommand(ocrInitCmd)

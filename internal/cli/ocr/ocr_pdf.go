@@ -193,6 +193,11 @@ func scanPDFWithLayout(_ *cobra.Command, pdfPath string) error {
 
 	markdown := pdf.BlocksToMarkdown(blocks)
 
+	if writesToStdout(options.Shared.OutputDir) {
+		printText(markdown)
+		return nil
+	}
+
 	outPath := strings.TrimSuffix(pdfPath, filepath.Ext(pdfPath)) + ".md"
 	if err := os.WriteFile(outPath, []byte(markdown), 0644); err != nil {
 		return fmt.Errorf("save output: %w", err)

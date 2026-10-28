@@ -43,3 +43,43 @@ defaults:
 ```
 
 Without provider config, it defaults to local ONNX.
+
+### Ollama OCR models
+
+Named providers with `type: ollama` are called through the native `/api/chat`
+endpoint. Any multimodal model works. Request-driven OCR models (`minicpm-ocr`
+and friends) need their prompt wording passed explicitly with `--prompt` — the
+generic default is meant for general vision models and can make them describe
+the image or invent layout HTML.
+
+```yaml
+providers:
+  ollama:
+    type: ollama
+    base_url: "http://localhost:11434/v1"
+
+defaults:
+  ocr:
+    provider: "ollama"
+    model: "minicpm-ocr"
+```
+
+```bash
+aigc-cli ocr scan page.png --provider ollama --model minicpm-ocr -p "Text Recognition:"
+aigc-cli ocr scan table.png --provider ollama -m minicpm-ocr -p "Table Recognition:"
+```
+
+`--model` also accepts the `-m` shorthand.
+
+By default the result is saved as a `.md` file next to the input. Pass `-o -` to
+print it to stdout instead and write no file:
+
+```bash
+aigc-cli ocr scan page.png -o - | pbcopy
+```
+
+| Model | Task | Prompt |
+|---|---|---|
+| **minicpm-ocr** | Text | `Text Recognition:` |
+| **minicpm-ocr** | Table (OTSL output) | `Table Recognition:` |
+| **minicpm-ocr** | Formula (LaTeX output) | `Formula Recognition:` |

@@ -69,6 +69,10 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("online OCR failed: %w", err)
 		}
+		if writesToStdout(options.Shared.OutputDir) {
+			printText(text)
+			return nil
+		}
 		outPath := strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ".md"
 		if err := os.WriteFile(outPath, []byte(text+"\n"), 0644); err != nil {
 			return fmt.Errorf("save output: %w", err)
