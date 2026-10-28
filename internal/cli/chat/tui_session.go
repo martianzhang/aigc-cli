@@ -3,6 +3,7 @@ package chat
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -10,7 +11,16 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-const maxResumeDisplayMessages = 100
+const (
+	maxResumeDisplayMessages = 100
+	maxSessionNameRunes      = 60
+)
+
+var (
+	titleFileBlock       = regexp.MustCompile(`(?s)<file\b[^>]*>.*?</file>`)
+	titleSelfClosingFile = regexp.MustCompile(`<file\b[^>]*/>`)
+	titleImageMarker     = regexp.MustCompile(`\[attached image:[^\]]*\]`)
+)
 
 // sessionTitle is the banner label: the session name when set, the session id
 // when a session is active but unnamed, and the original product label when
@@ -25,7 +35,8 @@ func (m *chatModel) sessionTitle() string {
 	return "Session " + m.sess.ID()
 }
 
-// showSessionName prints the current session identity and name.
+// showSessionName shows the current session identity, or suggests a name from
+// the first user message when the session is still unnamed.
 func (m *chatModel) showSessionName() {
 	if m.sess == nil {
 		m.messages = append(m.messages, message{
@@ -35,16 +46,59 @@ func (m *chatModel) showSessionName() {
 		m.refreshViewport()
 		return
 	}
-	name := m.sess.Name()
-	if name == "" {
-		name = "(unnamed)"
+	if name := m.sess.Name(); name != "" {
+		m.messages = append(m.messages, message{
+			role: "system",
+			content: fmt.Sprintf("Session: %s\nName:    %s\nPath:    %s",
+				m.sess.ID(), name, m.sess.Path()),
+		})
+		m.refreshViewport()
+		return
 	}
-	m.messages = append(m.messages, message{
-		role: "system",
-		content: fmt.Sprintf("Session: %s\nName:    %s\nPath:    %s",
-			m.sess.ID(), name, m.sess.Path()),
-	})
-	m.refreshViewport()
+
+	name := autoSessionName(m.history)
+	if name == "" {
+		m.messages = append(m.messages, message{
+			role:    "system",
+			content: "No user message to name the session yet; use /name <text>.",
+		})
+		m.refreshViewport()
+		return
+	}
+	m.setSessionName(name)
+}
+
+// autoSessionName derives a title from the first substantive user message.
+// File blocks and image markers are stripped so an @-mention does not put an
+// entire file into the header. It is intentionally local: /name without an
+// argument costs no extra API call.
+func autoSessionName(history []types.ChatMessage) string {
+	for _, msg := range history {
+		if msg.Role != "user" {
+			continue
+		}
+		text := cleanTitleText(msg.Content)
+		if len([]rune(text)) < 3 {
+			continue
+		}
+		return truncateTitle(text, maxSessionNameRunes)
+	}
+	return ""
+}
+
+func cleanTitleText(s string) string {
+	s = titleFileBlock.ReplaceAllString(s, " ")
+	s = titleSelfClosingFile.ReplaceAllString(s, " ")
+	s = titleImageMarker.ReplaceAllString(s, " ")
+	return strings.Join(strings.Fields(s), " ")
+}
+
+func truncateTitle(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	return strings.TrimSpace(string(runes[:maxRunes])) + "…"
 }
 
 // setSessionName renames the active session and persists the new name.

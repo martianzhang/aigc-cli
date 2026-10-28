@@ -80,7 +80,7 @@ aigc-cli chat -v
 | 鼠标左键拖拽 | 选中消息区的若干行，松手后**自动复制**（去掉 `┃` 左边条与行尾空白；显示时的自动换行会还原成一行，不会引入多余换行） |
 | `Shift` / `⌥` + 拖拽 | 终端原生选择（想要终端自己的复制行为时用；iTerm2 是 `⌥ Option`） |
 | `/copy` | 复制最后一条助手回复（原文，未经渲染） |
-| `/name` | 显示当前 session 的 id、名字和文件路径 |
+| `/name` | 显示当前 session；未命名时从首条用户消息自动生成名字（本地生成，不额外调 API） |
 | `/name <text>` | 设置或重命名当前 session；名字显示在顶部栏 |
 | `Ctrl+O` | 展开 / 收起最后一条工具卡片（完整命令 + 全部输出；超过 20 行的输出默认折叠） |
 | 鼠标单击工具卡片 | 展开 / 收起被点中的那张工具卡片（长 `bash` 命令或长输出默认缩略，单击即可看全文；拖动仍是选中复制） |
@@ -149,7 +149,7 @@ aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
 - 工具输出默认单条上限 32 KiB；超出部分截断并标记 `[truncated: showing N of M bytes]`。用 `defaults.chat.session_tool_output_max_bytes` 调整。
 - 会话文件是完整日志：`/compact` 或自动压缩不会删除旧消息，只追加 `compaction` 记录。恢复时模型只看「最新摘要 + 压缩点之后的消息」，因此文件再大也不会把完整历史塞进上下文。
 - 未显式指定 `--context-size` 时，恢复会沿用会话创建时记录的值；如果恢复后的投影仍然超限，会在首次请求前自动压缩一次。
-- `--name <text>` 设置会话名；TUI 里也可以用 `/name <text>` 改名。名字显示在顶部栏，未命名时显示 `Session <id>`，没有 session 时仍是 `Chat with AI`。
+- `--name <text>` 设置会话名；TUI 里可以用 `/name <text>` 改名，`/name` 不带参数时若会话未命名，会从首条用户消息本地生成一个名字（不额外调 API）。名字显示在顶部栏，未命名时显示 `Session <id>`，没有 session 时仍是 `Chat with AI`。
 - TUI 状态栏显示 `rec: <文件名>`；新建会话退出时会打印文件路径和可直接执行的恢复命令（`aigc-cli chat --session <id>`，自定义目录会带上 `--session-dir`）。
 
 JSONL 首行是 `header`（schema、id、cwd、provider、model、context_size），后续记录类型为 `system` / `message` / `compaction` / `clear` / `session_info` / `end`。`session_info` 保存会话名，最新一条生效。可以直接用 `jq`、`grep` 等工具分析，也可以复制文件作为导出。
@@ -323,7 +323,7 @@ defaults:
 | `!<shell_cmd>` | 执行系统命令，如 `!ls -la`（30s 超时）；结果区会回显 `$ 命令` 再附输出 |
 | `/preview <file>` | 用系统默认程序打开图片/视频 |
 | `/tools` | 列出所有可用工具（每个工具一行摘要）；`/tools <名称>` 查看完整说明 |
-| `/name [text]` | 显示或设置当前 session 名字（顶部栏显示） |
+| `/name [text]` | 显示/设置当前 session 名字；不带参数时未命名则从首条用户消息自动生成 |
 | `/help` | 显示帮助 |
 
 ### 配置工具白名单/黑名单

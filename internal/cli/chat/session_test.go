@@ -237,6 +237,85 @@ func TestSetSessionName(t *testing.T) {
 	}
 }
 
+func TestAutoSessionName(t *testing.T) {
+	tests := []struct {
+		name    string
+		history []types.ChatMessage
+		want    string
+	}{
+		{
+			name:    "first user message",
+			history: []types.ChatMessage{{Role: "user", Content: "Review the auth flow"}},
+			want:    "Review the auth flow",
+		},
+		{
+			name: "skips short greeting",
+			history: []types.ChatMessage{
+				{Role: "user", Content: "hi"},
+				{Role: "assistant", Content: "hello"},
+				{Role: "user", Content: "Investigate the crash"},
+			},
+			want: "Investigate the crash",
+		},
+		{
+			name:    "strips file block",
+			history: []types.ChatMessage{{Role: "user", Content: `<file name="a.go">package main</file> review this`}},
+			want:    "review this",
+		},
+		{
+			name:    "strips image marker",
+			history: []types.ChatMessage{{Role: "user", Content: "[attached image: cat.png] describe this"}},
+			want:    "describe this",
+		},
+		{
+			name:    "no user message",
+			history: []types.ChatMessage{{Role: "assistant", Content: "hello"}},
+			want:    "",
+		},
+		{
+			name:    "long message is truncated",
+			history: []types.ChatMessage{{Role: "user", Content: strings.Repeat("a", 100)}},
+			want:    strings.Repeat("a", maxSessionNameRunes) + "…",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := autoSessionName(tc.history); got != tc.want {
+				t.Errorf("autoSessionName() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestShowSessionNameGeneratesForUnnamedSession(t *testing.T) {
+	resetSessionGlobals(t)
+	path := filepath.Join(t.TempDir(), "auto-name.jsonl")
+	sess, err := session.New(path, session.Header{ID: "auto-name"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sess.Close("exit")
+
+	m := newChatModel(nil, nil, 10, "m", "", nil, false, 0, 0, 0)
+	m.sess = sess
+	m.history = []types.ChatMessage{{Role: "user", Content: "Review the auth flow"}}
+
+	m.showSessionName()
+	if got, want := sess.Name(), "Review the auth flow"; got != want {
+		t.Errorf("Name() = %q, want %q", got, want)
+	}
+	if len(m.messages) == 0 || !strings.Contains(m.messages[len(m.messages)-1].content, "Session name set") {
+		t.Errorf("confirmation message missing: %+v", m.messages)
+	}
+
+	// A second call shows the current identity instead of regenerating.
+	m.showSessionName()
+	last := m.messages[len(m.messages)-1].content
+	if !strings.Contains(last, "Session: auto-name") || !strings.Contains(last, "Review the auth flow") {
+		t.Errorf("current-session message = %q", last)
+	}
+}
+
 func TestResumedChatMessagesSkipsSystemAndCaps(t *testing.T) {
 	history := []types.ChatMessage{{Role: "system", Content: "prompt"}}
 	for i := 0; i < maxResumeDisplayMessages+5; i++ {

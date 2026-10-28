@@ -42,7 +42,7 @@ The REPL supports:
 - Scroll the conversation with PgUp/PgDn or the mouse wheel
 - **Drag with the left mouse button to select transcript rows and copy them**: on release the selected text is written to the clipboard with the `┃` frame and trailing padding stripped, and display-only line wrapping is rejoined, so multi-line copies paste cleanly. Hold `Shift` (or `Option`/`⌥` on iTerm2) to use the terminal's own selection instead; `/copy` copies the last assistant response verbatim
 - Tool calls render as cards: `bash` shows the first line of the command, abbreviated to 100 columns (multi-line scripts end with `…`); **click the card or press `Ctrl+O`** to see the full command. `write`/`edit` show a `+/-` diff preview, and results longer than 20 lines are folded (click or `Ctrl+O` expands or collapses the card)
-- Slash commands, `/name [text]` to show or set the session name, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
+- Slash commands, `/name [text]` to show or set the session name (no argument auto-names an unnamed session from its first user message), and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
 - `@path` file references: text files are inlined, images are attached (Tab completes paths; governed by `defaults.chat.read_deny`)
 
 Layout:
@@ -91,7 +91,7 @@ aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
 - Tool output is capped at 32 KiB per result by default; longer output is truncated with `[truncated: showing N of M bytes]`. Configure with `defaults.chat.session_tool_output_max_bytes`.
 - The session file is a complete log: `/compact` and auto-compaction never delete messages, they append a `compaction` record. On resume the model only receives the latest summary plus messages after the compaction point, so a large file does not mean a large context.
 - If `--context-size` is not set explicitly, resume uses the value recorded when the session was created. If the restored projection is still over the limit, it is compacted once before the first request.
-- `--name <text>` sets the session name; inside the TUI, `/name <text>` renames it. The header shows the name, falls back to `Session <id>` for an unnamed session, and keeps `Chat with AI` when no session is active.
+- `--name <text>` sets the session name; inside the TUI, `/name <text>` renames it. `/name` without an argument auto-names an unnamed session from its first user message (local, no extra API call). The header shows the name, falls back to `Session <id>` for an unnamed session, and keeps `Chat with AI` when no session is active.
 - The TUI status bar shows `rec: <filename>`; a newly created session prints its path and a ready-to-run resume command (`aigc-cli chat --session <id>`, plus `--session-dir` when a custom directory is used).
 
 The first JSONL line is a `header` (schema, id, cwd, provider, model, context_size). Subsequent records are `system` / `message` / `compaction` / `clear` / `session_info` / `end`. `session_info` stores the session name; the latest record wins. The file can be analyzed with `jq` or `grep`, or copied as an export.

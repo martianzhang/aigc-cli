@@ -64,7 +64,7 @@ func (m *chatModel) showHelp() {
   /clear, /reset, /new  Clear conversation history
   /compact             Compact conversation (summarize to save context)
   /copy                Copy last assistant response to clipboard
-  /name [text]         Show or set the session name (shown in the header)
+  /name [text]         Show/set the session name; no text = auto-name
   /help, /?            Show this help
   /tools               List available tools
   /tools <name>        Show a tool's full description and examples
