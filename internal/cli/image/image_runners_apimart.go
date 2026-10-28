@@ -3,7 +3,6 @@ package image
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
@@ -42,17 +41,16 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	fmt.Println()
 	savePromptFile(taskData.ID, req.Prompt)
 
-	var saved []string
-	if taskData.Result != nil && len(taskData.Result.Images) > 0 {
-		saved, err = service.DownloadImages(taskData.Result.Images, options.Shared.OutputDir, taskData.ID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
-		} else {
-			postProcessImages(saved)
-		}
-	}
-
 	fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 		taskData.ActualTime, taskData.Cost, taskData.CreditsCost)
+
+	if taskData.Result == nil || len(taskData.Result.Images) == 0 {
+		return nil, fmt.Errorf("task completed but returned no images")
+	}
+	saved, err := service.DownloadImages(taskData.Result.Images, options.Shared.OutputDir, taskData.ID)
+	if err != nil {
+		return nil, fmt.Errorf("image download failed: %w", err)
+	}
+	postProcessImages(saved)
 	return saved, nil
 }

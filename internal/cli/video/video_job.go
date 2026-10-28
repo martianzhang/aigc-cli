@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-)
 
-import (
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/fsutil"
 )
 
 // openRouterJobInfo is saved to disk so the user can resume a timed-out video job.
@@ -29,7 +28,7 @@ func saveJobInfo(info *openRouterJobInfo) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(jobFilePath(info.JobID), data, 0644)
+	return fsutil.WriteFileAtomic(jobFilePath(info.JobID), data, 0644)
 }
 
 func loadJobInfo(jobID string) (*openRouterJobInfo, error) {

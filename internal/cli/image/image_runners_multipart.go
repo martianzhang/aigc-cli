@@ -28,6 +28,8 @@ func runImageEditsMultipart(c client.APIClient, req *types.GenerateRequest, _ *i
 	}
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
+	savePromptFile(promptTaskID("image_sync", resp.Created), req.Prompt)
+
 	saved, err := saveOpenAIImageResponse(resp)
 	if err != nil {
 		return nil, err

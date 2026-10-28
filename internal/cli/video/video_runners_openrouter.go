@@ -115,6 +115,8 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 		fmt.Printf("Video result:\n%s\n\n", string(prettyResult))
 	}
 
+	savePromptFile(submitResp.ID, orReq.Prompt)
+
 	// Step 3: Download
 	if len(pollResp.UnsignedURLs) == 0 {
 		return nil, fmt.Errorf("video job completed but no download URLs returned")
@@ -139,6 +141,9 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	// a --job-id retry.
 	if len(saved) == len(pollResp.UnsignedURLs) {
 		removeJobInfo(submitResp.ID)
+	}
+	if len(saved) == 0 {
+		return nil, fmt.Errorf("no videos downloaded")
 	}
 
 	if pollResp.Usage != nil {
@@ -197,6 +202,8 @@ func runOpenRouterVideoResume(jobID string) error {
 		fmt.Printf("Video status:\n%s\n\n", string(prettyStatus))
 	}
 
+	savePromptFile(info.JobID, info.Prompt)
+
 	// Download
 	if len(statusResp.UnsignedURLs) == 0 {
 		return fmt.Errorf("job completed but no download URLs returned")
@@ -218,6 +225,9 @@ func runOpenRouterVideoResume(jobID string) error {
 	// Fully downloaded: the job file is no longer needed for a retry.
 	if len(saved) == len(statusResp.UnsignedURLs) {
 		removeJobInfo(info.JobID)
+	}
+	if len(saved) == 0 {
+		return fmt.Errorf("no videos downloaded")
 	}
 	if vidCropMargin != "" {
 		if cropped, cerr := cropSavedVideos(saved); cerr != nil {

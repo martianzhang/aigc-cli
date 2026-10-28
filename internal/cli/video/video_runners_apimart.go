@@ -45,11 +45,12 @@ func runAPIMartVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	fmt.Println()
 	savePromptFile(taskData.ID, req.Prompt)
 	out := &RunResult{}
-	if taskData.Result != nil && len(taskData.Result.Videos) > 0 {
-		out.Videos, err = service.DownloadVideos(taskData.Result.Videos, options.Shared.OutputDir, taskData.ID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
-		}
+	if taskData.Result == nil || len(taskData.Result.Videos) == 0 {
+		return nil, fmt.Errorf("task completed but returned no videos")
+	}
+	out.Videos, err = service.DownloadVideos(taskData.Result.Videos, options.Shared.OutputDir, taskData.ID)
+	if err != nil {
+		return nil, err
 	}
 
 	// return_last_frame: APIMart 在 result.images 里回传尾帧图，直接下载保存。

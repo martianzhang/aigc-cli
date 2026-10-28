@@ -37,6 +37,10 @@ const (
 	seqProgressPercent = "\x1b]9;4;1;%d\x07"
 	// seqProgressBusy paints an indeterminate bar (OSC 9;4 state 3).
 	seqProgressBusy = "\x1b]9;4;3\x07"
+	// seqProgressPaused paints a waiting/paused bar (OSC 9;4 state 4),
+	// which iTerm2 and Windows Terminal colour differently (yellow/amber)
+	// from the green work-in-progress bar.
+	seqProgressPaused = "\x1b]9;4;4\x07"
 	// seqProgressClear removes the bar (OSC 9;4 state 0).
 	seqProgressClear = "\x1b]9;4;0\x07"
 
@@ -63,6 +67,7 @@ type Progress struct {
 	stage     string
 	pct       int
 	busy      bool
+	paused    bool
 	stop      chan struct{}
 	lastTitle string
 	lastBar   string
@@ -207,6 +212,7 @@ func (p *Progress) Percent(pct int) {
 	defer p.mu.Unlock()
 	p.pct = max(0, min(100, pct))
 	p.busy = false
+	p.paused = false
 	p.busyAt = time.Time{}
 	p.emitBar(false)
 	p.emitTitle()
@@ -230,15 +236,24 @@ func (p *Progress) Busy() {
 // BusyStage labels the phase and marks it indeterminate in one write, so
 // callers that re-assert their state on every render stay silent. It replaces
 // Stage+Busy for the chat TUI, where two calls would flip-flop the title.
-func (p *Progress) BusyStage(stage string) {
+func (p *Progress) BusyStage(stage string) { p.busyStage(stage, false) }
+
+// PausedStage labels the phase but paints the terminal's paused/waiting bar
+// instead of the indeterminate one. The chat TUI uses it while a tool call is
+// waiting for confirmation, so a background tab shows a different colour from
+// an actively running turn.
+func (p *Progress) PausedStage(stage string) { p.busyStage(stage, true) }
+
+func (p *Progress) busyStage(stage string, paused bool) {
 	if p == nil {
 		return
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.stage != stage || !p.busy {
+	if p.stage != stage || !p.busy || p.paused != paused {
 		p.stage = stage
 		p.markBusy()
+		p.paused = paused
 	}
 	p.emitBar(false)
 	p.emitTitle()
@@ -249,6 +264,7 @@ func (p *Progress) BusyStage(stage string) {
 // the phase is new; the caller holds p.mu.
 func (p *Progress) markBusy() {
 	p.busy = true
+	p.paused = false
 	p.pct = 0
 	p.busyAt = time.Now()
 }
@@ -266,6 +282,7 @@ func (p *Progress) Finish(summary string) {
 	p.stage = summary
 	p.pct = 0
 	p.busy = false
+	p.paused = false
 	p.busyAt = time.Time{}
 	p.emitTitle()
 }
@@ -295,6 +312,7 @@ func (p *Progress) Clear() {
 	p.clearBar()
 	p.pct = 0
 	p.busy = false
+	p.paused = false
 	p.busyAt = time.Time{}
 	p.emitTitle()
 }
@@ -335,7 +353,11 @@ func (p *Progress) emitBar(force bool) {
 		return
 	}
 	seq := seqProgressBusy
-	if !p.busy {
+	if p.busy {
+		if p.paused {
+			seq = seqProgressPaused
+		}
+	} else {
 		seq = fmt.Sprintf(seqProgressPercent, p.pct)
 	}
 	if !force && seq == p.lastBar {

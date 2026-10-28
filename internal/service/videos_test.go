@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 func TestDownloadLastFrames(t *testing.T) {
@@ -71,6 +73,17 @@ func TestDownloadLastFramesAllEmpty(t *testing.T) {
 	saved, err := DownloadLastFrames([]string{"", "  "}, t.TempDir(), "task_3")
 	if err != nil {
 		t.Fatalf("DownloadLastFrames() error = %v", err)
+	}
+	if len(saved) != 0 {
+		t.Errorf("saved = %v, want none", saved)
+	}
+}
+
+func TestDownloadVideosAllFailedReturnsError(t *testing.T) {
+	videos := []types.VideoResult{{URL: []string{"not-a-valid-source"}}}
+	saved, err := DownloadVideos(videos, t.TempDir(), "task_1")
+	if err == nil {
+		t.Fatal("DownloadVideos() error = nil, want failure when nothing was saved")
 	}
 	if len(saved) != 0 {
 		t.Errorf("saved = %v, want none", saved)

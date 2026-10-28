@@ -257,7 +257,7 @@ CSS margin shorthand, comma-separated: 40 (all sides) | 40,0 (top/bottom, left/r
 	f.StringVar(&options.Shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&options.Shared.InjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); use it for vendor-private fields; JSON string or file path")
 	f.StringVar(&vidJobID, "job-id", "", "Resume an OpenRouter video job by ID (loads saved job info and downloads the result)")
-
+	f.BoolVar(&options.Shared.SavePrompt, "save-prompt", false, "save prompt to .md file alongside results")
 }
 
 // Cmd returns the video command tree.

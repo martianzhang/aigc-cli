@@ -60,12 +60,25 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseMsg:
 		switch {
 		case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
+			// Clickable choices in the confirmation prompt take precedence over
+			// transcript selection; the prompt sits below the viewport.
+			if cmd, ok := m.clickConfirmOption(msg); ok {
+				return m, cmd
+			}
 			m.startSelection(msg)
 			return m, nil
 		case m.selActive && msg.Action == tea.MouseActionMotion:
 			m.dragSelection(msg)
 			return m, nil
 		case m.selActive && msg.Action == tea.MouseActionRelease:
+			// A click without a drag toggles the tool card under the cursor;
+			// anything dragged is still a text selection.
+			if !m.selMoved && m.toggleToolAtLine(m.selAnchor) {
+				m.selActive = false
+				m.selMoved = false
+				m.refreshViewport()
+				return m, nil
+			}
 			m.finishSelection()
 			return m, nil
 		}
@@ -125,6 +138,10 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.turn != m.turnID {
 			return m, nil
 		}
+		// Narration streamed before this tool call belongs above the tool card.
+		// Flushing here also stops later iterations from being merged into one
+		// assistant message at the end of the turn.
+		m.flushStream()
 		m.state = tuiToolCall
 		m.toolMsg = fmt.Sprintf("🛠️  Running %s …", msg.name)
 		m.messages = append(m.messages, message{
@@ -132,6 +149,7 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			content:     fmt.Sprintf("Running %s …", msg.name),
 			tool:        msg.name,
 			toolSummary: msg.summary,
+			toolDetail:  msg.detail,
 			toolDiff:    msg.diff,
 		})
 		m.refreshViewport()
@@ -182,16 +200,9 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Fallback for direct calls that may not carry full history
 			m.history = append(m.history, *msg.assistantMsg)
 		}
-		// Flush stream buffer into a proper message. Trailing/leading blank
-		// lines the model streamed would otherwise show up as empty rows, so
-		// the content is trimmed here (blank lines inside the reply survive).
-		if content := strings.TrimSpace(strings.ReplaceAll(m.streamBuf.String(), "\r", "")); content != "" {
-			m.messages = append(m.messages, message{
-				role:    "assistant",
-				content: content,
-			})
-		}
-		m.streamBuf.Reset()
+		// Flush the final streamed reply. Earlier narration was already flushed at
+		// each tool boundary, so this only holds the last assistant message.
+		m.flushStream()
 		m.input.Focus()
 		// Keep whatever the user drafted while the reply was streaming.
 
@@ -305,6 +316,18 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input, cmd = m.input.Update(msg)
 		return m, cmd
 	}
+}
+
+// flushStream appends the streamed assistant text to the transcript as its own
+// message and clears the buffer. Called at every tool boundary, it keeps the
+// narration that preceded a tool call above that tool's card instead of merging
+// all iterations' text into one message at the end of the turn.
+func (m *chatModel) flushStream() {
+	content := strings.TrimSpace(strings.ReplaceAll(m.streamBuf.String(), "\r", ""))
+	if content != "" {
+		m.messages = append(m.messages, message{role: "assistant", content: content})
+	}
+	m.streamBuf.Reset()
 }
 
 // normalizeLogText cleans up stderr captured from tool execution before it is

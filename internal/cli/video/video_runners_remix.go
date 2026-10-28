@@ -85,11 +85,12 @@ func runVideoRemix(cmd *cobra.Command) error {
 	fmt.Println()
 	savePromptFile(taskData.ID, req.Prompt)
 	var saved []string
-	if taskData.Result != nil && len(taskData.Result.Videos) > 0 {
-		saved, err = service.DownloadVideos(taskData.Result.Videos, options.Shared.OutputDir, taskData.ID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
-		}
+	if taskData.Result == nil || len(taskData.Result.Videos) == 0 {
+		return fmt.Errorf("task completed but returned no videos")
+	}
+	saved, err = service.DownloadVideos(taskData.Result.Videos, options.Shared.OutputDir, taskData.ID)
+	if err != nil {
+		return err
 	}
 	if vidCropMargin != "" {
 		if cropped, cerr := cropSavedVideos(saved); cerr != nil {

@@ -33,10 +33,14 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 
 // WriteFileAtomicFromReader streams r into path atomically and returns the
 // number of bytes written. The temporary file lives in the destination
-// directory so the final rename stays on the same filesystem. Parent
-// directories must already exist, matching os.WriteFile.
+// directory so the final rename stays on the same filesystem. Missing parent
+// directories are created (mode 0755) so callers can write straight into a
+// fresh -o/--output directory without a manual mkdir -p.
 func WriteFileAtomicFromReader(path string, r io.Reader, perm os.FileMode) (int64, error) {
 	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return 0, fmt.Errorf("create directory %s: %w", dir, err)
+	}
 	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
 	if err != nil {
 		return 0, fmt.Errorf("create temporary file: %w", err)

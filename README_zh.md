@@ -185,7 +185,7 @@ aigc-cli
 │   --json         以 JSON 格式传入请求（文件、字符串或 stdin）
 │   --inject-json  在生成的请求 body 上叠加一段 JSON
 │   --preview      生成完成后自动打开系统预览
-│   --save-prompt  将提示词保存为 .md 文件
+│   --save-prompt  将提示词保存为 .md 文件（image / video）
 │   --http-proxy   指定 HTTP 代理
 │   --zdr          请求零数据保留（ZDR，仅 OpenRouter chat/music 支持）
 ```

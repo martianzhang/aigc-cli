@@ -2,7 +2,6 @@ package music
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -30,7 +29,7 @@ Example:
 
 		if task.Result != nil && len(task.Result.Music) > 0 {
 			if _, err := downloadMusics(task.Result.Music, task.ID); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
+				return fmt.Errorf("download music: %w", err)
 			}
 		}
 		return nil

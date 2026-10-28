@@ -56,14 +56,18 @@ func QueryText(d Deps, taskID string) (string, error) {
 	}
 
 	if task.Result != nil && len(task.Result.Images) > 0 && task.Status == "completed" {
-		if saved, err := d.DownloadImages(task.Result.Images, task.ID); err == nil {
-			msg += fmt.Sprintf("\nImages saved: %d file(s)", len(saved))
+		saved, derr := d.DownloadImages(task.Result.Images, task.ID)
+		if derr != nil {
+			return msg, fmt.Errorf("failed to download images: %w", derr)
 		}
+		msg += fmt.Sprintf("\nImages saved: %d file(s)", len(saved))
 	}
 	if task.Result != nil && len(task.Result.Videos) > 0 && task.Status == "completed" {
-		if saved, err := d.DownloadVideos(task.Result.Videos, task.ID); err == nil {
-			msg += fmt.Sprintf("\nVideos saved: %d file(s)", len(saved))
+		saved, derr := d.DownloadVideos(task.Result.Videos, task.ID)
+		if derr != nil {
+			return msg, fmt.Errorf("failed to download videos: %w", derr)
 		}
+		msg += fmt.Sprintf("\nVideos saved: %d file(s)", len(saved))
 	}
 	return msg, nil
 }
@@ -84,11 +88,10 @@ Example:
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			text, err := QueryText(deps(), args[0])
-			if err != nil {
-				return err
+			if text != "" {
+				fmt.Println(text)
 			}
-			fmt.Println(text)
-			return nil
+			return err
 		},
 	}
 }

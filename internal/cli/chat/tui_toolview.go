@@ -15,7 +15,7 @@ import (
 
 const (
 	// toolOutputPreviewLines is how many lines of a tool result are shown before
-	// folding. Ctrl+O expands the most recent tool message.
+	// folding. Ctrl+O or a click expands the most recent tool card.
 	toolOutputPreviewLines = 20
 	// toolDiffMaxLines caps a rendered diff so a large write cannot flood the
 	// viewport.
@@ -306,15 +306,24 @@ func clipString(s string, maxWidth int) string {
 // ---------------------------------------------------------------------------
 
 // renderToolMessage renders a tool message: header + argument summary, an
-// optional diff, then the (possibly folded) result.
+// optional full command and diff when expanded, then the (possibly folded)
+// result.
 func (m *chatModel) renderToolMessage(msg message) string {
 	var b strings.Builder
 
 	header := m.styles.toolMsg.Render("┃") + " " + m.styles.toolMsg.Render("🛠️  "+msg.tool)
-	if msg.toolSummary != "" {
+	// When expanded, a bash card shows the full command below instead of the
+	// clipped one-line summary, so do not print the summary twice.
+	showDetail := msg.expanded && msg.toolDetail != ""
+	if msg.toolSummary != "" && !showDetail {
 		header += " " + m.styles.toolArg.Render(msg.toolSummary)
 	}
 	b.WriteString(header)
+
+	if showDetail {
+		b.WriteByte('\n')
+		b.WriteString(m.renderToolDetail(msg.toolDetail, max(m.width-4, 20)))
+	}
 
 	if msg.toolDiff != "" {
 		b.WriteByte('\n')
@@ -331,13 +340,46 @@ func (m *chatModel) renderToolMessage(msg message) string {
 		b.WriteString("\n  ")
 		b.WriteString(clipString(line, max(m.width-4, 20)))
 	}
-	if folded {
-		fmt.Fprintf(&b, "\n  %s",
-			m.styles.sysMsg.Render(fmt.Sprintf("… %d more lines (Ctrl+O to expand)", total-toolOutputPreviewLines)))
-	} else if msg.expanded && total > toolOutputPreviewLines {
-		fmt.Fprintf(&b, "\n  %s", m.styles.sysMsg.Render("(Ctrl+O to collapse)"))
+
+	switch {
+	case folded && commandAbbreviated(msg):
+		fmt.Fprintf(&b, "\n  %s", m.styles.sysMsg.Render(fmt.Sprintf(
+			"… command abbreviated, %d more lines (click or Ctrl+O to expand)", total-toolOutputPreviewLines)))
+	case folded:
+		fmt.Fprintf(&b, "\n  %s", m.styles.sysMsg.Render(fmt.Sprintf(
+			"… %d more lines (click or Ctrl+O to expand)", total-toolOutputPreviewLines)))
+	case commandAbbreviated(msg):
+		fmt.Fprintf(&b, "\n  %s", m.styles.sysMsg.Render("… command abbreviated (click or Ctrl+O to expand)"))
+	case msg.expanded && (showDetail || total > toolOutputPreviewLines):
+		fmt.Fprintf(&b, "\n  %s", m.styles.sysMsg.Render("(click or Ctrl+O to collapse)"))
 	}
 	return b.String()
+}
+
+// commandAbbreviated reports whether the collapsed header is hiding part of
+// the tool's argument detail (a clipped or multi-line bash command).
+func commandAbbreviated(msg message) bool {
+	detail := strings.TrimRight(msg.toolDetail, "\r\n")
+	return !msg.expanded && detail != "" && msg.toolSummary != "$ "+detail
+}
+
+// renderToolDetail renders the full argument text shown when a bash card is
+// expanded. Only the first row carries the "$ " prompt; continuation lines and
+// wrapped rows are indented so the command reads as one block.
+func (m *chatModel) renderToolDetail(detail string, width int) string {
+	lines := strings.Split(strings.TrimRight(detail, "\n"), "\n")
+	out := make([]string, 0, len(lines))
+	for i, line := range lines {
+		wrapped, _ := wrapANSI(line, max(width-4, 10))
+		for j, row := range strings.Split(wrapped, "\n") {
+			prefix := "    "
+			if i == 0 && j == 0 {
+				prefix = "  $ "
+			}
+			out = append(out, prefix+m.styles.toolArg.Render(row))
+		}
+	}
+	return strings.Join(out, "\n")
 }
 
 // renderDiff colorises a pre-rendered diff string.

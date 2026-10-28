@@ -346,3 +346,46 @@ func TestRenderMarkdownWrapsToMessageWidth(t *testing.T) {
 		}
 	}
 }
+
+// TestToolBoundaryFlushesAssistantNarration guards that text streamed before a
+// tool call stays above that tool's card. Before this, every iteration's text
+// was accumulated and flushed as one assistant message after all tool cards, so
+// pre-tool narration looked like the final conclusion (and often contradicted
+// the tool output).
+func TestToolBoundaryFlushesAssistantNarration(t *testing.T) {
+	m := newTestModel(t)
+	m.turnID = 1
+
+	updated, _ := m.Update(streamChunk{turn: 1, text: "先看一下提示词。"})
+	m = updated.(*chatModel)
+	updated, _ = m.Update(toolStart{turn: 1, name: "bash", summary: "$ cat prompt.txt"})
+	m = updated.(*chatModel)
+
+	// Next iteration: final reply after the tool ran.
+	updated, _ = m.Update(streamChunk{turn: 1, text: "图片已生成。"})
+	m = updated.(*chatModel)
+	updated, _ = m.Update(agentDone{turn: 1, history: []types.ChatMessage{
+		{Role: "assistant", Content: "图片已生成。"},
+	}})
+	m = updated.(*chatModel)
+
+	var order []string
+	for _, msg := range m.messages {
+		switch msg.role {
+		case "assistant":
+			order = append(order, "assistant:"+msg.content)
+		case "tool":
+			order = append(order, "tool:"+msg.tool)
+		}
+	}
+	want := []string{"assistant:先看一下提示词。", "tool:bash", "assistant:图片已生成。"}
+	if len(order) != len(want) {
+		t.Fatalf("message order = %v, want %v", order, want)
+	}
+	for i := range want {
+		if order[i] != want[i] {
+			t.Errorf("message order = %v, want %v", order, want)
+			break
+		}
+	}
+}

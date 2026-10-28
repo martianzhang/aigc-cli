@@ -22,6 +22,25 @@ var copyToClipboard = clipboard.WriteAll
 // the decoration stripped — borders and padding are never part of what is
 // copied.
 
+// toggleToolAtLine expands or collapses the tool card that owns a transcript
+// line. It returns false when the line is not part of a tool card, so a plain
+// click elsewhere keeps the normal selection behaviour.
+func (m *chatModel) toggleToolAtLine(line int) bool {
+	r := m.rangeFor(line)
+	if r.role != "tool" || r.msg < 0 || r.msg >= len(m.messages) {
+		return false
+	}
+	msg := &m.messages[r.msg]
+	if msg.tool == "" {
+		return false
+	}
+	if msg.toolDetail == "" && len(splitLines(strings.TrimRight(msg.content, "\n"))) <= toolOutputPreviewLines {
+		return false // nothing hidden, so a toggle would have no visible effect
+	}
+	msg.expanded = !msg.expanded
+	return true
+}
+
 // startSelection begins a mouse selection at screen row y.
 func (m *chatModel) startSelection(msg tea.MouseMsg) {
 	line, ok := m.transcriptLineAt(msg.Y)
@@ -153,9 +172,11 @@ func (m *chatModel) selectionView() string {
 }
 
 // msgRange maps rendered transcript lines to the message that produced them.
-// seps[i] is the separator to use before line start+i when rebuilding text
-// ("" for the first line, then "\n", " " or "").
+// msg is the index into chatModel.messages. seps[i] is the separator to use
+// before line start+i when rebuilding text ("" for the first line, then "\n",
+// " " or "").
 type msgRange struct {
+	msg   int
 	role  string
 	start int
 	end   int // exclusive

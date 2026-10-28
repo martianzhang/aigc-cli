@@ -29,6 +29,8 @@ func runGeminiImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
+	savePromptFile(promptTaskID("image", 0), req.Prompt)
+
 	var saved []string
 	for i, img := range geminiResp.Data {
 		if strings.HasPrefix(img.URL, "data:") {
@@ -65,6 +67,9 @@ func runGeminiImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 		}
 	}
 
+	if len(saved) == 0 {
+		return nil, fmt.Errorf("gemini returned no images to save")
+	}
 	postProcessImages(saved)
 	return saved, nil
 }

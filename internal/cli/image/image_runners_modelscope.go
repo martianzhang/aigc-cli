@@ -206,6 +206,8 @@ done:
 	// --- Step 3: Download images ---
 	fmt.Printf("Duration: %.1fs\n", time.Since(start).Seconds())
 
+	savePromptFile(promptTaskID("modelscope", 0), req.Prompt)
+
 	var saved []string
 	for i, imgURL := range taskResp.OutputImages {
 		data, err := service.FetchBytes(imgURL)
@@ -232,6 +234,9 @@ done:
 		saved = append(saved, filename)
 	}
 
+	if len(saved) == 0 {
+		return nil, fmt.Errorf("modelscope returned no images to save")
+	}
 	postProcessImages(saved)
 	return saved, nil
 }

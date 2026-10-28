@@ -65,7 +65,8 @@ func (m *chatModel) cancelTurn() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// toggleLastToolExpanded expands or collapses the most recent tool output.
+// toggleLastToolExpanded expands or collapses the most recent tool card
+// (full command plus full output).
 func (m *chatModel) toggleLastToolExpanded() (tea.Model, tea.Cmd) {
 	for i, msg := range slices.Backward(m.messages) {
 		if msg.role == "tool" && msg.tool != "" {
@@ -106,6 +107,58 @@ func (m *chatModel) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.cancelTurn()
 	}
 	return m, nil
+}
+
+// confirmOptionRow returns the screen row of the clickable option legend and
+// whether mouse hit-testing is reliable (the legend must not be word-wrapped).
+func (m *chatModel) confirmOptionRow() (int, bool) {
+	if m.pending == nil || m.suggesting {
+		return 0, false
+	}
+	rows, hidden := confirmCommandRows(m.pending)
+	n := len(rows)
+	if hidden > 0 {
+		n++
+	}
+	hint := confirmPromptHint(false)
+	const hintPrefix = 2
+	contentWidth := max(m.width-4, 10) - 1 // Style.Width minus left padding
+	if hintPrefix+len(hint) > contentWidth {
+		return 0, false
+	}
+	// View layout: header, viewport, separator, then the confirm box.
+	boxTop := 1 + m.viewport.Height + 1
+	return boxTop + 1 + n, true // +1 for the "Confirm <tool>" row
+}
+
+// clickConfirmOption maps a click on the option legend to the same action as
+// the corresponding key press, so allow/deny/always/suggest work with the mouse.
+func (m *chatModel) clickConfirmOption(msg tea.MouseMsg) (tea.Cmd, bool) {
+	row, ok := m.confirmOptionRow()
+	if !ok || msg.Y != row || m.pending == nil {
+		return nil, false
+	}
+	// The legend starts after the box border (1), its left padding (1) and the
+	// two-space row prefix used by renderConfirmBox.
+	x := msg.X - 4
+	if x < 0 {
+		return nil, false
+	}
+	offset := 0
+	for _, c := range confirmChoices {
+		if x >= offset && x < offset+len(c.label) {
+			var key tea.KeyMsg
+			if c.key == 0 {
+				key = tea.KeyMsg{Type: tea.KeyEscape}
+			} else {
+				key = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{c.key}}
+			}
+			_, cmd := m.handleConfirmKey(key)
+			return cmd, true
+		}
+		offset += len(c.label) + len(confirmChoiceSep)
+	}
+	return nil, false
 }
 
 // startSuggesting switches the confirmation prompt into text entry, so the user

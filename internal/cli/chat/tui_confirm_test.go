@@ -164,10 +164,63 @@ func TestConfirmBoxRenders(t *testing.T) {
 	openConfirm(t, m)
 
 	view := m.View()
-	for _, want := range []string{"Confirm bash", "$ rm -rf /tmp/x", "# second line", "[y] allow once", "[a] allow for this session", "[n] deny"} {
+	for _, want := range []string{"Confirm bash", "$ rm -rf /tmp/x", "# second line", "[y] allow once", "[a] always", "[n] deny", "[s] suggest", "[Esc] stop"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("confirmation box missing %q:\n%s", want, view)
 		}
+	}
+}
+
+func TestConfirmClickChoices(t *testing.T) {
+	tests := []struct {
+		label string
+		want  confirmDecision
+	}{
+		{"[y] allow once", confirmOnce},
+		{"[a] always", confirmAlways},
+		{"[n] deny", confirmDeny},
+	}
+	for _, tc := range tests {
+		t.Run(tc.label, func(t *testing.T) {
+			m := newConfirmTestModel(t)
+			reply := openConfirm(t, m)
+
+			row, ok := m.confirmOptionRow()
+			if !ok {
+				t.Fatal("option row is not clickable with the test width")
+			}
+			x := 4 + strings.Index(confirmPromptHint(false), tc.label)
+			updated, _ := m.Update(tea.MouseMsg{
+				X: x, Y: row, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress,
+			})
+			m = updated.(*chatModel)
+			if m.pending != nil {
+				t.Error("clicking the option did not resolve the prompt")
+			}
+			if got := <-reply; got.decision != tc.want {
+				t.Errorf("decision = %v, want %v", got.decision, tc.want)
+			}
+		})
+	}
+}
+
+func TestConfirmClickSuggestStartsSuggestion(t *testing.T) {
+	m := newConfirmTestModel(t)
+	openConfirm(t, m)
+
+	row, ok := m.confirmOptionRow()
+	if !ok {
+		t.Fatal("option row is not clickable with the test width")
+	}
+	x := 4 + strings.Index(confirmPromptHint(false), "[s] suggest")
+	updated, _ := m.Update(tea.MouseMsg{X: x, Y: row, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(*chatModel)
+
+	if !m.suggesting {
+		t.Error("clicking [s] did not open the suggestion box")
+	}
+	if m.pending == nil {
+		t.Error("suggestion box must keep the confirmation pending")
 	}
 }
 

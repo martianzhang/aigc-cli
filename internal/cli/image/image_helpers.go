@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
@@ -19,7 +20,18 @@ func savePromptFile(taskID, prompt string) {
 	if !options.Shared.SavePrompt {
 		return
 	}
-	service.SavePrompt(options.Shared.OutputDir, taskID, prompt)
+	if err := service.SavePrompt(options.Shared.OutputDir, "image", taskID, prompt); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+	}
+}
+
+// promptTaskID builds the task ID used for the saved prompt file. created is
+// the provider-returned timestamp; 0 falls back to the current time.
+func promptTaskID(prefix string, created int64) string {
+	if created <= 0 {
+		created = time.Now().Unix()
+	}
+	return fmt.Sprintf("%s_%d", prefix, created)
 }
 
 // loadImageDefaults returns the user's image config defaults.

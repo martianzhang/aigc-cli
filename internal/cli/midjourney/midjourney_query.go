@@ -2,7 +2,6 @@ package midjourney
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -31,6 +30,7 @@ var mjQueryCmd = &cobra.Command{
 		displayMJResult(task)
 
 		// Download images if available
+		var dlErr error
 		if task.Status == "SUCCESS" && len(task.ImageURLs) > 0 {
 			// Convert to ImageResult slices for downloadImages helper
 			images := make([]types.ImageResult, len(task.ImageURLs))
@@ -38,7 +38,7 @@ var mjQueryCmd = &cobra.Command{
 				images[i] = types.ImageResult{URL: []string{u}}
 			}
 			if _, err := service.DownloadImages(images, options.Shared.OutputDir, task.ID); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
+				dlErr = err
 			}
 		}
 		// Download videos if available
@@ -47,16 +47,19 @@ var mjQueryCmd = &cobra.Command{
 			for i, u := range task.VideoURLs {
 				videos[i] = types.VideoResult{URL: []string{u}}
 			}
-			if _, err := service.DownloadVideos(videos, options.Shared.OutputDir, task.ID); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
+			if _, err := service.DownloadVideos(videos, options.Shared.OutputDir, task.ID); err != nil && dlErr == nil {
+				dlErr = err
 			}
 		}
 		if task.Status == "SUCCESS" && task.VideoURL != "" {
 			// Also download single video_url if present
 			videos := []types.VideoResult{{URL: []string{task.VideoURL}}}
-			if _, err := service.DownloadVideos(videos, options.Shared.OutputDir, task.ID); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: download error: %v\n", err)
+			if _, err := service.DownloadVideos(videos, options.Shared.OutputDir, task.ID); err != nil && dlErr == nil {
+				dlErr = err
 			}
+		}
+		if dlErr != nil {
+			return fmt.Errorf("download failed: %w", dlErr)
 		}
 		return nil
 	},

@@ -80,6 +80,7 @@ func runAgnesVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	// Step 3: Download
 	fmt.Println()
 	fmt.Printf("Downloading video...\n")
+	savePromptFile(videoID, req.Prompt)
 	filename, err := service.DownloadFile(videoURL, options.Shared.OutputDir, fmt.Sprintf("video_agnes_%s", videoID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to download video: %w", err)

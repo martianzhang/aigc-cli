@@ -41,7 +41,7 @@ The REPL supports:
 - Command history
 - Scroll the conversation with PgUp/PgDn or the mouse wheel
 - **Drag with the left mouse button to select transcript rows and copy them**: on release the selected text is written to the clipboard with the `┃` frame and trailing padding stripped, and display-only line wrapping is rejoined, so multi-line copies paste cleanly. Hold `Shift` (or `Option`/`⌥` on iTerm2) to use the terminal's own selection instead; `/copy` copies the last assistant response verbatim
-- Tool calls render as cards: `bash` shows the full command line, `write`/`edit` show a `+/-` diff preview, and results longer than 20 lines are folded (`Ctrl+O` expands or collapses the most recent one)
+- Tool calls render as cards: `bash` shows the first line of the command, abbreviated to 100 columns (multi-line scripts end with `…`); **click the card or press `Ctrl+O`** to see the full command. `write`/`edit` show a `+/-` diff preview, and results longer than 20 lines are folded (click or `Ctrl+O` expands or collapses the card)
 - Slash commands, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
 - `@path` file references: text files are inlined, images are attached (Tab completes paths; governed by `defaults.chat.read_deny`)
 
@@ -277,6 +277,8 @@ In interactive mode, a privileged tool that matches a confirmation rule pauses b
 | `n` | Deny; the model receives `User denied this tool call.` and can continue |
 | `s` | Deny **and** tell the model what to do instead (see below) |
 | `Esc` | Deny and interrupt the current turn |
+
+The `[y] allow once   [a] always   [n] deny   [s] suggest   [Esc] stop` legend at the bottom of the prompt is also **clickable**: it performs exactly the same action as the matching key (`[s]` opens the suggestion box, which still needs typed input). While a confirmation is pending, terminals that support OSC 9;4 (iTerm2, Windows Terminal, …) switch the tab progress bar to **paused (yellow)** instead of the green in-progress bar.
 
 #### `s`: reject with guidance
 

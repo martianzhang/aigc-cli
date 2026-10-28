@@ -445,7 +445,7 @@ Run 'aigc-cli image --help' for usage and examples.
 | `--json` | Pass request as JSON (file, string, or stdin) |
 | `--inject-json` | Merge a JSON object on top of the generated body (objects recurse, arrays append, scalars overwrite); for vendor-only request fields, takes precedence over `--json` |
 | `--preview` | Open system preview after generation |
-| `--save-prompt` | Save prompt as .md file |
+| `--save-prompt` | Save the prompt as `<kind>_<task_id>.md` next to the output (`image` / `video`); works with every provider |
 | `--http-proxy` | Specify HTTP proxy |
 | `--no-proxy` | Ignore `http_proxy` config and `HTTP_PROXY` / `HTTPS_PROXY` for this run (direct connection) |
 | `--zdr` | Request zero data retention where supported. OpenRouter chat-completions endpoints (`chat`, `music`) honor it via `provider.zdr` + `data_collection: deny`; every other provider/endpoint is a silent no-op |
@@ -454,5 +454,5 @@ Run 'aigc-cli image --help' for usage and examples.
 | `--api-base` | API base URL (overrides config/env) |
 | `--model` / `-m` | Model name |
 | `--provider` / `-P` | Named provider reference |
-| `--output` / `-o` | Output directory |
+| `--output` / `-o` | Output directory (created automatically when missing) |
 | `--timeout` | HTTP request timeout in seconds; also caps async task polling (per-media defaults live in `defaults.<command>.timeout`) |

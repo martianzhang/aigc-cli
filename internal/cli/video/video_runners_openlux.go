@@ -70,6 +70,7 @@ func runOpenLuxVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	// Step 3: Download
 	fmt.Println()
 	fmt.Printf("Downloading video...\n")
+	savePromptFile(taskID, req.Prompt)
 	filename, err := service.DownloadFile(videoURL, options.Shared.OutputDir, fmt.Sprintf("video_openlux_%s", taskID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to download video: %w", err)

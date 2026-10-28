@@ -31,6 +31,8 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest,
 	}
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
+	savePromptFile(promptTaskID("image", orResp.Created), req.Prompt)
+
 	var saved []string
 	for i, img := range orResp.Data {
 		if img.B64JSON != "" {
@@ -57,6 +59,9 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest,
 		}
 	}
 
+	if len(saved) == 0 {
+		return nil, fmt.Errorf("OpenRouter returned no images to save")
+	}
 	postProcessImages(saved)
 	service.PrintUsage(orResp.Usage)
 

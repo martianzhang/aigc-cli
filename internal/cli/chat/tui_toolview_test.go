@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestToolCallSummary(t *testing.T) {
@@ -176,7 +178,7 @@ func TestRenderToolMessageFoldsLongOutput(t *testing.T) {
 	if strings.Contains(got, "line 25") {
 		t.Error("folded output should not contain the last line")
 	}
-	if !strings.Contains(got, "5 more lines (Ctrl+O to expand)") {
+	if !strings.Contains(got, "5 more lines (click or Ctrl+O to expand)") {
 		t.Errorf("missing fold hint:\n%s", got)
 	}
 	if !strings.Contains(got, "🛠️  grep") || !strings.Contains(got, "/needle/") {
@@ -188,7 +190,7 @@ func TestRenderToolMessageFoldsLongOutput(t *testing.T) {
 	if !strings.Contains(got, "line 25") {
 		t.Error("expanded output should contain the last line")
 	}
-	if !strings.Contains(got, "Ctrl+O to collapse") {
+	if !strings.Contains(got, "click or Ctrl+O to collapse") {
 		t.Errorf("missing collapse hint:\n%s", got)
 	}
 }
@@ -239,5 +241,99 @@ func TestClipStringRuneSafe(t *testing.T) {
 	}
 	if got := clipString("short", 20); got != "short" {
 		t.Errorf("clipString should leave short strings alone, got %q", got)
+	}
+}
+
+func TestRenderToolMessageShowsFullCommandWhenExpanded(t *testing.T) {
+	m := newChatModel(nil, nil, 10, "m", "", nil, false, 0, 0, 0)
+	m.width = 100
+
+	msg := message{
+		role:        "tool",
+		tool:        "bash",
+		toolSummary: "$ echo one",
+		toolDetail:  "echo one\necho two",
+		content:     "one\ntwo",
+	}
+
+	got := stripANSI(m.renderToolMessage(msg))
+	if strings.Contains(got, "echo two") {
+		t.Errorf("collapsed card leaked the second command line:\n%s", got)
+	}
+	if !strings.Contains(got, "command abbreviated") {
+		t.Errorf("missing abbreviated-command hint:\n%s", got)
+	}
+
+	msg.expanded = true
+	got = stripANSI(m.renderToolMessage(msg))
+	if !strings.Contains(got, "$ echo one") || !strings.Contains(got, "echo two") {
+		t.Errorf("expanded card must show the full command:\n%s", got)
+	}
+	if !strings.Contains(got, "click or Ctrl+O to collapse") {
+		t.Errorf("missing collapse hint:\n%s", got)
+	}
+}
+
+func TestClickToolCardTogglesExpansion(t *testing.T) {
+	m := newTestModel(t)
+	m.messages = append(m.messages, message{
+		role:        "tool",
+		tool:        "bash",
+		toolSummary: "$ echo one",
+		toolDetail:  "echo one\necho two",
+		content:     "one",
+	})
+	m.refreshViewport()
+	r := m.msgRanges[len(m.msgRanges)-1]
+	// Screen row 1 is the header, so the transcript row maps to Y = line+1.
+	y := r.start + 1
+
+	click := func() {
+		updated, _ := m.Update(tea.MouseMsg{X: 2, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+		m = updated.(*chatModel)
+		updated, _ = m.Update(tea.MouseMsg{X: 2, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionRelease})
+		m = updated.(*chatModel)
+	}
+
+	click()
+	if !m.messages[len(m.messages)-1].expanded {
+		t.Fatal("click did not expand the tool card")
+	}
+	click()
+	if m.messages[len(m.messages)-1].expanded {
+		t.Fatal("second click did not collapse the tool card")
+	}
+}
+
+func TestClickToolCardDragStillSelects(t *testing.T) {
+	oldCopy := copyToClipboard
+	var copied string
+	copyToClipboard = func(s string) error { copied = s; return nil }
+	t.Cleanup(func() { copyToClipboard = oldCopy })
+
+	m := newTestModel(t)
+	m.messages = append(m.messages, message{
+		role:        "tool",
+		tool:        "bash",
+		toolSummary: "$ echo one",
+		toolDetail:  "echo one\necho two",
+		content:     "one\ntwo\nthree",
+	})
+	m.refreshViewport()
+	r := m.msgRanges[len(m.msgRanges)-1]
+
+	y := r.start + 1
+	updated, _ := m.Update(tea.MouseMsg{X: 2, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m = updated.(*chatModel)
+	updated, _ = m.Update(tea.MouseMsg{X: 2, Y: y + 1, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+	m = updated.(*chatModel)
+	updated, _ = m.Update(tea.MouseMsg{X: 2, Y: y + 1, Button: tea.MouseButtonLeft, Action: tea.MouseActionRelease})
+	m = updated.(*chatModel)
+
+	if m.messages[len(m.messages)-1].expanded {
+		t.Error("drag must not toggle the tool card")
+	}
+	if copied == "" {
+		t.Error("drag did not copy the selected rows")
 	}
 }

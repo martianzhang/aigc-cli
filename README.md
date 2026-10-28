@@ -189,7 +189,7 @@ aigc-cli
 │   --json         Pass request as JSON (file, string, or stdin)
 │   --inject-json  Merge a JSON object on top of the generated request body
 │   --preview      Open system preview after generation
-│   --save-prompt  Save prompt as .md file
+│   --save-prompt  Save prompt as .md file (image / video)
 │   --http-proxy   Specify HTTP proxy
 │   --no-proxy     Ignore http_proxy config and HTTP_PROXY/HTTPS_PROXY for this run
 │   --zdr          Request zero data retention where supported (OpenRouter chat/music)

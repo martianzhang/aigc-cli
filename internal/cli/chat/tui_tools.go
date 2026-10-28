@@ -58,6 +58,7 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 					turn:    turn,
 					name:    cmdName,
 					summary: toolCallSummary(cmdName, argsJSON),
+					detail:  confirmDetail(cmdName, argsJSON),
 					diff:    toolCallDiff(cmdName, argsJSON),
 				})
 

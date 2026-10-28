@@ -247,6 +247,21 @@ func TestBusyStageWritesLabelAndBarOnce(t *testing.T) {
 	}
 }
 
+func TestPausedStageUsesPausedBar(t *testing.T) {
+	var buf bytes.Buffer
+	p := &Progress{w: &buf, enabled: true, bar: true}
+	p.PausedStage("chat · confirm")
+	want := "\x1b]9;4;4\x07" + "\x1b]0;aigc-cli · chat · confirm …\x07"
+	if got := buf.String(); got != want {
+		t.Errorf("PausedStage = %q, want %q", got, want)
+	}
+	buf.Reset()
+	p.PausedStage("chat · confirm") // re-asserted every render by the chat TUI
+	if buf.Len() != 0 {
+		t.Errorf("repeated PausedStage wrote %q, want nothing", buf.String())
+	}
+}
+
 func TestBusyTitleShowsElapsed(t *testing.T) {
 	var buf bytes.Buffer
 	p := &Progress{w: &buf, enabled: true}

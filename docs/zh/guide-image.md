@@ -46,8 +46,8 @@ aigc-cli image < prompt.txt
 | `--mask-url` | | 蒙版图片 URL（inpainting） | APIMart |
 | `--json` | | JSON 输入（文件、字符串或 `-` 表示 stdin） | 通用 |
 | `--inject-json` | | 在最终 body 上追加合并一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于厂商私有参数，优先级高于 `--json`（详见 chat 指南） | 通用 |
-| `--output` | | 下载目录（默认当前目录，支持相对/绝对路径） | 通用 |
-| `--save-prompt` | | 保存 prompt 到 `image_{task_id}.md` | 通用 |
+| `--output` | | 下载目录（默认当前目录，支持相对/绝对路径；不存在时自动创建） | 通用 |
+| `--save-prompt` | | 保存 prompt 到 `image_{task_id}.md`（所有 provider 均生效） | 通用 |
 | `--verbose` | `-v` | 显示请求 JSON 和完整响应（全局 flag） | 通用 |
 | `--mode` | | 强制指定模式：`auto`、`sync`、`async` | 通用 |
 | `--dry-run` | | 打印等价 curl（上传型 provider 会先打印每个本地参考图的上传 curl），不调用 API | 通用 |

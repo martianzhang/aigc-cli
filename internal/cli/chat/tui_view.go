@@ -83,6 +83,7 @@ func (m *chatModel) renderMessages() string {
 		}
 		rendered, seps := m.renderOneMessage(msg)
 		m.msgRanges = append(m.msgRanges, msgRange{
+			msg:   i,
 			role:  msg.role,
 			start: line,
 			end:   line + len(seps),
@@ -459,25 +460,20 @@ func (m *chatModel) renderConfirmBox() string {
 		m.styles.toolMsg.Render("┃") + " " + m.styles.errMsg.Bold(true).Render("Confirm "+p.name),
 	}
 
-	if p.detail != "" {
-		// Full command for bash: the card header is single-line, so show the
-		// script here before asking for approval.
-		cmdLines := strings.Split(strings.TrimRight(p.detail, "\n"), "\n")
-		const maxCmdLines = 8
-		for i, line := range cmdLines {
-			if i >= maxCmdLines {
-				lines = append(lines, "  "+m.styles.sysMsg.Render(
-					fmt.Sprintf("… %d more lines (see tool card)", len(cmdLines)-maxCmdLines)))
-				break
-			}
-			prefix := "    "
+	rows, hidden := confirmCommandRows(p)
+	for i, line := range rows {
+		prefix := "  "
+		if p.detail != "" {
+			prefix = "    "
 			if i == 0 {
 				prefix = "  $ "
 			}
-			lines = append(lines, prefix+m.styles.toolArg.Render(clipString(line, width)))
 		}
-	} else if p.summary != "" {
-		lines = append(lines, "  "+m.styles.toolArg.Render(clipString(p.summary, width)))
+		lines = append(lines, prefix+m.styles.toolArg.Render(clipString(line, width)))
+	}
+	if hidden > 0 {
+		lines = append(lines, "  "+m.styles.sysMsg.Render(
+			fmt.Sprintf("… %d more lines (click the tool card above to expand)", hidden)))
 	}
 
 	lines = append(lines, "  "+m.styles.sysMsg.Render(confirmPromptHint(m.suggesting)))
@@ -491,12 +487,57 @@ func (m *chatModel) renderConfirmBox() string {
 	return m.styles.shellInputBox.Width(max(m.width-4, 10)).Render(strings.Join(lines, "\n"))
 }
 
+// confirmMaxCmdLines caps how many command rows the confirmation box shows; the
+// rest stay available by clicking the tool card above.
+const confirmMaxCmdLines = 8
+
+// confirmCommandRows returns the command/summary rows shown in the confirmation
+// box and how many trailing lines are hidden. It is shared by rendering and
+// mouse hit-testing so the option row always lines up.
+func confirmCommandRows(p *pendingConfirm) (rows []string, hidden int) {
+	if p == nil {
+		return nil, 0
+	}
+	if p.detail != "" {
+		all := strings.Split(strings.TrimRight(p.detail, "\n"), "\n")
+		if len(all) > confirmMaxCmdLines {
+			return all[:confirmMaxCmdLines], len(all) - confirmMaxCmdLines
+		}
+		return all, 0
+	}
+	if p.summary != "" {
+		return []string{p.summary}, 0
+	}
+	return nil, 0
+}
+
+// confirmChoice is one clickable option in the confirmation box. key is the
+// keyboard shortcut it mirrors; 0 means Esc (deny and stop the turn).
+const confirmChoiceSep = "   "
+
+type confirmChoice struct {
+	label string
+	key   rune
+}
+
+var confirmChoices = []confirmChoice{
+	{"[y] allow once", 'y'},
+	{"[a] always", 'a'},
+	{"[n] deny", 'n'},
+	{"[s] suggest", 's'},
+	{"[Esc] stop", 0},
+}
+
 // confirmPromptHint is the key legend at the bottom of the confirmation box.
 func confirmPromptHint(suggesting bool) string {
 	if suggesting {
 		return "tell the model what to do instead — [Enter] send   [Esc] back   (empty Enter = deny)"
 	}
-	return "[y] allow once   [a] allow for this session   [n] deny   [s] suggest   Esc: deny & stop"
+	labels := make([]string, len(confirmChoices))
+	for i, c := range confirmChoices {
+		labels[i] = c.label
+	}
+	return strings.Join(labels, confirmChoiceSep)
 }
 
 // ---------------------------------------------------------------------------

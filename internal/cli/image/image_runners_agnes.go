@@ -73,6 +73,8 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	}
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
+	savePromptFile(promptTaskID("agnes", syncResp.Created), req.Prompt)
+
 	var saved []string
 	for i, img := range syncResp.Data {
 		if img.B64JSON != "" {
@@ -102,6 +104,9 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 		}
 	}
 
+	if len(saved) == 0 {
+		return nil, fmt.Errorf("agnes returned no images to save")
+	}
 	postProcessImages(saved)
 	service.PrintUsage(syncResp.Usage)
 	return saved, nil

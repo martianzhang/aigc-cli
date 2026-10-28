@@ -49,6 +49,7 @@ type toolStart struct {
 	turn    uint64
 	name    string
 	summary string // one-line argument summary for the tool header
+	detail  string // full argument detail shown when the card is expanded (bash command)
 	diff    string // optional pre-rendered diff (write/edit)
 }
 
@@ -115,10 +116,14 @@ type message struct {
 	// toolSummary is the one-line argument summary shown next to the tool name
 	// (e.g. the bash command, or "file.go (-2/+5 lines)" for an edit).
 	toolSummary string
+	// toolDetail is the full argument text (the complete bash command, including
+	// continuation lines) shown when the card is expanded. Empty for tools whose
+	// summary already tells the whole story.
+	toolDetail string
 	// toolDiff is a pre-rendered +/- diff for write/edit calls.
 	toolDiff string
-	// expanded controls whether a long tool output is shown in full. Ctrl+O
-	// toggles it for the most recent tool message.
+	// expanded controls whether the full command and a long tool output are
+	// shown. Ctrl+O or a click on the tool card toggles it.
 	expanded bool
 }
 

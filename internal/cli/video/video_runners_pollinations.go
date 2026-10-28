@@ -46,6 +46,7 @@ func runPollinationsVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	}
 
 	filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("video_pollinations_%d%s", time.Now().Unix(), ext))
+	savePromptFile(fmt.Sprintf("pollinations_%d", time.Now().Unix()), req.Prompt)
 	if err := fsutil.WriteFileAtomic(filename, data, 0o644); err != nil {
 		return nil, fmt.Errorf("failed to save video: %w", err)
 	}

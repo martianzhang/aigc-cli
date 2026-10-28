@@ -377,8 +377,8 @@ aigc-cli video --prompt "..." --crop-margin 0,0,40,0  # 只裁底部一条
 
 > **参数适用性**：`--generate-audio`（OpenRouter）、`--tool` / `--video-url` / `--audio-url`（仅部分模型）、`--remix` / `--task-id` / `--raw`（VEO3）、`--job-id`（OpenRouter 任务恢复）。没有列出的厂商私有字段一律走 `--inject-json`，不再新增 CLI 参数。
 | `--tool` | | 工具（如 `web_search`，可重复；仅部分 provider） |
-| `--output` | | 下载目录（默认当前目录） |
-| `--save-prompt` | | 保存 prompt 到 `video_{task_id}.md` |
+| `--output` | | 下载目录（默认当前目录；不存在时自动创建） |
+| `--save-prompt` | | 保存 prompt 到 `video_{task_id}.md`（所有 provider 均生效） |
 | `--gif` | | 生成后把视频转成 GIF，或配合 `-i/--image-url` 转换本地视频（需 ffmpeg 在 PATH） |
 | `--gif-width` | | GIF 输出宽度（px），高度自动等比取偶，默认 `160` |
 | `--mp4` | | 把本地媒体文件（GIF/WebP/MOV 等）转成 MP4（`-i file`，需 ffmpeg；与 `--gif` 互斥） |

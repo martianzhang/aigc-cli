@@ -30,6 +30,8 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispat
 	}
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
+	savePromptFile(promptTaskID("image_sync", syncResp.Created), req.Prompt)
+
 	saved, err := saveOpenAIImageResponse(syncResp)
 	if err != nil {
 		return nil, err

@@ -76,7 +76,8 @@ func (m *chatModel) showHelp() {
   Shift/Alt+Enter      Insert a line break (Ctrl+J works everywhere)
   Up/Down              History — or move the cursor inside a multi-line draft
   PgUp/PgDn or wheel  Scroll conversation output
-  Ctrl+O               Expand/collapse the last tool output
+  Ctrl+O               Expand/collapse the last tool card (command + output)
+  Click a tool card    Toggle that card between abbreviated and full view
   Drag                 Select transcript rows and copy them without the frame
   Shift+drag           Native terminal selection — iTerm2: ⌥ Option + drag
   Ctrl+C               Interrupt the current turn; when idle, quit

@@ -217,24 +217,29 @@ func SubmitAndGetText(c client.APIClient, action string, req any) (string, error
 	}
 
 	// Download images if available
+	var dlErr error
 	if taskData.Status == "SUCCESS" || taskData.Status == "success" {
 		if len(taskData.ImageURLs) > 0 {
 			images := make([]types.ImageResult, len(taskData.ImageURLs))
 			for i, u := range taskData.ImageURLs {
 				images[i] = types.ImageResult{URL: []string{u}}
 			}
-			if saved, err := service.DownloadImages(images, options.Shared.OutputDir, taskData.ID); err == nil {
-				for _, f := range saved {
-					fmt.Printf("Saved: %s\n", f)
-				}
+			saved, derr := service.DownloadImages(images, options.Shared.OutputDir, taskData.ID)
+			if derr != nil {
+				dlErr = derr
+			}
+			for _, f := range saved {
+				fmt.Printf("Saved: %s\n", f)
 			}
 		}
 		if taskData.VideoURL != "" {
 			videos := []types.VideoResult{{URL: []string{taskData.VideoURL}}}
-			if saved, err := service.DownloadVideos(videos, options.Shared.OutputDir, taskData.ID); err == nil {
-				for _, f := range saved {
-					fmt.Printf("Saved: %s\n", f)
-				}
+			saved, derr := service.DownloadVideos(videos, options.Shared.OutputDir, taskData.ID)
+			if derr != nil && dlErr == nil {
+				dlErr = derr
+			}
+			for _, f := range saved {
+				fmt.Printf("Saved: %s\n", f)
 			}
 		}
 		if len(taskData.VideoURLs) > 0 {
@@ -242,12 +247,17 @@ func SubmitAndGetText(c client.APIClient, action string, req any) (string, error
 			for i, u := range taskData.VideoURLs {
 				videos[i] = types.VideoResult{URL: []string{u}}
 			}
-			if saved, err := service.DownloadVideos(videos, options.Shared.OutputDir, taskData.ID); err == nil {
-				for _, f := range saved {
-					fmt.Printf("Saved: %s\n", f)
-				}
+			saved, derr := service.DownloadVideos(videos, options.Shared.OutputDir, taskData.ID)
+			if derr != nil && dlErr == nil {
+				dlErr = derr
+			}
+			for _, f := range saved {
+				fmt.Printf("Saved: %s\n", f)
 			}
 		}
+	}
+	if dlErr != nil {
+		return "", fmt.Errorf("download failed: %w", dlErr)
 	}
 
 	return midjourneyResultSummary(taskData), nil

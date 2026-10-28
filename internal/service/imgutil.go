@@ -66,15 +66,25 @@ func ParseOffset(s string) (int, int, error) {
 }
 
 // DownloadImages downloads all generated images into outputDir. Returns paths
-// to saved files.
+// to saved files. When every download fails it returns an error so callers do
+// not report a zero exit code for an empty result.
 func DownloadImages(images []types.ImageResult, outputDir, taskID string) ([]string, error) {
 	var saved []string
+	attempted := 0
+	var firstErr error
+	remember := func(err error) {
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
 	for i, img := range images {
 		for j, url := range img.URL {
+			attempted++
 			data, err := FetchBytes(url)
 			if err != nil {
 				prefix := fmt.Sprintf("image_%s_%d_%d", taskID, i, j)
 				SaveBase64Fallback(outputDir, prefix, url, 0)
+				remember(err)
 				continue
 			}
 
@@ -88,11 +98,12 @@ func DownloadImages(images []types.ImageResult, outputDir, taskID string) ([]str
 			filename := filepath.Join(outputDir, fmt.Sprintf("image_%s_%d_%d%s", taskID, i, j, ext))
 			if err := fsutil.WriteFileAtomic(filename, data, 0644); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
+				remember(err)
 				continue
 			}
 			fmt.Printf("Saved: %s\n", filename)
 			saved = append(saved, filename)
 		}
 	}
-	return saved, nil
+	return saved, downloadFailure("images", attempted, len(saved), firstErr)
 }

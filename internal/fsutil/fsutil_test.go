@@ -106,12 +106,13 @@ func TestWriteFileAtomicFromReaderReportsBytes(t *testing.T) {
 func TestWriteFileAtomicMissingDirectory(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing", "out.bin")
 
-	err := WriteFileAtomic(path, []byte("x"), 0o644)
-	if err == nil {
-		t.Fatal("WriteFileAtomic() error = nil, want failure")
+	// Missing parent directories are created so a fresh -o/--output path works
+	// without a manual mkdir -p.
+	if err := WriteFileAtomic(path, []byte("x"), 0o644); err != nil {
+		t.Fatalf("WriteFileAtomic() error = %v", err)
 	}
-	if !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("error = %v, want os.ErrNotExist", err)
+	if data, err := os.ReadFile(path); err != nil || string(data) != "x" {
+		t.Errorf("ReadFile() = %q, %v; want \"x\", nil", data, err)
 	}
 }
 

@@ -21,7 +21,13 @@ func (m *chatModel) syncTitle() {
 	}
 	stage, busy := chatTitle(m.state, m.pending != nil)
 	if busy {
-		prog.BusyStage(stage)
+		// A pending confirmation is a waiting phase, not active work: use the
+		// paused bar so iTerm2/Windows Terminal show a different colour.
+		if m.pending != nil {
+			prog.PausedStage(stage)
+		} else {
+			prog.BusyStage(stage)
+		}
 		return
 	}
 	prog.Finish(stage)

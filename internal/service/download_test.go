@@ -9,9 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/terminal"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 func TestExtractExt_mp4(t *testing.T) {
@@ -413,4 +415,53 @@ func toBase64(data []byte) string {
 		}
 	}
 	return string(result)
+}
+
+func TestSavePromptUsesKindPrefix(t *testing.T) {
+	dir := t.TempDir()
+	if err := SavePrompt(dir, "video", "task_1", "a running cat"); err != nil {
+		t.Fatalf("SavePrompt() error = %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "video_task_1.md"))
+	if err != nil {
+		t.Fatalf("prompt file missing: %v", err)
+	}
+	if !strings.Contains(string(data), "a running cat") {
+		t.Errorf("prompt file content = %q, want the prompt text", data)
+	}
+}
+
+func TestDownloadImagesWritesIntoFreshOutputDir(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("image-bytes"))
+	}))
+	defer srv.Close()
+
+	oldClient := http.DefaultClient
+	http.DefaultClient = &http.Client{Transport: rewriteTransport{target: srv.URL}}
+	defer func() { http.DefaultClient = oldClient }()
+
+	dir := filepath.Join(t.TempDir(), "fresh", "nested")
+	images := []types.ImageResult{{URL: []string{"https://cdn.example.com/a.png"}}}
+	saved, err := DownloadImages(images, dir, "task_1")
+	if err != nil {
+		t.Fatalf("DownloadImages() error = %v", err)
+	}
+	if len(saved) != 1 {
+		t.Fatalf("saved = %v, want one file", saved)
+	}
+	if _, err := os.Stat(saved[0]); err != nil {
+		t.Errorf("saved file missing: %v", err)
+	}
+}
+
+func TestDownloadImagesAllFailedReturnsError(t *testing.T) {
+	images := []types.ImageResult{{URL: []string{"not-a-valid-source"}}}
+	saved, err := DownloadImages(images, t.TempDir(), "task_1")
+	if err == nil {
+		t.Fatal("DownloadImages() error = nil, want failure when nothing was saved")
+	}
+	if len(saved) != 0 {
+		t.Errorf("saved = %v, want none", saved)
+	}
 }

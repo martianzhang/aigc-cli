@@ -222,23 +222,34 @@ func SaveBase64Fallback(outputDir, prefix, raw string, index int) string {
 	return filename
 }
 
-// SavePrompt writes the generation prompt alongside result files.
-func SavePrompt(outputDir, taskID, prompt string) {
+// SavePrompt writes the generation prompt alongside result files as
+// <kind>_<taskID>.md (kind is "image" or "video").
+func SavePrompt(outputDir, kind, taskID, prompt string) error {
 	if prompt == "" {
-		return
+		return nil
 	}
-	// Ensure output directory exists
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to create output directory: %v\n", err)
-		return
+		return fmt.Errorf("create output directory: %w", err)
 	}
-	filename := filepath.Join(outputDir, fmt.Sprintf("image_%s.md", taskID))
+	filename := filepath.Join(outputDir, fmt.Sprintf("%s_%s.md", kind, taskID))
 	content := fmt.Sprintf("# %s\n\n%s\n", taskID, prompt)
 	if err := fsutil.WriteFileAtomic(filename, []byte(content), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to save prompt file: %v\n", err)
-		return
+		return fmt.Errorf("save prompt file: %w", err)
 	}
 	fmt.Printf("Prompt saved: %s\n", filename)
+	return nil
+}
+
+// downloadFailure turns an all-or-nothing download result into an error so the
+// command exits non-zero instead of printing warnings and reporting success.
+func downloadFailure(kind string, attempted, saved int, firstErr error) error {
+	if attempted == 0 || saved > 0 {
+		return nil
+	}
+	if firstErr != nil {
+		return fmt.Errorf("no %s saved: %w", kind, firstErr)
+	}
+	return fmt.Errorf("no %s saved", kind)
 }
 
 // extFromSource extracts the file extension from a source URL, stripping query params.
