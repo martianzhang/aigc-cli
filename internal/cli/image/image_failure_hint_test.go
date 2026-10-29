@@ -47,6 +47,12 @@ func TestLooksLikeSizeError(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "generation in the message is not a size keyword",
+			err:  errors.New(`OpenRouter image generation failed: API returned status 403: {"error":{"message":"This model is not available in your region."}}`),
+			req:  &types.GenerateRequest{Size: "2K"},
+			want: false,
+		},
+		{
 			name: "status 400 without size",
 			err:  status400,
 			req:  &types.GenerateRequest{},
@@ -118,6 +124,18 @@ func TestOpenRouterSizeHint(t *testing.T) {
 				"resolution":   {Type: "enum", Values: []string{"1K", "2K"}},
 			},
 		},
+		{
+			ID: "openai/gpt-image-2",
+			SupportedParameters: map[string]types.OpenRouterParamDescriptor{
+				"aspect_ratio": {Type: "enum", Values: []string{"1:1", "3:2", "auto"}},
+			},
+		},
+		{
+			ID: "vendor/resolution-only",
+			SupportedParameters: map[string]types.OpenRouterParamDescriptor{
+				"resolution": {Type: "enum", Values: []string{"1K", "2K"}},
+			},
+		},
 		{ID: "inclusionai/ming-image-0.1-design", SupportedParameters: map[string]types.OpenRouterParamDescriptor{}},
 	}}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -131,12 +149,39 @@ func TestOpenRouterSizeHint(t *testing.T) {
 
 	p := &provider.EffectiveProvider{ProviderType: provider.OpenRouter, BaseURL: srv.URL + "/v1"}
 
-	t.Run("lists supported values", func(t *testing.T) {
+	t.Run("lists supported values and how to combine them", func(t *testing.T) {
 		got := openRouterSizeHint(p, &types.GenerateRequest{Model: "recraft/recraft-v4.1-flash", Size: "2K"})
-		for _, want := range []string{"aspect ratio (--ratio): 1:1 | 16:9 | auto", "resolution tier (--size): 1K | 2K"} {
+		for _, want := range []string{
+			"aspect ratio (--ratio): 1:1 | 16:9 | auto",
+			"resolution tier (--size or --resolution): 1K | 2K",
+			"combine with --size <tier>@<ratio> (e.g. 2K@16:9)",
+		} {
 			if !strings.Contains(got, want) {
 				t.Errorf("hint missing %q:\n%s", want, got)
 			}
+		}
+	})
+
+	t.Run("ratio-only model is not told to combine", func(t *testing.T) {
+		got := openRouterSizeHint(p, &types.GenerateRequest{Model: "openai/gpt-image-2", Size: "2K"})
+		if !strings.Contains(got, "aspect ratio (--ratio): 1:1 | 3:2 | auto") {
+			t.Errorf("hint should list the supported ratios:\n%s", got)
+		}
+		if !strings.Contains(got, "declares no resolution tier") {
+			t.Errorf("hint should explain the model has no tier:\n%s", got)
+		}
+		if strings.Contains(got, "combine with") || strings.Contains(got, "resolution tier (--size") {
+			t.Errorf("hint must not mention a resolution tier the model lacks:\n%s", got)
+		}
+	})
+
+	t.Run("tier-only model is told to pass the tier alone", func(t *testing.T) {
+		got := openRouterSizeHint(p, &types.GenerateRequest{Model: "vendor/resolution-only", Size: "16:9"})
+		if !strings.Contains(got, "declares no aspect ratio") {
+			t.Errorf("hint should explain the model has no aspect ratio:\n%s", got)
+		}
+		if strings.Contains(got, "combine with") {
+			t.Errorf("hint must not suggest combining missing fields:\n%s", got)
 		}
 	})
 

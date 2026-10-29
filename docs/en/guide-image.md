@@ -72,7 +72,7 @@ Error: OpenRouter image generation failed: API returned status 400: {"error":{"m
     inspect: aigc-cli models --api-base https://openrouter.ai/api/v1 --type image
 ```
 
-- **OpenRouter**: reads `supported_parameters` from `GET /v1/images/models` and lists the model's `aspect_ratio` (use `--ratio`) and `resolution` (use `--size`); if the model declares no size parameter at all, it tells you to drop `--size` / `--ratio`.
+- **OpenRouter**: reads `supported_parameters` from `GET /v1/images/models` and lists only what the model actually declares — `aspect_ratio` (use `--ratio`) and/or `resolution` (use `--size` or `--resolution`). It suggests `--size <tier>@<ratio>` only when both exist, tells you to pass the ratio alone when only `aspect_ratio` is declared, and tells you to drop `--size` / `--ratio` when the model declares no size parameter at all.
 - **Other providers**: prints that provider's documented `--size` cheat sheet (e.g. APIMart's `--resolution 1k/2k/4k`, Agnes 2.1's `2K@16:9`, ModelScope's pixels-only).
 - The hint only fires **on failure**, so the success path makes no extra request. Capability lookup is best-effort (5s timeout) and degrades to static guidance when unavailable.
 - The hint is **suppressed for clearly non-size failures** (e.g. a content-safety / moderation rejection). Only errors whose message actually looks size-related trigger it, so a `content safety policy` error never suggests changing `--size`.

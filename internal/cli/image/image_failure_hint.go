@@ -20,9 +20,11 @@ import (
 const sizeHintTimeout = 5 * time.Second
 
 // sizeErrorKeywords mark an API failure as (probably) size-related. Matching is
-// case-insensitive. Kept narrow so unrelated 400s do not get noise appended.
+// case-insensitive. Kept narrow so unrelated 400s do not get noise appended:
+// a bare "ratio" would match "generation", which appears in almost every
+// wrapped error message.
 var sizeErrorKeywords = []string{
-	"size", "aspect", "ratio", "resolution", "dimension",
+	"size", "aspect", "resolution", "dimension",
 	"width", "height", "像素", "尺寸", "宽高比",
 }
 
@@ -77,24 +79,51 @@ func openRouterSizeHint(p *provider.EffectiveProvider, req *types.GenerateReques
 
 	var b strings.Builder
 	b.WriteString("\n\n  --size hint (OpenRouter):")
-	switch {
-	case !found:
+	if !found {
 		b.WriteString("\n    could not read this model's capabilities.")
 		b.WriteString("\n    OpenRouter accepts an aspect ratio via --ratio (e.g. 16:9) or")
 		b.WriteString("\n    a tier/pixels via --size (e.g. 2K, 1024x1024); --size 2K@16:9 sets both.")
-	case len(params) == 0:
-		fmt.Fprintf(&b, "\n    model %q declares no size parameter — remove --size / --ratio.", req.Model)
-	default:
-		if d, ok := params["aspect_ratio"]; ok && len(d.Values) > 0 {
-			fmt.Fprintf(&b, "\n    aspect ratio (--ratio): %s", strings.Join(d.Values, " | "))
+	} else {
+		aspects, hasAspect := enumParam(params, "aspect_ratio")
+		tiers, hasTier := enumParam(params, "resolution")
+		_, hasSize := params["size"]
+		switch {
+		case !hasAspect && !hasTier && !hasSize:
+			fmt.Fprintf(&b, "\n    model %q declares no size parameter — remove --size / --ratio.", req.Model)
+		default:
+			if hasAspect {
+				fmt.Fprintf(&b, "\n    aspect ratio (--ratio): %s", strings.Join(aspects, " | "))
+			}
+			if hasTier {
+				fmt.Fprintf(&b, "\n    resolution tier (--size or --resolution): %s", strings.Join(tiers, " | "))
+			}
+			if hasSize {
+				b.WriteString("\n    size: any tier or WxH via --size (e.g. 2K, 1024x1024)")
+			}
+			// Only suggest combining the two fields when the model declares
+			// both; otherwise the advice would name a parameter it rejects.
+			switch {
+			case hasAspect && hasTier:
+				b.WriteString("\n    combine with --size <tier>@<ratio> (e.g. 2K@16:9).")
+			case hasAspect:
+				b.WriteString("\n    this model declares no resolution tier — pass the ratio alone, e.g. --size 16:9.")
+			case hasTier:
+				b.WriteString("\n    this model declares no aspect ratio — pass the tier alone, e.g. --size 2K.")
+			}
 		}
-		if d, ok := params["resolution"]; ok && len(d.Values) > 0 {
-			fmt.Fprintf(&b, "\n    resolution tier (--size): %s", strings.Join(d.Values, " | "))
-		}
-		b.WriteString("\n    combine with --size <tier>@<ratio> (e.g. 2K@16:9).")
 	}
 	fmt.Fprintf(&b, "\n    inspect: aigc-cli models --api-base %s --type image", base)
 	return b.String()
+}
+
+// enumParam returns a parameter's enum values when it is a non-empty enum, so
+// the hint only advertises values the model actually accepts.
+func enumParam(params map[string]types.OpenRouterParamDescriptor, name string) ([]string, bool) {
+	d, ok := params[name]
+	if !ok || d.Type != "enum" || len(d.Values) == 0 {
+		return nil, false
+	}
+	return d.Values, true
 }
 
 // staticSizeHint emits the documented accepted --size forms for providers that
