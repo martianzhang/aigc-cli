@@ -29,6 +29,8 @@ func providerSections(c *client.Client, p *provider.EffectiveProvider, label str
 		return singleSection("user", moonshotBalance(c, label)), true
 	case p.ProviderType == provider.APIMart || provider.IsAPIMart(p.BaseURL):
 		return apimartSections(c, label), true
+	case provider.IsDocumentProvider(p):
+		return singleSection("user", somarkUsage(p, label)), true
 	}
 	return nil, false
 }
@@ -183,6 +185,31 @@ func moonshotBalance(c *client.Client, label string) string {
 		fmt.Sprintf("Cash: ¥%.5f", d.CashBalance),
 		fmt.Sprintf("Voucher: ¥%.5f", d.VoucherBalance),
 	})
+}
+
+// somarkUsage renders POST /usage: remaining page quota (paid + free pools).
+// SoMark bills per parsed page rather than per token.
+func somarkUsage(p *provider.EffectiveProvider, label string) string {
+	usage, err := provider.GetSomarkUsage(p)
+	if err != nil {
+		return balanceError("Usage", label, err)
+	}
+	d := usage.Data
+	lines := []string{fmt.Sprintf("Remaining paid pages: %d", d.RemainingPaidPages)}
+	if d.DailyFreeLimit > 0 {
+		lines = append(lines, fmt.Sprintf("Remaining free pages today: %d / %d", d.RemainingFreePagesToday, d.DailyFreeLimit))
+	} else {
+		lines = append(lines, fmt.Sprintf("Remaining free pages today: %d", d.RemainingFreePagesToday))
+	}
+	if d.MonthlyFreeLimit > 0 {
+		lines = append(lines, fmt.Sprintf("Remaining free pages this month: %d / %d", d.RemainingFreePagesThisMonth, d.MonthlyFreeLimit))
+	} else {
+		lines = append(lines, fmt.Sprintf("Remaining free pages this month: %d", d.RemainingFreePagesThisMonth))
+	}
+	if d.DashboardURL != "" {
+		lines = append(lines, fmt.Sprintf("Console: %s", d.DashboardURL))
+	}
+	return titledBlock("Usage", label, lines)
 }
 
 // titledBlock renders "<title> (<label>):" with two-space-indented lines.

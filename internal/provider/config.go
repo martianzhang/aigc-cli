@@ -93,10 +93,9 @@ func ResolveCmdProvider(
 	// 2. Named provider
 	if providerRef != "" && namedProviders != nil {
 		if named, ok := namedProviders[providerRef]; ok {
-			baseURL := named.BaseURL
-			if baseURL == "" {
-				baseURL = firstNonEmpty(global.BaseURL, types.DefaultAPIBaseURL)
-			}
+			// Endpoint precedence: explicit base_url > the type's canonical
+			// hosted endpoint > global base_url > built-in default.
+			baseURL := firstNonEmpty(named.BaseURL, builtinBaseURL(named.Type), global.BaseURL, types.DefaultAPIBaseURL)
 			ep := &EffectiveProvider{
 				Name:         providerRef,
 				Type:         named.Type,

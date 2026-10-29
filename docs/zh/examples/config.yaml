@@ -111,6 +111,7 @@ base_url: "https://api.apimart.ai"
 #   anthropic — Anthropic Messages API（通过 OpenRouter 等支持 Anthropic 协议的中转）
 #   responses — OpenAI Responses API（chat 专用；解决部分推理模型在 /v1/chat/completions 上拒绝工具调用的问题）
 #   local     — 本地 ONNX 模型（OCR / Vision / Detect / Background）
+#   somark    — SoMark / OXR 文档解析（POST /parse/sync，返回 Markdown + JSON；OCR 专用）
 #
 # 可选：为单个 Provider 设置 `zdr: true`，让它走零数据保留请求。
 # 目前仅 OpenRouter 的 chat/music 支持，其他 Provider/端点忽略该项。
@@ -143,6 +144,21 @@ providers:
 # ollama:
 #   type: ollama
 #   base_url: "http://localhost:11434/v1"
+
+# 示例：SoMark / OXR 文档解析（ocr scan / ocr + PDF）
+# 省略 base_url 时默认 https://somark.ai/api/v1
+# somark:
+#   type: somark
+#   api_key: "sk-xxx"
+#   base_url: "https://somark.ai/api/v1"
+# 免费 OXR（无需 key，10MB / 20 页）
+# free-oxr:
+#   type: somark
+#   base_url: "https://free-oxr.somark.ai/api/v1"
+# 自部署 OXR（官方 Docker 暴露 http://host:8000/v1）
+# oxr-local:
+#   type: somark
+#   base_url: "http://gpu-box:8000/v1"
 
 # 示例：通过 OpenRouter 使用 Anthropic 协议
 # openrouter-anthropic:
@@ -247,6 +263,9 @@ defaults:
   # ocr:
   #   provider: "my-openrouter"
   #   model: "gpt-4o"
+  # 文档解析（PDF 版面/表格/公式）：provider 指向上面 type: somark 的条目
+  # ocr:
+  #   provider: "somark"
   # vision:
   #   provider: "my-openrouter"
   #   model: "gpt-4o-vision"

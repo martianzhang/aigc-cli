@@ -76,8 +76,9 @@ aigc-cli task --provider apimart task_01KV4KD9FBH3AZ4DE18A7Y17S3
 ## balance
 
 Query account balance across providers that expose a balance API: APIMart (and
-APIMart-compatible relays), OpenRouter, DeepSeek, and Moonshot (Kimi). Other
-providers have no public balance API — check their web console.
+APIMart-compatible relays), OpenRouter, DeepSeek, Moonshot (Kimi), and SoMark
+(remaining page quota). Other providers have no public balance API — check
+their web console.
 
 **By default every balance endpoint a provider exposes is queried and shown**
 (e.g. APIMart's key quota + account balance, OpenRouter's key usage + account
@@ -93,6 +94,9 @@ aigc-cli balance --provider openrouter
 # Narrow to the API-key scope / the account scope
 aigc-cli balance token
 aigc-cli balance user
+
+# SoMark / OXR: remaining parse pages (paid + free today/this month)
+aigc-cli balance -P somark
 ```
 
 > **API key**: without `--provider`, every configured provider that has an API key is queried (local providers such as Ollama are exempt). An explicitly selected non-local provider without a key fails fast with a clear error; use `--provider <name>` or configure its key.

@@ -170,6 +170,57 @@ OpenRouter 有两种图片生成路径：
 
 ---
 
+## 5.5 SoMark / OXR（文档解析）
+
+SoMark 与开源 OXR 共用一套**文档解析协议**，不是 chat completions：`ocr scan` 把整份 PDF/图片上传，服务端做版面分析后返回 Markdown + 结构化 JSON。
+
+| 端点 | 用途 |
+|---|---|
+| `POST /parse/sync` | 同步解析（CLI 使用） |
+| `POST /parse/async` + `/parse/async_check` | 异步解析（CLI 未使用） |
+| `POST /convert/sync`、`POST /convert/async(_check)` | PDF 转 Word/PPT（CLI 未使用，OXR 不支持） |
+| `POST /usage` | 剩余额度（`aigc-cli balance` 使用；OXR 不支持） |
+
+鉴权用**表单字段** `api_key=sk-***`，不是 `Authorization: Bearer`。
+
+| 入口 | Base URL | 鉴权 | 限制 |
+|---|---|---|---|
+| SoMark 正式版 | `https://somark.ai/api/v1` | `api_key` 必填 | 200MB / 300 页 / QPS 4 |
+| 免费 OXR | `https://free-oxr.somark.ai/api/v1` | 不校验（填 `dummy`） | 10MB / 20 页，排队 |
+| 自部署 OXR | `http://<host>:8000/v1` | 不校验 | 不限 |
+
+主要请求字段：
+
+| 字段 | 说明 |
+|---|---|
+| `file` | 必填，PDF / 常见图片（OXR 不收 Office 文件、gif/heic） |
+| `file_url` | 与 `file` 二选一，公开下载链接（**OXR 不支持**） |
+| `output_formats` | `markdown` / `json`，可多选，默认两者 |
+| `element_formats` | JSON：`{"image":"url|base64|none","formula":"latex","table":"markdown|html"}` |
+| `feature_config` | JSON：`keep_header_footer` 通用；`enable_title_level_recognition` / `enable_text_cross_page` / `enable_table_cross_page` / `enable_inline_image` / `enable_image_ocr` 仅正式版 |
+| `extra` | OXR 独有采样参数：`temperature` / `top_p` / `repetition_penalty` |
+
+> 错误同样返回 HTTP 200：`{"code":1107,"message":"Invalid API key.","data":""}`，`code != 0` 即失败。OXR 对不支持的 `enable_*` 不报错，而是在响应 `warnings` 中列出。
+>
+> 代码实现：`internal/provider/somark.go`（`ParseDocument` / `SomarkParseURL`）；路由判定 `provider.IsDocumentProvider`（显式 `type: somark` 或 somark 域名）。
+
+图片资源：解析结果里的图片 URL **30 天后失效**。CLI 默认把图片下载到 `<name>.assets/` 并改写 Markdown 链接
+（`internal/service/mdimages.go` 的 `LocalizeMarkdownImages`）；也可以在请求里要 ZIP（`output_formats` 含
+`zip` 且 `element_formats.image=file`，zip 只能单独或与 json 组合）。
+
+配置示例：
+
+```yaml
+providers:
+  somark:
+    type: somark        # 可省略：somark.ai 域名会自动识别
+    api_key: "sk-xxx"
+```
+
+命令行层：`ocr scan` 通过 `--provider <名字>` 或 `defaults.ocr.provider` 引用上面的条目；接口参数用统一的 `--json` / `--inject-json` 传入，见 [OCR 指南](guide-ocr.md)。
+
+---
+
 ## 6. Provider 检测机制
 
 `internal/provider/detect.go` 负责根据 `base_url` 自动识别 Provider：
@@ -178,6 +229,7 @@ OpenRouter 有两种图片生成路径：
 APIMart:    域名包含 apimart.ai / apib.ai / aiuxu.com / aishuch.com
 OpenRouter: 域名包含 openrouter.ai
 OpenLux:    域名包含 openlux.ai
+Somark:     域名包含 somark.ai / somark.cn / somark.tech（走 POST /parse/sync 文档解析，不是 chat）
 MiMo:       域名包含 xiaomimimo.com / mimo.mi.com（chat 用量报告 web_search_usage）
 Zeekai:     域名包含 zeekai.cc（图生图自动改走 POST /images/edits）
 OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io

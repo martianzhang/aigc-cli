@@ -159,11 +159,12 @@ aigc-cli
 ├── music      AI music generation (APIMart suno/flowmusic async, OpenRouter Lyria sync, Bailian Fun-Music)  →  docs/en/guide-music.md
 │   ├── generate / gen  Submit a music generation task
 │   └── query           Query music task status and result
-├── ocr            Offline text recognition (DBNet + CRNN, ONNX local inference)     →  docs/en/guide-ocr.md
+├── ocr            Text recognition: local ONNX or online document parser (SoMark/OXR) →  docs/en/guide-ocr.md
 │   ├── init        Download OCR models
-│   └── scan        Recognize text in images
+│   └── scan        Recognize text in images / parse PDFs
 │                   --engine auto|pdf|ocr  PDF processing mode (default: auto)
 │                   --preview              Preview recognized text
+│                   --provider <name>      type: somark provider: layout, tables, formulas, reading order
 ├── background / bg AI background removal (RMBG 2.0 semantic segmentation, offline ONNX)  →  docs/en/guide-background.md
 ├── midjourney / mj                                                                  →  docs/en/guide-midjourney.md
 │   └── mj     Alias for midjourney

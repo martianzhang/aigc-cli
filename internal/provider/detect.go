@@ -26,6 +26,7 @@ const (
 	MiMo
 	ElevenLabs
 	Stability
+	Somark
 )
 
 var names = map[Type]string{
@@ -43,6 +44,7 @@ var names = map[Type]string{
 	MiMo:         "MiMo",
 	ElevenLabs:   "ElevenLabs",
 	Stability:    "Stability AI",
+	Somark:       "SoMark",
 }
 
 func (t Type) String() string {
@@ -127,6 +129,16 @@ var elevenLabsDomains = []string{
 // stabilityDomains lists hosts where the Stability AI API is served.
 var stabilityDomains = []string{
 	"stability.ai",
+}
+
+// somarkDomains lists hosts where SoMark's document-parse API is served.
+// They speak the /parse/sync multipart protocol, not OpenAI chat completions,
+// so they must never fall through to the OpenAI-compatible vision path.
+// free-oxr.somark.ai is the free OXR endpoint (no API key required).
+var somarkDomains = []string{
+	"somark.ai",
+	"somark.cn",
+	"somark.tech",
 }
 
 // ofoxDomains lists hosts where the OfoxAI aggregator serves its API.
@@ -279,6 +291,11 @@ func Detect(baseURL string) Type {
 			return Stability
 		}
 	}
+	for _, d := range somarkDomains {
+		if matchDomain(baseURL, d) {
+			return Somark
+		}
+	}
 	// Default to OpenAI-compatible for everything else
 	return OpenAI
 }
@@ -312,6 +329,10 @@ func IsZeekai(baseURL string) bool { return Detect(baseURL) == Zeekai }
 
 // IsPollinations is a convenience wrapper around Detect.
 func IsPollinations(baseURL string) bool { return Detect(baseURL) == Pollinations }
+
+// IsSomark reports whether baseURL is a SoMark / OXR document-parse endpoint.
+// Those endpoints expose /parse/sync and reject OpenAI chat-completions calls.
+func IsSomark(baseURL string) bool { return Detect(baseURL) == Somark }
 
 // IsGeminiDomain returns true if baseURL points to Google Gemini API,
 // including the OpenAI-compatible /openai endpoint variant.

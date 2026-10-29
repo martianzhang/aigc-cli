@@ -24,11 +24,43 @@ Provider detection uses `base_url` pattern matching:
 | `xiaomimimo.com`, `mimo.mi.com` | MiMo (chat reports `web_search_usage`) |
 | `openai.com`, `openai.azure.com`, `ofox.ai`, `ofox.run`, `ofox.io` | OpenAI-family (image input auto-routes to multipart `POST /images/edits`) |
 | `openlux.ai` (in URL) | OpenLux |
+| `somark.ai`, `somark.cn`, `somark.tech` | SoMark / OXR document parse (`POST /parse/sync`, not chat) |
 | `localhost` or `127.0.0.1` | Local (no API Key) |
 
 ## Chat Protocol
 
 By default `chat` uses `POST /v1/chat/completions` (provider type `openai` or its explicit alias `openai_chat_completions`). A provider can select the OpenAI Responses protocol with `type: openai_responses`, which routes `chat` to `POST {base_url}/responses`. Use this when a reasoning model rejects function tools on the chat-completions endpoint (HTTP 400 about `reasoning_effort`). Only `chat` is affected.
+
+## SoMark / OXR Document Parsing
+
+SoMark and the open-source OXR share one **document-parse protocol**, not chat completions. `ocr scan` uploads the whole PDF/image and gets Markdown plus structured JSON back.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /parse/sync` | Synchronous parse (used by the CLI) |
+| `POST /parse/async` + `/parse/async_check` | Async parse (not used) |
+| `POST /convert/sync`, `POST /convert/async(_check)` | PDF → Word/PPT (not used; unsupported by OXR) |
+| `POST /usage` | Remaining quota (used by `aigc-cli balance`; unsupported by OXR) |
+
+Auth is a **form field** `api_key=sk-***`, not `Authorization: Bearer`.
+
+| Endpoint | Base URL | Auth | Limits |
+|---|---|---|---|
+| Hosted SoMark | `https://somark.ai/api/v1` | `api_key` required | 200MB / 300 pages / QPS 4 |
+| Free OXR | `https://free-oxr.somark.ai/api/v1` | not checked (`dummy`) | 10MB / 20 pages, queued |
+| Self-hosted OXR | `http://<host>:8000/v1` | not checked | none |
+
+Key request fields: `file` (PDF/common images; OXR rejects Office, gif/heic), `output_formats` (`markdown` / `json`), `element_formats` (`{"image":"url|base64|none","formula":"latex","table":"markdown|html"}`), `feature_config` (`keep_header_footer` works everywhere; `enable_title_level_recognition`, `enable_text_cross_page`, `enable_table_cross_page`, `enable_inline_image`, `enable_image_ocr` are hosted-only), and `extra` (OXR-only sampling: `temperature`, `top_p`, `repetition_penalty`).
+
+Images: parse-time image URLs **expire after 30 days**. The CLI downloads them
+into `<name>.assets/` and rewrites the Markdown links
+(`service.LocalizeMarkdownImages`); you can also request a ZIP instead
+(`output_formats` with `zip` and `element_formats.image=file`; zip combines only
+with json).
+
+Errors also come back as HTTP 200 with `code != 0` (e.g. `{"code":1107,"message":"Invalid API key.","data":""}`). OXR ignores unsupported `enable_*` flags and lists them in `warnings` instead of failing.
+
+Implementation: `internal/provider/somark.go` (`ParseDocument`, `SomarkParseURL`); routing via `provider.IsDocumentProvider` (explicit `type: somark` or a SoMark host). Select it with `--provider <name>` or `defaults.ocr.provider`; its API parameters are passed with the shared `--json` / `--inject-json` flags (see the [OCR guide](guide-ocr.md)).
 
 ## Strategy Routing
 

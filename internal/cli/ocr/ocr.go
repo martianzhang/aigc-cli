@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/ocr"
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
@@ -14,17 +15,25 @@ import (
 // ocrCmd represents the `aigc-cli ocr` command group.
 var ocrCmd = &cobra.Command{
 	Use:          "ocr",
-	Short:        "Offline OCR text recognition",
+	Short:        "OCR text recognition (offline ONNX or online document parser)",
 	SilenceUsage: true,
-	Long: `Offline OCR text recognition using ONNX Runtime.
+	Long: `OCR text recognition.
 
-First use: run 'aigc-cli ocr init' to download the OCR models.
+Local (default): DBNet detection + CRNN/SVTR recognition on ONNX Runtime,
+fully offline. Run 'aigc-cli ocr init' once to download the models.
 
-Detection (DBNet) + Recognition (CRNN/SVTR) pipeline, fully local.
-No API key or internet connection required after model download.`,
+Online: any OpenAI-compatible or Ollama vision model via
+defaults.ocr.provider, or a document-parse provider — a config entry with
+type: somark (hosted SoMark, free OXR, or self-hosted OXR) that turns a whole
+PDF into layout-aware Markdown with tables, formulas and reading order. Its API
+parameters (output_formats, element_formats, feature_config, extra) are passed
+through --json / --inject-json like every other provider request.`,
 	Example: `  aigc-cli ocr init                             # download OCR models first
   aigc-cli ocr scan invoice.png
-  aigc-cli ocr scan report.pdf --pages "1-3"    # PDF pages, --engine auto|pdf|ocr`,
+  aigc-cli ocr scan report.pdf --pages "1-3"    # PDF pages, --engine auto|pdf|ocr
+  aigc-cli ocr scan paper.pdf --provider somark # type: somark provider from config
+  aigc-cli ocr scan paper.pdf --provider somark \
+    --inject-json '{"feature_config":{"enable_title_level_recognition":true}}'`,
 }
 
 // ocrInitCmd represents `aigc-cli ocr init`.
@@ -86,6 +95,8 @@ Examples:
   --prompt "请识别图中的文字"                               (general vision models)`)
 	ocrScanCmd.Flags().StringVar(&ocrScanPrompt, "ask", "", "Alias for --prompt")
 	ocrScanCmd.Flags().StringVar(&ocrScanEngine, "engine", "auto", "Processing engine: auto, pdf (rule-based), ocr")
+	ocrScanCmd.Flags().StringVar(&options.Shared.JSONInput, "json", "", "Document-parser request body (inline JSON string or a file path)")
+	ocrScanCmd.Flags().StringVar(&options.Shared.InjectJSON, "inject-json", "", "JSON object merged additively into the document-parser request body (inline JSON string or a file path)")
 	ocrCmd.AddCommand(ocrInitCmd)
 	ocrCmd.AddCommand(ocrScanCmd)
 }

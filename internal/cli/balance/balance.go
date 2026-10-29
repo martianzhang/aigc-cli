@@ -129,8 +129,9 @@ func NewCommand(deps func() Deps) *cobra.Command {
 		Long: `Query balance information.
 
 Supported providers with a balance API: APIMart (and compatible relays),
-OpenRouter, DeepSeek, and Moonshot (Kimi). Other providers have no public
-balance API — check their web console.
+OpenRouter, DeepSeek, Moonshot (Kimi), and SoMark (remaining page quota for the
+key's account). Other providers have no public balance API — check their web
+console.
 
 By default every balance endpoint a provider exposes is queried and shown.
 Providers with more than one: APIMart (key quota + account balance) and

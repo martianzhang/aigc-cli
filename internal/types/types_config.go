@@ -12,6 +12,7 @@ const (
 	ProviderGemini                ProviderType = "gemini"                  // Google Gemini native API
 	ProviderAnthropic             ProviderType = "anthropic"               // Anthropic Messages API
 	ProviderLocal                 ProviderType = "local"                   // Local ONNX models (ocr/vision/detect/background)
+	ProviderSomark                ProviderType = "somark"                  // SoMark / OXR document-parse API (/parse/sync, multipart)
 )
 
 // DefaultAPIBaseURL is the built-in fallback base URL (bare host, no version

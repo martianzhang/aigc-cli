@@ -45,6 +45,13 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("file not found: %s", inputPath)
 	}
 
+	// ── Document-parse providers (SoMark / OXR) ──
+	// These parse the whole document server-side: no local text extraction,
+	// no per-page OCR, and no prompt. Handle images and PDFs identically.
+	if docProvider := options.Shared.ResolveProvider(options.ProviderNameOCR); provider.IsDocumentProvider(docProvider) {
+		return scanWithSomark(cmd, docProvider, inputPath)
+	}
+
 	// Handle PDF input — skip online OCR, use text extraction or scan
 	if strings.EqualFold(filepath.Ext(inputPath), ".pdf") {
 		return scanPDF(cmd, inputPath)

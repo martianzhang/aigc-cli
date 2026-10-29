@@ -1,12 +1,15 @@
 package balance
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // newBalanceTestClient returns a client pointed at a throwaway server running
@@ -16,6 +19,44 @@ func newBalanceTestClient(t *testing.T, handler http.HandlerFunc) *client.Client
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 	return client.New("test-key", srv.URL, "")
+}
+
+func TestSomarkUsageSection(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		io.WriteString(w, `{"code":0,"data":{"remaining_paid_pages":0,
+			"remaining_free_pages_today":423,"remaining_free_pages_this_month":1923,
+			"daily_free_limit":500,"monthly_free_limit":2000,
+			"dashboard_url":"https://somark.tech/workbench"}}`)
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{Type: types.ProviderSomark, BaseURL: srv.URL + "/v1", APIKey: "sk-test"}
+	got := Query(p, "all")
+	for _, want := range []string{
+		"Usage (unknown):",
+		"Remaining paid pages: 0",
+		"Remaining free pages today: 423 / 500",
+		"Remaining free pages this month: 1923 / 2000",
+		"Console: https://somark.tech/workbench",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("somark balance = %q, want it to contain %q", got, want)
+		}
+	}
+}
+
+func TestSomarkUsageSection_Error(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		io.WriteString(w, "not found")
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{Name: "oxr", Type: types.ProviderSomark, BaseURL: srv.URL + "/v1", APIKey: "dummy"}
+	got := Query(p, "user")
+	if !strings.Contains(got, "not available") {
+		t.Errorf("balance = %q, want the console pointer", got)
+	}
 }
 
 func TestAPIMartSections(t *testing.T) {

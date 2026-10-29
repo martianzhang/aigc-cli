@@ -78,6 +78,11 @@ aigc-cli ocr scan -o result.md photo.jpg     # 指定输出路径
 aigc-cli ocr scan document.pdf               # 输出 document.md
 aigc-cli ocr scan --pages 1-3 doc.pdf       # 指定页码范围
 
+# PDF 版面/表格/公式解析（在线文档解析，见下文「文档解析」）
+aigc-cli ocr scan paper.pdf --provider somark    # 需先配置 providers.somark (type: somark)
+aigc-cli ocr scan paper.pdf --provider somark \
+  --inject-json '{"feature_config":{"enable_title_level_recognition":true}}'
+
 # 从 stdin 读取
 cat document.png | aigc-cli ocr scan
 
@@ -146,7 +151,106 @@ aigc-cli ocr scan test.png --provider ollama --model deepseek-ocr -p "Free OCR."
 | **minicpm-ocr** | 公式识别（输出 LaTeX） | `Formula Recognition:` |
 | **通用模型** (gpt-4o, llava 等) | 自定义描述 | `请识别图中的文字`（中文）或自由输入 |
 
-### 输出行为
+### 文档解析（SoMark / OXR）
+
+PDF 或整页文档真正需要的是**版面 + 表格 + 公式 + 阅读顺序**，不是逐行文字。这类需求走 SoMark / OXR 文档解析 API：服务端做版面分析，直接返回带标题层级、Markdown 表格和 LaTeX 公式的完整 Markdown，比逐页 OCR 再拼接更准。
+
+在 `config.yaml` 里定义一个 `type: somark` 的 provider 即可。SoMark 正式版、免费 OXR、自部署 OXR 是同一套协议，只是 `base_url` 不同：
+
+```yaml
+providers:
+  # SoMark 正式版：200MB / 300 页 / QPS 4
+  somark:
+    type: somark
+    api_key: "sk-xxx"
+    base_url: "https://somark.ai/api/v1"
+
+  # 免费 OXR：无需 key（10MB / 20 页，排队处理）
+  free-oxr:
+    type: somark
+    base_url: "https://free-oxr.somark.ai/api/v1"
+
+  # 自部署 OXR：官方 Docker 暴露 http://<host>:8000/v1
+  oxr-local:
+    type: somark
+    base_url: "http://gpu-box:8000/v1"
+
+defaults:
+  ocr:
+    provider: "free-oxr"     # 或 somark / oxr-local
+```
+
+`type: somark` 且不写 `base_url` 时默认 `https://somark.ai/api/v1`。
+
+```bash
+aigc-cli ocr scan paper.pdf                        # 用 defaults.ocr.provider
+aigc-cli ocr scan paper.pdf --provider somark      # 临时切到正式版
+aigc-cli ocr scan paper.pdf --provider somark --json   # 额外输出结构化 JSON
+```
+
+#### 图片本地化（默认开启）
+
+SoMark 会在 **30 天**后删除解析产生的图片资源，返回的图片 URL 会随之失效。因此 `ocr scan` 解析完成后会：
+
+1. 下载 Markdown 中所有远程图片（`![](https://…)` 与 HTML `<img src="https://…">`）；
+2. 存到与 Markdown 同级的 `<name>.assets/` 目录（`image_001.png`、`image_002.jpg`…，同一 URL 只下一次）；
+3. 把链接改写为相对路径 `![](paper.assets/image_001.png)`。
+
+```
+paper.pdf
+paper.md
+paper.assets/
+├── image_001.png
+└── image_002.png
+```
+
+- 下载失败（404、非图片响应、超限 64MB 等）不会中断解析：该链接保留远程地址，并打印 `⚠ image not saved`。
+- `-o -`（stdout）模式不下载图片，直接保留远程 URL 并提示。
+- 也可以用服务端打包：ZIP 内含 Markdown 和图片，一次拿全。
+
+```bash
+# ZIP 导出：output_formats 里必须包含 zip，且 image 必须是 file
+aigc-cli ocr scan paper.pdf --provider somark --json '{
+  "output_formats":["zip"],
+  "element_formats":{"image":"file"}
+}'
+# → 保存为 paper.zip（不再单独写 paper.md）
+```
+
+> `zip` 只能单独使用或与 `json` 组合，**不能和 `markdown` 同时请求**；又因为 `--inject-json`
+> 对数组是追加而不是替换，请求 ZIP 时请用 `--json` 整体替换默认请求体。
+
+#### 请求参数（`--json` / `--inject-json`）
+
+文档解析的接口参数（`output_formats` / `element_formats` / `feature_config` / `extra`）走项目统一的
+`--json`（整个请求体）和 `--inject-json`（增量合并），**不额外新增命令行参数**。
+两者都只接受命令行 JSON 字符串或指向 JSON 文件路径，**不支持 stdin**。
+
+```bash
+# 标题层级 + 跨页拼接（SoMark 正式版支持，免费 OXR 会忽略并在 warnings 里提示）
+aigc-cli ocr scan paper.pdf --provider somark \
+  --inject-json '{"feature_config":{"enable_title_level_recognition":true,"enable_text_cross_page":true,"enable_table_cross_page":true}}'
+
+# 完整请求体：只要 Markdown、表格用 HTML、公式用 MathML、图片内嵌 base64
+aigc-cli ocr scan paper.pdf --provider somark --json '{
+  "output_formats":["markdown"],
+  "element_formats":{"image":"base64","formula":"mathml","table":"html"}
+}'
+
+# 免费 OXR 独有采样参数
+aigc-cli ocr scan paper.pdf --provider free-oxr --inject-json '{"extra":{"temperature":0.2}}'
+```
+
+默认请求体（不传 `--json` 时）：
+
+```json
+{"output_formats":["markdown","json"],"element_formats":{"image":"url","formula":"latex","table":"markdown"}}
+```
+
+> `file` / `file_url` / `api_key` 由 CLI 填写，JSON 里的同名键会被忽略；`--inject-json` 合并规则与
+> 其他命令一致（对象递归合并、数组追加、标量覆盖）。
+
+### 输出行为### 输出行为
 
 - 默认保存为 `.md` 文件，路径与原图相同（`image.png` → `image.md`）
 - 不传 `--preview` 时仅输出 `Saved: path/to/file.md` 到 stderr

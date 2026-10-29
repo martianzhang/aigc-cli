@@ -102,6 +102,41 @@ func TestResolveCmdProvider_NamedProvider(t *testing.T) {
 	})
 }
 
+func TestResolveCmdProvider_typeDefaultBaseURL(t *testing.T) {
+	named := map[string]*types.NamedProvider{
+		"doc": {Type: types.ProviderSomark, APIKey: "key-doc"},
+	}
+	// A global OpenAI-compatible endpoint must not win over the type's own
+	// canonical endpoint.
+	global := &GlobalConfig{BaseURL: types.DefaultAPIBaseURL}
+
+	ep := ResolveCmdProvider(nil, "doc", named, global)
+	if ep.BaseURL != SomarkBaseURL {
+		t.Errorf("BaseURL = %q, want %q (type default)", ep.BaseURL, SomarkBaseURL)
+	}
+
+	// An explicit base_url still wins over the type default.
+	named["doc"] = &types.NamedProvider{
+		Type:    types.ProviderSomark,
+		APIKey:  "key-doc",
+		BaseURL: "http://gpu-box:8000/v1",
+	}
+	if ep := ResolveCmdProvider(nil, "doc", named, global); ep.BaseURL != "http://gpu-box:8000/v1" {
+		t.Errorf("BaseURL = %q, want the configured endpoint", ep.BaseURL)
+	}
+}
+
+func TestBuiltinBaseURL(t *testing.T) {
+	if got := builtinBaseURL(types.ProviderSomark); got != SomarkBaseURL {
+		t.Errorf("builtinBaseURL(somark) = %q, want %q", got, SomarkBaseURL)
+	}
+	for _, pt := range []types.ProviderType{types.ProviderOpenAI, types.ProviderOllama, types.ProviderAnthropic, types.ProviderLocal} {
+		if got := builtinBaseURL(pt); got != "" {
+			t.Errorf("builtinBaseURL(%q) = %q, want empty", pt, got)
+		}
+	}
+}
+
 func TestResolveCmdProvider_GlobalFallback(t *testing.T) {
 	t.Run("empty ref uses global", func(t *testing.T) {
 		global := &GlobalConfig{APIKey: "key-g", BaseURL: "https://g.com/v1"}

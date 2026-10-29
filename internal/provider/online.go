@@ -17,13 +17,27 @@ import (
 
 // DescribeImage sends an image to an online LLM for description/vision.
 func DescribeImage(p *EffectiveProvider, imagePath, prompt string) (string, error) {
+	if IsDocumentProvider(p) {
+		return "", fmt.Errorf("%s only parses documents (OCR/markdown); it cannot describe images", p.Name)
+	}
 	return visionChat(p, imagePath, prompt)
 }
 
 // OCRImage sends an image to an online LLM for OCR text extraction.
 // If customPrompt is empty, uses a model-appropriate default.
 // Users can override via --prompt flag for custom needs.
+//
+// SoMark / OXR providers are document parsers, not chat models: the image goes
+// to /parse/sync and the returned Markdown is the result. Those endpoints have
+// no prompt parameter, so customPrompt is ignored there.
 func OCRImage(p *EffectiveProvider, imagePath, customPrompt string) (string, error) {
+	if IsDocumentProvider(p) {
+		result, err := ParseDocument(p, imagePath, nil, nil)
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(result.Markdown), nil
+	}
 	prompt := customPrompt
 	if prompt == "" {
 		prompt = "请识别图中的文字"
