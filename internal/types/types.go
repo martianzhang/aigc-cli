@@ -180,6 +180,10 @@ type OpenAIModel struct {
 	Object  string `json:"object"`
 	Created int64  `json:"created"`
 	OwnedBy string `json:"owned_by"`
+	// SupportedEndpointTypes is a non-OpenAI extension some relays return
+	// (e.g. Agnes: ["openai"]). It is displayed when present and ignored
+	// otherwise.
+	SupportedEndpointTypes []string `json:"supported_endpoint_types,omitempty"`
 }
 
 // GenerateResponse is the response from POST /v1/images/generations.

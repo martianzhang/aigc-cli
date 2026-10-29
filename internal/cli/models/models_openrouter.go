@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -124,8 +126,13 @@ func runOpenRouterMediaDiscovery(base, modality string) error {
 		return fmt.Errorf("failed to parse response from %s: %w", endpoint, err)
 	}
 
+	list.Data = filterOpenRouterMedia(list.Data)
 	if len(list.Data) == 0 {
-		fmt.Println("No models found.")
+		if modelLike != "" {
+			printNoLikeMatches()
+		} else {
+			fmt.Println("No models found.")
+		}
 		return nil
 	}
 
@@ -134,6 +141,64 @@ func runOpenRouterMediaDiscovery(base, modality string) error {
 		printOpenRouterMediaModel(m)
 	}
 	return nil
+}
+
+// filterOpenRouterMedia applies the --like filter to a media model list.
+func filterOpenRouterMedia(list []types.OpenRouterMediaModel) []types.OpenRouterMediaModel {
+	if modelLike == "" {
+		return list
+	}
+	out := make([]types.OpenRouterMediaModel, 0, len(list))
+	for _, m := range list {
+		if matchesLike(m.ID, m.Name) {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// filterOpenRouterModels applies the --like filter to a standard model list.
+func filterOpenRouterModels(list []types.OpenRouterModel) []types.OpenRouterModel {
+	if modelLike == "" {
+		return list
+	}
+	out := make([]types.OpenRouterModel, 0, len(list))
+	for _, m := range list {
+		if matchesLike(m.ID, m.Name) {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// openRouterParamSummary renders supported_parameters as a stable, complete
+// "key=value" list. Enum values are never truncated: this is the only place
+// image sizing capabilities are exposed, and cutting 16:9 behind an ellipsis
+// defeats the purpose.
+func openRouterParamSummary(params map[string]types.OpenRouterParamDescriptor) string {
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		desc := params[k]
+		switch desc.Type {
+		case "boolean":
+			parts = append(parts, k)
+		case "enum":
+			parts = append(parts, fmt.Sprintf("%s=%s", k, strings.Join(desc.Values, "|")))
+		case "range":
+			if desc.Min != nil && desc.Max != nil {
+				parts = append(parts, fmt.Sprintf("%s=%d-%d", k, *desc.Min, *desc.Max))
+			} else {
+				parts = append(parts, k)
+			}
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 func printOpenRouterMediaModel(m types.OpenRouterMediaModel) {
@@ -149,29 +214,76 @@ func printOpenRouterMediaModel(m types.OpenRouterMediaModel) {
 	if m.SupportsStreaming {
 		fmt.Printf("    ─ streaming\n")
 	}
-	var params []string
-	for k, desc := range m.SupportedParameters {
-		switch desc.Type {
-		case "boolean":
-			params = append(params, k)
-		case "enum":
-			v := desc.Values
-			if len(v) > 6 {
-				v = append(append([]string{}, v[:6]...), "...")
-			}
-			params = append(params, fmt.Sprintf("%s=%s", k, strings.Join(v, "|")))
-		case "range":
-			if desc.Min != nil && desc.Max != nil {
-				params = append(params, fmt.Sprintf("%s=%d-%d", k, *desc.Min, *desc.Max))
-			} else {
-				params = append(params, k)
-			}
-		}
-	}
-	if len(params) > 0 {
-		fmt.Printf("    ─ %s\n", strings.Join(params, ", "))
+	if summary := openRouterParamSummary(m.SupportedParameters); summary != "" {
+		fmt.Printf("    ─ %s\n", summary)
 	}
 	fmt.Println()
+}
+
+// printOpenRouterImageCapabilities appends image-generation capabilities from
+// the dedicated /images/models endpoint. The standard model record returned by
+// /model/{author}/{slug} carries no sizing fields, so without this a detail
+// lookup hides the aspect ratios and resolution tiers the model accepts.
+//
+// The block goes to stderr so the JSON on stdout stays pipeable.
+func printOpenRouterImageCapabilities(base, modelID string) {
+	body, err := fetchOpenRouterModels(base + "/images/models")
+	if err != nil {
+		return
+	}
+	var list types.OpenRouterMediaModelList
+	if err := json.Unmarshal(body, &list); err != nil {
+		return
+	}
+	for _, m := range list.Data {
+		if m.ID != modelID {
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "\nImage capabilities (from /v1/images/models):\n  %s\n",
+			openRouterParamSummary(m.SupportedParameters))
+		if forms := openRouterSizeForms(m.SupportedParameters); forms != "" {
+			fmt.Fprintf(os.Stderr, "  --size: %s\n", forms)
+		}
+		return
+	}
+}
+
+// openRouterSizeForms turns a model's declared parameters into the concrete
+// --size spellings that will be accepted, using a representative value from
+// each enum (16:9 / 2K when available) so the example reads like the docs.
+func openRouterSizeForms(params map[string]types.OpenRouterParamDescriptor) string {
+	aspects, hasAspect := enumParamValues(params, "aspect_ratio")
+	tiers, hasTier := enumParamValues(params, "resolution")
+	switch {
+	case hasAspect && hasTier:
+		ratio, tier := prefer(aspects, "16:9"), prefer(tiers, "2K")
+		return fmt.Sprintf("%s (ratio), %s (tier), %s@%s (both)", ratio, tier, tier, ratio)
+	case hasAspect:
+		return fmt.Sprintf("%s (ratio only; this model declares no resolution tier)", prefer(aspects, "16:9"))
+	case hasTier:
+		return fmt.Sprintf("%s (tier only; this model declares no aspect ratio)", prefer(tiers, "2K"))
+	default:
+		return ""
+	}
+}
+
+// prefer returns want when the enum offers it, otherwise its first value.
+func prefer(values []string, want string) string {
+	for _, v := range values {
+		if v == want {
+			return v
+		}
+	}
+	return values[0]
+}
+
+// enumParamValues returns a parameter's enum values when it is a non-empty enum.
+func enumParamValues(params map[string]types.OpenRouterParamDescriptor, name string) ([]string, bool) {
+	d, ok := params[name]
+	if !ok || d.Type != "enum" || len(d.Values) == 0 {
+		return nil, false
+	}
+	return d.Values, true
 }
 
 // runOpenRouterStandardDiscovery lists models through the standard Models API
@@ -194,8 +306,13 @@ func runOpenRouterStandardDiscovery(base, modality string) error {
 		return fmt.Errorf("failed to parse response from %s: %w", endpoint, err)
 	}
 
+	list.Data = filterOpenRouterModels(list.Data)
 	if len(list.Data) == 0 {
-		fmt.Println("No models found.")
+		if modelLike != "" {
+			printNoLikeMatches()
+		} else {
+			fmt.Println("No models found.")
+		}
 		return nil
 	}
 
@@ -358,8 +475,23 @@ func runModelsOpenAI(p *provider.EffectiveProvider) error {
 		return nil
 	}
 
-	fmt.Printf("Available models (%d):\n\n", len(models))
+	visible := make([]types.OpenAIModel, 0, len(models))
 	for _, m := range models {
+		if matchesLike(m.ID, m.OwnedBy) {
+			visible = append(visible, m)
+		}
+	}
+	if len(visible) == 0 {
+		if modelLike != "" {
+			printNoLikeMatches()
+		} else {
+			fmt.Println("No models found.")
+		}
+		return nil
+	}
+
+	fmt.Printf("Available models (%d):\n\n", len(visible))
+	for _, m := range visible {
 		displayID := strings.TrimPrefix(m.ID, "models/")
 		line := fmt.Sprintf("  %s", displayID)
 		if m.OwnedBy != "" && m.OwnedBy != "openai" && m.OwnedBy != "custom" {
@@ -432,6 +564,9 @@ func printOpenAIModelDetail(model *types.OpenAIModel) {
 	if model.Created > 0 {
 		fmt.Printf("    Created:  %s\n", time.Unix(model.Created, 0).Format("2006-01-02 15:04:05"))
 	}
+	if len(model.SupportedEndpointTypes) > 0 {
+		fmt.Printf("    Endpoints: %s\n", strings.Join(model.SupportedEndpointTypes, ", "))
+	}
 	fmt.Println()
 }
 
@@ -463,7 +598,31 @@ func runModelsOpenRouterDetail(modelID string, p *provider.EffectiveProvider) er
 		return fmt.Errorf("failed to format response: %w", err)
 	}
 	fmt.Println(pretty)
+	if openRouterOutputsImage(raw) {
+		printOpenRouterImageCapabilities(base, modelID)
+	}
 	return nil
+}
+
+// openRouterOutputsImage reports whether a /model/{author}/{slug} record
+// declares image output, so the capability lookup only runs for image models.
+func openRouterOutputsImage(raw json.RawMessage) bool {
+	var meta struct {
+		Data struct {
+			Architecture struct {
+				OutputModalities []string `json:"output_modalities"`
+			} `json:"architecture"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &meta); err != nil {
+		return false
+	}
+	for _, modality := range meta.Data.Architecture.OutputModalities {
+		if modality == "image" {
+			return true
+		}
+	}
+	return false
 }
 
 func indentJSON(raw json.RawMessage) (string, error) {

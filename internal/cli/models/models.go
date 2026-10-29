@@ -3,6 +3,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -25,6 +26,7 @@ var (
 	priceArg            string
 	modelsDryRun        bool
 	modelsListProviders bool
+	modelLike           string
 )
 
 // priceListValue is the sentinel pflag stores for a bare `--price` (the flag
@@ -65,6 +67,17 @@ Type filter:
                          rerank, decisions, all. APIMart supports image,
                          video and chat.
 
+Fuzzy search:
+  --like <text>          Only list models whose id or name contains <text>
+                         (case-insensitive). Without --type the search spans
+                         every modality.
+
+Default provider:
+  OpenRouter when it is configured (its catalogs expose per-model sizing
+  metadata: aspect ratios, resolution tiers, parameter ranges). Override with
+  --provider or --api-base; without an OpenRouter provider the global
+  base_url is used.
+
 Pricing:
   --price [model]        Show the pricing column, or one model's pricing.
                          APIMart uses its pricing API; OpenRouter prints the
@@ -86,6 +99,8 @@ Examples:
   aigc-cli models --type image
   aigc-cli models --provider openrouter --type speech
   aigc-cli models --provider openrouter --type all
+  aigc-cli models --like recraft --type image
+  aigc-cli models --like seedream
   aigc-cli models --price
   aigc-cli models --price gpt-image-2-official
   aigc-cli models --model gpt-4o
@@ -99,6 +114,7 @@ Examples:
 	cmd.Flags().StringVarP(&modelType, "type", "t", "", "Filter by model type (OpenRouter: text, image, video, audio, speech, transcription, embeddings, rerank, decisions, all)")
 	cmd.Flags().StringVar(&priceArg, "price", "", "Show pricing column (no arg) or model pricing details (with model name)")
 	cmd.Flags().Lookup("price").NoOptDefVal = priceListValue
+	cmd.Flags().StringVar(&modelLike, "like", "", "Only list models whose id or name contains this text (case-insensitive)")
 	cmd.Flags().BoolVar(&modelsDryRun, "dry-run", false, "Print the equivalent curl request without calling the API")
 	cmd.Flags().BoolVar(&modelsListProviders, "list-providers", false, "List configured providers without calling any API")
 	return cmd
@@ -116,6 +132,11 @@ func runModels(cmd *cobra.Command, args []string) error {
 	mediaType := modelType
 	if mediaType == "" && len(args) > 0 && knownMediaTypes[args[0]] {
 		mediaType = args[0]
+	}
+	// A --like search without --type spans every modality; the default text
+	// listing would never surface image or video models.
+	if mediaType == "" && modelLike != "" && isOpenRouter {
+		mediaType = "all"
 	}
 
 	// A positional value that is not a type is a model name. When there is no
@@ -182,6 +203,26 @@ func runModels(cmd *cobra.Command, args []string) error {
 	}
 
 	return runModelsOpenAI(p)
+}
+
+// matchesLike reports whether any of the given strings contains the --like
+// filter (case-insensitive). An empty filter matches everything.
+func matchesLike(values ...string) bool {
+	if modelLike == "" {
+		return true
+	}
+	needle := strings.ToLower(modelLike)
+	for _, v := range values {
+		if strings.Contains(strings.ToLower(v), needle) {
+			return true
+		}
+	}
+	return false
+}
+
+// printNoLikeMatches reports an empty filtered listing.
+func printNoLikeMatches() {
+	fmt.Printf("No models match --like %q.\n", modelLike)
 }
 
 // isHTML checks whether the first non-whitespace bytes look like HTML.

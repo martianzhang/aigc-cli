@@ -35,6 +35,27 @@ func captureStdout(t *testing.T, fn func()) string {
 	return <-done
 }
 
+// captureStderr runs fn and returns everything written to os.Stderr.
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() error = %v", err)
+	}
+	os.Stderr = w
+	done := make(chan string, 1)
+	go func() {
+		b, _ := io.ReadAll(r)
+		done <- string(b)
+	}()
+	defer func() { os.Stderr = old }()
+	fn()
+	w.Close()
+	os.Stderr = old
+	return <-done
+}
+
 func TestFormatPrice_perGeneration(t *testing.T) {
 	m := types.MarketplaceModel{
 		Pricing: types.MarketplacePricing{
@@ -137,7 +158,8 @@ func TestOpenRouterModelsLocalServer(t *testing.T) {
 					},
 					"supported_parameters": {
 						"n": {"type": "range", "min": 1, "max": 4},
-						"seed": {"type": "boolean"}
+						"seed": {"type": "boolean"},
+						"aspect_ratio": {"type": "enum", "values": ["1:1", "4:3", "3:4", "16:9", "9:16", "2:3", "3:2", "21:9"]}
 					},
 					"supports_streaming": false
 				}
@@ -147,8 +169,21 @@ func TestOpenRouterModelsLocalServer(t *testing.T) {
 	defer srv.Close()
 
 	p := &provider.EffectiveProvider{BaseURL: srv.URL, ProviderType: provider.OpenRouter}
-	if err := runModelsOpenRouterDiscovery(p, "image"); err != nil {
-		t.Fatalf("runModelsOpenRouterDiscovery() error = %v", err)
+	out := captureStdout(t, func() {
+		if err := runModelsOpenRouterDiscovery(p, "image"); err != nil {
+			t.Fatalf("runModelsOpenRouterDiscovery() error = %v", err)
+		}
+	})
+	// Enum values must not be truncated: this list is the only place image
+	// sizing capabilities are shown.
+	if !strings.Contains(out, "aspect_ratio=1:1|4:3|3:4|16:9|9:16|2:3|3:2|21:9") {
+		t.Errorf("output should print every enum value, got:\n%s", out)
+	}
+	// Parameters must be sorted so repeated runs are stable.
+	if !strings.Contains(out, "aspect_ratio=") ||
+		strings.Index(out, "aspect_ratio=") > strings.Index(out, "n=1-4") ||
+		strings.Index(out, "n=1-4") > strings.Index(out, "seed") {
+		t.Errorf("output should list parameters in a stable sorted order, got:\n%s", out)
 	}
 }
 
@@ -841,5 +876,145 @@ func TestModelsPriceModelRoutesToOpenRouterDetail(t *testing.T) {
 	}
 	if !strings.Contains(out, `"pricing"`) {
 		t.Errorf("output = %q, want the model record", out)
+	}
+}
+
+func TestOpenRouterModelDetailShowsImageCapabilities(t *testing.T) {
+	imageCalls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/model/qwen/qwen-image-2.1-turbo":
+			_, _ = w.Write([]byte(`{"data":{"id":"qwen/qwen-image-2.1-turbo","architecture":{"output_modalities":["image"]},"supported_parameters":["max_tokens"]}}`))
+		case "/v1/model/openai/gpt-4o":
+			_, _ = w.Write([]byte(`{"data":{"id":"openai/gpt-4o","architecture":{"output_modalities":["text"]},"supported_parameters":["tools"]}}`))
+		case "/v1/images/models":
+			imageCalls++
+			_, _ = w.Write([]byte(`{"data":[{"id":"qwen/qwen-image-2.1-turbo","supported_parameters":{
+				"aspect_ratio":{"type":"enum","values":["1:1","16:9"]},
+				"resolution":{"type":"enum","values":["1K","2K"]},
+				"n":{"type":"range","min":1,"max":4},
+				"seed":{"type":"boolean"}}}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{BaseURL: srv.URL + "/v1", ProviderType: provider.OpenRouter, APIKey: "k"}
+
+	var stdout, stderr string
+	stderr = captureStderr(t, func() {
+		stdout = captureStdout(t, func() {
+			if err := runModelsOpenRouterDetail("qwen/qwen-image-2.1-turbo", p); err != nil {
+				t.Fatalf("runModelsOpenRouterDetail() error = %v", err)
+			}
+		})
+	})
+
+	if !strings.Contains(stdout, `"id": "qwen/qwen-image-2.1-turbo"`) {
+		t.Errorf("stdout should keep the verbatim JSON model record, got:\n%s", stdout)
+	}
+	if strings.Contains(stdout, "Image capabilities") {
+		t.Errorf("capability block must not break stdout JSON, got:\n%s", stdout)
+	}
+	for _, want := range []string{
+		"Image capabilities (from /v1/images/models):",
+		"aspect_ratio=1:1|16:9",
+		"resolution=1K|2K",
+		"n=1-4",
+		"--size: 16:9 (ratio), 2K (tier), 2K@16:9 (both)",
+	} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("stderr missing %q:\n%s", want, stderr)
+		}
+	}
+
+	stderr = captureStderr(t, func() {
+		captureStdout(t, func() {
+			if err := runModelsOpenRouterDetail("openai/gpt-4o", p); err != nil {
+				t.Errorf("runModelsOpenRouterDetail() error = %v", err)
+			}
+		})
+	})
+	if imageCalls != 1 {
+		t.Errorf("/images/models calls = %d, want 1 (text models must not trigger the lookup)", imageCalls)
+	}
+	if stderr != "" {
+		t.Errorf("text model should print no capability block, got:\n%s", stderr)
+	}
+}
+
+func TestMatchesLike(t *testing.T) {
+	orig := modelLike
+	defer func() { modelLike = orig }()
+
+	modelLike = ""
+	if !matchesLike("anything") {
+		t.Error("empty --like should match everything")
+	}
+
+	modelLike = "RECRAFT"
+	if !matchesLike("recraft/recraft-v4.1-flash", "") {
+		t.Error("match should be case-insensitive on id")
+	}
+	if !matchesLike("x/y", "Recraft V4") {
+		t.Error("match should look at the display name")
+	}
+	if matchesLike("openai/gpt-image-2", "GPT Image 2") {
+		t.Error("non-matching model should be filtered out")
+	}
+}
+
+func TestOpenRouterMediaDiscoveryLikeFilter(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[
+			{"id":"recraft/recraft-v4","name":"Recraft V4","supported_parameters":{}},
+			{"id":"openai/gpt-image-2","name":"GPT Image 2","supported_parameters":{}}
+		]}`))
+	}))
+	defer srv.Close()
+
+	orig := modelLike
+	defer func() { modelLike = orig }()
+
+	modelLike = "recraft"
+	out := captureStdout(t, func() {
+		if err := runOpenRouterMediaDiscovery(srv.URL, "image"); err != nil {
+			t.Fatalf("runOpenRouterMediaDiscovery() error = %v", err)
+		}
+	})
+	if !strings.Contains(out, "recraft/recraft-v4") || strings.Contains(out, "gpt-image-2") {
+		t.Errorf("filter should keep only matching models, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Image Models (1)") {
+		t.Errorf("count should reflect the filtered list, got:\n%s", out)
+	}
+
+	modelLike = "no-such-model"
+	out = captureStdout(t, func() {
+		if err := runOpenRouterMediaDiscovery(srv.URL, "image"); err != nil {
+			t.Fatalf("runOpenRouterMediaDiscovery() error = %v", err)
+		}
+	})
+	if !strings.Contains(out, `No models match --like "no-such-model"`) {
+		t.Errorf("empty filter result should explain itself, got:\n%s", out)
+	}
+}
+
+func TestPrintOpenAIModelDetailShowsExtraFields(t *testing.T) {
+	model := &types.OpenAIModel{
+		ID:                     "agnes-image-2.5-flash",
+		Object:                 "model",
+		Created:                1626777600,
+		OwnedBy:                "custom",
+		SupportedEndpointTypes: []string{"openai"},
+	}
+	out := captureStdout(t, func() { printOpenAIModelDetail(model) })
+	for _, want := range []string{"agnes-image-2.5-flash", "Object:   model", "Owned by: custom", "Endpoints: openai"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("detail missing %q:\n%s", want, out)
+		}
 	}
 }

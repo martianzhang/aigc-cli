@@ -243,6 +243,10 @@ aigc-cli models --provider openrouter --type decisions
 aigc-cli models --provider openrouter --type all            # 全部模型，附输出模态标签
 aigc-cli models --provider openrouter --type tts            # 别名：tts → speech
 
+# 模糊匹配：只列出 id 或名称包含该文本的模型（不区分大小写）
+aigc-cli models --like recraft --type image   # 配合 --type 时显示尺寸能力
+aigc-cli models --like seedream               # 不带 --type：跨全部模态搜索
+
 # 带价格列（OpenRouter 按 token 计价，展示为 $/M tokens；:free 变体标注 (free)）
 aigc-cli models --provider openrouter --type speech --price
 aigc-cli models --provider openrouter --price               # 默认 text 列表 + 价格列
@@ -262,7 +266,11 @@ aigc-cli models --api-base "https://api.openai.com/v1"
 
 > **OpenRouter 类型别名**：`chat`/`llm` → `text`，`music` → `audio`，`tts` → `speech`，`stt`/`asr` → `transcription`，`embedding`/`embed` → `embeddings`，`reranking` → `rerank`，`decision` → `decisions`。类型也可以作为位置参数（如 `aigc-cli models -P openrouter speech`）。未知类型会直接报错并列出全部可用值；APIMart 市场只接受 `image` / `video` / `chat`。
 
-> **单模型查询**：`aigc-cli models <模型名>` 或 `aigc-cli models --model <模型名>` 展示单个模型的详情（位置参数优先）。OpenRouter 走其**单数端点** `GET /v1/model/{author}/{slug}`（与列表的复数 `/models` 不同），并**原样输出接口返回的 JSON（仅格式化缩进，不做字段解析）**；其他 Provider 直接拉取 `GET /v1/models` 列表并按模型名过滤（不再探测 `GET /v1/models/{id}`——多数 Provider 并不支持该端点），无需额外配置。
+> **默认 Provider**：未指定 `-P/--provider`、`--api-base`、`--api-key` 时，`models` 默认使用配置中的 OpenRouter Provider（模型 id 形如 `author/slug`，尺寸元数据最全）；未配置 OpenRouter 时才回落到全局 `base_url`。
+
+> **`--like` 模糊匹配**：按 id 或展示名称做不区分大小写的子串匹配。不带 `--type` 时会跨全部模态搜索（OpenRouter 走 `output_modalities=all`）；配合 `--type image` 时每条结果都会带上 `aspect_ratio` / `resolution` 等能力，是查某个模型尺寸写法最快的方式。
+
+> **单模型查询**：`aigc-cli models <模型名>` 或 `aigc-cli models --model <模型名>` 展示单个模型的详情（位置参数优先）。OpenRouter 走其**单数端点** `GET /v1/model/{author}/{slug}`（与列表的复数 `/models` 不同），并**原样输出接口返回的 JSON（仅格式化缩进，不做字段解析）**；其他 Provider 直接拉取 `GET /v1/models` 列表并按模型名过滤（不再探测 `GET /v1/models/{id}`——多数 Provider 并不支持该端点），无需额外配置。若该模型输出图片（`output_modalities` 含 `image`），CLI 会再查一次 `GET /v1/images/models`，把尺寸能力（`aspect_ratio`、`resolution` 等）和可直接使用的 `--size` 写法打印到 **stderr**，stdout 的 JSON 保持原样。
 
 > **`--dry-run`**：只渲染等价的 `curl` 命令（API Key 已脱敏），不发起任何网络请求。列表、单模型详情、市场（`--type`）、定价（`--price`）与 OpenRouter 发现均支持；市场分页只打印第一页，后续页码以注释说明。
 

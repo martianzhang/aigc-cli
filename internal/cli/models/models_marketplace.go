@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -77,8 +78,22 @@ func runModelsMarketplace(mediaType string) error {
 		page++
 	}
 
+	if modelLike != "" {
+		filtered := make([]types.MarketplaceModel, 0, len(allModels))
+		for _, m := range allModels {
+			if matchesLike(m.ModelName, m.DisplayName) {
+				filtered = append(filtered, m)
+			}
+		}
+		allModels = filtered
+	}
+
 	if len(allModels) == 0 {
-		fmt.Println("No models found.")
+		if modelLike != "" {
+			printNoLikeMatches()
+		} else {
+			fmt.Println("No models found.")
+		}
 		return nil
 	}
 
@@ -100,12 +115,13 @@ func runModelsMarketplace(mediaType string) error {
 	for vName, mods := range vendorMap {
 		groups = append(groups, group{vName, mods})
 	}
+	sort.Slice(groups, func(i, j int) bool { return groups[i].vendor < groups[j].vendor })
 
 	title := "All Models"
 	if mediaType != "" {
 		title = strings.ToUpper(mediaType[:1]) + mediaType[1:] + " Models"
 	}
-	fmt.Printf("%s (%d total)\n\n", title, total)
+	fmt.Printf("%s (%d total)\n\n", title, len(allModels))
 
 	for _, g := range groups {
 		fmt.Printf("  %s:\n", g.vendor)

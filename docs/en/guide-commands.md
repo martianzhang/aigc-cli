@@ -29,6 +29,10 @@ aigc-cli models --provider openrouter --type decisions
 aigc-cli models --provider openrouter --type all            # everything, with output modality tags
 aigc-cli models --provider openrouter --type tts            # alias: tts → speech
 
+# Fuzzy search: only list models whose id or name contains the text
+aigc-cli models --like recraft --type image   # with --type it also shows sizing
+aigc-cli models --like seedream               # no --type: searches every modality
+
 # View model pricing (OpenRouter: $/M tokens; ":free" variants are tagged)
 aigc-cli models --price
 aigc-cli models --provider openrouter --type speech --price
@@ -45,7 +49,11 @@ aigc-cli models --type image --dry-run
 
 > **OpenRouter types**: `--type` accepts every OpenRouter output modality — `text` (default), `image`, `video`, `audio`, `speech`, `transcription`, `embeddings`, `rerank`, `decisions` and `all`. Aliases: `chat`/`llm` → `text`, `music` → `audio`, `tts` → `speech`, `stt`/`asr` → `transcription`, `embedding`/`embed` → `embeddings`, `reranking` → `rerank`, `decision` → `decisions`. A type may also be positional (`aigc-cli models -P openrouter speech`). Unknown types fail with the full list; the APIMart marketplace accepts only `image`, `video` and `chat`. Image/video discovery uses the dedicated generation endpoints (resolutions, aspect ratios, parameter ranges); every other modality and `--price` use `GET /v1/models?output_modalities=<type>`.
 
-> **Single-model lookup**: `aigc-cli models <model>` or `aigc-cli models --model <model>` prints one model's details (the positional argument wins). For OpenRouter it calls the **singular** `GET /v1/model/{author}/{slug}` endpoint (not the plural `/models` used for listing) and **prints the response JSON verbatim** (pretty-printed, no field parsing). Other providers fetch the `GET /v1/models` list and filter by model id (the `GET /v1/models/{id}` endpoint is never probed — most providers do not serve it), with no extra configuration.
+> **Default provider**: with no `-P/--provider`, `--api-base`, or `--api-key`, `models` uses the configured OpenRouter provider (model ids are `author/slug` and its catalogs carry the richest sizing metadata). Without an OpenRouter provider it falls back to the global `base_url`.
+
+> **`--like` fuzzy matching**: case-insensitive substring match on id and display name. Without `--type` the search spans every modality (OpenRouter uses `output_modalities=all`); with `--type image` each result lists its `aspect_ratio` / `resolution` capabilities, which is the fastest way to find a model's accepted `--size` forms.
+
+> **Single-model lookup**: `aigc-cli models <model>` or `aigc-cli models --model <model>` prints one model's details (the positional argument wins). For OpenRouter it calls the **singular** `GET /v1/model/{author}/{slug}` endpoint (not the plural `/models` used for listing) and **prints the response JSON verbatim** (pretty-printed, no field parsing). Other providers fetch the `GET /v1/models` list and filter by model id (the `GET /v1/models/{id}` endpoint is never probed — most providers do not serve it), with no extra configuration. When the model outputs images (`output_modalities` contains `image`), the CLI also queries `GET /v1/images/models` and prints its sizing capabilities (`aspect_ratio`, `resolution`, …) plus ready-to-use `--size` forms to **stderr**, leaving the JSON on stdout untouched.
 
 > **`--dry-run`**: renders the equivalent `curl` command (API key masked) and makes no network request. It works for the plain list, single-model detail, marketplace (`--type`), pricing (`--price`), and OpenRouter discovery; marketplace pagination only renders the first page and notes the follow-up pages in a comment.
 

@@ -63,6 +63,26 @@ const (
 	ProviderNameLocal           = "local"
 )
 
+// ResolveNamedProvider resolves a configured provider by name, ignoring the
+// command's configured default. It returns nil when the provider is not
+// configured, so callers can fall back to the normal resolution.
+func (s *SharedConfig) ResolveNamedProvider(name string) *provider.EffectiveProvider {
+	if name == "" || providerMap(s.Cfg)[name] == nil {
+		return nil
+	}
+	global := &provider.GlobalConfig{
+		APIKey:  cfgString(s.Cfg, func(c *types.Config) string { return c.APIKey }),
+		BaseURL: cfgString(s.Cfg, func(c *types.Config) string { return c.BaseURL }),
+		Proxy:   cfgString(s.Cfg, func(c *types.Config) string { return c.HTTPProxy }),
+	}
+	ep := provider.ResolveCmdProvider(nil, name, providerMap(s.Cfg), global)
+	if s.HTTPProxySet && !s.NoProxy {
+		ep.HTTPProxy = s.HTTPProxy
+	}
+	ep.ZDR = s.resolveZDR(ep)
+	return ep
+}
+
 // ResolveProvider returns the effective provider configuration for a command.
 // Priority (highest to lowest):
 //  1. CLI flags (--api-key / --api-base) — if set, skip all config
