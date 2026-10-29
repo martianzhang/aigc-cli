@@ -150,7 +150,7 @@ aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
 - 会话文件是完整日志：`/compact` 或自动压缩不会删除旧消息，只追加 `compaction` 记录。恢复时模型只看「最新摘要 + 压缩点之后的消息」，因此文件再大也不会把完整历史塞进上下文。
 - 未显式指定 `--context-size` 时，恢复会沿用会话创建时记录的值；如果恢复后的投影仍然超限，会在首次请求前自动压缩一次。
 - `--name <text>` 设置会话名；TUI 里可以用 `/name <text>` 改名，`/name` 不带参数时若会话未命名，会从首条用户消息本地生成一个名字（不额外调 API）。名字显示在顶部栏，未命名时显示 `Session <id>`，没有 session 时仍是 `Chat with AI`。
-- TUI 状态栏显示 `rec: <文件名>`；新建会话退出时会打印文件路径和可直接执行的恢复命令（`aigc-cli chat --session <id>`，自定义目录会带上 `--session-dir`）。
+- TUI 状态栏显示 `rec: <文件名>`；新建会话退出时会**向 stderr** 打印文件路径和可直接执行的恢复命令（`aigc-cli chat --session <id>`，自定义目录会带上 `--session-dir`）。stdout 只保留模型回复，便于管道和脚本直接消费。
 
 JSONL 首行是 `header`（schema、id、cwd、provider、model、context_size），后续记录类型为 `system` / `message` / `compaction` / `clear` / `session_info` / `end`。`session_info` 保存会话名，最新一条生效。可以直接用 `jq`、`grep` 等工具分析，也可以复制文件作为导出。
 

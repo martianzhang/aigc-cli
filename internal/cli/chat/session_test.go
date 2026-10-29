@@ -1,12 +1,14 @@
 package chat
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/session"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -387,4 +389,56 @@ func TestResumeCommand(t *testing.T) {
 			t.Errorf("resumeCommand() = %q, want %q", got, want)
 		}
 	})
+}
+
+func TestPrintSessionPathWritesToStderr(t *testing.T) {
+	resetSessionGlobals(t)
+	dir := t.TempDir()
+	sess, err := session.New(filepath.Join(dir, "abc.jsonl"), session.Header{ID: "abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sess.Close("exit") })
+
+	var stdout, stderr bytes.Buffer
+	restoreStdout := options.SetStdout(&stdout)
+	restoreStderr := options.SetStderr(&stderr)
+	t.Cleanup(func() {
+		restoreStdout()
+		restoreStderr()
+	})
+
+	printSessionPath(sess, true)
+
+	if got := stdout.String(); got != "" {
+		t.Errorf("stdout = %q, want empty so pipes only see the reply", got)
+	}
+	for _, want := range []string{"Session: " + sess.Path(), "Resume:  aigc-cli chat --session "} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Errorf("stderr = %q, want it to contain %q", stderr.String(), want)
+		}
+	}
+}
+
+func TestPrintSessionPathSkipsResumedSession(t *testing.T) {
+	resetSessionGlobals(t)
+	sess, err := session.New(filepath.Join(t.TempDir(), "abc.jsonl"), session.Header{ID: "abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sess.Close("exit") })
+
+	var stdout, stderr bytes.Buffer
+	restoreStdout := options.SetStdout(&stdout)
+	restoreStderr := options.SetStderr(&stderr)
+	t.Cleanup(func() {
+		restoreStdout()
+		restoreStderr()
+	})
+
+	printSessionPath(sess, false)
+
+	if stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Errorf("resumed session printed hints: stdout=%q stderr=%q", stdout.String(), stderr.String())
+	}
 }

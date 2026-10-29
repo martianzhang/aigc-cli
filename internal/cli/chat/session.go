@@ -220,6 +220,8 @@ func printSessionPath(sess *session.Session, created bool) {
 	if sess == nil || !created {
 		return
 	}
+	// Session/resume hints are diagnostics, not assistant output. Keep them on
+	// stderr so stdout stays clean for pipes and scripts that consume the reply.
 	out := options.Stderr()
 	fmt.Fprintf(out, "Session: %s\n", sess.Path())
 	if name := sess.Name(); name != "" {

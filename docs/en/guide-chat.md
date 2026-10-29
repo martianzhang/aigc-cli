@@ -92,7 +92,7 @@ aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
 - The session file is a complete log: `/compact` and auto-compaction never delete messages, they append a `compaction` record. On resume the model only receives the latest summary plus messages after the compaction point, so a large file does not mean a large context.
 - If `--context-size` is not set explicitly, resume uses the value recorded when the session was created. If the restored projection is still over the limit, it is compacted once before the first request.
 - `--name <text>` sets the session name; inside the TUI, `/name <text>` renames it. `/name` without an argument auto-names an unnamed session from its first user message (local, no extra API call). The header shows the name, falls back to `Session <id>` for an unnamed session, and keeps `Chat with AI` when no session is active.
-- The TUI status bar shows `rec: <filename>`; a newly created session prints its path and a ready-to-run resume command (`aigc-cli chat --session <id>`, plus `--session-dir` when a custom directory is used).
+- The TUI status bar shows `rec: <filename>`; a newly created session prints its path and a ready-to-run resume command (`aigc-cli chat --session <id>`, plus `--session-dir` when a custom directory is used) **to stderr**, so stdout carries only the model reply and stays safe to pipe.
 
 The first JSONL line is a `header` (schema, id, cwd, provider, model, context_size). Subsequent records are `system` / `message` / `compaction` / `clear` / `session_info` / `end`. `session_info` stores the session name; the latest record wins. The file can be analyzed with `jq` or `grep`, or copied as an export.
 
