@@ -7,6 +7,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // balanceSection is one labeled balance endpoint result. kind is "token"
@@ -27,6 +28,8 @@ func providerSections(c *client.Client, p *provider.EffectiveProvider, label str
 		return singleSection("user", deepSeekBalance(c, label)), true
 	case provider.IsMoonshot(p.BaseURL):
 		return singleSection("user", moonshotBalance(c, label)), true
+	case provider.IsOfox(p.BaseURL):
+		return singleSection("user", ofoxBalance(c, label)), true
 	case p.ProviderType == provider.APIMart || provider.IsAPIMart(p.BaseURL):
 		return apimartSections(c, label), true
 	case provider.IsDocumentProvider(p):
@@ -74,12 +77,25 @@ func apimartSections(c *client.Client, label string) []balanceSection {
 // apimartTokenBalance renders GET /balance (per-key quota). It is also the
 // generic probe for providers without a dedicated balance API.
 func apimartTokenBalance(c *client.Client, label string) string {
+	text, _ := probeTokenBalance(c, label)
+	return text
+}
+
+// apimartUserBalance renders GET /user/balance (account balance).
+func apimartUserBalance(c *client.Client, label string) string {
+	text, _ := probeUserBalance(c, label)
+	return text
+}
+
+// probeTokenBalance reports whether GET /balance returned usable quota data,
+// alongside the rendered text so callers can fall back to another endpoint.
+func probeTokenBalance(c *client.Client, label string) (string, bool) {
 	bal, err := c.GetTokenBalance()
 	if err != nil {
-		return balanceError("Token Balance", label, err)
+		return balanceError("Token Balance", label, err), false
 	}
 	if !bal.Success {
-		return fmt.Sprintf("Token Balance (%s): API error — %s", label, bal.Message)
+		return fmt.Sprintf("Token Balance (%s): API error — %s", label, bal.Message), false
 	}
 	var lines []string
 	if bal.UnlimitedQuota {
@@ -90,24 +106,109 @@ func apimartTokenBalance(c *client.Client, label string) string {
 	}
 	lines = append(lines, fmt.Sprintf("Used Balance: $%.4f", bal.UsedBalance))
 	lines = append(lines, fmt.Sprintf("Used Credits: %.4f", bal.UsedCredits))
-	return titledBlock("Token Balance", label, lines)
+	return titledBlock("Token Balance", label, lines), true
 }
 
-// apimartUserBalance renders GET /user/balance (account balance).
-func apimartUserBalance(c *client.Client, label string) string {
+// probeUserBalance is the user-scope twin of probeTokenBalance.
+func probeUserBalance(c *client.Client, label string) (string, bool) {
 	bal, err := c.GetUserBalance()
 	if err != nil {
-		return balanceError("User Balance", label, err)
+		return balanceError("User Balance", label, err), false
 	}
 	if !bal.Success {
-		return fmt.Sprintf("User Balance (%s): API error — %s", label, bal.Message)
+		return fmt.Sprintf("User Balance (%s): API error — %s", label, bal.Message), false
 	}
 	return titledBlock("User Balance", label, []string{
 		fmt.Sprintf("Remain Balance: $%.4f", bal.RemainBalance),
 		fmt.Sprintf("Remain Credits: %.4f", bal.RemainCredits),
 		fmt.Sprintf("Used Balance: $%.4f", bal.UsedBalance),
 		fmt.Sprintf("Used Credits: %.4f", bal.UsedCredits),
-	})
+	}), true
+}
+
+// genericBalance handles providers without a dedicated balance API: the
+// APIMart-style endpoints are probed first, then the OpenAI-compatible billing
+// pair that new-api/one-api relays expose (those report spend, not balance).
+// The primary probe's rendered failure is returned when nothing answers, so the
+// user still gets the console pointer instead of a bare error.
+func genericBalance(c *client.Client, label, scope string) string {
+	primary := probeTokenBalance
+	if scope == "user" {
+		primary = probeUserBalance
+	}
+	text, ok := primary(c, label)
+	if ok {
+		return text
+	}
+	if billing, ok := openAIBillingBalance(c, label); ok {
+		return billing
+	}
+	return text
+}
+
+// ofoxBalance renders GET /v1/user/balance (OfoxAI account balance).
+func ofoxBalance(c *client.Client, label string) string {
+	bal, err := c.GetOfoxBalance()
+	if err != nil {
+		return balanceError("Balance", label, err)
+	}
+	currency := bal.Currency
+	if currency == "" {
+		currency = "USD"
+	}
+	lines := []string{
+		fmt.Sprintf("Remain: %.4f %s", bal.Balance, currency),
+		fmt.Sprintf("Used: %.4f %s", bal.Used, currency),
+	}
+	if bal.Total > 0 {
+		lines = append(lines, fmt.Sprintf("Total: %.4f %s", bal.Total, currency))
+	}
+	if !bal.IsActive {
+		lines = append(lines, "Status: inactive")
+	}
+	return titledBlock("Balance", label, lines)
+}
+
+// openAIBillingBalance renders the OpenAI-compatible billing pair exposed by
+// new-api/one-api relays (aibase, agnes, openlux, ...). Those endpoints report
+// spend, not a remaining balance; a real limit is shown only when the relay
+// does not send the 1e6 "unlimited" placeholder.
+func openAIBillingBalance(c *client.Client, label string) (string, bool) {
+	subscription, usage, err := c.GetOpenAIBilling()
+	if err != nil {
+		return "", false
+	}
+	var lines []string
+	if usage != nil {
+		used := usage.TotalUsage / 100
+		lines = append(lines, fmt.Sprintf("Used: $%.4f (last 30 days)", used))
+		if limit := realBillingLimit(subscription); limit > 0 {
+			lines = append(lines, fmt.Sprintf("Limit: $%.4f", limit))
+			if remain := limit - used; remain > 0 {
+				lines = append(lines, fmt.Sprintf("Remain: $%.4f", remain))
+			}
+		} else {
+			lines = append(lines, "Remaining: not exposed by this endpoint")
+		}
+	} else if limit := realBillingLimit(subscription); limit > 0 {
+		lines = append(lines, fmt.Sprintf("Limit: $%.4f", limit))
+	}
+	if len(lines) == 0 {
+		return "", false
+	}
+	return titledBlock("Usage", label, lines), true
+}
+
+// realBillingLimit drops the placeholder limits new-api/one-api relays report.
+func realBillingLimit(subscription *types.OpenAIBillingSubscription) float64 {
+	if subscription == nil {
+		return 0
+	}
+	limit := subscription.HardLimitUSD
+	if limit <= 0 || limit >= 1_000_000 {
+		return 0
+	}
+	return limit
 }
 
 // openRouterSections renders GET /key (key scope, any key) and, when the

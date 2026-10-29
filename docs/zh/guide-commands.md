@@ -294,7 +294,7 @@ aigc-cli task --provider apimart task_01KV4KD9FBH3AZ4DE18A7Y17S3
 
 ## 查询余额
 
-查询支持余额接口的 Provider：APIMart（及兼容中转）、OpenRouter、DeepSeek、Moonshot（Kimi）、SoMark（按页计的解析额度）。其他 Provider 无公开余额接口，请到其控制台查看。
+查询支持余额接口的 Provider：APIMart（及兼容中转）、OpenRouter、DeepSeek、Moonshot（Kimi）、OfoxAI、SoMark（按页计的解析额度），以及 new-api / one-api 系中转（aibase、agnes、openlux 等，只暴露“已用金额”）。其他 Provider 无公开余额接口，请到其控制台查看。
 
 **默认会查询并展示该 Provider 暴露的每一个余额端点**（例如 APIMart 的 Key 配额 + 账户余额、OpenRouter 的 Key 用量 + 账户信用点）。`token` / `user` 子命令可只取其中一个维度。
 
@@ -312,6 +312,11 @@ aigc-cli balance user
 # SoMark / OXR：剩余解析页数（付费页 + 今日/本月免费页）
 aigc-cli balance -P somark
 ```
+
+> **接口探测顺序**：若 Provider 没有专属余额接口，会依次尝试 APIMart 风格的 `/v1/balance`、`/v1/user/balance`，
+> 再尝试 OpenAI 兼容的 `/dashboard/billing/subscription` + `/dashboard/billing/usage`（new-api/one-api 系中转常用，
+> 返回的是近 30 天已用金额；`hard_limit_usd` 为 1000000 的占位值时不显示“剩余”）。
+> 全部失败才显示 "not available"。
 
 > **API Key**：未指定 `--provider` 时，会查询所有已配置且带 API Key 的 Provider（Ollama 等本地 Provider 免密钥）。显式指定但未配置密钥的非本地 Provider 会直接报错并给出提示；用 `--provider <name>` 指定已配置密钥的 Provider。
 
@@ -439,6 +444,8 @@ Run 'aigc-cli image --help' for usage and examples.
 | `GET /user/balance` | 账户余额（多币种） | DeepSeek ✅ | [DeepSeek Docs](https://api-docs.deepseek.com/api/get-user-balance/) |
 | `GET /v1/users/me/balance` | 账户余额（人民币） | Moonshot ✅ | [Kimi Docs](https://platform.kimi.com/docs/api/balance) |
 | `POST /usage` | 剩余解析页数（付费 / 今日 / 本月免费） | SoMark ✅（免费 OXR 不支持） | [SoMark Usage](https://docs.somark.ai/api-reference/endpoint/usage-query) |
+| `GET /v1/user/balance` | 账户余额（可用 / 累计入账 / 已用） | OfoxAI ✅ | [OfoxAI API](https://ofox.ai/zh/docs/api) |
+| `GET /v1/dashboard/billing/subscription` + `/usage` | OpenAI 计费口径：近 30 天已用金额（部分中转可给额度） | new-api/one-api 系中转 ✅ | [OpenAI Billing](https://platform.openai.com/docs/api-reference/usage) |
 | `GET /api/marketplace/models` | 模型列表（免认证） | APIMart ✅ | [APIMart Docs](https://docs.apimart.ai/en) |
 | `GET /api/pricing/model` | 模型定价详情（免认证） | APIMart ✅ | [APIMart Docs](https://docs.apimart.ai/en) |
 | `GET /api/image2studio.com/public/prompts/search` | 提示词灵感搜索 | 通用 ✅ | [Image2Studio](https://image2studio.com/prompts) |

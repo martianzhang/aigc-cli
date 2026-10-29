@@ -1,8 +1,10 @@
 package client
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -49,6 +51,46 @@ func (c *Client) GetMoonshotBalance() (*types.MoonshotBalance, error) {
 		return nil, err
 	}
 	return &result, nil
+}
+
+// GetOfoxBalance returns the account balance from GET {base}/user/balance.
+// OfoxAI documents it as cc-switch compatible, so it is a real balance API
+// rather than a usage report.
+func (c *Client) GetOfoxBalance() (*types.OfoxBalance, error) {
+	var result types.OfoxBalance
+	if err := c.doGet("/user/balance", &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// GetOpenAIBilling queries the OpenAI-compatible billing pair:
+// GET {base}/dashboard/billing/subscription and
+// GET {base}/dashboard/billing/usage over the last 30 days. Relay platforms
+// built on new-api/one-api expose both without a session, which is how they
+// report account spend. Whichever endpoint answers is returned; both nil means
+// the provider has no billing API.
+func (c *Client) GetOpenAIBilling() (*types.OpenAIBillingSubscription, *types.OpenAIBillingUsage, error) {
+	var subscription types.OpenAIBillingSubscription
+	subscriptionErr := c.doGet("/dashboard/billing/subscription", &subscription)
+
+	end := time.Now().UTC()
+	start := end.AddDate(0, 0, -30)
+	usagePath := fmt.Sprintf("/dashboard/billing/usage?start_date=%s&end_date=%s",
+		start.Format("2006-01-02"), end.Format("2006-01-02"))
+	var usage types.OpenAIBillingUsage
+	usageErr := c.doGet(usagePath, &usage)
+
+	if subscriptionErr != nil && usageErr != nil {
+		return nil, nil, subscriptionErr
+	}
+	if subscriptionErr != nil {
+		return nil, &usage, nil
+	}
+	if usageErr != nil {
+		return &subscription, nil, nil
+	}
+	return &subscription, &usage, nil
 }
 
 // rootURL returns scheme://host of an absolute URL (no path), for endpoints that

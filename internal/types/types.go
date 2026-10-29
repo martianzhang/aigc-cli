@@ -313,6 +313,34 @@ type MoonshotBalance struct {
 	} `json:"data"`
 }
 
+// OfoxBalance is the response from GET /v1/user/balance (OfoxAI). It is
+// deliberately compatibly shaped for third-party balance widgets.
+type OfoxBalance struct {
+	IsActive bool    `json:"is_active"`
+	Balance  float64 `json:"balance"`
+	Total    float64 `json:"total"`
+	Used     float64 `json:"used"`
+	Currency string  `json:"currency"`
+}
+
+// OpenAIBillingSubscription is GET /dashboard/billing/subscription. Relays
+// built on new-api/one-api answer it with placeholder limits (1e6 = "unlimited")
+// instead of a real cap.
+type OpenAIBillingSubscription struct {
+	Object           string  `json:"object"`
+	HasPaymentMethod bool    `json:"has_payment_method"`
+	SoftLimitUSD     float64 `json:"soft_limit_usd"`
+	HardLimitUSD     float64 `json:"hard_limit_usd"`
+	SystemHardLimit  float64 `json:"system_hard_limit_usd"`
+}
+
+// OpenAIBillingUsage is GET /dashboard/billing/usage. TotalUsage is in cents,
+// matching OpenAI's own billing API.
+type OpenAIBillingUsage struct {
+	Object     string  `json:"object"`
+	TotalUsage float64 `json:"total_usage"`
+}
+
 // UploadResponse is the response from POST /v1/uploads/images.
 type UploadResponse struct {
 	URL         string `json:"url"`

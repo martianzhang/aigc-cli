@@ -37,12 +37,7 @@ func Query(p *provider.EffectiveProvider, scope string) string {
 		return renderSections(sections, scope)
 	}
 
-	// Generic probe for providers without a dedicated balance API: the
-	// APIMart-style endpoints (key quota by default, account when requested).
-	if scope == "user" {
-		return apimartUserBalance(c, label)
-	}
-	return apimartTokenBalance(c, label)
+	return genericBalance(c, label, scope)
 }
 
 // GetText queries balance for all configured providers.
@@ -129,9 +124,10 @@ func NewCommand(deps func() Deps) *cobra.Command {
 		Long: `Query balance information.
 
 Supported providers with a balance API: APIMart (and compatible relays),
-OpenRouter, DeepSeek, Moonshot (Kimi), and SoMark (remaining page quota for the
-key's account). Other providers have no public balance API — check their web
-console.
+OpenRouter, DeepSeek, Moonshot (Kimi), OfoxAI, SoMark (remaining page quota),
+and relays built on new-api/one-api (aibase, agnes, openlux, ...), which expose
+spend rather than a remaining balance. Other providers have no public balance
+API — check their web console.
 
 By default every balance endpoint a provider exposes is queried and shown.
 Providers with more than one: APIMart (key quota + account balance) and

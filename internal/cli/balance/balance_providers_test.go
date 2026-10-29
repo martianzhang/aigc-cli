@@ -59,6 +59,91 @@ func TestSomarkUsageSection_Error(t *testing.T) {
 	}
 }
 
+func TestOfoxBalanceSection(t *testing.T) {
+	c := newBalanceTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/user/balance" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		w.Write([]byte(`{"is_active":true,"balance":9.32,"total":10,"used":0.6791,"currency":"USD"}`))
+	})
+
+	got := renderSections([]balanceSection{{kind: "user", text: ofoxBalance(c, "ofox")}}, "user")
+	for _, want := range []string{"Balance (ofox):", "Remain: 9.3200 USD", "Used: 0.6791 USD", "Total: 10.0000 USD"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("ofox balance = %q, want it to contain %q", got, want)
+		}
+	}
+}
+
+func TestOfoxRoutedByHost(t *testing.T) {
+	// The OfoxAI host must select its dedicated renderer (its schema differs
+	// from APIMart's), not the generic probe. The client points at a local
+	// server so no real request leaves the test.
+	c := newBalanceTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"is_active":true,"balance":1.5,"currency":"USD"}`))
+	})
+	p := &provider.EffectiveProvider{BaseURL: "https://api.ofox.ai/v1"}
+
+	sections, ok := providerSections(c, p, "ofox")
+	if !ok {
+		t.Fatal("providerSections did not recognize the OfoxAI host")
+	}
+	if len(sections) != 1 || !strings.Contains(sections[0].text, "Remain: 1.5000 USD") {
+		t.Errorf("sections = %+v", sections)
+	}
+}
+
+func TestGenericFallback_OpenAIBilling(t *testing.T) {
+	// A new-api/one-api relay: APIMart-style endpoints 404, only the billing
+	// pair answers.
+	c := newBalanceTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/subscription"):
+			w.Write([]byte(`{"object":"billing_subscription","hard_limit_usd":1000000}`))
+		case strings.HasSuffix(r.URL.Path, "/usage"):
+			w.Write([]byte(`{"object":"list","total_usage":1689.464}`))
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	got := genericBalance(c, "aibase", "all")
+	for _, want := range []string{"Usage (aibase):", "Used: $16.8946 (last 30 days)", "Remaining: not exposed by this endpoint"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("billing fallback = %q, want it to contain %q", got, want)
+		}
+	}
+}
+
+func TestGenericFallback_RealLimit(t *testing.T) {
+	c := newBalanceTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/subscription"):
+			w.Write([]byte(`{"object":"billing_subscription","hard_limit_usd":100}`))
+		case strings.HasSuffix(r.URL.Path, "/usage"):
+			w.Write([]byte(`{"object":"list","total_usage":2500}`))
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	got := genericBalance(c, "relay", "all")
+	for _, want := range []string{"Used: $25.0000", "Limit: $100.0000", "Remain: $75.0000"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("billing fallback = %q, want it to contain %q", got, want)
+		}
+	}
+}
+
+func TestGenericFallback_NoBillingAPI(t *testing.T) {
+	c := newBalanceTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	})
+	if got := genericBalance(c, "unknown", "all"); !strings.Contains(got, "not available") {
+		t.Errorf("balance = %q, want the console pointer", got)
+	}
+}
+
 func TestAPIMartSections(t *testing.T) {
 	c := newBalanceTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/user/balance") {
