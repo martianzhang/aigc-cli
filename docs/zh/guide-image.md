@@ -65,7 +65,7 @@ aigc-cli image < prompt.txt
 | Agnes image 2.1 Flash | `2K@16:9`（或 `--size 2K --ratio 16:9`） | 2.1 支持档位化尺寸：档位 + 宽高比 |
 | ModelScope | `1024x768`（像素） | 仅像素 |
 | APIMart | `16:9`、`1024x1024`（另加 `--resolution 1k/2k/4k`） | 档位通过 `--resolution` 传递 |
-| Gemini | `1024x1024`（像素） | CLI 从像素尺寸推导 `aspect_ratio` |
+| Gemini | `1024x1024`（像素）、`16:9`（比例）、`2K`（档位）、`2K@16:9`（组合） | 映射为 `aspect_ratio` + `image_size`；支持的比例为 `1:1`、`1:4`、`1:8`、`2:3`、`3:2`、`3:4`、`4:1`、`4:3`、`4:5`、`5:4`、`8:1`、`9:16`、`16:9`、`21:9` |
 
 `--ratio` 是 `@` 后缀的替代写法，OpenRouter（映射为 `aspect_ratio`；与像素 `size` 冲突时以 `ratio` 为准）和 Agnes（映射为 `extra_body.ratio`）均支持。
 

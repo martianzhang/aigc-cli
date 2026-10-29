@@ -75,14 +75,11 @@ func GeminiImageBody(req *types.GenerateRequest) (any, error) {
 		input = append(input, geminiImageItem(ref))
 	}
 
-	respFormat := &geminiResponseFormat{Type: "image"}
-
-	if req.Size != "" {
-		parts := strings.Split(req.Size, "x")
-		if len(parts) == 2 {
-			w, h := parts[0], parts[1]
-			respFormat.AspectRatio = simplifyRatio(w, h)
-		}
+	aspectRatio, imageSize := geminiImageFormat(req.Size, req.Ratio)
+	respFormat := &geminiResponseFormat{
+		Type:        "image",
+		AspectRatio: aspectRatio,
+		ImageSize:   imageSize,
 	}
 
 	return req.BodyOrRaw(&geminiInteractionsRequest{
@@ -185,20 +182,4 @@ func (c *Client) parseGeminiResponse(body []byte) (*types.OpenAIImageResponse, e
 	}
 
 	return &types.OpenAIImageResponse{Data: data}, nil
-}
-
-func simplifyRatio(w, h string) string {
-	ratios := map[string]string{
-		"1024:1024": "1:1", "2048:2048": "1:1",
-		"1024:1536": "2:3", "1536:1024": "3:2",
-		"1024:1365": "3:4", "1365:1024": "4:3",
-		"1024:1280": "4:5", "1280:1024": "5:4",
-		"1024:1820": "9:16", "1820:1024": "16:9",
-		"1024:2401": "21:9", "2401:1024": "9:21",
-	}
-	key := w + ":" + h
-	if r, ok := ratios[key]; ok {
-		return r
-	}
-	return "1:1"
 }

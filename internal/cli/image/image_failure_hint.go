@@ -116,7 +116,7 @@ func staticSizeForms(t provider.Type) string {
 	case provider.Agnes:
 		return "image 2.0: pixels (1024x768); image 2.1: --size 2K@16:9 (or --size 2K --ratio 16:9)"
 	case provider.Gemini:
-		return "pixels (1024x1024); the CLI derives aspect_ratio from pixels"
+		return "pixels (1024x1024), ratio (16:9), or tier (2K); maps to aspect_ratio + image_size"
 	case provider.ModelScope:
 		return "pixels only (e.g. 1024x768)"
 	case provider.Zeekai, provider.OpenLux, provider.Bailian, provider.Pollinations, provider.OpenAI:

@@ -94,7 +94,7 @@ func TestStaticSizeHint(t *testing.T) {
 	}{
 		{"apimart", provider.APIMart, "--resolution 1k/2k/4k"},
 		{"agnes", provider.Agnes, "2K@16:9"},
-		{"gemini", provider.Gemini, "derives aspect_ratio"},
+		{"gemini", provider.Gemini, "aspect_ratio + image_size"},
 		{"modelscope", provider.ModelScope, "pixels only"},
 		{"openai", provider.OpenAI, "ratio (16:9)"},
 	}

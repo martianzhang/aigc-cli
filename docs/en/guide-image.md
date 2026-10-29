@@ -44,7 +44,7 @@ The `--size` flag accepts four forms: `<ratio>` (e.g. `16:9`), `<pixels>` (e.g. 
 | Agnes image 2.1 Flash | `2K@16:9` (or `--size 2K --ratio 16:9`) | 2.1 supports tiered sizing: tier + ratio |
 | ModelScope | `1024x768` (pixels) | pixels only |
 | APIMart | `16:9`, `1024x1024` (+ `--resolution 1k/2k/4k`) | the tier goes through `--resolution` |
-| Gemini | `1024x1024` (pixels) | the CLI derives `aspect_ratio` from the pixel size |
+| Gemini | `1024x1024` (pixels), `16:9` (ratio), `2K` (tier), `2K@16:9` (compound) | maps to `aspect_ratio` + `image_size`; supported ratios are `1:1`, `1:4`, `1:8`, `2:3`, `3:2`, `3:4`, `4:1`, `4:3`, `4:5`, `5:4`, `8:1`, `9:16`, `16:9`, `21:9` |
 
 `--ratio` is an alternative to the `@` suffix and is honored by OpenRouter (mapped to `aspect_ratio`; a ratio overrides a conflicting pixel `size`) and Agnes (mapped to `extra_body.ratio`).
 
