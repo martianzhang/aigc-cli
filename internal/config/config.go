@@ -62,11 +62,7 @@ func Load(customPath string) (*types.Config, error) {
 		return nil, err
 	}
 
-	// Set default API base if not configured
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = types.DefaultAPIBaseURL
-	}
-
+	// Leave BaseURL empty when unset: there is no built-in provider default.
 	return cfg, nil
 }
 

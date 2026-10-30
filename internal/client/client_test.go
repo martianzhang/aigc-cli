@@ -129,6 +129,7 @@ func TestNormalizeBaseURL(t *testing.T) {
 		{"bare host gains v1", "https://api.zeekai.cc", "https://api.zeekai.cc/v1"},
 		{"trailing slash trimmed", "https://api.zeekai.cc/", "https://api.zeekai.cc/v1"},
 		{"versioned trailing slash trimmed", "https://api.openai.com/v1/", "https://api.openai.com/v1"},
+		{"empty stays empty", "", ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -139,10 +140,20 @@ func TestNormalizeBaseURL(t *testing.T) {
 	}
 }
 
-func TestNew_DefaultAPIBaseURL(t *testing.T) {
+func TestNew_NoDefaultBaseURL(t *testing.T) {
 	c := New("test-key", "", "")
-	if c.baseURL != types.DefaultAPIBaseURL+"/v1" {
-		t.Errorf("New() with empty baseURL = %q, want %q", c.baseURL, types.DefaultAPIBaseURL+"/v1")
+	if c.baseURL != "" {
+		t.Errorf("New() with empty baseURL = %q, want empty (no built-in provider default)", c.baseURL)
+	}
+}
+
+func TestRequestsFailWithoutBaseURL(t *testing.T) {
+	c := New("test-key", "", "")
+	if _, err := c.ChatCompletion(&types.ChatRequest{Model: "m", Messages: []types.ChatMessage{{Role: "user", Content: "hi"}}}); err != ErrNoBaseURL {
+		t.Fatalf("ChatCompletion() error = %v, want ErrNoBaseURL", err)
+	}
+	if _, err := c.ListModelsOpenAI(); err != ErrNoBaseURL {
+		t.Fatalf("ListModelsOpenAI() error = %v, want ErrNoBaseURL", err)
 	}
 }
 

@@ -16,6 +16,9 @@ import (
 // AudioSpeech sends a text-to-speech request and returns the audio data as bytes
 // along with the response Content-Type. The response is raw binary audio, not JSON.
 func (c *Client) AudioSpeech(req *types.AudioSpeechRequest) ([]byte, string, error) {
+	if err := c.requireBaseURL(); err != nil {
+		return nil, "", err
+	}
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to marshal request: %w", err)
@@ -63,6 +66,9 @@ func (c *Client) AudioTranscribe(req *types.AudioTranscribeRequest) (*types.Audi
 // AudioTranscribeMultipart sends a speech-to-text request using multipart/form-data,
 // compatible with the OpenAI SDK file upload format. filePath must be a local audio file.
 func (c *Client) AudioTranscribeMultipart(model, filePath, language string) (*types.AudioTranscribeResponse, error) {
+	if err := c.requireBaseURL(); err != nil {
+		return nil, err
+	}
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open audio file: %w", err)

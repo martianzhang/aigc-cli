@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -97,6 +98,21 @@ func (c *Client) WithContext(ctx context.Context) *Client {
 // requestContext returns the client's context or context.Background().
 func (c *Client) requestContext() context.Context {
 	return c.GetContext()
+}
+
+// ErrNoBaseURL is returned when a request is attempted before an API base URL
+// was configured. There is no built-in provider default, so the error tells the
+// user how to supply one.
+var ErrNoBaseURL = errors.New("API base URL is not configured: pass --api-base, set OPENAI_BASE_URL, or configure providers.<name>.base_url")
+
+// requireBaseURL guards request construction: an empty base URL would otherwise
+// become the relative path "/v1/..." and fail with an opaque
+// "unsupported protocol scheme" error.
+func (c *Client) requireBaseURL() error {
+	if c.baseURL == "" {
+		return ErrNoBaseURL
+	}
+	return nil
 }
 
 // GetContext returns the client's context or context.Background().

@@ -83,7 +83,7 @@ func TestResolveProvider_UnknownRefStillFallsBack(t *testing.T) {
 	if p.Type == types.ProviderSomark {
 		t.Fatalf("unknown provider must not resolve to somark: %+v", p)
 	}
-	if p.BaseURL != types.DefaultAPIBaseURL {
-		t.Errorf("BaseURL = %q, want global default", p.BaseURL)
+	if p.BaseURL != "" {
+		t.Errorf("BaseURL = %q, want empty (no built-in provider default)", p.BaseURL)
 	}
 }

@@ -50,6 +50,9 @@ func buildMJCurl(action string, reqBody any) string {
 
 // runMJSubmitAndPoll submits an MJ action, polls, and displays results.
 func runMJSubmitAndPoll(c client.APIClient, action string, req any) error {
+	if err := options.RequireBaseURL("midjourney", options.Shared.ResolveProvider(options.ProviderNameMidjourney)); err != nil {
+		return err
+	}
 	if err := applyMJInject(req); err != nil {
 		return err
 	}

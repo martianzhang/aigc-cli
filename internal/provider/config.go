@@ -60,14 +60,13 @@ type GlobalConfig struct {
 //  1. CLIOverride (--api-key / --api-base) — if non-empty, skip all config
 //  2. defaults.{cmd}.provider → providers.{name}
 //  3. GlobalConfig (top-level api_key / base_url)
-//  4. Built-in defaults (APIMart base URL, empty API key)
+//  4. Nothing: BaseURL may be empty, meaning "not configured"
 //
 // providerRef is the value of defaults.{cmd}.provider (e.g. "my-openrouter").
 // namedProviders is the full providers map from config.
 //
-// The returned BaseURL is always non-empty — the built-in default is applied
-// when neither CLI flags, named provider, nor global config supply one, so
-// callers must not add their own empty-BaseURL fallback.
+// BaseURL is deliberately not defaulted to any vendor: callers must validate
+// it (options.RequireAPIKey / options.RequireBaseURL) before issuing a request.
 func ResolveCmdProvider(
 	cli *CLIOverride,
 	providerRef string,
@@ -76,10 +75,7 @@ func ResolveCmdProvider(
 ) *EffectiveProvider {
 	// 1. CLI override — if explicitly set, skip all config
 	if cli != nil && (cli.APIKey != "" || cli.BaseURL != "") {
-		baseURL := cli.BaseURL
-		if baseURL == "" {
-			baseURL = firstNonEmpty(global.BaseURL, types.DefaultAPIBaseURL)
-		}
+		baseURL := firstNonEmpty(cli.BaseURL, global.BaseURL)
 		return finalizeProvider(&EffectiveProvider{
 			APIKey:       cli.APIKey,
 			BaseURL:      baseURL,
@@ -95,7 +91,7 @@ func ResolveCmdProvider(
 		if named, ok := namedProviders[providerRef]; ok {
 			// Endpoint precedence: explicit base_url > the type's canonical
 			// hosted endpoint > global base_url > built-in default.
-			baseURL := firstNonEmpty(named.BaseURL, builtinBaseURL(named.Type), global.BaseURL, types.DefaultAPIBaseURL)
+			baseURL := firstNonEmpty(named.BaseURL, builtinBaseURL(named.Type), global.BaseURL)
 			ep := &EffectiveProvider{
 				Name:         providerRef,
 				Type:         named.Type,
@@ -127,7 +123,7 @@ func ResolveCmdProvider(
 	}
 
 	// 3. Global fallback
-	baseURL := firstNonEmpty(global.BaseURL, types.DefaultAPIBaseURL)
+	baseURL := global.BaseURL
 	return finalizeProvider(&EffectiveProvider{
 		APIKey:       global.APIKey,
 		BaseURL:      baseURL,

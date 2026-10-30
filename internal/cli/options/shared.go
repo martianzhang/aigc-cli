@@ -88,7 +88,7 @@ func (s *SharedConfig) ResolveNamedProvider(name string) *provider.EffectiveProv
 //  1. CLI flags (--api-key / --api-base) — if set, skip all config
 //  2. defaults.{cmd}.provider → providers.{name}
 //  3. Global config (top-level api_key / base_url)
-//  4. Built-in defaults (APIMart)
+//  4. Nothing: BaseURL may be empty ("not configured")
 func (s *SharedConfig) ResolveProvider(cmdName string) *provider.EffectiveProvider {
 	var cli *provider.CLIOverride
 	if s.APIKeySet || s.APIBaseSet {

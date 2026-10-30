@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 func TestLoad_customFile(t *testing.T) {
@@ -163,8 +161,8 @@ func TestLoad_missingDefaultFileUsesDefaults(t *testing.T) {
 	if cfg == nil {
 		t.Fatal("cfg should not be nil")
 	}
-	if cfg.BaseURL != types.DefaultAPIBaseURL {
-		t.Errorf("BaseURL = %q, want %q", cfg.BaseURL, types.DefaultAPIBaseURL)
+	if cfg.BaseURL != "" {
+		t.Errorf("BaseURL = %q, want empty (no built-in provider default)", cfg.BaseURL)
 	}
 }
 
@@ -194,9 +192,9 @@ func TestLoad_minimalConfig(t *testing.T) {
 	if cfg.APIKey != "sk-minimal" {
 		t.Errorf("APIKey = %q", cfg.APIKey)
 	}
-	// Default baseURL should be set
-	if cfg.BaseURL == "" {
-		t.Error("BaseURL should have a default value")
+	// No built-in base URL: an unset value stays empty.
+	if cfg.BaseURL != "" {
+		t.Errorf("BaseURL = %q, want empty", cfg.BaseURL)
 	}
 }
 

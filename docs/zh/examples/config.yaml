@@ -18,6 +18,8 @@ api_key: enc:v1:xTvA5Luio1XZRZZOdCye7wfFfsMKCYgQGvTdFjBPxzFlHdxCwxZJKL1BCR9Q
 # APIMart:    https://api.apimart.ai
 # Ollama:    http://localhost:11434 （无需 API Key）
 # 任意中转:   https://your-relay.com/v1
+# 注意：CLI 不内置默认 API 地址，这里以 APIMart 为例显式配置；
+# 改用其他 Provider 时替换为上面的地址之一。
 base_url: "https://api.apimart.ai"
 # HTTP proxy (can also be set via HTTP_PROXY / HTTPS_PROXY env vars, or --http-proxy CLI flag)
 # Use the --no-proxy CLI flag to bypass this setting for a single run.

@@ -118,6 +118,9 @@ func (c *Client) GeminiImageGenerate(req *types.GenerateRequest) (*types.OpenAII
 }
 
 func (c *Client) doGeminiRequest(method, path string, reqBody any) ([]byte, error) {
+	if err := c.requireBaseURL(); err != nil {
+		return nil, err
+	}
 	var bodyReader io.Reader
 	if reqBody != nil {
 		data, err := json.Marshal(reqBody)

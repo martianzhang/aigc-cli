@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 )
 
 // ============================================================================
@@ -20,6 +22,9 @@ Example:
 	Args: cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		taskID := args[0]
+		if err := options.RequireBaseURL("music", options.Shared.ResolveProvider(options.ProviderNameMusic)); err != nil {
+			return err
+		}
 		c := newMusicClient()
 		task, err := c.MusicGetTask(taskID)
 		if err != nil {

@@ -281,9 +281,12 @@ OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io
 
 | 条件 | 路由目标 | 端点 |
 |---|---|---|
-| OpenRouter + `--type image/video` | OpenRouter 模型发现 | `GET /v1/images\|videos/models` |
-| 其他 + `--type` / `--price` | APIMart 市场 | `GET /api/marketplace/models` |
-| 默认（无参数） | OpenAI 兼容 | `GET /v1/models` |
+| OpenRouter + `--type` / `--price` | OpenRouter 模型发现 | `GET /v1/models`、`GET /v1/images\|videos/models`、`GET /v1/model/{author}/{slug}` |
+| APIMart 域名 + `--type` / `--price` | APIMart 市场与定价 | `GET /api/marketplace/models`、`GET /api/pricing/model` |
+| 其他 Provider + `--type` / `--price` | 报错（没有模型目录接口） | — |
+| 任意 Provider（无 `--type`） | OpenAI 兼容模型列表 | `GET /v1/models` |
+
+> CLI 不内置默认 API 地址；未配置 provider / `base_url` / `--api-base` 时命令直接报错。
 
 ---
 

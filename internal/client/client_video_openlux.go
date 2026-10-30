@@ -36,6 +36,9 @@ func OpenLuxVideoBody(req *types.VideoGenerateRequest) (any, error) {
 
 // OpenLuxVideoSubmit sends a video generation request to api.openlux.ai's POST /v1/video/create.
 func (c *Client) OpenLuxVideoSubmit(req *types.VideoGenerateRequest) (*types.OpenLuxVideoCreateResponse, error) {
+	if err := c.requireBaseURL(); err != nil {
+		return nil, err
+	}
 	reqBody, err := OpenLuxVideoBody(req)
 	if err != nil {
 		return nil, err

@@ -213,7 +213,9 @@ echo 'source <(aigc-cli completion bash)' >> ~/.bashrc
 |---|---|---|---|
 | APIMart 域名 | `GET /api/marketplace/models?type=...`（image / video / chat） | APIMart 定价 API | `GET /v1/models` |
 | OpenRouter 域名 | `GET /v1/models?output_modalities=<类型>`（支持全部输出模态）；image / video 改走 `GET /v1/images\|videos/models` 以展示分辨率、宽高比与参数范围 | 单模型记录 `GET /v1/model/{author}/{slug}`（含定价） | `GET /v1/models` |
-| 其他（OpenAI 等） | `GET /api/marketplace/models`（APIMart 市场；仅 image / video / chat） | APIMart 定价 API | `GET /v1/models` |
+| 其他（OpenAI / ModelScope / 中转等） | 报错：该 Provider 没有模型目录接口 | 报错：仅 APIMart / OpenRouter 支持 | `GET /v1/models` |
+
+> CLI 不内置默认 API 地址：未配置 `providers.<name>.base_url`、全局 `base_url` 或 `--api-base` 时，`models` 会直接报错并提示如何配置。`--type` / `--price` 只对 APIMart 和 OpenRouter 生效；其他 Provider（如 ModelScope）请省略 `--type`，直接列出其 `/v1/models`。
 
 ```bash
 # 自动选择数据源

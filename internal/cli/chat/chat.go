@@ -168,6 +168,9 @@ func runChat(cmd *cobra.Command, args []string) error {
 	rt := newToolRuntime(chatCfg, mcpMgr)
 
 	p := options.Shared.ResolveProvider(options.ProviderNameChat)
+	if err := options.RequireBaseURL("chat", p); err != nil {
+		return err
+	}
 	c := client.NewFromProvider(p)
 	err = runAgentLoopWithSession(ctx, c, rt, &history, maxIterations, cmd, p, sess, sessionToolOutputMax(chatCfg))
 	if err != nil {

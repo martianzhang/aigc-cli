@@ -51,9 +51,6 @@ func providerRows(providers map[string]*types.NamedProvider, fallbackBase string
 		if base == "" {
 			base = fallbackBase
 		}
-		if base == "" {
-			base = types.DefaultAPIBaseURL
-		}
 		row.host = hostOf(base)
 		switch {
 		case provider.IsLocalEndpoint(base):
@@ -128,9 +125,6 @@ func missingKey(p *provider.EffectiveProvider) bool {
 // error, so the user can pick one without opening config.yaml.
 func noKeyFallback(p *provider.EffectiveProvider) error {
 	base := p.BaseURL
-	if base == "" {
-		base = types.DefaultAPIBaseURL
-	}
 	fmt.Printf("No API key for models (resolved base URL: %s).\n\n", base)
 
 	rows := providerRows(d.Providers, d.APIBase)

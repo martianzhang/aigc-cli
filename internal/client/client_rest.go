@@ -37,8 +37,12 @@ func HasVersionSuffix(urlStr string) bool {
 }
 
 // NormalizeBaseURL trims trailing slashes and appends the default /v1
-// version segment when the URL carries no version segment.
+// version segment when the URL carries no version segment. An empty URL stays
+// empty so a missing provider configuration never turns into a relative "/v1".
 func NormalizeBaseURL(baseURL string) string {
+	if baseURL == "" {
+		return ""
+	}
 	baseURL = strings.TrimRight(baseURL, "/")
 	if !HasVersionSuffix(baseURL) {
 		baseURL += "/v1"
@@ -86,6 +90,9 @@ func (c *Client) doJSON(path string, body, result any) error {
 
 // doJSONWithHeaders is like doJSON but with additional HTTP headers.
 func (c *Client) doJSONWithHeaders(path string, body, result any, extraHeaders map[string]string) error {
+	if err := c.requireBaseURL(); err != nil {
+		return err
+	}
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -145,6 +152,9 @@ func (c *Client) doJSONWithHeaders(path string, body, result any, extraHeaders m
 // bodies that doJSON (JSON-only) cannot express. extraHeaders are applied on top
 // of the client's default headers.
 func (c *Client) doBytes(method, path, contentType string, body []byte, result any, extraHeaders map[string]string) error {
+	if err := c.requireBaseURL(); err != nil {
+		return err
+	}
 	httpReq, err := http.NewRequestWithContext(c.requestContext(), method, c.baseURL+path, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -286,6 +296,9 @@ func (c *Client) doJSONAbsolute(method, rawURL string, body, result any, extraHe
 
 // doGetWithHeaders is like doGet but with additional HTTP headers.
 func (c *Client) doGetWithHeaders(path string, result any, extraHeaders map[string]string) error {
+	if err := c.requireBaseURL(); err != nil {
+		return err
+	}
 	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)

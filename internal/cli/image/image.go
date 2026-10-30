@@ -93,6 +93,9 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	// ----- Resolve provider (named provider > global > builtin) -----
 	// Resolved before defaults so edit-mode defaults can depend on the provider.
 	p := options.Shared.ResolveProvider(options.ProviderNameImage)
+	if err := options.RequireBaseURL("image", p); err != nil {
+		return err
+	}
 	isAPIMart := options.IsAPIMartProvider(p)
 	isOpenRouter := p.ProviderType == provider.OpenRouter
 	isAgnes := p.ProviderType == provider.Agnes

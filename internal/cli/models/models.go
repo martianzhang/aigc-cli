@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -61,11 +62,14 @@ Model detail: pass the model name as an argument or via --model/-m.
   aigc-cli models --model gpt-4o
 
 Type filter:
-  --type, -t <type>      Filter by model type. OpenRouter supports every
-                         output modality: text (chat), image, video, audio,
-                         speech (tts), transcription (stt), embeddings,
-                         rerank, decisions, all. APIMart supports image,
-                         video and chat.
+  --type, -t <type>      Filter by model type. Requires a provider with a
+                         catalog API: OpenRouter supports every output
+                         modality (text/chat, image, video, audio, speech,
+                         transcription, embeddings, rerank, decisions, all);
+                         APIMart supports image, video and chat. Other
+                         OpenAI-compatible providers (ModelScope, relays, …)
+                         fail with a clear error — omit --type to list their
+                         /v1/models instead.
 
 Fuzzy search:
   --like <text>          Only list models whose id or name contains <text>
@@ -75,8 +79,9 @@ Fuzzy search:
 Default provider:
   OpenRouter when it is configured (its catalogs expose per-model sizing
   metadata: aspect ratios, resolution tiers, parameter ranges). Override with
-  --provider or --api-base; without an OpenRouter provider the global
-  base_url is used.
+  --provider or --api-base. There is no built-in API base URL: configure
+  providers.<name>.base_url or the global base_url, otherwise commands fail
+  with an actionable error.
 
 Pricing:
   --price [model]        Show the pricing column, or one model's pricing.
@@ -126,7 +131,11 @@ func runModels(cmd *cobra.Command, args []string) error {
 	}
 
 	p := d.ResolveProvider("models")
+	if err := options.RequireBaseURL("models", p); err != nil {
+		return err
+	}
 	isOpenRouter := p.ProviderType == provider.OpenRouter
+	isAPIMart := p.ProviderType == provider.APIMart
 
 	// The --type flag wins; otherwise a positional value may name a type.
 	mediaType := modelType
@@ -169,19 +178,16 @@ func runModels(cmd *cobra.Command, args []string) error {
 				// these models.
 				return runModelsDetail(priceModel, p)
 			}
-			return runModelsPricing(priceModel)
+			if !isAPIMart {
+				return errNoCatalog(p)
+			}
+			return runModelsPricing(priceModel, p.BaseURL)
 		}
-		if isOpenRouter {
-			return runModelsOpenRouterDiscovery(p, mediaType)
-		}
-		return runModelsMarketplace(mediaType)
+		return runModelsCatalog(p, mediaType, isOpenRouter, isAPIMart)
 	}
 
 	if modelType != "" {
-		if isOpenRouter {
-			return runModelsOpenRouterDiscovery(p, mediaType)
-		}
-		return runModelsMarketplace(mediaType)
+		return runModelsCatalog(p, mediaType, isOpenRouter, isAPIMart)
 	}
 
 	// Both the plain listing and single-model detail call /v1/models, which
@@ -196,13 +202,41 @@ func runModels(cmd *cobra.Command, args []string) error {
 	}
 
 	if mediaType != "" {
-		if isOpenRouter {
-			return runModelsOpenRouterDiscovery(p, mediaType)
-		}
-		return runModelsMarketplace(mediaType)
+		return runModelsCatalog(p, mediaType, isOpenRouter, isAPIMart)
 	}
 
 	return runModelsOpenAI(p)
+}
+
+// runModelsCatalog dispatches a --type listing. Only OpenRouter and APIMart
+// expose dedicated catalog endpoints; every other OpenAI-compatible provider
+// (ModelScope, relays, …) would otherwise silently query APIMart's marketplace.
+func runModelsCatalog(p *provider.EffectiveProvider, mediaType string, isOpenRouter, isAPIMart bool) error {
+	switch {
+	case isOpenRouter:
+		return runModelsOpenRouterDiscovery(p, mediaType)
+	case isAPIMart:
+		return runModelsMarketplace(mediaType, p.BaseURL)
+	default:
+		return errNoCatalog(p)
+	}
+}
+
+// errNoCatalog reports that the resolved provider has no model catalog, instead
+// of falling back to an unrelated provider's marketplace API.
+func errNoCatalog(p *provider.EffectiveProvider) error {
+	target := "this endpoint"
+	if p != nil && p.Name != "" {
+		target = fmt.Sprintf("provider %q", p.Name)
+	}
+	typ := provider.Unknown
+	if p != nil {
+		typ = p.ProviderType
+	}
+	return fmt.Errorf(
+		"%s (%s) does not expose a model catalog: --type and --price require an APIMart or OpenRouter provider; use --provider apimart / --provider openrouter, or omit --type to list its OpenAI-compatible /v1/models",
+		target, typ,
+	)
 }
 
 // matchesLike reports whether any of the given strings contains the --like

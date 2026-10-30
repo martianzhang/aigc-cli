@@ -169,6 +169,9 @@ type responsesUsage struct {
 // ---------------------------------------------------------------------------
 
 func (c *Client) responsesChatCompletion(req *types.ChatRequest) (*types.ChatResponse, error) {
+	if err := c.requireBaseURL(); err != nil {
+		return nil, err
+	}
 	body, err := ResponsesBody(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal responses request: %w", err)

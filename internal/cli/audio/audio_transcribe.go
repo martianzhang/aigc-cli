@@ -23,6 +23,9 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 	if isLocalAudioMode(p) {
 		return runLocalAudioTranscribe(cmd)
 	}
+	if err := options.RequireBaseURL("audio", p); err != nil {
+		return err
+	}
 
 	if audioTranscribeModel == "" {
 		if cfg := options.AudioDefaults(); cfg != nil {

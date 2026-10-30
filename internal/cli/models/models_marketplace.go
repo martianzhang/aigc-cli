@@ -12,14 +12,11 @@ import (
 )
 
 // runModelsMarketplace fetches models from the APIMart marketplace API.
-// The marketplace is a public API (no auth required).
-func runModelsMarketplace(mediaType string) error {
+// The marketplace is a public API (no auth required). base is the resolved
+// provider's base URL — only call this after confirming the provider is APIMart.
+func runModelsMarketplace(mediaType, base string) error {
 	if mediaType != "" && !marketplaceTypes[mediaType] {
 		return fmt.Errorf("unknown model type %q for this provider; supported: image, video, chat (use --provider openrouter for text, audio, speech, transcription, embeddings, rerank, decisions or all)", mediaType)
-	}
-	base := d.APIBase
-	if base == "" {
-		base = types.DefaultAPIBaseURL
 	}
 	base = strings.TrimRight(base, "/")
 	base = strings.TrimSuffix(base, "/v1")
@@ -142,8 +139,8 @@ func runModelsMarketplace(mediaType string) error {
 }
 
 // runModelsPricing fetches and displays detailed pricing for a single model.
-func runModelsPricing(modelName string) error {
-	base := mainDomain(d.APIBase)
+func runModelsPricing(modelName, baseURL string) error {
+	base := mainDomain(baseURL)
 	pricingURL := base + "/api/pricing/model?model=" + modelName
 
 	printAPIURL(pricingURL)
@@ -222,7 +219,7 @@ func runModelsPricing(modelName string) error {
 // e.g. "https://api.apimart.ai" → "https://apimart.ai"
 func mainDomain(baseURL string) string {
 	if baseURL == "" {
-		baseURL = types.DefaultAPIBaseURL
+		return ""
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 	baseURL = strings.TrimSuffix(baseURL, "/v1")

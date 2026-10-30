@@ -22,12 +22,12 @@ func New(apiKey, baseURL, proxyURL string) *Client {
 
 // NewWithProvider creates a new API client with the given provider type.
 func NewWithProvider(apiKey, baseURL, proxyURL string, providerType types.ProviderType) *Client {
-	if baseURL == "" {
-		baseURL = types.DefaultAPIBaseURL
-	}
 	// Normalize: if baseURL doesn't already end with a version path segment like
 	// /v1, /v2, /v3, append "/v1" as the default API version for backward
 	// compatibility (e.g. bare "https://api.openai.com" → "https://api.openai.com/v1").
+	// An empty baseURL stays empty: there is no built-in provider default, and
+	// request helpers surface a clear configuration error instead of dialing a
+	// relative URL.
 	baseURL = NormalizeBaseURL(baseURL)
 
 	transport := provider.NewTransport(proxyURL)
@@ -77,6 +77,9 @@ func (c *Client) Submit(req *types.GenerateRequest) (*types.GenerateResponse, er
 // When req.Stream is true, it prints tokens as they arrive and returns the full response.
 // When req.Stream is false, it returns the full response as-is.
 func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, error) {
+	if err := c.requireBaseURL(); err != nil {
+		return nil, err
+	}
 	// Anthropic Messages API and OpenAI Responses API use different endpoints and formats.
 	switch c.providerType {
 	case types.ProviderAnthropic:

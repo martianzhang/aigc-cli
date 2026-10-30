@@ -18,9 +18,6 @@ import (
 func buildMusicCurl(baseURL, apiKey string, body any) string {
 	bodyJSON, _ := json.Marshal(body)
 	base := strings.TrimRight(baseURL, "/")
-	if base == "" {
-		base = types.DefaultAPIBaseURL
-	}
 	if !client.HasVersionSuffix(base) {
 		base += "/v1"
 	}

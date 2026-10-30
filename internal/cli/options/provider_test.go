@@ -18,7 +18,7 @@ func TestIsAPIMartProvider_ModeOverride(t *testing.T) {
 		{"auto detects APIMart vendor", "", &provider.EffectiveProvider{BaseURL: "https://api.apimart.ai", ProviderType: provider.APIMart}, true},
 		{"auto detects APIMart from base URL", "", &provider.EffectiveProvider{BaseURL: "https://api.apimart.ai"}, true},
 		{"auto rejects non-APIMart", "", &provider.EffectiveProvider{BaseURL: "https://openrouter.ai/api/v1", ProviderType: provider.OpenRouter}, false},
-		{"nil provider falls back to default base", "", nil, true},
+		{"nil provider has no endpoint", "", nil, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

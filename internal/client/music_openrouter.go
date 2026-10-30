@@ -29,6 +29,9 @@ type openRouterMusicChunk struct {
 // completions endpoint (modalities text+audio), concatenates the base64 audio
 // chunks, and returns the decoded audio bytes plus the transcript.
 func (c *Client) OpenRouterMusicGenerate(req *types.OpenRouterMusicRequest) ([]byte, string, error) {
+	if err := c.requireBaseURL(); err != nil {
+		return nil, "", err
+	}
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to marshal request: %w", err)

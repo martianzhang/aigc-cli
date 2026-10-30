@@ -108,7 +108,7 @@ func TestResolveCmdProvider_typeDefaultBaseURL(t *testing.T) {
 	}
 	// A global OpenAI-compatible endpoint must not win over the type's own
 	// canonical endpoint.
-	global := &GlobalConfig{BaseURL: types.DefaultAPIBaseURL}
+	global := &GlobalConfig{BaseURL: "https://global.example.com/v1"}
 
 	ep := ResolveCmdProvider(nil, "doc", named, global)
 	if ep.BaseURL != SomarkBaseURL {
@@ -149,11 +149,11 @@ func TestResolveCmdProvider_GlobalFallback(t *testing.T) {
 		}
 	})
 
-	t.Run("empty global base url uses default", func(t *testing.T) {
+	t.Run("empty global base url stays empty", func(t *testing.T) {
 		global := &GlobalConfig{}
 		ep := ResolveCmdProvider(nil, "", nil, global)
-		if ep.BaseURL != types.DefaultAPIBaseURL {
-			t.Errorf("BaseURL = %q, want %q", ep.BaseURL, types.DefaultAPIBaseURL)
+		if ep.BaseURL != "" {
+			t.Errorf("BaseURL = %q, want empty (no built-in provider default)", ep.BaseURL)
 		}
 	})
 
@@ -177,7 +177,7 @@ func TestResolveCmdProvider_GlobalFallback(t *testing.T) {
 	})
 }
 
-func TestResolveCmdProvider_BaseURLNeverEmpty(t *testing.T) {
+func TestResolveCmdProvider_AllowsEmptyBaseURL(t *testing.T) {
 	tests := []struct {
 		name   string
 		cli    *CLIOverride
@@ -194,8 +194,8 @@ func TestResolveCmdProvider_BaseURLNeverEmpty(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ep := ResolveCmdProvider(tt.cli, tt.ref, tt.named, tt.global)
-			if ep.BaseURL == "" {
-				t.Fatal("BaseURL must never be empty; callers rely on this instead of a fallback")
+			if ep.BaseURL != "" {
+				t.Errorf("BaseURL = %q, want empty: there is no built-in provider default", ep.BaseURL)
 			}
 		})
 	}

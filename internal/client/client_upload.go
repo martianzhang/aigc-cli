@@ -24,6 +24,9 @@ func (c *Client) uploadClient() *http.Client {
 
 // UploadImage uploads a local image file and returns the public URL.
 func (c *Client) UploadImage(filePath string) (*types.UploadResponse, error) {
+	if err := c.requireBaseURL(); err != nil {
+		return nil, err
+	}
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)

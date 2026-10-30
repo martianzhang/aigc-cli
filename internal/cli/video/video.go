@@ -154,6 +154,9 @@ func runVideo(cmd *cobra.Command, args []string) error {
 	// Resolve provider (named provider > global > builtin). Building the plan
 	// is pure, so --dry-run stays network-free.
 	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
+	if err := options.RequireBaseURL("video", p); err != nil {
+		return err
+	}
 	plan, err := buildVideoPlan(req, p)
 	if err != nil {
 		return err

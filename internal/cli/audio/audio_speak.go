@@ -21,6 +21,9 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 	if isLocalAudioMode(p) {
 		return runLocalAudioSpeak(cmd)
 	}
+	if err := options.RequireBaseURL("audio", p); err != nil {
+		return err
+	}
 
 	req, err := buildAudioSpeechRequest()
 	if err != nil {

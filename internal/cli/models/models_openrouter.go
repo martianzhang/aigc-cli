@@ -451,9 +451,6 @@ func runModelsOpenAI(p *provider.EffectiveProvider) error {
 		return err
 	}
 	base := p.BaseURL
-	if base == "" {
-		base = "https://api.openai.com"
-	}
 	base = strings.TrimRight(base, "/")
 	if !client.HasVersionSuffix(base) {
 		base += "/v1"
@@ -520,9 +517,6 @@ func runModelsDetail(modelID string, p *provider.EffectiveProvider) error {
 	}
 
 	base := p.BaseURL
-	if base == "" {
-		base = "https://api.openai.com"
-	}
 	base = strings.TrimRight(base, "/")
 	if !client.HasVersionSuffix(base) {
 		base += "/v1"

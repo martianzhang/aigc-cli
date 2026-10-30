@@ -180,8 +180,8 @@ func TestConfigListMissingFileShowsDefaults(t *testing.T) {
 	if !strings.Contains(out, "config file not found") {
 		t.Errorf("list output does not mention the missing file:\n%s", out)
 	}
-	if !strings.Contains(out, "base_url: https://api.apimart.ai") {
-		t.Errorf("list output does not show code defaults:\n%s", out)
+	if strings.Contains(out, "base_url:") {
+		t.Errorf("list output must not invent a base_url:\n%s", out)
 	}
 }
 

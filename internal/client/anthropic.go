@@ -21,6 +21,9 @@ const (
 // anthropicChatCompletion handles chat via the Anthropic Messages API (/v1/messages).
 // Converted from the standard ChatRequest to Anthropic format and back.
 func (c *Client) anthropicChatCompletion(req *types.ChatRequest) (*types.ChatResponse, error) {
+	if err := c.requireBaseURL(); err != nil {
+		return nil, err
+	}
 	body, err := AnthropicChatBody(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal anthropic request: %w", err)

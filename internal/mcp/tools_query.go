@@ -26,7 +26,10 @@ func listModelsHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		mediaType := request.GetString("type", "")
 
-		models, err := fetchModels("", mediaType, "")
+		// The list_models tool is backed by APIMart's public marketplace: that
+		// endpoint is APIMart-specific, so pin it explicitly instead of relying
+		// on a global default API base.
+		models, err := fetchModels("https://api.apimart.ai", mediaType, "")
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to fetch models: %v", err)), nil
 		}
@@ -270,7 +273,7 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 // fetchModels gets models from the marketplace API.
 func fetchModels(baseURL, mediaType, _ string) ([]types.MarketplaceModel, error) {
 	if baseURL == "" {
-		baseURL = types.DefaultAPIBaseURL
+		return nil, fmt.Errorf("marketplace base URL is required")
 	}
 	baseURL = strings.TrimRight(baseURL, "/")
 	baseURL = strings.TrimSuffix(baseURL, "/v1") // marketplace API doesn't use /v1 prefix

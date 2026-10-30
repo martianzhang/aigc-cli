@@ -183,8 +183,8 @@ api_key: enc:v1:8jjcyC8N4it1sd0ig-xLkmAY47HDqPuXZkWLOr-vuUNqx0Tkd8POFfdq5tl1
 ```yaml
 api_key: "sk-xxx"
 
-# API 地址（默认 https://api.apimart.ai）
-# base_url: "https://api.apimart.ai"
+# API 地址（必填：CLI 不再内置默认地址）
+# base_url: "https://api.openai.com/v1"
 
 # 生成模式：auto（自动检测）、sync（同步）、async（异步任务）
 # 默认 auto，会根据 base_url 自动识别

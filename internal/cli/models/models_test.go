@@ -110,7 +110,7 @@ func TestMainDomain(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"", "https://apimart.ai"},
+		{"", ""},
 		{"https://api.apimart.ai", "https://apimart.ai"},
 		{"https://api.apimart.ai/v1", "https://apimart.ai"},
 		{"https://custom.api.com", "https://custom.api.com"},
@@ -322,7 +322,7 @@ func TestRunModelsOpenRouterUnknownType(t *testing.T) {
 }
 
 func TestRunModelsMarketplaceUnknownType(t *testing.T) {
-	err := runModelsMarketplace("speech")
+	err := runModelsMarketplace("speech", "https://api.apimart.ai")
 	if err == nil || !strings.Contains(err.Error(), "unknown model type") {
 		t.Fatalf("runModelsMarketplace() error = %v, want unknown-type error", err)
 	}
@@ -631,8 +631,8 @@ func TestModelsDryRunMakesNoRequests(t *testing.T) {
 			or := &provider.EffectiveProvider{BaseURL: srv.URL + "/api/v1", APIKey: "sk-test", ProviderType: provider.OpenRouter}
 			return runModelsOpenRouterDetail("openai/gpt-4o", or)
 		}, "curl -X GET " + srv.URL + "/api/v1/model/openai/gpt-4o"},
-		{"marketplace", func() error { return runModelsMarketplace("image") }, "curl -X GET " + srv.URL + "/api/marketplace/models"},
-		{"pricing", func() error { return runModelsPricing("gpt-4o") }, "curl -X GET " + srv.URL + "/api/pricing/model?model=gpt-4o"},
+		{"marketplace", func() error { return runModelsMarketplace("image", srv.URL) }, "curl -X GET " + srv.URL + "/api/marketplace/models"},
+		{"pricing", func() error { return runModelsPricing("gpt-4o", srv.URL) }, "curl -X GET " + srv.URL + "/api/pricing/model?model=gpt-4o"},
 	}
 
 	for _, tc := range cases {
@@ -682,6 +682,75 @@ func TestHostOf(t *testing.T) {
 		if got := hostOf(tc.in); got != tc.want {
 			t.Errorf("hostOf(%q) = %q, want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func TestRunModelsTypeRequiresCatalogProvider(t *testing.T) {
+	resetModelsFlags(t)
+	p := &provider.EffectiveProvider{
+		Name:         "modelscope",
+		BaseURL:      "https://api-inference.modelscope.cn/v1",
+		APIKey:       "sk-test",
+		ProviderType: provider.ModelScope,
+	}
+	d = Deps{ResolveProvider: func(string) *provider.EffectiveProvider { return p }}
+
+	cmd := NewCommand(func() Deps { return d })
+	cmd.SetArgs([]string{"--type", "image"})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "does not expose a model catalog") {
+		t.Fatalf("execute() error = %v, want no-catalog error", err)
+	}
+	if !strings.Contains(err.Error(), `provider "modelscope"`) {
+		t.Errorf("error = %q, want the provider name", err)
+	}
+}
+
+func TestRunModelsRequiresBaseURL(t *testing.T) {
+	resetModelsFlags(t)
+	p := &provider.EffectiveProvider{APIKey: "sk-test", ProviderType: provider.Unknown}
+	d = Deps{ResolveProvider: func(string) *provider.EffectiveProvider { return p }}
+
+	cmd := NewCommand(func() Deps { return d })
+	cmd.SetArgs([]string{"--type", "image"})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "no API base URL") {
+		t.Fatalf("execute() error = %v, want missing-base-url error", err)
+	}
+}
+
+func TestRunModelsMarketplaceUsesResolvedProviderBase(t *testing.T) {
+	resetModelsFlags(t)
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"success":true,"data":{"total":0,"models":[]}}`))
+	}))
+	defer srv.Close()
+
+	p := &provider.EffectiveProvider{
+		Name:         "apimart",
+		BaseURL:      srv.URL,
+		APIKey:       "sk-test",
+		ProviderType: provider.APIMart,
+	}
+	// APIBase intentionally points elsewhere: marketplace must follow the
+	// resolved provider, not the global flag.
+	d = Deps{
+		APIBase:         "https://wrong.example",
+		ResolveProvider: func(string) *provider.EffectiveProvider { return p },
+	}
+
+	cmd := NewCommand(func() Deps { return d })
+	cmd.SetArgs([]string{"--type", "image"})
+	_ = captureStdout(t, func() {
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("execute() error = %v", err)
+		}
+	})
+	if gotPath != "/api/marketplace/models" {
+		t.Errorf("request path = %q, want /api/marketplace/models", gotPath)
 	}
 }
 

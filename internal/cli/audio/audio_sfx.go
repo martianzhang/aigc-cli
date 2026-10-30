@@ -218,12 +218,10 @@ func resolveSFXProvider() *provider.EffectiveProvider {
 }
 
 // sfxBaseURL keeps an explicitly configured base URL (proxy, mock server) and
-// only falls back to the vendor default when the resolver returned the global
-// APIMart default.
+// only falls back to the vendor default when none was configured.
 func sfxBaseURL(p *provider.EffectiveProvider, fallback string) string {
 	if p != nil {
-		base := strings.TrimSpace(p.BaseURL)
-		if base != "" && base != types.DefaultAPIBaseURL {
+		if base := strings.TrimSpace(p.BaseURL); base != "" {
 			return base
 		}
 	}

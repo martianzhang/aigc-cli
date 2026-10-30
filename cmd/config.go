@@ -151,7 +151,7 @@ func runConfigList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	out := cmd.OutOrStdout()
-	cfg := &types.Config{BaseURL: types.DefaultAPIBaseURL}
+	cfg := &types.Config{}
 	if _, statErr := os.Stat(path); statErr == nil {
 		loaded, err := config.Load(path)
 		if err != nil {

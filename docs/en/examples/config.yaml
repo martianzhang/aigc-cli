@@ -21,6 +21,8 @@ api_key: "your-api-key-here"
 # APIMart:    https://api.apimart.ai
 # Ollama:    http://localhost:11434 (no API Key needed)
 # Any relay: https://your-relay.com/v1
+# Note: the CLI has no built-in API base URL. This sample configures APIMart explicitly;
+# replace it with one of the addresses above when using another provider.
 base_url: "https://api.apimart.ai"
 
 # HTTP proxy (can also be set via HTTP_PROXY / HTTPS_PROXY env vars, or --http-proxy CLI flag)

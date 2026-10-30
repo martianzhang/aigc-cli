@@ -22,6 +22,8 @@ func TestRequireAPIKey(t *testing.T) {
 		{"local onnx", "models", &provider.EffectiveProvider{Type: types.ProviderLocal}, false},
 		{"localhost", "models", &provider.EffectiveProvider{BaseURL: "http://localhost:1234/v1", Type: types.ProviderOpenAI}, false},
 		{"127.0.0.1", "models", &provider.EffectiveProvider{BaseURL: "http://127.0.0.1:1234/v1", Type: types.ProviderOpenAI}, false},
+		{"missing base url", "models", &provider.EffectiveProvider{APIKey: "sk-x", Type: types.ProviderOpenAI}, true},
+		{"missing base url local", "models", &provider.EffectiveProvider{Type: types.ProviderLocal}, false},
 		{"balance keyless remote", "balance", &provider.EffectiveProvider{BaseURL: "https://api.example.com/v1", Type: types.ProviderOpenAI}, true},
 	}
 	for _, tc := range tests {
@@ -32,6 +34,34 @@ func TestRequireAPIKey(t *testing.T) {
 			}
 			if !tc.wantErr && err != nil {
 				t.Fatalf("RequireAPIKey() = %v, want nil", err)
+			}
+		})
+	}
+}
+
+func TestRequireBaseURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		p       *provider.EffectiveProvider
+		wantErr string
+	}{
+		{"nil provider", nil, ""},
+		{"configured", &provider.EffectiveProvider{BaseURL: "https://api.example.com/v1"}, ""},
+		{"local provider", &provider.EffectiveProvider{Type: types.ProviderLocal}, ""},
+		{"missing", &provider.EffectiveProvider{Type: types.ProviderOpenAI}, "no API base URL for models"},
+		{"named missing", &provider.EffectiveProvider{Name: "ms", Type: types.ProviderOpenAI}, `no API base URL for provider "ms"`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := RequireBaseURL("models", tc.p)
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("RequireBaseURL() = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("RequireBaseURL() = %v, want %q", err, tc.wantErr)
 			}
 		})
 	}

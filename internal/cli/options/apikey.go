@@ -13,7 +13,13 @@ import (
 // RequireAPIKey returns a clear error when p needs an API key but none is
 // configured. Local providers (ollama, local ONNX, loopback endpoints) are
 // exempt. providers seeds the actionable choices listed in the error text.
+//
+// It also enforces a configured base URL, because there is no built-in provider
+// default: without one the request would have nowhere to go.
 func RequireAPIKey(cmdName string, p *provider.EffectiveProvider, providers map[string]*types.NamedProvider) error {
+	if err := RequireBaseURL(cmdName, p); err != nil {
+		return err
+	}
 	if p == nil || !p.RequiresAPIKey() || provider.IsLocalEndpoint(p.BaseURL) {
 		return nil
 	}
@@ -23,15 +29,28 @@ func RequireAPIKey(cmdName string, p *provider.EffectiveProvider, providers map[
 		target = fmt.Sprintf("provider %q", p.Name)
 	}
 	base := p.BaseURL
-	if base == "" {
-		base = types.DefaultAPIBaseURL
-	}
 
 	msg := fmt.Sprintf("no API key for %s (resolved base URL: %s)\n", target, base)
 	msg += "fix: use --provider <name> or pass --api-key / set OPENAI_API_KEY"
 	msg += providerKeyClause(providers)
 	msg += "\n" + apiKeyNote(cmdName)
 	return errors.New(msg)
+}
+
+// RequireBaseURL returns a clear error when the resolved provider has no API
+// base URL. Local ONNX providers do not need one.
+func RequireBaseURL(cmdName string, p *provider.EffectiveProvider) error {
+	if p == nil || p.BaseURL != "" || p.Type == types.ProviderLocal {
+		return nil
+	}
+	target := cmdName
+	if p.Name != "" {
+		target = fmt.Sprintf("provider %q", p.Name)
+	}
+	return fmt.Errorf(
+		"no API base URL for %s: pass --api-base, set OPENAI_BASE_URL, or add base_url under providers.<name> in config.yaml",
+		target,
+	)
 }
 
 // providerKeyClause renders the configured providers as an actionable hint.

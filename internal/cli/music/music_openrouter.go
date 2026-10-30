@@ -58,9 +58,6 @@ func buildOpenRouterMusicCurl(baseURL, apiKey string, req *types.MusicGenerateRe
 	bodyJSON, _ := json.Marshal(buildOpenRouterMusicReq(req))
 	bodyJSON, _ = client.ApplyOpenRouterZDR(bodyJSON, options.Shared.ZDR, baseURL)
 	base := strings.TrimRight(baseURL, "/")
-	if base == "" {
-		base = types.DefaultAPIBaseURL
-	}
 	if !client.HasVersionSuffix(base) {
 		base += "/v1"
 	}

@@ -49,6 +49,9 @@ func runMusicGenerate(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	p := options.Shared.ResolveProvider(options.ProviderNameMusic)
+	if err := options.RequireBaseURL("music", p); err != nil {
+		return err
+	}
 	// Explicitly-set flags override the backend-native --json body; with no
 	// changed body flags the verbatim body is left untouched.
 	if err := applyMusicJSONOverlay(changedMusicFlags(cmd), req, p); err != nil {
