@@ -426,7 +426,7 @@ func trimPrice(v float64) string {
 
 // fetchOpenRouterModels performs the GET and normalizes transport/HTTP errors.
 func fetchOpenRouterModels(endpoint string) ([]byte, error) {
-	resp, err := http.DefaultClient.Get(endpoint)
+	resp, err := modelsHTTPClient().Get(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}

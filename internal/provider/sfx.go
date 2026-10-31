@@ -99,7 +99,7 @@ func generateElevenLabsSFX(p *EffectiveProvider, req *SoundEffectRequest) (*Soun
 	httpReq.Header.Set("Accept", "audio/*")
 	httpReq.Header.Set("xi-api-key", p.APIKey)
 
-	return doSFXRequest(httpReq, "elevenlabs")
+	return doSFXRequest(p, httpReq, "elevenlabs")
 }
 
 // generateStabilitySFX calls POST /v2beta/audio/stable-audio-2/text-to-audio.
@@ -136,13 +136,13 @@ func generateStabilitySFX(p *EffectiveProvider, req *SoundEffectRequest) (*Sound
 	httpReq.Header.Set("Accept", "audio/*")
 	httpReq.Header.Set("Authorization", "Bearer "+p.APIKey)
 
-	return doSFXRequest(httpReq, "stability")
+	return doSFXRequest(p, httpReq, "stability")
 }
 
 // doSFXRequest sends the request and returns the audio bytes. Vendor errors are
 // truncated so a JSON error body stays readable in the terminal.
-func doSFXRequest(req *http.Request, vendor string) (*SoundEffectResult, error) {
-	client := &http.Client{Timeout: sfxTimeout}
+func doSFXRequest(p *EffectiveProvider, req *http.Request, vendor string) (*SoundEffectResult, error) {
+	client := &http.Client{Timeout: requestTimeout(p, sfxTimeout)}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%s sound effect: %w", vendor, err)

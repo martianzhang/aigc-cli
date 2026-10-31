@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -135,7 +136,7 @@ func runInit(d Deps) error {
 
 func httpClient() *http.Client {
 	client := &http.Client{
-		Timeout:   120 * time.Second,
+		Timeout:   options.HTTPTimeout("", 120*time.Second),
 		Transport: http.DefaultClient.Transport,
 	}
 	if client.Transport == nil {

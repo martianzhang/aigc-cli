@@ -48,6 +48,12 @@ base_url: "https://api.apimart.ai"
 # Modality-specific timeout overrides this if set.
 # This key only bounds a single HTTP request; async task polling uses
 # defaults.<modality>.timeout (and per-media built-in defaults) instead.
+# It applies to every channel: OpenRouter image, ModelScope submit/poll,
+# Ollama, reference-image uploads, OCR/vision/detect, SFX, SoMark parsing,
+# and model discovery.
+# Unset channels keep their own built-in default (OCR/vision 120s, SFX 5m,
+# document parsing 15m); uploads follow the client timeout and fall back to
+# 300s only when no timeout is configured.
 # timeout: 300
 
 # ── Tool Filtering (MCP / Chat mode) ──

@@ -147,7 +147,7 @@ func ParseDocument(p *EffectiveProvider, filePath string, payload, inject json.R
 	req.Header.Set("Accept", "application/json")
 	SetAttribution(req, p.BaseURL)
 
-	resp, err := httpClient(p, somarkTimeout).Do(req)
+	resp, err := httpClient(p, requestTimeout(p, somarkTimeout)).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("API call failed: %w", err)
 	}

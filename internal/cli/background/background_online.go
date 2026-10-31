@@ -25,7 +25,11 @@ func generateOnlineBackground(imagePath string, p *provider.EffectiveProvider, d
 	}
 	// Ollama native API
 	if p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL) {
-		saved, err := service.OllamaGenerateImages(p.BaseURL, req, options.Shared.OutputDir)
+		timeout := p.Timeout
+		if timeout <= 0 {
+			timeout = client.ImageTimeout
+		}
+		saved, err := service.OllamaGenerateImages(p.BaseURL, req, options.Shared.OutputDir, timeout)
 		if err != nil {
 			return "", err
 		}

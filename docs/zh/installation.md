@@ -199,6 +199,9 @@ http_proxy: "http://127.0.0.1:7890"
 
 # 全局超时（秒，默认 180），各模态 defaults.*.timeout 会覆盖此值
 # 只约束单次 HTTP 请求；异步任务轮询上限用 defaults.<模态>.timeout（不填时按模态取内置值）
+# 覆盖所有通道：OpenRouter 图片、ModelScope 提交/轮询、Ollama、参考图上传，
+# 以及 OCR / vision / detect、SFX、SoMark 文档解析、模型列表查询；未设置的通道保留自己的内置默认
+# （OCR/vision 120s、SFX 5 分钟、文档解析 15 分钟；上传跟随客户端超时，无超时时回退 300s）
 # timeout: 300
 
 defaults:

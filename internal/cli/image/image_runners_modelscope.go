@@ -89,6 +89,11 @@ func buildModelScopeImageBody(req *types.GenerateRequest) (map[string]any, error
 func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 
+	// ModelScope bypasses client.Client, so build the request client here with
+	// the effective --timeout value. A nil Transport inherits
+	// http.DefaultTransport, which carries the configured proxy.
+	hc := &http.Client{Timeout: options.HTTPTimeout("image", client.ImageTimeout)}
+
 	// Strip version suffix from base URL for task polling endpoint.
 	baseURL := c.BaseURL()
 	if idx := strings.LastIndex(baseURL, "/v"); idx > strings.LastIndex(baseURL, "://") {
@@ -118,7 +123,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	httpReq.Header.Set("Authorization", "Bearer "+ctx.modelScopeKey)
 	httpReq.Header.Set("X-ModelScope-Async-Mode", "true")
 
-	httpResp, err := http.DefaultClient.Do(httpReq)
+	httpResp, err := hc.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("modelscope: submit request failed: %w", err)
 	}
@@ -171,7 +176,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 		pollReq.Header.Set("Authorization", "Bearer "+ctx.modelScopeKey)
 		pollReq.Header.Set("X-ModelScope-Task-Type", "image_generation")
 
-		pollResp, err := http.DefaultClient.Do(pollReq)
+		pollResp, err := hc.Do(pollReq)
 		if err != nil {
 			return nil, fmt.Errorf("modelscope: poll request failed: %w", err)
 		}

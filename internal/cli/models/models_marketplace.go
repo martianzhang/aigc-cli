@@ -7,9 +7,17 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+// modelsHTTPClient bounds public model-discovery requests by --timeout. Nil
+// Transport inherits http.DefaultTransport, which carries the configured proxy.
+func modelsHTTPClient() *http.Client {
+	return &http.Client{Timeout: options.HTTPTimeout("models", 30*time.Second)}
+}
 
 // runModelsMarketplace fetches models from the APIMart marketplace API.
 // The marketplace is a public API (no auth required). base is the resolved
@@ -42,7 +50,7 @@ func runModelsMarketplace(mediaType, base string) error {
 			url += "&type=" + mediaType
 		}
 
-		resp, err := http.DefaultClient.Get(url)
+		resp, err := modelsHTTPClient().Get(url)
 		if err != nil {
 			return fmt.Errorf("failed to fetch models (page %d): %w", page, err)
 		}
@@ -149,7 +157,7 @@ func runModelsPricing(modelName, baseURL string) error {
 		return nil
 	}
 
-	resp, err := http.DefaultClient.Get(pricingURL)
+	resp, err := modelsHTTPClient().Get(pricingURL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch pricing: %w", err)
 	}

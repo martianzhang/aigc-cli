@@ -4,6 +4,8 @@
 package options
 
 import (
+	"time"
+
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -108,11 +110,13 @@ func (s *SharedConfig) ResolveProvider(cmdName string) *provider.EffectiveProvid
 	}
 
 	if providerRef == ProviderNameLocal {
-		return &provider.EffectiveProvider{
+		ep := &provider.EffectiveProvider{
 			Name:  ProviderNameLocal,
 			Type:  types.ProviderLocal,
 			Model: defaultsModel,
 		}
+		ep.Timeout = explicitProviderTimeout(cmdName)
+		return ep
 	}
 
 	global := &provider.GlobalConfig{
@@ -129,12 +133,36 @@ func (s *SharedConfig) ResolveProvider(cmdName string) *provider.EffectiveProvid
 		ep.HTTPProxy = s.HTTPProxy
 	}
 	ep.ZDR = s.resolveZDR(ep)
+	ep.Timeout = explicitProviderTimeout(cmdName)
 	if s.Model != "" {
 		ep.Model = s.Model
 	} else if defaultsModel != "" {
 		ep.Model = defaultsModel
 	}
 	return ep
+}
+
+// explicitProviderTimeout returns the user-configured timeout for cmdName, or 0
+// when none was set. Provider-level helpers use this to keep their own
+// intentionally generous defaults unless the user overrides them.
+func explicitProviderTimeout(cmdName string) time.Duration {
+	if timeout, ok := ExplicitTimeout(timeoutModality(cmdName)); ok {
+		return timeout
+	}
+	return 0
+}
+
+// timeoutModality maps command names to the config section that owns their
+// timeout knob (defaults.<modality>.timeout).
+func timeoutModality(cmdName string) string {
+	switch cmdName {
+	case ProviderNameUpscale, ProviderNameBackground, ProviderNameDetect, ProviderNameVision:
+		return "image"
+	case ProviderNameAudioSpeak, ProviderNameAudioTranscribe, ProviderNameAudioSFX:
+		return "audio"
+	default:
+		return cmdName
+	}
 }
 
 // UpscaleModelsDir returns the models directory configured for the upscale

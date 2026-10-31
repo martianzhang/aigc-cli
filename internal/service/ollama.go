@@ -44,8 +44,9 @@ func OllamaGenerateBody(req *types.GenerateRequest) (any, error) {
 }
 
 // OllamaGenerateImages sends a request to Ollama's /api/generate and returns
-// the saved image filenames under outputDir.
-func OllamaGenerateImages(baseURL string, req *types.GenerateRequest, outputDir string) ([]string, error) {
+// the saved image filenames under outputDir. timeout <= 0 leaves the request
+// unbounded; callers normally pass the effective --timeout value.
+func OllamaGenerateImages(baseURL string, req *types.GenerateRequest, outputDir string, timeout time.Duration) ([]string, error) {
 	url := OllamaGenerateURL(baseURL)
 	reqBody, err := OllamaGenerateBody(req)
 	if err != nil {
@@ -55,7 +56,13 @@ func OllamaGenerateImages(baseURL string, req *types.GenerateRequest, outputDir 
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	httpResp, err := http.Post(url, "application/json", bytes.NewReader(bodyBytes))
+	hc := &http.Client{Timeout: timeout}
+	httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ollama request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpResp, err := hc.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("ollama request failed: %w", err)
 	}

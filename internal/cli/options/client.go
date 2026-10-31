@@ -42,26 +42,56 @@ func TaskWait(media string) time.Duration {
 	return fallback
 }
 
-// resolveTimeout implements the priority chain of ApplyTimeout.
-func resolveTimeout(modKey string, modDefault time.Duration) time.Duration {
+// HTTPTimeout returns the effective HTTP request timeout for modKey, falling
+// back to modDefault. It exposes the same priority chain as ApplyTimeout so
+// provider helpers that bypass client.Client (ModelScope, Ollama, OCR/vision,
+// SFX) can honor the global --timeout flag too.
+func HTTPTimeout(modKey string, modDefault time.Duration) time.Duration {
+	return resolveTimeout(modKey, modDefault)
+}
+
+// ExplicitTimeout reports the user-configured timeout for modKey and whether
+// one was set. Provider helpers use it to distinguish "no preference" (keep a
+// generous built-in default such as 15 minutes for document parsing) from an
+// explicit override.
+func ExplicitTimeout(modKey string) (time.Duration, bool) {
 	if Shared.TimeoutFlag > 0 {
-		return time.Duration(Shared.TimeoutFlag) * time.Second
+		return time.Duration(Shared.TimeoutFlag) * time.Second, true
 	}
 	if seconds := modalityTimeout(modKey); seconds != nil && *seconds > 0 {
-		return time.Duration(*seconds) * time.Second
+		return time.Duration(*seconds) * time.Second, true
 	}
-	if cfg, err := config.LoadDefaults(Shared.CfgFile); err == nil && cfg != nil {
-		if cfg.Timeout != nil && *cfg.Timeout > 0 {
-			return time.Duration(*cfg.Timeout) * time.Second
-		}
+	if cfg := currentConfig(); cfg != nil && cfg.Timeout != nil && *cfg.Timeout > 0 {
+		return time.Duration(*cfg.Timeout) * time.Second, true
+	}
+	return 0, false
+}
+
+// resolveTimeout implements the priority chain of ApplyTimeout.
+func resolveTimeout(modKey string, modDefault time.Duration) time.Duration {
+	if timeout, ok := ExplicitTimeout(modKey); ok {
+		return timeout
 	}
 	return modDefault
 }
 
+// currentConfig returns the already-loaded config, falling back to reading the
+// config file when Shared.Cfg is nil (tests, direct library use).
+func currentConfig() *types.Config {
+	if Shared.Cfg != nil {
+		return Shared.Cfg
+	}
+	cfg, err := config.LoadDefaults(Shared.CfgFile)
+	if err != nil {
+		return nil
+	}
+	return cfg
+}
+
 // modalityTimeout returns defaults.{modKey}.timeout in seconds, or nil.
 func modalityTimeout(modKey string) *int {
-	cfg, err := config.LoadDefaults(Shared.CfgFile)
-	if err != nil || cfg == nil || cfg.Defaults == nil {
+	cfg := currentConfig()
+	if cfg == nil || cfg.Defaults == nil {
 		return nil
 	}
 	d := cfg.Defaults

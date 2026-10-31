@@ -121,7 +121,7 @@ func ollamaNativeChat(p *EffectiveProvider, b64Image, textPrompt string) (string
 	req.Header.Set("Content-Type", "application/json")
 	SetAttribution(req, p.BaseURL)
 
-	hc := httpClient(p, 120*time.Second)
+	hc := httpClient(p, requestTimeout(p, 120*time.Second))
 	resp, err := hc.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("API call failed: %w", err)
@@ -193,7 +193,7 @@ func openaiCompatVisionChat(p *EffectiveProvider, dataURL, textPrompt string) (s
 	}
 	SetAttribution(req, p.BaseURL)
 
-	hc := httpClient(p, 120*time.Second)
+	hc := httpClient(p, requestTimeout(p, 120*time.Second))
 	resp, err := hc.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("API call failed: %w", err)
@@ -270,7 +270,7 @@ func anthropicVisionChat(p *EffectiveProvider, b64Image, mimeType, textPrompt st
 	req.Header.Set("anthropic-version", "2023-06-01")
 	SetAttribution(req, p.BaseURL)
 
-	hc := httpClient(p, 120*time.Second)
+	hc := httpClient(p, requestTimeout(p, 120*time.Second))
 	resp, err := hc.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("API call failed: %w", err)

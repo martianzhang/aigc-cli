@@ -19,9 +19,6 @@ import (
 // Returns OpenAI-compatible response format with b64_json.
 // ---------------------------------------------------------------------------
 
-// Image generation and video generation on OpenRouter can take 60-120s.
-const openrouterRequestTimeout = 120 * time.Second
-
 // OpenRouterImagesPath is OpenRouter's dedicated image endpoint (distinct from
 // the OpenAI-compatible /images/generations path).
 const OpenRouterImagesPath = "/images"
@@ -96,10 +93,8 @@ func isPixelSize(v string) bool {
 // dedicated Image API (POST /v1/images). Returns standard OpenAI-compatible response.
 // Supports input_references (image-to-image) via req.ImageURLs.
 func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
-	oldTimeout := c.httpClient.Timeout
-	c.httpClient.Timeout = openrouterRequestTimeout
-	defer func() { c.httpClient.Timeout = oldTimeout }()
-
+	// Use the client's configured timeout (--timeout / config / modality
+	// default). A hardcoded value here silently defeated the global flag.
 	headers := c.openRouterHeaders()
 	var result types.OpenAIImageResponse
 	body, err := OpenRouterImageBody(req)

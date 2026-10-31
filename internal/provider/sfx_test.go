@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGenerateSoundEffectUnsupportedProvider(t *testing.T) {
@@ -249,5 +250,23 @@ func TestStabilityInjectFields(t *testing.T) {
 	req.Extra = json.RawMessage(`{"nested":{"a":1}}`)
 	if _, err := StabilitySFXFields(req, "stable-audio-2.5"); err == nil {
 		t.Fatal("nested inject value must be rejected for multipart")
+	}
+}
+
+func TestDoSFXRequestHonorsProviderTimeout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		w.Header().Set("Content-Type", "audio/mpeg")
+		_, _ = w.Write([]byte("audio"))
+	}))
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodPost, srv.URL, nil)
+	if err != nil {
+		t.Fatalf("NewRequest() error = %v", err)
+	}
+	p := &EffectiveProvider{Timeout: 50 * time.Millisecond}
+	if _, err := doSFXRequest(p, req, "test"); err == nil {
+		t.Fatal("doSFXRequest() error = nil, want timeout error")
 	}
 }

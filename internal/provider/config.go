@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -35,6 +36,20 @@ type EffectiveProvider struct {
 	// the global --zdr flag; only OpenRouter's chat-completions-family endpoints
 	// honor it today, so other providers must ignore it.
 	ZDR bool
+	// Timeout is the explicitly configured HTTP timeout (--timeout flag or
+	// config). Zero means "not configured": callers keep their own built-in
+	// default, which is often more generous than a plain HTTP request (e.g.
+	// 15 minutes for document parsing).
+	Timeout time.Duration
+}
+
+// requestTimeout returns p.Timeout when explicitly configured, otherwise the
+// caller's preferred built-in default.
+func requestTimeout(p *EffectiveProvider, fallback time.Duration) time.Duration {
+	if p != nil && p.Timeout > 0 {
+		return p.Timeout
+	}
+	return fallback
 }
 
 // CLIOverride holds values from CLI flags (--api-key, --api-base, --http-proxy).

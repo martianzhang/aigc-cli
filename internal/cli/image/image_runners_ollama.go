@@ -12,7 +12,8 @@ import (
 
 // ollamaGenerateImages sends a request to Ollama's /api/generate and returns saved filenames.
 func ollamaGenerateImages(baseURL string, req *types.GenerateRequest) ([]string, error) {
-	return service.OllamaGenerateImages(baseURL, req, options.Shared.OutputDir)
+	return service.OllamaGenerateImages(baseURL, req, options.Shared.OutputDir,
+		options.HTTPTimeout("image", client.ImageTimeout))
 }
 
 // runOllamaImage handles image generation via Ollama's native /api/generate endpoint.

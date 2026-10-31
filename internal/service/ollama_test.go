@@ -2,8 +2,11 @@ package service
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -51,5 +54,19 @@ func TestOllamaGenerateBody(t *testing.T) {
 		if !strings.Contains(string(typed), want) {
 			t.Errorf("typed body missing %s: %s", want, typed)
 		}
+	}
+}
+
+func TestOllamaGenerateImagesHonorsTimeout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"images":["aGk="]}`))
+	}))
+	defer srv.Close()
+
+	_, err := OllamaGenerateImages(srv.URL, &types.GenerateRequest{Model: "m", Prompt: "p"}, t.TempDir(), 50*time.Millisecond)
+	if err == nil {
+		t.Fatal("OllamaGenerateImages() error = nil, want timeout error")
 	}
 }

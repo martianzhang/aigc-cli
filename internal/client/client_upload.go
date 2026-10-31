@@ -13,12 +13,18 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// uploadClient creates an independent http.Client with a long timeout
-// tailored for file uploads. Uploads also honour HTTP_PROXY / HTTPS_PROXY env
+// uploadClient creates an independent http.Client for file uploads. It uses
+// the client's configured HTTP timeout (--timeout / config) so uploads cannot
+// silently outlive the user's budget; uploadTimeout is only the fallback when
+// no timeout was configured. Uploads also honour HTTP_PROXY / HTTPS_PROXY env
 // vars (consistent with how http.DefaultClient works for downloads).
 func (c *Client) uploadClient() *http.Client {
+	timeout := c.httpClient.Timeout
+	if timeout <= 0 {
+		timeout = uploadTimeout
+	}
 	return &http.Client{
-		Timeout: uploadTimeout,
+		Timeout: timeout,
 	}
 }
 

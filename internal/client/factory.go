@@ -25,5 +25,11 @@ func NewFromProvider(p *provider.EffectiveProvider) *Client {
 		c = NewWithProvider(p.APIKey, p.BaseURL, p.HTTPProxy, types.ProviderOpenAI)
 	}
 	c.zdr = p.ZDR
+	// Honor an explicit --timeout / config timeout for every command, including
+	// those that build a client directly from a resolved provider (MCP, agent
+	// loops) instead of calling options.ApplyTimeout.
+	if p.Timeout > 0 {
+		c.SetTimeout(p.Timeout)
+	}
 	return c
 }
