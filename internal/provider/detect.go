@@ -193,13 +193,22 @@ func NeedsMultipartImageEdits(baseURL string) bool {
 const ImageEditsProviderPinHeader = "X-OfoxAI-Provider-Type"
 
 // ImageEditsHeaders returns provider-specific HTTP headers for the multipart
-// /images/edits request. OfoxAI gets the "openai" provider pin (see
-// ImageEditsProviderPinHeader); every other provider returns nil.
-func ImageEditsHeaders(baseURL string) map[string]string {
-	if IsOfox(baseURL) {
+// /images/edits request. OfoxAI only needs a pin for GPT Image models, which it
+// serves from both azure_foundry and openai; pinning openai avoids the stricter
+// azure_foundry moderation. Every other OfoxAI image model is single-provider,
+// and pinning any provider there returns provider_type_unavailable — so they
+// must be left unpinned for the gateway to route.
+func ImageEditsHeaders(baseURL, model string) map[string]string {
+	if IsOfox(baseURL) && isOfoxGPTImage(model) {
 		return map[string]string{ImageEditsProviderPinHeader: "openai"}
 	}
 	return nil
+}
+
+// isOfoxGPTImage reports whether model belongs to OfoxAI's multi-provider
+// GPT Image family (gpt-image-2, gpt-image-2.5-flare, ...).
+func isOfoxGPTImage(model string) bool {
+	return strings.Contains(strings.ToLower(model), "gpt-image")
 }
 
 // pollinationsDomains lists domains where pollinations.ai APIs are served.

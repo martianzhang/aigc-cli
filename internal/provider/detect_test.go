@@ -417,13 +417,25 @@ func TestDetect_MiMo(t *testing.T) {
 
 func TestImageEditsHeaders(t *testing.T) {
 	for _, base := range []string{"https://api.ofox.ai/v1", "https://api.ofox.run/v1", "https://api.ofox.io/v1"} {
-		headers := ImageEditsHeaders(base)
+		headers := ImageEditsHeaders(base, "openai/gpt-image-2.5-sunburst")
 		if got := headers[ImageEditsProviderPinHeader]; got != "openai" {
 			t.Errorf("ImageEditsHeaders(%q)[%s] = %q, want openai", base, ImageEditsProviderPinHeader, got)
 		}
+		// Single-provider OfoxAI models must stay unpinned: naming their only
+		// provider still fails, and the gateway routes automatically.
+		for _, model := range []string{
+			"google/gemini-nano-banana-2.1",
+			"bytedance/seedream-5-0",
+			"qwen/qwen-image-3",
+			"microsoft/mai-image-2.6",
+		} {
+			if headers := ImageEditsHeaders(base, model); headers != nil {
+				t.Errorf("ImageEditsHeaders(%q, %q) = %v, want nil", base, model, headers)
+			}
+		}
 	}
 	for _, base := range []string{"https://api.openai.com/v1", "https://api.siliconflow.cn/v1", ""} {
-		if headers := ImageEditsHeaders(base); headers != nil {
+		if headers := ImageEditsHeaders(base, "google/gemini-nano-banana-2.1"); headers != nil {
 			t.Errorf("ImageEditsHeaders(%q) = %v, want nil", base, headers)
 		}
 	}

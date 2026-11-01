@@ -154,7 +154,7 @@ func buildMultipartImageEditsPlan(req *types.GenerateRequest, base string) *imag
 		FormFields: client.ImageEditsFormFields(req),
 		Note:       imageMultipartEditsNote,
 	}}
-	headers := provider.ImageEditsHeaders(base)
+	headers := provider.ImageEditsHeaders(base, req.Model)
 	names := make([]string, 0, len(headers))
 	for name := range headers {
 		names = append(names, name)

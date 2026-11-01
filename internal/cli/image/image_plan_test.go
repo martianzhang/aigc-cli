@@ -343,7 +343,7 @@ func TestBuildMultipartImageEditsPlanOfoxPin(t *testing.T) {
 	dir := t.TempDir()
 	local := writeLocalPNG(t, dir)
 	p := &provider.EffectiveProvider{BaseURL: "https://api.ofox.ai/v1", APIKey: "k", ProviderType: provider.OpenAI}
-	req := &types.GenerateRequest{Model: "m", Prompt: "p", ImageURLs: []string{local}}
+	req := &types.GenerateRequest{Model: "openai/gpt-image-2", Prompt: "p", ImageURLs: []string{local}}
 
 	pl := mustBuildPlan(t, req, p)
 	if !pl.Multipart {
@@ -354,6 +354,24 @@ func TestBuildMultipartImageEditsPlanOfoxPin(t *testing.T) {
 	}
 	if !strings.Contains(pl.RenderCurls("k"), `-H "X-OfoxAI-Provider-Type: openai"`) {
 		t.Errorf("dry-run curl should show the pin header:\n%s", pl.RenderCurls("k"))
+	}
+}
+
+func TestBuildMultipartImageEditsPlanOfoxSingleProviderNoPin(t *testing.T) {
+	dir := t.TempDir()
+	local := writeLocalPNG(t, dir)
+	p := &provider.EffectiveProvider{BaseURL: "https://api.ofox.io/v1", APIKey: "k", ProviderType: provider.OpenAI}
+	req := &types.GenerateRequest{Model: "google/gemini-nano-banana-2.1", Prompt: "p", ImageURLs: []string{local}}
+
+	pl := mustBuildPlan(t, req, p)
+	if !pl.Multipart {
+		t.Fatal("Gemini image edits are supported, plan should be multipart")
+	}
+	if len(pl.Headers) != 0 {
+		t.Fatalf("Headers = %+v, want none for a single-provider model", pl.Headers)
+	}
+	if strings.Contains(pl.RenderCurls("k"), provider.ImageEditsProviderPinHeader) {
+		t.Errorf("dry-run curl must not pin a single-provider model:\n%s", pl.RenderCurls("k"))
 	}
 }
 
