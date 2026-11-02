@@ -162,7 +162,9 @@ func getTaskHandler(cfg *Config) server.ToolHandlerFunc {
 // safeFileToken reduces an externally supplied task/job ID to one filename
 // token, stripping any directory traversal.
 func safeFileToken(s string) string {
-	token := filepath.Base(filepath.Clean(s))
+	// Normalize Windows separators first so the result is identical on every
+	// platform: on Unix `a\..\b` is a single name, on Windows it is a path.
+	token := filepath.Base(filepath.Clean(strings.ReplaceAll(s, `\`, "/")))
 	token = strings.NewReplacer("/", "_", "\\", "_", "..", "_").Replace(token)
 	if token == "" || token == "." || token == ".." {
 		return "task"
