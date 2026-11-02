@@ -155,6 +155,7 @@ func TestBuildHistoryFromSessionRejectsSystemWhenStored(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close("test teardown")
 	if err := s.AppendSystem("stored"); err != nil {
 		t.Fatal(err)
 	}

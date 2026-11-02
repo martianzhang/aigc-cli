@@ -13,9 +13,9 @@ func TestDefaultCropOutput(t *testing.T) {
 		input string
 		want  string
 	}{
-		{name: "mp4 in dir", input: "/tmp/org.mp4", want: "/tmp/org_crop.mp4"},
+		{name: "mp4 in dir", input: "/tmp/org.mp4", want: filepath.Join("/tmp", "org_crop.mp4")},
 		{name: "plain name", input: "clip.mov", want: "clip_crop.mov"},
-		{name: "no extension", input: "dir/raw", want: "dir/raw_crop"},
+		{name: "no extension", input: "dir/raw", want: filepath.Join("dir", "raw_crop")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

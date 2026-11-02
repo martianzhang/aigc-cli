@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +12,9 @@ func TestWriteFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "sub", "out.txt")
 
-	got := WriteFile(`{"filepath":"` + path + `","content":"hello world"}`)
+	// Use json.Marshal to escape backslashes for valid JSON on Windows.
+	fp, _ := json.Marshal(path)
+	got := WriteFile(`{"filepath":` + string(fp) + `,"content":"hello world"}`)
 	if !strings.Contains(got, "Wrote") {
 		t.Fatalf("WriteFile = %q", got)
 	}
@@ -37,7 +40,8 @@ func TestEditFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := EditFile(`{"filepath":"` + path + `","old_string":"bar","new_string":"QUX"}`)
+	fp, _ := json.Marshal(path)
+	got := EditFile(`{"filepath":` + string(fp) + `,"old_string":"bar","new_string":"QUX"}`)
 	if !strings.Contains(got, "Edited") {
 		t.Fatalf("EditFile = %q", got)
 	}
@@ -46,7 +50,7 @@ func TestEditFile(t *testing.T) {
 		t.Errorf("content = %q", string(data))
 	}
 
-	if got := EditFile(`{"filepath":"` + path + `","old_string":"nope","new_string":"x"}`); !strings.Contains(got, "not found") {
+	if got := EditFile(`{"filepath":` + string(fp) + `,"old_string":"nope","new_string":"x"}`); !strings.Contains(got, "not found") {
 		t.Errorf("missing old_string = %q", got)
 	}
 }
@@ -57,7 +61,8 @@ func TestEditFile_notUnique(t *testing.T) {
 	if err := os.WriteFile(path, []byte("aa aa"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got := EditFile(`{"filepath":"` + path + `","old_string":"aa","new_string":"b"}`)
+	fp, _ := json.Marshal(path)
+	got := EditFile(`{"filepath":` + string(fp) + `,"old_string":"aa","new_string":"b"}`)
 	if !strings.Contains(got, "not unique") {
 		t.Errorf("EditFile = %q", got)
 	}
@@ -72,7 +77,8 @@ func TestListDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := ListDir(`{"path":"` + dir + `"}`)
+	fp, _ := json.Marshal(dir)
+	got := ListDir(`{"path":` + string(fp) + `}`)
 	if !strings.Contains(got, "a.txt") || !strings.Contains(got, "sub/") {
 		t.Errorf("ListDir = %q", got)
 	}

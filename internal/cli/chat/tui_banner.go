@@ -86,10 +86,12 @@ func clipPathLeft(path string, maxWidth int) string {
 	for i := 1; i < len(parts); i++ {
 		rest := "…/" + strings.Join(parts[i:], "/")
 		if lipgloss.Width(rest) <= maxWidth {
-			return filepath.FromSlash(rest)
+			// Always use forward slashes in the display — path separators in
+			// the terminal header should not depend on the OS.
+			return rest
 		}
 	}
-	return clipString("…/"+strings.TrimPrefix(path, "/"), maxWidth)
+	return clipString("…/"+strings.TrimPrefix(filepath.ToSlash(path), "/"), maxWidth)
 }
 
 // workDirDisplay is the working directory with $HOME collapsed to "~", so the

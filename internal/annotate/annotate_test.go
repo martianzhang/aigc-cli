@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -58,6 +59,9 @@ func TestAnnotateVideoCallbackSkeletonMissing(t *testing.T) {
 
 // TestModelsDir 验证默认模型目录路径。
 func TestModelsDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("os.UserHomeDir on Windows reads registry, ignoring HOME env")
+	}
 	t.Setenv("HOME", "/tmp/fakehome")
 	if got := ModelsDir(); got != "/tmp/fakehome/.config/aigc-cli/models" {
 		t.Fatalf("ModelsDir = %q, want /tmp/fakehome/.config/aigc-cli/models", got)
@@ -66,6 +70,9 @@ func TestModelsDir(t *testing.T) {
 
 // TestModelsDirHomeUnset 验证 HOME 未设置时回退到相对路径。
 func TestModelsDirHomeUnset(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("os.UserHomeDir on Windows reads registry, ignoring HOME env")
+	}
 	t.Setenv("HOME", "")
 	want := filepath.Join(".config", "aigc-cli", "models")
 	if got := ModelsDir(); got != want {

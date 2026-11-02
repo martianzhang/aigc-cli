@@ -1,6 +1,7 @@
 package image
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -199,7 +200,9 @@ func TestResolveRawImagePaths(t *testing.T) {
 	}
 
 	t.Run("scalar image_url", func(t *testing.T) {
-		out, err := resolveRawImagePaths([]byte(`{"model":"m","image_url":"`+local+`"}`), resolve)
+		body := map[string]interface{}{"model": "m", "image_url": local}
+		raw, _ := json.Marshal(body)
+		out, err := resolveRawImagePaths(raw, resolve)
 		if err != nil {
 			t.Fatalf("err = %v", err)
 		}
@@ -209,7 +212,9 @@ func TestResolveRawImagePaths(t *testing.T) {
 	})
 
 	t.Run("array image_urls", func(t *testing.T) {
-		out, err := resolveRawImagePaths([]byte(`{"image_urls":["`+local+`"]}`), resolve)
+		arr := []string{local}
+		aj, _ := json.Marshal(arr)
+		out, err := resolveRawImagePaths([]byte(`{"image_urls":`+string(aj)+`}`), resolve)
 		if err != nil {
 			t.Fatalf("err = %v", err)
 		}
@@ -230,8 +235,9 @@ func TestResolveRawImagePaths(t *testing.T) {
 	})
 
 	t.Run("unrelated keys preserved", func(t *testing.T) {
-		out, err := resolveRawImagePaths(
-			[]byte(`{"model":"m","seed":42,"image_urls":["`+local+`"]}`), resolve)
+		body := map[string]interface{}{"model": "m", "seed": 42, "image_urls": []string{local}}
+		raw, _ := json.Marshal(body)
+		out, err := resolveRawImagePaths(raw, resolve)
 		if err != nil {
 			t.Fatalf("err = %v", err)
 		}
@@ -255,7 +261,9 @@ func TestResolveRawImagePathsNestedExtraBody(t *testing.T) {
 		return out, nil
 	}
 
-	raw := []byte(`{"model":"m","prompt":"p","extra_body":{"image":["` + local + `"]}}`)
+	extraBody := map[string]interface{}{"image": []string{local}}
+	ebj, _ := json.Marshal(extraBody)
+	raw := []byte(`{"model":"m","prompt":"p","extra_body":` + string(ebj) + `}`)
 	out, err := resolveRawImagePaths(raw, resolve)
 	if err != nil {
 		t.Fatalf("err = %v", err)

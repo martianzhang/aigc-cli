@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -141,7 +142,8 @@ func TestToolCallDiff(t *testing.T) {
 		if err := os.WriteFile(path, []byte("old line\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		got := toolCallDiff("write", `{"filepath":"`+path+`","content":"new line\n"}`)
+		fp, _ := json.Marshal(path)
+		got := toolCallDiff("write", `{"filepath":`+string(fp)+`,"content":"new line\n"}`)
 		if !strings.Contains(got, "-old line") || !strings.Contains(got, "+new line") {
 			t.Errorf("write diff = %q, want old removed and new added", got)
 		}
@@ -149,7 +151,8 @@ func TestToolCallDiff(t *testing.T) {
 
 	t.Run("write new file", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "new.txt")
-		got := toolCallDiff("write", `{"filepath":"`+path+`","content":"hello\n"}`)
+		fp, _ := json.Marshal(path)
+		got := toolCallDiff("write", `{"filepath":`+string(fp)+`,"content":"hello\n"}`)
 		if got != "+hello" {
 			t.Errorf("write diff = %q, want +hello", got)
 		}

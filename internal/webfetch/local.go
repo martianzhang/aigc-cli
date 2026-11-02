@@ -37,9 +37,31 @@ func LocalFilePath(raw string) (string, bool, error) {
 			return "", false, fmt.Errorf("invalid file URL %q: %w", raw, err)
 		}
 		if u.Host != "" && !strings.EqualFold(u.Host, "localhost") {
-			return "", false, fmt.Errorf("file URL host %q is not supported", u.Host)
+			// On Windows, URLs like file:///C:/path are parsed as
+			// scheme="file" host="C:" path="/...".  Reassemble the
+			// drive-letter host into the path so os.Stat can resolve it.
+			if strings.ContainsRune(u.Host, ':') {
+				// host includes the drive colon, e.g. "C:"
+				drive := strings.ToLower(u.Host[:1])
+				if len(drive) == 1 && drive >= "a" && drive <= "z" {
+					u.Path = u.Host + u.Path
+					u.Host = ""
+				} else {
+					return "", false, fmt.Errorf("file URL host %q is not supported", u.Host)
+				}
+			} else {
+				return "", false, fmt.Errorf("file URL host %q is not supported", u.Host)
+			}
 		}
 		path := u.Path
+		// On Windows the path component may contain URL-encoded backslashes
+		// (e.g. %5C) or a mix of forward/back slashes (e.g. from file:///C:/a/b).
+		// url.PathUnescape restores encoded characters, and FromSlash normalises
+		// any forward slashes to the platform separator so os.Stat can resolve it.
+		if unescaped, err := url.PathUnescape(path); err == nil {
+			path = unescaped
+		}
+		path = filepath.FromSlash(path)
 		info, err := os.Stat(path)
 		if err != nil {
 			return "", false, fmt.Errorf("read local file %s: %w", path, err)

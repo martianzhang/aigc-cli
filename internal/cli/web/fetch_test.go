@@ -261,8 +261,8 @@ func TestRunFetchCookieDryRunMasksValues(t *testing.T) {
 
 	for _, want := range []string{
 		`-b "session=***; theme=***"`,
-		`-b "` + jar + `"`,
-		`-c "` + out + `"`,
+		`-b "` + filepath.ToSlash(jar) + `"`,
+		`-c "` + filepath.ToSlash(out) + `"`,
 	} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Errorf("stdout = %q, want it to contain %q", stdout.String(), want)

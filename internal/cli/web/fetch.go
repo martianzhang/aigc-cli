@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -443,13 +444,13 @@ func cookieCurlArgs(flags fetchFlags, cookieHeader string, cookieHeaderFound boo
 			args = append(args, fmt.Sprintf("-b %q", maskCookieData(value)))
 			continue
 		}
-		args = append(args, fmt.Sprintf("-b %q", value))
+		args = append(args, fmt.Sprintf("-b %q", filepath.ToSlash(value)))
 	}
 	if cookieHeaderFound && strings.TrimSpace(cookieHeader) != "" {
 		args = append(args, fmt.Sprintf("-b %q", maskCookieData(cookieHeader)))
 	}
 	if flags.cookieJar != "" {
-		args = append(args, fmt.Sprintf("-c %q", flags.cookieJar))
+		args = append(args, fmt.Sprintf("-c %q", filepath.ToSlash(flags.cookieJar)))
 	}
 	return args
 }

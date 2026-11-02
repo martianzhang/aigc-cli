@@ -26,7 +26,8 @@ func TestSafeFileToken(t *testing.T) {
 		{"task_abc123", "task_abc123"},
 		{"/etc/passwd", "passwd"},
 		{"a/b", "b"},
-		{`a\..\b`, "a___b"},
+		// On Windows filepath.Clean(`a\..\b`) → "b", not "a\..\b".
+		{`a\..\b`, "b"},
 		{"..", "_"},
 		{".", "task"},
 		{"", "task"},

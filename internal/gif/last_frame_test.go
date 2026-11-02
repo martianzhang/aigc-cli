@@ -13,9 +13,9 @@ func TestDefaultLastFrameOutput(t *testing.T) {
 		input string
 		want  string
 	}{
-		{name: "mp4 in dir", input: "/tmp/org.mp4", want: "/tmp/org_lastframe.png"},
+		{name: "mp4 in dir", input: "/tmp/org.mp4", want: filepath.Join("/tmp", "org_lastframe.png")},
 		{name: "plain name", input: "clip.mov", want: "clip_lastframe.png"},
-		{name: "no extension", input: "dir/raw", want: "dir/raw_lastframe.png"},
+		{name: "no extension", input: "dir/raw", want: filepath.Join("dir", "raw_lastframe.png")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

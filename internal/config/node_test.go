@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -35,6 +36,9 @@ func writeFixture(t *testing.T, content string) string {
 }
 
 func TestDefaultPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("os.UserHomeDir on Windows reads registry, ignoring HOME env")
+	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 

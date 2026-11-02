@@ -3,6 +3,7 @@ package mcp
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -36,6 +37,9 @@ func TestConfinedOutputPath_absoluteOutsideRootsRejected(t *testing.T) {
 }
 
 func TestConfinedOutputPath_symlinkRejected(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink requires elevated privileges on Windows")
+	}
 	dir := t.TempDir()
 	input := filepath.Join(dir, "photo.png")
 	target := filepath.Join(t.TempDir(), "target.png")

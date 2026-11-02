@@ -25,7 +25,7 @@ func TestLocalFilePath(t *testing.T) {
 		t.Errorf("LocalFilePath(file) = %q/%v/%v, want the file", got, ok, err)
 	}
 
-	fileURL := (&url.URL{Scheme: "file", Path: file}).String()
+	fileURL := (&url.URL{Scheme: "file", Path: filepath.ToSlash(file)}).String()
 	if got, ok, err := LocalFilePath(fileURL); err != nil || !ok || got != file {
 		t.Errorf("LocalFilePath(file URL) = %q/%v/%v, want the file", got, ok, err)
 	}

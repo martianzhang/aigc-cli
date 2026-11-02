@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -50,6 +51,9 @@ func TestCropWatermarkHandler_rejectsTraversalOutput(t *testing.T) {
 }
 
 func TestCropWatermarkHandler_rejectsSymlinkOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink requires elevated privileges on Windows")
+	}
 	dir := t.TempDir()
 	input := filepath.Join(dir, "photo.png")
 	if err := writeSolidPNG(input, 200, 200); err != nil {

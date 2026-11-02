@@ -284,6 +284,9 @@ func TestFreeAbs(t *testing.T) {
 }
 
 func TestFreeConfigBinDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("os.UserHomeDir on Windows reads registry, ignoring HOME env")
+	}
 	t.Run("home set", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
@@ -315,6 +318,9 @@ func fakeMutoolName() string {
 
 func TestFreeFindMutool(t *testing.T) {
 	t.Run("found in config bin dir", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("os.UserHomeDir on Windows reads registry, ignoring HOME env")
+		}
 		home := t.TempDir()
 		binDir := filepath.Join(home, ".config", "aigc-cli", "bin")
 		if err := os.MkdirAll(binDir, 0o755); err != nil {

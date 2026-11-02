@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"path/filepath"
 	"testing"
 )
 
@@ -170,8 +171,9 @@ func TestResolveModel(t *testing.T) {
 		t.Fatal("ResolveModel(bogus) should return ok=false")
 	}
 	// ModelPath falls back to default for unknown IDs.
-	if got := ModelPath("/models", "bogus"); got != "/models/depth/depth-anything-v2-small.onnx" {
-		t.Errorf("ModelPath fallback = %q", got)
+	wantFallback := filepath.Join("/models", "depth", "depth-anything-v2-small.onnx")
+	if got := ModelPath("/models", "bogus"); got != wantFallback {
+		t.Errorf("ModelPath fallback = %q, want %q", got, wantFallback)
 	}
 }
 

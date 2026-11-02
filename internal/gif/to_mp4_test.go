@@ -14,8 +14,8 @@ func TestDefaultMP4Output(t *testing.T) {
 		input string
 		want  string
 	}{
-		{name: "gif in dir", input: "/tmp/anim.gif", want: "/tmp/anim.mp4"},
-		{name: "mov in dir", input: "/tmp/clip.mov", want: "/tmp/clip.mp4"},
+		{name: "gif in dir", input: "/tmp/anim.gif", want: filepath.Join("/tmp", "anim.mp4")},
+		{name: "mov in dir", input: "/tmp/clip.mov", want: filepath.Join("/tmp", "clip.mp4")},
 		{name: "plain name", input: "clip.webm", want: "clip.mp4"},
 	}
 	for _, tt := range tests {

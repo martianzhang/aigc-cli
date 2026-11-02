@@ -231,7 +231,9 @@ func TestResolveRawImagePathsPreservesFidelity(t *testing.T) {
 		return out, nil
 	}
 
-	raw := []byte(`{"image_urls":["` + local + `"],"seed":1.0,"big":12345678901234567890,"html":"<b>&</b>"}`)
+	arr := []string{local}
+	aj, _ := json.Marshal(arr)
+	raw := []byte(`{"image_urls":` + string(aj) + `,"seed":1.0,"big":12345678901234567890,"html":"<b>&amp;</b>"}`)
 	out, err := resolveRawImagePaths(raw, resolve)
 	if err != nil {
 		t.Fatalf("resolveRawImagePaths() error = %v", err)
@@ -239,7 +241,7 @@ func TestResolveRawImagePathsPreservesFidelity(t *testing.T) {
 	for _, want := range []string{
 		`"seed":1.0`,
 		`"big":12345678901234567890`,
-		`"html":"<b>&</b>"`,
+		`"html":"<b>&amp;</b>"`,
 		`"image_urls":["resolved"]`,
 	} {
 		if !strings.Contains(string(out), want) {

@@ -20,6 +20,7 @@ func newTestSession(t *testing.T, id string) (*Session, string) {
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
+	t.Cleanup(func() { s.Close("test teardown") })
 	return s, path
 }
 

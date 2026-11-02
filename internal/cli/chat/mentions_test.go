@@ -2,6 +2,7 @@ package chat
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,7 +41,7 @@ func TestExpandMentions(t *testing.T) {
 		{
 			name:        "text file is inlined",
 			input:       "explain @" + txtPath,
-			wantContain: []string{`<file name="` + txtPath + `">`, "hello world", "</file>"},
+			wantContain: []string{fmt.Sprintf(`<file name=%q>`, txtPath), "hello world", "</file>"},
 		},
 		{
 			name:       "image becomes an attachment",
