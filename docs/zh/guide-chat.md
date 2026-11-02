@@ -234,13 +234,17 @@ Chat 只内置少量**原语**（命名对齐 pi coding agent）；生成 / 检�
 | `ls` | ✅ | 列出目录条目（非递归） |
 | `write` | ⛔ | 写入 / 覆盖文件，自动建父目录 |
 | `edit` | ⛔ | 精确文本替换（`old_string` 必须唯一匹配） |
-| `bash` | ⛔ | 在当前目录执行 shell 命令 |
+| `bash` | ⛔ | 在当前目录执行 shell 命令（自动选择平台 shell，见下） |
 | `search` | ⛔ | 内置联网搜索（DuckDuckGo，免费免 Key），返回标题 + URL 列表 |
 | `fetch` | ⛔ | 内置抓取 URL：HTML 转 Markdown（正文提取，省 token），非 HTML 原样返回；免费、带 SSRF 防护 |
 | `web_search` | ⛔ | 经**第三方 API** 搜索（厂商由 `defaults.search.provider` 选择，可能计费），返回标题 + URL 列表 |
 | `web_fetch` | ⛔ | 经**第三方 API** 抓取（同一厂商，返回已格式化 Markdown，可能计费） |
 
 **只读原语**（`read`/`grep`/`find`/`ls`）默认开启；**特权原语**（`write`/`edit`/`bash`/`search`/`fetch`/`web_search`/`web_fetch`）默认关闭，需在 `tools_enable` 中**显式列出**才启用——这是把写文件 / 执行命令 / 联网交给模型的安全闸门。
+
+> **跨平台 shell**：`bash` 会按平台自动选择执行器。macOS / Linux 依次使用 `zsh` / `bash` / `sh`；Windows **优先寻找 Git Bash / MSYS2 / Cygwin / busybox**，找到时 `/dev/null`、`ls`、`grep`、`find` 等 Unix 写法可直接使用；找不到 POSIX shell 才退回 PowerShell 7 / Windows PowerShell 5.1 / `cmd.exe`。退回 PowerShell 或 cmd 时，会自动翻译常见惯用法（`/dev/null` → `$null` / `NUL`、`ls -la`、`find -name` / `-type`、`grep -rn`、`head` / `tail`、`export`、`which`、`rm -rf`、`mkdir -p`、`cp -r`、`touch`、`curl` 等；带管道、重定向或复杂选项的写法保持原样，由系统提示和失败提示引导模型改用内置工具），并把当前 shell 写进系统提示和工具描述，让模型输出匹配的语法。**文件读取 / 搜索 / 查找仍建议优先用 `read` / `grep` / `find` / `ls`**——它们是纯 Go 实现，不依赖系统命令，跨平台最稳。`bash` 子进程同样继承生效的代理设置（`--http-proxy` / 配置 `http_proxy` / 环境变量），并会在子进程环境中写入 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`；`--no-proxy` 则会移除这些变量（详见安装文档的「代理配置」）。
+>
+> **WSL**：在 WSL 里运行的是 Linux 构建（`GOOS=linux`），按 Linux 处理，`/dev/null` 与 Unix 命令原生可用，不会进入 Windows 兼容分支。反之，Windows 原生 `aigc-cli.exe` 如果只找到 WSL 的 `C:\Windows\System32\bash.exe`，会主动跳过它（WSL 的 `/mnt/c` 命名空间和 Windows 进程的 cwd 对不上），回退到 Git Bash / busybox / PowerShell。
 
 领域工具（`generate_image`、`generate_video`、`recognize_text`、`kb_find` 等）不再定义在 Chat 内，而由 MCP 服务器提供：想用 aigc-cli 自己的能力，配置 `mcp.servers` 指向 `aigc-cli mcp` 即可（见下）。
 

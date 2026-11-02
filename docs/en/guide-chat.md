@@ -139,13 +139,17 @@ Chat ships a small set of **primitives** (names aligned with pi coding agent). D
 | `ls` | ✅ | List a directory (non-recursive) |
 | `write` | ⛔ | Write/overwrite a file, creating parent dirs |
 | `edit` | ⛔ | Exact-text replace (`old_string` must be unique) |
-| `bash` | ⛔ | Execute a shell command in the current directory |
+| `bash` | ⛔ | Execute a shell command in the current directory (platform shell auto-selected, see below) |
 | `search` | ⛔ | Built-in web search (DuckDuckGo, free, no key); returns titles + URLs |
 | `fetch` | ⛔ | Built-in URL fetch: HTML → Markdown (main content, token-efficient), non-HTML as-is; free, SSRF-guarded |
 | `web_search` | ⛔ | Search through a **third-party API** (vendor chosen by `defaults.search.provider`; may be billed); returns titles + URLs |
 | `web_fetch` | ⛔ | Fetch through a **third-party API** (same vendor; returns provider-formatted Markdown; may be billed) |
 
 **Read-only primitives** (`read`/`grep`/`find`/`ls`) are on by default. **Privileged primitives** (`write`/`edit`/`bash`/`search`/`fetch`/`web_search`/`web_fetch`) are off by default and require an explicit `tools_enable` entry — the safety gate for handing file-writes/command execution/network access to the model.
+
+> **Cross-platform shell**: `bash` selects its executor per platform. macOS/Linux use `zsh`/`bash`/`sh`; Windows **prefers Git Bash / MSYS2 / Cygwin / busybox**, where `/dev/null`, `ls`, `grep`, `find` and other Unix syntax work as written. Only when no POSIX shell is installed does it fall back to PowerShell 7 / Windows PowerShell 5.1 / `cmd.exe`. In the PowerShell/cmd fallback common idioms are translated automatically (`/dev/null` → `$null` / `NUL`, `ls -la`, `find -name`/`-type`, `grep -rn`, `head`/`tail`, `export`, `which`, `rm -rf`, `mkdir -p`, `cp -r`, `touch`, `curl`, …; forms with pipes, redirections or complex options are left untouched and the system/failure hints steer the model to the built-in tools), and the active shell is included in the system prompt and tool description so the model emits matching syntax. **For reading/searching files, still prefer the `read`/`grep`/`find`/`ls` tools** — they are pure-Go and do not depend on system commands, so they are the most portable path. The `bash` child process also inherits the effective proxy (`--http-proxy` / config `http_proxy` / environment), exported as `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`; `--no-proxy` removes those variables instead (see "Proxy" in the installation guide).
+>
+> **WSL**: a binary running inside WSL is a Linux build (`GOOS=linux`), so it takes the normal POSIX path — `/dev/null` and Unix commands work natively and the Windows compatibility branch is never entered. Conversely, a native Windows `aigc-cli.exe` that finds only WSL's `C:\Windows\System32\bash.exe` skips it deliberately (WSL's `/mnt/c` namespace does not match the Windows process's cwd) and falls back to Git Bash / busybox / PowerShell.
 
 Domain tools (`generate_image`, `recognize_text`, `kb_find`, …) are no longer defined in chat; they come from MCP servers. To use aigc-cli's own tools, point `mcp.servers` at `aigc-cli mcp` (see below).
 

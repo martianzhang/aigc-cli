@@ -147,6 +147,13 @@ aigc-cli image --prompt "..." --no-proxy
 `HTTP_PROXY` / `HTTPS_PROXY` environment variables. It is mutually exclusive with an
 explicit `--http-proxy <URL>`; combining them is an error.
 
+> The chat **`bash` tool** inherits the same proxy choice. The CLI exports the
+> effective `--http-proxy` / config `http_proxy` / environment value as
+> `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY` (both upper- and lower-case) in the
+> child process, adding `NO_PROXY=localhost,127.0.0.1,::1` unless you defined one;
+> `--no-proxy` removes those variables from the child environment instead. So
+> `curl`, `wget`, `git` and friends use the same egress as the CLI's own requests.
+
 ## Terminal Title & Progress
 
 While a long task runs (async image/video generation, Midjourney/music polling,

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 )
 
@@ -25,6 +26,20 @@ func loadAgentsContext() string {
 		cwd = ""
 	}
 	return agentsContextFrom(cwd, globalPath)
+}
+
+// runtimeContext returns the guidance appended to the system prompt: the
+// platform/shell notes (only on platforms where it matters) followed by the
+// AGENTS.md project context.
+func runtimeContext() string {
+	var parts []string
+	if p := agent.PlatformPrompt(); p != "" {
+		parts = append(parts, p)
+	}
+	if ctx := loadAgentsContext(); ctx != "" {
+		parts = append(parts, ctx)
+	}
+	return strings.Join(parts, "\n\n")
 }
 
 // agentsContextFrom builds the context block from a global file and the

@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/chat"
 	"github.com/martianzhang/aigc-cli/internal/cli/guidance"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
@@ -162,6 +163,9 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 
 		// Configure global HTTP client with proxy for all requests
 		client.ConfigureDefaultClient(shared.HTTPProxy)
+		// Child processes spawned by the chat bash tool cannot use the Go
+		// client's transport, so propagate the same choice via env vars.
+		agent.SetShellProxy(shared.HTTPProxy, shared.NoProxy)
 
 		// Make sure a local encryption master secret exists, then encrypt any
 		// plaintext secrets still on disk.

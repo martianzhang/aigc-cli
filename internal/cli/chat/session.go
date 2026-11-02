@@ -154,7 +154,7 @@ func buildHistoryFromSession(sess *session.Session, newMessages []types.ChatMess
 
 	if sess == nil {
 		if system == "" {
-			system = loadAgentsContext()
+			system = runtimeContext()
 		}
 		return withSystem(system, messages), nil
 	}
@@ -166,7 +166,7 @@ func buildHistoryFromSession(sess *session.Session, newMessages []types.ChatMess
 
 	if persist {
 		if storedSystem == "" && system == "" {
-			system = loadAgentsContext()
+			system = runtimeContext()
 		}
 		if storedSystem == "" && system != "" {
 			if err := sess.AppendSystem(system); err != nil {
@@ -183,7 +183,7 @@ func buildHistoryFromSession(sess *session.Session, newMessages []types.ChatMess
 
 	history := sess.History()
 	if storedSystem == "" && system == "" {
-		system = loadAgentsContext()
+		system = runtimeContext()
 	}
 	if storedSystem == "" && system != "" {
 		history = withSystem(system, history)

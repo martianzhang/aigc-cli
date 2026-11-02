@@ -68,7 +68,7 @@ var ToolDefs = []types.ToolDefinition{
 		Type: "function",
 		Function: types.ToolFunction{
 			Name:        "bash",
-			Description: "Execute a shell command in the current working directory and return its combined stdout/stderr. Use for ls/grep/find/curl and other CLI operations. Requires `tools_enable` to list \"bash\".",
+			Description: bashToolDescription(),
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {

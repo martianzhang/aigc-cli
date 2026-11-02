@@ -198,7 +198,7 @@ func buildTUISystemPrompt() string {
 	if chatSystem != "" {
 		sysContent += "\n" + chatSystem
 	}
-	if ctx := loadAgentsContext(); ctx != "" {
+	if ctx := runtimeContext(); ctx != "" {
 		sysContent += "\n\n" + ctx
 	}
 	return sysContent

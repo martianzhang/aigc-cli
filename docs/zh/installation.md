@@ -250,6 +250,12 @@ aigc-cli image --prompt "..." --no-proxy
 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量，适用于「国内接口不想走代理」这类单次例外。
 它与显式传入的 `--http-proxy <URL>` 互斥，同时使用会直接报错。
 
+> **chat 的 `bash` 工具**会继承同一套代理设置：CLI 把生效的 `--http-proxy` / 配置
+> `http_proxy` / 环境变量转换成子进程的 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`
+> （大小写各一份），未自定义 `NO_PROXY` 时补充 `localhost,127.0.0.1,::1`；
+> `--no-proxy` 则会从子进程环境中移除这些变量。因此 `curl` / `wget` / `git` 等命令
+> 与 CLI 自身的请求走同一个出口。
+
 ## 终端标题与进度指示
 
 长任务（异步出图/出视频/Midjourney/音乐轮询、大文件下载、本地 ONNX 推理）运行时，CLI 会把当前进度写进终端的**标签标题**，并在支持的终端里点亮**原生进度条**，切换标签页也能看到还剩多少：
