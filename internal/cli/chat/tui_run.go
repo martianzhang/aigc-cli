@@ -30,7 +30,7 @@ func runChatTUI(cmd *cobra.Command) error {
 		return err
 	}
 
-	maxIterations := 10
+	maxIterations := defaultMaxIterations
 	if chatCfg != nil && chatCfg.MaxIterations > 0 {
 		maxIterations = chatCfg.MaxIterations
 	}

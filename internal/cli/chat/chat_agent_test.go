@@ -153,6 +153,52 @@ func TestRunAgentLoop_noLeadingBlankLine(t *testing.T) {
 	}
 }
 
+// TestRunAgentLoop_maxIterationsNoticeOnToolTurn guards that a turn which runs
+// out of its tool-calling budget while the model is still calling tools ends
+// with an explicit notice instead of exiting silently mid-task.
+func TestRunAgentLoop_maxIterationsNoticeOnToolTurn(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		calls int
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		calls++
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":"call_1","type":"function","function":{"name":"no_such_tool","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}`)
+	}))
+	defer srv.Close()
+
+	prevModel, prevNoStream := options.Shared.Model, chatNoStream
+	options.Shared.Model, chatNoStream = "test-model", true
+	var errBuf bytes.Buffer
+	restoreOut := options.SetStdout(io.Discard)
+	restoreErr := options.SetStderr(&errBuf)
+	t.Cleanup(func() {
+		options.Shared.Model, chatNoStream = prevModel, prevNoStream
+		restoreOut()
+		restoreErr()
+	})
+
+	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
+	history := []types.ChatMessage{{Role: "user", Content: "hi"}}
+
+	if err := runAgentLoop(context.Background(), c, nil, &history, 2, newAgentLoopTestCmd(), nil); err != nil {
+		t.Fatalf("runAgentLoop() error = %v", err)
+	}
+
+	mu.Lock()
+	gotCalls := calls
+	mu.Unlock()
+	if gotCalls != 2 {
+		t.Errorf("LLM round-trips = %d, want 2", gotCalls)
+	}
+	if !strings.Contains(errBuf.String(), "Reached maximum iterations (2)") {
+		t.Errorf("stderr = %q, want the max-iterations notice", errBuf.String())
+	}
+}
+
 func TestRunAgentLoopWithSessionPersistsMessages(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -214,7 +214,7 @@ aigc-cli chat --message "生成一段日落海滩的视频"
 ```
 
 - 回复采用**流式输出**，文字逐 token 实时显示
-- 每次用户消息，LLM 最多连续调 10 次工具，可通过 `defaults.chat.max_iterations` 配置
+- 每次用户消息，LLM 最多连续调 100 次工具，可通过 `defaults.chat.max_iterations` 配置；达到上限时会提示 “Reached maximum iterations”，发新消息即可继续
 - 工具执行时读取 `defaults.image` / `defaults.video` 作为 LLM 没指定参数时的兜底
 - 每个工具执行后显示耗时和结果摘要（如 `[tool] done in 3.2s: Successfully generated 1 image(s)`）
 - 工具调用以卡片展示参数与结果：`bash` 命令默认只显示首行并截断到 100 列（多行脚本会以 `…` 提示），**单击卡片或按 `Ctrl+O`** 可展开完整命令；`write` / `edit` 显示 `+/-` diff 预览；结果超过 20 行时自动折叠，同样用单击或 `Ctrl+O` 展开或收起
@@ -462,7 +462,7 @@ defaults:
 
 | 参数 | 说明 |
 |---|---|
-| `defaults.chat.max_iterations` | 每次用户消息，LLM 最多连续调工具次数（默认 10） |
+| `defaults.chat.max_iterations` | 每次用户消息，LLM 最多连续调工具次数（默认 100） |
 | `defaults.chat.tools` | 允许的工具白名单（glob 模式），空或 `["*"]` = 全部允许 |
 | `defaults.chat.disable_tools` | 禁用的工具黑名单（glob 模式），覆盖 `tools` |
 | `defaults.chat.allow_tool_override` | `true`=LLM参数优先，`false`=配置强制覆盖LLM（默认`false`，省钱） |

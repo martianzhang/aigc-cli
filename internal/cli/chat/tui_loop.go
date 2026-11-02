@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -171,7 +170,7 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 			prog.Send(toolDone{
 				turn:    turn,
 				name:    "info",
-				summary: fmt.Sprintf("Reached maximum iterations (%d). Start a new message to continue.", m.maxIters),
+				summary: maxIterationsNotice(m.maxIters),
 			})
 		}
 
@@ -193,6 +192,17 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 		return
 	}
 
+	// The loop can also end on the tool-call path: the last allowed round-trip
+	// returned tool_calls, the tools ran, and the next iteration was refused by
+	// the budget. Without an explicit notice the TUI would silently drop back to
+	// Ready with the task half-done.
+	if turnCount >= m.maxIters {
+		prog.Send(toolDone{
+			turn:    turn,
+			name:    "info",
+			summary: maxIterationsNotice(m.maxIters),
+		})
+	}
 	prog.Send(agentDone{turn: turn, history: localHistory})
 }
 

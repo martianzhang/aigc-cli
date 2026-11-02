@@ -139,13 +139,25 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 		}
 
 		if turnCount >= maxIterations {
-			fmt.Fprintf(options.Stderr(), "Reached maximum iterations (%d). Start a new message to continue.\r\n", maxIterations)
+			fmt.Fprintf(options.Stderr(), "%s\r\n", maxIterationsNotice(maxIterations))
 		}
 
 		return nil
 	}
 
+	// The budget ran out on a tool-call turn (the tools ran, the next round-trip
+	// was refused). Say so instead of returning silently with the task half-done.
+	if turnCount >= maxIterations {
+		fmt.Fprintf(options.Stderr(), "%s\r\n", maxIterationsNotice(maxIterations))
+	}
+
 	return nil
+}
+
+// maxIterationsNotice is the user-facing message shown when one user message
+// has consumed the whole tool-calling budget.
+func maxIterationsNotice(maxIterations int) string {
+	return fmt.Sprintf("Reached maximum iterations (%d). Start a new message to continue.", maxIterations)
 }
 
 // buildAgentTools returns the built-in tool definitions after filtering.

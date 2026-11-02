@@ -15,6 +15,13 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
+// defaultMaxIterations caps how many LLM round-trips a single user message may
+// trigger. Each round-trip can carry several tool calls, so this is a budget
+// for the whole agentic turn, not a per-tool limit. It is deliberately large:
+// an exploratory task routinely needs dozens of read/grep/exec steps, and the
+// old cap of 10 cut turns off mid-task. defaults.chat.max_iterations overrides it.
+const defaultMaxIterations = 100
+
 // chat flag variables
 var (
 	chatSystem      string
@@ -155,7 +162,7 @@ func runChat(cmd *cobra.Command, args []string) error {
 
 	// Non-interactive with --message(s): the agent loop below performs the
 	// single send (with tools) and prints the answer once.
-	maxIterations := 10
+	maxIterations := defaultMaxIterations
 	if chatCfg != nil && chatCfg.MaxIterations > 0 {
 		maxIterations = chatCfg.MaxIterations
 	}
