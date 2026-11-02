@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"os"
 	"strings"
 	"sync"
 
@@ -121,6 +122,7 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 
 	// Pre-fill with welcome message so renderMessages always renders messages
 	welcomeMsg := buildWelcomeBanner()
+	workDir, _ := os.Getwd()
 
 	return &chatModel{
 		state:       tuiIdle,
@@ -128,6 +130,7 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 		agentTools:  tools,
 		maxIters:    maxIt,
 		model:       mdl,
+		workDir:     workDir,
 		cmd:         cobraCmd,
 		verbose:     verb,
 		temperature: temp,

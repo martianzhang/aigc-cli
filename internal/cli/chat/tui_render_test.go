@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -386,6 +387,76 @@ func TestToolBoundaryFlushesAssistantNarration(t *testing.T) {
 		if order[i] != want[i] {
 			t.Errorf("message order = %v, want %v", order, want)
 			break
+		}
+	}
+}
+
+// TestHeaderShowsWorkDirWithoutModel guards the top bar layout: it carries the
+// session label and the working directory, while the model appears only once,
+// in the status bar.
+func TestHeaderShowsWorkDirWithoutModel(t *testing.T) {
+	m := newTestModel(t)
+	m.model = "deepseek-v4"
+	m.provider = "apimart"
+	m.workDir = "/tmp/project"
+
+	header := stripANSI(m.headerText())
+	if !strings.Contains(header, "Chat with AI") {
+		t.Errorf("header = %q, want the session label", header)
+	}
+	if !strings.Contains(header, "/tmp/project") {
+		t.Errorf("header = %q, want the working directory", header)
+	}
+	if strings.Contains(header, "Model:") {
+		t.Errorf("header = %q, must not repeat the model", header)
+	}
+
+	view := stripANSI(m.View())
+	if got := strings.Count(view, "deepseek-v4"); got != 1 {
+		t.Errorf("model appears %d times in the view, want 1:\n%s", got, view)
+	}
+}
+
+// TestClipPathLeft guards the header path shortening: the tail of the path is
+// what identifies the project, so that is what survives a narrow terminal.
+func TestClipPathLeft(t *testing.T) {
+	cases := []struct {
+		path  string
+		width int
+		want  string
+	}{
+		{"~/ws/app", 40, "~/ws/app"},
+		{"~/ws/github.com/org/project", 16, "…/org/project"},
+		{"~/ws/github.com/org/project", 9, "…/project"},
+		{"/opt/other", 0, ""},
+		{"~/ws/app", 1, "…"},
+	}
+	for _, c := range cases {
+		if got := clipPathLeft(c.path, c.width); got != c.want {
+			t.Errorf("clipPathLeft(%q, %d) = %q, want %q", c.path, c.width, got, c.want)
+		}
+		if w := lipgloss.Width(clipPathLeft(c.path, c.width)); c.width > 0 && w > c.width {
+			t.Errorf("clipPathLeft(%q, %d) width = %d, exceeds the budget", c.path, c.width, w)
+		}
+	}
+}
+
+// TestWorkDirDisplayCollapsesHome guards the "~" shortening of the header path.
+func TestWorkDirDisplayCollapsesHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	cases := []struct{ dir, want string }{
+		{"", ""},
+		{home, "~"},
+		{filepath.Join(home, "ws", "app"), filepath.Join("~", "ws", "app")},
+		{"/opt/other", "/opt/other"},
+	}
+	for _, c := range cases {
+		m := &chatModel{workDir: c.dir}
+		if got := m.workDirDisplay(); got != c.want {
+			t.Errorf("workDirDisplay(%q) = %q, want %q", c.dir, got, c.want)
 		}
 	}
 }

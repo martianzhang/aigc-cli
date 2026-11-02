@@ -46,6 +46,7 @@ The REPL supports:
 - `@path` file references: text files are inlined, images are attached (Tab completes paths; governed by `defaults.chat.read_deny`)
 
 Layout:
+- The top bar shows the session label followed by the working directory (`$HOME` is shortened to `~`). The model is shown once, in the status bar below the input box, instead of being repeated in both places.
 - The startup banner (logo + shortcut hints) stays at the top of the scrollable transcript for the whole session; it is not dropped when you send the first message.
 - Messages are rendered as blocks with a coloured left bar (`┃`) that spans every line — blue for `You:`, green for `Assistant:`. Long lines, including CJK text and URLs, are wrapped to the terminal width instead of being cut off.
 - The input box starts at one row and grows with the draft up to five rows, then scrolls internally. A thin rule separates it from the transcript above, so the input stays anchored when the messages fill the screen.

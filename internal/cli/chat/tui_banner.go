@@ -2,6 +2,8 @@ package chat
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -43,6 +45,71 @@ func (m *chatModel) modelDisplay() string {
 		return m.model
 	}
 	return "<API default>"
+}
+
+// headerText is the top bar: the session label followed by the working
+// directory the agent runs in. The model is deliberately left out — the status
+// bar already shows it, and repeating it just wasted a row of context.
+//
+// The directory keeps its tail when space runs out: the leaf folder says where
+// the agent works, while the leading part of the path rarely does.
+func (m *chatModel) headerText() string {
+	label := "💬 " + m.sessionTitle()
+	width := max(m.width-4, 20)
+	dir := m.workDirDisplay()
+	if dir == "" {
+		return clipString(label, width)
+	}
+	const sep = "  ·  "
+	budget := width - lipgloss.Width(label) - lipgloss.Width(sep)
+	if budget <= 0 {
+		return clipString(label, width)
+	}
+	return label + sep + clipPathLeft(dir, budget)
+}
+
+// clipPathLeft shortens a path from the left, keeping the trailing components:
+// "~/ws/github.com/org/project" becomes "…/org/project" when it does not fit.
+func clipPathLeft(path string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	if lipgloss.Width(path) <= maxWidth {
+		return path
+	}
+	if maxWidth == 1 {
+		return "…"
+	}
+	// Drop whole leading components while the remainder still fits. Split on
+	// the portable slash so both separators behave the same.
+	parts := strings.Split(filepath.ToSlash(path), "/")
+	for i := 1; i < len(parts); i++ {
+		rest := "…/" + strings.Join(parts[i:], "/")
+		if lipgloss.Width(rest) <= maxWidth {
+			return filepath.FromSlash(rest)
+		}
+	}
+	return clipString("…/"+strings.TrimPrefix(path, "/"), maxWidth)
+}
+
+// workDirDisplay is the working directory with $HOME collapsed to "~", so the
+// top bar shows where relative paths, @-mentions and tool calls resolve.
+func (m *chatModel) workDirDisplay() string {
+	dir := m.workDir
+	if dir == "" {
+		return ""
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return dir
+	}
+	if dir == home {
+		return "~"
+	}
+	if strings.HasPrefix(dir, home+string(os.PathSeparator)) {
+		return "~" + dir[len(home):]
+	}
+	return dir
 }
 
 // providerModelDisplay renders the "Provider | Model" segment for the status bar.

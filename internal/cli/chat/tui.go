@@ -199,9 +199,11 @@ type chatModel struct {
 	maxIters   int
 	model      string
 	provider   string
-	system     string
-	cmd        *cobra.Command
-	verbose    bool
+	// workDir is the directory the agent runs in, shown in the top bar.
+	workDir string
+	system  string
+	cmd     *cobra.Command
+	verbose bool
 
 	// sess is non-nil when --save / --session is active. toolOutputMax caps
 	// the tool result text stored in the session file.

@@ -29,9 +29,9 @@ func (m *chatModel) View() string {
 
 	var b strings.Builder
 
-	// Header
-	headerText := clipString(fmt.Sprintf("💬 %s  —  Model: %s", m.sessionTitle(), m.modelDisplay()), max(m.width-4, 20))
-	b.WriteString(m.styles.header.Render(headerText))
+	// Header — session name plus the working directory. The model is shown in
+	// the status bar only, so it is not repeated here.
+	b.WriteString(m.styles.header.Render(m.headerText()))
 	b.WriteByte('\n')
 
 	// Messages area
