@@ -24,6 +24,29 @@ If a `--message` / `--prompt` value names an **existing file**, its contents are
 
 Piped stdin is sent as one additional user message with leading/trailing whitespace trimmed. When `--message` / `--prompt` flags are also present, both are combined: every flag value comes first and the piped text is appended as the final user message. `--json` (including `--json -`) owns stdin instead, and in an interactive terminal stdin belongs to the TUI.
 
+## Omitting `chat` (root default)
+
+When no subcommand is given, `aigc-cli` defaults to chat, so these are equivalent:
+
+```bash
+# Interactive chat
+aigc-cli
+aigc-cli --save                     # interactive + persist the session
+aigc-cli --session <id|file>        # resume a session
+
+# One-shot chat: positional args become one user message
+aigc-cli "Hello, who are you?"
+aigc-cli -p "Hello, who are you?"
+aigc-cli -p "en to zh" "hello"      # instruction first, then the positional text
+
+# Pipe + instruction
+echo "hello" | aigc-cli -p "en to zh"
+```
+
+Message order is fixed: `--message` / `--prompt` → positional args → piped stdin.
+
+> `--interactive` cannot be combined with positional args; use `aigc-cli --interactive` without a message.
+
 ## Interactive REPL
 
 Start the interactive chat:

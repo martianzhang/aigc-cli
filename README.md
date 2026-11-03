@@ -50,7 +50,9 @@ export OPENAI_API_KEY="sk-xxx"
 
 aigc-cli image --prompt "a cat under the stars"
 aigc-cli chat --message "Hello, who are you?"
+aigc-cli "Hello, who are you?"                # chat is the default command
 aigc-cli chat --save                          # persist this chat as JSONL
+aigc-cli --save                               # same, without the chat subcommand
 aigc-cli chat --session <id|file>             # resume a stored session
 ```
 
@@ -168,7 +170,7 @@ aigc-cli
 ├── background / bg AI background removal (RMBG 2.0 semantic segmentation, offline ONNX)  →  docs/en/guide-background.md
 ├── midjourney / mj                                                                  →  docs/en/guide-midjourney.md
 │   └── mj     Alias for midjourney
-├── chat      AI chat / Interactive REPL / Agent Loop (tool calling)                  →  docs/en/guide-chat.md
+├── chat      AI chat / Interactive REPL / Agent Loop (tool calling; default command)  →  docs/en/guide-chat.md
 ├── ideas / idea  Prompt idea search (local dataset + online libraries)                →  docs/en/guide-ideas.md
 ├── search     Web search: prints the executed vendor's raw JSON (vendors + DuckDuckGo fallback) →  docs/en/guide-commands.md
 ├── fetch      URL or local file → Markdown; media URL → saved file (built-in, or DeepSeek/Exa) →  docs/en/guide-commands.md

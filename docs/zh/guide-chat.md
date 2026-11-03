@@ -11,6 +11,29 @@
 >
 > 若参数值是一个**已存在的文件路径**，则读取文件内容作为消息（与 `image` / `video` / `audio` 的 `--prompt` 行为一致）。`-` 仍按字面量发送；管道 stdin 仍作为额外消息追加。
 
+## 省略 chat（根命令默认）
+
+不带子命令时，`aigc-cli` 默认执行 chat，所以下面这些写法都等价：
+
+```bash
+# 交互式聊天
+aigc-cli
+aigc-cli --save                     # 交互式 + 保存 session
+aigc-cli --session <id|file>        # 恢复 session
+
+# 单轮聊天：位置参数会作为一条 user 消息
+aigc-cli "Hello, who are you?"
+aigc-cli -p "Hello, who are you?"
+aigc-cli -p "en to zh" "hello"      # 先发指令，再发位置参数
+
+# 管道 + 指令
+echo "hello" | aigc-cli -p "en to zh"
+```
+
+消息顺序固定为：`--message` / `--prompt` → 位置参数 → 管道 stdin。
+
+> `--interactive` 不能和位置参数同时使用；需要交互模式时请用 `aigc-cli --interactive` 或不传消息。
+
 ## 交互式多轮（默认）
 
 不传 `--message` / `--prompt` 时自动进入交互模式：

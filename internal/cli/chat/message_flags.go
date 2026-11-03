@@ -56,8 +56,8 @@ func addMessageFlags(f *pflag.FlagSet) {
 	f.VarP(v, "prompt", "p", "Alias for --message (repeatable; an existing file path is read)")
 }
 
-// messageFlagChanged reports whether either --message or its --prompt alias was
-// supplied.
+// messageFlagChanged reports whether any user message input is present, either
+// from --message/--prompt or from positional args added by RunDefault.
 func messageFlagChanged(cmd *cobra.Command) bool {
-	return options.HasFlagChanged(cmd, "message") || options.HasFlagChanged(cmd, "prompt")
+	return options.HasFlagChanged(cmd, "message") || options.HasFlagChanged(cmd, "prompt") || len(chatMessages) > 0
 }

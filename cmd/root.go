@@ -25,11 +25,14 @@ var shared = options.Shared
 
 // rootCmd represents the base command.
 var rootCmd = &cobra.Command{
-	Use:           "aigc-cli",
+	Use:           "aigc-cli [message]",
 	Short:         "Unified CLI for OpenAI-compatible APIs (supports OpenAI, OpenRouter, APIMart)",
 	Version:       Version,
 	SilenceErrors: true,
 	SilenceUsage:  true,
+	// ArbitraryArgs lets positional text reach RunDefault (chat) instead of
+	// being rejected as an unknown subcommand. Known subcommands still win.
+	Args: cobra.ArbitraryArgs,
 	CompletionOptions: cobra.CompletionOptions{
 		HiddenDefaultCmd: false,
 	},
@@ -40,6 +43,10 @@ removal, depth maps, TTS/ASR, and image understanding.
 Generate images, videos and music, run Midjourney, chat with tools, search the
 web, fetch pages as Markdown, search prompt ideas and knowledge bases — or
 expose all of it to AI agents via MCP.
+
+Chat is the default command when no subcommand is given: bare aigc-cli opens
+the interactive TUI, positional text sends a single message, and chat flags
+such as -p/--save/--session work without typing the "chat" subcommand.
 
 Getting started (no config file required):
   1. Credentials:  export OPENAI_API_KEY=sk-xxx
@@ -71,6 +78,13 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
   export OPENAI_BASE_URL=https://api.apimart.ai
   aigc-cli --print-config                                 # show effective config
 
+# Chat is the default command when no subcommand is given
+  aigc-cli                                               # interactive chat (TUI)
+  aigc-cli --save                                        # interactive chat + session
+  aigc-cli "Hello, who are you?"                         # one-shot message
+  aigc-cli -p "Hello, who are you?" --dry-run            # preview the request
+  echo "Translate this" | aigc-cli -p "en to zh"         # piped stdin + instruction
+
 # Common workflows
   aigc-cli image --prompt "A cat under starry sky"
   aigc-cli video --prompt "A kitten yawning at the camera"
@@ -87,10 +101,7 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 # Agent integration and guides
   aigc-cli mcp --list-tools                              # list MCP tools (--list-prompts for workflow prompts)
   # docs/zh/ and docs/en/ guide-*.md files are the authoritative reference`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		c := chat.Cmd()
-		return c.RunE(c, args)
-	},
+	RunE: chat.RunDefault,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// --print-config: dump effective config with diagnostics
 		if shared.PrintConfig {
@@ -194,6 +205,10 @@ func init() {
 	// Propagate version to client package so User-Agent reflects the real version.
 	client.Version = Version
 	provider.Version = Version
+
+	// The root command already defaults to chat; bind chat's flags here too so
+	// `aigc-cli --save` / `aigc-cli -p ...` work without the "chat" subcommand.
+	chat.BindFlags(rootCmd)
 
 	// Append agent-oriented conventions to every subcommand's --help output.
 	installAgentHelp(rootCmd)

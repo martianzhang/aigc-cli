@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
@@ -214,7 +216,20 @@ func applyChatConfigDefaults(cmd *cobra.Command, cfg *types.ChatDefaults) {
 }
 
 func init() {
-	f := chatCmd.Flags()
+	registerFlags(chatCmd.Flags())
+}
+
+// BindFlags registers chat flags on another command. The root command uses it
+// so that omitting the "chat" subcommand still accepts -p/--save/--session and
+// the other chat options.
+func BindFlags(cmd *cobra.Command) {
+	registerFlags(cmd.Flags())
+}
+
+// registerFlags adds every chat-specific flag to f. It is shared by the chat
+// subcommand and the root command; only one of them parses flags per
+// invocation, and both bind to the same variables.
+func registerFlags(f *pflag.FlagSet) {
 	f.StringVarP(&chatSystem, "system", "s", "", "System prompt to set AI behavior")
 	addMessageFlags(f)
 	f.Float64VarP(&chatTemperature, "temperature", "t", 0, "Sampling temperature (0-2)")
@@ -234,3 +249,26 @@ func init() {
 
 // Cmd returns the chat command.
 func Cmd() *cobra.Command { return chatCmd }
+
+// RunDefault runs chat as the root command's default action. Positional args
+// are joined into one user message, so `aigc-cli hello` is equivalent to
+// `aigc-cli -p hello`; with no args the TUI opens as usual.
+func RunDefault(cmd *cobra.Command, args []string) error {
+	if err := addPositionalMessage(args); err != nil {
+		return err
+	}
+	return runChat(cmd, args)
+}
+
+// addPositionalMessage appends args as one user message. It rejects the
+// ambiguous interactive combination instead of silently dropping the text.
+func addPositionalMessage(args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	if chatInteractive {
+		return fmt.Errorf("--interactive cannot be combined with a positional message; use -p/--message instead")
+	}
+	chatMessages = append(chatMessages, strings.Join(args, " "))
+	return nil
+}
