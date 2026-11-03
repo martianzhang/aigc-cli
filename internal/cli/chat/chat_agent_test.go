@@ -231,7 +231,7 @@ func TestRunAgentLoopWithSessionPersistsMessages(t *testing.T) {
 	history := sess.History()
 
 	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
-	if err := runAgentLoopWithSession(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd(), nil, sess, session.DefaultToolOutputMaxBytes); err != nil {
+	if err := runAgentLoopWithSession(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd(), nil, sess, session.DefaultToolOutputMaxBytes, nil); err != nil {
 		t.Fatalf("runAgentLoopWithSession() error = %v", err)
 	}
 	if err := sess.Close("exit"); err != nil {

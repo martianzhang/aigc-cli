@@ -116,7 +116,7 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 
 				denied := false
 				var answer confirmReply
-				if m.confirm.needs(tc.Function.Name, tc.Function.Arguments) {
+				if m.needsConfirmation(tc.Function.Name, tc.Function.Arguments) {
 					answer = m.requestToolConfirmation(ctx, prog, turn, tc.Function.Name, summary, detail)
 					denied = answer.decision != confirmOnce && answer.decision != confirmAlways
 					if ctx.Err() != nil {

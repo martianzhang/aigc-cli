@@ -46,6 +46,26 @@ func keyRune(s string) tea.KeyMsg {
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
 }
 
+func TestYesBypassesConfirmation(t *testing.T) {
+	m := newConfirmTestModel(t)
+
+	prev := chatYes
+	chatYes = false
+	t.Cleanup(func() { chatYes = prev })
+
+	if !m.needsConfirmation("bash", `{"command":"echo hi"}`) {
+		t.Fatal("bash should need confirmation without --yes")
+	}
+
+	chatYes = true
+	if m.needsConfirmation("bash", `{"command":"echo hi"}`) {
+		t.Error("--yes should bypass confirmation")
+	}
+	if m.needsConfirmation("write", `{"filepath":"a.go","content":"x"}`) {
+		t.Error("--yes should bypass confirmation for every gated tool")
+	}
+}
+
 func TestConfirmOnce(t *testing.T) {
 	m := newConfirmTestModel(t)
 	reply := openConfirm(t, m)

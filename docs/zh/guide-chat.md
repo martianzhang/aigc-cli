@@ -483,9 +483,22 @@ defaults:
 - `target` 的取值：`bash` = 完整命令行；写文件类工具 = 文件路径；`url` 类工具 = URL；搜索类工具 = query；其他工具 = 压缩后的参数 JSON。
 - 多行 shell 命令中的 `.` 默认不跨行；需要跨行匹配时在 pattern 前加 `(?s)`，例如 `(?s)^bash .*rm\s+-rf`。
 - **缺省**（未配置）为 `^bash\b`、`^write\b`、`^edit\b`；显式写成 `confirm_tools: []` 表示**关闭确认**。
-- 正则写错会在进入 TUI 前直接报错，不会静默关闭确认。
-- 仅 TUI 生效；`--message` / 管道等非交互路径不弹确认。
+- 正则写错会在进入 TUI / 发起请求前直接报错，不会静默关闭确认。
+- 不加 `--yes` 时：TUI 逐次确认；非交互模式（`--message` / 管道 / 位置参数）采用 **fail-closed**，命中规则的工具不会执行，模型会收到一条 blocked 结果。
+- 加 `--yes` 时：TUI 和非交互模式都会自动放行命中规则的工具，不再弹确认。
 - 用户自己输入的 `!shell` 和 `/<tool>` 直调不弹确认（视为显式意图）。
+
+```bash
+# 非交互模式：bash 默认被拦截
+aigc-cli "今天几号？"
+
+# 明确允许工具调用（非交互模式）
+aigc-cli --yes "今天几号？"
+
+# TUI 中同样跳过所有确认
+aigc-cli --yes
+aigc-cli --interactive --yes
+```
 
 ### 参数
 
@@ -577,6 +590,7 @@ aigc-cli chat --message "Hello"
 | `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
 | `--inject-json` | 在 CLI 生成的最终 body 上**追加合并**一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于联网搜索等厂商私有参数，优先级高于 `--json` |
 | `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |
+| `--yes`, `-y` | TUI 和非交互模式都自动放行命中 `confirm_tools` 的工具 |
 | `--save` | 新建 JSONL 会话；默认目录 `~/.config/aigc-cli/sessions` |
 | `--session-dir` | 会话目录（默认 `~/.config/aigc-cli/sessions`） |
 | `--session` | 按 id 或 JSONL 路径恢复会话（隐含保存） |

@@ -374,9 +374,22 @@ defaults:
 - `target` is: the full command for `bash`, the path for file tools, the URL for `url` tools, the query for search tools, and compacted argument JSON otherwise.
 - `.` does not cross newlines in multi-line shell commands; prefix the pattern with `(?s)` when you need that, e.g. `(?s)^bash .*rm\s+-rf`.
 - **Default** (key absent) is `^bash\b`, `^write\b`, `^edit\b`; an explicit `confirm_tools: []` turns confirmation off.
-- An invalid regex fails before the TUI starts instead of silently disabling the check.
-- TUI only: `--message` / piped input never prompt.
+- An invalid regex fails before the TUI starts or the first request instead of silently disabling the check.
+- Without `--yes`: the TUI confirms each call; non-interactive mode (`--message` / piped input / positional text) is **fail-closed**, so a matching tool does not run and the model receives a blocked tool result.
+- With `--yes`: both the TUI and non-interactive mode auto-approve every matching tool.
 - User-initiated `!shell` and `/<tool>` calls are treated as explicit intent and are not confirmed.
+
+```bash
+# Non-interactive: bash is blocked by default
+aigc-cli "What is today's date?"
+
+# Explicitly allow tool calls (non-interactive)
+aigc-cli --yes "What is today's date?"
+
+# The TUI also skips every confirmation
+aigc-cli --yes
+aigc-cli --interactive --yes
+```
 
 ## Parameters
 
@@ -392,6 +405,7 @@ defaults:
 | `--json` | Pass messages as JSON; forwarded **verbatim** when no flags are set, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API. Explicitly-set flags override the matching key | — |
 | `--inject-json` | Merge a JSON object **on top of** the generated body (objects recurse, arrays append, scalars overwrite). Use it for vendor-only fields (native web search, reasoning, routing); takes precedence over `--json` | — |
 | `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
+| `--yes`, `-y` | Auto-approve confirm-gated tools in both the TUI and non-interactive mode | `false` |
 | `--save` | Start a new JSONL session | off |
 | `--session-dir` | Session directory | `~/.config/aigc-cli/sessions` |
 | `--session` | Resume a session by id or JSONL path (implies saving) | — |

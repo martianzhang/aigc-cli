@@ -35,6 +35,9 @@ var (
 	chatJSONFlag    string
 	chatInteractive bool
 	chatDryRun      bool
+	// chatYes auto-approves confirm-gated tools in both TUI and non-interactive
+	// mode.
+	chatYes bool
 	// chatSearchProvider overrides defaults.search.provider for the
 	// web_search/web_fetch primitives when set on the CLI.
 	chatSearchProvider string
@@ -143,6 +146,13 @@ func runChat(cmd *cobra.Command, args []string) error {
 		return runChatTUI(cmd)
 	}
 
+	// Validate confirmation patterns before creating a session or calling the
+	// API. The non-interactive agent loop uses this policy to fail closed.
+	confirm, err := newConfirmPolicy(chatCfg)
+	if err != nil {
+		return err
+	}
+
 	sess, created, err := openChatSession(chatCfg)
 	if err != nil {
 		return err
@@ -181,7 +191,7 @@ func runChat(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	c := client.NewFromProvider(p)
-	err = runAgentLoopWithSession(ctx, c, rt, &history, maxIterations, cmd, p, sess, sessionToolOutputMax(chatCfg))
+	err = runAgentLoopWithSession(ctx, c, rt, &history, maxIterations, cmd, p, sess, sessionToolOutputMax(chatCfg), confirm)
 	if err != nil {
 		return err
 	}
@@ -239,6 +249,7 @@ func registerFlags(f *pflag.FlagSet) {
 	f.StringVar(&chatJSONFlag, "json", "", "JSON file, string, or \"-\" for stdin")
 	f.BoolVar(&chatInteractive, "interactive", false, "Enter interactive multi-turn chat mode")
 	f.BoolVar(&chatDryRun, "dry-run", false, "Print the equivalent curl without calling the API")
+	f.BoolVarP(&chatYes, "yes", "y", false, "Auto-approve confirm-gated tools in both TUI and non-interactive mode")
 	f.StringVar(&chatSearchProvider, "search-provider", "", "Third-party vendor name for the web_search/web_fetch tools: duckduckgo/firecrawl/brave/doubao/deepseek/exa/wsa (overrides defaults.search.provider)")
 	f.StringVar(&chatInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")
 	f.BoolVar(&chatSave, "save", false, "Save this chat as a JSONL session (default dir: ~/.config/aigc-cli/sessions)")

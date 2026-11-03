@@ -19,14 +19,22 @@ import (
 
 // runAgentLoop executes the tool-calling loop without persisting a session.
 func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command, p *provider.EffectiveProvider) error {
-	return runAgentLoopWithSession(ctx, c, rt, history, maxIterations, cmd, p, nil, 0)
+	confirm, err := newConfirmPolicy(options.ChatDefaults())
+	if err != nil {
+		return err
+	}
+	return runAgentLoopWithSession(ctx, c, rt, history, maxIterations, cmd, p, nil, 0, confirm)
 }
 
 // runAgentLoopWithSession executes the tool-calling loop and appends every
 // message (user messages are written by the caller) to sess when it is non-nil.
 // history is modified in-place (appended with assistant + tool messages).
 // If ctx is cancelled (Ctrl+C), returns immediately with context.Canceled.
-func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command, p *provider.EffectiveProvider, sess *session.Session, toolOutputMax int) error {
+//
+// This is the non-interactive path, so confirm-gated tools fail closed unless
+// --yes was passed: the model receives a blocked tool result instead of the
+// command output and can explain how to proceed.
+func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command, p *provider.EffectiveProvider, sess *session.Session, toolOutputMax int, confirm *confirmPolicy) error {
 	// Merge defaults.chat.model into options.Shared.Model if empty
 	if options.Shared.Model == "" {
 		if cfg := options.ChatDefaults(); cfg != nil && cfg.Model != "" {
@@ -96,12 +104,18 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 				fmt.Fprintf(options.Stderr(), "[tool] %s:\r\n", tc.Function.Name)
 				printToolArgs(tc.Function.Arguments)
 
-				toolStart := time.Now()
-				toolResult := rt.Execute(ctx, c, tc)
-				elapsed := time.Since(toolStart).Round(time.Millisecond)
+				var toolResult string
+				if confirm.needs(tc.Function.Name, tc.Function.Arguments) && !chatYes {
+					toolResult = blockedToolResult(tc.Function.Name)
+					fmt.Fprintf(options.Stderr(), "[tool] blocked: requires confirmation (rerun with --yes)\r\n")
+				} else {
+					toolStart := time.Now()
+					toolResult = rt.Execute(ctx, c, tc)
+					elapsed := time.Since(toolStart).Round(time.Millisecond)
 
-				resultSummary := summarizeToolResult(tc.Function.Name, toolResult)
-				fmt.Fprintf(options.Stderr(), "[tool] done in %v: %s\r\n", elapsed, resultSummary)
+					resultSummary := summarizeToolResult(tc.Function.Name, toolResult)
+					fmt.Fprintf(options.Stderr(), "[tool] done in %v: %s\r\n", elapsed, resultSummary)
+				}
 
 				toolMessage := types.ChatMessage{
 					Role:       "tool",

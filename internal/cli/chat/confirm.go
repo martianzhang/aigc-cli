@@ -57,6 +57,17 @@ func deniedToolResult(r confirmReply) string {
 	return "User denied this tool call."
 }
 
+// blockedToolResult is the tool result returned in non-interactive mode when a
+// confirm-gated tool was not approved. It tells the model how the user can
+// proceed instead of pretending the call succeeded.
+func blockedToolResult(name string) string {
+	return fmt.Sprintf(
+		"Tool call %q was blocked: it requires user confirmation, but chat is running non-interactively. "+
+			"Ask the user to re-run with --yes to allow tool calls, or use interactive chat.",
+		name,
+	)
+}
+
 // deniedSummaryFor is the one-line tool-card summary for a rejection.
 func deniedSummaryFor(r confirmReply) string {
 	if r.decision == confirmSuggest {
@@ -171,6 +182,12 @@ func confirmMatchText(tool, argsJSON string) string {
 		return tool
 	}
 	return tool + " " + target
+}
+
+// needsConfirmation reports whether a tool call should open the TUI prompt.
+// --yes bypasses confirmation in every mode.
+func (m *chatModel) needsConfirmation(name, argsJSON string) bool {
+	return !chatYes && m.confirm != nil && m.confirm.needs(name, argsJSON)
 }
 
 // requestToolConfirmation asks the UI to approve a tool call and blocks until

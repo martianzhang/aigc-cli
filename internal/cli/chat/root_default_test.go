@@ -14,7 +14,7 @@ func TestBindFlagsRegistersChatFlags(t *testing.T) {
 	names := []string{
 		"system", "message", "prompt", "temperature", "max-output",
 		"context-size", "no-stream", "json", "interactive", "dry-run",
-		"search-provider", "inject-json", "save", "session-dir", "session", "name",
+		"search-provider", "inject-json", "save", "session-dir", "session", "name", "yes",
 	}
 	for _, name := range names {
 		if cmd.Flags().Lookup(name) == nil {
