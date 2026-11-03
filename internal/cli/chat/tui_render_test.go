@@ -348,6 +348,131 @@ func TestRenderMarkdownWrapsToMessageWidth(t *testing.T) {
 	}
 }
 
+// TestRenderMarkdownKeepsNarrowTableNarrow guards that a table sized from its
+// content is not spread across the whole message area: two columns would end up
+// on opposite sides of the screen with an empty gap between them.
+func TestRenderMarkdownKeepsNarrowTableNarrow(t *testing.T) {
+	m := newTestModel(t)
+	m.width = 100
+	body := "对比：\n\n| 名称 | 说明 |\n|---|---|\n| alpha | 第一个 |\n| beta | 第二个 |\n"
+
+	rendered := stripANSI(m.renderMarkdown(body))
+	if widest := widestLine(rendered); widest > 20 {
+		t.Errorf("narrow table rendered %d columns wide, want <= 20:\n%s", widest, rendered)
+	}
+	if !strings.Contains(rendered, "对比：") {
+		t.Errorf("prose around the table was lost:\n%s", rendered)
+	}
+}
+
+// TestRenderMarkdownWrapsWideTable guards the other side: a table that does not
+// fit the message area is rendered at that width, so its cells wrap instead of
+// overflowing the viewport.
+func TestRenderMarkdownWrapsWideTable(t *testing.T) {
+	m := newTestModel(t)
+	m.width = 60
+	body := "| a | b |\n|---|---|\n| 1 | " + strings.Repeat("很长的说明 ", 20) + " |\n"
+
+	rendered := stripANSI(m.renderMarkdown(body))
+	if widest := widestLine(rendered); widest > m.tableWidth() {
+		t.Errorf("wide table rendered %d columns wide, want <= %d:\n%s", widest, m.tableWidth(), rendered)
+	}
+	if lines := strings.Split(rendered, "\n"); len(lines) < 3 {
+		t.Errorf("wide table lost its rows:\n%s", rendered)
+	}
+}
+
+// TestRenderMarkdownIgnoresTableInCodeFence guards that a markdown sample
+// inside a fenced block is left verbatim instead of being rendered as a table.
+func TestRenderMarkdownIgnoresTableInCodeFence(t *testing.T) {
+	m := newTestModel(t)
+	body := "示例：\n\n```md\n| a | b |\n|---|---|\n| 1 | 2 |\n```\n\n完成\n"
+
+	rendered := stripANSI(m.renderMarkdown(body))
+	if !strings.Contains(rendered, "|---|---|") {
+		t.Errorf("fenced table was rendered instead of kept verbatim:\n%s", rendered)
+	}
+}
+
+// TestSplitMarkdownTables guards the segmentation the table rendering relies on.
+func TestSplitMarkdownTables(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want []mdSegment
+	}{
+		{
+			name: "prose and table",
+			src:  "前文\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n后文",
+			want: []mdSegment{
+				{src: "前文\n"},
+				{src: "| a | b |\n|---|---|\n| 1 | 2 |", table: true},
+				{src: "\n后文"},
+			},
+		},
+		{
+			name: "table inside a list item stays put",
+			src:  "1. 步骤：\n   | a | b |\n   |---|---|\n2. 下一步",
+			want: []mdSegment{{src: "1. 步骤：\n   | a | b |\n   |---|---|\n2. 下一步"}},
+		},
+		{
+			name: "table glued to a paragraph stays put",
+			src:  "看这个\n| a | b |\n|---|---|",
+			want: []mdSegment{{src: "看这个\n| a | b |\n|---|---|"}},
+		},
+		{
+			name: "table inside a code fence stays put",
+			src:  "```\n| a | b |\n|---|---|\n```",
+			want: []mdSegment{{src: "```\n| a | b |\n|---|---|\n```"}},
+		},
+		{
+			name: "two tables",
+			src:  "| a | b |\n|---|---|\n\n中间\n\n| c | d |\n|---|---|",
+			want: []mdSegment{
+				{src: "| a | b |\n|---|---|", table: true},
+				{src: "\n中间\n"},
+				{src: "| c | d |\n|---|---|", table: true},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := splitMarkdownTables(tc.src)
+			if len(got) != len(tc.want) {
+				t.Fatalf("segments = %d (%+v), want %d (%+v)", len(got), got, len(tc.want), tc.want)
+			}
+			for i := range tc.want {
+				if got[i] != tc.want[i] {
+					t.Errorf("segment %d = %+v, want %+v", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestTrimMarkdownPaddingKeepsIndent guards that the leading spaces glamour
+// uses to line up a table's first row survive the padding cleanup.
+func TestTrimMarkdownPaddingKeepsIndent(t *testing.T) {
+	got := trimMarkdownPadding("\n\n  a  \n  b  \n\n")
+	if want := "  a\n  b"; stripANSI(got) != want {
+		t.Errorf("trimMarkdownPadding = %q, want %q", stripANSI(got), want)
+	}
+}
+
+// TestRenderMarkdownTableDoesNotBreakProse guards that the prose around a table
+// is still rendered: splitting the message must not drop or merge blocks.
+func TestRenderMarkdownTableKeepsSurroundingBlocks(t *testing.T) {
+	m := newTestModel(t)
+	body := "前文 **加粗**\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- 列表项\n"
+
+	rendered := stripANSI(m.renderMarkdown(body))
+	for _, want := range []string{"前文 加粗", " a │ b", "• 列表项"} {
+		if !strings.Contains(rendered, want) {
+			t.Errorf("missing %q in:\n%s", want, rendered)
+		}
+	}
+}
+
 // TestToolBoundaryFlushesAssistantNarration guards that text streamed before a
 // tool call stays above that tool's card. Before this, every iteration's text
 // was accumulated and flushed as one assistant message after all tool cards, so

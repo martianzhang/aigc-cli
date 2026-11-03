@@ -124,42 +124,192 @@ func (m *chatModel) renderMarkdown(text string) string {
 	if text == "" || !containsMarkdown(text) {
 		return text
 	}
-	// Render at a much wider limit than the message area: glamour pads every
-	// line to its wrap width and its own wrapping cannot be undone, so all
-	// wrapping is left to wrapANSI (which records how to rejoin copied text).
-	// Tables are the exception — glamour sizes their columns from the wrap
-	// width, so they need the real message width to stay readable.
-	wrapWidth := max(m.bodyWidth()*4, 512)
-	if hasMarkdownTable(text) {
-		wrapWidth = max(m.bodyWidth(), 20)
+	// Tables are rendered on their own: glamour sizes their columns from the
+	// word-wrap width, so they need a different width than prose (see
+	// renderMarkdownTable). Everything else is rendered in one go.
+	segments := splitMarkdownTables(text)
+	if len(segments) == 1 {
+		return m.renderMarkdownBlock(segments[0])
 	}
+	var b strings.Builder
+	for _, seg := range segments {
+		rendered := m.renderMarkdownBlock(seg)
+		if rendered == "" {
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(rendered)
+	}
+	if b.Len() == 0 {
+		return text
+	}
+	return b.String()
+}
+
+// renderMarkdownBlock renders one segment of a message at the width its content
+// needs.
+func (m *chatModel) renderMarkdownBlock(seg mdSegment) string {
+	if seg.table {
+		return renderMarkdownTable(seg.src, m.tableWidth())
+	}
+	width := m.markdownTextWidth()
+	if containsTableStart(seg.src) {
+		// A table that could not be lifted out (indented into a list item, or
+		// glued to a paragraph) still needs the message width, otherwise
+		// glamour spreads it over the prose width.
+		width = m.tableWidth()
+	}
+	return renderMarkdownSegment(seg.src, width)
+}
+
+// markdownTextWidth is the word-wrap width used for prose. It is deliberately
+// far wider than the message area: glamour pads every line to its wrap width and
+// its own wrapping cannot be undone, so all that wrapping is left to wrapANSI
+// (which records how to rejoin copied text).
+func (m *chatModel) markdownTextWidth() int {
+	return max(m.bodyWidth()*4, 512)
+}
+
+// tableWidth is the widest a rendered table may be before it is clamped to the
+// message area.
+func (m *chatModel) tableWidth() int {
+	return max(m.bodyWidth(), 20)
+}
+
+// renderMarkdownSegment renders one block of markdown at the given word-wrap
+// width and strips the padding glamour adds after every line.
+func renderMarkdownSegment(src string, wrapWidth int) string {
 	renderer, err := glamour.NewTermRenderer(
 		glamour.WithStyles(chatMarkdownStyles),
 		glamour.WithWordWrap(wrapWidth),
 	)
 	if err != nil {
-		return text
+		return src
 	}
-	rendered, err := renderer.Render(text)
+	rendered, err := renderer.Render(src)
 	if err != nil {
-		return text
+		return src
 	}
 	return trimMarkdownPadding(rendered)
 }
 
-// hasMarkdownTable reports whether the source contains a GFM table (a header
-// row followed by a delimiter row).
-func hasMarkdownTable(s string) bool {
+// renderMarkdownTable renders one GFM table block. glamour spreads a table over
+// its whole word-wrap width, so rendering a narrow table at the message width
+// leaves a wide gap between the columns — a two-column table becomes two
+// islands. Word wrap 0 makes lipgloss fall back to the natural, content-based
+// column widths; only a table that is wider than the message area is rendered
+// at that width instead, so its cells wrap rather than overflow the viewport.
+func renderMarkdownTable(src string, width int) string {
+	natural := renderMarkdownSegment(src, 0)
+	if width <= 0 || widestLine(natural) <= width {
+		return natural
+	}
+	return renderMarkdownSegment(src, width)
+}
+
+// widestLine returns the width in display columns of the widest line of s,
+// ignoring escape sequences.
+func widestLine(s string) int {
+	widest := 0
+	for _, line := range strings.Split(s, "\n") {
+		widest = max(widest, xansi.StringWidth(line))
+	}
+	return widest
+}
+
+// mdSegment is one slice of a message: either a GFM table block or ordinary
+// markdown.
+type mdSegment struct {
+	src   string
+	table bool
+}
+
+// splitMarkdownTables cuts s into alternating prose and table segments. Tables
+// are pulled out because they are rendered at their own width. Fenced code
+// blocks are left intact so their contents are never mistaken for a table.
+func splitMarkdownTables(s string) []mdSegment {
 	lines := strings.Split(s, "\n")
-	for i := 1; i < len(lines); i++ {
-		if !strings.Contains(lines[i-1], "|") || strings.Count(lines[i], "|") < 2 {
+	var (
+		segs    []mdSegment
+		cur     []string
+		inFence bool
+	)
+	flush := func(table bool) {
+		if len(cur) == 0 {
+			return
+		}
+		segs = append(segs, mdSegment{src: strings.Join(cur, "\n"), table: table})
+		cur = nil
+	}
+	for i := 0; i < len(lines); i++ {
+		if isCodeFence(lines[i]) {
+			inFence = !inFence
+			cur = append(cur, lines[i])
 			continue
 		}
-		if isTableDelimiter(lines[i]) {
+		if inFence || !isTableStart(lines, i) {
+			cur = append(cur, lines[i])
+			continue
+		}
+		if strings.TrimLeft(lines[i], " \t") != lines[i] {
+			// Indented: the table belongs to a list item, so it cannot be
+			// rendered without its parent block.
+			cur = append(cur, lines[i])
+			continue
+		}
+		j := i + 2 // skip the header and the delimiter row
+		for j < len(lines) && strings.Contains(lines[j], "|") && strings.TrimSpace(lines[j]) != "" {
+			j++
+		}
+		// Only lift a table out when it stands on its own: one glued to a
+		// paragraph would be re-parsed out of context once the paragraph is
+		// rendered without it.
+		if (i > 0 && strings.TrimSpace(lines[i-1]) != "") || (j < len(lines) && strings.TrimSpace(lines[j]) != "") {
+			cur = append(cur, lines[i:j]...)
+			i = j - 1
+			continue
+		}
+		flush(false)
+		cur = append(cur, lines[i:j]...)
+		flush(true)
+		i = j - 1
+	}
+	flush(false)
+	return segs
+}
+
+// isTableStart reports whether lines[i] starts a GFM table: a header row with a
+// pipe followed by a delimiter row.
+func isTableStart(lines []string, i int) bool {
+	if i+1 >= len(lines) || !strings.Contains(lines[i], "|") {
+		return false
+	}
+	return strings.Count(lines[i+1], "|") >= 2 && isTableDelimiter(lines[i+1])
+}
+
+// containsTableStart reports whether s starts a GFM table anywhere outside a
+// fenced code block.
+func containsTableStart(s string) bool {
+	lines := strings.Split(s, "\n")
+	inFence := false
+	for i := range lines {
+		if isCodeFence(lines[i]) {
+			inFence = !inFence
+			continue
+		}
+		if !inFence && isTableStart(lines, i) {
 			return true
 		}
 	}
 	return false
+}
+
+// isCodeFence reports whether line opens or closes a fenced code block.
+func isCodeFence(line string) bool {
+	t := strings.TrimSpace(line)
+	return strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")
 }
 
 // isTableDelimiter reports whether line looks like "|---|:--:|".
@@ -179,13 +329,22 @@ func isTableDelimiter(line string) bool {
 }
 
 // trimMarkdownPadding removes the blank rows and the styled padding cells that
-// glamour writes at the end of each line (it pads to its wrap width).
+// glamour writes at the end of each line (it pads to its wrap width). Leading
+// spaces are indentation and must survive: glamour spreads a table's first row
+// across its columns with them.
 func trimMarkdownPadding(rendered string) string {
-	lines := strings.Split(strings.TrimSpace(rendered), "\n")
+	lines := strings.Split(rendered, "\n")
 	for i, line := range lines {
 		lines[i] = trimLineRight(line)
 	}
-	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
+	start, end := 0, len(lines)
+	for start < end && lines[start] == "" {
+		start++
+	}
+	for end > start && lines[end-1] == "" {
+		end--
+	}
+	return strings.Join(lines[start:end], "\n")
 }
 
 // trimLineRight drops trailing spaces from a styled line without breaking the
