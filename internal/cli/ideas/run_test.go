@@ -71,6 +71,137 @@ func TestRunLocalRandomWithoutKeywords(t *testing.T) {
 	if !strings.Contains(output, "random ideas") || !strings.Contains(output, "(showing 1/2)") {
 		t.Errorf("random output = %q, want one random local entry", output)
 	}
+	if !strings.Contains(output, "ID: ") {
+		t.Errorf("random output = %q, want the idea ID", output)
+	}
+}
+
+func TestRunPromptOnly(t *testing.T) {
+	d := localDeps(writeIdeasFixture(t, fixtureEntries()))
+	f := &cmdFlags{limit: 5, sources: []string{ideas.SourceLocal}, promptOnly: true}
+
+	var runErr error
+	output := captureStdout(func() {
+		runErr = run(d, []string{"cat"}, f)
+	})
+	if runErr != nil {
+		t.Fatalf("run() unexpected error: %v", runErr)
+	}
+	if output != "a cute cat sitting on a mat\n" {
+		t.Errorf("prompt-only output = %q, want just the prompt", output)
+	}
+}
+
+func TestRunPromptOnlyRandomWithoutKeywords(t *testing.T) {
+	d := localDeps(writeIdeasFixture(t, fixtureEntries()))
+	f := &cmdFlags{limit: 5, sources: []string{ideas.SourceLocal}, promptOnly: true}
+
+	var runErr error
+	output := captureStdout(func() {
+		runErr = run(d, nil, f)
+	})
+	if runErr != nil {
+		t.Fatalf("run() unexpected error: %v", runErr)
+	}
+	if output != "a cute cat sitting on a mat\n" && output != "a happy dog running in the park\n" {
+		t.Errorf("prompt-only random output = %q, want one bare prompt", output)
+	}
+}
+
+func TestRunByIDPromptOnly(t *testing.T) {
+	entries := fixtureEntries()
+	d := localDeps(writeIdeasFixture(t, entries))
+	f := &cmdFlags{id: entries[1].StableID(), promptOnly: true}
+
+	var runErr error
+	output := captureStdout(func() {
+		runErr = run(d, nil, f)
+	})
+	if runErr != nil {
+		t.Fatalf("run() unexpected error: %v", runErr)
+	}
+	if output != "a happy dog running in the park\n" {
+		t.Errorf("--id prompt-only output = %q, want the dog prompt", output)
+	}
+}
+
+func TestRunByIDMarkdown(t *testing.T) {
+	entries := fixtureEntries()
+	d := localDeps(writeIdeasFixture(t, entries))
+	id := entries[0].StableID()
+	f := &cmdFlags{id: strings.ToUpper(id)}
+
+	var runErr error
+	output := captureStdout(func() {
+		runErr = run(d, nil, f)
+	})
+	if runErr != nil {
+		t.Fatalf("run() unexpected error: %v", runErr)
+	}
+	if !strings.Contains(output, "## cat photo") || !strings.Contains(output, "ID: "+id) {
+		t.Errorf("--id output = %q, want the cat entry and its ID", output)
+	}
+}
+
+func TestRunRandomRespectsExplicitLimit(t *testing.T) {
+	d := localDeps(writeIdeasFixture(t, fixtureEntries()))
+	f := &cmdFlags{limit: 2, limitSet: true, sources: []string{ideas.SourceLocal}, promptOnly: true}
+
+	var runErr error
+	output := captureStdout(func() {
+		runErr = run(d, nil, f)
+	})
+	if runErr != nil {
+		t.Fatalf("run() unexpected error: %v", runErr)
+	}
+	if got := strings.Count(strings.TrimSuffix(output, "\n"), "\n") + 1; got != 2 {
+		t.Errorf("prompt-only output has %d prompts, want 2:\n%s", got, output)
+	}
+}
+
+func TestCommandExplicitLimitReachesRun(t *testing.T) {
+	d := localDeps(writeIdeasFixture(t, fixtureEntries()))
+	cmd := NewCommand(func() Deps { return d })
+	cmd.SetArgs([]string{"--limit", "2", "--prompt-only", "--source", "local"})
+
+	var runErr error
+	output := captureStdout(func() {
+		runErr = cmd.Execute()
+	})
+	if runErr != nil {
+		t.Fatalf("cmd.Execute() unexpected error: %v", runErr)
+	}
+	if got := strings.Count(strings.TrimSuffix(output, "\n"), "\n") + 1; got != 2 {
+		t.Errorf("command output has %d prompts, want 2:\n%s", got, output)
+	}
+}
+
+func TestRunPromptOnlyNoMatchReturnsError(t *testing.T) {
+	d := localDeps(writeIdeasFixture(t, fixtureEntries()))
+	f := &cmdFlags{limit: 5, sources: []string{ideas.SourceLocal}, promptOnly: true}
+
+	if err := run(d, []string{"zebra"}, f); err == nil || !strings.Contains(err.Error(), "No matching") {
+		t.Fatalf("run() error = %v, want no-match error", err)
+	}
+}
+
+func TestRunPromptOnlyEmptyDatasetReturnsError(t *testing.T) {
+	d := localDeps(writeIdeasFixture(t, nil))
+	f := &cmdFlags{limit: 5, sources: []string{ideas.SourceLocal}, promptOnly: true}
+
+	if err := run(d, nil, f); err == nil || !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("run() error = %v, want empty-dataset error", err)
+	}
+}
+
+func TestRunByIDNotFound(t *testing.T) {
+	d := localDeps(writeIdeasFixture(t, fixtureEntries()))
+	f := &cmdFlags{id: "does-not-exist", promptOnly: true}
+
+	err := run(d, nil, f)
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("run() error = %v, want not-found error", err)
+	}
 }
 
 func TestRunLocalFindImage(t *testing.T) {

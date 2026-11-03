@@ -355,6 +355,66 @@ func TestSearchByImage(t *testing.T) {
 	})
 }
 
+func TestStableID(t *testing.T) {
+	base := IdeaEntry{Title: "cat", Prompt: "a cute cat", SourceURL: "https://example.com/cat", Lang: "en"}
+
+	t.Run("deterministic", func(t *testing.T) {
+		if got := base.StableID(); got != base.StableID() {
+			t.Fatalf("StableID() is not deterministic: %q != %q", got, base.StableID())
+		}
+	})
+
+	t.Run("has expected length", func(t *testing.T) {
+		if got := len(base.StableID()); got != idLength {
+			t.Fatalf("len(StableID()) = %d, want %d", got, idLength)
+		}
+	})
+
+	t.Run("explicit id wins", func(t *testing.T) {
+		e := base
+		e.ID = "custom-id"
+		if got := e.StableID(); got != "custom-id" {
+			t.Fatalf("StableID() = %q, want custom-id", got)
+		}
+	})
+
+	t.Run("different prompt differs", func(t *testing.T) {
+		other := base
+		other.Prompt = "a happy dog"
+		if base.StableID() == other.StableID() {
+			t.Fatal("StableID() collided for different prompts")
+		}
+	})
+
+	t.Run("title changes do not affect id", func(t *testing.T) {
+		other := base
+		other.Title = "renamed"
+		if base.StableID() != other.StableID() {
+			t.Fatal("StableID() should not depend on title")
+		}
+	})
+}
+
+func TestDisplayPrompt(t *testing.T) {
+	tests := []struct {
+		name  string
+		entry IdeaEntry
+		want  string
+	}{
+		{name: "english", entry: IdeaEntry{Prompt: "en prompt", Lang: "en"}, want: "en prompt"},
+		{name: "chinese with translation", entry: IdeaEntry{Prompt: "en prompt", PromptZh: "中文提示词", Lang: "zh"}, want: "中文提示词"},
+		{name: "chinese without translation", entry: IdeaEntry{Prompt: "中文原始", Lang: "zh"}, want: "中文原始"},
+		{name: "non-zh ignores PromptZh", entry: IdeaEntry{Prompt: "en prompt", PromptZh: "中文提示词", Lang: "en"}, want: "en prompt"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.entry.DisplayPrompt(); got != tt.want {
+				t.Fatalf("DisplayPrompt() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestFormatResultsMarkdown(t *testing.T) {
 	entry := IdeaEntry{
 		Title:     "Test Title",
@@ -386,6 +446,9 @@ func TestFormatResultsMarkdown(t *testing.T) {
 		}
 		if !strings.Contains(got, "![ref](https://example.com/img.jpg)") {
 			t.Fatal("missing image")
+		}
+		if !strings.Contains(got, "ID: "+entry.StableID()) {
+			t.Fatal("missing idea ID")
 		}
 	})
 

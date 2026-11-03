@@ -17,6 +17,15 @@ aigc-cli ideas "cyberpunk city"
 # Search in Chinese
 aigc-cli ideas "猫"
 
+# Print only the prompt text (ready to pipe into aigc-cli image)
+aigc-cli ideas --random --limit 1 --prompt-only
+
+# Fetch a previously seen idea by ID
+aigc-cli ideas --id 1a2b3c4d5e6f --prompt-only
+
+# An explicit --limit is honored without keywords (only a bare `ideas` defaults to 1)
+aigc-cli ideas --limit 2
+
 # Search a single online source
 aigc-cli ideas "cyberpunk city" --source aipromptslibrary
 aigc-cli ideas "portrait" --source prompts.chat
@@ -74,17 +83,43 @@ defaults:
 | Flag | Description |
 |---|---|
 | `--source` | Sources to search: `all` (default), `local`, `aipromptslibrary`, `prompts.chat`, `openart`, `civitai`, `youmind` |
-| `--limit`, `-l` | Number of results to show (default 8) |
+| `--limit`, `-l` | Number of results to show (default 8; a bare `ideas` with no keywords and no explicit `--limit` returns 1 random idea) |
 | `--random` | Shuffle matched results randomly |
+| `--id` | Fetch one idea by its ID (local dataset only; IDs are printed with each result) |
+| `--prompt-only` | Print only the prompt text, for piping into `aigc-cli image -p` |
 | `--save` | Download reference images to a local directory |
 | `--find-image` | Search by image filename (local dataset only) |
 | `--preview` | Open saved images with the system default viewer (implies `--save`) |
 
 ## Output
 
-Markdown by default, with each result containing a title, reference images, the full prompt text, and metadata.
+Markdown by default, with each result containing a title, an **idea ID**, reference images, the full prompt text, and metadata.
 
 ```bash
 # Markdown (default), easy to redirect to a file
 aigc-cli ideas "cat" > my-ideas.md
 ```
+
+### Reuse a prompt by ID
+
+Each result prints a stable 12-character hex `ID`, derived from the entry content (`source_url` + `prompt`). The ID survives dataset reordering and upgrades as long as the content is unchanged.
+
+```bash
+# 1. Look at a random idea and note the printed ID
+aigc-cli ideas
+
+# 2. Fetch the same idea later (--prompt-only prints just the prompt text)
+aigc-cli ideas --id 1a2b3c4d5e6f --prompt-only
+
+# 3. Generate an image from it directly
+aigc-cli image -p "$(aigc-cli ideas --id 1a2b3c4d5e6f --prompt-only)"
+
+# Or do "random idea -> image" in one line
+aigc-cli image -p "$(aigc-cli ideas --random --limit 1 --prompt-only)"
+```
+
+Notes:
+
+- `--prompt-only` prints only the prompt body — no title, images, metadata or Markdown markup — so it is safe for command substitution and pipes.
+- `--id` searches the **local `ideas.json`** only. Online-source results are fetched on demand and not persisted, so they cannot be fetched again by ID.
+- ID matching is case-insensitive.

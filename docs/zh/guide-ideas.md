@@ -36,6 +36,15 @@ aigc-cli ideas
 # 随机多条
 aigc-cli ideas --random --limit 3
 
+# 显式传 --limit 时按数量返回（只有完全不加参数时才默认 1 条）
+aigc-cli ideas --limit 2
+
+# 只输出提示词正文（便于直接传给 aigc-cli image）
+aigc-cli ideas --random --limit 1 --prompt-only
+
+# 按 ID 重新取出某条提示词
+aigc-cli ideas --id 1a2b3c4d5e6f --prompt-only
+
 # 多要一些搜索结果
 aigc-cli ideas "luxury perfume" --limit 10
 
@@ -76,12 +85,36 @@ aigc-cli ideas "portrait" --source prompts.chat --source openart
 
 ## 输出格式
 
-默认输出 Markdown，直接打印到终端。每条结果包含标题、参考图、完整提示词和元信息。
+默认输出 Markdown，直接打印到终端。每条结果包含标题、**灵感 ID**、参考图、完整提示词和元信息。
 
 ```bash
 # Markdown 输出（默认），自由重定向到文件
 aigc-cli ideas "cat" > my-ideas.md
 ```
+
+### 按 ID 复用提示词
+
+每条结果都会打印一个稳定的 `ID`（12 位十六进制）。ID 由条目内容（`source_url` + `prompt`）计算得出，数据集重新排序或升级后只要内容不变，ID 就不变。
+
+```bash
+# 1. 随机看一条灵感，记下输出里的 ID
+aigc-cli ideas
+
+# 2. 之后按 ID 取回同一条灵感（--prompt-only 只打印提示词正文）
+aigc-cli ideas --id 1a2b3c4d5e6f --prompt-only
+
+# 3. 直接用于生成图片
+aigc-cli image -p "$(aigc-cli ideas --id 1a2b3c4d5e6f --prompt-only)"
+
+# 也可以一行完成“随机灵感 → 生成图片”
+aigc-cli image -p "$(aigc-cli ideas --random --limit 1 --prompt-only)"
+```
+
+说明：
+
+- `--prompt-only` 只输出提示词正文，不打印标题、图片、元信息或 Markdown 标记，可安全用于命令替换和管道。
+- `--id` 只在**本地 `ideas.json`** 中查找；在线源的结果是即时抓取的，不会持久化，因此无法按 ID 复取。
+- ID 匹配不区分大小写。
 
 ## 数据格式说明（ideas.json）
 
@@ -89,6 +122,7 @@ aigc-cli ideas "cat" > my-ideas.md
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
+| `id` | string | 否 | 自定义灵感 ID；留空时根据 `source_url` + `prompt` 自动生成 |
 | `prompt` | string | **是** | 提示词正文（英文或中文） |
 | `lang` | string | **是** | 语言代码，`en` 或 `zh` |
 | `title` | string | 否 | 标题（英文） |
@@ -155,8 +189,10 @@ defaults:
 |---|---|---|
 | `keywords` | | 搜索关键词（位置参数，也从 stdin 读取） |
 | `--source` | | 搜索的数据源：`all`（默认）、`local`、`aipromptslibrary`、`prompts.chat`、`openart`、`civitai`；支持逗号分隔或重复传参 |
-| `--limit` | `-l` | 返回 N 条结果，默认 8 |
+| `--limit` | `-l` | 返回 N 条结果，默认 8；不带关键词且未显式传 `--limit` 时默认随机 1 条 |
 | `--random` | | 从全量结果中随机抽取；不加参数时默认随机返回一条 |
+| `--id` | | 按灵感 ID 取回单条结果（仅本地数据集，ID 随每条结果打印） |
+| `--prompt-only` | | 只输出提示词正文，便于传给 `aigc-cli image -p` |
 | `--save` | | 下载参考图片到本地目录 |
 | `--find-image` | | 按参考图片文件名搜索（仅本地数据集） |
 

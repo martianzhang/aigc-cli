@@ -24,12 +24,8 @@ func FormatResultsMarkdown(results []SearchResult, keywords string, total int) s
 			title = fmt.Sprintf("Result %d", i+1)
 		}
 		fmt.Fprintf(&b, "## %s\n\n", title)
-
-		prompt := e.Prompt
-		if e.Lang == "zh" && e.PromptZh != "" {
-			prompt = e.PromptZh
-		}
-		fmt.Fprintf(&b, "```\n%s\n```\n\n", prompt)
+		fmt.Fprintf(&b, "ID: %s\n\n", e.StableID())
+		fmt.Fprintf(&b, "```\n%s\n```\n\n", e.DisplayPrompt())
 
 		for _, u := range e.ImageURLs {
 			fmt.Fprintf(&b, "![ref](%s)\n\n", u)
