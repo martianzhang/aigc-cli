@@ -85,6 +85,11 @@ func BackgroundConfig() *types.BackgroundConfig {
 	return Field(Shared.Cfg, func(c *types.Config) *types.BackgroundConfig { return c.Background })
 }
 
+// SkillsConfig returns the top-level skills section, or nil.
+func SkillsConfig() *types.SkillsConfig {
+	return Field(Shared.Cfg, func(c *types.Config) *types.SkillsConfig { return c.Skills })
+}
+
 // WebSearchConfig returns the top-level web_search section, or nil.
 func WebSearchConfig() map[string]*types.WebSearchProvider {
 	return Field(Shared.Cfg, func(c *types.Config) map[string]*types.WebSearchProvider { return c.WebSearch })

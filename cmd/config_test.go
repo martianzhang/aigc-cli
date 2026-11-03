@@ -185,6 +185,31 @@ func TestConfigListMissingFileShowsDefaults(t *testing.T) {
 	}
 }
 
+func TestConfigSkillsSection(t *testing.T) {
+	path := writeCmdConfig(t, configTestFixture+`
+skills:
+  enabled: false
+  paths:
+    - ~/team-skills
+`)
+
+	out, err := runConfigCmd(t, path, "get", "skills.enabled")
+	if err != nil {
+		t.Fatalf("config get error = %v", err)
+	}
+	if got := strings.TrimSpace(out); got != "false" {
+		t.Errorf("skills.enabled = %q, want false", got)
+	}
+
+	out, err = runConfigCmd(t, path, "get", "skills.paths")
+	if err != nil {
+		t.Fatalf("config get error = %v", err)
+	}
+	if !strings.Contains(out, "team-skills") {
+		t.Errorf("skills.paths output = %q", out)
+	}
+}
+
 func TestConfigParentHelp(t *testing.T) {
 	path := writeCmdConfig(t, configTestFixture)
 

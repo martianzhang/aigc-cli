@@ -113,7 +113,7 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		return nil, err
 	}
 	if text != "" {
-		expanded, images, warnings := expandMentions(text, readDenyPatterns())
+		expanded, images, warnings := expandUserInput(text, readDenyPatterns())
 		for _, warning := range warnings {
 			fmt.Fprintf(options.Stderr(), "⚠️  %s\n", warning)
 		}
@@ -187,7 +187,7 @@ func flagMessages() ([]types.ChatMessage, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read message file: %w", err)
 		}
-		expanded, images, warnings := expandMentions(text, deny)
+		expanded, images, warnings := expandUserInput(text, deny)
 		for _, warning := range warnings {
 			fmt.Fprintf(options.Stderr(), "⚠️  %s\n", warning)
 		}

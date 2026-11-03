@@ -65,7 +65,7 @@ The REPL supports:
 - Scroll the conversation with PgUp/PgDn or the mouse wheel
 - **Drag with the left mouse button to select transcript rows and copy them**: on release the selected text is written to the clipboard with the `┃` frame and trailing padding stripped, and display-only line wrapping is rejoined, so multi-line copies paste cleanly. Hold `Shift` (or `Option`/`⌥` on iTerm2) to use the terminal's own selection instead; `/copy` copies the last assistant response verbatim
 - Tool calls render as cards: `bash` shows the first line of the command, abbreviated to 100 columns (multi-line scripts end with `…`); **click the card or press `Ctrl+O`** to see the full command. `write`/`edit` show a `+/-` diff preview, and results longer than 20 lines are folded (click or `Ctrl+O` expands or collapses the card)
-- Slash commands, `/name [text]` to show or set the session name (no argument auto-names an unnamed session from its first user message), and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
+- Slash commands, `/name [text]` to show or set the session name (no argument auto-names an unnamed session from its first user message), `/skills` to list loaded skills, `/skill:<name> [args]` to load one explicitly, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
 - `@path` file references: text files are inlined, images are attached (Tab completes paths; governed by `defaults.chat.read_deny`)
 
 Layout:
@@ -254,6 +254,63 @@ On startup, Chat loads `AGENTS.md` as **project context** and appends it to the 
 
 Nothing is added when no file exists. Put project conventions, build/test commands, and style notes here.
 
+### Agent Skills
+
+Chat implements the [Agent Skills](https://agentskills.io/specification) specification and reads the
+cross-client `.agents/skills` convention — there is **no aigc-cli-specific skills directory**. At
+startup only each skill's `name` and `description` are added to the system prompt; when a task
+matches, the model loads the full `SKILL.md` with the `read` tool (progressive disclosure, so
+inactive skills cost no instruction tokens).
+
+Locations:
+
+- User: `~/.agents/skills/<name>/SKILL.md` (available in every project);
+- Project: `.agents/skills/<name>/SKILL.md` searched **upward** from the current directory to the repository root (the first ancestor containing `.git`).
+
+Minimal example:
+
+```markdown
+---
+name: pdf-tools
+description: Extract text and tables from PDF files. Use when reading or converting PDFs.
+---
+
+# PDF tools
+
+Read `references/formats.md` before converting a document.
+Run `scripts/extract.sh` relative to this skill directory.
+```
+
+Configuration (`~/.config/aigc-cli/config.yaml`):
+
+```yaml
+skills:
+  enabled: true          # false = disable automatic discovery (--skill still works)
+  paths:                 # equivalent to repeated --skill; files or directories
+    - "~/team-skills"
+    - "./my-skills"
+```
+
+CLI overrides for a single run:
+
+```bash
+aigc-cli chat --skill ~/team-skills --skill ./review.md
+aigc-cli chat --no-skills          # disable all skill discovery and loading
+```
+
+Precedence: CLI `--no-skills` (hard off; ignores `--skill` and `skills.paths`) > `skills.enabled` > enabled by default. `--skill` and `skills.paths` load after automatic discovery and override a discovered skill with the same name.
+
+Rules and behavior:
+
+- `name` is required (max 64 characters; lowercase letters, numbers, and hyphens); `description` is required (max 1024 characters). Invalid fields produce warnings but do not stop loading;
+- Duplicate names: project skills override user skills; within one directory the first discovered skill wins (`-v` prints collision warnings);
+- `disable-model-invocation: true` hides a skill from automatic selection while keeping `/skill:<name>` available;
+- `/skills` lists the loaded skills (name, scope, description); `/skill:<name> [args]` loads one explicitly;
+- Relative paths in the instructions resolve against the skill directory; run `scripts/` through `bash` (governed by `tools_enable` / `tools_disable`);
+- The catalog is only injected when the `read` tool is available, because the model needs it to open `SKILL.md`;
+- The catalog is written into the system prompt when a session is created; resuming an older session keeps that session's catalog (same behavior as `AGENTS.md`);
+- One-shot mode works too: `aigc-cli chat -m "/skill:pdf-tools extract report.pdf"`.
+
 Tools can be enabled/disabled via config:
 
 ```yaml
@@ -411,6 +468,8 @@ aigc-cli --interactive --yes
 | `--session-dir` | Session directory | `~/.config/aigc-cli/sessions` |
 | `--session` | Resume a session by id or JSONL path (implies saving) | — |
 | `--name` | Set the session name; renames on resume (requires `--save` or `--session`) | — |
+| `--skill <path>` | Add a skill file or directory (repeatable; `.md` or directory; overrides a discovered skill with the same name) | — |
+| `--no-skills` | Disable all skill discovery and loading (including `--skill` and `skills.paths`) | `false` |
 | `--search-provider` | Vendor name for the `web_search`/`web_fetch` primitives (`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`); overrides `defaults.search.provider` | — |
 
 ### Context Management

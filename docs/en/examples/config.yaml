@@ -56,6 +56,18 @@ base_url: "https://api.apimart.ai"
 # 300s only when no timeout is configured.
 # timeout: 300
 
+# ── Agent Skills (Chat) ──
+# Skills are discovered from the cross-client .agents/skills convention
+# (user: ~/.agents/skills; project: .agents/skills from cwd up to the repo root).
+# enabled: false disables automatic discovery; explicit --skill still works.
+# paths is equivalent to repeated --skill flags (files or directories); later
+# entries override skills with the same name.
+# skills:
+#   enabled: true
+#   paths:
+#     - "~/team-skills"
+#     - "./my-skills"
+
 # ── Tool Filtering (MCP / Chat mode) ──
 # Glob patterns (* matches any name):
 #   tools_enable  — Allowlist mode, only listed tools are enabled (empty = all allowed)

@@ -468,6 +468,10 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 		m.input.Reset()
 		return m, nil
 
+	case input == "/skills":
+		m.showSkills()
+		return m, nil
+
 	case strings.HasPrefix(input, "/tools "):
 		m.showTools(strings.TrimSpace(strings.TrimPrefix(input, "/tools")))
 		m.input.Reset()
@@ -506,6 +510,9 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 
 	case strings.HasPrefix(input, "/preview"):
 		return m.handlePreview(input)
+
+	case strings.HasPrefix(input, "/skill:"):
+		return m.handleSkillCommand(input)
 
 	case strings.HasPrefix(input, "/"):
 		return m.handleDirectToolCall(input)

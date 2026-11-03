@@ -6,7 +6,28 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbletea"
+
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+// commandCompletions returns the /-prefixed candidates Tab cycles through.
+// Skill names come from the same discovery used by /skills and /skill:<name>.
+func commandCompletions(tools []types.ToolDefinition) []string {
+	completions := []string{
+		"/exit", "/quit", "/q",
+		"/clear", "/reset", "/new",
+		"/help", "/?", "/tools", "/skills", "/compact",
+		"/copy", "/name", "/preview",
+	}
+	for _, t := range tools {
+		completions = append(completions, "/"+t.Function.Name)
+	}
+	skills, _ := discoverSkills()
+	for _, s := range skills {
+		completions = append(completions, "/skill:"+s.Name)
+	}
+	return completions
+}
 
 // handleTabCompletion completes commands (/xxx), shell commands (!xxx), or
 // @file mentions.

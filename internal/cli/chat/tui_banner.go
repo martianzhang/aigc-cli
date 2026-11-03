@@ -137,8 +137,10 @@ func (m *chatModel) showHelp() {
   /help, /?            Show this help
   /tools               List available tools
   /tools <name>        Show a tool's full description and examples
+  /skills              List loaded skills and what they do
   /<tool> <args>       Call a tool directly (e.g. /generate_image {"prompt":"a cat"})
   /preview <file>      Preview an image/video with system viewer
+  /skill:<name> [args] Load a skill explicitly (skills in .agents/skills)
   @path                Attach a file: text is inlined, images are sent as media
                        (Tab completes paths; defaults.chat.read_deny still applies)
   !<command>           Run a shell command

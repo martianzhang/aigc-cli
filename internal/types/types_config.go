@@ -81,7 +81,16 @@ type Config struct {
 	WebSearch    map[string]*WebSearchProvider `mapstructure:"web_search" yaml:"web_search,omitempty"`
 	ToolsEnable  []string                      `mapstructure:"tools_enable" yaml:"tools_enable,omitempty"`
 	ToolsDisable []string                      `mapstructure:"tools_disable" yaml:"tools_disable,omitempty"`
+	Skills       *SkillsConfig                 `mapstructure:"skills" yaml:"skills,omitempty"`
 	MCP          *MCPConfig                    `mapstructure:"mcp" yaml:"mcp,omitempty"`
+}
+
+// SkillsConfig configures Agent Skills for chat. Skills are loaded from the
+// cross-client .agents/skills convention; enabled=false skips that automatic
+// discovery (and ignores Paths) while explicit --skill flags still load.
+type SkillsConfig struct {
+	Enabled *bool    `mapstructure:"enabled" yaml:"enabled,omitempty"` // nil = true
+	Paths   []string `mapstructure:"paths" yaml:"paths,omitempty"`
 }
 
 // MCPConfig holds external MCP (Model Context Protocol) servers that the chat
