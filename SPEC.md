@@ -135,3 +135,57 @@ scope: `image` / `video` / `chat` / `ideas` / `midjourney` / `mcp` / `config` / 
 | `chatDefaults()` 等 | 全命令 | 配置 section 访问器（`config_defaults.go`） |
 
 **规则**：新增的跨命令公共函数必须放在 `cmd/util.go`（或 `util_ptr.go` / `config_defaults.go`）中，不要放在某个命令的专属文件（如 `image_*.go`）里。如果某个函数理论上可以独立存在、不依赖具体命令的业务逻辑，它就是共享工具函数。
+
+## 9. 跨平台兼容（Windows / macOS / Linux）
+
+发布与 CI 覆盖三个平台（`ubuntu-latest` / `macos-latest` / `windows-latest`），涉及文件系统、路径、外部命令、配置目录的代码必须三平台可编译、可测试。**不要写只在 macOS/Linux 成立的假设。**
+
+### 9.1 路径
+
+- 一律用 `filepath.Join` / `filepath.Clean` / `filepath.SplitList`，禁止手拼 `/` 或 `\`。
+- 只在 URL、JSON、HTML、正则等协议/展示场景使用 `/`；需要给模型或日志展示路径时，可用 `filepath.ToSlash`。
+- 不要假设路径以 `/` 开头；用 `filepath.IsAbs` 判断绝对路径。
+- `~` 展开要同时接受 `~/` 和 `~\`，基于 `os.UserHomeDir()`，不要自己读 `$HOME`。
+- Windows 路径大小写不敏感：比较路径先用 `filepath.Clean`，Windows 下再配合 `strings.EqualFold`；需要判断是否同一文件时优先 `os.SameFile`。
+- 不要假设路径长度；Windows 长路径、盘符和 UNC 路径都可能出现。
+
+### 9.2 目录与文件名
+
+- 用户目录用 `os.UserHomeDir()`（Windows 读 `USERPROFILE`，不是 `HOME`）；配置目录沿用 `os.UserConfigDir()` / 现有 `ConfigDir()`。
+- 生成文件名时过滤 Windows 非法字符 `< > : " | ? *`，并避开保留名 `CON`、`PRN`、`AUX`、`NUL`、`COM1`–`COM9`、`LPT1`–`LPT9`；同时去掉结尾的空格和点。
+- 不要依赖文件名大小写区分（`a.md` 与 `A.md` 在 Windows 是同一个文件）。
+- 临时文件用 `os.CreateTemp`，不要手写 `/tmp` 或 `C:\Temp`。
+
+### 9.3 权限、符号链接、换行
+
+- `0o755` / `0o644` 在 Windows 无实际效果，不能靠权限位判断可执行；用扩展名或 `exec.LookPath`。
+- 符号链接在 Windows 可能需要开发者模式/管理员权限；`filepath.EvalSymlinks`、`os.Symlink` 失败时要有降级路径，不能直接 fatal。
+- 解析文本必须兼容 CRLF；frontmatter、YAML、CSV、逐行协议先统一换行再处理。
+- `os.Rename` 在 Windows 目标已存在时会失败；覆盖写要先删除或采用“临时文件 + 替换”并处理错误。
+- 不要无 build tag 使用 `syscall.Stat_t`、`unix.*`、`SIGTERM` 等平台专用 API；需要时拆成 `_windows.go` / `_unix.go`。
+
+### 9.4 外部命令
+
+- 通过现有 `internal/agent` 的 shell 检测（bash / PowerShell）执行，不硬编码 `/bin/sh`、`grep`、`find`。
+- 查找可执行文件用 `exec.LookPath`，并把 `.exe` / `.bat` / `.cmd` 纳入考虑。
+- 用 `exec.Command` 的参数数组传参，不要把用户输入拼进 shell 字符串。
+
+### 9.5 测试
+
+- CI 在三平台跑 `go test ./...`；新增测试不得依赖平台。
+- 用 `t.TempDir()` 和 `t.Chdir()`，不要写死 `/tmp`、`C:\`。
+- **不要用 `t.Setenv("HOME", ...)` 隔离 home**：Windows 的 `os.UserHomeDir()` 读 `USERPROFILE`。把 home 做成可注入变量（如 `skillHomeDir`），或同时设置平台对应变量。
+- 路径断言用 `filepath.Join` 构造期望值，不断言分隔符。
+- 权限、符号链接、文件锁等平台差异测试用 `runtime.GOOS` skip，或放到带 build tag 的用例中。
+- 比较文本时允许 CRLF：先 `strings.ReplaceAll(s, "\r\n", "\n")`。
+- 测试不要依赖真实用户目录、真实 cwd 或本机已安装的技能/配置。
+
+### 9.6 检查清单
+
+新增或修改涉及文件系统、路径、进程、配置目录的代码后：
+
+- [ ] `make build`
+- [ ] `make test`
+- [ ] `make lint`
+- [ ] `make release TARGETS=windows/amd64`（至少确认 Windows 可编译）
+- [ ] 测试不依赖真实 home、cwd、路径分隔符、权限位或文件名大小写
