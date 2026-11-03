@@ -101,7 +101,7 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 				}
 			}
 
-			for _, tc := range choice.Message.ToolCalls {
+			for i, tc := range choice.Message.ToolCalls {
 				select {
 				case <-ctx.Done():
 					prog.Send(agentDone{turn: turn, err: ctx.Err(), history: localHistory})
@@ -160,6 +160,22 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 						return
 					}
 				}
+
+				// A plain denial ends the turn right here: the user said no, so
+				// the rest of this batch does not run and the model gets no
+				// further round trip. A suggestion keeps the turn alive because
+				// it is guidance for an immediate retry.
+				if denied && denialStopsTurn(answer) {
+					var err error
+					localHistory, err = m.appendSkippedToolCalls(localHistory, choice.Message.ToolCalls[i+1:], tc.Function.Name)
+					if err != nil {
+						prog.Send(agentDone{turn: turn, err: err, history: localHistory})
+						return
+					}
+					prog.Send(toolDone{turn: turn, name: "info", summary: denialStopNotice})
+					prog.Send(agentDone{turn: turn, history: localHistory})
+					return
+				}
 			}
 
 			continue
@@ -204,6 +220,27 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 		})
 	}
 	prog.Send(agentDone{turn: turn, history: localHistory})
+}
+
+// appendSkippedToolCalls answers the tool calls that were left in the batch
+// after a denial, so every tool_call id in the assistant message has a
+// matching tool message and the persisted history stays valid for the next
+// request.
+func (m *chatModel) appendSkippedToolCalls(history []types.ChatMessage, rest []types.ToolCall, deniedName string) ([]types.ChatMessage, error) {
+	for _, tc := range rest {
+		msg := types.ChatMessage{
+			Role:       "tool",
+			ToolCallID: tc.ID,
+			Content:    skippedToolCallResult(deniedName),
+		}
+		history = append(history, msg)
+		if m.sess != nil {
+			if err := m.sess.AppendMessage(msg, tc.Function.Name, m.toolOutputMax); err != nil {
+				return history, err
+			}
+		}
+	}
+	return history, nil
 }
 
 // ---------------------------------------------------------------------------

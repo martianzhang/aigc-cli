@@ -338,7 +338,7 @@ In interactive mode, a privileged tool that matches a confirmation rule pauses b
 |---|---|
 | `y` | Allow this call |
 | `a` | Always allow this tool for the rest of the process (not persisted) |
-| `n` | Deny; the model receives `User denied this tool call.` and can continue |
+| `n` | Deny; the turn stops immediately — the rest of the batch is skipped and the model gets no further round trip |
 | `s` | Deny **and** tell the model what to do instead (see below) |
 | `Esc` | Deny and interrupt the current turn |
 
@@ -346,7 +346,7 @@ The `[y] allow once   [a] always   [n] deny   [s] suggest   [Esc] stop` legend a
 
 #### `s`: reject with guidance
 
-A plain denial leaves the model with only `User denied this tool call.`, so it often retries the same thing or stalls; correcting it in a separate message costs another round trip. `s` lets you type the correction into the prompt: the tool still does **not** run, but the model receives, within the same response:
+`n` means stop: the tool does not run, any remaining tool calls from the same model reply are skipped, and the model is not asked to continue — the turn ends and control returns to you. If you want the model to fix its approach instead of stopping, use `s`: the tool still does **not** run, but the model receives, within the same response:
 
 ```
 The user rejected this tool call and asked for a different approach: use read for that file instead of bash

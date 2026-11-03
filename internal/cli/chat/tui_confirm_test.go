@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/bubbletea"
+
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // newConfirmTestModel returns a model with the default confirmation policy.
@@ -431,5 +433,71 @@ func TestConfirmSuggestBoxRenders(t *testing.T) {
 		if !strings.Contains(view, want) {
 			t.Errorf("suggestion box missing %q:\n%s", want, view)
 		}
+	}
+}
+
+// TestDenialStopsTurn pins the difference between a plain "no" and a
+// suggestion: only the plain denial ends the turn, so the model cannot keep
+// going after the user said no.
+func TestDenialStopsTurn(t *testing.T) {
+	tests := []struct {
+		name  string
+		reply confirmReply
+		want  bool
+	}{
+		{"plain denial", confirmReply{decision: confirmDeny}, true},
+		{"suggestion", confirmReply{decision: confirmSuggest, feedback: "use read"}, false},
+		{"allowed once", confirmReply{decision: confirmOnce}, false},
+		{"always allowed", confirmReply{decision: confirmAlways}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := denialStopsTurn(tc.reply); got != tc.want {
+				t.Errorf("denialStopsTurn() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSkippedToolCallResult(t *testing.T) {
+	got := skippedToolCallResult("bash")
+	for _, want := range []string{"skipped", `"bash"`, "denied"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("skippedToolCallResult() = %q, want it to contain %q", got, want)
+		}
+	}
+}
+
+// TestAppendSkippedToolCalls keeps the history valid after a denial: every
+// tool_call id needs a tool message, or the next request is rejected.
+func TestAppendSkippedToolCalls(t *testing.T) {
+	m := newConfirmTestModel(t)
+	history := []types.ChatMessage{{Role: "assistant"}}
+	rest := []types.ToolCall{
+		{ID: "call_2", Type: "function", Function: types.ToolCallFunction{Name: "write", Arguments: "{}"}},
+		{ID: "call_3", Type: "function", Function: types.ToolCallFunction{Name: "read", Arguments: "{}"}},
+	}
+
+	got, err := m.appendSkippedToolCalls(history, rest, "bash")
+	if err != nil {
+		t.Fatalf("appendSkippedToolCalls() error = %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("history length = %d, want 3", len(got))
+	}
+	for i, tc := range rest {
+		msg := got[i+1]
+		if msg.Role != "tool" || msg.ToolCallID != tc.ID || !strings.Contains(msg.Content, "skipped") {
+			t.Errorf("skipped message %d = %+v, want a tool message for %s", i, msg, tc.ID)
+		}
+	}
+
+	// Nothing left in the batch is a no-op.
+	got, err = m.appendSkippedToolCalls(history, nil, "bash")
+	if err != nil {
+		t.Fatalf("appendSkippedToolCalls(nil) error = %v", err)
+	}
+	if len(got) != 1 {
+		t.Errorf("history length = %d, want the input untouched", len(got))
 	}
 }

@@ -45,6 +45,30 @@ var defaultConfirmPatterns = []string{
 // deniedSummary is the toolDone summary used when the user rejects a call.
 const deniedSummary = "denied by user"
 
+// denialStopNotice tells the user that a plain denial ended the turn, so they
+// know the model will not keep going on its own.
+const denialStopNotice = "Turn stopped: you denied a tool call. Send a new message to continue."
+
+// denialStopsTurn reports whether the answer must end the turn immediately.
+// A plain denial (and an Esc interrupt, which resolves to one) means the user
+// said no, so nothing else runs: the remaining tool calls in the batch are
+// skipped and the model gets no further round trip. A suggestion does not stop
+// the turn — it carries guidance the model can act on right away.
+func denialStopsTurn(r confirmReply) bool {
+	return r.decision == confirmDeny
+}
+
+// skippedToolCallResult is the tool message recorded for a call that never ran
+// because the user denied an earlier call in the same assistant message. Every
+// tool_call id needs a tool response for the history to stay valid, so skipped
+// calls are answered explicitly instead of being dropped.
+func skippedToolCallResult(deniedName string) string {
+	return fmt.Sprintf(
+		"Tool call skipped: the user denied an earlier tool call (%q) in this turn, so nothing else was executed.",
+		deniedName,
+	)
+}
+
 // deniedToolResult is the tool result the model sees when the user rejects a
 // call. A suggestion turns the rejection into guidance the model can act on
 // immediately, rather than a dead end that needs a second user message.
