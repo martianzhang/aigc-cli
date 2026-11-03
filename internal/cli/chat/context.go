@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/skill"
 )
 
 // agentsFileName is the project/global context file, compatible with the
@@ -29,8 +31,8 @@ func loadAgentsContext() string {
 }
 
 // runtimeContext returns the guidance appended to the system prompt: the
-// platform/shell notes (only on platforms where it matters) followed by the
-// AGENTS.md project context.
+// platform/shell notes (only on platforms where it matters), the AGENTS.md
+// project context, and the available Agent Skills catalog.
 func runtimeContext() string {
 	var parts []string
 	if p := agent.PlatformPrompt(); p != "" {
@@ -39,7 +41,76 @@ func runtimeContext() string {
 	if ctx := loadAgentsContext(); ctx != "" {
 		parts = append(parts, ctx)
 	}
+	if ctx := skillsContext(); ctx != "" {
+		parts = append(parts, ctx)
+	}
 	return strings.Join(parts, "\n\n")
+}
+
+// skillsContext builds the skill catalog for the system prompt. Skills are
+// loaded through the read tool, so the catalog is omitted when that tool is
+// disabled: advertising skills the model cannot open only wastes tokens.
+func skillsContext() string {
+	if !hasTool("read") {
+		return ""
+	}
+	skills, diags := discoverSkills()
+	logSkillDiagnostics(diags)
+	return skill.PromptSection(skills)
+}
+
+// skillHomeDir is os.UserHomeDir in production; tests override it so discovery
+// never touches the real user profile.
+var skillHomeDir = os.UserHomeDir
+
+// discoverSkills returns the skills visible from the current working directory,
+// combining config paths, --skill paths, and automatic discovery.
+func discoverSkills() ([]skill.Skill, []skill.Diagnostic) {
+	if chatNoSkills {
+		return nil, nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, nil
+	}
+	home, _ := skillHomeDir()
+
+	cfg := options.SkillsConfig()
+	enabled := cfg == nil || cfg.Enabled == nil || *cfg.Enabled
+
+	var paths []string
+	if enabled && cfg != nil {
+		paths = append(paths, cfg.Paths...)
+	}
+	paths = append(paths, chatSkillPaths...)
+
+	return skill.DiscoverWithOptions(skill.Options{
+		Cwd:       cwd,
+		Home:      home,
+		Paths:     paths,
+		NoDefault: !enabled,
+	})
+}
+
+// logSkillDiagnostics prints discovery warnings only in verbose mode so normal
+// chat output stays clean.
+func logSkillDiagnostics(diags []skill.Diagnostic) {
+	if !options.Shared.Verbose {
+		return
+	}
+	for _, d := range diags {
+		fmt.Fprintf(options.Stderr(), "skill: %s: %s\n", d.Path, d.Message)
+	}
+}
+
+// hasTool reports whether the effective built-in tool set contains name.
+func hasTool(name string) bool {
+	for _, t := range buildAgentTools(options.ChatDefaults()) {
+		if t.Function.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // agentsContextFrom builds the context block from a global file and the

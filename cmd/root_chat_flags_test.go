@@ -9,6 +9,7 @@ func TestRootCommandHasChatFlags(t *testing.T) {
 		"system", "message", "prompt", "temperature", "max-output",
 		"context-size", "no-stream", "json", "interactive", "dry-run",
 		"search-provider", "inject-json", "save", "session-dir", "session", "name", "yes",
+		"skill", "no-skills",
 	}
 	for _, name := range names {
 		if rootCmd.Flags().Lookup(name) == nil {

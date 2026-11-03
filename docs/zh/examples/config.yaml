@@ -52,6 +52,17 @@ base_url: "https://api.apimart.ai"
 # 300s only when no timeout is configured.
 # timeout: 300
 
+# ── Agent Skills（Chat）──
+# 技能从跨客户端约定的 .agents/skills 目录自动发现（用户级 ~/.agents/skills，
+# 项目级从当前目录逐级向上查找，直到仓库根）。
+# enabled: false 关闭自动发现；显式 --skill 仍然生效。
+# paths 等价于可重复的 --skill，支持 .md 文件或目录；后加载的覆盖同名技能。
+# skills:
+#   enabled: true
+#   paths:
+#     - "~/team-skills"
+#     - "./my-skills"
+
 # ── 工具过滤（MCP / Chat 模式通用）──
 # Glob 通配符（* 匹配任意名称）：
 #   tools_enable  — 白名单模式，启用列表内的工具（空列表 = 全部允许）

@@ -100,8 +100,10 @@ aigc-cli chat -v
 | `/clear` `/reset` `/new` | 清除对话历史 |
 | `/tools` | 列出可用工具（每个工具一行摘要） |
 | `/tools <名称>` | 查看某个工具的完整说明（含用法示例；工具描述可长达 20+ 行） |
+| `/skills` | 列出当前加载的技能（名称、来源、用途） |
 | `/<tool> <json>` | 直接调用工具 |
 | `/preview <file>` | 预览图片/视频 |
+| `/skill:<name> [args]` | 显式加载技能（等价于 Pi 的 `/skill:name`）；技能来自 `.agents/skills` |
 | `@path` | 引用本地文件：文本内联、图片作为附件（`Tab` 补全路径；受 `defaults.chat.read_deny` 限制） |
 | `PgUp` `PgDn` / 鼠标滚轮 | 上下滚动对话输出 |
 | 鼠标左键拖拽 | 选中消息区的若干行，松手后**自动复制**（去掉 `┃` 左边条与行尾空白；显示时的自动换行会还原成一行，不会引入多余换行） |
@@ -343,6 +345,62 @@ defaults:
 - 项目：从当前目录**逐级向上**查找 `AGENTS.md`，直到仓库根（首个含 `.git` 的目录）；多个文件按「最外层 → 最内层」拼接，越靠内越具体。
 
 没有则跳过。适合放项目约定、构建/测试命令、代码风格等。
+
+### Agent Skills（技能）
+
+Chat 支持 [Agent Skills](https://agentskills.io/specification) 规范，并沿用跨客户端约定的
+`.agents/skills` 目录，**不新增 aigc-cli 专属技能目录**。启动时只把每个技能的 `name` +
+`description` 放进 system prompt；任务匹配时，模型再用 `read` 工具加载完整 `SKILL.md`
+（渐进式披露，未激活的技能不占正文 token）。
+
+技能位置：
+
+- 用户级：`~/.agents/skills/<name>/SKILL.md`（所有项目可用）；
+- 项目级：从当前目录**逐级向上**查找 `.agents/skills/<name>/SKILL.md`，直到仓库根（首个含 `.git` 的目录）。
+
+最小示例：
+
+```markdown
+---
+name: pdf-tools
+description: Extract text and tables from PDF files. Use when reading or converting PDFs.
+---
+
+# PDF tools
+
+Read `references/formats.md` before converting a document.
+Run `scripts/extract.sh` relative to this skill directory.
+```
+
+配置方式（`~/.config/aigc-cli/config.yaml`）：
+
+```yaml
+skills:
+  enabled: true          # false = 关闭自动发现（--skill 仍可显式加载）
+  paths:                 # 等价于可重复的 --skill，支持文件或目录
+    - "~/team-skills"
+    - "./my-skills"
+```
+
+命令行也可临时追加或关闭：
+
+```bash
+aigc-cli chat --skill ~/team-skills --skill ./review.md
+aigc-cli chat --no-skills          # 关闭所有技能发现与加载
+```
+
+优先级：CLI `--no-skills`（完全关闭，忽略 `--skill` 与 `skills.paths`）> `skills.enabled` > 默认开启；`--skill` 与 `skills.paths` 都会在自动发现之后加载，同名时覆盖自动发现的技能。
+
+规则与行为：
+
+- `name` 必填，最多 64 字符，只允许小写字母、数字和连字符；`description` 必填，最多 1024 字符。不合规只输出告警，不阻止加载；
+- 同名技能：项目级覆盖用户级；同一目录内先发现者优先（`-v` 会打印冲突告警）；
+- `disable-model-invocation: true` 让技能不出现在自动选择目录中，但仍可用 `/skill:<name>` 显式调用；
+- `/skills` 列出当前加载的技能（名称、来源、用途），`/skill:<name> [args]` 显式加载；
+- 技能正文里的相对路径以技能所在目录为基准；需要执行 `scripts/` 时使用 `bash`（受 `tools_enable` / `tools_disable` 控制）；
+- 只有 `read` 工具可用时才注入技能目录——否则模型无法打开 `SKILL.md`；
+- 技能目录在创建会话时写入 system prompt，恢复旧会话会沿用当时的目录（与 AGENTS.md 的行为一致）；
+- 单轮模式同样支持：`aigc-cli chat -m "/skill:pdf-tools extract report.pdf"`。
 
 ### 交互式快捷键
 
@@ -597,6 +655,8 @@ aigc-cli chat --message "Hello"
 | `--session-dir` | 会话目录（默认 `~/.config/aigc-cli/sessions`） |
 | `--session` | 按 id 或 JSONL 路径恢复会话（隐含保存） |
 | `--name` | 设置会话名；恢复时是改名（需配合 `--save` 或 `--session`） |
+| `--skill <path>` | 追加技能文件或目录（可重复；支持 `.md` 或目录，同名覆盖自动发现） |
+| `--no-skills` | 完全关闭技能发现与加载（包括 `--skill` 与 `skills.paths`） |
 | `--search-provider` | `web_search`/`web_fetch` 原语使用的第三方厂商名（`duckduckgo`/`firecrawl`/`brave`/`doubao`/`deepseek`/`exa`/`wsa`/`pixabay`/`pexels`），覆盖 `defaults.search.provider` |
 | `--verbose`, `-v` | 显示 token 消耗、费用和耗时统计（全局 flag） |
 

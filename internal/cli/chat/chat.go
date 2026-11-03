@@ -54,6 +54,10 @@ var (
 	chatSession string
 	// chatName names a new session, or renames a resumed one.
 	chatName string
+	// chatSkillPaths are additional skill files/directories from --skill.
+	chatSkillPaths []string
+	// chatNoSkills disables automatic .agents/skills discovery.
+	chatNoSkills bool
 )
 
 // chatCmd represents the `aigc-cli chat` command.
@@ -256,6 +260,8 @@ func registerFlags(f *pflag.FlagSet) {
 	f.StringVar(&chatSessionDir, "session-dir", "", "Session directory (default ~/.config/aigc-cli/sessions)")
 	f.StringVar(&chatSession, "session", "", "Resume a session by id or JSONL file path (implies saving)")
 	f.StringVar(&chatName, "name", "", "Session name (requires --save or --session; renames on resume)")
+	f.StringArrayVar(&chatSkillPaths, "skill", nil, "Load a skill file or directory (repeatable)")
+	f.BoolVar(&chatNoSkills, "no-skills", false, "Disable skills discovery and loading")
 }
 
 // Cmd returns the chat command.

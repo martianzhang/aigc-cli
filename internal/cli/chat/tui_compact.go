@@ -59,8 +59,14 @@ func (m *chatModel) appendUserMessage(input string, warnings []string) {
 func (m *chatModel) handleUserMessage(input string) (tea.Model, tea.Cmd) {
 	// Resolve @file mentions: text files inline, images become attachments.
 	expanded, images, warnings := expandMentions(input, readDenyPatterns())
+	return m.startUserTurn(input, expanded, images, warnings)
+}
 
-	m.appendUserMessage(input, warnings)
+// startUserTurn appends one user message to the transcript and starts the
+// agent loop. display is what the user typed; expanded is what the model
+// receives (after @file or /skill: expansion).
+func (m *chatModel) startUserTurn(display, expanded string, images []types.ChatImage, warnings []string) (tea.Model, tea.Cmd) {
+	m.appendUserMessage(display, warnings)
 
 	// Add to API history
 	userMessage := types.ChatMessage{Role: "user", Content: expanded, Images: images}

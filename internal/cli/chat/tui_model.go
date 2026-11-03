@@ -114,11 +114,9 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#335577", Dark: "#66AAFF"})
 	s.Spinner = spinner.Dot
 
-	// Build completion list from tool definitions
-	completions := []string{"/exit", "/quit", "/q", "/clear", "/reset", "/new", "/help", "/?", "/tools", "/copy", "/name"}
-	for _, t := range tools {
-		completions = append(completions, "/"+t.Function.Name)
-	}
+	// Build completion list from the fixed commands, tool definitions, and
+	// discovered skills.
+	completions := commandCompletions(tools)
 
 	// Pre-fill with welcome message so renderMessages always renders messages
 	welcomeMsg := buildWelcomeBanner()
