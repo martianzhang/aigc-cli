@@ -78,7 +78,7 @@ func runChatTUI(cmd *cobra.Command) error {
 				return err
 			}
 			history = sess.History()
-		} else {
+		} else if sysContent != "" {
 			history = append(history, types.ChatMessage{Role: "system", Content: sysContent})
 		}
 	}

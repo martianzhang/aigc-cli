@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/session"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -191,15 +190,19 @@ func resumedNotice(sess *session.Session, count int) message {
 	}
 }
 
-// buildTUISystemPrompt builds the interactive system prompt: current date,
-// optional --system text, and AGENTS.md context.
+// buildTUISystemPrompt builds the interactive system prompt from the optional
+// --system text and runtime context (platform notes + AGENTS.md). It
+// deliberately omits the current date: a dynamic value would invalidate prompt
+// caches, and persisted sessions would freeze it at creation time. Tool-capable
+// models can run `date` when the user asks; read-only setups have no built-in
+// date source, matching Pi's behavior.
 func buildTUISystemPrompt() string {
-	sysContent := fmt.Sprintf("今天是 %s。你只需要在用户明确询问日期时才回答日期，其他时候不要主动提及。", time.Now().Format("2006年1月2日"))
+	var parts []string
 	if chatSystem != "" {
-		sysContent += "\n" + chatSystem
+		parts = append(parts, chatSystem)
 	}
 	if ctx := runtimeContext(); ctx != "" {
-		sysContent += "\n\n" + ctx
+		parts = append(parts, ctx)
 	}
-	return sysContent
+	return strings.Join(parts, "\n\n")
 }
