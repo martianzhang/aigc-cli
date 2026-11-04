@@ -26,15 +26,21 @@ const defaultMaxIterations = 100
 
 // chat flag variables
 var (
-	chatSystem      string
-	chatMessages    []string
-	chatTemperature float64
-	chatMaxTokens   int
-	chatContextSize int
-	chatNoStream    bool
-	chatJSONFlag    string
-	chatInteractive bool
-	chatDryRun      bool
+	chatSystem                 string
+	chatMessages               []string
+	chatTemperature            float64
+	chatMaxTokens              int
+	chatContextSize            int
+	chatReserveTokens          int
+	chatKeepRecentTokens       int
+	chatNoAutoCompact          bool
+	chatCompactModel           string
+	chatCompactMaxTokens       int
+	chatCompactToolResultChars int
+	chatNoStream               bool
+	chatJSONFlag               string
+	chatInteractive            bool
+	chatDryRun                 bool
 	// chatYes auto-approves confirm-gated tools in both TUI and non-interactive
 	// mode.
 	chatYes bool
@@ -84,9 +90,10 @@ Messages:
   value names an existing file, its contents are used as the message.
 
 Context Management:
-  Use --context-size to limit input context. When the conversation exceeds
-  80% of the limit, older messages are automatically summarized to stay
-  within bounds. Use /compact in interactive mode for manual compaction.
+  --context-size sets the input context window (0 = detect it from the model
+  or configured provider). Near the window, older messages are summarized and
+  a recent tail is kept verbatim. Use /context to inspect usage and /compact
+  in interactive mode for manual compaction.
 
 Modes:
   - Interactive multi-turn (default without --message):
@@ -166,9 +173,6 @@ func runChat(cmd *cobra.Command, args []string) error {
 			closeSession(sess)
 			printSessionPath(sess, created)
 		}()
-		if !cmd.Flags().Changed("context-size") && chatContextSize == 0 {
-			chatContextSize = sess.Header().ContextSize
-		}
 	}
 
 	history, err := buildHistoryFromSession(sess, req.Messages, chatCfg, true)
@@ -194,8 +198,17 @@ func runChat(cmd *cobra.Command, args []string) error {
 	if err := options.RequireBaseURL("chat", p); err != nil {
 		return err
 	}
+	providerName := p.Name
+	if providerName == "" {
+		providerName = p.ProviderType.String()
+	}
+	model := options.Shared.Model
+	if model == "" && chatCfg != nil {
+		model = chatCfg.Model
+	}
+	settings := resolveCompactionSettings(cmd, chatCfg, sess, providerName, model)
 	c := client.NewFromProvider(p)
-	err = runAgentLoopWithSession(ctx, c, rt, &history, maxIterations, cmd, p, sess, sessionToolOutputMax(chatCfg), confirm)
+	err = runAgentLoopWithSession(ctx, c, rt, &history, maxIterations, cmd, p, sess, sessionToolOutputMax(chatCfg), settings, confirm)
 	if err != nil {
 		return err
 	}
@@ -214,6 +227,24 @@ func applyChatConfigDefaults(cmd *cobra.Command, cfg *types.ChatDefaults) {
 	}
 	if !cmd.Flags().Changed("context-size") && cfg.ContextSize > 0 {
 		chatContextSize = cfg.ContextSize
+	}
+	if !cmd.Flags().Changed("reserve-tokens") && cfg.ReserveTokens > 0 {
+		chatReserveTokens = cfg.ReserveTokens
+	}
+	if !cmd.Flags().Changed("keep-recent-tokens") && cfg.KeepRecentTokens > 0 {
+		chatKeepRecentTokens = cfg.KeepRecentTokens
+	}
+	if !cmd.Flags().Changed("no-auto-compact") && cfg.AutoCompact != nil && !*cfg.AutoCompact {
+		chatNoAutoCompact = true
+	}
+	if cfg.CompactModel != "" {
+		chatCompactModel = cfg.CompactModel
+	}
+	if cfg.CompactMaxTokens > 0 {
+		chatCompactMaxTokens = cfg.CompactMaxTokens
+	}
+	if cfg.CompactToolResultChars > 0 {
+		chatCompactToolResultChars = cfg.CompactToolResultChars
 	}
 	if !cmd.Flags().Changed("max-output") && cfg.MaxTokens > 0 {
 		chatMaxTokens = cfg.MaxTokens
@@ -248,7 +279,10 @@ func registerFlags(f *pflag.FlagSet) {
 	addMessageFlags(f)
 	f.Float64VarP(&chatTemperature, "temperature", "t", 0, "Sampling temperature (0-2)")
 	f.IntVar(&chatMaxTokens, "max-output", 0, "Maximum tokens in response")
-	f.IntVar(&chatContextSize, "context-size", 0, "Maximum input context size in tokens (0 = model default). Auto-compacts at 80% by summarizing older messages.")
+	f.IntVar(&chatContextSize, "context-size", 0, "Input context window in tokens (0 = auto-detect from the model). Auto-compacts near the window while keeping recent messages.")
+	f.IntVar(&chatReserveTokens, "reserve-tokens", 0, "Tokens reserved below the context window for output and tool schemas (0 = default 16384)")
+	f.IntVar(&chatKeepRecentTokens, "keep-recent-tokens", 0, "Recent tokens kept verbatim after compaction (0 = default 20000)")
+	f.BoolVar(&chatNoAutoCompact, "no-auto-compact", false, "Disable automatic context compaction (manual /compact still works)")
 	f.BoolVar(&chatNoStream, "no-stream", false, "Disable streaming, wait for full response")
 	f.StringVar(&chatJSONFlag, "json", "", "JSON file, string, or \"-\" for stdin")
 	f.BoolVar(&chatInteractive, "interactive", false, "Enter interactive multi-turn chat mode")

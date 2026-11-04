@@ -93,6 +93,62 @@ func TestLoad_zdr(t *testing.T) {
 	}
 }
 
+func TestLoad_chatCompactionSettings(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "compaction.yaml")
+	content := []byte(`
+defaults:
+  chat:
+    context_size: 0
+    auto_compact: false
+    auto_detect_context_window: false
+    reserve_tokens: 8192
+    keep_recent_tokens: 12000
+    compact_model: "cheap-model"
+    compact_max_tokens: 4096
+    compact_tool_result_chars: 1500
+    model_overrides:
+      "acme/large":
+        context_size: 200000
+        reserve_tokens: 16000
+providers:
+  acme:
+    context_window: 128000
+    models:
+      large:
+        context_window: 256000
+`)
+	if err := os.WriteFile(cfgPath, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Defaults == nil || cfg.Defaults.Chat == nil {
+		t.Fatalf("defaults.chat was not decoded: %+v", cfg.Defaults)
+	}
+	chat := cfg.Defaults.Chat
+	if chat.AutoCompact == nil || *chat.AutoCompact {
+		t.Fatalf("auto_compact = %+v, want false", chat)
+	}
+	if chat.AutoDetectContextWindow == nil || *chat.AutoDetectContextWindow {
+		t.Fatalf("auto_detect_context_window = %+v, want false", chat)
+	}
+	if chat.ReserveTokens != 8192 || chat.KeepRecentTokens != 12000 ||
+		chat.CompactModel != "cheap-model" || chat.CompactMaxTokens != 4096 ||
+		chat.CompactToolResultChars != 1500 {
+		t.Fatalf("chat defaults = %+v", chat)
+	}
+	if got := chat.ModelOverrides["acme/large"]; got == nil || got.ContextSize != 200000 || got.ReserveTokens != 16000 {
+		t.Fatalf("model override = %+v", got)
+	}
+	np := cfg.Providers["acme"]
+	if np == nil || np.ContextWindow != 128000 || np.Models["large"] == nil || np.Models["large"].ContextWindow != 256000 {
+		t.Fatalf("provider = %+v", np)
+	}
+}
+
 func TestLoad_providerZDR(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "providers.yaml")

@@ -46,7 +46,7 @@ func (c *Client) anthropicChatCompletion(req *types.ChatRequest) (*types.ChatRes
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		return nil, fmt.Errorf("anthropic API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("anthropic API request failed: %w", newAPIStatusError(resp, respBody))
 	}
 
 	// Streaming mode

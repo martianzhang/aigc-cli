@@ -222,26 +222,76 @@ func (s *Session) AppendMessage(msg types.ChatMessage, name string, maxToolBytes
 	return nil
 }
 
-// AppendCompaction records a summary barrier. UpToSeq is the last message seq
-// at the moment compaction runs, so everything before it is replaced by Summary
-// on resume.
+// CompactionMeta carries optional accounting and file-tracking fields for a
+// compaction record. Zero values are omitted from the JSONL file.
+type CompactionMeta struct {
+	TokensBefore  int
+	TokensAfter   int
+	Model         string
+	SummaryModel  string
+	Reason        string
+	ReadFiles     []string
+	ModifiedFiles []string
+	Usage         *types.ChatUsage
+}
+
+// AppendCompaction records a summary barrier that replaces the whole visible
+// history. Kept for compatibility; new callers should use
+// AppendCompactionKeepLast so recent messages survive.
 func (s *Session) AppendCompaction(summary string, tokensBefore, tokensAfter int, model string) error {
+	return s.AppendCompactionKeepLast(summary, 0, CompactionMeta{
+		TokensBefore: tokensBefore,
+		TokensAfter:  tokensAfter,
+		Model:        model,
+	})
+}
+
+// AppendCompactionKeepLast records a checkpoint and keeps the last keepLast
+// messages verbatim. UpToSeq is advanced only to the last summarized message,
+// so History() projects summary + retained tail on resume.
+func (s *Session) AppendCompactionKeepLast(summary string, keepLast int, meta CompactionMeta) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.f == nil {
 		return errReadOnly
 	}
+
+	if keepLast < 0 {
+		keepLast = 0
+	}
+	if keepLast >= len(s.messages) {
+		// At least one message must be summarized for the barrier to make
+		// sense; otherwise fall back to replacing everything.
+		if len(s.messages) > 0 {
+			keepLast = len(s.messages) - 1
+		} else {
+			keepLast = 0
+		}
+	}
+
 	upTo := s.seq
+	firstKeptSeq := int64(0)
+	if keepLast > 0 {
+		firstKeptSeq = s.messages[len(s.messages)-keepLast].seq
+		upTo = s.messages[len(s.messages)-keepLast-1].seq
+	}
+
 	s.seq++
 	rec := &CompactionRecord{
-		Type:         typeCompaction,
-		Seq:          s.seq,
-		TS:           time.Now().UTC(),
-		UpToSeq:      upTo,
-		Summary:      summary,
-		TokensBefore: tokensBefore,
-		TokensAfter:  tokensAfter,
-		Model:        model,
+		Type:          typeCompaction,
+		Seq:           s.seq,
+		TS:            time.Now().UTC(),
+		UpToSeq:       upTo,
+		FirstKeptSeq:  firstKeptSeq,
+		Summary:       summary,
+		TokensBefore:  meta.TokensBefore,
+		TokensAfter:   meta.TokensAfter,
+		Model:         meta.Model,
+		SummaryModel:  meta.SummaryModel,
+		Reason:        meta.Reason,
+		ReadFiles:     append([]string(nil), meta.ReadFiles...),
+		ModifiedFiles: append([]string(nil), meta.ModifiedFiles...),
+		Usage:         meta.Usage,
 	}
 	if err := writeJSONLine(s.f, rec); err != nil {
 		return err
@@ -249,6 +299,19 @@ func (s *Session) AppendCompaction(summary string, tokensBefore, tokensAfter int
 	s.lastCompaction = rec
 	s.dropMessagesUpTo(upTo)
 	return nil
+}
+
+// LastCompaction returns a copy of the latest compaction record, or nil.
+func (s *Session) LastCompaction() *CompactionRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.lastCompaction == nil {
+		return nil
+	}
+	cp := *s.lastCompaction
+	cp.ReadFiles = append([]string(nil), cp.ReadFiles...)
+	cp.ModifiedFiles = append([]string(nil), cp.ModifiedFiles...)
+	return &cp
 }
 
 // AppendClear records a /clear barrier.

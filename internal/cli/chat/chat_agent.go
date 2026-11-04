@@ -23,7 +23,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 	if err != nil {
 		return err
 	}
-	return runAgentLoopWithSession(ctx, c, rt, history, maxIterations, cmd, p, nil, 0, confirm)
+	return runAgentLoopWithSession(ctx, c, rt, history, maxIterations, cmd, p, nil, 0, agent.Settings{}, confirm)
 }
 
 // runAgentLoopWithSession executes the tool-calling loop and appends every
@@ -34,7 +34,7 @@ func runAgentLoop(ctx context.Context, c *client.Client, rt *toolRuntime, histor
 // This is the non-interactive path, so confirm-gated tools fail closed unless
 // --yes was passed: the model receives a blocked tool result instead of the
 // command output and can explain how to proceed.
-func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command, p *provider.EffectiveProvider, sess *session.Session, toolOutputMax int, confirm *confirmPolicy) error {
+func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRuntime, history *[]types.ChatMessage, maxIterations int, cmd *cobra.Command, p *provider.EffectiveProvider, sess *session.Session, toolOutputMax int, settings agent.Settings, confirm *confirmPolicy) error {
 	// Merge defaults.chat.model into options.Shared.Model if empty
 	if options.Shared.Model == "" {
 		if cfg := options.ChatDefaults(); cfg != nil && cfg.Model != "" {
@@ -44,6 +44,9 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 
 	turnCount := 0
 	agentStart := time.Now()
+	var anchor *agent.UsageAnchor
+	cooldown := 0
+
 	for turnCount < maxIterations {
 		// Check for Ctrl+C between turns
 		select {
@@ -53,27 +56,28 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 		}
 		turnCount++
 
-		// Auto-compact before building request if context is getting full
-		newHistory, compaction := agent.AutoCompactIfNeededResult(c, options.Shared.Model, chatTemperature, chatMaxTokens, chatContextSize, *history, options.Stderr())
-		*history = newHistory
-		if sess != nil && compaction != nil {
-			if err := sess.AppendCompaction(compaction.Summary, compaction.Tokens+compaction.TokenSaved, compaction.Tokens, options.Shared.Model); err != nil {
-				return err
+		tools := rt.RequestTools()
+		toolsTokens := agent.EstimateToolDefinitions(tools) + agent.EstimateRequestExtras(chatInjectRaw)
+
+		// Auto-compact before building the request if the context is getting
+		// full. This also covers a resumed session whose stored history is
+		// already close to the limit.
+		if cooldown > 0 {
+			cooldown--
+		} else if settings.Enabled && settings.Window > 0 {
+			opts := compactionOptions(settings, anchor, toolsTokens, sess, options.Shared.Model, "threshold", false, options.Stderr())
+			res, cerr := agent.AutoCompact(ctx, c, *history, opts)
+			if cerr != nil {
+				cooldown = 3
+				fmt.Fprintf(options.Stderr(), "[auto-compact] failed: %v\r\n", cerr)
+			} else if res != nil {
+				*history = res.History
+				anchor = nil
+				if err := persistCompaction(sess, res, options.Shared.Model); err != nil {
+					return err
+				}
 			}
 		}
-
-		req := &types.ChatRequest{
-			Model:        options.Shared.Model,
-			Messages:     *history,
-			Stream:       !chatNoStream,
-			OutputWriter: options.Stdout(),
-			InjectJSON:   chatInjectRaw,
-		}
-		if tools := rt.RequestTools(); len(tools) > 0 {
-			req.Tools = tools
-		}
-		options.SetFloatFlag(cmd, "temperature", &req.Temperature, chatTemperature)
-		options.SetIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
 
 		if turnCount > 1 {
 			// No leading blank line: the streamed reply already ended with a
@@ -81,9 +85,75 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 			fmt.Fprint(options.Stderr(), "---\r\n")
 		}
 
-		result, err := c.ChatCompletion(req)
+		var result *types.ChatResponse
+		var err error
+		recovered := false
+		for attempt := 0; attempt < 2; attempt++ {
+			req := &types.ChatRequest{
+				Model:        options.Shared.Model,
+				Messages:     *history,
+				Stream:       !chatNoStream,
+				OutputWriter: options.Stdout(),
+				InjectJSON:   chatInjectRaw,
+			}
+			if len(tools) > 0 {
+				req.Tools = tools
+			}
+			options.SetFloatFlag(cmd, "temperature", &req.Temperature, chatTemperature)
+			options.SetIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
+
+			result, err = c.ChatCompletion(req)
+			if err == nil {
+				break
+			}
+			if recovered || !agent.IsContextOverflow(err) {
+				break
+			}
+			recovered = true
+			fmt.Fprintf(options.Stderr(), "[auto-compact] context overflow; compacting and retrying once\r\n")
+			opts := compactionOptions(settings, anchor, toolsTokens, sess, options.Shared.Model, "overflow", true, options.Stderr())
+			res, cerr := agent.AutoCompact(ctx, c, *history, opts)
+			if cerr != nil || res == nil {
+				trimmed, keepLast, dropped, ok := agent.EmergencyTrim(*history, settings, toolsTokens)
+				if !ok {
+					break
+				}
+				before := agent.EstimateContext(*history, nil, toolsTokens)
+				summary := agent.PreviousSummary(trimmed)
+				if summary == "" {
+					summary = "Context was trimmed locally after compaction failed."
+				}
+				if dropped > 0 {
+					if perr := persistCompaction(sess, &agent.CompactResult{
+						Summary: summary, KeepLast: keepLast, TokensBefore: before,
+						Tokens: agent.EstimateContext(trimmed, nil, toolsTokens),
+						Reason: "emergency", SummaryModel: options.Shared.Model,
+					}, options.Shared.Model); perr != nil {
+						return perr
+					}
+				}
+				*history = trimmed
+				anchor = nil
+				fmt.Fprintf(options.Stderr(), "[auto-compact] dropped %d oldest messages locally\r\n", dropped)
+				continue
+			}
+			*history = res.History
+			anchor = nil
+			if err := persistCompaction(sess, res, options.Shared.Model); err != nil {
+				return err
+			}
+		}
 		if err != nil {
 			return err
+		}
+		if result == nil {
+			return fmt.Errorf("chat API returned no response")
+		}
+
+		// The provider-reported prompt size is the best anchor for the next
+		// turn; messages appended after it are added by estimate.
+		if result.Usage != nil && result.Usage.PromptTokens > 0 {
+			anchor = &agent.UsageAnchor{MessageIndex: len(*history), PromptTokens: result.Usage.PromptTokens}
 		}
 
 		if len(result.Choices) == 0 {

@@ -115,12 +115,14 @@ aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
 - Image attachments store metadata only (name, MIME type, byte count), never base64. Resumed history keeps the `[attached image: path]` text.
 - Tool output is capped at 32 KiB per result by default; longer output is truncated with `[truncated: showing N of M bytes]`. Configure with `defaults.chat.session_tool_output_max_bytes`.
 - The bash tool has a hard 1 MiB limit on combined stdout+stderr. Excess output is streamed away while the command runs and marked `[output truncated: ...]`; all tool results also pass through the same limit before entering history. A huge result therefore cannot exhaust memory or blow up the next request. For complete output, redirect the command to a file and page through it with `read` / `grep`.
-- The session file is a complete log: `/compact` and auto-compaction never delete messages, they append a `compaction` record. On resume the model only receives the latest summary plus messages after the compaction point, so a large file does not mean a large context.
-- If `--context-size` is not set explicitly, resume uses the value recorded when the session was created. If the restored projection is still over the limit, it is compacted once before the first request.
+- The session file is a complete log: `/compact` and auto-compaction never delete messages, they append a `compaction` record. On resume the model receives the latest summary plus the recent messages kept verbatim after the compaction point, so a large file does not mean a large context.
+- Compaction keeps roughly `keep_recent_tokens` of recent messages. The `compaction` record advances `up_to_seq` only to the last summarized message and stores `first_kept_seq` for the retained tail.
+- If `--context-size` is not set explicitly, resume re-resolves the window: CLI/config > the session's explicit value (only when provider + model are unchanged) > model/provider override > built-in table. Switching models no longer inherits the old window blindly.
+- Compaction records also store the reason (`threshold` / `manual` / `overflow` / `emergency`), summary model, summary usage, and read/modified file lists.
 - `--name <text>` sets the session name; inside the TUI, `/name <text>` renames it. `/name` without an argument auto-names an unnamed session from its first user message (local, no extra API call). The header shows the name, falls back to `Session <id>` for an unnamed session, and keeps `Chat with AI` when no session is active.
 - The TUI status bar shows `rec: <filename>`; a newly created session prints its path and a ready-to-run resume command (`aigc-cli chat --session <id>`, plus `--session-dir` when a custom directory is used) **to stderr**, so stdout carries only the model reply and stays safe to pipe.
 
-The first JSONL line is a `header` (schema, id, cwd, provider, model, context_size). Subsequent records are `system` / `message` / `compaction` / `clear` / `session_info` / `end`. `session_info` stores the session name; the latest record wins. The file can be analyzed with `jq` or `grep`, or copied as an export.
+The first JSONL line is a `header` (schema, id, cwd, provider, model, context_size, context_size_source). Subsequent records are `system` / `message` / `compaction` / `clear` / `session_info` / `end`. `context_size_source` is `explicit` or `auto`, so resume can decide whether to re-resolve the window for the current model. `session_info` stores the session name; the latest record wins. The file can be analyzed with `jq` or `grep`, or copied as an export.
 
 ## File References (@)
 
@@ -459,7 +461,10 @@ aigc-cli --interactive --yes
 | `--model` | Model name | `deepseek-v4-flash` |
 | `--temperature` | Response temperature | `0.7` |
 | `--max-output` | Max response tokens | `4096` |
-| `--context-size` | Max input context tokens; auto-compacts at 80% (summarizes older messages) | `0` (model default) |
+| `--context-size` | Input context window in tokens. `0` auto-detects (explicit config > session record > model/provider override > built-in table). Auto-compacts near the window and keeps a recent tail | `0` (auto) |
+| `--reserve-tokens` | Tokens reserved for output and tool schemas; threshold = window − max(reserve, max-output + 1024) | `0` (16384) |
+| `--keep-recent-tokens` | Recent tokens kept verbatim after compaction | `0` (20000, capped at half the window) |
+| `--no-auto-compact` | Disable automatic compaction; manual `/compact` still works | `false` |
 | `--system` | System prompt | — |
 | `--json` | Pass messages as JSON; forwarded **verbatim** when no flags are set, so unmodeled fields (e.g. `reasoning_effort`, vendor-private keys) reach the API. Explicitly-set flags override the matching key | — |
 | `--inject-json` | Merge a JSON object **on top of** the generated body (objects recurse, arrays append, scalars overwrite). Use it for vendor-only fields (native web search, reasoning, routing); takes precedence over `--json` | — |
@@ -475,9 +480,43 @@ aigc-cli --interactive --yes
 
 ### Context Management
 
-When `--context-size` is set, the conversation history is automatically summarized
-(compacted) once it exceeds 80% of the limit, freeing space without manual action.
-You can also type `/compact` in interactive mode to trigger compaction manually.
+Auto-compaction triggers when:
+
+```
+context tokens > window − max(reserve_tokens, max_output + 1024)
+```
+
+- The window comes from `--context-size` / `defaults.chat.context_size`; otherwise it is resolved from the session's explicit value (same model only), model/provider overrides, the built-in model table, or the provider's `/models` `context_length`. The `/models` probe only runs when the built-in table does not know the model; it is bounded to 2 seconds and cached in-process (positive results 1 hour, failures 5 minutes). Disable it with `auto_detect_context_window: false` (enabled by default). If it is still unknown, auto-compaction is disabled with a one-time notice.
+- Only messages before the cut point are summarized; roughly `keep_recent_tokens` of recent messages are kept verbatim.
+- Summaries use a fixed structure (Goal / Progress / Key Decisions / Next Steps), update the previous summary incrementally, and append read/modified file lists.
+- The summary request serializes the conversation as text, truncates tool results to `compact_tool_result_chars` (default 2000), and replaces images with placeholders instead of resending base64.
+- Transient summary errors are retried. Repeated failures enter a cooldown. A provider context-overflow error forces one compact-and-retry; if that also fails, a local emergency trim drops the oldest complete turns.
+- `/compact [focus]` compacts manually (optional focus); the TUI keeps the transcript and appends a divider plus the new summary.
+- `/context` shows token usage, threshold, breakdown, usage anchor, and the last compaction. The status bar also shows `ctx N%`.
+- Disable auto-compaction with `--no-auto-compact` or `defaults.chat.auto_compact: false`.
+
+```yaml
+defaults:
+  chat:
+    context_size: 0            # 0 = auto-detect the model window
+    auto_compact: true
+    auto_detect_context_window: true # unknown models: probe provider /models context_length (2s timeout, cached in-process 1h/5m)
+    reserve_tokens: 16384
+    keep_recent_tokens: 20000
+    # compact_model: "gpt-4o-mini"   # same provider only
+    # compact_max_tokens: 8192
+    # compact_tool_result_chars: 2000
+    # model_overrides:
+    #   "openrouter/anthropic/claude-sonnet-4":
+    #     context_size: 1000000
+    #     keep_recent_tokens: 30000
+providers:
+  openrouter:
+    context_window: 128000
+    models:
+      anthropic/claude-sonnet-4:
+        context_window: 200000
+```
 
 ### Session settings
 

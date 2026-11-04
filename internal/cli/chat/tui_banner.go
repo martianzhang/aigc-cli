@@ -131,7 +131,8 @@ func (m *chatModel) showHelp() {
 	help := `Available commands:
   /exit, /quit, /q  Exit the chat
   /clear, /reset, /new  Clear conversation history
-  /compact             Compact conversation (summarize to save context)
+  /context             Show context usage, threshold and last compaction
+  /compact [focus]     Compact now (optional focus for the summary)
   /copy                Copy last assistant response to clipboard
   /name [text]         Show/set the session name; no text = auto-name
   /help, /?            Show this help

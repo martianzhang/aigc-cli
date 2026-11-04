@@ -150,6 +150,10 @@ providers:
   #   api_key: "sk-or-xxx"
   #   base_url: "https://openrouter.ai/api/v1"
   #   zdr: true
+  #   context_window: 128000       # Default window for auto-compaction
+  #   models:                      # Per-model window overrides
+  #     anthropic/claude-sonnet-4:
+  #       context_window: 200000
 
   # Example: sound effects (audio sfx) — ElevenLabs / Stability AI
   # You can also skip this and just set ELEVENLABS_API_KEY / STABILITY_API_KEY with --provider elevenlabs|stability
@@ -270,7 +274,19 @@ defaults:
   chat:
     model: "deepseek-v4-flash"
     max_tokens: 4096            # Max response tokens
-    context_size: 32768         # Max input context tokens; 0=model default. Auto-compacts at 80%
+    context_size: 32768         # Input context window; 0=auto-detect. Auto-compacts near the threshold and keeps a recent tail
+    # auto_compact: true       # false=disable automatic compaction (manual /compact still works)
+    # auto_detect_context_window: true # unknown models: probe provider /models context_length (2s timeout, cached in-process 1h/5m)
+    # reserve_tokens: 16384    # Tokens reserved for output/tool schemas; threshold=window-max(reserve, max_tokens+1024)
+    # keep_recent_tokens: 20000 # Recent tokens kept verbatim after compaction
+    # compact_model: ""        # Optional separate model for summaries (same provider; default: the chat model)
+    # compact_max_tokens: 8192 # Summary output cap
+    # compact_tool_result_chars: 2000 # Tool-result truncation per message during summarization
+    # model_overrides:          # Override budgets by "provider/model" or "model"
+    #   "openrouter/anthropic/claude-sonnet-4":
+    #     context_size: 1000000
+    #     reserve_tokens: 32768
+    #     keep_recent_tokens: 30000
     # save: false              # Save every chat as a JSONL session
     # session_dir: "~/.config/aigc-cli/sessions"  # Session directory
     # session_tool_output_max_bytes: 32768  # Max bytes stored per tool result

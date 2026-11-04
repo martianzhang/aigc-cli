@@ -32,15 +32,16 @@ const (
 // Header is the first line of a session file. It identifies the session and
 // records the environment that created it.
 type Header struct {
-	Type        string    `json:"type"`
-	Schema      string    `json:"schema"`
-	ID          string    `json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	Cwd         string    `json:"cwd,omitempty"`
-	Provider    string    `json:"provider,omitempty"`
-	Model       string    `json:"model,omitempty"`
-	ContextSize int       `json:"context_size,omitempty"`
-	App         string    `json:"app,omitempty"`
+	Type              string    `json:"type"`
+	Schema            string    `json:"schema"`
+	ID                string    `json:"id"`
+	CreatedAt         time.Time `json:"created_at"`
+	Cwd               string    `json:"cwd,omitempty"`
+	Provider          string    `json:"provider,omitempty"`
+	Model             string    `json:"model,omitempty"`
+	ContextSize       int       `json:"context_size,omitempty"`
+	ContextSizeSource string    `json:"context_size_source,omitempty"` // "explicit" | "auto"
+	App               string    `json:"app,omitempty"`
 }
 
 // SystemRecord stores the system prompt used by the conversation, including
@@ -80,16 +81,23 @@ type MessageRecord struct {
 
 // CompactionRecord records a summarized history checkpoint. Messages up to and
 // including UpToSeq remain in the file but are replaced by Summary when the
-// conversation is resumed.
+// conversation is resumed. Messages after UpToSeq are kept verbatim, which lets
+// compaction retain a recent tail instead of discarding every message.
 type CompactionRecord struct {
-	Type         string    `json:"type"`
-	Seq          int64     `json:"seq"`
-	TS           time.Time `json:"ts"`
-	UpToSeq      int64     `json:"up_to_seq"`
-	Summary      string    `json:"summary"`
-	TokensBefore int       `json:"tokens_before,omitempty"`
-	TokensAfter  int       `json:"tokens_after,omitempty"`
-	Model        string    `json:"model,omitempty"`
+	Type          string           `json:"type"`
+	Seq           int64            `json:"seq"`
+	TS            time.Time        `json:"ts"`
+	UpToSeq       int64            `json:"up_to_seq"`
+	FirstKeptSeq  int64            `json:"first_kept_seq,omitempty"`
+	Summary       string           `json:"summary"`
+	TokensBefore  int              `json:"tokens_before,omitempty"`
+	TokensAfter   int              `json:"tokens_after,omitempty"`
+	Model         string           `json:"model,omitempty"`
+	SummaryModel  string           `json:"summary_model,omitempty"`
+	Reason        string           `json:"reason,omitempty"`
+	ReadFiles     []string         `json:"read_files,omitempty"`
+	ModifiedFiles []string         `json:"modified_files,omitempty"`
+	Usage         *types.ChatUsage `json:"usage,omitempty"`
 }
 
 // SessionInfoRecord stores mutable session metadata. The latest name wins.

@@ -180,10 +180,37 @@ type OpenAIModel struct {
 	Object  string `json:"object"`
 	Created int64  `json:"created"`
 	OwnedBy string `json:"owned_by"`
+	// ContextLength is returned by OpenRouter and some OpenAI-compatible
+	// relays. ContextWindow/MaxContextLength cover the common aliases.
+	ContextLength    int `json:"context_length,omitempty"`
+	ContextWindow    int `json:"context_window,omitempty"`
+	MaxContextLength int `json:"max_context_length,omitempty"`
+	// TopProvider is the OpenRouter nested form.
+	TopProvider *struct {
+		ContextLength int `json:"context_length,omitempty"`
+	} `json:"top_provider,omitempty"`
 	// SupportedEndpointTypes is a non-OpenAI extension some relays return
 	// (e.g. Agnes: ["openai"]). It is displayed when present and ignored
 	// otherwise.
 	SupportedEndpointTypes []string `json:"supported_endpoint_types,omitempty"`
+}
+
+// ContextWindowTokens returns the model's declared context window from any of
+// the common /models field names. It returns 0 when the provider does not
+// publish one.
+func (m OpenAIModel) ContextWindowTokens() int {
+	switch {
+	case m.ContextLength > 0:
+		return m.ContextLength
+	case m.ContextWindow > 0:
+		return m.ContextWindow
+	case m.MaxContextLength > 0:
+		return m.MaxContextLength
+	case m.TopProvider != nil && m.TopProvider.ContextLength > 0:
+		return m.TopProvider.ContextLength
+	default:
+		return 0
+	}
 }
 
 // GenerateResponse is the response from POST /v1/images/generations.

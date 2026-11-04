@@ -109,7 +109,7 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, newAPIStatusError(resp, body)
 	}
 
 	// Streaming (SSE)

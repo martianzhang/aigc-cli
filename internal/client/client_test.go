@@ -414,8 +414,8 @@ func TestClientListModelsOpenAI(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{
 			"data": [
-				{"id": "gpt-4o", "object": "model", "created": 1700000000, "owned_by": "openai"},
-				{"id": "gpt-4.1-nano", "object": "model", "created": 1700000001, "owned_by": "openai"}
+				{"id": "gpt-4o", "object": "model", "created": 1700000000, "owned_by": "openai", "context_length": 128000},
+				{"id": "gpt-4.1-nano", "object": "model", "created": 1700000001, "owned_by": "openai", "top_provider": {"context_length": 1047576}}
 			]
 		}`))
 	}))
@@ -431,6 +431,12 @@ func TestClientListModelsOpenAI(t *testing.T) {
 	}
 	if models[0].ID != "gpt-4o" {
 		t.Errorf("models[0].ID = %q", models[0].ID)
+	}
+	if got := models[0].ContextWindowTokens(); got != 128000 {
+		t.Errorf("models[0].ContextWindowTokens() = %d, want 128000", got)
+	}
+	if got := models[1].ContextWindowTokens(); got != 1047576 {
+		t.Errorf("models[1].ContextWindowTokens() = %d, want 1047576", got)
 	}
 }
 

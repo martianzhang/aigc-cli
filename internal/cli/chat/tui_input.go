@@ -492,7 +492,13 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 		m.input.Reset()
 		return m, nil
 
-	case input == "/compact":
+	case input == "/context":
+		m.showContext()
+		m.input.Reset()
+		return m, nil
+
+	case input == "/compact" || strings.HasPrefix(input, "/compact "):
+		instructions := strings.TrimSpace(strings.TrimPrefix(input, "/compact"))
 		m.input.Reset()
 		m.input.Blur()
 		m.state = tuiProcessing
@@ -505,7 +511,7 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 		m.mu.Lock()
 		count := len(m.history)
 		m.mu.Unlock()
-		go m.compactConversation(ctx, turn, count)
+		go m.compactConversation(ctx, turn, count, instructions)
 		return m, m.spinner.Tick
 
 	case strings.HasPrefix(input, "/preview"):

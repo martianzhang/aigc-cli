@@ -137,12 +137,17 @@ func currentSessionHeader() session.Header {
 		}
 	}
 
+	source := "auto"
+	if chatContextSize > 0 {
+		source = "explicit"
+	}
 	return session.Header{
-		Cwd:         cwd,
-		Provider:    providerName,
-		Model:       model,
-		ContextSize: chatContextSize,
-		App:         "aigc-cli",
+		Cwd:               cwd,
+		Provider:          providerName,
+		Model:             model,
+		ContextSize:       chatContextSize,
+		ContextSizeSource: source,
+		App:               "aigc-cli",
 	}
 }
 

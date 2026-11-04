@@ -580,6 +580,9 @@ func splitVisualLine(toks []wrapToken, width int) ([][]wrapToken, []string) {
 // confuse the rune-based clipper.
 func (m *chatModel) renderStatus() string {
 	info := m.providerModelDisplay()
+	if pct := m.contextPercent(); pct >= 0 {
+		info += fmt.Sprintf("  |  ctx %d%%", pct)
+	}
 	if rec := m.sessionDisplay(); rec != "" {
 		info += "  |  " + rec
 	}

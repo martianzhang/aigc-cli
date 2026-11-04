@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -28,64 +29,142 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 	m.mu.Lock()
 	localHistory := make([]types.ChatMessage, len(m.history))
 	copy(localHistory, m.history)
+	anchor := m.usageAnchor
+	lastCompaction := m.lastCompaction
+	contextTokens := m.contextTokens
 	m.mu.Unlock()
+	cooldown := m.compactCooldown
 
 	for turnCount < m.maxIters {
 		select {
 		case <-ctx.Done():
-			prog.Send(agentDone{turn: turn, err: ctx.Err(), history: localHistory})
+			prog.Send(agentDone{turn: turn, err: ctx.Err(), history: localHistory, contextTokens: contextTokens, lastCompaction: lastCompaction})
 			return
 		default:
 		}
 		turnCount++
 
+		tools := m.rt.RequestTools()
+		toolsTokens := agent.EstimateToolDefinitions(tools) + agent.EstimateRequestExtras(chatInjectRaw)
+
 		// Auto-compact before building the request. This also covers a resumed
 		// session whose stored history is already close to the context limit.
-		if m.contextSize > 0 {
-			var compaction *agent.CompactResult
-			localHistory, compaction = agent.AutoCompactIfNeededResult(
-				turnClient, m.model, m.temperature, m.maxTokens, m.contextSize,
-				localHistory, &logWriter{prog: prog, turn: turn})
-			if compaction != nil && m.sess != nil {
-				if err := m.sess.AppendCompaction(compaction.Summary, compaction.Tokens+compaction.TokenSaved, compaction.Tokens, m.model); err != nil {
-					prog.Send(agentDone{turn: turn, err: err, history: localHistory})
+		if cooldown > 0 {
+			cooldown--
+		} else if m.compactSettings.Enabled && m.compactSettings.Window > 0 {
+			lw := &logWriter{prog: prog, turn: turn}
+			opts := compactionOptions(m.compactSettings, anchor, toolsTokens, m.sess, m.model, "threshold", false, lw)
+			res, cerr := agent.AutoCompact(ctx, turnClient, localHistory, opts)
+			if cerr != nil {
+				cooldown = 3
+				fmt.Fprintf(lw, "[auto-compact] failed: %v\r\n", cerr)
+			} else if res != nil {
+				localHistory = res.History
+				anchor = nil
+				lastCompaction = res
+				contextTokens = res.Tokens
+				if err := persistCompaction(m.sess, res, m.model); err != nil {
+					prog.Send(agentDone{turn: turn, err: err, history: localHistory, contextTokens: contextTokens, lastCompaction: lastCompaction})
 					return
 				}
 			}
 		}
 
-		req := &types.ChatRequest{
-			Model:      m.model,
-			Messages:   localHistory,
-			Stream:     true,
-			InjectJSON: chatInjectRaw,
-		}
-		if tools := m.rt.RequestTools(); len(tools) > 0 {
-			req.Tools = tools
-		}
-		if m.temperature > 0 {
-			t := m.temperature
-			req.Temperature = &t
-		}
-		if m.maxTokens > 0 {
-			t := m.maxTokens
-			req.MaxTokens = &t
-		}
+		var result *types.ChatResponse
+		var err error
+		recovered := false
+		for attempt := 0; attempt < 2; attempt++ {
+			req := &types.ChatRequest{
+				Model:      m.model,
+				Messages:   localHistory,
+				Stream:     true,
+				InjectJSON: chatInjectRaw,
+			}
+			if len(tools) > 0 {
+				req.Tools = tools
+			}
+			if m.temperature > 0 {
+				t := m.temperature
+				req.Temperature = &t
+			}
+			if m.maxTokens > 0 {
+				t := m.maxTokens
+				req.MaxTokens = &t
+			}
 
-		// progWriter sends content to the assistant message area.
-		pw := &progWriter{prog: prog, turn: turn}
-		req.OutputWriter = pw
+			// progWriter sends content to the assistant message area.
+			pw := &progWriter{prog: prog, turn: turn}
+			req.OutputWriter = pw
 
-		// Redirect options.Stderr() so tool-execution config output goes to
-		// the TUI as logMsg rather than raw stderr.
-		restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
-		result, err := turnClient.ChatCompletion(req)
-		restoreStderr()
+			// Redirect options.Stderr() so tool-execution config output goes to
+			// the TUI as logMsg rather than raw stderr.
+			restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
+			result, err = turnClient.ChatCompletion(req)
+			restoreStderr()
+			if err == nil {
+				break
+			}
+			if recovered || !agent.IsContextOverflow(err) {
+				break
+			}
+			recovered = true
+			lw := &logWriter{prog: prog, turn: turn}
+			fmt.Fprintf(lw, "[auto-compact] context overflow; compacting and retrying once\r\n")
+			opts := compactionOptions(m.compactSettings, anchor, toolsTokens, m.sess, m.model, "overflow", true, lw)
+			res, cerr := agent.AutoCompact(ctx, turnClient, localHistory, opts)
+			if cerr != nil || res == nil {
+				trimmed, keepLast, dropped, ok := agent.EmergencyTrim(localHistory, m.compactSettings, toolsTokens)
+				if !ok {
+					break
+				}
+				before := agent.EstimateContext(localHistory, nil, toolsTokens)
+				summary := agent.PreviousSummary(trimmed)
+				if summary == "" {
+					summary = "Context was trimmed locally after compaction failed."
+				}
+				emergency := &agent.CompactResult{
+					Summary: summary, KeepLast: keepLast, TokensBefore: before,
+					Tokens: agent.EstimateContext(trimmed, nil, toolsTokens),
+					Reason: "emergency", SummaryModel: m.model,
+				}
+				if dropped > 0 {
+					if perr := persistCompaction(m.sess, emergency, m.model); perr != nil {
+						prog.Send(agentDone{turn: turn, err: perr, history: localHistory})
+						return
+					}
+				}
+				localHistory = trimmed
+				anchor = nil
+				lastCompaction = emergency
+				contextTokens = emergency.Tokens
+				fmt.Fprintf(lw, "[auto-compact] dropped %d oldest messages locally\r\n", dropped)
+				continue
+			}
+			localHistory = res.History
+			anchor = nil
+			lastCompaction = res
+			contextTokens = res.Tokens
+			if err := persistCompaction(m.sess, res, m.model); err != nil {
+				prog.Send(agentDone{turn: turn, err: err, history: localHistory})
+				return
+			}
+		}
 
 		if err != nil {
-			prog.Send(agentDone{turn: turn, err: err, history: localHistory})
+			prog.Send(agentDone{turn: turn, err: err, history: localHistory, contextTokens: contextTokens, lastCompaction: lastCompaction})
 			return
 		}
+		if result == nil {
+			err = fmt.Errorf("chat API returned no response")
+			prog.Send(agentDone{turn: turn, err: err, history: localHistory, contextTokens: contextTokens, lastCompaction: lastCompaction})
+			return
+		}
+
+		if result.Usage != nil && result.Usage.PromptTokens > 0 {
+			anchor = &agent.UsageAnchor{MessageIndex: len(localHistory), PromptTokens: result.Usage.PromptTokens}
+		}
+		contextTokens = agent.EstimateContext(localHistory, anchor, toolsTokens)
+
 		if len(result.Choices) == 0 {
 			break
 		}
@@ -197,13 +276,18 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 				return
 			}
 		}
+		contextTokens = agent.EstimateContext(localHistory, anchor, toolsTokens)
 		prog.Send(agentDone{
-			turn:         turn,
-			result:       result,
-			elapsed:      time.Since(agentStart),
-			err:          nil,
-			assistantMsg: &choice.Message,
-			history:      localHistory,
+			turn:            turn,
+			result:          result,
+			elapsed:         time.Since(agentStart),
+			err:             nil,
+			assistantMsg:    &choice.Message,
+			history:         localHistory,
+			contextTokens:   contextTokens,
+			lastCompaction:  lastCompaction,
+			compactCooldown: cooldown,
+			usageAnchor:     anchor,
 		})
 		return
 	}

@@ -145,6 +145,64 @@ func TestCompactionProjectsSummaryAndTail(t *testing.T) {
 	}
 }
 
+func TestCompactionKeepsRecentTail(t *testing.T) {
+	s, path := newTestSession(t, "compact-tail")
+	mustAppendSystem(t, s, "sys")
+	mustAppendMessage(t, s, "user", "one")
+	mustAppendMessage(t, s, "assistant", "two")
+	mustAppendMessage(t, s, "user", "three")
+	mustAppendMessage(t, s, "assistant", "four")
+	if err := s.AppendCompactionKeepLast("checkpoint", 2, CompactionMeta{
+		TokensBefore:  100,
+		TokensAfter:   30,
+		Model:         "m",
+		SummaryModel:  "summary-m",
+		Reason:        "threshold",
+		ReadFiles:     []string{"a.go"},
+		ModifiedFiles: []string{"b.go"},
+		Usage:         &types.ChatUsage{PromptTokens: 90, CompletionTokens: 10, TotalTokens: 100},
+	}); err != nil {
+		t.Fatalf("AppendCompactionKeepLast() error = %v", err)
+	}
+	rec := s.LastCompaction()
+	if rec == nil || rec.FirstKeptSeq == 0 || rec.UpToSeq >= rec.FirstKeptSeq {
+		t.Fatalf("LastCompaction() = %+v", rec)
+	}
+	if rec.Reason != "threshold" || len(rec.ReadFiles) != 1 || rec.Usage == nil {
+		t.Fatalf("compaction meta not persisted: %+v", rec)
+	}
+
+	if err := s.Close("exit"); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	hist := loaded.History()
+	if len(hist) != 4 { // sys + summary + two retained messages
+		t.Fatalf("History() len = %d, want 4: %+v", len(hist), hist)
+	}
+	if hist[0].Content != "sys" || !strings.Contains(hist[1].Content, "checkpoint") {
+		t.Fatalf("prefix = %+v", hist[:2])
+	}
+	if hist[2].Content != "three" || hist[3].Content != "four" {
+		t.Fatalf("retained tail = %+v", hist[2:])
+	}
+}
+
+func TestCompactionKeepLastClamps(t *testing.T) {
+	s, _ := newTestSession(t, "compact-clamp")
+	mustAppendMessage(t, s, "user", "only")
+	if err := s.AppendCompactionKeepLast("summary", 99, CompactionMeta{Model: "m"}); err != nil {
+		t.Fatalf("AppendCompactionKeepLast() error = %v", err)
+	}
+	hist := s.History()
+	if len(hist) != 1 || !strings.Contains(hist[0].Content, "summary") {
+		t.Fatalf("History() = %+v, want summary only", hist)
+	}
+}
+
 func TestLatestCompactionWins(t *testing.T) {
 	s, path := newTestSession(t, "compact2")
 	mustAppendSystem(t, s, "sys")

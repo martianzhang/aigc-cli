@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -57,9 +58,6 @@ func runChatTUI(cmd *cobra.Command) error {
 		if sess.System() != "" && chatSystem != "" {
 			return fmt.Errorf("--session cannot be combined with --system; the system prompt is stored in the session")
 		}
-		if !cmd.Flags().Changed("context-size") && chatContextSize == 0 {
-			chatContextSize = sess.Header().ContextSize
-		}
 	}
 
 	// Initialize history with the stored system prompt, or build the current
@@ -100,15 +98,23 @@ func runChatTUI(cmd *cobra.Command) error {
 		}
 	}
 
+	settings := resolveCompactionSettings(cmd, chatCfg, sess, providerName, model)
+	if settings.Window > 0 {
+		chatContextSize = settings.Window
+	}
+
 	// Build the TUI model
 	tuiModel := newChatModel(c, agentTools, maxIterations, model, sysContent, cmd, options.Shared.Verbose,
-		chatTemperature, chatMaxTokens, chatContextSize)
+		chatTemperature, chatMaxTokens, settings.Window)
 	tuiModel.history = history
 	tuiModel.rt = rt
 	tuiModel.provider = providerName
 	tuiModel.confirm = confirm
 	tuiModel.sess = sess
 	tuiModel.toolOutputMax = sessionToolOutputMax(chatCfg)
+	tuiModel.compactSettings = settings
+	tuiModel.toolsTokens = agent.EstimateToolDefinitions(agentTools) + agent.EstimateRequestExtras(chatInjectRaw)
+	tuiModel.contextTokens = agent.EstimateContext(history, nil, tuiModel.toolsTokens)
 	if resumed && sess != nil {
 		tuiModel.messages = append(tuiModel.messages, resumedNotice(sess, len(history)))
 		tuiModel.messages = append(tuiModel.messages, resumedChatMessages(history)...)

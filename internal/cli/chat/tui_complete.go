@@ -16,7 +16,7 @@ func commandCompletions(tools []types.ToolDefinition) []string {
 	completions := []string{
 		"/exit", "/quit", "/q",
 		"/clear", "/reset", "/new",
-		"/help", "/?", "/tools", "/skills", "/compact",
+		"/help", "/?", "/tools", "/skills", "/context", "/compact",
 		"/copy", "/name", "/preview",
 	}
 	for _, t := range tools {

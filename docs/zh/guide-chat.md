@@ -98,6 +98,8 @@ aigc-cli chat -v
 | `Esc` | 中断当前轮；已生成的回复会保留并标记 `[interrupted]` |
 | `F1` `/help` `/`?` | 显示帮助 |
 | `/clear` `/reset` `/new` | 清除对话历史 |
+| `/context` | 查看上下文占用、压缩阈值、分类明细和上次压缩收益 |
+| `/compact [关注点]` | 手动压缩；可选参数指定摘要重点，屏幕历史保留 |
 | `/tools` | 列出可用工具（每个工具一行摘要） |
 | `/tools <名称>` | 查看某个工具的完整说明（含用法示例；工具描述可长达 20+ 行） |
 | `/skills` | 列出当前加载的技能（名称、来源、用途） |
@@ -177,12 +179,14 @@ aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
 - 图片附件只保存元数据（文件名、MIME、字节数），不保存 base64。恢复后的历史保留 `[attached image: path]` 文本。
 - 工具输出默认单条上限 32 KiB；超出部分截断并标记 `[truncated: showing N of M bytes]`。用 `defaults.chat.session_tool_output_max_bytes` 调整。
 - bash 工具的执行输出另有 1 MiB 硬上限（stdout+stderr 合计），在命令执行阶段就以流式方式丢弃超出部分并标记 `[output truncated: ...]`；所有工具结果进入对话历史前也会走同一上限。这样超大输出不会占满内存或撑爆下一轮请求。需要完整内容时请把命令输出重定向到文件，再用 `read` / `grep` 分段查看。
-- 会话文件是完整日志：`/compact` 或自动压缩不会删除旧消息，只追加 `compaction` 记录。恢复时模型只看「最新摘要 + 压缩点之后的消息」，因此文件再大也不会把完整历史塞进上下文。
-- 未显式指定 `--context-size` 时，恢复会沿用会话创建时记录的值；如果恢复后的投影仍然超限，会在首次请求前自动压缩一次。
+- 会话文件是完整日志：`/compact` 或自动压缩不会删除旧消息，只追加 `compaction` 记录。恢复时模型看到「最新摘要 + 压缩点之后保留的近期消息」，因此文件再大也不会把完整历史塞进上下文。
+- 压缩会保留最近 `keep_recent_tokens` 的原文消息；摘要之前的消息被替换，之后的尾部逐字保留。`compaction` 记录里的 `up_to_seq` 只推进到最后一条被摘要的消息，`first_kept_seq` 标记尾部起点。
+- 未显式指定 `--context-size` 时，恢复会按以下顺序重新解析窗口：命令行/配置 > 会话创建时的显式值（仅当 provider + model 未变）> 模型/Provider 覆盖 > 内置模型表。换模型后会按新模型重算，不再盲目沿用旧窗口。
+- `compaction` 记录还会保存摘要原因（`threshold` / `manual` / `overflow` / `emergency`）、摘要模型、摘要调用 usage，以及 read/modified 文件清单。
 - `--name <text>` 设置会话名；TUI 里可以用 `/name <text>` 改名，`/name` 不带参数时若会话未命名，会从首条用户消息本地生成一个名字（不额外调 API）。名字显示在顶部栏，未命名时显示 `Session <id>`，没有 session 时仍是 `Chat with AI`。
 - TUI 状态栏显示 `rec: <文件名>`；新建会话退出时会**向 stderr** 打印文件路径和可直接执行的恢复命令（`aigc-cli chat --session <id>`，自定义目录会带上 `--session-dir`）。stdout 只保留模型回复，便于管道和脚本直接消费。
 
-JSONL 首行是 `header`（schema、id、cwd、provider、model、context_size），后续记录类型为 `system` / `message` / `compaction` / `clear` / `session_info` / `end`。`session_info` 保存会话名，最新一条生效。可以直接用 `jq`、`grep` 等工具分析，也可以复制文件作为导出。
+JSONL 首行是 `header`（schema、id、cwd、provider、model、context_size、context_size_source），后续记录类型为 `system` / `message` / `compaction` / `clear` / `session_info` / `end`。`context_size_source` 为 `explicit` 或 `auto`，用于恢复时判断是否应按当前模型重新解析窗口。`session_info` 保存会话名，最新一条生效。可以直接用 `jq`、`grep` 等工具分析，也可以复制文件作为导出。
 
 ## 文件引用（@）
 
@@ -645,7 +649,10 @@ aigc-cli chat --message "Hello"
 | `--model`, `-m` | 模型名（全局 flag，不传则由各命令使用自己的默认） |
 | `--temperature`, `-t` | 采样温度 0-2，默认 1.0 |
 | `--max-output` | 最大生成 token 数 |
-| `--context-size` | 输入上下文窗口大小（token），0=使用模型默认值。对话超过其 80% 时自动压缩（总结早期消息） |
+| `--context-size` | 输入上下文窗口大小（token）。0=自动探测（显式配置 > 会话记录 > 模型/Provider 覆盖 > 内置模型表）。接近窗口时自动压缩，并保留最近一段原文 |
+| `--reserve-tokens` | 为输出和工具 schema 预留的 token 数（0=默认 16384）；实际阈值 = 窗口 − max(预留, max-output + 1024) |
+| `--keep-recent-tokens` | 压缩后保留的近期原文 token 预算（0=默认 20000，且不超过窗口的一半） |
+| `--no-auto-compact` | 关闭自动压缩；手动 `/compact` 仍然可用 |
 | `--no-stream` | 关闭流式输出，等待完整响应 |
 | `--interactive` | 强制进入交互式多轮模式 |
 | `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
@@ -794,6 +801,42 @@ aigc-cli chat --zdr --message "你好"
 
 ### 上下文管理
 
-交互模式中，当历史对话接近 `--context-size` 限制时（超过 80%），会自动将早期消息总结为一条摘要以释放空间，无需手动干预。你也可以随时输入 `/compact` 手动触发压缩。
+自动压缩的触发条件是：
 
-> **关于模型**：代码不硬编码默认模型名，仅当用户通过 `--model` 或配置文件指定时才传入模型参数；否则由 API 服务端自行决定使用哪个模型。这样即使模型迭代频繁，也无需更新 CLI。 |
+```
+当前上下文 token > 窗口 − max(reserve_tokens, max_output + 1024)
+```
+
+- 窗口优先取 `--context-size` / `defaults.chat.context_size`；未显式设置时按「会话显式值（仅同模型）→ 模型/Provider 覆盖 → 内置模型表 → provider `/models` 的 `context_length`」解析。`/models` 探测只在内置表不认识该模型时发生，2 秒超时，进程内缓存（正结果 1 小时、失败 5 分钟）；可用 `auto_detect_context_window: false` 关闭（默认开启）。仍未知时关闭自动压缩并给出一次性提示。
+- 压缩只总结切点之前的消息，**保留最近 `keep_recent_tokens` 的原文**，不会把全部历史丢光。
+- 摘要使用固定结构（Goal / Progress / Key Decisions / Next Steps 等）；再次压缩时基于上一版摘要增量更新，并自动追加 read / modified 文件清单。
+- 摘要请求会把对话序列化成文本，工具结果截断到 `compact_tool_result_chars`（默认 2000 字符），图片只留占位，不会把 base64 再发一遍。
+- 摘要失败会重试瞬时错误；连续失败进入冷却，避免每轮重复烧钱。主请求因上下文溢出失败时，会自动强制压缩并重试一次；压缩也失败时执行本地紧急裁剪（丢弃最旧的完整 turn）。
+- `/compact [关注点]` 手动触发压缩，可选参数作为摘要重点；手动压缩会保留屏幕上的历史，只追加分隔线和摘要。
+- `/context` 查看当前 token 占用、阈值、分类明细、usage 锚点和上次压缩收益；状态栏同时显示 `ctx N%`。
+- 关闭自动压缩用 `--no-auto-compact` 或 `defaults.chat.auto_compact: false`。
+
+```yaml
+defaults:
+  chat:
+    context_size: 0            # 0=自动探测模型窗口
+    auto_compact: true
+    auto_detect_context_window: true # 未知模型用 provider /models 的 context_length（2s 超时，进程内缓存 1h/5m）
+    reserve_tokens: 16384
+    keep_recent_tokens: 20000
+    # compact_model: "gpt-4o-mini"   # 可选：独立摘要模型（同一 provider）
+    # compact_max_tokens: 8192
+    # compact_tool_result_chars: 2000
+    # model_overrides:
+    #   "openrouter/anthropic/claude-sonnet-4":
+    #     context_size: 1000000
+    #     keep_recent_tokens: 30000
+providers:
+  openrouter:
+    context_window: 128000
+    models:
+      anthropic/claude-sonnet-4:
+        context_window: 200000
+```
+
+> **关于模型**：代码不硬编码默认模型名，仅当用户通过 `--model` 或配置文件指定时才传入模型参数；否则由 API 服务端自行决定使用哪个模型。这样即使模型迭代频繁，也无需更新 CLI。内置窗口表只是兜底，可用 `defaults.chat.context_size` 或 Provider/模型配置覆盖。 |

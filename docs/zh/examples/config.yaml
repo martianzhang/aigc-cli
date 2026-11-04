@@ -144,6 +144,10 @@ providers:
 #   api_key: "sk-or-xxx"
 #   base_url: "https://openrouter.ai/api/v1"
 #   zdr: true
+#   context_window: 128000       # 自动压缩用的默认窗口（token）
+#   models:                      # 按模型覆盖窗口
+#     anthropic/claude-sonnet-4:
+#       context_window: 200000
 
 # 示例：音效生成（audio sfx）— ElevenLabs / Stability AI
 # 也可以不写这里，直接设 ELEVENLABS_API_KEY / STABILITY_API_KEY 并用 --provider elevenlabs|stability
@@ -260,7 +264,19 @@ defaults:
   chat:
     model: "deepseek-v4-flash"
     max_tokens: 4096 # 最大生成 token 数
-    context_size: 32768 # 输入上下文窗口大小（token），0=使用模型默认值。超过 80% 自动压缩
+    context_size: 32768 # 输入上下文窗口（token），0=自动探测模型窗口。接近阈值时压缩并保留近期原文
+    # auto_compact: true       # false=关闭自动压缩（手动 /compact 仍可用）
+    # auto_detect_context_window: true # 未知模型用 provider /models 的 context_length（2s 超时，进程内缓存 1h/5m）
+    # reserve_tokens: 16384    # 为输出/工具 schema 预留的 token；实际阈值=窗口-max(reserve, max_tokens+1024)
+    # keep_recent_tokens: 20000 # 压缩后保留的近期原文 token 预算
+    # compact_model: ""        # 可选：用独立模型生成摘要（同一 provider；默认沿用 chat 模型）
+    # compact_max_tokens: 8192 # 摘要输出上限
+    # compact_tool_result_chars: 2000 # 摘要时单条工具结果截断字符数
+    # model_overrides:          # 按 "provider/model" 或 "model" 覆盖压缩预算
+    #   "openrouter/anthropic/claude-sonnet-4":
+    #     context_size: 1000000
+    #     reserve_tokens: 32768
+    #     keep_recent_tokens: 30000
     # save: false              # true=每次 chat 自动保存为 JSONL 会话
     # session_dir: "~/.config/aigc-cli/sessions"  # 会话目录
     # session_tool_output_max_bytes: 32768  # 单条工具输出落盘上限（字节）

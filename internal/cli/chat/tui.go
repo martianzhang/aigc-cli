@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/session"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -72,6 +73,11 @@ type agentDone struct {
 	err          error
 	assistantMsg *types.ChatMessage
 	history      []types.ChatMessage // complete history from goroutine (replaces m.history)
+
+	contextTokens   int
+	lastCompaction  *agent.CompactResult
+	compactCooldown int
+	usageAnchor     *agent.UsageAnchor
 }
 
 // clearChat signals clearing the conversation.
@@ -101,6 +107,11 @@ type compactDone struct {
 	summary    string
 	err        error
 	newHistory []types.ChatMessage // new history built by the goroutine
+
+	count          int
+	kept           int
+	lastCompaction *agent.CompactResult
+	contextTokens  int
 }
 
 // message
@@ -214,6 +225,15 @@ type chatModel struct {
 	temperature float64
 	maxTokens   int
 	contextSize int
+
+	// Context accounting and compaction. compactSettings is resolved once at
+	// startup (window, reserve, keep-recent, summary model).
+	compactSettings agent.Settings
+	toolsTokens     int
+	usageAnchor     *agent.UsageAnchor
+	contextTokens   int
+	lastCompaction  *agent.CompactResult
+	compactCooldown int
 
 	// UI components
 	viewport viewport.Model

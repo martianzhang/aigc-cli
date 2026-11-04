@@ -12,6 +12,14 @@ func ChatDefaults() *types.ChatDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.ChatDefaults { return d.Chat })
 }
 
+// NamedProvider returns providers.<name>, or nil when it is not configured.
+func NamedProvider(name string) *types.NamedProvider {
+	if name == "" || Shared.Cfg == nil {
+		return nil
+	}
+	return Shared.Cfg.Providers[name]
+}
+
 // ImageDefaults returns defaults.image, or nil.
 func ImageDefaults() *types.ImageDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.ImageDefaults { return d.Image })

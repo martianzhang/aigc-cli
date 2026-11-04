@@ -59,6 +59,16 @@ type NamedProvider struct {
 	// ZDR opts this provider into zero-data-retention requests. Nil inherits
 	// the global zdr; only OpenRouter chat/music honor it today.
 	ZDR *bool `mapstructure:"zdr" yaml:"zdr,omitempty"`
+	// ContextWindow is the default input context window for models behind this
+	// provider, in tokens. 0 means "fall back to the built-in model table".
+	ContextWindow int `mapstructure:"context_window" yaml:"context_window,omitempty"`
+	// Models holds per-model overrides. Keys are the model ids sent on the wire.
+	Models map[string]*ProviderModelConfig `mapstructure:"models" yaml:"models,omitempty"`
+}
+
+// ProviderModelConfig holds optional per-model settings for a named provider.
+type ProviderModelConfig struct {
+	ContextWindow int `mapstructure:"context_window" yaml:"context_window,omitempty"`
 }
 
 type Config struct {
@@ -234,21 +244,37 @@ type VisionDefaults struct {
 
 // ChatDefaults holds default values for chat completion.
 type ChatDefaults struct {
-	Provider                  string   `mapstructure:"provider" yaml:"provider,omitempty"`
-	Model                     string   `mapstructure:"model" yaml:"model,omitempty"`
-	Temperature               float64  `mapstructure:"temperature" yaml:"temperature,omitempty"`
-	MaxTokens                 int      `mapstructure:"max_tokens" yaml:"max_tokens,omitempty"`
-	ContextSize               int      `mapstructure:"context_size" yaml:"context_size,omitempty"`                                   // 输入上下文窗口大小（token），0=使用模型默认值。超过时自动压缩对话
-	MaxIterations             int      `mapstructure:"max_iterations" yaml:"max_iterations,omitempty"`                               // 每次用户消息，LLM 最多连续调工具次数（默认 100）
-	Tools                     []string `mapstructure:"tools" yaml:"tools,omitempty"`                                                 // 允许的工具白名单（glob 模式），空或["*"]=全部允许
-	DisableTools              []string `mapstructure:"disable_tools" yaml:"disable_tools,omitempty"`                                 // 禁用的工具黑名单（glob 模式），覆盖 tools
-	AllowToolOverride         bool     `mapstructure:"allow_tool_override" yaml:"allow_tool_override,omitempty"`                     // true=LLM参数可覆盖配置, false=配置强制覆盖LLM（默认false,省钱）
-	ToolsOnDemand             bool     `mapstructure:"tools_on_demand" yaml:"tools_on_demand,omitempty"`                             // true=MCP 工具按需加载（search_tools/load_tools），减少上下文占用
-	ReadDeny                  []string `mapstructure:"read_deny" yaml:"read_deny,omitempty"`                                         // read 原语的拒绝正则（匹配文件路径或文件名）；空=全部放行
-	ConfirmTools              []string `mapstructure:"confirm_tools" yaml:"confirm_tools,omitempty"`                                 // 执行前需确认的工具正则（匹配 "<tool> <target>"）；nil=默认 bash/write/edit
-	Save                      bool     `mapstructure:"save" yaml:"save,omitempty"`                                                   // true=每次 chat 自动保存为 JSONL 会话（默认关闭）
-	SessionDir                string   `mapstructure:"session_dir" yaml:"session_dir,omitempty"`                                     // 会话目录；空=~/.config/aigc-cli/sessions
-	SessionToolOutputMaxBytes int      `mapstructure:"session_tool_output_max_bytes" yaml:"session_tool_output_max_bytes,omitempty"` // 单条工具输出落盘上限（字节）；0=32768
+	Provider                  string                             `mapstructure:"provider" yaml:"provider,omitempty"`
+	Model                     string                             `mapstructure:"model" yaml:"model,omitempty"`
+	Temperature               float64                            `mapstructure:"temperature" yaml:"temperature,omitempty"`
+	MaxTokens                 int                                `mapstructure:"max_tokens" yaml:"max_tokens,omitempty"`
+	ContextSize               int                                `mapstructure:"context_size" yaml:"context_size,omitempty"`                                   // 输入上下文窗口大小（token），0=自动探测模型窗口。超过阈值时自动压缩对话
+	ReserveTokens             int                                `mapstructure:"reserve_tokens" yaml:"reserve_tokens,omitempty"`                               // 压缩阈值预留 token（输出 + 工具 schema），0=默认 16384
+	KeepRecentTokens          int                                `mapstructure:"keep_recent_tokens" yaml:"keep_recent_tokens,omitempty"`                       // 压缩后保留的近期原始消息 token 预算，0=默认 20000
+	AutoCompact               *bool                              `mapstructure:"auto_compact" yaml:"auto_compact,omitempty"`                                   // 自动压缩开关；nil=开启（context_size=0 时按模型窗口自动判断）
+	AutoDetectContextWindow   *bool                              `mapstructure:"auto_detect_context_window" yaml:"auto_detect_context_window,omitempty"`       // 未知模型是否通过 provider /models 探测 context_length；nil=开启
+	CompactModel              string                             `mapstructure:"compact_model" yaml:"compact_model,omitempty"`                                 // 可选：用独立模型生成摘要（默认沿用当前 chat 模型）
+	CompactMaxTokens          int                                `mapstructure:"compact_max_tokens" yaml:"compact_max_tokens,omitempty"`                       // 摘要输出上限，0=默认 8192
+	CompactToolResultChars    int                                `mapstructure:"compact_tool_result_chars" yaml:"compact_tool_result_chars,omitempty"`         // 摘要时单条工具结果截断字符数，0=默认 2000
+	ModelOverrides            map[string]*ChatCompactionOverride `mapstructure:"model_overrides" yaml:"model_overrides,omitempty"`                             // 按 "provider/model" 或 "model" 覆盖压缩预算
+	MaxIterations             int                                `mapstructure:"max_iterations" yaml:"max_iterations,omitempty"`                               // 每次用户消息，LLM 最多连续调工具次数（默认 100）
+	Tools                     []string                           `mapstructure:"tools" yaml:"tools,omitempty"`                                                 // 允许的工具白名单（glob 模式），空或["*"]=全部允许
+	DisableTools              []string                           `mapstructure:"disable_tools" yaml:"disable_tools,omitempty"`                                 // 禁用的工具黑名单（glob 模式），覆盖 tools
+	AllowToolOverride         bool                               `mapstructure:"allow_tool_override" yaml:"allow_tool_override,omitempty"`                     // true=LLM参数可覆盖配置, false=配置强制覆盖LLM（默认false,省钱）
+	ToolsOnDemand             bool                               `mapstructure:"tools_on_demand" yaml:"tools_on_demand,omitempty"`                             // true=MCP 工具按需加载（search_tools/load_tools），减少上下文占用
+	ReadDeny                  []string                           `mapstructure:"read_deny" yaml:"read_deny,omitempty"`                                         // read 原语的拒绝正则（匹配文件路径或文件名）；空=全部放行
+	ConfirmTools              []string                           `mapstructure:"confirm_tools" yaml:"confirm_tools,omitempty"`                                 // 执行前需确认的工具正则（匹配 "<tool> <target>"）；nil=默认 bash/write/edit
+	Save                      bool                               `mapstructure:"save" yaml:"save,omitempty"`                                                   // true=每次 chat 自动保存为 JSONL 会话（默认关闭）
+	SessionDir                string                             `mapstructure:"session_dir" yaml:"session_dir,omitempty"`                                     // 会话目录；空=~/.config/aigc-cli/sessions
+	SessionToolOutputMaxBytes int                                `mapstructure:"session_tool_output_max_bytes" yaml:"session_tool_output_max_bytes,omitempty"` // 单条工具输出落盘上限（字节）；0=32768
+}
+
+// ChatCompactionOverride overrides compaction budgets for a specific model.
+// Zero fields fall back to defaults.chat and then to the built-in defaults.
+type ChatCompactionOverride struct {
+	ContextSize      int `mapstructure:"context_size" yaml:"context_size,omitempty"`
+	ReserveTokens    int `mapstructure:"reserve_tokens" yaml:"reserve_tokens,omitempty"`
+	KeepRecentTokens int `mapstructure:"keep_recent_tokens" yaml:"keep_recent_tokens,omitempty"`
 }
 
 // ImageDefaults holds default values for image generation.

@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/session"
@@ -70,6 +71,80 @@ func TestRunAgentLoop_noStreamPrintsOnce(t *testing.T) {
 	}
 	if n := strings.Count(out.String(), "hello"); n != 1 {
 		t.Errorf("answer printed %d times, want 1 (stdout=%q)", n, out.String())
+	}
+}
+
+// TestRunAgentLoopRecoversFromContextOverflow covers the compact-and-retry
+// path: the first request is rejected for context length, the summary succeeds,
+// and the retried request returns the answer.
+func TestRunAgentLoopRecoversFromContextOverflow(t *testing.T) {
+	var (
+		mu           sync.Mutex
+		chatCalls    int
+		summaryCalls int
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(b), "context summarization assistant") {
+			mu.Lock()
+			summaryCalls++
+			mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"choices":[{"index":0,"message":{"role":"assistant","content":"## Goal\nrecover"},"finish_reason":"stop"}]}`)
+			return
+		}
+		mu.Lock()
+		chatCalls++
+		call := chatCalls
+		mu.Unlock()
+		if call == 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"error":{"message":"maximum context length exceeded"}}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"choices":[{"index":0,"message":{"role":"assistant","content":"recovered"},"finish_reason":"stop"}]}`)
+	}))
+	defer srv.Close()
+
+	prevModel, prevNoStream := options.Shared.Model, chatNoStream
+	options.Shared.Model, chatNoStream = "test-model", true
+	var out bytes.Buffer
+	restoreOut := options.SetStdout(&out)
+	restoreErr := options.SetStderr(io.Discard)
+	t.Cleanup(func() {
+		options.Shared.Model, chatNoStream = prevModel, prevNoStream
+		restoreOut()
+		restoreErr()
+	})
+
+	history := []types.ChatMessage{{Role: "system", Content: "sys"}}
+	for i := 0; i < 12; i++ {
+		history = append(history,
+			types.ChatMessage{Role: "user", Content: strings.Repeat("question ", 20)},
+			types.ChatMessage{Role: "assistant", Content: strings.Repeat("answer ", 20)},
+		)
+	}
+	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
+	// Overflow recovery is a safety net, so it must work even when the user
+	// disabled automatic threshold compaction.
+	settings := agent.Settings{Enabled: false, Window: 4000, ReserveTokens: 800, KeepRecentTokens: 600}
+	if err := runAgentLoopWithSession(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd(),
+		nil, nil, 0, settings, nil); err != nil {
+		t.Fatalf("runAgentLoopWithSession() error = %v", err)
+	}
+
+	mu.Lock()
+	gotChat, gotSummary := chatCalls, summaryCalls
+	mu.Unlock()
+	if gotSummary != 1 {
+		t.Fatalf("summary calls = %d, want 1", gotSummary)
+	}
+	if gotChat != 2 {
+		t.Fatalf("chat calls = %d, want 2 (original + retry)", gotChat)
+	}
+	if !strings.Contains(out.String(), "recovered") {
+		t.Fatalf("stdout = %q, want recovered answer", out.String())
 	}
 }
 
@@ -231,7 +306,7 @@ func TestRunAgentLoopWithSessionPersistsMessages(t *testing.T) {
 	history := sess.History()
 
 	c := client.NewWithProvider("sk-test", srv.URL, "", types.ProviderOpenAI)
-	if err := runAgentLoopWithSession(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd(), nil, sess, session.DefaultToolOutputMaxBytes, nil); err != nil {
+	if err := runAgentLoopWithSession(context.Background(), c, nil, &history, 3, newAgentLoopTestCmd(), nil, sess, session.DefaultToolOutputMaxBytes, agent.Settings{}, nil); err != nil {
 		t.Fatalf("runAgentLoopWithSession() error = %v", err)
 	}
 	if err := sess.Close("exit"); err != nil {

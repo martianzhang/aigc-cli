@@ -193,7 +193,7 @@ func (c *Client) responsesChatCompletion(req *types.ChatRequest) (*types.ChatRes
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		return nil, fmt.Errorf("responses API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("responses API request failed: %w", newAPIStatusError(resp, respBody))
 	}
 
 	if req.Stream {

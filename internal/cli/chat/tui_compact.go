@@ -10,15 +10,17 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// pushHistory adds a non-empty command to history, deduplicating the last entry.
-// compactConversation sends the full history to the API for summarisation
-// and sends a compactDone message back to the TUI with the result.
-func (m *chatModel) compactConversation(ctx context.Context, turn uint64, count int) {
+// compactConversation sends the older part of the history to the API for
+// summarisation and sends a compactDone message back to the TUI with the
+// result. The recent tail is kept verbatim; the on-screen transcript is
+// preserved and a divider is appended instead of being wiped.
+func (m *chatModel) compactConversation(ctx context.Context, turn uint64, count int, instructions string) {
 	prog := getProgram()
 
 	m.mu.Lock()
 	history := make([]types.ChatMessage, len(m.history))
 	copy(history, m.history)
+	anchor := m.usageAnchor
 	m.mu.Unlock()
 
 	if len(history) == 0 {
@@ -26,22 +28,32 @@ func (m *chatModel) compactConversation(ctx context.Context, turn uint64, count 
 		return
 	}
 
-	result := agent.CompactConversation(m.client.WithContext(ctx), m.model, m.temperature, m.maxTokens, history, &logWriter{prog: prog, turn: turn})
-	if result == nil {
-		prog.Send(compactDone{turn: turn, err: fmt.Errorf("compaction failed")})
+	toolsTokens := m.toolsTokens
+	if m.rt != nil {
+		toolsTokens = agent.EstimateToolDefinitions(m.rt.RequestTools()) + agent.EstimateRequestExtras(chatInjectRaw)
+	}
+	lw := &logWriter{prog: prog, turn: turn}
+	opts := compactionOptions(m.compactSettings, anchor, toolsTokens, m.sess, m.model, "manual", true, lw)
+	opts.CustomInstructions = instructions
+
+	result, err := agent.Compact(ctx, m.client.WithContext(ctx), history, opts)
+	if err != nil {
+		prog.Send(compactDone{turn: turn, err: err})
 		return
 	}
-	if m.sess != nil {
-		if err := m.sess.AppendCompaction(result.Summary, result.Tokens+result.TokenSaved, result.Tokens, m.model); err != nil {
-			prog.Send(compactDone{turn: turn, err: err})
-			return
-		}
+	if err := persistCompaction(m.sess, result, m.model); err != nil {
+		prog.Send(compactDone{turn: turn, err: err})
+		return
 	}
 
 	prog.Send(compactDone{
-		turn:       turn,
-		summary:    fmt.Sprintf("Compacted %d messages into 1 summary:\n\n%s", count, result.Summary),
-		newHistory: result.History,
+		turn:           turn,
+		count:          count,
+		kept:           result.KeepLast,
+		summary:        result.Summary,
+		newHistory:     result.History,
+		lastCompaction: result,
+		contextTokens:  result.Tokens,
 	})
 }
 

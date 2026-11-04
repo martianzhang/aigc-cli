@@ -200,6 +200,16 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Fallback for direct calls that may not carry full history
 			m.history = append(m.history, *msg.assistantMsg)
 		}
+		if msg.contextTokens > 0 {
+			m.contextTokens = msg.contextTokens
+		}
+		if msg.lastCompaction != nil {
+			m.lastCompaction = msg.lastCompaction
+		}
+		m.mu.Lock()
+		m.usageAnchor = msg.usageAnchor
+		m.mu.Unlock()
+		m.compactCooldown = msg.compactCooldown
 		// Flush the final streamed reply. Earlier narration was already flushed at
 		// each tool boundary, so this only holds the last assistant message.
 		m.flushStream()
@@ -271,15 +281,25 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Replace TUI messages with the compacted summary
-		m.messages = []message{
-			{role: "system", content: "Compacted conversation into summary below."},
-			{role: "system", content: msg.summary},
-		}
-		// Replace history with the goroutine's compacted version
+		// Keep the transcript visible for scrollback; only add a divider and
+		// the new checkpoint. Older messages are no longer sent to the model.
+		divider := fmt.Sprintf("── Compacted %d messages; kept the last %d verbatim ──", msg.count, msg.kept)
+		m.messages = append(m.messages,
+			message{role: "system", content: divider},
+			message{role: "system", content: msg.summary},
+		)
+		// Replace history with the goroutine's compacted version.
 		if msg.newHistory != nil {
 			m.history = msg.newHistory
 		}
+		if msg.lastCompaction != nil {
+			m.lastCompaction = msg.lastCompaction
+		}
+		if msg.contextTokens > 0 {
+			m.contextTokens = msg.contextTokens
+		}
+		m.usageAnchor = nil
+		m.compactCooldown = 0
 		m.refreshViewport()
 		return m, nil
 
@@ -298,6 +318,10 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.streamBuf.Reset()
 		m.err = nil
 		m.pending = nil
+		m.usageAnchor = nil
+		m.contextTokens = 0
+		m.lastCompaction = nil
+		m.compactCooldown = 0
 		m.input.Reset()
 		m.input.Focus()
 		// Re-render so msgCache no longer holds the cleared transcript;
