@@ -176,6 +176,7 @@ aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
 - 模型 / provider 使用当前命令行或配置；可以在恢复后用 `--model` 切换模型继续同一会话。
 - 图片附件只保存元数据（文件名、MIME、字节数），不保存 base64。恢复后的历史保留 `[attached image: path]` 文本。
 - 工具输出默认单条上限 32 KiB；超出部分截断并标记 `[truncated: showing N of M bytes]`。用 `defaults.chat.session_tool_output_max_bytes` 调整。
+- bash 工具的执行输出另有 1 MiB 硬上限（stdout+stderr 合计），在命令执行阶段就以流式方式丢弃超出部分并标记 `[output truncated: ...]`；所有工具结果进入对话历史前也会走同一上限。这样超大输出不会占满内存或撑爆下一轮请求。需要完整内容时请把命令输出重定向到文件，再用 `read` / `grep` 分段查看。
 - 会话文件是完整日志：`/compact` 或自动压缩不会删除旧消息，只追加 `compaction` 记录。恢复时模型只看「最新摘要 + 压缩点之后的消息」，因此文件再大也不会把完整历史塞进上下文。
 - 未显式指定 `--context-size` 时，恢复会沿用会话创建时记录的值；如果恢复后的投影仍然超限，会在首次请求前自动压缩一次。
 - `--name <text>` 设置会话名；TUI 里可以用 `/name <text>` 改名，`/name` 不带参数时若会话未命名，会从首条用户消息本地生成一个名字（不额外调 API）。名字显示在顶部栏，未命名时显示 `Session <id>`，没有 session 时仍是 `Chat with AI`。

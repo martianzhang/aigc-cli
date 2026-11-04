@@ -64,6 +64,7 @@ make build    # 编译
 make test     # 运行测试
 make lint     # go vet 静态检查
 make cover    # 测试覆盖率
+make bench    # 运行基准测试（可用 BENCH=ClipString 过滤）
 make clean    # 清理产物
 
 # 快速运行

@@ -34,7 +34,7 @@ func (m *chatModel) toggleToolAtLine(line int) bool {
 	if msg.tool == "" {
 		return false
 	}
-	if msg.toolDetail == "" && len(splitLines(strings.TrimRight(msg.content, "\n"))) <= toolOutputPreviewLines {
+	if msg.toolDetail == "" && lineCount(strings.TrimRight(msg.content, "\n")) <= toolOutputPreviewLines {
 		return false // nothing hidden, so a toggle would have no visible effect
 	}
 	msg.expanded = !msg.expanded

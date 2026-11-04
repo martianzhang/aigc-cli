@@ -55,9 +55,16 @@ func ShellCommandContext(ctx context.Context, cmdLine string) string {
 	// Child shells only understand proxy environment variables; propagate the
 	// effective --http-proxy / config http_proxy / --no-proxy choice.
 	cmd.Env = shellCommandEnv()
-	out, err := cmd.CombinedOutput()
+	// Keep at most MaxToolOutputBytes of combined stdout/stderr. CombinedOutput
+	// would buffer the entire result, so a command that writes gigabytes before
+	// the 30s timeout could exhaust memory before any cap is applied.
+	out := newCappedOutput(MaxToolOutputBytes - shellOutputMarkerReserve)
+	cmd.Stdout = out
+	cmd.Stderr = out
+	err := cmd.Run()
+	text := out.String()
 	if err != nil {
-		return fmt.Sprintf("Error: %v\n%s%s", err, string(out), shellFailureHint(spec))
+		return fmt.Sprintf("Error: %v\n%s%s", err, text, shellFailureHint(spec))
 	}
-	return string(out)
+	return text
 }

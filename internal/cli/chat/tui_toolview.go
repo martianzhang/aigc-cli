@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 )
@@ -17,6 +17,9 @@ const (
 	// toolOutputPreviewLines is how many lines of a tool result are shown before
 	// folding. Ctrl+O or a click expands the most recent tool card.
 	toolOutputPreviewLines = 20
+	// toolOutputExpandedMaxLines caps an expanded card. Even an explicit expand
+	// must not build a viewport-sized string for an arbitrarily large result.
+	toolOutputExpandedMaxLines = 2000
 	// toolDiffMaxLines caps a rendered diff so a large write cannot flood the
 	// viewport.
 	toolDiffMaxLines = 40
@@ -209,8 +212,51 @@ func splitLines(text string) []string {
 }
 
 // lineCount returns the number of lines in a snippet, 0 for empty input.
+// It counts separators instead of allocating every line, so it stays cheap on
+// a multi-megabyte tool result.
 func lineCount(text string) int {
-	return len(splitLines(text))
+	if text == "" {
+		return 0
+	}
+	text = strings.TrimSuffix(text, "\n")
+	if text == "" {
+		return 0
+	}
+	return strings.Count(text, "\n") + 1
+}
+
+// splitLinesLimited returns at most limit leading lines plus the total line
+// count, without allocating the whole line slice. Collapsed tool cards only
+// show the first toolOutputPreviewLines lines, so splitting a 50 MB result into
+// millions of strings just to throw them away is wasted work.
+func splitLinesLimited(text string, limit int) ([]string, int) {
+	if text == "" {
+		return nil, 0
+	}
+	text = strings.TrimSuffix(text, "\n")
+	if text == "" {
+		return nil, 0
+	}
+	if limit <= 0 {
+		limit = 1
+	}
+	lines := make([]string, 0, min(limit, strings.Count(text, "\n")+1))
+	total := 1
+	start := 0
+	for i := 0; i < len(text); i++ {
+		if text[i] != '\n' {
+			continue
+		}
+		if len(lines) < limit {
+			lines = append(lines, text[start:i])
+		}
+		total++
+		start = i + 1
+	}
+	if len(lines) < limit {
+		lines = append(lines, text[start:])
+	}
+	return lines, total
 }
 
 // readTextCapped reads at most limit bytes and refuses binary or oversized
@@ -284,21 +330,16 @@ func firstLine(s string) string {
 }
 
 // clipString truncates s to maxWidth display columns, appending an ellipsis.
-// It verifies the measured width of the result, which keeps emoji and other
-// wide clusters from overshooting by one column.
+//
+// ansi.Truncate walks the string once and is ANSI/wide-character aware. The
+// previous rune-by-rune implementation rebuilt and re-measured the whole
+// remaining string on every iteration, which is O(n²): a single 100 KiB line
+// could burn >15s of CPU before the TUI drew a frame.
 func clipString(s string, maxWidth int) string {
-	if maxWidth <= 0 || lipgloss.Width(s) <= maxWidth {
+	if maxWidth <= 0 || ansi.StringWidth(s) <= maxWidth {
 		return s
 	}
-	runes := []rune(s)
-	for len(runes) > 0 {
-		candidate := string(runes) + "…"
-		if lipgloss.Width(candidate) <= maxWidth {
-			return candidate
-		}
-		runes = runes[:len(runes)-1]
-	}
-	return "…"
+	return ansi.Truncate(s, maxWidth, "…")
 }
 
 // ---------------------------------------------------------------------------
@@ -330,12 +371,12 @@ func (m *chatModel) renderToolMessage(msg message) string {
 		b.WriteString(m.renderDiff(msg.toolDiff, max(m.width-4, 20)))
 	}
 
-	lines := splitLines(strings.TrimRight(msg.content, "\n"))
-	total := len(lines)
-	folded := !msg.expanded && total > toolOutputPreviewLines
-	if folded {
-		lines = lines[:toolOutputPreviewLines]
+	limit := toolOutputPreviewLines
+	if msg.expanded {
+		limit = toolOutputExpandedMaxLines
 	}
+	lines, total := splitLinesLimited(msg.content, limit)
+	folded := !msg.expanded && total > toolOutputPreviewLines
 	for _, line := range lines {
 		b.WriteString("\n  ")
 		b.WriteString(clipString(line, max(m.width-4, 20)))
@@ -350,6 +391,9 @@ func (m *chatModel) renderToolMessage(msg message) string {
 			"… %d more lines (click or Ctrl+O to expand)", total-toolOutputPreviewLines)))
 	case commandAbbreviated(msg):
 		fmt.Fprintf(&b, "\n  %s", m.styles.sysMsg.Render("… command abbreviated (click or Ctrl+O to expand)"))
+	case msg.expanded && total > len(lines):
+		fmt.Fprintf(&b, "\n  %s", m.styles.sysMsg.Render(fmt.Sprintf(
+			"… output truncated: showing %d of %d lines (use read/grep for the rest)", len(lines), total)))
 	case msg.expanded && (showDetail || total > toolOutputPreviewLines):
 		fmt.Fprintf(&b, "\n  %s", m.styles.sysMsg.Render("(click or Ctrl+O to collapse)"))
 	}

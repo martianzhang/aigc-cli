@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
@@ -59,14 +60,21 @@ func executeToolCall(c *client.Client, tc types.ToolCall) string {
 }
 
 // executeToolCallMCP executes a tool call, preferring the built-in primitive
-// when the name is one, and otherwise a connected MCP server.
+// when the name is one, and otherwise a connected MCP server. The result is
+// capped before it reaches history or the model, so a chatty tool (or MCP
+// server) cannot blow up the next request.
+func executeToolCallMCP(ctx context.Context, c *client.Client, mcp *mcpcli.Manager, tc types.ToolCall) string {
+	return agent.CapToolOutput(executeToolCallMCPRaw(ctx, c, mcp, tc))
+}
+
+// executeToolCallMCPRaw dispatches the call without the result-size cap.
 //
 // Built-in primitives win deliberately: an MCP server must not be able to
 // silently replace `read`/`bash`/`search`/… with its own implementation. This
 // pairs with the name-dedup in toolRuntime.RequestTools, so a colliding MCP tool
 // is neither sent nor executed. mcp may be nil. ctx cancels long-running
 // primitives (bash, MCP calls) when the user interrupts a turn.
-func executeToolCallMCP(ctx context.Context, _ *client.Client, mcp *mcpcli.Manager, tc types.ToolCall) string {
+func executeToolCallMCPRaw(ctx context.Context, _ *client.Client, mcp *mcpcli.Manager, tc types.ToolCall) string {
 	if !agent.IsPrimitive(tc.Function.Name) && mcp.Has(tc.Function.Name) {
 		out, err := mcp.Call(ctx, tc.Function.Name, tc.Function.Arguments)
 		if err != nil {
@@ -125,13 +133,14 @@ func readDenyPatterns() []string {
 	return nil
 }
 
+// summarizeScanMaxBytes bounds the payload inspected for a one-line summary.
+// Tool output can be megabytes; the summary only needs its first meaningful
+// line, and scanning the whole result would make every render O(output size).
+const summarizeScanMaxBytes = 4096
+
 // summarizeToolResult returns a one-line summary of a tool's result for user display.
 func summarizeToolResult(_, result string) string {
-	// Truncate long results to first meaningful line
-	firstLine := result
-	if idx := strings.IndexAny(result, "\n\r"); idx > 0 {
-		firstLine = result[:idx]
-	}
+	firstLine := firstMeaningfulLine(result, summarizeScanMaxBytes)
 	// Strip common prefixes for cleaner display
 	firstLine = strings.TrimSpace(firstLine)
 	if strings.HasPrefix(firstLine, "Successfully generated") {
@@ -141,4 +150,24 @@ func summarizeToolResult(_, result string) string {
 		return firstLine
 	}
 	return clipString(firstLine, 80)
+}
+
+// firstMeaningfulLine returns the first non-blank line of s, looking at no more
+// than maxBytes. Skipping leading blanks matters: a result that starts with
+// "\n" used to bypass the old `idx > 0` check and hand the entire payload to
+// clipString. Bounding the input keeps even a pathological megabyte-long line
+// from being rescanned on every TUI render.
+func firstMeaningfulLine(s string, maxBytes int) string {
+	if maxBytes > 0 && len(s) > maxBytes {
+		cut := maxBytes
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
+		}
+		s = s[:cut]
+	}
+	s = strings.TrimLeft(s, " \t\r\n")
+	if idx := strings.IndexAny(s, "\n\r"); idx >= 0 {
+		s = s[:idx]
+	}
+	return s
 }

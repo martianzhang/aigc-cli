@@ -2,12 +2,14 @@ package chat
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func TestToolCallSummary(t *testing.T) {
@@ -244,6 +246,57 @@ func TestClipStringRuneSafe(t *testing.T) {
 	}
 	if got := clipString("short", 20); got != "short" {
 		t.Errorf("clipString should leave short strings alone, got %q", got)
+	}
+}
+
+func TestClipStringLongLine(t *testing.T) {
+	s := strings.Repeat("x", 1<<20)
+	got := clipString(s, 80)
+	if w := lipgloss.Width(got); w > 80 {
+		t.Errorf("clipString width = %d, want <= 80", w)
+	}
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("clipString should end with an ellipsis")
+	}
+}
+
+func TestLineCountMatchesSplitLines(t *testing.T) {
+	for _, text := range []string{"", "\n", "a", "a\n", "a\nb", "a\nb\n", "a\n\nb"} {
+		if got, want := lineCount(text), len(splitLines(text)); got != want {
+			t.Errorf("lineCount(%q) = %d, want %d", text, got, want)
+		}
+	}
+}
+
+func TestSplitLinesLimited(t *testing.T) {
+	lines, total := splitLinesLimited("a\nb\nc\nd\n", 2)
+	if total != 4 {
+		t.Errorf("total = %d, want 4", total)
+	}
+	if len(lines) != 2 || lines[0] != "a" || lines[1] != "b" {
+		t.Errorf("lines = %v, want [a b]", lines)
+	}
+	if lines, total := splitLinesLimited("", 5); lines != nil || total != 0 {
+		t.Errorf("empty input = (%v, %d), want (nil, 0)", lines, total)
+	}
+}
+
+func TestRenderToolMessageCapsExpandedOutput(t *testing.T) {
+	m := newChatModel(nil, nil, 10, "m", "", nil, false, 0, 0, 0)
+	m.width = 100
+
+	var b strings.Builder
+	for i := 1; i <= toolOutputExpandedMaxLines+50; i++ {
+		fmt.Fprintf(&b, "line %d\n", i)
+	}
+	msg := message{role: "tool", tool: "bash", content: b.String(), expanded: true}
+
+	got := stripANSI(m.renderToolMessage(msg))
+	if !strings.Contains(got, "output truncated") {
+		t.Errorf("missing truncation notice:\n%s", got)
+	}
+	if strings.Contains(got, fmt.Sprintf("line %d", toolOutputExpandedMaxLines+1)) {
+		t.Error("expanded output rendered beyond the cap")
 	}
 }
 

@@ -4,6 +4,9 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"unicode/utf8"
+
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
@@ -159,6 +162,41 @@ func TestSummarizeToolResult_justNewline(t *testing.T) {
 	got := summarizeToolResult("test", "\n")
 	if got != "" {
 		t.Errorf("summarizeToolResult() = %q, want empty", got)
+	}
+}
+
+func TestSummarizeToolResult_leadingBlankLine(t *testing.T) {
+	got := summarizeToolResult("test", "\n \r\nhello\nsecond line")
+	if got != "hello" {
+		t.Errorf("summarizeToolResult() = %q, want first meaningful line 'hello'", got)
+	}
+}
+
+func TestSummarizeToolResult_longFirstLine(t *testing.T) {
+	got := summarizeToolResult("test", strings.Repeat("x", 100<<10))
+	if w := lipgloss.Width(got); w > 80 {
+		t.Errorf("summarizeToolResult width = %d, want <= 80", w)
+	}
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("summarizeToolResult() = %q, want an ellipsis", got)
+	}
+}
+
+func TestFirstMeaningfulLineBounded(t *testing.T) {
+	long := strings.Repeat("x", 100<<10)
+	got := firstMeaningfulLine(long, summarizeScanMaxBytes)
+	if len(got) != summarizeScanMaxBytes {
+		t.Errorf("firstMeaningfulLine len = %d, want %d", len(got), summarizeScanMaxBytes)
+	}
+}
+
+func TestFirstMeaningfulLineRuneBoundary(t *testing.T) {
+	got := firstMeaningfulLine(strings.Repeat("你", 2000), summarizeScanMaxBytes)
+	if !utf8.ValidString(got) {
+		t.Error("firstMeaningfulLine split a multi-byte rune")
+	}
+	if len(got) > summarizeScanMaxBytes {
+		t.Errorf("firstMeaningfulLine len = %d, want <= %d", len(got), summarizeScanMaxBytes)
 	}
 }
 

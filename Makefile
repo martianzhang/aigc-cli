@@ -12,7 +12,7 @@ OUTPUT ?= $(BINARY)$(GOEXE)
 # Resolve golangci-lint once (empty when not installed).
 GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null)
 
-.PHONY: all build clean run install lint vet test fmt cover release help ideas
+.PHONY: all build clean run install lint vet test fmt cover bench release help ideas
 
 all: build
 
@@ -43,6 +43,9 @@ vet: lint
 
 test: fmt ## Run tests
 	$(GO) test ./... -v -count=1
+
+bench: ## Run benchmarks (optional: BENCH=ClipString)
+	$(GO) test ./... -run '^$$' -bench '$(if $(BENCH),$(BENCH),.)' -benchmem -count=1
 
 cover: fmt ## Run tests with coverage report
 	$(GO) test ./... -coverprofile=coverage.out -count=1
