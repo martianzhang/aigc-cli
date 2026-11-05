@@ -194,6 +194,72 @@ func TestValidateBackground(t *testing.T) {
 	}
 }
 
+func TestValidateAnimation(t *testing.T) {
+	intp := func(v int) *int { return &v }
+	tests := []struct {
+		name      string
+		req       GenerateRequest
+		wantErr   bool
+		errSubstr string
+	}{
+		{"gif 2.6 flare", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "gif"}, false, ""},
+		{"gif 2.6 prefixed", GenerateRequest{Model: "openai/gpt-image-2.6-sunburst", OutputFormat: "GIF"}, false, ""},
+		{"gif 3.0", GenerateRequest{Model: "gpt-image-3", OutputFormat: "gif"}, false, ""},
+		{"gif 2.5 rejected", GenerateRequest{Model: "gpt-image-2.5-sunburst", OutputFormat: "gif"}, true, "gpt-image-2.6"},
+		{"gif gpt-image-2 rejected", GenerateRequest{Model: "openai/gpt-image-2", OutputFormat: "gif"}, true, "gpt-image-2.6"},
+		{"gif unknown model passes", GenerateRequest{Model: "some-custom-gif-model", OutputFormat: "gif"}, false, ""},
+		{"gif with compression rejected", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "gif", OutputCompression: intp(50)}, true, "output_compression"},
+		{"frame count with png rejected", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "png", FrameCount: intp(4)}, true, "frame_count"},
+		{"frame duration with png rejected", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "png", FrameDurationMs: intp(100)}, true, "frame_duration_ms"},
+		{"frame count too low", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "gif", FrameCount: intp(1)}, true, "between 2 and 64"},
+		{"frame count too high", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "gif", FrameCount: intp(65)}, true, "between 2 and 64"},
+		{"frame count bounds", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "gif", FrameCount: intp(64)}, false, ""},
+		{"frame duration too low", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "gif", FrameDurationMs: intp(10)}, true, "between 20 and 2000"},
+		{"frame duration too high", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "gif", FrameDurationMs: intp(2001)}, true, "between 20 and 2000"},
+		{"frame duration bounds", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "gif", FrameDurationMs: intp(2000)}, false, ""},
+		{"gif frame params", GenerateRequest{Model: "gpt-image-2.6-flare", OutputFormat: "gif", FrameCount: intp(9), FrameDurationMs: intp(200)}, false, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.req.ValidateAnimation()
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ValidateAnimation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.errSubstr != "" && !strings.Contains(err.Error(), tt.errSubstr) {
+				t.Errorf("error = %q, want substring %q", err, tt.errSubstr)
+			}
+		})
+	}
+}
+
+func TestGenerateRequestMarshalJSONAnimationFields(t *testing.T) {
+	fc, fd := 4, 150
+	out, err := json.Marshal(GenerateRequest{
+		Model:           "gpt-image-2.6-flare",
+		Prompt:          "p",
+		OutputFormat:    "gif",
+		Complexity:      "high",
+		FrameCount:      &fc,
+		FrameDurationMs: &fd,
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	for _, want := range []string{`"output_format":"gif"`, `"complexity":"high"`, `"frame_count":4`, `"frame_duration_ms":150`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("marshal = %s, missing %s", out, want)
+		}
+	}
+
+	empty, err := json.Marshal(GenerateRequest{Model: "m", Prompt: "p"})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if strings.Contains(string(empty), "frame_") || strings.Contains(string(empty), "complexity") {
+		t.Errorf("empty animation fields leaked: %s", empty)
+	}
+}
+
 func TestGenerateRequestMarshalJSONPassthrough(t *testing.T) {
 	raw := []byte(`{"model":"m","prompt":"p","loras":{"a":0.7,"b":0.3},"seed":1}`)
 	out, err := json.Marshal(GenerateRequest{RawJSON: raw})

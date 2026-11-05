@@ -232,6 +232,9 @@ defaults:
     output_format: "png"
     # timeout: 600              # HTTP 超时 + 异步任务轮询上限（秒）；不填时轮询默认 10 分钟
     # background: "auto"   # auto | opaque | transparent（透明背景需 output_format=png/webp）
+    # complexity: "high"    # low | medium | high（GPT Image 2.6+ 规划投入）
+    # frame_count: 9        # GIF 帧数 2-64（需 output_format=gif，GPT Image 2.6+）
+    # frame_duration_ms: 200 # GIF 每帧毫秒 20-2000（需 output_format=gif）
   video:
     model: "doubao-seedance-2.0"
     # timeout: 1800             # HTTP 超时 + 异步任务轮询上限（秒）；不填时轮询默认 30 分钟

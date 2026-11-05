@@ -19,6 +19,7 @@ aigc-cli image --model "dall-e-3" --size "1024x1024" --prompt "a cat"
 | `--prompt` / `-p` | Image description prompt | required |
 | `--model` / `-m` | Model name | `gpt-image-2-official` (APIMart) |
 | `--size` | Image size: aspect ratio (`16:9`), pixels (`1024x1024`), tier (`2K`), or compound (`2K@16:9`) | varies by model |
+| `--output-format` / `-f` | Output format: `png`, `jpeg`, `webp` (plus `gif` on GPT Image 2.6+) | `png` |
 
 ### Provider-specific parameters
 
@@ -33,6 +34,7 @@ merged into the request body instead of becoming another CLI flag.
 | `--background` | OpenAI / OpenRouter / APIMart |
 | `--response-format` | OpenAI / OpenRouter / Agnes |
 | `--ratio` | Agnes 2.1+ / OpenRouter |
+| `--complexity`, `--frame-count`, `--frame-duration-ms` | OpenAI family (GPT Image 2.6+) |
 
 The `--size` flag accepts four forms: `<ratio>` (e.g. `16:9`), `<pixels>` (e.g. `1024x1024`), `<tier>` (e.g. `2K`), and the new compound `<tier>@<ratio>` (e.g. `2K@16:9`). The part before `@` is the resolution tier and the part after is the aspect ratio. The CLI splits it into `size` + `ratio`; anything without `@` is unchanged.
 
@@ -268,6 +270,41 @@ aigc-cli image --model "gpt-image-1" \
 ```
 
 Note: dall-e-2/3 do not support `--background`.
+
+## Animated GIF Output (GPT Image 2.6+)
+
+Since Images 2.6, `POST /v1/images/generations` accepts `output_format=gif`. The CLI
+supports `--output-format gif`, `--frame-count`, and `--frame-duration-ms` natively
+(plus the new `--complexity`), so `--inject-json` is no longer needed:
+
+```bash
+aigc-cli image -P ofox -m openai/gpt-image-2.6-flare \
+  -p "a tiny red ball bouncing on white, seamless loop" \
+  --output-format gif --frame-count 9 --frame-duration-ms 200 --size auto
+```
+
+- Defaults: `frame_count=9`, `frame_duration_ms=200` (1.8 s total); ranges are 2–64 and 20–2000.
+- Without `--size`, GIF output defaults to `auto` (still images default to the `1:1` aspect ratio); explicit `512x512`-style sizes must be multiples of 16.
+- GIF is generation-only. `/images/edits` does not support it, so a request that auto-routes
+  to edits (for example with `--image-url` on an OpenAI-family endpoint) fails with a clear error.
+- GIF does not support `--output-compression`, and `--background transparent` does not apply.
+- `--frame-count` / `--frame-duration-ms` require `--output-format gif`.
+- Model gate: GPT Image 2.6 and newer only. Older GPT Image models (`gpt-image-2.5`,
+  `gpt-image-2`, …) fail with an actionable error. Other model families are passed through
+  for the server to decide.
+- Saved files get a `.gif` extension from the magic bytes; no extra conversion is needed.
+
+Provider compatibility (tested 2026-11):
+
+| Provider | GIF output | Frame controls |
+|---|---|---|
+| Native OpenAI / Azure OpenAI | ✅ | ✅ |
+| OfoxAI (`ofox.ai` / `ofox.run` / `ofox.io`) | ✅ | ❌ ignored — always returns the default 9 frames × 200 ms |
+| OpenRouter | ❌ its Image API only accepts `output_format` `png`/`jpeg`/`webp`/`svg`; the CLI rejects the request before sending | ❌ `frame_count`/`frame_duration_ms` are not declared |
+| APIMart / Gemini / ModelScope / Agnes | ❌ (their protocols do not forward GIF fields) | ❌ |
+
+> A verbatim `--json` body is still forwarded as-is, so you can use it to probe OpenRouter
+> again if it adds GIF support later.
 
 ## Image-to-Image
 

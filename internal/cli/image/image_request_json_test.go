@@ -68,6 +68,9 @@ func TestBuildImageRequestJSONFlagOverlay(t *testing.T) {
 		{"background", map[string]string{"background": "transparent"}, "background", "transparent"},
 		{"moderation", map[string]string{"moderation": "low"}, "moderation", "low"},
 		{"output-format", map[string]string{"output-format": "webp"}, "output_format", "webp"},
+		{"complexity", map[string]string{"complexity": "high"}, "complexity", "high"},
+		{"frame-count", map[string]string{"frame-count": "4"}, "frame_count", json.Number("4")},
+		{"frame-duration-ms", map[string]string{"frame-duration-ms": "150"}, "frame_duration_ms", json.Number("150")},
 		{"output-compression", map[string]string{"output-compression": "80"}, "output_compression", json.Number("80")},
 		{"n", map[string]string{"n": "3"}, "n", json.Number("3")},
 		{"image-url", map[string]string{"image-url": "https://example.com/a.png"}, "image_urls", []any{"https://example.com/a.png"}},
@@ -138,6 +141,35 @@ func TestBuildImageRequestJSONFlagOverlay(t *testing.T) {
 				t.Errorf("req.Model = %q, want %q", req.Model, wantModel)
 			}
 		})
+	}
+}
+
+func TestBuildImageRequestAnimationFlags(t *testing.T) {
+	cmd := newJSONImageCmd(t)
+	for name, val := range map[string]string{
+		"prompt":            "p",
+		"output-format":     "gif",
+		"complexity":        "high",
+		"frame-count":       "6",
+		"frame-duration-ms": "150",
+	} {
+		if err := cmd.Flags().Set(name, val); err != nil {
+			t.Fatalf("set --%s: %v", name, err)
+		}
+	}
+
+	req, err := buildImageRequest(cmd)
+	if err != nil {
+		t.Fatalf("buildImageRequest() error = %v", err)
+	}
+	if req.OutputFormat != "gif" || req.Complexity != "high" {
+		t.Errorf("format/complexity = %q/%q, want gif/high", req.OutputFormat, req.Complexity)
+	}
+	if req.FrameCount == nil || *req.FrameCount != 6 {
+		t.Errorf("FrameCount = %v, want 6", req.FrameCount)
+	}
+	if req.FrameDurationMs == nil || *req.FrameDurationMs != 150 {
+		t.Errorf("FrameDurationMs = %v, want 150", req.FrameDurationMs)
 	}
 }
 

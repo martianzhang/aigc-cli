@@ -205,6 +205,34 @@ func TestOpenRouterImageBodyAspectRatio(t *testing.T) {
 	})
 }
 
+func TestOpenRouterImageBodyRejectsGIF(t *testing.T) {
+	req := &types.GenerateRequest{Model: "openai/gpt-image-2.6-flare", Prompt: "p", OutputFormat: "gif"}
+	if _, err := OpenRouterImageBody(req); err == nil || !strings.Contains(err.Error(), "does not support output_format=gif") {
+		t.Fatalf("OpenRouterImageBody() error = %v, want a gif-unsupported error", err)
+	}
+
+	// A verbatim --json body still passes through untouched.
+	raw := &types.GenerateRequest{RawJSON: []byte(`{"model":"m","prompt":"p","output_format":"gif"}`)}
+	got, err := OpenRouterImageBody(raw)
+	if err != nil {
+		t.Fatalf("raw --json body must bypass the gif check: %v", err)
+	}
+	if !strings.Contains(marshalBody(t, got), `"output_format":"gif"`) {
+		t.Errorf("raw body lost output_format: %v", got)
+	}
+}
+
+func TestOpenRouterImageBodyComplexity(t *testing.T) {
+	req := &types.GenerateRequest{Model: "openai/gpt-image-2.6-flare", Prompt: "p", Complexity: "high"}
+	if got := bodyOf(t, OpenRouterImageBody, req); !strings.Contains(got, `"complexity":"high"`) {
+		t.Errorf("openrouter body = %s, want complexity=high", got)
+	}
+	req = &types.GenerateRequest{Model: "m", Prompt: "p"}
+	if got := bodyOf(t, OpenRouterImageBody, req); strings.Contains(got, "complexity") {
+		t.Errorf("openrouter body = %s, must omit empty complexity", got)
+	}
+}
+
 func TestImagePathsSendRawJSONVerbatim(t *testing.T) {
 	editsReq := rawImageReq()
 	editsReq.ImageURLs = []string{"photo.png"}

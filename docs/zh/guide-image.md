@@ -32,7 +32,10 @@ aigc-cli image < prompt.txt
 | `--size` | `-s` | 图片尺寸：宽高比（`16:9`）、像素（`1024x1024`）、档位（`2K`）或组合形式（`2K@16:9`） | 通用 |
 | `--quality` | `-q` | 质量：`auto`、`low`、`medium`、`high` | 通用（取值因厂而异） |
 | `--ratio` | | 档位尺寸的宽高比（配合 `--size 2K` 等） | Agnes 2.1+ / OpenRouter |
-| `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp`、`avif`、`jxl` | 通用 |
+| `--output-format` | `-f` | 输出格式：`png`、`jpeg`、`webp`（`gif` 需 GPT Image 2.6+）；`--decode` 另支持 `avif`、`jxl` | 通用 |
+| `--complexity` | | 规划投入：`low`、`medium`、`high`（规划程度，与画质无关） | OpenAI 家族（GPT Image 2.6+） |
+| `--frame-count` | | GIF 帧数 2-64（需 `--output-format gif`） | OpenAI 家族（GPT Image 2.6+） |
+| `--frame-duration-ms` | | GIF 每帧时长 20-2000ms，API 按 10ms 取整（需 `--output-format gif`） | OpenAI 家族（GPT Image 2.6+） |
 | `--compress` | `-z` | 压缩目标：`800KB`/`2MB`（目标大小）或 `85%`（固定 quality） | 通用 |
 | `--n` | | 生成数量 1-4 | 通用 |
 | `--style` | | 风格：`vivid`、`natural`（OpenAI 专用） | OpenAI |
@@ -560,6 +563,39 @@ aigc-cli image --prompt "..." \
 | PNG | 需要透明背景、后续编辑、对画质要求高 |
 | JPEG | 日常使用、社交媒体分享、网页展示 |
 | WebP | 网页使用、需要小文件体积、支持透明 |
+| GIF | 需要循环动图（GPT Image 2.6+，见下节） |
+
+## GIF 动图输出（GPT Image 2.6+）
+
+Images 2.6 起，`POST /v1/images/generations` 支持 `output_format=gif`。CLI 已原生支持
+`--output-format gif`、`--frame-count`、`--frame-duration-ms`（以及新的 `--complexity`），
+不再需要用 `--inject-json` 拼参数：
+
+```bash
+aigc-cli image -P ofox -m openai/gpt-image-2.6-flare \
+  -p "a tiny red ball bouncing on white, seamless loop" \
+  --output-format gif --frame-count 9 --frame-duration-ms 200 --size auto
+```
+
+- 默认值：`frame_count=9`、`frame_duration_ms=200`（合计 1.8 秒）；范围分别为 2-64 和 20-2000。
+- 不指定 `--size` 时 GIF 自动使用 `auto`（静图默认是 `1:1` 宽高比）；也可显式传 `512x512` 等多 16 倍数尺寸。
+- GIF 只支持文生图；`/images/edits` 不支持 GIF，带 `--image-url` 自动走 edits 时会直接报错。
+- GIF 不支持 `--output-compression`；`--background transparent` 也不适用于 GIF。
+- `--frame-count` / `--frame-duration-ms` 必须与 `--output-format gif` 同时使用。
+- 模型限制：`gpt-image-2.6` 及以上才支持；`gpt-image-2.5`、`gpt-image-2` 等旧版会给出明确报错。
+  非 `gpt-image` 系列模型不做拦截，交由服务端判断。
+- 保存时会按 GIF 魔数自动写成 `.gif`（无需额外转换）。
+
+厂商兼容性（2026-11 实测）：
+
+| Provider | GIF 输出 | 帧参数 |
+|---|---|---|
+| OpenAI 原生 / Azure OpenAI | ✅ | ✅ |
+| OfoxAI（`ofox.ai` / `ofox.run` / `ofox.io`） | ✅ | ❌ 会被忽略，始终返回默认 9 帧 × 200ms |
+| OpenRouter | ❌ 其 Image API 的 `output_format` 仅接受 `png`/`jpeg`/`webp`/`svg`，CLI 在发送前即报错 | ❌ 未声明 `frame_count`/`frame_duration_ms` |
+| APIMart / Gemini / ModelScope / Agnes 等 | ❌（走各自协议，不转发 GIF 参数） | ❌ |
+
+> OpenRouter 的 `--json` 逐字透传仍会原样发送；如果 OpenRouter 后续开放 GIF，可优先用 `--json` 验证。
 
 ## 超时处理
 

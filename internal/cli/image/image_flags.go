@@ -16,6 +16,9 @@ var (
 	genModeration   string
 	genOutputFormat string
 	genCompression  int
+	genComplexity   string
+	genFrameCount   int
+	genFrameDurMs   int
 	genCompress     string // compress target: "800KB", "2MB", "85%"
 	genN            int
 	genImageURLs    []string
@@ -38,7 +41,10 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVarP(&genQuality, "quality", "q", "", "Quality: auto, low, medium, high (accepted values are provider-specific)")
 	f.StringVar(&genBackground, "background", "", "Background mode: auto, opaque, transparent (OpenAI/OpenRouter/APIMart)")
 	f.StringVar(&genModeration, "moderation", "", "Moderation strength: auto, low (APIMart only)")
-	f.StringVarP(&genOutputFormat, "output-format", "f", "", `Output format: png, jpeg, webp, avif, jxl; with --decode also: base64 (pure base64 text), datauri (data:<mime>;base64,...)`)
+	f.StringVarP(&genOutputFormat, "output-format", "f", "", `Output format: png, jpeg, webp, gif (GPT Image 2.6+); with --decode also avif, jxl, base64 (pure base64 text), datauri (data:<mime>;base64,...)`)
+	f.StringVar(&genComplexity, "complexity", "", "Planning effort for GPT Image 2.6+: low, medium, high (provider-specific)")
+	f.IntVar(&genFrameCount, "frame-count", 0, "GIF frames, 2-64 (requires --output-format gif, GPT Image 2.6+)")
+	f.IntVar(&genFrameDurMs, "frame-duration-ms", 0, "GIF frame delay in ms, 20-2000 (requires --output-format gif)")
 	f.StringVarP(&genCompress, "compress", "z", "", `Compress output: target size ("800KB", "2MB") or fixed quality ("85%")`)
 	f.IntVar(&genCompression, "output-compression", 0, "Output compression level 0-100 (jpeg/webp only) (APIMart only)")
 	f.IntVar(&genN, "n", 0, "Number of images to generate (1-4)")

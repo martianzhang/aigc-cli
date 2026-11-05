@@ -237,6 +237,9 @@ defaults:
     output_format: "png"
     # timeout: 600               # HTTP timeout + async task polling deadline (s); polling defaults to 10m
     # background: "auto"   # auto | opaque | transparent (requires output_format=png/webp)
+    # complexity: "high"    # low | medium | high (GPT Image 2.6+ planning effort)
+    # frame_count: 9        # GIF frames 2-64 (requires output_format=gif, GPT Image 2.6+)
+    # frame_duration_ms: 200 # GIF frame delay ms 20-2000 (requires output_format=gif)
 
   video:
     model: "doubao-seedance-2.0"

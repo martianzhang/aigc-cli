@@ -59,9 +59,16 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 			Resolution:   request.GetString("resolution", ""),
 			Quality:      request.GetString("quality", ""),
 			OutputFormat: request.GetString("output_format", ""),
+			Complexity:   request.GetString("complexity", ""),
 			ImageURLs:    parseImageURLs(request.GetString("image_urls", "")),
 			MaskURL:      request.GetString("mask_url", ""),
 			Background:   request.GetString("background", ""),
+		}
+		if n := request.GetInt("frame_count", 0); n > 0 {
+			req.FrameCount = &n
+		}
+		if n := request.GetInt("frame_duration_ms", 0); n > 0 {
+			req.FrameDurationMs = &n
 		}
 
 		// Merge config defaults
@@ -74,7 +81,12 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError("model is required: set model in request or defaults.image.model in config.yaml"), nil
 		}
 		if req.Size == "" {
-			req.Size = "1:1"
+			// GIF frames need auto or WxH (multiples of 16), not an aspect ratio.
+			if strings.EqualFold(req.OutputFormat, "gif") {
+				req.Size = "auto"
+			} else {
+				req.Size = "1:1"
+			}
 		}
 		if req.Quality == "" {
 			req.Quality = "auto"

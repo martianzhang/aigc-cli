@@ -49,6 +49,14 @@ func buildImagePlan(req *types.GenerateRequest, p *provider.EffectiveProvider) (
 	if err := normalizeSizeTier(req); err != nil {
 		return nil, err
 	}
+	if err := req.ValidateAnimation(); err != nil {
+		return nil, err
+	}
+	// GIF output is generation-only: the edits endpoints take reference images
+	// and cannot return an animation.
+	if strings.EqualFold(req.OutputFormat, "gif") && (usesImageEditsJSON(p, req) || useMultipartImageEdits(p, req)) {
+		return nil, fmt.Errorf("output_format=gif is only supported on image generation, not the /images/edits endpoint")
+	}
 
 	base := client.NormalizeBaseURL(p.BaseURL)
 	// APIMart precedes the local/Ollama check to mirror the strategy table,

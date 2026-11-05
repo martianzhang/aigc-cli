@@ -69,6 +69,7 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 		Background:     genBackground,
 		Moderation:     genModeration,
 		OutputFormat:   genOutputFormat,
+		Complexity:     genComplexity,
 		ImageURLs:      genImageURLs,
 		MaskURL:        genMaskURL,
 		Style:          genStyle,
@@ -78,6 +79,14 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 	if cmd.Flags().Changed("output-compression") {
 		v := genCompression
 		req.OutputCompression = &v
+	}
+	if cmd.Flags().Changed("frame-count") {
+		v := genFrameCount
+		req.FrameCount = &v
+	}
+	if cmd.Flags().Changed("frame-duration-ms") {
+		v := genFrameDurMs
+		req.FrameDurationMs = &v
 	}
 	if cmd.Flags().Changed("n") {
 		v := genN

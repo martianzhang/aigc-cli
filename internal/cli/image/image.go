@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -114,7 +115,13 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if req.Size == "" && !genEdit {
-		req.Size = "1:1"
+		// GIF frames are sized with auto or WxH (multiples of 16); the aspect
+		// ratio default used by still images is not a valid GIF size.
+		if strings.EqualFold(req.OutputFormat, "gif") {
+			req.Size = "auto"
+		} else {
+			req.Size = "1:1"
+		}
 	}
 	if req.Quality == "" && !genEdit {
 		req.Quality = "auto"

@@ -31,6 +31,12 @@ const OpenRouterVideosPath = "/videos"
 // input_references as OpenRouter requires. Shared by the real request and
 // --dry-run/--verbose so the preview cannot drift from what is sent.
 func OpenRouterImageBody(req *types.GenerateRequest) (any, error) {
+	// OpenRouter's dedicated Image API validates output_format against
+	// png|jpeg|webp|svg; animated GIF (and frame_count/frame_duration_ms) is not
+	// part of its schema yet. A verbatim --json body still passes through.
+	if len(req.RawJSON) == 0 && strings.EqualFold(req.OutputFormat, "gif") {
+		return nil, fmt.Errorf("OpenRouter's image API does not support output_format=gif yet (allowed: png, jpeg, webp); use an OpenAI-compatible provider for gpt-image-2.6 GIF output")
+	}
 	bodyMap := map[string]any{
 		"model":  req.Model,
 		"prompt": req.Prompt,
@@ -44,6 +50,9 @@ func OpenRouterImageBody(req *types.GenerateRequest) (any, error) {
 	}
 	if req.Quality != "" {
 		bodyMap["quality"] = req.Quality
+	}
+	if req.Complexity != "" {
+		bodyMap["complexity"] = req.Complexity
 	}
 	if req.OutputFormat != "" {
 		bodyMap["output_format"] = req.OutputFormat

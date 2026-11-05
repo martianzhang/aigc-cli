@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -35,18 +36,25 @@ func (c *ErrCode) UnmarshalJSON(data []byte) error {
 // GenerateRequest is the request body for POST /v1/images/generations.
 // Contains both OpenAI and APIMart fields; unused fields are omitted when marshalling.
 type GenerateRequest struct {
-	Model             string   `json:"model" yaml:"model"`
-	Prompt            string   `json:"prompt" yaml:"prompt"`
-	Size              string   `json:"size,omitempty" yaml:"size,omitempty"`
-	Resolution        string   `json:"resolution,omitempty" yaml:"resolution,omitempty"`
-	Quality           string   `json:"quality,omitempty" yaml:"quality,omitempty"`
-	Background        string   `json:"background,omitempty" yaml:"background,omitempty"`
-	Moderation        string   `json:"moderation,omitempty" yaml:"moderation,omitempty"`
-	OutputFormat      string   `json:"output_format,omitempty" yaml:"output_format,omitempty"`
-	OutputCompression *int     `json:"output_compression,omitempty" yaml:"output_compression,omitempty"`
-	N                 *int     `json:"n,omitempty" yaml:"n,omitempty"`
-	ImageURLs         []string `json:"image_urls,omitempty" yaml:"image_urls,omitempty"`
-	MaskURL           string   `json:"mask_url,omitempty" yaml:"mask_url,omitempty"`
+	Model             string `json:"model" yaml:"model"`
+	Prompt            string `json:"prompt" yaml:"prompt"`
+	Size              string `json:"size,omitempty" yaml:"size,omitempty"`
+	Resolution        string `json:"resolution,omitempty" yaml:"resolution,omitempty"`
+	Quality           string `json:"quality,omitempty" yaml:"quality,omitempty"`
+	Background        string `json:"background,omitempty" yaml:"background,omitempty"`
+	Moderation        string `json:"moderation,omitempty" yaml:"moderation,omitempty"`
+	OutputFormat      string `json:"output_format,omitempty" yaml:"output_format,omitempty"`
+	OutputCompression *int   `json:"output_compression,omitempty" yaml:"output_compression,omitempty"`
+	// Complexity controls how much planning GPT Image 2.6+ spends before
+	// rendering (low/medium/high), independently of quality.
+	Complexity string `json:"complexity,omitempty" yaml:"complexity,omitempty"`
+	// FrameCount and FrameDurationMs control animated GIF output
+	// (output_format=gif, GPT Image 2.6+).
+	FrameCount      *int     `json:"frame_count,omitempty" yaml:"frame_count,omitempty"`
+	FrameDurationMs *int     `json:"frame_duration_ms,omitempty" yaml:"frame_duration_ms,omitempty"`
+	N               *int     `json:"n,omitempty" yaml:"n,omitempty"`
+	ImageURLs       []string `json:"image_urls,omitempty" yaml:"image_urls,omitempty"`
+	MaskURL         string   `json:"mask_url,omitempty" yaml:"mask_url,omitempty"`
 	// Ratio is the aspect ratio for tiered sizing (Agnes 2.1+), e.g. "16:9", "1:1".
 	Ratio string `json:"ratio,omitempty" yaml:"ratio,omitempty"`
 	// OpenAI-specific fields
@@ -147,6 +155,63 @@ func (r *GenerateRequest) ValidateBackground() error {
 	f := strings.ToLower(r.OutputFormat)
 	if f != "" && f != "png" && f != "webp" {
 		return fmt.Errorf("background=transparent requires output_format=png or webp (got %q)", r.OutputFormat)
+	}
+	return nil
+}
+
+// gptImageModelRe matches GPT Image model IDs with an optional version, with or
+// without an aggregator prefix (e.g. "gpt-image-2.6-flare",
+// "openai/gpt-image-2.5-sunburst", "gpt-image-2").
+var gptImageModelRe = regexp.MustCompile(`(?i)gpt-image-(\d+)(?:\.(\d+))?`)
+
+// gptImageVersion extracts the GPT Image major/minor version from a model ID.
+// ok is false for names that are not GPT Image models.
+func gptImageVersion(model string) (major, minor int, ok bool) {
+	m := gptImageModelRe.FindStringSubmatch(model)
+	if m == nil {
+		return 0, 0, false
+	}
+	major, err := strconv.Atoi(m[1])
+	if err != nil {
+		return 0, 0, false
+	}
+	if m[2] != "" {
+		minor, err = strconv.Atoi(m[2])
+		if err != nil {
+			return 0, 0, false
+		}
+	}
+	return major, minor, true
+}
+
+// ValidateAnimation checks animated-GIF parameters against the documented
+// OpenAI contract: frame_count/frame_duration_ms only apply to
+// output_format=gif, GIF does not support custom output_compression, and GIF
+// output starts at GPT Image 2.6. Non-GPT-Image models are left to the API.
+func (r *GenerateRequest) ValidateAnimation() error {
+	gif := strings.EqualFold(r.OutputFormat, "gif")
+	if !gif {
+		if r.FrameCount != nil {
+			return fmt.Errorf("frame_count requires output_format=gif")
+		}
+		if r.FrameDurationMs != nil {
+			return fmt.Errorf("frame_duration_ms requires output_format=gif")
+		}
+		return nil
+	}
+	if r.OutputCompression != nil {
+		return fmt.Errorf("output_compression is not supported with output_format=gif")
+	}
+	if r.FrameCount != nil && (*r.FrameCount < 2 || *r.FrameCount > 64) {
+		return fmt.Errorf("frame_count must be between 2 and 64 (got %d)", *r.FrameCount)
+	}
+	if r.FrameDurationMs != nil && (*r.FrameDurationMs < 20 || *r.FrameDurationMs > 2000) {
+		return fmt.Errorf("frame_duration_ms must be between 20 and 2000 (got %d)", *r.FrameDurationMs)
+	}
+	if major, minor, ok := gptImageVersion(r.Model); ok {
+		if major < 2 || (major == 2 && minor < 6) {
+			return fmt.Errorf("output_format=gif requires gpt-image-2.6 or newer (model %q)", r.Model)
+		}
 	}
 	return nil
 }

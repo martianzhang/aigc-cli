@@ -38,6 +38,7 @@ func imageFlagOverlay(cmd *cobra.Command) (map[string]any, error) {
 		{"background", "background", genBackground},
 		{"moderation", "moderation", genModeration},
 		{"output-format", "output_format", genOutputFormat},
+		{"complexity", "complexity", genComplexity},
 		{"mask-url", "mask_url", genMaskURL},
 		{"style", "style", genStyle},
 		{"response-format", "response_format", genResponseFmt},
@@ -50,6 +51,12 @@ func imageFlagOverlay(cmd *cobra.Command) (map[string]any, error) {
 
 	if f.Changed("output-compression") {
 		set["output_compression"] = genCompression
+	}
+	if f.Changed("frame-count") {
+		set["frame_count"] = genFrameCount
+	}
+	if f.Changed("frame-duration-ms") {
+		set["frame_duration_ms"] = genFrameDurMs
 	}
 	if f.Changed("n") {
 		set["n"] = genN

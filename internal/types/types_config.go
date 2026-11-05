@@ -289,6 +289,9 @@ type ImageDefaults struct {
 	Moderation        string   `mapstructure:"moderation" yaml:"moderation,omitempty"`
 	OutputFormat      string   `mapstructure:"output_format" yaml:"output_format,omitempty"`
 	OutputCompression *int     `mapstructure:"output_compression" yaml:"output_compression,omitempty"`
+	Complexity        string   `mapstructure:"complexity" yaml:"complexity,omitempty"`
+	FrameCount        *int     `mapstructure:"frame_count" yaml:"frame_count,omitempty"`
+	FrameDurationMs   *int     `mapstructure:"frame_duration_ms" yaml:"frame_duration_ms,omitempty"`
 	Compress          string   `mapstructure:"compress" yaml:"compress,omitempty"`
 	N                 *int     `mapstructure:"n" yaml:"n,omitempty"`
 	ImageURLs         []string `mapstructure:"image_urls" yaml:"image_urls,omitempty"`
@@ -326,6 +329,15 @@ func (d *ImageDefaults) MergeIntoImage(req *GenerateRequest) {
 	}
 	if req.OutputCompression == nil && d.OutputCompression != nil {
 		req.OutputCompression = d.OutputCompression
+	}
+	if req.Complexity == "" && d.Complexity != "" {
+		req.Complexity = d.Complexity
+	}
+	if req.FrameCount == nil && d.FrameCount != nil {
+		req.FrameCount = d.FrameCount
+	}
+	if req.FrameDurationMs == nil && d.FrameDurationMs != nil {
+		req.FrameDurationMs = d.FrameDurationMs
 	}
 	if req.N == nil && d.N != nil {
 		req.N = d.N
