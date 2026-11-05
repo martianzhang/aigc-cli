@@ -844,7 +844,7 @@ aigc-cli chat --zdr --message "你好"
 当前上下文 token > 窗口 − max(reserve_tokens, max_output + 1024)
 ```
 
-- 窗口优先取 `--context-size` / `defaults.chat.context_size`；未显式设置时按「会话显式值（仅同模型）→ 模型/Provider 覆盖 → 内置模型表 → provider `/models` 的 `context_length`」解析。`/models` 探测只在内置表不认识该模型时发生，2 秒超时，进程内缓存（正结果 1 小时、失败 5 分钟）；可用 `auto_detect_context_window: false` 关闭（默认开启）。仍未知时使用 `fallback_context_window`（默认 128000），保持自动压缩开启；可用 `--context-size` 或 `defaults.chat.context_size` 覆盖。
+- 窗口优先取 `--context-size` / `defaults.chat.context_size`；未显式设置时按「会话显式值（仅同模型）→ 模型/Provider 覆盖 → 内置模型表 → provider `/models` 的 `context_length`」解析。内置表只覆盖 2026 主流大厂家族（窗口 ≥128K）；未命中内置表的模型会继续尝试 `/models`，仍未知时使用 `fallback_context_window`（默认 128000），保持自动压缩开启。老型号若仍命中家族前缀，会按家族默认值处理，可用 `--context-size` 或 `defaults.chat.context_size` 覆盖。`/models` 探测只在内置表不认识该模型时发生，2 秒超时，进程内缓存（正结果 1 小时、失败 5 分钟）；可用 `auto_detect_context_window: false` 关闭（默认开启）。
 - 压缩只总结切点之前的消息，**保留最近 `keep_recent_tokens` 的原文**，不会把全部历史丢光。
 - 摘要使用固定结构（Goal / Progress / Key Decisions / Next Steps 等）；再次压缩时基于上一版摘要增量更新，并自动追加 read / modified 文件清单。
 - 摘要请求会把对话序列化成文本，工具结果截断到 `compact_tool_result_chars`（默认 2000 字符），图片只留占位，不会把 base64 再发一遍。

@@ -215,3 +215,17 @@ func TestResolveCompactionSettingsCustomFallback(t *testing.T) {
 		t.Fatalf("Window = %d, want custom fallback 64000", got.Window)
 	}
 }
+
+func TestResolveCompactionSettingsRetiredModelsUseFallback(t *testing.T) {
+	withChatConfig(t, nil, 0, 0, 0)
+	old := detectModelContextWindowFn
+	detectModelContextWindowFn = func(string, string) int { return 0 }
+	t.Cleanup(func() { detectModelContextWindowFn = old })
+
+	for _, model := range []string{"gpt-4o", "gpt-5.5", "glm-5"} {
+		got := resolveCompactionSettings(testCompactionCmd(), nil, nil, "", model)
+		if got.Window != DefaultFallbackContextWindow {
+			t.Fatalf("Window for %q = %d, want fallback %d", model, got.Window, DefaultFallbackContextWindow)
+		}
+	}
+}
