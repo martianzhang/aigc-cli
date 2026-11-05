@@ -131,6 +131,8 @@ func (m *chatModel) showHelp() {
 	help := `Available commands:
   /exit, /quit, /q  Exit the chat
   /clear, /reset, /new  Clear conversation history
+  /model [name]        Show or switch the model (default = API default)
+  /provider [name]     Show or switch the provider (default = CLI/config)
   /context             Show context usage, threshold and last compaction
   /compact [focus]     Compact now (optional focus for the summary)
   /copy                Copy last assistant response to clipboard

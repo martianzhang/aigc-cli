@@ -102,6 +102,7 @@ defaults:
     context_size: 0
     auto_compact: false
     auto_detect_context_window: false
+    fallback_context_window: 64000
     reserve_tokens: 8192
     keep_recent_tokens: 12000
     compact_model: "cheap-model"
@@ -134,6 +135,9 @@ providers:
 	}
 	if chat.AutoDetectContextWindow == nil || *chat.AutoDetectContextWindow {
 		t.Fatalf("auto_detect_context_window = %+v, want false", chat)
+	}
+	if chat.FallbackContextWindow != 64000 {
+		t.Fatalf("fallback_context_window = %d, want 64000", chat.FallbackContextWindow)
 	}
 	if chat.ReserveTokens != 8192 || chat.KeepRecentTokens != 12000 ||
 		chat.CompactModel != "cheap-model" || chat.CompactMaxTokens != 4096 ||

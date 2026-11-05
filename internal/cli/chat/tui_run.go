@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -44,7 +46,6 @@ func runChatTUI(cmd *cobra.Command) error {
 
 	rt := newToolRuntime(chatCfg, mcpMgr)
 	agentTools := rt.RequestTools()
-	c := options.NewClient("chat")
 
 	sess, created, err := openChatSession(chatCfg)
 	if err != nil {
@@ -81,27 +82,17 @@ func runChatTUI(cmd *cobra.Command) error {
 		}
 	}
 
-	model := options.Shared.Model
-	if model == "" && chatCfg != nil {
-		model = chatCfg.Model
+	// A resumed session remembers the last /provider and /model selection,
+	// unless --provider / --model or defaults.chat.* already chose one.
+	chatProvider := resumeProvider(chatCfg, sess)
+	providerName := providerDisplayName(chatProvider)
+	model := resumeModel(sess, chatProvider)
+	if err := options.RequireBaseURL(options.ProviderNameChat, chatProvider); err != nil {
+		return err
 	}
-
-	// Resolve the effective chat provider for the status bar (named key, else
-	// the detected provider type).
-	providerName := ""
-	if p := options.Shared.ResolveProvider(options.ProviderNameChat); p != nil {
-		providerName = p.Name
-		if providerName == "" {
-			if s := p.ProviderType.String(); s != "" && s != "unknown" {
-				providerName = s
-			}
-		}
-	}
+	c := client.NewFromProvider(chatProvider)
 
 	settings := resolveCompactionSettings(cmd, chatCfg, sess, providerName, model)
-	if settings.Window > 0 {
-		chatContextSize = settings.Window
-	}
 
 	// Build the TUI model
 	tuiModel := newChatModel(c, agentTools, maxIterations, model, sysContent, cmd, options.Shared.Verbose,
@@ -145,6 +136,12 @@ func runChatTUI(cmd *cobra.Command) error {
 		<-sigCh
 		p.Quit()
 	}()
+
+	// A stray write to the process stderr would land in the middle of the alt
+	// screen and can leave stale rows (for example, a model-switch warning).
+	// Tool/agent logs already redirect stderr to logWriter explicitly.
+	restoreStderr := options.SetStderr(io.Discard)
+	defer restoreStderr()
 
 	// Store program reference for goroutines
 	setProgram(p)

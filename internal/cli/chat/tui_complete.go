@@ -3,10 +3,12 @@ package chat
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbletea"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -16,7 +18,7 @@ func commandCompletions(tools []types.ToolDefinition) []string {
 	completions := []string{
 		"/exit", "/quit", "/q",
 		"/clear", "/reset", "/new",
-		"/help", "/?", "/tools", "/skills", "/context", "/compact",
+		"/help", "/?", "/tools", "/skills", "/model", "/provider", "/context", "/compact",
 		"/copy", "/name", "/preview",
 	}
 	for _, t := range tools {
@@ -51,8 +53,99 @@ func (m *chatModel) handleTabCompletion() (tea.Model, tea.Cmd) {
 		return m.completeMention(input, start)
 	}
 
+	// Argument completion for the provider/model switch commands.
+	if strings.HasPrefix(input, "/provider ") {
+		return m.completeProviderArgument(input)
+	}
+	if strings.HasPrefix(input, "/model ") {
+		return m.completeModelArgument(input)
+	}
+
 	// Command completion: /<cmd>
 	return m.completeCommand(input)
+}
+
+func (m *chatModel) completeProviderArgument(input string) (tea.Model, tea.Cmd) {
+	prefix := strings.TrimSpace(strings.TrimPrefix(input, "/provider "))
+	candidates := make([]string, 0, len(options.ProviderNames())+1)
+	for _, name := range options.ProviderNames() {
+		if hasFoldPrefix(name, prefix) {
+			candidates = append(candidates, "/provider "+name)
+		}
+	}
+	if hasFoldPrefix("default", prefix) {
+		candidates = append(candidates, "/provider default")
+	}
+	return m.cycleCandidates(input, candidates)
+}
+
+func (m *chatModel) completeModelArgument(input string) (tea.Model, tea.Cmd) {
+	rest := strings.TrimSpace(strings.TrimPrefix(input, "/model "))
+	fields := strings.Fields(rest)
+	providerName := m.provider
+	modelPrefix := ""
+	fullPrefix := "/model "
+	switch {
+	case len(fields) >= 2:
+		providerName = fields[0]
+		modelPrefix = fields[1]
+		fullPrefix = "/model " + providerName + " "
+	case len(fields) == 1:
+		if isConfiguredProvider(fields[0]) {
+			providerName = fields[0]
+			fullPrefix = "/model " + providerName + " "
+		} else {
+			modelPrefix = fields[0]
+		}
+	}
+
+	models, err := modelListForProvider(providerName, modelContextWindowProbeTimeout)
+	values := make([]string, 0, 1)
+	if err == nil {
+		models = append([]types.OpenAIModel(nil), models...)
+		sort.Slice(models, func(i, j int) bool { return models[i].ID < models[j].ID })
+		for _, model := range models {
+			if len(values) >= 200 {
+				break
+			}
+			if hasFoldPrefix(model.ID, modelPrefix) {
+				values = append(values, fullPrefix+model.ID)
+			}
+		}
+	}
+	if hasFoldPrefix("default", modelPrefix) {
+		values = append(values, fullPrefix+"default")
+	}
+	return m.cycleCandidates(input, values)
+}
+
+func (m *chatModel) cycleCandidates(input string, candidates []string) (tea.Model, tea.Cmd) {
+	if len(candidates) == 0 {
+		return m, nil
+	}
+	if m.cycleIdx < 0 || len(m.cycleMatches) == 0 ||
+		m.cycleIdx >= len(m.cycleMatches) ||
+		!strings.HasPrefix(strings.ToLower(m.cycleMatches[m.cycleIdx]), strings.ToLower(input)) {
+		m.cycleMatches = candidates
+		m.cycleIdx = -1
+	}
+	m.cycleIdx = (m.cycleIdx + 1) % len(m.cycleMatches)
+	m.input.SetValue(m.cycleMatches[m.cycleIdx])
+	m.input.CursorEnd()
+	return m, nil
+}
+
+func hasFoldPrefix(value, prefix string) bool {
+	return strings.HasPrefix(strings.ToLower(value), strings.ToLower(prefix))
+}
+
+func isConfiguredProvider(name string) bool {
+	for _, configured := range options.ProviderNames() {
+		if configured == name {
+			return true
+		}
+	}
+	return false
 }
 
 // trailingMentionStart returns the index of the '@' that begins the trailing

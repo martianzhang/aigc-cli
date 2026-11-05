@@ -93,7 +93,7 @@ func newChatModel(c *client.Client, tools []types.ToolDefinition, maxIt int, mdl
 
 	ti := textarea.New()
 	ti.Focus()
-	ti.Placeholder = "Enter: send · Alt/Shift+Enter: newline"
+	ti.Placeholder = "Enter: send · Shift+Enter: newline"
 	ti.Prompt = ""
 	ti.ShowLineNumbers = false
 	ti.CharLimit = 0

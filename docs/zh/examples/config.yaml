@@ -267,6 +267,7 @@ defaults:
     context_size: 32768 # 输入上下文窗口（token），0=自动探测模型窗口。接近阈值时压缩并保留近期原文
     # auto_compact: true       # false=关闭自动压缩（手动 /compact 仍可用）
     # auto_detect_context_window: true # 未知模型用 provider /models 的 context_length（2s 超时，进程内缓存 1h/5m）
+    # fallback_context_window: 128000 # 窗口仍未知时的兜底值，保持自动压缩开启
     # reserve_tokens: 16384    # 为输出/工具 schema 预留的 token；实际阈值=窗口-max(reserve, max_tokens+1024)
     # keep_recent_tokens: 20000 # 压缩后保留的近期原文 token 预算
     # compact_model: ""        # 可选：用独立模型生成摘要（同一 provider；默认沿用 chat 模型）

@@ -253,6 +253,7 @@ type ChatDefaults struct {
 	KeepRecentTokens          int                                `mapstructure:"keep_recent_tokens" yaml:"keep_recent_tokens,omitempty"`                       // 压缩后保留的近期原始消息 token 预算，0=默认 20000
 	AutoCompact               *bool                              `mapstructure:"auto_compact" yaml:"auto_compact,omitempty"`                                   // 自动压缩开关；nil=开启（context_size=0 时按模型窗口自动判断）
 	AutoDetectContextWindow   *bool                              `mapstructure:"auto_detect_context_window" yaml:"auto_detect_context_window,omitempty"`       // 未知模型是否通过 provider /models 探测 context_length；nil=开启
+	FallbackContextWindow     int                                `mapstructure:"fallback_context_window" yaml:"fallback_context_window,omitempty"`             // 窗口完全未知时的兜底值；0=默认 128000
 	CompactModel              string                             `mapstructure:"compact_model" yaml:"compact_model,omitempty"`                                 // 可选：用独立模型生成摘要（默认沿用当前 chat 模型）
 	CompactMaxTokens          int                                `mapstructure:"compact_max_tokens" yaml:"compact_max_tokens,omitempty"`                       // 摘要输出上限，0=默认 8192
 	CompactToolResultChars    int                                `mapstructure:"compact_tool_result_chars" yaml:"compact_tool_result_chars,omitempty"`         // 摘要时单条工具结果截断字符数，0=默认 2000

@@ -41,6 +41,7 @@ type Session struct {
 	messages       []seqMessage
 	lastCompaction *CompactionRecord
 	lastClear      *ClearRecord
+	modelSet       bool // a model record exists (even when it clears the model)
 }
 
 type seqMessage struct {
@@ -117,7 +118,11 @@ func (s *Session) Path() string { return s.path }
 func (s *Session) ID() string { return s.header.ID }
 
 // Header returns a copy of the session header.
-func (s *Session) Header() Header { return s.header }
+func (s *Session) Header() Header {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.header
+}
 
 // LastSeq returns the highest record sequence number written so far. It is used
 // as the compaction/clear barrier.
@@ -153,6 +158,51 @@ func (s *Session) AppendName(name string) error {
 	}
 	s.name = name
 	return nil
+}
+
+// AppendModel records the active provider/model and its context-window source
+// after an interactive switch. The latest record wins on resume.
+func (s *Session) AppendModel(provider, model string, contextSize int, contextSizeSource string) error {
+	if contextSizeSource == "" {
+		contextSizeSource = "auto"
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.f == nil {
+		return errReadOnly
+	}
+	if s.modelSet && s.header.Provider == provider && s.header.Model == model &&
+		s.header.ContextSize == contextSize && s.header.ContextSizeSource == contextSizeSource {
+		return nil
+	}
+	s.seq++
+	rec := &ModelRecord{
+		Type:              typeModel,
+		Seq:               s.seq,
+		TS:                time.Now().UTC(),
+		Provider:          provider,
+		Model:             model,
+		ContextSize:       contextSize,
+		ContextSizeSource: contextSizeSource,
+	}
+	if err := writeJSONLine(s.f, rec); err != nil {
+		return err
+	}
+	s.header.Provider = provider
+	s.header.Model = model
+	s.header.ContextSize = contextSize
+	s.header.ContextSizeSource = contextSizeSource
+	s.modelSet = true
+	return nil
+}
+
+// HasModelSelection reports whether the session contains an explicit model
+// record. A record may set the model to "" (API default), which is different
+// from a session that never selected a model.
+func (s *Session) HasModelSelection() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.modelSet
 }
 
 // System returns the latest stored system prompt.

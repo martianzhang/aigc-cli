@@ -450,6 +450,11 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 
 	// Save to history (non-empty, dedup last)
 	m.pushHistory(input)
+	// Commands and messages always consume the draft. Clear it before dispatch
+	// so a slow model/provider switch cannot leave the command visible, and
+	// keep the deferred reset as a guard for every return path.
+	m.input.Reset()
+	defer m.input.Reset()
 
 	switch {
 	case input == "/exit" || input == "/quit" || input == "/q":
@@ -489,6 +494,26 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 
 	case strings.HasPrefix(input, "/name "):
 		m.setSessionName(strings.TrimSpace(strings.TrimPrefix(input, "/name")))
+		m.input.Reset()
+		return m, nil
+
+	case input == "/model":
+		m.showModelSelection()
+		m.input.Reset()
+		return m, nil
+
+	case strings.HasPrefix(input, "/model "):
+		m.switchModel(strings.TrimSpace(strings.TrimPrefix(input, "/model")))
+		m.input.Reset()
+		return m, nil
+
+	case input == "/provider":
+		m.showProviderSelection()
+		m.input.Reset()
+		return m, nil
+
+	case strings.HasPrefix(input, "/provider "):
+		m.switchProvider(strings.TrimSpace(strings.TrimPrefix(input, "/provider")))
 		m.input.Reset()
 		return m, nil
 

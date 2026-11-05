@@ -277,6 +277,7 @@ defaults:
     context_size: 32768         # Input context window; 0=auto-detect. Auto-compacts near the threshold and keeps a recent tail
     # auto_compact: true       # false=disable automatic compaction (manual /compact still works)
     # auto_detect_context_window: true # unknown models: probe provider /models context_length (2s timeout, cached in-process 1h/5m)
+    # fallback_context_window: 128000 # last-resort window; keeps auto-compaction enabled
     # reserve_tokens: 16384    # Tokens reserved for output/tool schemas; threshold=window-max(reserve, max_tokens+1024)
     # keep_recent_tokens: 20000 # Recent tokens kept verbatim after compaction
     # compact_model: ""        # Optional separate model for summaries (same provider; default: the chat model)

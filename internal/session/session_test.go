@@ -145,6 +145,49 @@ func TestCompactionProjectsSummaryAndTail(t *testing.T) {
 	}
 }
 
+func TestAppendModelUpdatesHeaderAndPersists(t *testing.T) {
+	s, path := newTestSession(t, "model-switch")
+	if err := s.AppendModel("alt-provider", "gpt-4o", 128000, "auto"); err != nil {
+		t.Fatalf("AppendModel() error = %v", err)
+	}
+	h := s.Header()
+	if h.Provider != "alt-provider" || h.Model != "gpt-4o" || h.ContextSize != 128000 || h.ContextSizeSource != "auto" {
+		t.Fatalf("Header() = %+v", h)
+	}
+	if err := s.AppendModel("alt-provider", "claude-sonnet-4", 0, "auto"); err != nil {
+		t.Fatal(err)
+	}
+	if h := s.Header(); h.Model != "claude-sonnet-4" || h.ContextSize != 0 {
+		t.Fatalf("latest model header = %+v", h)
+	}
+	if err := s.Close("exit"); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	h = loaded.Header()
+	if h.Provider != "alt-provider" || h.Model != "claude-sonnet-4" || h.ContextSizeSource != "auto" {
+		t.Fatalf("loaded header = %+v", h)
+	}
+}
+
+func TestAppendModelSkipsUnchangedSelection(t *testing.T) {
+	s, _ := newTestSession(t, "model-noop")
+	if err := s.AppendModel("", "test-model", 0, "auto"); err != nil {
+		t.Fatal(err)
+	}
+	before := s.LastSeq()
+	if err := s.AppendModel("", "test-model", 0, "auto"); err != nil {
+		t.Fatal(err)
+	}
+	if after := s.LastSeq(); after != before {
+		t.Fatalf("unchanged selection appended a record: %d -> %d", before, after)
+	}
+}
+
 func TestCompactionKeepsRecentTail(t *testing.T) {
 	s, path := newTestSession(t, "compact-tail")
 	mustAppendSystem(t, s, "sys")

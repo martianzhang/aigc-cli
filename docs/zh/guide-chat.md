@@ -98,6 +98,8 @@ aigc-cli chat -v
 | `Esc` | 中断当前轮；已生成的回复会保留并标记 `[interrupted]` |
 | `F1` `/help` `/`?` | 显示帮助 |
 | `/clear` `/reset` `/new` | 清除对话历史 |
+| `/model [provider] [名称]` | 查看当前 provider 的可用模型；`/model <名称>` 切换模型；`/model <provider> <名称>` 同时切换 provider 和模型；`/model default` 交给 API/provider 选择。输入后按 Tab 可补全 provider/模型 |
+| `/provider [名称]` | 查看或切换 provider（来自 `providers.<name>`）；新 provider 配了 `model` 就用它，否则保留当前模型；`/provider default` 恢复 CLI/配置默认 provider；输入后按 Tab 可补全 provider 名 |
 | `/context` | 查看上下文占用、压缩阈值、分类明细和上次压缩收益 |
 | `/compact [关注点]` | 手动压缩；可选参数指定摘要重点，屏幕历史保留 |
 | `/tools` | 列出可用工具（每个工具一行摘要） |
@@ -175,18 +177,20 @@ aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
 - `--session` 传 id 时只在会话目录查找；id 不存在直接报错，避免打错字静默新建。传路径时文件不存在会在该路径新建（含父目录）。
 - `--save` 与 `--session` 互斥；`--json` 不能与它们组合；`--dry-run` 可以配合 `--session` 做只读预览，不会写文件。
 - 恢复的是**对话历史**。system prompt（含 AGENTS.md）随会话保存，恢复时使用当时保存的版本；新建会话可以用 `--system`，已有 system 的会话不能再传 `--system`。
-- 模型 / provider 使用当前命令行或配置；可以在恢复后用 `--model` 切换模型继续同一会话。
+- 模型 / provider 使用当前命令行或配置；恢复后也可以用 `--model` 切换模型继续同一会话。
+- TUI 内可用 `/model <名称>` 切换当前 provider 下的模型，用 `/model <provider> <名称>` 一步切换 provider 和模型，用 `/provider <名称>` 只切换 `providers.<name>` 中配置的 provider。切换 provider 会立即重建客户端；两者都会重新解析上下文窗口并保留历史对话。
+- 切换会向会话追加一条 `model` 记录。TUI 恢复时若没有 `--provider` / `--model`，且 `defaults.chat.provider` / `defaults.chat.model` 也未指定，会沿用会话最后一次切换的 provider/model；显式 CLI 或配置优先。
 - 图片附件只保存元数据（文件名、MIME、字节数），不保存 base64。恢复后的历史保留 `[attached image: path]` 文本。
 - 工具输出默认单条上限 32 KiB；超出部分截断并标记 `[truncated: showing N of M bytes]`。用 `defaults.chat.session_tool_output_max_bytes` 调整。
 - bash 工具的执行输出另有 1 MiB 硬上限（stdout+stderr 合计），在命令执行阶段就以流式方式丢弃超出部分并标记 `[output truncated: ...]`；所有工具结果进入对话历史前也会走同一上限。这样超大输出不会占满内存或撑爆下一轮请求。需要完整内容时请把命令输出重定向到文件，再用 `read` / `grep` 分段查看。
 - 会话文件是完整日志：`/compact` 或自动压缩不会删除旧消息，只追加 `compaction` 记录。恢复时模型看到「最新摘要 + 压缩点之后保留的近期消息」，因此文件再大也不会把完整历史塞进上下文。
 - 压缩会保留最近 `keep_recent_tokens` 的原文消息；摘要之前的消息被替换，之后的尾部逐字保留。`compaction` 记录里的 `up_to_seq` 只推进到最后一条被摘要的消息，`first_kept_seq` 标记尾部起点。
-- 未显式指定 `--context-size` 时，恢复会按以下顺序重新解析窗口：命令行/配置 > 会话创建时的显式值（仅当 provider + model 未变）> 模型/Provider 覆盖 > 内置模型表。换模型后会按新模型重算，不再盲目沿用旧窗口。
+- 未显式指定 `--context-size` 时，恢复会按以下顺序重新解析窗口：命令行/配置 > 会话创建时的显式值（仅当 provider + model 未变）> 模型/Provider 覆盖 > 内置模型表 > provider `/models`（未知模型）> `fallback_context_window`（默认 128000）。换模型后会按新模型重算，不再盲目沿用旧窗口。
 - `compaction` 记录还会保存摘要原因（`threshold` / `manual` / `overflow` / `emergency`）、摘要模型、摘要调用 usage，以及 read/modified 文件清单。
 - `--name <text>` 设置会话名；TUI 里可以用 `/name <text>` 改名，`/name` 不带参数时若会话未命名，会从首条用户消息本地生成一个名字（不额外调 API）。名字显示在顶部栏，未命名时显示 `Session <id>`，没有 session 时仍是 `Chat with AI`。
 - TUI 状态栏显示 `rec: <文件名>`；新建会话退出时会**向 stderr** 打印文件路径和可直接执行的恢复命令（`aigc-cli chat --session <id>`，自定义目录会带上 `--session-dir`）。stdout 只保留模型回复，便于管道和脚本直接消费。
 
-JSONL 首行是 `header`（schema、id、cwd、provider、model、context_size、context_size_source），后续记录类型为 `system` / `message` / `compaction` / `clear` / `session_info` / `end`。`context_size_source` 为 `explicit` 或 `auto`，用于恢复时判断是否应按当前模型重新解析窗口。`session_info` 保存会话名，最新一条生效。可以直接用 `jq`、`grep` 等工具分析，也可以复制文件作为导出。
+JSONL 首行是 `header`（schema、id、cwd、provider、model、context_size、context_size_source），后续记录类型为 `system` / `message` / `compaction` / `clear` / `session_info` / `model` / `end`。`context_size_source` 为 `explicit` 或 `auto`，用于恢复时判断是否应按当前模型重新解析窗口。`session_info` 保存会话名，`model` 保存交互式切换后的 provider/model 和窗口来源，最新一条生效。可以直接用 `jq`、`grep` 等工具分析，也可以复制文件作为导出。
 
 ## 文件引用（@）
 
@@ -807,12 +811,13 @@ aigc-cli chat --zdr --message "你好"
 当前上下文 token > 窗口 − max(reserve_tokens, max_output + 1024)
 ```
 
-- 窗口优先取 `--context-size` / `defaults.chat.context_size`；未显式设置时按「会话显式值（仅同模型）→ 模型/Provider 覆盖 → 内置模型表 → provider `/models` 的 `context_length`」解析。`/models` 探测只在内置表不认识该模型时发生，2 秒超时，进程内缓存（正结果 1 小时、失败 5 分钟）；可用 `auto_detect_context_window: false` 关闭（默认开启）。仍未知时关闭自动压缩并给出一次性提示。
+- 窗口优先取 `--context-size` / `defaults.chat.context_size`；未显式设置时按「会话显式值（仅同模型）→ 模型/Provider 覆盖 → 内置模型表 → provider `/models` 的 `context_length`」解析。`/models` 探测只在内置表不认识该模型时发生，2 秒超时，进程内缓存（正结果 1 小时、失败 5 分钟）；可用 `auto_detect_context_window: false` 关闭（默认开启）。仍未知时使用 `fallback_context_window`（默认 128000），保持自动压缩开启；可用 `--context-size` 或 `defaults.chat.context_size` 覆盖。
 - 压缩只总结切点之前的消息，**保留最近 `keep_recent_tokens` 的原文**，不会把全部历史丢光。
 - 摘要使用固定结构（Goal / Progress / Key Decisions / Next Steps 等）；再次压缩时基于上一版摘要增量更新，并自动追加 read / modified 文件清单。
 - 摘要请求会把对话序列化成文本，工具结果截断到 `compact_tool_result_chars`（默认 2000 字符），图片只留占位，不会把 base64 再发一遍。
 - 摘要失败会重试瞬时错误；连续失败进入冷却，避免每轮重复烧钱。主请求因上下文溢出失败时，会自动强制压缩并重试一次；压缩也失败时执行本地紧急裁剪（丢弃最旧的完整 turn）。
 - `/compact [关注点]` 手动触发压缩，可选参数作为摘要重点；手动压缩会保留屏幕上的历史，只追加分隔线和摘要。
+- `/model` 无参数时会列出当前 provider 的 `/models` 目录（带 context window），`/model <provider> <model>` 可以一步切换 provider 和模型；`/provider` 无参数时列出 `providers.<name>` 配置。切换后会按新模型重新解析窗口并重置 usage 锚点；上一个模型的显式窗口不会盲目沿用。`/context` 可随时确认当前 provider、model 和阈值。
 - `/context` 查看当前 token 占用、阈值、分类明细、usage 锚点和上次压缩收益；状态栏同时显示 `ctx N%`。
 - 关闭自动压缩用 `--no-auto-compact` 或 `defaults.chat.auto_compact: false`。
 
@@ -822,6 +827,7 @@ defaults:
     context_size: 0            # 0=自动探测模型窗口
     auto_compact: true
     auto_detect_context_window: true # 未知模型用 provider /models 的 context_length（2s 超时，进程内缓存 1h/5m）
+    fallback_context_window: 128000   # 窗口仍未知时的兜底值，保持自动压缩开启
     reserve_tokens: 16384
     keep_recent_tokens: 20000
     # compact_model: "gpt-4o-mini"   # 可选：独立摘要模型（同一 provider）

@@ -327,6 +327,7 @@ func TestViewFillsNarrowTerminal(t *testing.T) {
 	m.model = "a-very-long-model-name-that-does-not-fit"
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: 16})
 	m.input.SetValue("第一行\n第二行")
+	m.syncLayout()
 
 	if got := strings.Count(m.View(), "\n") + 1; got != 16 {
 		t.Errorf("view has %d lines, want 16:\n%s", got, stripANSI(m.View()))

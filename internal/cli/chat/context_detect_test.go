@@ -26,6 +26,40 @@ func modelListServer(t *testing.T, data string, status int) (*httptest.Server, *
 	return srv, &calls
 }
 
+func TestFetchModelListCaches(t *testing.T) {
+	resetModelContextCache()
+	t.Cleanup(resetModelContextCache)
+	srv, calls := modelListServer(t, `[{"id":"m","context_length":32000}]`, http.StatusOK)
+	defer srv.Close()
+	c := client.New("sk-test", srv.URL, "")
+	if _, err := fetchModelList(c, time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fetchModelList(c, time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if got := atomic.LoadInt32(calls); got != 1 {
+		t.Fatalf("GET /models calls = %d, want 1", got)
+	}
+}
+
+func TestFetchModelListNegativeCache(t *testing.T) {
+	resetModelContextCache()
+	t.Cleanup(resetModelContextCache)
+	srv, calls := modelListServer(t, `[]`, http.StatusInternalServerError)
+	defer srv.Close()
+	c := client.New("sk-test", srv.URL, "")
+	if _, err := fetchModelList(c, time.Second); err == nil {
+		t.Fatal("fetchModelList() error = nil, want failure")
+	}
+	if _, err := fetchModelList(c, time.Second); err == nil {
+		t.Fatal("cached fetchModelList() error = nil, want failure")
+	}
+	if got := atomic.LoadInt32(calls); got != 1 {
+		t.Fatalf("GET /models calls = %d, want 1 (negative cache)", got)
+	}
+}
+
 func TestProbeModelContextWindowSuccessAndCache(t *testing.T) {
 	resetModelContextCache()
 	t.Cleanup(resetModelContextCache)

@@ -28,7 +28,7 @@ func withChatConfig(t *testing.T, cfg *types.Config, contextSize, reserve, keep 
 	chatContextSize, chatReserveTokens, chatKeepRecentTokens = contextSize, reserve, keep
 	chatNoAutoCompact, chatCompactModel, chatCompactMaxTokens, chatCompactToolResultChars = false, "", 0, 0
 	// Keep resolver tests offline by default; probe-specific tests override.
-	detectModelContextWindowFn = func(string) int { return 0 }
+	detectModelContextWindowFn = func(string, string) int { return 0 }
 	t.Cleanup(func() {
 		options.Shared.Cfg = oldCfg
 		chatContextSize, chatReserveTokens, chatKeepRecentTokens = oldContext, oldReserve, oldKeep
@@ -147,7 +147,7 @@ func TestResolveCompactionSettingsUsesModelProbe(t *testing.T) {
 	withChatConfig(t, nil, 0, 0, 0)
 	old := detectModelContextWindowFn
 	var calls int
-	detectModelContextWindowFn = func(model string) int {
+	detectModelContextWindowFn = func(providerName, model string) int {
 		calls++
 		if model != "brand-new-model" {
 			t.Fatalf("probe model = %q", model)
@@ -168,7 +168,7 @@ func TestResolveCompactionSettingsUsesModelProbe(t *testing.T) {
 func TestResolveCompactionSettingsSkipsModelProbe(t *testing.T) {
 	old := detectModelContextWindowFn
 	calls := 0
-	detectModelContextWindowFn = func(string) int { calls++; return 99999 }
+	detectModelContextWindowFn = func(string, string) int { calls++; return 99999 }
 	t.Cleanup(func() { detectModelContextWindowFn = old })
 
 	// Detection disabled by config.
@@ -177,8 +177,8 @@ func TestResolveCompactionSettingsSkipsModelProbe(t *testing.T) {
 		AutoDetectContextWindow: &off,
 	}}}
 	withChatConfig(t, cfg, 0, 0, 0)
-	if got := resolveCompactionSettings(testCompactionCmd(), cfg.Defaults.Chat, nil, "", "brand-new-model"); got.Window != 0 {
-		t.Fatalf("Window = %d, want 0 when detection is off", got.Window)
+	if got := resolveCompactionSettings(testCompactionCmd(), cfg.Defaults.Chat, nil, "", "brand-new-model"); got.Window != DefaultFallbackContextWindow {
+		t.Fatalf("Window = %d, want fallback %d when detection is off", got.Window, DefaultFallbackContextWindow)
 	}
 	if calls != 0 {
 		t.Fatalf("probe calls = %d, want 0", calls)
@@ -190,7 +190,7 @@ func TestResolveCompactionSettingsSkipsModelProbe(t *testing.T) {
 		AutoCompact: &noAuto,
 	}}}
 	withChatConfig(t, cfg2, 0, 0, 0)
-	detectModelContextWindowFn = func(string) int { calls++; return 99999 }
+	detectModelContextWindowFn = func(string, string) int { calls++; return 99999 }
 	if got := resolveCompactionSettings(testCompactionCmd(), cfg2.Defaults.Chat, nil, "", "brand-new-model"); got.Window != 0 {
 		t.Fatalf("Window = %d, want 0 when auto-compaction is off", got.Window)
 	}
@@ -202,7 +202,16 @@ func TestResolveCompactionSettingsSkipsModelProbe(t *testing.T) {
 func TestResolveCompactionSettingsUnknownModel(t *testing.T) {
 	withChatConfig(t, nil, 0, 0, 0)
 	got := resolveCompactionSettings(testCompactionCmd(), nil, nil, "", "totally-unknown-model")
-	if got.Window != 0 {
-		t.Fatalf("Window = %d, want 0 for unknown model", got.Window)
+	if got.Window != DefaultFallbackContextWindow {
+		t.Fatalf("Window = %d, want fallback %d for unknown model", got.Window, DefaultFallbackContextWindow)
+	}
+}
+
+func TestResolveCompactionSettingsCustomFallback(t *testing.T) {
+	cfg := &types.Config{Defaults: &types.ConfigDefaults{Chat: &types.ChatDefaults{FallbackContextWindow: 64000}}}
+	withChatConfig(t, cfg, 0, 0, 0)
+	got := resolveCompactionSettings(testCompactionCmd(), cfg.Defaults.Chat, nil, "", "totally-unknown-model")
+	if got.Window != 64000 {
+		t.Fatalf("Window = %d, want custom fallback 64000", got.Window)
 	}
 }

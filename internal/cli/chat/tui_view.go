@@ -734,6 +734,12 @@ func (m *chatModel) inputBlock() (string, int) {
 			break
 		}
 	}
+	if m.input.Value() == "" {
+		// The placeholder is longer than a narrow terminal and can wrap. An
+		// empty draft must still occupy exactly one input row; keeping the
+		// wrapped placeholder would grow the box after every command.
+		rows = 1
+	}
 	rows = max(rows, 1)
 	return strings.Join(lines[:rows], "\n"), rows
 }

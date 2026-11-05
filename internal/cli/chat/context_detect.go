@@ -2,11 +2,12 @@ package chat
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -25,9 +26,16 @@ type modelContextCacheEntry struct {
 	expires time.Time
 }
 
+type modelListCacheEntry struct {
+	models  []types.OpenAIModel
+	err     error
+	expires time.Time
+}
+
 var (
 	modelContextCacheMu sync.Mutex
 	modelContextCache   = map[string]modelContextCacheEntry{}
+	modelListCache      = map[string]modelListCacheEntry{}
 )
 
 // autoDetectContextWindow reports whether unknown models may be probed via
@@ -43,13 +51,13 @@ func autoDetectContextWindow(cfg *types.ChatDefaults) bool {
 // detectModelContextWindowFn is a test seam for the resolution-chain tests.
 var detectModelContextWindowFn = detectModelContextWindow
 
-// detectModelContextWindow probes the configured chat provider for model's
-// context_length. It returns 0 on any failure; callers fall back to "unknown".
-func detectModelContextWindow(model string) int {
+// detectModelContextWindow probes providerName for model's context_length. It
+// returns 0 on any failure; callers fall back to "unknown".
+func detectModelContextWindow(providerName, model string) int {
 	if strings.TrimSpace(model) == "" {
 		return 0
 	}
-	p := options.Shared.ResolveProvider("chat")
+	p := providerForName(providerName)
 	if p == nil {
 		return 0
 	}
@@ -62,6 +70,56 @@ func detectModelContextWindow(model string) int {
 		return 0
 	}
 	return probeModelContextWindow(client.NewFromProvider(p), model, modelContextWindowProbeTimeout)
+}
+
+// fetchModelList returns GET /models for one provider, cached in-process.
+// Both successes and failures are cached to keep an unavailable catalogue from
+// stalling every /model or /provider switch.
+func fetchModelList(c *client.Client, timeout time.Duration) ([]types.OpenAIModel, error) {
+	if c == nil || c.BaseURL() == "" {
+		return nil, errors.New("provider base URL is empty")
+	}
+	if timeout <= 0 {
+		timeout = modelContextWindowProbeTimeout
+	}
+	key := strings.TrimRight(c.BaseURL(), "/")
+	modelContextCacheMu.Lock()
+	if entry, ok := modelListCache[key]; ok {
+		if time.Now().Before(entry.expires) {
+			modelContextCacheMu.Unlock()
+			return entry.models, entry.err
+		}
+		delete(modelListCache, key)
+	}
+	modelContextCacheMu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	models, err := c.WithContext(ctx).ListModelsOpenAI()
+	ttl := modelContextWindowCacheTTL
+	if err != nil {
+		ttl = modelContextWindowNegativeTTL
+		models = nil
+	}
+	modelContextCacheMu.Lock()
+	modelListCache[key] = modelListCacheEntry{models: models, err: err, expires: time.Now().Add(ttl)}
+	modelContextCacheMu.Unlock()
+	return models, err
+}
+
+// modelListForProvider resolves a provider by name/default and returns its
+// model catalogue. Used by /model and its Tab completion.
+func modelListForProvider(providerName string, timeout time.Duration) ([]types.OpenAIModel, error) {
+	p := providerForName(providerName)
+	if p == nil {
+		return nil, errors.New("provider is not configured")
+	}
+	switch p.Type {
+	case types.ProviderOpenAI, types.ProviderOpenAIChatCompletions, types.ProviderOpenAIResponses, "":
+	default:
+		return nil, fmt.Errorf("provider type %q does not expose an OpenAI-compatible /models endpoint", p.Type)
+	}
+	return fetchModelList(client.NewFromProvider(p), timeout)
 }
 
 // probeModelContextWindow is the testable core. The cache key includes the
@@ -79,9 +137,7 @@ func probeModelContextWindow(c *client.Client, model string, timeout time.Durati
 		return window
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	models, err := c.WithContext(ctx).ListModelsOpenAI()
+	models, err := fetchModelList(c, timeout)
 	if err != nil {
 		storeModelContextCache(key, 0, modelContextWindowNegativeTTL)
 		return 0
@@ -158,4 +214,5 @@ func resetModelContextCache() {
 	modelContextCacheMu.Lock()
 	defer modelContextCacheMu.Unlock()
 	modelContextCache = map[string]modelContextCacheEntry{}
+	modelListCache = map[string]modelListCacheEntry{}
 }

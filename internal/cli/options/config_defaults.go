@@ -1,6 +1,10 @@
 package options
 
-import "github.com/martianzhang/aigc-cli/internal/types"
+import (
+	"sort"
+
+	"github.com/martianzhang/aigc-cli/internal/types"
+)
 
 // DefaultsOrNil returns the top-level defaults section of the config, or nil.
 func DefaultsOrNil() *types.ConfigDefaults {
@@ -18,6 +22,19 @@ func NamedProvider(name string) *types.NamedProvider {
 		return nil
 	}
 	return Shared.Cfg.Providers[name]
+}
+
+// ProviderNames returns the configured named provider keys in stable order.
+func ProviderNames() []string {
+	if Shared.Cfg == nil || len(Shared.Cfg.Providers) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(Shared.Cfg.Providers))
+	for name := range Shared.Cfg.Providers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // ImageDefaults returns defaults.image, or nil.

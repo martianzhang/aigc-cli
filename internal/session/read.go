@@ -102,6 +102,18 @@ func (s *Session) read() error {
 			s.trackSeq(rec.Seq)
 			s.name = rec.Name
 
+		case typeModel:
+			var rec ModelRecord
+			if err := json.Unmarshal(line, &rec); err != nil {
+				return fmt.Errorf("session %s: parse model record: %w", s.path, err)
+			}
+			s.trackSeq(rec.Seq)
+			s.header.Provider = rec.Provider
+			s.header.Model = rec.Model
+			s.header.ContextSize = rec.ContextSize
+			s.header.ContextSizeSource = rec.ContextSizeSource
+			s.modelSet = true
+
 		case typeClear:
 			var rec ClearRecord
 			if err := json.Unmarshal(line, &rec); err != nil {

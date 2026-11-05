@@ -26,6 +26,7 @@ const (
 	typeCompaction  = "compaction"
 	typeClear       = "clear"
 	typeSessionInfo = "session_info"
+	typeModel       = "model"
 	typeEnd         = "end"
 )
 
@@ -108,6 +109,18 @@ type SessionInfoRecord struct {
 	Name string    `json:"name"`
 }
 
+// ModelRecord records a provider/model selection made during an interactive
+// session. The latest record wins on resume.
+type ModelRecord struct {
+	Type              string    `json:"type"`
+	Seq               int64     `json:"seq"`
+	TS                time.Time `json:"ts"`
+	Provider          string    `json:"provider,omitempty"`
+	Model             string    `json:"model"`
+	ContextSize       int       `json:"context_size,omitempty"`
+	ContextSizeSource string    `json:"context_size_source,omitempty"` // "explicit" | "auto"
+}
+
 // ClearRecord is a barrier created by /clear. Messages up to UpToSeq are not
 // part of the resumed history.
 type ClearRecord struct {
@@ -135,6 +148,7 @@ func (r *MessageRecord) setSeq(seq int64)     { r.Seq = seq }
 func (r *CompactionRecord) setSeq(seq int64)  { r.Seq = seq }
 func (r *ClearRecord) setSeq(seq int64)       { r.Seq = seq }
 func (r *SessionInfoRecord) setSeq(seq int64) { r.Seq = seq }
+func (r *ModelRecord) setSeq(seq int64)       { r.Seq = seq }
 func (r *EndRecord) setSeq(seq int64)         { r.Seq = seq }
 
 func (r *MessageRecord) toChatMessage() types.ChatMessage {

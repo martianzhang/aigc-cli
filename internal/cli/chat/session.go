@@ -120,15 +120,7 @@ func loadChatSessionReadOnly(cfg *types.ChatDefaults) (*session.Session, error) 
 func currentSessionHeader() session.Header {
 	cwd, _ := os.Getwd()
 
-	providerName := ""
-	if p := options.Shared.ResolveProvider(options.ProviderNameChat); p != nil {
-		providerName = p.Name
-		if providerName == "" {
-			if s := p.ProviderType.String(); s != "" && s != "unknown" {
-				providerName = s
-			}
-		}
-	}
+	providerName := providerDisplayName(options.Shared.ResolveProvider(options.ProviderNameChat))
 
 	model := options.Shared.Model
 	if model == "" {
