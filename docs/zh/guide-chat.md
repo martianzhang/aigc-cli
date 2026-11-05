@@ -115,6 +115,9 @@ aigc-cli chat -v
 | `/copy` | 复制最后一条助手回复（原文，未经渲染） |
 | `/name` | 显示当前 session；未命名时从首条用户消息自动生成名字（本地生成，不额外调 API） |
 | `/name <text>` | 设置或重命名当前 session；名字显示在顶部栏 |
+| `/save [名称]` | 把当前未保存对话保存为会话；可选命名。已保存会话只重命名或显示路径 |
+| `/session` `/sessions` `/resume` | 列出最近 20 个保存的会话（当前会话带 `*`），显示名称、时间、消息数、模型和首条用户消息 |
+| `/session <序号\|id\|路径>` | 切换到指定会话；序号对应 `/session` 列表，路径必须已存在 |
 | `Ctrl+O` | 展开 / 收起最后一条工具卡片（完整命令 + 全部输出；超过 20 行的输出默认折叠） |
 | 鼠标单击工具卡片 | 展开 / 收起被点中的那张工具卡片（长 `bash` 命令或长输出默认缩略，单击即可看全文；拖动仍是选中复制） |
 | 确认提示 | `y` 本次允许 / `a` 本进程总是允许 / `n` 拒绝并停止本轮 / `s` 拒绝并给模型一句改进建议 / `Esc` 拒绝并中断 |
@@ -171,9 +174,15 @@ aigc-cli chat --save --session-dir ./sessions
 # 命名会话；恢复时也可以改名
 aigc-cli chat --save --name "review auth"
 aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
+
+# 列出保存的会话（只读，不需要 API Key，也不会进入 TUI）
+aigc-cli chat --list-sessions
+aigc-cli --list-sessions --session-dir ./sessions
+aigc-cli chat --list-sessions --session-limit 0     # 显示全部
 ```
 
 - 默认目录 `~/.config/aigc-cli/sessions/`，文件权限 `0600`，目录 `0700`。
+- `--list-sessions` 按最后写入时间倒序打印保存的会话（名称、id、时间、消息数、模型和首条用户消息）后退出；`aigc-cli --list-sessions` 等价。默认只显示最新 20 个，末尾会提示总数；`--session-limit 0` 显示全部，`--session-limit N` 自定义数量。它不需要 API Key，也不能和 `--save` / `--session` / `--name` / `--json` / `--dry-run` / `--interactive` 或消息一起使用。
 - `--session` 传 id 时只在会话目录查找；id 不存在直接报错，避免打错字静默新建。传路径时文件不存在会在该路径新建（含父目录）。
 - `--save` 与 `--session` 互斥；`--json` 不能与它们组合；`--dry-run` 可以配合 `--session` 做只读预览，不会写文件。
 - 恢复的是**对话历史**。system prompt（含 AGENTS.md）随会话保存，恢复时使用当时保存的版本；新建会话可以用 `--system`，已有 system 的会话不能再传 `--system`。
@@ -189,6 +198,30 @@ aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
 - `compaction` 记录还会保存摘要原因（`threshold` / `manual` / `overflow` / `emergency`）、摘要模型、摘要调用 usage，以及 read/modified 文件清单。
 - `--name <text>` 设置会话名；TUI 里可以用 `/name <text>` 改名，`/name` 不带参数时若会话未命名，会从首条用户消息本地生成一个名字（不额外调 API）。名字显示在顶部栏，未命名时显示 `Session <id>`，没有 session 时仍是 `Chat with AI`。
 - TUI 状态栏显示 `rec: <文件名>`；新建会话退出时会**向 stderr** 打印文件路径和可直接执行的恢复命令（`aigc-cli chat --session <id>`，自定义目录会带上 `--session-dir`）。stdout 只保留模型回复，便于管道和脚本直接消费。
+
+### TUI 内切换会话（/session）
+
+交互模式下不必退出重开：
+
+```text
+/session                列出最近 20 个会话，当前会话前带 *
+/session find <关键字>   在全部会话中搜索名称、id、首条消息、模型、目录或路径
+/session 3              按列表序号切换（仅限最近 20 个）
+/session 20261028T...   按 id 切换（在会话目录中查找）
+/session ./logs/a.jsonl 按路径切换（必须已存在）
+/save [名称]            把当前对话保存为会话（已保存时改名或显示路径）
+```
+
+- 列表按会话文件最后写入时间倒序，显示名称（未命名回退 id）、相对时间、消息数、模型和首条用户消息；超过 20 个时末尾会提示总数，并建议用 `/session find <关键字>` 搜索更老的会话。
+- 序号只覆盖当前列出的最近 20 个；更老的会话请用 `/session find`、id 或路径切换。
+- 搜索会扫描全部会话（每个文件最多读取前 8 MiB），结果按 id/路径展示，不参与默认列表的编号。
+- 路径必须已存在，避免像 `--session` 那样在打错字时静默新建空会话。
+- 当前对话不是用 `--save` 启动的，可以先用 `/save [名称]` 保存，或在切换提示里选 `s`：`s` 保存并切换 / `d` 丢弃并切换 / `c` 取消。保存会自动生成名字；即使随后切换失败，对话也已经落盘。
+- 切换会恢复目标会话的历史、system prompt、provider/model 和上下文窗口。若命令行或配置显式指定了 `--provider` / `--model`，仍以显式值为准。
+- 切换会清空上一个会话的「本进程总是允许」工具授权；正在生成或压缩时不能切换。
+- 切换只恢复对话和模型配置，不会改变当前工作目录；工具和技能仍来自当前进程。
+- 列表只扫描每个会话文件的前 8 MiB；更大的文件名称可能回退为 id，但不影响按 id/路径切换。
+- 同一个会话文件不要被两个 TUI 同时写入；当前没有跨进程文件锁。
 
 JSONL 首行是 `header`（schema、id、cwd、provider、model、context_size、context_size_source），后续记录类型为 `system` / `message` / `compaction` / `clear` / `session_info` / `model` / `end`。`context_size_source` 为 `explicit` 或 `auto`，用于恢复时判断是否应按当前模型重新解析窗口。`session_info` 保存会话名，`model` 保存交互式切换后的 provider/model 和窗口来源，最新一条生效。可以直接用 `jq`、`grep` 等工具分析，也可以复制文件作为导出。
 

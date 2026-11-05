@@ -220,6 +220,14 @@ type chatModel struct {
 	// the tool result text stored in the session file.
 	sess          *session.Session
 	toolOutputMax int
+	// sessionDirPath is the directory /session lists and resolves ids in. It is
+	// resolved once at startup so a later flag change cannot split the list.
+	sessionDirPath string
+	// sessSlot tracks the active session for the exit handler. The deferred
+	// close in runChatTUI must follow /session switches, not a stale pointer.
+	sessSlot *sessionSlot
+	// pendingSwitch is non-nil while an unsaved chat waits for save/discard.
+	pendingSwitch *pendingSessionSwitch
 
 	// Cobra flag values used when building requests
 	temperature float64

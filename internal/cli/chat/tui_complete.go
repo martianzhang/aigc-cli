@@ -19,7 +19,7 @@ func commandCompletions(tools []types.ToolDefinition) []string {
 		"/exit", "/quit", "/q",
 		"/clear", "/reset", "/new",
 		"/help", "/?", "/tools", "/skills", "/model", "/provider", "/context", "/compact",
-		"/copy", "/name", "/preview",
+		"/copy", "/name", "/preview", "/save", "/session", "/sessions", "/resume",
 	}
 	for _, t := range tools {
 		completions = append(completions, "/"+t.Function.Name)

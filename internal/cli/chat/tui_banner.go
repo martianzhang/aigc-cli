@@ -137,6 +137,10 @@ func (m *chatModel) showHelp() {
   /compact [focus]     Compact now (optional focus for the summary)
   /copy                Copy last assistant response to clipboard
   /name [text]         Show/set the session name; no text = auto-name
+  /save [name]         Save this chat as a session (or rename the current one)
+  /session [n|id|path] List recent sessions or switch to one
+  /session find <text> Search all sessions by name, id, first message or model
+  /resume              Alias for /session
   /help, /?            Show this help
   /tools               List available tools
   /tools <name>        Show a tool's full description and examples

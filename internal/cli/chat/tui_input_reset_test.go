@@ -16,6 +16,16 @@ func TestEveryCommandClearsInput(t *testing.T) {
 		"/skills",
 		"/name",
 		"/name demo",
+		"/session",
+		"/sessions",
+		"/resume",
+		"/session 1",
+		"/resume missing",
+		"/session find",
+		"/session find demo",
+		"/sessions find demo",
+		"/save",
+		"/save demo",
 		"/context",
 		"/model",
 		"/model gpt-4o",
@@ -34,6 +44,7 @@ func TestEveryCommandClearsInput(t *testing.T) {
 	for _, command := range commands {
 		t.Run(command, func(t *testing.T) {
 			m := switchTestModel()
+			m.sessionDirPath = t.TempDir()
 			m.width, m.height = 100, 30
 			m.input.SetValue(command)
 			next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})

@@ -264,6 +264,11 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmKey(msg)
 	}
 
+	// The unsaved-session prompt owns the keyboard until answered.
+	if m.pendingSwitch != nil {
+		return m.handlePendingSessionSwitchKey(msg)
+	}
+
 	// Global keys work regardless of state
 	switch msg.Type {
 	case tea.KeyCtrlC:
@@ -519,6 +524,51 @@ func (m *chatModel) handleSubmitInput() (tea.Model, tea.Cmd) {
 
 	case input == "/context":
 		m.showContext()
+		m.input.Reset()
+		return m, nil
+
+	case input == "/save":
+		m.saveChat("")
+		m.input.Reset()
+		return m, nil
+
+	case strings.HasPrefix(input, "/save "):
+		m.saveChat(strings.TrimSpace(strings.TrimPrefix(input, "/save")))
+		m.input.Reset()
+		return m, nil
+
+	case input == "/session" || input == "/sessions" || input == "/resume":
+		m.showSessionList()
+		m.input.Reset()
+		return m, nil
+
+	case input == "/session find" || input == "/sessions find" || input == "/resume find":
+		m.addSystemMessage("Usage: /session find <text>")
+		m.input.Reset()
+		return m, nil
+
+	case strings.HasPrefix(input, "/resume find "):
+		m.showSessionSearch(strings.TrimSpace(strings.TrimPrefix(input, "/resume find")))
+		m.input.Reset()
+		return m, nil
+
+	case strings.HasPrefix(input, "/session find "):
+		m.showSessionSearch(strings.TrimSpace(strings.TrimPrefix(input, "/session find")))
+		m.input.Reset()
+		return m, nil
+
+	case strings.HasPrefix(input, "/sessions find "):
+		m.showSessionSearch(strings.TrimSpace(strings.TrimPrefix(input, "/sessions find")))
+		m.input.Reset()
+		return m, nil
+
+	case strings.HasPrefix(input, "/session "):
+		m.switchSession(strings.TrimSpace(strings.TrimPrefix(input, "/session")))
+		m.input.Reset()
+		return m, nil
+
+	case strings.HasPrefix(input, "/resume "):
+		m.switchSession(strings.TrimSpace(strings.TrimPrefix(input, "/resume")))
 		m.input.Reset()
 		return m, nil
 

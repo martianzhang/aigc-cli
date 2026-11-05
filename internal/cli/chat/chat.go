@@ -54,6 +54,10 @@ var (
 	chatInjectRaw json.RawMessage
 	// chatSave enables JSONL session persistence for a new session.
 	chatSave bool
+	// chatListSessions lists saved sessions and exits without calling the API.
+	chatListSessions bool
+	// chatSessionLimit caps --list-sessions output (0 = all).
+	chatSessionLimit int
 	// chatSessionDir overrides the default session directory.
 	chatSessionDir string
 	// chatSession resumes an existing session by id or file path.
@@ -83,6 +87,8 @@ Sessions:
   Chat is not saved by default. --save writes a new JSONL session under the
   session directory; --session resumes an id or file path (and keeps saving).
   --name sets or changes the session name shown in the TUI header.
+  --list-sessions prints the newest 20 saved sessions and exits; it needs no
+  API key. --session-limit N changes the page size (0 = all).
 
 Messages:
   --message is repeatable (one user turn per value). --prompt / -p is an
@@ -108,6 +114,7 @@ Examples:
   aigc-cli chat --save --name "review auth"
   aigc-cli chat --session 20261028T101500Z-ab12cd
   aigc-cli chat --session ./logs/review.jsonl
+  aigc-cli chat --list-sessions
   aigc-cli chat --json '{"model":"gpt-5","messages":[{"role":"user","content":"Hi"}]}'`,
 	RunE: runChat,
 }
@@ -115,6 +122,12 @@ Examples:
 func runChat(cmd *cobra.Command, args []string) error {
 	chatCfg := options.ChatDefaults()
 	applyChatConfigDefaults(cmd, chatCfg)
+	if chatListSessions {
+		if err := validateListSessions(cmd); err != nil {
+			return err
+		}
+		return runListSessions(cmd)
+	}
 	if err := validateSessionFlags(); err != nil {
 		return err
 	}
@@ -291,6 +304,8 @@ func registerFlags(f *pflag.FlagSet) {
 	f.StringVar(&chatSearchProvider, "search-provider", "", "Third-party vendor name for the web_search/web_fetch tools: duckduckgo/firecrawl/brave/doubao/deepseek/exa/wsa (overrides defaults.search.provider)")
 	f.StringVar(&chatInjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path")
 	f.BoolVar(&chatSave, "save", false, "Save this chat as a JSONL session (default dir: ~/.config/aigc-cli/sessions)")
+	f.BoolVar(&chatListSessions, "list-sessions", false, "List saved chat sessions and exit (newest 20 by default)")
+	f.IntVar(&chatSessionLimit, "session-limit", sessionListLimit, "Max sessions shown by --list-sessions (0 = all)")
 	f.StringVar(&chatSessionDir, "session-dir", "", "Session directory (default ~/.config/aigc-cli/sessions)")
 	f.StringVar(&chatSession, "session", "", "Resume a session by id or JSONL file path (implies saving)")
 	f.StringVar(&chatName, "name", "", "Session name (requires --save or --session; renames on resume)")

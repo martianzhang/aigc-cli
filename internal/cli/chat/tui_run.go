@@ -51,11 +51,14 @@ func runChatTUI(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
+	// The slot, not the startup pointer, is what the exit handler closes: after
+	// /session switches the active session is a different file.
+	slot := &sessionSlot{sess: sess}
+	defer func() {
+		closeSession(slot.sess)
+		printSessionPath(slot.sess, created || slot.switched)
+	}()
 	if sess != nil {
-		defer func() {
-			closeSession(sess)
-			printSessionPath(sess, created)
-		}()
 		if sess.System() != "" && chatSystem != "" {
 			return fmt.Errorf("--session cannot be combined with --system; the system prompt is stored in the session")
 		}
@@ -102,6 +105,8 @@ func runChatTUI(cmd *cobra.Command) error {
 	tuiModel.provider = providerName
 	tuiModel.confirm = confirm
 	tuiModel.sess = sess
+	tuiModel.sessSlot = slot
+	tuiModel.sessionDirPath = sessionDir(chatCfg)
 	tuiModel.toolOutputMax = sessionToolOutputMax(chatCfg)
 	tuiModel.compactSettings = settings
 	tuiModel.toolsTokens = agent.EstimateToolDefinitions(agentTools) + agent.EstimateRequestExtras(chatInjectRaw)

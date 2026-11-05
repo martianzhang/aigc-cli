@@ -140,6 +140,18 @@ func newConfirmPolicy(cfg *types.ChatDefaults) (*confirmPolicy, error) {
 	return p, nil
 }
 
+// resetSession forgets the "always allow" approvals recorded for the current
+// conversation. An approval granted in one session must not carry over when the
+// TUI switches to another one.
+func (p *confirmPolicy) resetSession() {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	p.always = map[string]bool{}
+	p.mu.Unlock()
+}
+
 // needs reports whether the tool call must be confirmed. The authoritative
 // check is always run immediately before execution, so a tool that was
 // "always allowed" earlier in the session skips the prompt.

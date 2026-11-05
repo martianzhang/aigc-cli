@@ -65,7 +65,7 @@ The REPL supports:
 - Scroll the conversation with PgUp/PgDn or the mouse wheel
 - **Drag with the left mouse button to select transcript rows and copy them**: on release the selected text is written to the clipboard with the `┃` frame and trailing padding stripped, and display-only line wrapping is rejoined, so multi-line copies paste cleanly. Hold `Shift` (or `Option`/`⌥` on iTerm2) to use the terminal's own selection instead; `/copy` copies the last assistant response verbatim
 - Tool calls render as cards: `bash` shows the first line of the command, abbreviated to 100 columns (multi-line scripts end with `…`); **click the card or press `Ctrl+O`** to see the full command. `write`/`edit` show a `+/-` diff preview, and results longer than 20 lines are folded (click or `Ctrl+O` expands or collapses the card)
-- Slash commands, `/name [text]` to show or set the session name (no argument auto-names an unnamed session from its first user message), `/skills` to list loaded skills, `/skill:<name> [args]` to load one explicitly, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
+- Slash commands, `/name [text]` to show or set the session name (no argument auto-names an unnamed session from its first user message), `/save [name]` to save the current chat as a session, `/session [n|id|path]` to list or switch saved sessions, `/skills` to list loaded skills, `/skill:<name> [args]` to load one explicitly, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
 - `@path` file references: text files are inlined, images are attached (Tab completes paths; governed by `defaults.chat.read_deny`)
 
 Layout:
@@ -105,9 +105,15 @@ aigc-cli chat --save --session-dir ./sessions
 # Name a session; --name also renames on resume
 aigc-cli chat --save --name "review auth"
 aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
+
+# List saved sessions (read-only, no API key, no TUI)
+aigc-cli chat --list-sessions
+aigc-cli --list-sessions --session-dir ./sessions
+aigc-cli chat --list-sessions --session-limit 0     # every session
 ```
 
 - Default directory: `~/.config/aigc-cli/sessions/`; files are `0600`, the directory is `0700`.
+- `--list-sessions` prints saved sessions newest first (name, id, last-write time, message count, model and first user message) and exits. `aigc-cli --list-sessions` is equivalent. It shows the newest 20 by default and prints the total; `--session-limit 0` lists all, `--session-limit N` sets a custom page size. It needs no API key and cannot be combined with `--save`, `--session`, `--name`, `--json`, `--dry-run`, `--interactive`, or a message.
 - A `--session` id is resolved only in the session directory. A missing id is an error, so a typo never silently starts a new session. A path that does not exist is created (including parent directories).
 - `--save` and `--session` are mutually exclusive. `--json` cannot be combined with either. `--dry-run --session` builds the request from the stored history without writing.
 - Resume restores **conversation history**. The system prompt (including AGENTS.md) is stored with the session and reused, so a resumed session keeps the prompt it actually ran with. `--system` is allowed for a new session; an existing session that already has a system prompt rejects it.
@@ -123,6 +129,10 @@ aigc-cli chat --session 20261028T101500Z-ab12cd --name "review auth v2"
 - Compaction records also store the reason (`threshold` / `manual` / `overflow` / `emergency`), summary model, summary usage, and read/modified file lists.
 - `--name <text>` sets the session name; inside the TUI, `/name <text>` renames it. `/name` without an argument auto-names an unnamed session from its first user message (local, no extra API call). The header shows the name, falls back to `Session <id>` for an unnamed session, and keeps `Chat with AI` when no session is active.
 - The TUI status bar shows `rec: <filename>`; a newly created session prints its path and a ready-to-run resume command (`aigc-cli chat --session <id>`, plus `--session-dir` when a custom directory is used) **to stderr**, so stdout carries only the model reply and stays safe to pipe.
+- Inside the TUI, `/session` (aliases `/sessions` and `/resume`) lists the 20 most recent saved sessions, newest first, with the current one marked `*`; `/session <number|id|path>` switches to one. A number refers to the list, an id is resolved in the session directory, and a path must already exist. When more exist, the list prints the total and points at `/session find <text>`, which searches every session by name, id, first message, model, cwd or path. Use `/save [name]` to save an unsaved chat; on an existing session it renames it or reports its path.
+- If the current chat was not started with `--save`, run `/save` first or answer the switch prompt: `[s]ave / [d]iscard / [c]ancel`. Saving auto-names the session and leaves it open, so a failed switch still keeps the conversation persisted. Switching restores the target's history, system prompt, provider/model and context window; explicit `--provider`/`--model` still win. It also clears session-scoped "always allow" tool approvals and is refused while a turn or compaction is running. Switching restores the conversation and model selection only; it does not change the working directory, tools, or skills.
+- Session listing scans at most the first 8 MiB of each transcript; a larger file may fall back to its id as the display name, but switching by id or path still works.
+- Do not open the same session file in two TUIs at once; there is no cross-process file lock.
 
 The first JSONL line is a `header` (schema, id, cwd, provider, model, context_size, context_size_source). Subsequent records are `system` / `message` / `compaction` / `clear` / `session_info` / `model` / `end`. `context_size_source` is `explicit` or `auto`, so resume can decide whether to re-resolve the window for the current model. `model` records the latest interactive provider/model switch and its window source. `session_info` stores the session name; the latest record wins. The file can be analyzed with `jq` or `grep`, or copied as an export.
 

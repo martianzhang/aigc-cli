@@ -58,6 +58,48 @@ func Resolve(value, dir string) (Target, error) {
 	return Target{}, fmt.Errorf("session id %q not found in %s", value, dir)
 }
 
+// ResolveExisting maps a value to an existing session file. Unlike Resolve, a
+// missing path is an error instead of a request to create a new session; this
+// is what an interactive switch needs, where a typo must not silently create an
+// empty transcript.
+func ResolveExisting(value, dir string) (Target, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return Target{}, fmt.Errorf("session id or path is empty")
+	}
+
+	if looksLikePath(value) {
+		info, err := os.Stat(value)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return Target{}, fmt.Errorf("session %q not found", value)
+			}
+			return Target{}, fmt.Errorf("stat session %s: %w", value, err)
+		}
+		if info.IsDir() {
+			return Target{}, fmt.Errorf("session path %s is a directory", value)
+		}
+		return Target{Path: value, ID: idFromPath(value), Exists: true}, nil
+	}
+
+	if !idPattern.MatchString(value) {
+		return Target{}, fmt.Errorf("invalid session id %q (allowed: letters, digits, '.', '_', '-')", value)
+	}
+	path := filepath.Join(dir, value+".jsonl")
+	info, err := os.Stat(path)
+	switch {
+	case err == nil:
+		if info.IsDir() {
+			return Target{}, fmt.Errorf("session path %s is a directory", path)
+		}
+		return Target{Path: path, ID: value, Exists: true}, nil
+	case os.IsNotExist(err):
+		return Target{}, fmt.Errorf("session id %q not found in %s", value, dir)
+	default:
+		return Target{}, fmt.Errorf("stat session %s: %w", path, err)
+	}
+}
+
 func looksLikePath(value string) bool {
 	if filepath.IsAbs(value) {
 		return true
