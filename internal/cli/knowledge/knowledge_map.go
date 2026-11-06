@@ -2,16 +2,17 @@ package knowledge
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
-	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/html"
+
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/knowledge"
+	"github.com/martianzhang/aigc-cli/internal/netguard"
 )
 
 var (
@@ -45,7 +46,7 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 
 		// Fetch the page
 		fmt.Fprintf(os.Stderr, "Fetching: %s\n", rawURL)
-		resp, err := http.Get(rawURL)
+		resp, err := netguard.NewGuardedClient(options.HTTPTimeout("", knowledge.DefaultFetchTimeout)).Get(rawURL)
 		if err != nil {
 			return fmt.Errorf("fetch %s: %w", rawURL, err)
 		}

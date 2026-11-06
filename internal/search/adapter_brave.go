@@ -41,7 +41,7 @@ func (p *BraveProvider) SearchRaw(query string, limit int, opts Options) ([]Resu
 	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("X-Subscription-Token", p.apiKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient().Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("brave search: %w", err)
 	}

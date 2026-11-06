@@ -42,7 +42,7 @@ func (p *FirecrawlProvider) SearchRaw(query string, limit int, opts Options) ([]
 	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient().Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("firecrawl: %w", err)
 	}

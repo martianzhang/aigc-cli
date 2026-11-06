@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/netguard"
 	"github.com/martianzhang/aigc-cli/internal/search"
@@ -72,11 +71,12 @@ func Fetch(argsJSON string) string {
 		return errMsg
 	}
 
-	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	timeout := search.RequestTimeout()
+	fetchCtx, fetchCancel := context.WithTimeout(context.Background(), timeout)
 	defer fetchCancel()
 	doc, err := webfetch.Fetch(fetchCtx, args.URL, webfetch.Options{
 		MaxBytes:    maxFetchBytes,
-		Timeout:     30 * time.Second,
+		Timeout:     timeout,
 		UserAgent:   defaultFetchUA,
 		Accept:      "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
 		ValidateURL: fetchURLGuard,

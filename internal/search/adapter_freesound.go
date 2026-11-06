@@ -54,7 +54,7 @@ func (p *FreesoundProvider) SearchRaw(query string, limit int, opts Options) ([]
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Token "+p.apiKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient().Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("freesound search: %w", err)
 	}

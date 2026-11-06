@@ -58,7 +58,7 @@ func (p *SFXMintProvider) SearchRaw(query string, limit int, opts Options) ([]Re
 	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient().Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("sfxmint search: %w", err)
 	}

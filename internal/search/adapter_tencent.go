@@ -116,7 +116,7 @@ func (p *TencentWSAProvider) post(bodyJSON json.RawMessage) (json.RawMessage, []
 	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient().Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("wsa request: %w", err)
 	}

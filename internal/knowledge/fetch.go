@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/net/html"
@@ -22,6 +23,37 @@ const defaultUserAgent = webfetch.DefaultUserAgent
 
 // maxFetchBytes caps how much of a response body FetchURL reads into memory.
 const maxFetchBytes = 10 * 1024 * 1024
+
+// DefaultFetchTimeout bounds one document fetch when no top-level timeout is
+// configured. cmd/root.go overrides it from --timeout / config `timeout`.
+const DefaultFetchTimeout = 30 * time.Second
+
+var fetchTimeoutConfig struct {
+	mu sync.RWMutex
+	d  time.Duration
+}
+
+// SetFetchTimeout configures the KB document fetch timeout. d <= 0 restores
+// DefaultFetchTimeout.
+func SetFetchTimeout(d time.Duration) {
+	fetchTimeoutConfig.mu.Lock()
+	fetchTimeoutConfig.d = d
+	fetchTimeoutConfig.mu.Unlock()
+}
+
+func currentFetchTimeout() time.Duration {
+	fetchTimeoutConfig.mu.RLock()
+	d := fetchTimeoutConfig.d
+	fetchTimeoutConfig.mu.RUnlock()
+	if d > 0 {
+		return d
+	}
+	return DefaultFetchTimeout
+}
+
+// fetchValidateURL is a package variable so tests can allow loopback servers;
+// production uses the SSRF guard.
+var fetchValidateURL = netguard.ValidatePublicURL
 
 // FetchResult holds the result of a URL fetch.
 type FetchResult struct {
@@ -37,10 +69,11 @@ type FetchResult struct {
 // converts HTML to markdown. Non-HTML textual responses are returned verbatim.
 func FetchURL(rawURL string) (*FetchResult, error) {
 	doc, err := webfetch.Fetch(context.Background(), rawURL, webfetch.Options{
-		MaxBytes:  maxFetchBytes,
-		Timeout:   30 * time.Second,
-		UserAgent: defaultUserAgent,
-		Accept:    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+		MaxBytes:    maxFetchBytes,
+		Timeout:     currentFetchTimeout(),
+		UserAgent:   defaultUserAgent,
+		Accept:      "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+		ValidateURL: fetchValidateURL,
 	})
 	if err != nil {
 		return nil, err

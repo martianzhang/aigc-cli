@@ -344,6 +344,8 @@ Chat 有两套联网原语，命名规则是——**不带 `web_` = 内置免费
 | 抓取 | `fetch`（本地 HTTP + readability） | `web_fetch`（同一厂商的抓取接口） |
 
 > 命令行等价物：`aigc-cli search "query"` 是不入库的联网搜索，默认使用已配置厂商并带 DuckDuckGo 免费兜底；`aigc-cli fetch <url>` 抓取单个 URL 并输出 Markdown；`aigc-cli kb search` 则额外抓取正文并入知识库。
+>
+> 这些联网原语（以及 `aigc-cli search` / `kb fetch`）都遵循顶层 `timeout`（或 `--timeout`），未配置时单次请求 **30s** 超时。注意 `--timeout` 不会传给 MCP 子进程：MCP 提供的 `web_search`/`web_fetch`/`fetch` 要改配置文件里的 `timeout` 才会生效。
 
 四个都是**特权原语**，需在 `tools_enable` 中显式开启：
 
@@ -534,7 +536,7 @@ mcp:
 - **内置原语优先于同名 MCP 工具**：若某个 server 也提供 `search`/`fetch`/… 同名工具，Chat 一律使用 **CLI 自己的实现**——同名 MCP 工具既不下发给模型，也不会被执行；`-v` 下会打印被屏蔽的工具名。这同时避免了请求里出现两个同名 function（多数厂商会直接报错）。需要让 MCP 版本生效时，请给该 MCP 工具改名。
   > 注：aigc-cli 自己的 MCP 服务器只暴露领域能力，**不暴露 `read`/`write`/`bash` 这类通用本地原语**；同名冲突只会来自同名的联网工具或第三方服务器。
 - 合并后的工具集仍受顶层 `tools_enable`/`tools_disable` 和 `defaults.chat.tools`/`disable_tools` 约束。
-- 某个 server 连接失败（命令不存在、初始化超时等）会被**跳过**并在 stderr 提示，不影响其它 server 与正常对话。
+- 某个 server 连接失败（命令不存在、初始化超时等）会被**跳过**并在 stderr 提示，不影响其它 server 与正常对话。握手的启动超时默认 **30s**，可用顶层 `timeout` 调整，最多 60s。
 - 连接在启动时建立、退出时关闭；`/tools` 会列出所有可用工具（含 MCP 来源的）。列表只显示每个工具的**首行摘要**——MCP 工具的描述往往有十几到二十几行（含 `Examples:`），全量贴进列表会破坏对齐；用 `/tools <名称>` 看完整说明。
 - 工具返回的图片/音频以**本地文件路径**呈现给模型（不内联图像）；生成的媒体已落盘，模型据此告知用户文件位置。
 

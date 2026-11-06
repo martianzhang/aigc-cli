@@ -122,7 +122,7 @@ func (p *DeepSeekProvider) post(path string, bodyJSON json.RawMessage, out any) 
 	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("deepseek request: %w", err)
 	}

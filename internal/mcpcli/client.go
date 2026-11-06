@@ -12,6 +12,8 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -21,6 +23,41 @@ import (
 
 // clientVersion is reported to servers during the MCP handshake.
 const clientVersion = "0.1.0"
+
+const (
+	// DefaultInitTimeout bounds spawn + initialize + ListTools when no
+	// top-level timeout is configured.
+	DefaultInitTimeout = 30 * time.Second
+	// MaxInitTimeout caps an explicitly larger top-level timeout so a hung
+	// server cannot block chat startup for minutes.
+	MaxInitTimeout = 60 * time.Second
+)
+
+var initTimeoutConfig struct {
+	mu sync.RWMutex
+	d  time.Duration
+}
+
+// SetInitTimeout configures the MCP startup timeout. d <= 0 restores
+// DefaultInitTimeout; values above MaxInitTimeout are clamped when used.
+func SetInitTimeout(d time.Duration) {
+	initTimeoutConfig.mu.Lock()
+	initTimeoutConfig.d = d
+	initTimeoutConfig.mu.Unlock()
+}
+
+func mcpInitTimeout() time.Duration {
+	initTimeoutConfig.mu.RLock()
+	d := initTimeoutConfig.d
+	initTimeoutConfig.mu.RUnlock()
+	if d <= 0 {
+		d = DefaultInitTimeout
+	}
+	if d > MaxInitTimeout {
+		d = MaxInitTimeout
+	}
+	return d
+}
 
 // Server is a connected MCP server together with the tools it exposes.
 type Server struct {
@@ -89,6 +126,9 @@ func connect(ctx context.Context, sc types.MCPServer) (*Server, error) {
 	if sc.Command == "" {
 		return nil, errors.New("command is required")
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, mcpInitTimeout())
+	defer cancel()
 
 	env := append(os.Environ(), sc.Env...)
 	c, err := client.NewStdioMCPClient(sc.Command, env, sc.Args...)

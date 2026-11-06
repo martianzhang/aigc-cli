@@ -229,6 +229,8 @@ tools_enable:
 ```
 
 > CLI equivalents: `aigc-cli search "query"` searches without touching the knowledge base, using configured vendors with a free DuckDuckGo fallback; `aigc-cli fetch <url>` downloads one page as Markdown; `aigc-cli kb search` additionally fetches page bodies and indexes them.
+>
+> These web primitives (and `aigc-cli search` / `kb fetch`) follow the top-level `timeout` (or `--timeout`), falling back to a **30s** per-request limit when unset. Note that `--timeout` is not forwarded to the MCP child process: for the MCP-provided `web_search`/`web_fetch`/`fetch`, set `timeout` in the config file instead.
 
 The built-in `search`/`fetch` need **no configuration and cost nothing**. The third-party `web_search`/`web_fetch` are served by the vendors declared under the top-level `web_search.*`, with `defaults.search.provider` selecting the **shared default vendor**. Vendors generally offer both search and fetch, so the two primitives **share one vendor selection** — there is no separate fetch setting:
 
@@ -396,7 +398,7 @@ mcp:
 - **Built-in primitives win over same-named MCP tools**: if a server also exposes `search`/`fetch`/…, chat always uses **the CLI's own implementation** — the colliding MCP tool is neither sent to the model nor executed, and `-v` logs the names that were shadowed. This also avoids emitting two functions with the same name, which most providers reject. Rename the MCP tool if you need its version to take effect.
   > Note: aigc-cli's own MCP server exposes domain capabilities only — **never the generic local primitives `read`/`write`/`bash`**. Name clashes can only come from same-named web tools or from a third-party server.
 - The merged toolset is still subject to the top-level `tools_enable`/`tools_disable` and `defaults.chat.tools`/`disable_tools`.
-- A server that fails to connect (missing command, init timeout, …) is **skipped** with a stderr notice; other servers and the chat keep working.
+- A server that fails to connect (missing command, init timeout, …) is **skipped** with a stderr notice; other servers and the chat keep working. The startup handshake defaults to **30s**, can be raised with the top-level `timeout`, and is capped at 60s.
 - Connections open at startup and close on exit; `/tools` lists every tool, including MCP-provided ones. The list shows only each tool's **first line** — MCP descriptions run 13–24 lines (including an `Examples:` block), and inlining them wholesale broke the alignment. Use `/tools <name>` for the full text.
 - Image/audio tool results are surfaced to the model as **local file paths** (no inlined media); generated files are already on disk, so the model reports their locations.
 

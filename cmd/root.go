@@ -12,7 +12,10 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/knowledge"
+	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/search"
 	"github.com/martianzhang/aigc-cli/internal/secret"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -184,6 +187,15 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 		// The agent package cannot read config.yaml itself; resolve the bash
 		// timeout once here so the chat tool and `!command` share it.
 		agent.SetShellTimeout(options.ChatBashTimeout())
+
+		// Single-request HTTP helpers (search, chat/MCP fetch, KB fetches, MCP
+		// startup) share the top-level timeout instead of hardcoding their own.
+		// Downloads keep their own stall policy: a total timeout would kill
+		// large model/media downloads that are making progress.
+		requestTimeout := options.HTTPTimeout("", search.DefaultTimeout)
+		search.SetDefaultTimeout(requestTimeout)
+		knowledge.SetFetchTimeout(requestTimeout)
+		mcpcli.SetInitTimeout(requestTimeout)
 
 		// Make sure a local encryption master secret exists, then encrypt any
 		// plaintext secrets still on disk.

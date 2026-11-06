@@ -127,7 +127,7 @@ func (p *ExaProvider) post(path string, bodyJSON json.RawMessage, out any) (json
 	req.Header.Set("x-api-key", p.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("exa request: %w", err)
 	}

@@ -54,6 +54,10 @@ base_url: "https://api.apimart.ai"
 # Unset channels keep their own built-in default (OCR/vision 120s, SFX 5m,
 # document parsing 15m); uploads follow the client timeout and fall back to
 # 300s only when no timeout is configured.
+# It also bounds single-request network helpers: search providers, chat/MCP
+# fetch/web_search/web_fetch, KB document fetches, and the MCP handshake.
+# Those use a 30s built-in when this key is unset; the MCP handshake is capped
+# at 60s.
 # timeout: 300
 
 # ── Agent Skills (Chat) ──

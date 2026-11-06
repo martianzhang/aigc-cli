@@ -52,7 +52,7 @@ func (p *PexelsProvider) SearchRaw(query string, limit int, opts Options) ([]Res
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", p.apiKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient().Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("pexels search: %w", err)
 	}

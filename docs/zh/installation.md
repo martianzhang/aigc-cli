@@ -202,6 +202,8 @@ http_proxy: "http://127.0.0.1:7890"
 # 覆盖所有通道：OpenRouter 图片、ModelScope 提交/轮询、Ollama、参考图上传，
 # 以及 OCR / vision / detect、SFX、SoMark 文档解析、模型列表查询；未设置的通道保留自己的内置默认
 # （OCR/vision 120s、SFX 5 分钟、文档解析 15 分钟；上传跟随客户端超时，无超时时回退 300s）
+# 同时约束单次网络原语：search 厂商、chat/MCP 的 fetch、web_search、web_fetch、
+# kb 文档抓取，以及 MCP 握手。它们未配置 timeout 时内置 30s；MCP 握手最多 60s。
 # timeout: 300
 
 defaults:
