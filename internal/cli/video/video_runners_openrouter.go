@@ -102,7 +102,7 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	// Step 2: Poll
 	fmt.Println("Polling for completion (this may take 30s-a few minutes)...")
 	pollStart := time.Now()
-	pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, 30*time.Second, options.TaskWait(types.MediaVideo))
+	pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, client.DefaultPollInterval, options.TaskWait(types.MediaVideo))
 	if err != nil {
 		return nil, fmt.Errorf("video polling failed: %w", err)
 	}
@@ -190,7 +190,7 @@ func runOpenRouterVideoResume(jobID string) error {
 	default:
 		// pending / running -- poll
 		fmt.Printf("Job status: %s. Polling for completion...\n", statusResp.Status)
-		pollResp, err := c.OpenRouterVideoPollUntilComplete(info.PollingURL, 30*time.Second, options.TaskWait(types.MediaVideo))
+		pollResp, err := c.OpenRouterVideoPollUntilComplete(info.PollingURL, client.DefaultPollInterval, options.TaskWait(types.MediaVideo))
 		if err != nil {
 			return fmt.Errorf("polling failed: %w", err)
 		}

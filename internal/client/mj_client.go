@@ -118,7 +118,7 @@ func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*type
 
 		// Sleep with cancellation support
 		select {
-		case <-time.After(pollInterval):
+		case <-time.After(DefaultPollInterval):
 		case <-c.requestContext().Done():
 			if isTTY {
 				fmt.Println()

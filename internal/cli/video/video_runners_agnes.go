@@ -38,7 +38,6 @@ func runAgnesVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 
 	// Step 2: Poll
 	fmt.Println("Polling for completion...")
-	const agnesPollInterval = 15 * time.Second
 	agnesMaxWait := options.TaskWait(types.MediaVideo)
 	start := time.Now()
 	var videoURL string
@@ -69,7 +68,7 @@ func runAgnesVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 			// queued / pending / in_progress -- keep waiting
 			progress := fmt.Sprintf("%.0fs", time.Since(start).Seconds())
 			fmt.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
-			time.Sleep(agnesPollInterval)
+			time.Sleep(client.DefaultPollInterval)
 		}
 
 		if videoURL != "" {

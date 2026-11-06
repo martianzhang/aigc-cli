@@ -31,7 +31,6 @@ func runOpenLuxVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	// Step 2: Poll
 	fmt.Println("Polling for completion...")
 	taskID := createResp.ID
-	const openluxPollInterval = 10 * time.Second
 	openluxMaxWait := options.TaskWait(types.MediaVideo)
 	start := time.Now()
 	var videoURL string
@@ -59,7 +58,7 @@ func runOpenLuxVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 			// pending / running / in_progress / queued -- keep waiting
 			progress := fmt.Sprintf("%.0fs", time.Since(start).Seconds())
 			fmt.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
-			time.Sleep(openluxPollInterval)
+			time.Sleep(client.DefaultPollInterval)
 		}
 
 		if videoURL != "" {

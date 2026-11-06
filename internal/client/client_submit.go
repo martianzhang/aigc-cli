@@ -386,7 +386,7 @@ func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData
 
 		// Sleep with cancellation support
 		select {
-		case <-time.After(pollInterval):
+		case <-time.After(DefaultPollInterval):
 		case <-c.requestContext().Done():
 			if isTTY {
 				fmt.Println()

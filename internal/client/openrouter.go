@@ -172,11 +172,11 @@ func (c *Client) OpenRouterVideoGet(jobID string) (*types.OpenRouterVideoStatusR
 }
 
 // OpenRouterVideoPollUntilComplete polls a video job until completion or failure.
-// pollInterval: time between polls (default 30s if zero).
+// pollInterval: time between polls (default DefaultPollInterval if zero).
 // maxWait: maximum total wait time (default 5min if zero).
 func (c *Client) OpenRouterVideoPollUntilComplete(pollingURL string, pollInterval, maxWait time.Duration) (*types.OpenRouterVideoStatusResponse, error) {
 	if pollInterval == 0 {
-		pollInterval = 30 * time.Second
+		pollInterval = DefaultPollInterval
 	}
 	if maxWait == 0 {
 		maxWait = 5 * time.Minute

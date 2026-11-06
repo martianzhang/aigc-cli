@@ -30,11 +30,12 @@ const (
 	// OpenRouter-specific header names
 	headerReferer = "HTTP-Referer"
 	headerTitle   = "X-OpenRouter-Title"
-	// Default polling settings
-	pollInterval    = 3 * time.Second
-	initialDelay    = 10 * time.Second
-	maxPollDuration = 180 * time.Second
-	uploadTimeout   = 300 * time.Second
+	// Default polling settings.
+	// DefaultPollInterval is the standard cadence for async task status checks.
+	DefaultPollInterval = 5 * time.Second
+	initialDelay        = 10 * time.Second
+	maxPollDuration     = 180 * time.Second
+	uploadTimeout       = 300 * time.Second
 	// Default HTTP client timeout for API requests (used as initial value for DefaultTimeout)
 	defaultHTTPTimeout = 180 * time.Second
 	// Modality-specific HTTP timeouts (exported for use by cmd/ commands)

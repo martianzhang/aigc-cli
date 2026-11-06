@@ -158,7 +158,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	fmt.Println("Polling for completion...")
 
 	// --- Step 2: Poll task status ---
-	pollInterval := 3 * time.Second
+	pollInterval := client.DefaultPollInterval
 	// ModelScope queues free-tier jobs, so the default wait is per-media
 	// (image 10m) and overridable via defaults.image.timeout.
 	maxWait := options.TaskWait(types.MediaImage)

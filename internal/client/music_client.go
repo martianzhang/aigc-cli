@@ -109,7 +109,7 @@ func (c *Client) MusicPollTask(taskID string, maxWait time.Duration) (*types.Mus
 		}
 
 		select {
-		case <-time.After(pollInterval):
+		case <-time.After(DefaultPollInterval):
 		case <-c.requestContext().Done():
 			if isTTY {
 				fmt.Println()
