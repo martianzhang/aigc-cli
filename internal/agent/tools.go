@@ -72,7 +72,8 @@ var ToolDefs = []types.ToolDefinition{
 			Parameters: json.RawMessage(`{
 				"type": "object",
 				"properties": {
-					"command": {"type": "string", "description": "Shell command to execute"}
+					"command": {"type": "string", "description": "Shell command to execute"},
+					"timeout": {"type": "number", "minimum": 1, "maximum": 86400, "description": "Timeout in seconds. Omit to use the configured default (300s unless defaults.chat.bash.timeout is set). Raise it for builds and test suites."}
 				},
 				"required": ["command"]
 			}`),

@@ -184,6 +184,33 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refreshViewport()
 		return m, nil
 
+	// ---- user !command finished ------------------------------------------
+	case shellDone:
+		if msg.turn != m.turnID {
+			return m, nil // result of an interrupted command
+		}
+		// Store in history as user message (not system) so it doesn't dilute
+		// the system prompt. The model sees it as contextual information
+		// provided by the user, not as an instruction-level directive.
+		m.history = append(m.history, types.ChatMessage{
+			Role:    "user",
+			Content: fmt.Sprintf("(I ran the shell command `%s` and got:\n%s)", msg.cmdLine, msg.result),
+		})
+		for i, tm := range slices.Backward(m.messages) {
+			if tm.role == "tool" && tm.tool == "shell" {
+				m.messages[i].content = formatShellOutput(msg.cmdLine, msg.result)
+				break
+			}
+		}
+		m.state = tuiIdle
+		if m.cancel != nil {
+			m.cancel()
+		}
+		m.ctx, m.cancel = nil, nil
+		m.input.Focus()
+		m.refreshViewport()
+		return m, nil
+
 	// ---- agent loop finished ---------------------------------------------
 	case agentDone:
 		if msg.turn != m.turnID {

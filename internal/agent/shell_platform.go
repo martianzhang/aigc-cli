@@ -420,7 +420,7 @@ func platformPromptFor(goos string, spec shellSpec) string {
 // names the actual shell so the model emits syntax that will run.
 func bashToolDescription() string {
 	spec := detectShell()
-	base := "Execute a shell command in the current working directory and return its combined stdout/stderr. Prefer the dedicated read/find/grep/ls tools for file operations; use bash for other CLI work. Requires `tools_enable` to list \"bash\"."
+	base := "Execute a shell command in the current working directory and return its combined stdout/stderr. Prefer the dedicated read/find/grep/ls tools for file operations; use bash for other CLI work. Pass `timeout` (seconds) to override the default limit (300s unless defaults.chat.bash.timeout is configured). Requires `tools_enable` to list \"bash\"."
 	if spec.kind == shellPOSIX {
 		return base + " Commands run through " + spec.Description() + " (Unix syntax: pipes, /dev/null, ls, grep, find)."
 	}

@@ -2,6 +2,7 @@ package options
 
 import (
 	"sort"
+	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -14,6 +15,25 @@ func DefaultsOrNil() *types.ConfigDefaults {
 // ChatDefaults returns defaults.chat, or nil.
 func ChatDefaults() *types.ChatDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.ChatDefaults { return d.Chat })
+}
+
+// ChatBashTimeout returns the effective timeout for the chat bash tool and the
+// TUI `!command` shortcut. defaults.chat.bash.timeout (seconds) wins; otherwise
+// the built-in default applies.
+func ChatBashTimeout() time.Duration {
+	// Use currentConfig (not ChatDefaults) so the accessor also works before
+	// PersistentPreRunE populated Shared.Cfg (tests, direct library use).
+	cfg := currentConfig()
+	var defaults *types.ConfigDefaults
+	if cfg != nil {
+		defaults = cfg.Defaults
+	}
+	chat := Field(defaults, func(d *types.ConfigDefaults) *types.ChatDefaults { return d.Chat })
+	bash := Field(chat, func(c *types.ChatDefaults) *types.ChatBashDefaults { return c.Bash })
+	if bash != nil && bash.Timeout > 0 {
+		return time.Duration(bash.Timeout) * time.Second
+	}
+	return time.Duration(types.DefaultBashTimeoutSeconds) * time.Second
 }
 
 // NamedProvider returns providers.<name>, or nil when it is not configured.

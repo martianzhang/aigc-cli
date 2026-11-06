@@ -284,6 +284,8 @@ defaults:
     # save: false              # true=每次 chat 自动保存为 JSONL 会话
     # session_dir: "~/.config/aigc-cli/sessions"  # 会话目录
     # session_tool_output_max_bytes: 32768  # 单条工具输出落盘上限（字节）
+    # bash:
+    #   timeout: 300             # bash 工具 / !cmd 的默认超时（秒）；模型可在调用时用 timeout 覆盖
     # tools_on_demand: true # MCP 工具按需加载（search_tools/load_tools），降低上下文占用
     # max_iterations: 100      # 单条用户消息最多连续工具轮次（默认 100）
     # read_deny: ['\.pem$', '^id_rsa$', '\.env$'] # read 原语拒绝正则（匹配路径或文件名，默认空=全部放行）

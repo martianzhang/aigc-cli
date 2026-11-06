@@ -125,6 +125,10 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 		}
 		provider.SetDirectMode(shared.NoProxy)
 
+		// The bash tool runs commands in their own process group; stop them
+		// before Ctrl-C tears the CLI down.
+		terminal.InterruptHook = agent.KillActiveShells
+
 		// Long-running commands keep a live tab indicator; make sure Ctrl-C clears
 		// it. Commands that own their terminal or signal handling opt out.
 		if !ownsTerminal(cmd) {
@@ -177,6 +181,9 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 		// Child processes spawned by the chat bash tool cannot use the Go
 		// client's transport, so propagate the same choice via env vars.
 		agent.SetShellProxy(shared.HTTPProxy, shared.NoProxy)
+		// The agent package cannot read config.yaml itself; resolve the bash
+		// timeout once here so the chat tool and `!command` share it.
+		agent.SetShellTimeout(options.ChatBashTimeout())
 
 		// Make sure a local encryption master secret exists, then encrypt any
 		// plaintext secrets still on disk.

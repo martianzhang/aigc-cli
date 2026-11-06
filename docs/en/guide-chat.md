@@ -65,7 +65,7 @@ The REPL supports:
 - Scroll the conversation with PgUp/PgDn or the mouse wheel
 - **Drag with the left mouse button to select transcript rows and copy them**: on release the selected text is written to the clipboard with the `┃` frame and trailing padding stripped, and display-only line wrapping is rejoined, so multi-line copies paste cleanly. Hold `Shift` (or `Option`/`⌥` on iTerm2) to use the terminal's own selection instead; `/copy` copies the last assistant response verbatim
 - Tool calls render as cards: `bash` shows the first line of the command, abbreviated to 100 columns (multi-line scripts end with `…`); **click the card or press `Ctrl+O`** to see the full command. `write`/`edit` show a `+/-` diff preview, and results longer than 20 lines are folded (click or `Ctrl+O` expands or collapses the card)
-- Slash commands, `/name [text]` to show or set the session name (no argument auto-names an unnamed session from its first user message), `/save [name]` to save the current chat as a session, `/session [n|id|path]` to list or switch saved sessions, `/skills` to list loaded skills, `/skill:<name> [args]` to load one explicitly, and `!<shell_cmd>` to run a shell command (the message area echoes `$ <cmd>` followed by its output)
+- Slash commands, `/name [text]` to show or set the session name (no argument auto-names an unnamed session from its first user message), `/save [name]` to save the current chat as a session, `/session [n|id|path]` to list or switch saved sessions, `/skills` to list loaded skills, `/skill:<name> [args]` to load one explicitly, and `!<shell_cmd>` to run a shell command in the background (default 300s timeout, see `defaults.chat.bash.timeout`; Esc / Ctrl+C interrupts it; the message area echoes `$ <cmd>` followed by its output)
 - `@path` file references: text files are inlined, images are attached (Tab completes paths; governed by `defaults.chat.read_deny`)
 
 Layout:
@@ -178,7 +178,7 @@ Chat ships a small set of **primitives** (names aligned with pi coding agent). D
 | `ls` | ✅ | List a directory (non-recursive) |
 | `write` | ⛔ | Write/overwrite a file, creating parent dirs |
 | `edit` | ⛔ | Exact-text replace (`old_string` must be unique) |
-| `bash` | ⛔ | Execute a shell command in the current directory (platform shell auto-selected, see below) |
+| `bash` | ⛔ | Execute a shell command in the current directory (platform shell auto-selected, see below); 300s default timeout, adjustable per call with `timeout` |
 | `search` | ⛔ | Built-in web search (DuckDuckGo, free, no key); returns titles + URLs |
 | `fetch` | ⛔ | Built-in URL fetch: HTML → Markdown (main content, token-efficient), non-HTML as-is; free, SSRF-guarded |
 | `web_search` | ⛔ | Search through a **third-party API** (vendor chosen by `defaults.search.provider`; may be billed); returns titles + URLs |
@@ -189,6 +189,15 @@ Chat ships a small set of **primitives** (names aligned with pi coding agent). D
 > **Cross-platform shell**: `bash` selects its executor per platform. macOS/Linux use `zsh`/`bash`/`sh`; Windows **prefers Git Bash / MSYS2 / Cygwin / busybox**, where `/dev/null`, `ls`, `grep`, `find` and other Unix syntax work as written. Only when no POSIX shell is installed does it fall back to PowerShell 7 / Windows PowerShell 5.1 / `cmd.exe`. In the PowerShell/cmd fallback common idioms are translated automatically (`/dev/null` → `$null` / `NUL`, `ls -la`, `find -name`/`-type`, `grep -rn`, `head`/`tail`, `export`, `which`, `rm -rf`, `mkdir -p`, `cp -r`, `touch`, `curl`, …; forms with pipes, redirections or complex options are left untouched and the system/failure hints steer the model to the built-in tools), and the active shell is included in the system prompt and tool description so the model emits matching syntax. **For reading/searching files, still prefer the `read`/`grep`/`find`/`ls` tools** — they are pure-Go and do not depend on system commands, so they are the most portable path. The `bash` child process also inherits the effective proxy (`--http-proxy` / config `http_proxy` / environment), exported as `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`; `--no-proxy` removes those variables instead (see "Proxy" in the installation guide).
 >
 > **WSL**: a binary running inside WSL is a Linux build (`GOOS=linux`), so it takes the normal POSIX path — `/dev/null` and Unix commands work natively and the Windows compatibility branch is never entered. Conversely, a native Windows `aigc-cli.exe` that finds only WSL's `C:\Windows\System32\bash.exe` skips it deliberately (WSL's `/mnt/c` namespace does not match the Windows process's cwd) and falls back to Git Bash / busybox / PowerShell.
+>
+> **Timeout**: `bash` defaults to **300s**. On timeout the whole process tree is terminated (not just the shell), and the model is told to retry with a larger `timeout`; a descendant that escapes the group and keeps the output pipes open can delay the return by at most 5s. The model may pass `timeout` (seconds, max 86400) per call; `!<shell_cmd>` has no model argument and uses the same configured default (it runs in the background, so Esc / Ctrl+C can interrupt it). To change it:
+>
+> ```yaml
+> defaults:
+>   chat:
+>     bash:
+>       timeout: 600   # seconds; omit for 300
+> ```
 
 Domain tools (`generate_image`, `recognize_text`, `kb_find`, …) are no longer defined in chat; they come from MCP servers. To use aigc-cli's own tools, point `mcp.servers` at `aigc-cli mcp` (see below).
 
@@ -539,6 +548,7 @@ providers:
 | `defaults.chat.save` | Save every chat as a JSONL session | `false` |
 | `defaults.chat.session_dir` | Session directory | `~/.config/aigc-cli/sessions` |
 | `defaults.chat.session_tool_output_max_bytes` | Max bytes stored per tool result | `32768` |
+| `defaults.chat.bash.timeout` | Default `bash` tool / `!<shell_cmd>` timeout in seconds (max 86400); a per-call `timeout` argument still wins | `300` |
 
 ## JSON Mode
 

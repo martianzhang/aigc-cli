@@ -245,6 +245,7 @@ type VisionDefaults struct {
 // ChatDefaults holds default values for chat completion.
 type ChatDefaults struct {
 	Provider                  string                             `mapstructure:"provider" yaml:"provider,omitempty"`
+	Bash                      *ChatBashDefaults                  `mapstructure:"bash" yaml:"bash,omitempty"` // bash 工具 / !cmd 的超时设置
 	Model                     string                             `mapstructure:"model" yaml:"model,omitempty"`
 	Temperature               float64                            `mapstructure:"temperature" yaml:"temperature,omitempty"`
 	MaxTokens                 int                                `mapstructure:"max_tokens" yaml:"max_tokens,omitempty"`
@@ -268,6 +269,19 @@ type ChatDefaults struct {
 	Save                      bool                               `mapstructure:"save" yaml:"save,omitempty"`                                                   // true=每次 chat 自动保存为 JSONL 会话（默认关闭）
 	SessionDir                string                             `mapstructure:"session_dir" yaml:"session_dir,omitempty"`                                     // 会话目录；空=~/.config/aigc-cli/sessions
 	SessionToolOutputMaxBytes int                                `mapstructure:"session_tool_output_max_bytes" yaml:"session_tool_output_max_bytes,omitempty"` // 单条工具输出落盘上限（字节）；0=32768
+}
+
+// DefaultBashTimeoutSeconds is the built-in timeout for the chat bash tool and
+// the TUI `!command` shortcut when defaults.chat.bash.timeout is unset. It is
+// deliberately larger than a quick shell command: builds and test suites are
+// the common long-running case.
+const DefaultBashTimeoutSeconds = 300
+
+// ChatBashDefaults controls the timeout of the chat bash tool and `!command`.
+type ChatBashDefaults struct {
+	// Timeout is the timeout in seconds. <=0 uses DefaultBashTimeoutSeconds.
+	// A per-call `timeout` argument on the bash tool still wins.
+	Timeout int `mapstructure:"timeout" yaml:"timeout,omitempty"`
 }
 
 // ChatCompactionOverride overrides compaction budgets for a specific model.

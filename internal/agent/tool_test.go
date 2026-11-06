@@ -152,7 +152,7 @@ func TestShellCommand(t *testing.T) {
 }
 
 // TestShellCommandContextCancelled guards that interrupting a turn kills a
-// long-running shell command instead of waiting for the 30s fallback timeout.
+// long-running shell command instead of waiting for the fallback timeout.
 func TestShellCommandContextCancelled(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("sleep is not available on windows")
@@ -168,5 +168,51 @@ func TestShellCommandContextCancelled(t *testing.T) {
 	elapsed := time.Since(start)
 	if elapsed > 2*time.Second {
 		t.Errorf("ShellCommandContext took %v after cancellation, want < 2s", elapsed)
+	}
+}
+
+// TestBashContextTimeoutParam guards that a model-supplied timeout wins over
+// the configured default and that the error tells the model how to retry.
+func TestBashContextTimeoutParam(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("sleep is not available on windows")
+	}
+	start := time.Now()
+	got := BashContext(context.Background(), `{"command":"sleep 5; echo done","timeout":0.2}`)
+	if !strings.Contains(got, "timed out") {
+		t.Fatalf("BashContext = %q, want a timeout message", got)
+	}
+	if !strings.Contains(got, "defaults.chat.bash.timeout") {
+		t.Errorf("BashContext = %q, want the retry hint to mention defaults.chat.bash.timeout", got)
+	}
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Errorf("BashContext took %v, want it to honor the 0.2s timeout", elapsed)
+	}
+}
+
+func TestBashContextNegativeTimeoutRejected(t *testing.T) {
+	got := BashContext(context.Background(), `{"command":"echo hi","timeout":-1}`)
+	if !strings.Contains(got, "timeout must be a positive") {
+		t.Errorf("BashContext = %q, want a timeout validation error", got)
+	}
+}
+
+// TestShellCommandUsesConfiguredTimeout guards the config path used by the TUI
+// `!command` shortcut, which has no model-supplied timeout.
+func TestShellCommandUsesConfiguredTimeout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("sleep is not available on windows")
+	}
+	prev := shellDefaultTimeout()
+	t.Cleanup(func() { SetShellTimeout(prev) })
+	SetShellTimeout(200 * time.Millisecond)
+
+	start := time.Now()
+	got := ShellCommand("sleep 5; echo done")
+	if !strings.Contains(got, "timed out") {
+		t.Fatalf("ShellCommand = %q, want a timeout message", got)
+	}
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Errorf("ShellCommand took %v, want it to honor the configured 200ms", elapsed)
 	}
 }

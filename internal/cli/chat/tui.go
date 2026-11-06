@@ -80,6 +80,14 @@ type agentDone struct {
 	usageAnchor     *agent.UsageAnchor
 }
 
+// shellDone is sent when a `!command` finishes (or is cancelled). turn
+// invalidates a result that arrives after the user interrupted the command.
+type shellDone struct {
+	turn    uint64
+	cmdLine string
+	result  string
+}
+
 // clearChat signals clearing the conversation.
 type clearChat struct{}
 

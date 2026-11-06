@@ -151,11 +151,16 @@ func Default() *Progress {
 // pipes and CI keep their default signal behavior.
 func ClearOnInterrupt() {
 	p := Default()
-	if !p.Enabled() {
+	if !p.Enabled() && InterruptHook == nil {
 		return
 	}
 	clearOnInterrupt(p, reRaiseInterrupt)
 }
+
+// InterruptHook, when non-nil, runs after the progress indicator is cleared and
+// before SIGINT is re-raised. Callers use it to stop child process groups that
+// would otherwise outlive the CLI.
+var InterruptHook func()
 
 // clearOnInterrupt installs the handler. reRaise redelivers the signal once the
 // handler is removed; it is injected so tests can observe the cleanup without
@@ -166,6 +171,9 @@ func clearOnInterrupt(p *Progress, reRaise func()) {
 	go func() {
 		<-ch
 		p.Finish("")
+		if InterruptHook != nil {
+			InterruptHook()
+		}
 		// Dropping the last handler restores the default disposition.
 		signal.Stop(ch)
 		reRaise()

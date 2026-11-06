@@ -3,7 +3,6 @@ package chat
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbletea"
@@ -115,10 +114,9 @@ func formatShellOutput(cmdLine, result string) string {
 	return fmt.Sprintf("$ %s\n%s", cmdLine, result)
 }
 
-// handleShellCommand executes a !command synchronously.
-// Shell commands are usually instant (< 1s), so synchronous execution avoids
-// race conditions where the next user message is processed before the
-// shell output is written to history.
+// handleShellCommand runs a !command in the background. The command may take
+// minutes (builds, test suites), so blocking Update would freeze the TUI and
+// make Esc/Ctrl+C unresponsive; shellDone carries the result back instead.
 func (m *chatModel) handleShellCommand(input string) (tea.Model, tea.Cmd) {
 	cmdLine := strings.TrimSpace(input[1:])
 	if cmdLine == "" {
@@ -137,30 +135,21 @@ func (m *chatModel) handleShellCommand(input string) (tea.Model, tea.Cmd) {
 	})
 	m.refreshViewport()
 
-	// Run synchronously — shell commands are fast and this avoids
-	// race conditions with subsequent user messages.
-	result := agent.ShellCommand(cmdLine)
+	// Give the command its own cancellable turn so Esc/Ctrl+C stops the child
+	// process and a late result is discarded.
+	m.turnID++
+	turn := m.turnID
+	ctx, cancel := context.WithCancel(context.Background())
+	m.ctx, m.cancel = ctx, cancel
 
-	// Store in history as user message (not system) so it doesn't dilute
-	// the system prompt. The model sees it as contextual information
-	// provided by the user, not as an instruction-level directive.
-	m.history = append(m.history, types.ChatMessage{
-		Role:    "user",
-		Content: fmt.Sprintf("(I ran the shell command `%s` and got:\n%s)", cmdLine, result),
-	})
-
-	// Update the tool message with the command and its result
-	for i, tm := range slices.Backward(m.messages) {
-		if tm.role == "tool" && tm.tool == "shell" {
-			m.messages[i].content = formatShellOutput(cmdLine, result)
-			break
+	go func() {
+		result := agent.ShellCommandContext(ctx, cmdLine)
+		if prog := getProgram(); prog != nil {
+			prog.Send(shellDone{turn: turn, cmdLine: cmdLine, result: result})
 		}
-	}
-	m.state = tuiIdle
-	m.input.Focus()
-	m.refreshViewport()
+	}()
 
-	return m, nil
+	return m, m.spinner.Tick
 }
 
 // ---------------------------------------------------------------------------
