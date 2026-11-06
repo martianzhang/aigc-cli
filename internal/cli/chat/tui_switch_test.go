@@ -25,6 +25,15 @@ func switchTestModel() *chatModel {
 	return m
 }
 
+// closeTestSession releases the session a test attached to the model. Windows
+// cannot remove a file that is still open, so every test that saves or switches
+// sessions must close before t.TempDir cleanup runs.
+func closeTestSession(m *chatModel) {
+	if m != nil && m.sess != nil {
+		_ = m.sess.Close("test cleanup")
+	}
+}
+
 func newSwitchSession(t *testing.T, header session.Header) *session.Session {
 	t.Helper()
 	if header.ID == "" {
@@ -41,6 +50,7 @@ func newSwitchSession(t *testing.T, header session.Header) *session.Session {
 func TestSwitchModelUpdatesSelection(t *testing.T) {
 	withChatConfig(t, nil, 0, 0, 0)
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.input.SetValue("/model gpt-4o")
 	m.switchModel("gpt-4o")
 	if got := m.input.Value(); got != "" {
@@ -71,6 +81,7 @@ func TestSwitchModelUpdatesSelection(t *testing.T) {
 func TestSwitchModelDefaultAndSame(t *testing.T) {
 	withChatConfig(t, nil, 0, 0, 0)
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.switchModel("default")
 	if m.model != "" {
 		t.Fatalf("model = %q, want API default", m.model)
@@ -94,6 +105,7 @@ func TestHandleSubmitModelAndProviderCommands(t *testing.T) {
 	withChatConfig(t, cfg, 0, 0, 0)
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.input.SetValue("/model gpt-4o")
 	_, _ = m.handleSubmitInput()
 	if m.model != "gpt-4o" {
@@ -117,6 +129,7 @@ func TestSwitchModelPersistsSession(t *testing.T) {
 	withChatConfig(t, nil, 0, 0, 0)
 	sess := newSwitchSession(t, session.Header{ID: "switch-persist", Model: "old-model"})
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sess = sess
 	m.switchModel("gpt-4o")
 
@@ -135,6 +148,7 @@ func TestSwitchProviderNamed(t *testing.T) {
 	}}
 	withChatConfig(t, cfg, 0, 0, 0)
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.switchProvider("alt")
 
 	if m.provider != "alt" || m.model != "alt-model" {
@@ -157,6 +171,7 @@ func TestSwitchModelDoesNotBlockOnModelProbe(t *testing.T) {
 	calls := 0
 	detectModelContextWindowFn = func(string, string) int { calls++; return 99999 }
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.switchModel("brand-new-model")
 	if calls != 0 {
 		t.Fatalf("interactive switch ran the /models probe %d times", calls)
@@ -170,6 +185,7 @@ func TestSwitchModelDoesNotWriteToStderr(t *testing.T) {
 	t.Cleanup(restore)
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.switchModel("definitely-not-a-real-model")
 	if stderr.Len() != 0 {
 		t.Fatalf("interactive model switch wrote raw stderr: %q", stderr.String())
@@ -185,6 +201,7 @@ func TestSwitchModelWithProviderArgument(t *testing.T) {
 	}}
 	withChatConfig(t, cfg, 0, 0, 0)
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.switchModel("alt gpt-4o")
 	if m.provider != "alt" || m.model != "gpt-4o" {
 		t.Fatalf("selection = %q / %q", m.provider, m.model)
@@ -207,6 +224,7 @@ func TestShowModelSelectionListsProviderModels(t *testing.T) {
 	}}
 	withChatConfig(t, cfg, 0, 0, 0)
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.provider = "alt"
 	m.model = "gpt-4o"
 	m.showModelSelection()
@@ -231,6 +249,7 @@ func TestModelAndProviderTabCompletion(t *testing.T) {
 	}}
 	withChatConfig(t, cfg, 0, 0, 0)
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.provider = "alt"
 
 	m.input.SetValue("/provider al")
@@ -260,6 +279,7 @@ func TestProviderThenModelCommandClearsInput(t *testing.T) {
 	}}
 	withChatConfig(t, cfg, 0, 0, 0)
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.width, m.height = 100, 30
 
 	// The reported sequence: switch provider, then switch model. Both commands
@@ -291,6 +311,7 @@ func TestSwitchProviderKeepsModelWithoutProviderDefault(t *testing.T) {
 	}}
 	withChatConfig(t, cfg, 0, 0, 0)
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.model = "keep-me"
 	m.switchProvider("alt")
 	if m.model != "keep-me" {
@@ -304,6 +325,7 @@ func TestSwitchProviderUnknownAndLocal(t *testing.T) {
 	}}
 	withChatConfig(t, cfg, 0, 0, 0)
 	m := switchTestModel()
+	defer closeTestSession(m)
 
 	m.switchProvider("missing")
 	if got := m.messages[len(m.messages)-1].content; !strings.Contains(got, "not configured") {

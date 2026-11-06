@@ -44,6 +44,7 @@ func TestEveryCommandClearsInput(t *testing.T) {
 	for _, command := range commands {
 		t.Run(command, func(t *testing.T) {
 			m := switchTestModel()
+			defer closeTestSession(m)
 			m.sessionDirPath = t.TempDir()
 			m.width, m.height = 100, 30
 			m.input.SetValue(command)

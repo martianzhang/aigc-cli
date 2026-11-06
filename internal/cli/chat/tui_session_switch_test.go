@@ -80,6 +80,7 @@ func TestShowSessionListMarksCurrentAndListsRecent(t *testing.T) {
 	}
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.sess = openSession(t, beta)
 	m.showSessionList()
@@ -103,6 +104,7 @@ func TestShowSessionListEmpty(t *testing.T) {
 	withSessionGlobals(t)
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = t.TempDir()
 	m.showSessionList()
 	if got := m.messages[len(m.messages)-1].content; !strings.Contains(got, "No saved sessions") {
@@ -122,6 +124,7 @@ func TestPerformSessionSwitchAppliesState(t *testing.T) {
 	)
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.sess = openSession(t, filepath.Join(dir, "current.jsonl"))
 	slot := &sessionSlot{sess: m.sess}
@@ -178,6 +181,7 @@ func TestSwitchSessionRefusesWhileBusy(t *testing.T) {
 	withSessionGlobals(t)
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = t.TempDir()
 	m.state = tuiProcessing
 
@@ -198,6 +202,7 @@ func TestSwitchSessionPromptsForUnsavedChat(t *testing.T) {
 	createSessionFile(t, dir, "target", "", "sys", "m", types.ChatMessage{Role: "user", Content: "target"})
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.sess = nil
 	m.history = []types.ChatMessage{{Role: "system", Content: "sys"}, {Role: "user", Content: "unsaved"}}
@@ -230,6 +235,7 @@ func TestSwitchSessionSavePromptPersistsChat(t *testing.T) {
 	createSessionFile(t, dir, "target", "", "sys", "m", types.ChatMessage{Role: "user", Content: "target"})
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.sess = nil
 	m.history = []types.ChatMessage{
@@ -277,6 +283,7 @@ func TestSwitchSessionCancelKeepsCurrent(t *testing.T) {
 	createSessionFile(t, dir, "target", "", "sys", "m", types.ChatMessage{Role: "user", Content: "target"})
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.sess = nil
 	m.history = []types.ChatMessage{{Role: "user", Content: "unsaved"}}
@@ -307,6 +314,7 @@ func TestResolveSessionTargetByIndexIDAndPath(t *testing.T) {
 	}
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 
 	if got, err := m.resolveSessionTarget("1"); err != nil || got != newer {
@@ -335,6 +343,7 @@ func TestSwitchSessionExplicitModelWins(t *testing.T) {
 	createSessionFile(t, dir, "target", "", "sys", "target-model", types.ChatMessage{Role: "user", Content: "hello"})
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.model = "explicit-model"
 	m.sessionDirPath = dir
 	m.performSessionSwitch("target")
@@ -365,6 +374,7 @@ func TestSwitchSessionAppliesNamedProvider(t *testing.T) {
 	}
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.performSessionSwitch("target")
 
@@ -394,6 +404,7 @@ func TestSwitchSessionUnresolvedProviderKeepsCurrentProvider(t *testing.T) {
 	}
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.performSessionSwitch("target")
 
@@ -410,6 +421,7 @@ func TestApplySessionStateSamePathIsNoop(t *testing.T) {
 	path := createSessionFile(t, dir, "only", "", "sys", "m", types.ChatMessage{Role: "user", Content: "hello"})
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.sess = openSession(t, path)
 	before := len(m.messages)
@@ -431,6 +443,7 @@ func TestHandleSubmitSessionCommandSwitches(t *testing.T) {
 	createSessionFile(t, dir, "target", "", "sys", "m", types.ChatMessage{Role: "user", Content: "new"})
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.sess = openSession(t, filepath.Join(dir, "current.jsonl"))
 	m.input.SetValue("/session target")
@@ -450,6 +463,7 @@ func TestSaveCommandPersistsChat(t *testing.T) {
 
 	dir := t.TempDir()
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.sess = nil
 	m.input.SetValue("/save my title")
@@ -489,6 +503,7 @@ func TestSaveCurrentChatRecordsExplicitAPIDefault(t *testing.T) {
 
 	dir := t.TempDir()
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.sess = nil
 	m.model = ""
@@ -526,6 +541,7 @@ func TestShowSessionListReportsTotal(t *testing.T) {
 	}
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.showSessionList()
 	out := m.messages[len(m.messages)-1].content
@@ -559,6 +575,7 @@ func TestShowSessionSearchFindsOlderSession(t *testing.T) {
 	}
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	m.showSessionSearch("needle")
 	out := m.messages[len(m.messages)-1].content
@@ -618,6 +635,7 @@ func TestResolveSessionTargetReportsHiddenSessions(t *testing.T) {
 	}
 
 	m := switchTestModel()
+	defer closeTestSession(m)
 	m.sessionDirPath = dir
 	_, err := m.resolveSessionTarget("21")
 	if err == nil || !strings.Contains(err.Error(), "outside the newest 20") || !strings.Contains(err.Error(), "find") {
