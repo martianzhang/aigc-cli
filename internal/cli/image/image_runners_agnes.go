@@ -73,12 +73,12 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	}
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
-	savePromptFile(promptTaskID("agnes", syncResp.Created), req.Prompt)
+	taskID := promptTaskID("agnes", syncResp.Created)
+	savePromptFile(taskID, req.Prompt)
 
 	var saved []string
 	for i, img := range syncResp.Data {
 		if img.B64JSON != "" {
-			taskID := fmt.Sprintf("agnes_%d", syncResp.Created)
 			filename, err := service.SaveBase64Image(options.Shared.OutputDir, taskID, img.B64JSON, i)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, err)
@@ -87,8 +87,7 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 			fmt.Printf("Image %d: %s\n", i+1, filename)
 			saved = append(saved, filename)
 		} else if img.URL != "" {
-			taskID := fmt.Sprintf("agnes_%d", syncResp.Created)
-			filename, err := service.DownloadFile(img.URL, options.Shared.OutputDir, fmt.Sprintf("image_%s_%d", taskID, i))
+			filename, err := service.DownloadFile(img.URL, options.Shared.OutputDir, fmt.Sprintf("%s_%d", taskID, i))
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, err)
 				continue

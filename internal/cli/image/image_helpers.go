@@ -25,13 +25,22 @@ func savePromptFile(taskID, prompt string) {
 	}
 }
 
-// promptTaskID builds the task ID used for the saved prompt file. created is
-// the provider-returned timestamp; 0 falls back to the current time.
-func promptTaskID(prefix string, created int64) string {
-	if created <= 0 {
-		created = time.Now().Unix()
+// imageStamp returns the provider's created timestamp when present, otherwise
+// a millisecond clock value. Some OpenAI-compatible relays omit `created`;
+// using the zero value would collapse every file to `<prefix>_0` and overwrite
+// the previous generation.
+func imageStamp(created int64) int64 {
+	if created > 0 {
+		return created
 	}
-	return fmt.Sprintf("%s_%d", prefix, created)
+	return time.Now().UnixMilli()
+}
+
+// promptTaskID builds the task ID shared by saved prompt and image files.
+// created is the provider-returned timestamp; 0 falls back to a unique clock
+// value so repeated generations never reuse the same filename.
+func promptTaskID(prefix string, created int64) string {
+	return fmt.Sprintf("%s_%d", prefix, imageStamp(created))
 }
 
 // loadImageDefaults returns the user's image config defaults.

@@ -30,9 +30,10 @@ func runImageEditsJSON(c client.APIClient, req *types.GenerateRequest, ctx *imag
 	}
 	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
-	savePromptFile(promptTaskID("image_sync", resp.Created), req.Prompt)
+	taskID := promptTaskID("image_sync", resp.Created)
+	savePromptFile(taskID, req.Prompt)
 
-	saved, err := saveOpenAIImageResponse(resp)
+	saved, err := saveOpenAIImageResponse(resp, taskID)
 	if err != nil {
 		return nil, err
 	}
