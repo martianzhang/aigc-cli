@@ -1,14 +1,24 @@
 package image
 
 import (
+	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // imageDispatchCtx holds provider/mode context for image strategy matching.
-// Built from local variables in runImageGenerate, not global state.
+// Built from the resolved provider, not global state, so a per-call provider
+// (MCP `provider` argument) drives both the strategy and provider-specific
+// request details such as the ModelScope API key.
 type imageDispatchCtx struct {
+	// p is the provider that owns this request. Runners use it for
+	// provider-specific auth and user-facing labels. It is nil only in unit
+	// tests that exercise strategy matching without a provider.
+	p *provider.EffectiveProvider
+
 	isAPIMart     bool
 	isOpenRouter  bool
 	isModelScope  bool
@@ -19,6 +29,58 @@ type imageDispatchCtx struct {
 	genEdit       bool
 	isOllama      bool
 	modelScopeKey string // API key for ModelScope async submission
+}
+
+// newImageDispatchCtx derives the strategy flags from the resolved provider.
+// Every caller that executes a strategy must build its context here, so the
+// per-call provider cannot silently diverge from the client and API key used
+// for the request.
+func newImageDispatchCtx(p *provider.EffectiveProvider, req *types.GenerateRequest, genEdit bool) *imageDispatchCtx {
+	if p == nil {
+		p = &provider.EffectiveProvider{}
+	}
+	return &imageDispatchCtx{
+		p:             p,
+		isAPIMart:     options.IsAPIMartProvider(p),
+		isOpenRouter:  p.ProviderType == provider.OpenRouter,
+		isAgnes:       p.ProviderType == provider.Agnes,
+		isOllama:      p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL),
+		isModelScope:  p.ProviderType == provider.ModelScope,
+		isGemini:      p.ProviderType == provider.Gemini,
+		isZeekai:      p.ProviderType == provider.Zeekai,
+		isMultipart:   useMultipartImageEdits(p, req),
+		genEdit:       genEdit,
+		modelScopeKey: p.APIKey,
+	}
+}
+
+// providerFor returns the provider that owns this dispatch. Tests may build a
+// bare context, so fall back to the current CLI config instead of panicking.
+func (ctx *imageDispatchCtx) providerFor() *provider.EffectiveProvider {
+	if ctx != nil && ctx.p != nil {
+		return ctx.p
+	}
+	return options.Shared.ResolveProvider(options.ProviderNameImage)
+}
+
+// providerLabel renders a provider name for logs and errors. Named providers
+// keep their configured name; un-named providers use the detected type so the
+// message never blames a different vendor than the one that received the
+// request.
+func providerLabel(p *provider.EffectiveProvider) string {
+	if p == nil {
+		return "image"
+	}
+	if p.Name != "" {
+		return p.Name
+	}
+	if p.ProviderType != provider.Unknown {
+		return strings.ToLower(p.ProviderType.String())
+	}
+	if p.Type != "" {
+		return string(p.Type)
+	}
+	return "image"
 }
 
 // zeekaiImageEdits is the single definition of when a detected ZeekAI provider

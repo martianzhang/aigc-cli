@@ -8,6 +8,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -124,12 +125,23 @@ func displayMusicResult(task *types.MusicTaskData) {
 	}
 }
 
-// GenerateAndSave generates music via the configured provider and saves
-// the audio files to disk. Shared by the CLI and the agent loop.
-func GenerateAndSave(c *client.Client, req *types.MusicGenerateRequest) ([]string, error) {
+// GenerateAndSave generates music via p and saves the audio files to disk.
+// Shared by the CLI and the agent loop.
+//
+// p must be the provider that built c so the dispatch table and the dry-run
+// endpoint describe the same backend. When the caller explicitly selected a
+// provider other than defaults.music.provider, that default block is not
+// applied: its model (e.g. suno) belongs to a different backend.
+func GenerateAndSave(c client.APIClient, p *provider.EffectiveProvider, req *types.MusicGenerateRequest) ([]string, error) {
 	if req == nil {
 		return nil, fmt.Errorf("music request is required")
 	}
+
+	configured := options.Shared.ResolveProvider(options.ProviderNameMusic)
+	if p == nil {
+		p = configured
+	}
+	explicitProvider := p.Name != "" && p.Name != configured.Name
 
 	cfg := options.MusicDefaults()
 	if cfg == nil {
@@ -137,9 +149,15 @@ func GenerateAndSave(c *client.Client, req *types.MusicGenerateRequest) ([]strin
 			cfg = loaded.Defaults.Music
 		}
 	}
-	cfg.MergeIntoMusic(req) // nil-safe
+	if explicitProvider {
+		if req.Model == "" {
+			req.Model = p.Model
+		}
+	} else {
+		cfg.MergeIntoMusic(req) // nil-safe
+	}
 
 	options.ApplyTimeout(c, "music", client.MusicTimeout)
 
-	return dispatchMusic(c, req, newMusicDispatchCtx(c, nil))
+	return dispatchMusic(c, req, newMusicDispatchCtx(c, p))
 }

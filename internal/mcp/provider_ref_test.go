@@ -234,6 +234,40 @@ func TestGenerationHandlers_rejectURLProvider(t *testing.T) {
 	}
 }
 
+func TestProviderOverridden(t *testing.T) {
+	t.Run("named default", func(t *testing.T) {
+		cfg := &Config{CmdProviders: map[string]*provider.EffectiveProvider{
+			"image": {Name: "modelscope"},
+		}}
+		tests := []struct {
+			name string
+			p    *provider.EffectiveProvider
+			want bool
+		}{
+			{"nil", nil, false},
+			{"empty name", &provider.EffectiveProvider{}, false},
+			{"same provider", &provider.EffectiveProvider{Name: "modelscope"}, false},
+			{"different provider", &provider.EffectiveProvider{Name: "ofox"}, true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				if got := cfg.providerOverridden("image", tt.p); got != tt.want {
+					t.Errorf("providerOverridden() = %v, want %v", got, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("global default", func(t *testing.T) {
+		cfg := &Config{CmdProviders: map[string]*provider.EffectiveProvider{
+			"image": {Name: ""},
+		}}
+		if !cfg.providerOverridden("image", &provider.EffectiveProvider{Name: "ofox"}) {
+			t.Error("a named per-call provider must count as an override when the default is global")
+		}
+	})
+}
+
 func TestResolveProviderRef_LocalSentinel(t *testing.T) {
 	cfg := namedProviderConfig()
 	p, errMsg := cfg.resolveProviderRef("audio.sfx", "local")

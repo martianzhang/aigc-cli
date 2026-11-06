@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -12,7 +11,7 @@ import (
 
 // runImageEditsJSON handles ZeekAI's image-to-image endpoint:
 // POST /images/edits with JSON images[].image_url.
-func runImageEditsJSON(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
+func runImageEditsJSON(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	if req.MaskURL != "" {
 		return nil, fmt.Errorf("mask is not supported by the /images/edits protocol")
 	}
@@ -24,8 +23,7 @@ func runImageEditsJSON(c client.APIClient, req *types.GenerateRequest, _ *imageD
 	}
 	elapsed := time.Since(start)
 
-	p := options.Shared.ResolveProvider("image")
-	fmt.Printf("Provider: %s\n", p.ProviderType)
+	fmt.Printf("Provider: %s\n", ctx.providerFor().ProviderType)
 	fmt.Printf("Model: %s\n", req.Model)
 	if resp.Created > 0 {
 		fmt.Printf("Created: %s\n", time.Unix(resp.Created, 0).Format("2006-01-02 15:04:05"))

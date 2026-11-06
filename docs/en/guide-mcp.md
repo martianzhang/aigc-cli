@@ -26,7 +26,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 
 | Tool | Description | Cost |
 |---|---|---|
-| `generate_image` | Generate images (text-to-image, image-to-image, inpainting); optional whitelisted `provider` | Paid (API key) |
+| `generate_image` | Generate images (text-to-image, image-to-image, inpainting); optional whitelisted `provider` that also switches the endpoint, API key, and sync/async strategy | Paid (API key) |
 | `generate_video` | Generate videos (async submit → poll); always uses `defaults.video.provider`, no `provider` argument; supports `return_last_frame` to save the last frame as an image | Paid (API key) |
 | `generate_music` | Generate music (APIMart suno/flowmusic async, OpenRouter Lyria, Alibaba Cloud Bailian Fun-Music); optional `provider` | Paid (API key) |
 | `generate_speech` | Text-to-speech; optional `provider` / `model` / `voice` / `format` | Paid (API key) |
@@ -56,7 +56,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `web_search` | Web search via the configured third-party provider (`defaults.search.provider`); **may bill per request**. Errors out when no provider is configured instead of silently using the built-in engine | Vendor-dependent |
 | `web_fetch` | Fetch a URL via the same third-party vendor's fetch API, returned as provider-formatted Markdown; **may bill per request**; needs a fetch-capable vendor (e.g. deepseek) | Vendor-dependent |
 | `kb_find` | Search the local knowledge base (keyword + semantic) | Free (local) |
-| `kb_search` | Web search then save the results to the KB (engine selected by `defaults.search.provider`, with the free DuckDuckGo fallback) | Free (web) |
+| `kb_search` | Web search then save the results to the KB (engine from the optional `provider` argument, else `defaults.search.provider`, with the free DuckDuckGo fallback) | Free (web) |
 | `kb_add` | Add a local file to the knowledge base (.md/.txt/.go/.py/.json/.yaml/.html) | Free (local) |
 | `kb_fetch` | Fetch a URL, convert it to markdown, and save it to the KB | Free (web) |
 | `kb_list` | List all documents in the knowledge base | Free (local) |
@@ -83,7 +83,7 @@ Vendor selection has two scopes:
 |---|---|
 | MCP `web_search` / `web_fetch` | `defaults.search.provider` |
 | chat `web_search` / `web_fetch` | `--search-provider` > `defaults.search.provider` |
-| MCP `kb_search` / `kb search` | `defaults.search.provider` (with the free DuckDuckGo fallback) |
+| MCP `kb_search` / `kb search` | tool `provider` argument > `defaults.search.provider` (with the free DuckDuckGo fallback) |
 
 ```yaml
 web_search:
@@ -106,7 +106,7 @@ defaults:
 >
 > `generate_image` / `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio` and the `midjourney_*` tools also accept an optional `provider` argument restricted to names from `config.providers` (whitelist); `generate_video` does not — it always uses `defaults.video.provider`. `generate_sfx` additionally accepts the built-in `local` provider (offline ONNX; run `audio init --model stable-audio-open-small` first). See "Per-call Provider" below.
 >
-> Image parameters are pinned by config: `defaults.image.*` overrides the same parameter passed by the agent unless `defaults.chat.allow_tool_override: true` is set.
+> Image parameters are pinned by config: `defaults.image.*` overrides the same parameter passed by the agent unless `defaults.chat.allow_tool_override: true` is set, or the call explicitly passes a `provider` other than `defaults.image.provider` (then another provider's default model/parameters are not applied).
 >
 > Media-producing tools (`generate_image`, `generate_speech`, `generate_sfx`, `convert_depth`, `upscale`, `remove_background`, `remove_watermark`, `add_watermark`, `crop_watermark`) additionally return **inline image/audio content blocks** next to the text result, so hosts such as Claude Desktop can render generated media directly in the conversation; video and other media MCP cannot represent stay text-only with the file path. At most 4 files (each ≤ 4 MiB) are inlined per result, with an extra text note when files are skipped. Set `AIGC_MCP_EMBED_MEDIA=0` (or `false`/`off`) to disable inlining and return text paths only.
 >
@@ -118,6 +118,9 @@ defaults:
 
 - **Omitted (default)**: behaves exactly as before — the provider selected by `defaults.{command}.provider` (falling back to the global `api_key` / `base_url`).
 - **Provided**: must be the **name** of a provider defined in `config.providers` (whitelist). URLs, paths, and names that are not configured are rejected with an error.
+- **Provided and different from `defaults.{command}.provider`**: the endpoint, API key, and sync/async routing all come from that provider, and the original default's `defaults.{command}.*` block is **not** applied (e.g. `defaults.image.model`, `defaults.music.model`, TTS/STT default model/voice). The request `model` wins; otherwise `providers.<name>.model`; if both are empty the call fails rather than sending another vendor's model id.
+
+> `generate_image` decides its async/sync strategy (ModelScope/APIMart async, OpenRouter/Gemini dedicated APIs, …) from the **provider selected for this call**, and errors no longer blame the configured default provider (the ModelScope async runner labels its errors with the provider actually selected, e.g. `my-modelscope: ...`).
 
 > `generate_video` does **not** accept `provider`: it always uses `defaults.video.provider` (falling back to the global `api_key` / `base_url`).
 
@@ -152,8 +155,8 @@ defaults:
 
 ### What the `model` argument actually does
 
-- `generate_image` / `generate_video`: **config wins** — `defaults.image.model` / `defaults.video.model` overrides the agent-supplied `model` unless `defaults.chat.allow_tool_override: true` is set (then the agent value wins and config only fills gaps).
-- `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio`: the agent-supplied `model` is used as given; `defaults.music.model` / `defaults.audio.speak.model` / `defaults.audio.sfx.model` / `defaults.audio.transcribe.model` fills in only when omitted (then code defaults).
+- `generate_image` / `generate_video`: **config wins** — `defaults.image.model` / `defaults.video.model` overrides the agent-supplied `model` unless `defaults.chat.allow_tool_override: true` is set (then the agent value wins and config only fills gaps). **Exception**: when `generate_image` is called with a `provider` different from `defaults.image.provider`, `defaults.image.*` is not applied and the agent-supplied `model` wins (falling back to `providers.<name>.model`).
+- `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio`: the agent-supplied `model` is used as given; `defaults.music.model` / `defaults.audio.speak.model` / `defaults.audio.sfx.model` / `defaults.audio.transcribe.model` fills in only when omitted (then code defaults). A provider switch likewise skips those defaults so another vendor's model id is never sent.
 
 ## Tool Filtering
 

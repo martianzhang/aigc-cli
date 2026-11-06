@@ -78,8 +78,11 @@ func generateSFXHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		model := request.GetString("model", "")
-		if model == "" && cfg.Defaults != nil && cfg.Defaults.Audio != nil {
+		if model == "" && !cfg.providerOverridden("audio.sfx", p) && cfg.Defaults != nil && cfg.Defaults.Audio != nil {
 			model = cfg.Defaults.Audio.SFXModel()
+		}
+		if model == "" {
+			model = p.Model
 		}
 		duration := request.GetFloat("duration", 0)
 
@@ -88,7 +91,7 @@ func generateSFXHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 		if p.Type == types.ProviderLocal {
-			return generateLocalSFX(cfg, request, input, model, duration, extra)
+			return generateLocalSFX(cfg, p, request, input, model, duration, extra)
 		}
 		return generateOnlineSFX(cfg, request, p, input, model, duration, extra)
 	}
@@ -172,19 +175,25 @@ func generateOnlineSFX(cfg *Config, request mcp.CallToolRequest, p *provider.Eff
 		filename, format, len(res.Data), req.Model), filename), nil
 }
 
-func generateLocalSFX(cfg *Config, request mcp.CallToolRequest, prompt, model string, duration float64, extra json.RawMessage) (*mcp.CallToolResult, error) {
+func generateLocalSFX(cfg *Config, p *provider.EffectiveProvider, request mcp.CallToolRequest, prompt, model string, duration float64, extra json.RawMessage) (*mcp.CallToolResult, error) {
 	if model == "" {
 		model = audio.SFXDefaultModelID
 	}
-	if cfg.ModelsDir == "" {
+	// A named local provider may pin its own models_dir; fall back to the
+	// process-wide models root (which is what the built-in `local` uses).
+	modelsDir := cfg.ModelsDir
+	if p != nil && p.ModelsDir != "" {
+		modelsDir = p.ModelsDir
+	}
+	if modelsDir == "" {
 		return mcp.NewToolResultError("local models directory is not configured"), nil
 	}
 
-	modelDir := filepath.Join(cfg.ModelsDir, "audio", model)
+	modelDir := filepath.Join(modelsDir, "audio", model)
 	if filepath.IsAbs(model) {
 		modelDir = model
 	}
-	libPath, err := onnxrt.LibPath(cfg.ModelsDir)
+	libPath, err := onnxrt.LibPath(modelsDir)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("%v; run 'aigc-cli audio init --model %s'", err, audio.SFXDefaultModelID)), nil
 	}

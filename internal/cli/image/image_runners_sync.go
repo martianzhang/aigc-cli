@@ -12,7 +12,7 @@ import (
 )
 
 // runSyncImage handles OpenAI/OpenRouter-compatible synchronous image generation.
-func runSyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
+func runSyncImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 
 	syncResp, err := c.ImageGenerateSync(req)
@@ -22,8 +22,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispat
 
 	elapsed := time.Since(start)
 
-	p := options.Shared.ResolveProvider("image")
-	fmt.Printf("Provider: %s\n", p.ProviderType)
+	fmt.Printf("Provider: %s\n", ctx.providerFor().ProviderType)
 	fmt.Printf("Model: %s\n", req.Model)
 	if syncResp.Created > 0 {
 		fmt.Printf("Created: %s\n", time.Unix(syncResp.Created, 0).Format("2006-01-02 15:04:05"))

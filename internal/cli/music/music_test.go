@@ -157,7 +157,7 @@ func TestBuildMusicCurl_existingVersionSuffix(t *testing.T) {
 }
 
 func TestGenerateMusicAndSave_nilRequest(t *testing.T) {
-	if _, err := GenerateAndSave(nil, nil); err == nil {
+	if _, err := GenerateAndSave(nil, nil, nil); err == nil {
 		t.Fatal("GenerateAndSave(nil, nil) expected error, got nil")
 	}
 }

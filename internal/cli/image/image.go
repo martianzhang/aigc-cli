@@ -13,7 +13,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
-	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // imageCmd represents the `aigc-cli image` command.
@@ -98,11 +97,6 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	isAPIMart := options.IsAPIMartProvider(p)
-	isOpenRouter := p.ProviderType == provider.OpenRouter
-	isAgnes := p.ProviderType == provider.Agnes
-	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
-	isModelScope := p.ProviderType == provider.ModelScope
-	isGemini := p.ProviderType == provider.Gemini
 	isZeekai := p.ProviderType == provider.Zeekai
 	isMultipart := useMultipartImageEdits(p, req)
 
@@ -211,18 +205,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Strategy table: first match wins, last entry is the default.
-	ictx := &imageDispatchCtx{
-		isAPIMart:     isAPIMart,
-		isOpenRouter:  isOpenRouter,
-		isModelScope:  isModelScope,
-		isAgnes:       isAgnes,
-		isGemini:      isGemini,
-		isZeekai:      isZeekai,
-		isMultipart:   isMultipart,
-		genEdit:       genEdit,
-		isOllama:      isOllama,
-		modelScopeKey: p.APIKey,
-	}
+	ictx := newImageDispatchCtx(p, req, genEdit)
 	for _, s := range imageStrategies {
 		if s.match(req, ictx) {
 			saved, err := s.run(c, req, ictx)

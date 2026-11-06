@@ -130,20 +130,30 @@ func argsMap(req mcp.CallToolRequest) (map[string]any, error) {
 // kbSearchResultLimit caps how many web results one kb_search fetches and stores.
 const kbSearchResultLimit = 5
 
+// resolveKBSearchProvider picks the search vendor for one kb_search call:
+// an explicit per-call provider wins, then defaults.search.provider, then the
+// free DuckDuckGo fallback.
+func resolveKBSearchProvider(cfg *Config, requested string) string {
+	if requested != "" {
+		return requested
+	}
+	if cfg != nil && cfg.SearchProvider != "" {
+		return cfg.SearchProvider
+	}
+	return "duckduckgo"
+}
+
 // kbSearchURLs resolves the result URLs to ingest into the knowledge base.
 //
 // Unlike the chat search primitives this keeps the free DuckDuckGo fallback
-// via NewRouterAll, matching `aigc-cli kb search`. It uses the same shared
-// defaults.search.provider vendor as every other search surface. Previously
-// this was hardcoded to DuckDuckGo, so a configured Brave/DeepSeek/Firecrawl
-// provider had no effect on MCP at all.
-func kbSearchURLs(cfg *Config, query string, limit int) ([]string, error) {
+// via NewRouterAll, matching `aigc-cli kb search`. The vendor is the tool's
+// per-call `provider` argument when given, otherwise defaults.search.provider.
+// Previously the argument was accepted but ignored, so kb_search always used
+// the configured default.
+func kbSearchURLs(cfg *Config, query, requestedProvider string, limit int) ([]string, error) {
 	router := search.NewRouterAll(cfg.WebSearchProviders)
 
-	provider := cfg.SearchProvider
-	if provider == "" {
-		provider = "duckduckgo"
-	}
+	provider := resolveKBSearchProvider(cfg, requestedProvider)
 	result, err := router.Search(query, limit, provider, search.Options{})
 	if err != nil {
 		return nil, err
@@ -275,7 +285,8 @@ func kbSearchHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 		defer store.Close()
 
-		urls, err := kbSearchURLs(cfg, query, kbSearchResultLimit)
+		providerName, _ := args["provider"].(string)
+		urls, err := kbSearchURLs(cfg, query, providerName, kbSearchResultLimit)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("search request: %v", err)), nil
 		}

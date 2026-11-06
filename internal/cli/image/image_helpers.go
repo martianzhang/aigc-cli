@@ -47,11 +47,15 @@ func loadImageDefaults() *types.ImageDefaults {
 	return nil
 }
 
-// GenerateAndSave generates images via the configured provider and saves them to disk.
+// GenerateAndSave generates images via p and saves them to disk.
 // Handles config merge, timeout, API dispatch, and download. Returns paths to saved files.
-// Shared by CLI (image command) and agent loop (chat) — single source of truth.
-// Supports APIMart async and OpenAI-compatible sync providers.
-func GenerateAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, error) {
+//
+// p must be the provider that also built c. The MCP handler resolves an
+// optional per-call `provider` argument before calling this function; passing
+// it through is what keeps the strategy (sync vs ModelScope/APIMart async),
+// the endpoint and the API key on the same backend. A nil p falls back to the
+// configured image provider for older callers.
+func GenerateAndSave(c client.APIClient, p *provider.EffectiveProvider, req *types.GenerateRequest) ([]string, error) {
 	// Always load the user's config — options.Shared.Cfg may be nil if PersistentPreRunE
 	// hasn't run (e.g., direct call from agent loop without CLI entry).
 	imgCfg := loadImageDefaults()
@@ -67,31 +71,45 @@ func GenerateAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, 
 			req.Model, req.Quality, req.Size, req.Resolution)
 	}
 
+	// The configured default decides whether the caller explicitly switched
+	// providers for this call. If they did, defaults.image.* belongs to a
+	// different backend and must not be forced onto the request (in particular
+	// its model would otherwise be sent to the wrong vendor).
+	configured := options.Shared.ResolveProvider(options.ProviderNameImage)
+	if p == nil {
+		p = configured
+	}
+	explicitProvider := p.Name != "" && p.Name != configured.Name
+
 	// Check if LLM is allowed to override config (default: false = config wins)
 	allowOverride := false
 	if cfg := options.ChatDefaults(); cfg != nil {
 		allowOverride = cfg.AllowToolOverride
 	}
 
-	if imgCfg != nil {
-		if !allowOverride {
-			// Config is the ceiling — force values regardless of LLM
-			if imgCfg.Model != "" {
-				req.Model = imgCfg.Model
-			}
-			if imgCfg.Quality != "" {
-				req.Quality = imgCfg.Quality
-			}
-			if imgCfg.Size != "" {
-				req.Size = imgCfg.Size
-			}
-			if imgCfg.Resolution != "" {
-				req.Resolution = imgCfg.Resolution
-			}
-		} else {
-			// allow_tool_override=true — LLM takes priority, config only fills empty fields
-			imgCfg.MergeIntoImage(req)
+	switch {
+	case explicitProvider:
+		// Only the selected provider's own model applies.
+		if req.Model == "" {
+			req.Model = p.Model
 		}
+	case imgCfg != nil && !allowOverride:
+		// Config is the ceiling — force values regardless of LLM
+		if imgCfg.Model != "" {
+			req.Model = imgCfg.Model
+		}
+		if imgCfg.Quality != "" {
+			req.Quality = imgCfg.Quality
+		}
+		if imgCfg.Size != "" {
+			req.Size = imgCfg.Size
+		}
+		if imgCfg.Resolution != "" {
+			req.Resolution = imgCfg.Resolution
+		}
+	case imgCfg != nil:
+		// allow_tool_override=true — LLM takes priority, config only fills empty fields
+		imgCfg.MergeIntoImage(req)
 	}
 	// Code defaults for fields the user didn't configure
 	if req.Size == "" {
@@ -108,25 +126,14 @@ func GenerateAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, 
 			req.Model, req.Quality, req.Size, req.Resolution)
 	}
 	if req.Model == "" {
-		return nil, fmt.Errorf("model is required: set via defaults.image.model in config.yaml")
+		return nil, fmt.Errorf("model is required: set model in the request, providers.<name>.model, or defaults.image.model in config.yaml")
 	}
 
 	// Set timeout
 	options.ApplyTimeout(c, "image", client.ImageTimeout)
 
-	// Resolve provider (named provider > global > builtin)
-	p := options.Shared.ResolveProvider(options.ProviderNameImage)
-	isAPIMart := options.IsAPIMartProvider(p)
-	isOpenRouter := p.ProviderType == provider.OpenRouter
-	isAgnes := p.ProviderType == provider.Agnes
-	isOllama := p.Type == types.ProviderOllama || provider.IsLocalEndpoint(p.BaseURL)
-	isModelScope := p.ProviderType == provider.ModelScope
-	isGemini := p.ProviderType == provider.Gemini
-	isZeekai := p.ProviderType == provider.Zeekai
-	isMultipart := useMultipartImageEdits(p, req)
-
 	// Strip APIMart-only fields for non-APIMart providers.
-	if !isAPIMart {
+	if !options.IsAPIMartProvider(p) {
 		req.Resolution = ""
 	}
 
@@ -139,18 +146,7 @@ func GenerateAndSave(c client.APIClient, req *types.GenerateRequest) ([]string, 
 	}
 
 	// Strategy table: first match wins, last entry is the default.
-	ictx := &imageDispatchCtx{
-		isAPIMart:     isAPIMart,
-		isOpenRouter:  isOpenRouter,
-		isModelScope:  isModelScope,
-		isAgnes:       isAgnes,
-		isGemini:      isGemini,
-		isZeekai:      isZeekai,
-		isMultipart:   isMultipart,
-		genEdit:       false,
-		isOllama:      isOllama,
-		modelScopeKey: p.APIKey,
-	}
+	ictx := newImageDispatchCtx(p, req, false)
 	for _, s := range imageStrategies {
 		if s.match(req, ictx) {
 			saved, err := s.run(c, req, ictx)

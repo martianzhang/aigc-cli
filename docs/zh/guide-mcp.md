@@ -75,7 +75,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 
 | Tool | Description | API Key Required |
 |---|---|---|
-| `generate_image` | 文生图 / 图生图 / Inpainting；支持可选白名单参数 `provider` | ✅ |
+| `generate_image` | 文生图 / 图生图 / Inpainting；支持可选白名单参数 `provider`（同时切换 endpoint、API Key 与同步/异步路由） | ✅ |
 | `generate_video` | 视频生成（异步提交 → 轮询）；固定使用 `defaults.video.provider`，不接受 `provider` 参数；支持 `return_last_frame` 保存尾帧图用于续拍 | ✅ |
 | `generate_music` | 音乐生成（APIMart suno/flowmusic 异步、OpenRouter Lyria、阿里云百炼 Fun-Music）；支持可选 `provider` | ✅ |
 | `generate_speech` | 文字转语音 TTS；支持可选 `provider` / `model` / `voice` / `format` | ✅ |
@@ -105,7 +105,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `web_search` | 联网搜索：走配置的第三方厂商（`defaults.search.provider` 选择），**可能按次计费**；未配置厂商时明确报错，不静默回落内置引擎 | 视厂商 |
 | `web_fetch` | 抓 URL 正文：走同一第三方厂商的抓取接口，返回厂商格式化 Markdown，**可能按次计费**；需具备抓取能力的厂商（如 deepseek） | 视厂商 |
 | `kb_find` | 本地知识库关键词 + 语义搜索 | ❌ |
-| `kb_search` | 联网搜索并入库（搜索引擎由 `defaults.search.provider` 选择，含免费 DuckDuckGo 兜底） | ❌ |
+| `kb_search` | 联网搜索并入库；搜索引擎可由可选参数 `provider` 指定，缺省用 `defaults.search.provider`（含免费 DuckDuckGo 兜底） | ❌ |
 | `kb_add` | 把本地文件加入知识库（.md/.txt/.go/.py/.json/.yaml/.html） | ❌ |
 | `kb_fetch` | 抓取 URL 正文转 Markdown 后入库 | ❌ |
 | `kb_list` | 列出知识库中的全部文档 | ❌ |
@@ -132,7 +132,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 |---|---|
 | MCP `web_search` / `web_fetch` | `defaults.search.provider` |
 | chat `web_search` / `web_fetch` | `--search-provider` > `defaults.search.provider` |
-| MCP `kb_search` / `kb search` | `defaults.search.provider`（含免费 DuckDuckGo 兜底） |
+| MCP `kb_search` / `kb search` | 工具 `provider` 参数 > `defaults.search.provider`（含免费 DuckDuckGo 兜底） |
 
 ```yaml
 web_search:
@@ -155,7 +155,7 @@ defaults:
 >
 > `generate_image` / `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio` 与 4 个 `midjourney_*` 工具还支持可选的 `provider` 参数（仅接受 `config.providers` 中的名称白名单）；`generate_video` 不支持该参数，固定使用 `defaults.video.provider`。`generate_sfx` 额外接受内置 `local`（离线 ONNX，需要先 `audio init --model stable-audio-open-small`）。详见下文「按调用指定 Provider」。
 >
-> 图片参数以配置为准：`defaults.image.*` 会覆盖 Agent 传入的同名参数，除非设置 `defaults.chat.allow_tool_override: true`。
+> 图片参数以配置为准：`defaults.image.*` 会覆盖 Agent 传入的同名参数，除非设置 `defaults.chat.allow_tool_override: true`，或本次调用显式传了与 `defaults.image.provider` 不同的 `provider`（此时不会套用另一家 Provider 的默认模型/参数）。
 >
 > 产出媒体文件的工具（`generate_image`、`generate_speech`、`generate_sfx`、`convert_depth`、`upscale`、`remove_background`、`remove_watermark`、`add_watermark`、`crop_watermark`）会在原有文本结果之外附加**内联的图片/音频内容块**（MCP image/audio content），Claude Desktop 等宿主可直接在对话中渲染生成结果；视频等 MCP 尚不支持的媒体仍只返回文件路径。单次结果最多内联 4 个文件、每个不超过 4 MiB，超出部分仅在文本中提示；设置环境变量 `AIGC_MCP_EMBED_MEDIA=0`（或 `false`/`off`）可关闭内联，只返回文本路径。
 >
@@ -167,6 +167,9 @@ defaults:
 
 - **留空（默认）**：行为与不传该参数完全一致，使用 `defaults.{命令}.provider` 指定的 Provider（未配置时回退全局 `api_key` / `base_url`）。
 - **传值时**：只能是 `config.providers` 中已配置的 **Provider 名称**（白名单）。URL、路径，以及未在配置中定义的名称一律被拒绝并返回错误。
+- **传值且与 `defaults.{命令}.provider` 不同时**：请求的 endpoint、API Key、同步/异步路由全部使用该 Provider；同时**不会套用原默认 Provider 的 `defaults.{命令}.*` 参数**（例如 `defaults.image.model`、`defaults.music.model`、TTS/STT 的默认 model/voice）。此时模型优先取请求里的 `model`，其次取 `providers.<name>.model`；仍为空则报错，避免把 A 厂商的模型名发给 B 厂商。
+
+> `generate_image` 的异步/同步策略（ModelScope/APIMart 异步、OpenRouter/Gemini 专用接口等）按**本次调用的 Provider** 判断；错误信息也不会再把默认 Provider 的名称套到实际请求上（ModelScope 异步 runner 的错误前缀使用实际 Provider 名称，例如 `my-modelscope: ...`）。
 
 > `generate_video` **不支持** `provider` 参数：它始终使用 `defaults.video.provider`（未配置时回退全局 `api_key` / `base_url`）。
 
@@ -201,8 +204,8 @@ defaults:
 
 ### `model` 参数的真实行为
 
-- `generate_image` / `generate_video`：**配置优先** —— `defaults.image.model` / `defaults.video.model` 会覆盖 Agent 传入的 `model`，除非设置 `defaults.chat.allow_tool_override: true`（此时 Agent 传值优先，配置只在缺省时补齐）。
-- `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio`：Agent 传入的 `model` **按原样使用**；仅当未传时才回退到 `defaults.music.model` / `defaults.audio.speak.model` / `defaults.audio.sfx.model` / `defaults.audio.transcribe.model`（再回退代码默认值）。
+- `generate_image` / `generate_video`：**配置优先** —— `defaults.image.model` / `defaults.video.model` 会覆盖 Agent 传入的 `model`，除非设置 `defaults.chat.allow_tool_override: true`（此时 Agent 传值优先，配置只在缺省时补齐）。**例外**：`generate_image` 传了与 `defaults.image.provider` 不同的 `provider` 时，`defaults.image.*` 不再套用，Agent 传入的 `model` 优先（缺失时用 `providers.<name>.model`）。
+- `generate_music` / `generate_speech` / `generate_sfx` / `transcribe_audio`：Agent 传入的 `model` **按原样使用**；仅当未传时才回退到 `defaults.music.model` / `defaults.audio.speak.model` / `defaults.audio.sfx.model` / `defaults.audio.transcribe.model`（再回退代码默认值）。传了与默认不同的 `provider` 时同样跳过这些默认值，避免跨厂商套用。
 
 ### Filter Tools
 

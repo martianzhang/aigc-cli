@@ -13,6 +13,19 @@ import (
 // config.providers — never by raw URL or path.
 const providerArgDesc = "Name of a provider from config.providers (whitelist). A URL is not accepted."
 
+// providerOverridden reports whether p is a named provider other than the
+// command's configured default. When true, that command's defaults.{cmd}.*
+// block describes a different backend, so applying its model/voice/etc. to
+// this request would send another vendor's identifiers to the selected
+// provider.
+func (cfg *Config) providerOverridden(cmdName string, p *provider.EffectiveProvider) bool {
+	if p == nil || p.Name == "" {
+		return false
+	}
+	def := cfg.cmdProvider(cmdName)
+	return def == nil || def.Name == "" || p.Name != def.Name
+}
+
 // resolveProviderRef resolves the optional per-call `provider` argument for a
 // command against the configured provider whitelist.
 //

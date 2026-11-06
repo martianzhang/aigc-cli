@@ -16,8 +16,16 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/gif"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+// imageAPIClient builds the client for the resolved image provider. It is a
+// variable only so handler tests can inject a recording client; production
+// always uses client.NewFromProvider.
+var imageAPIClient = func(p *provider.EffectiveProvider) client.APIClient {
+	return client.NewFromProvider(p)
+}
 
 // parseImageURLs splits a comma-separated string into a string slice.
 func parseImageURLs(raw string) []string {
@@ -71,8 +79,14 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 			req.FrameDurationMs = &n
 		}
 
-		// Merge config defaults
-		if imgCfg := cfg.Defaults.Image; imgCfg != nil {
+		// Merge config defaults only when this call uses the configured default
+		// provider. An explicit per-call provider must not inherit another
+		// backend's model/size defaults (they would be sent to the wrong vendor).
+		if cfg.providerOverridden("image", p) {
+			if req.Model == "" {
+				req.Model = p.Model
+			}
+		} else if imgCfg := cfg.Defaults.Image; imgCfg != nil {
 			imgCfg.MergeIntoImage(req)
 		}
 
@@ -98,9 +112,9 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		c := client.NewFromProvider(p)
+		c := imageAPIClient(p)
 
-		saved, err := image.GenerateAndSave(c, req)
+		saved, err := image.GenerateAndSave(c, p, req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -279,8 +293,13 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 			req.Instrumental = &v
 		}
 
-		// Merge config defaults
-		if musicCfg := cfg.Defaults.Music; musicCfg != nil {
+		// Merge config defaults only when this call uses the configured default
+		// provider; otherwise the selected provider's own model applies.
+		if cfg.providerOverridden("music", p) {
+			if req.Model == "" {
+				req.Model = p.Model
+			}
+		} else if musicCfg := cfg.Defaults.Music; musicCfg != nil {
 			musicCfg.MergeIntoMusic(req)
 		}
 
@@ -292,7 +311,7 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 		reporter.report(progressDispatch, progressDispatchMessage(p.ProviderType.String()))
 		reporter.report(progressGenerating, progressGeneratingMessage)
 
-		saved, err := music.GenerateAndSave(c, req)
+		saved, err := music.GenerateAndSave(c, p, req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -348,15 +367,19 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 			ResponseFormat: format,
 		}
 
+		overridden := cfg.providerOverridden("audio.speak", p)
 		if req.Model == "" {
-			if cfg.Defaults.Audio != nil {
+			if !overridden && cfg.Defaults.Audio != nil {
 				req.Model = cfg.Defaults.Audio.SpeakModel()
+			}
+			if req.Model == "" {
+				req.Model = p.Model
 			}
 			if req.Model == "" {
 				req.Model = "gpt-4o-mini-tts"
 			}
 		}
-		if req.Voice == "" && cfg.Defaults.Audio != nil {
+		if req.Voice == "" && !overridden && cfg.Defaults.Audio != nil {
 			req.Voice = cfg.Defaults.Audio.SpeakVoice()
 		}
 		if req.Voice == "" {
@@ -397,10 +420,14 @@ func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError("file_path is required"), nil
 		}
 
+		overridden := cfg.providerOverridden("audio.transcribe", p)
 		model := request.GetString("model", "")
 		if model == "" {
-			if cfg.Defaults.Audio != nil {
+			if !overridden && cfg.Defaults.Audio != nil {
 				model = cfg.Defaults.Audio.TranscribeModel()
+			}
+			if model == "" {
+				model = p.Model
 			}
 			if model == "" {
 				model = "whisper-1"

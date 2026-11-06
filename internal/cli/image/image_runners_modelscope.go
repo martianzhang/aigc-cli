@@ -89,6 +89,20 @@ func buildModelScopeImageBody(req *types.GenerateRequest) (map[string]any, error
 func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 
+	// Attribute errors to the provider that was actually selected. A bare ctx
+	// (unit tests) keeps the historical runner label.
+	label := "modelscope"
+	apiKey := ""
+	if ctx != nil {
+		apiKey = ctx.modelScopeKey
+	}
+	if ctx != nil && ctx.p != nil {
+		label = providerLabel(ctx.p)
+		if ctx.p.APIKey != "" {
+			apiKey = ctx.p.APIKey
+		}
+	}
+
 	// ModelScope bypasses client.Client, so build the request client here with
 	// the effective --timeout value. A nil Transport inherits
 	// http.DefaultTransport, which carries the configured proxy.
@@ -104,28 +118,28 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	submitURL := baseURL + "/v1/images/generations"
 	body, err := buildModelScopeImageBody(req)
 	if err != nil {
-		return nil, fmt.Errorf("modelscope: %w", err)
+		return nil, fmt.Errorf("%s: %w", label, err)
 	}
 	injected, err := types.MaybeInject(body, req.InjectJSON)
 	if err != nil {
-		return nil, fmt.Errorf("modelscope: %w", err)
+		return nil, fmt.Errorf("%s: %w", label, err)
 	}
 
 	bodyBytes, err := json.Marshal(injected)
 	if err != nil {
-		return nil, fmt.Errorf("modelscope: failed to marshal request: %w", err)
+		return nil, fmt.Errorf("%s: failed to marshal request: %w", label, err)
 	}
 	httpReq, err := http.NewRequest("POST", submitURL, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return nil, fmt.Errorf("modelscope: failed to create submit request: %w", err)
+		return nil, fmt.Errorf("%s: failed to create submit request: %w", label, err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+ctx.modelScopeKey)
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	httpReq.Header.Set("X-ModelScope-Async-Mode", "true")
 
 	httpResp, err := hc.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("modelscope: submit request failed: %w", err)
+		return nil, fmt.Errorf("%s: submit request failed: %w", label, err)
 	}
 
 	// Read quota headers before consuming body
@@ -138,15 +152,15 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 
 	if httpResp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(httpResp.Body)
-		return nil, fmt.Errorf("modelscope: submit returned HTTP %d: %s", httpResp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("%s: submit returned HTTP %d: %s", label, httpResp.StatusCode, string(respBody))
 	}
 
 	var submitResp modelScopeSubmitResponse
 	if err := json.NewDecoder(httpResp.Body).Decode(&submitResp); err != nil {
-		return nil, fmt.Errorf("modelscope: failed to decode submit response: %w", err)
+		return nil, fmt.Errorf("%s: failed to decode submit response: %w", label, err)
 	}
 	if submitResp.TaskID == "" {
-		return nil, fmt.Errorf("modelscope: submit returned empty task_id")
+		return nil, fmt.Errorf("%s: submit returned empty task_id", label)
 	}
 
 	taskID := submitResp.TaskID
@@ -171,20 +185,20 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 		pollURL := fmt.Sprintf("%s/v1/tasks/%s", baseURL, taskID)
 		pollReq, err := http.NewRequest("GET", pollURL, nil)
 		if err != nil {
-			return nil, fmt.Errorf("modelscope: failed to create poll request: %w", err)
+			return nil, fmt.Errorf("%s: failed to create poll request: %w", label, err)
 		}
-		pollReq.Header.Set("Authorization", "Bearer "+ctx.modelScopeKey)
+		pollReq.Header.Set("Authorization", "Bearer "+apiKey)
 		pollReq.Header.Set("X-ModelScope-Task-Type", "image_generation")
 
 		pollResp, err := hc.Do(pollReq)
 		if err != nil {
-			return nil, fmt.Errorf("modelscope: poll request failed: %w", err)
+			return nil, fmt.Errorf("%s: poll request failed: %w", label, err)
 		}
 
 		var tmpResp modelScopeTaskResponse
 		if err := json.NewDecoder(pollResp.Body).Decode(&tmpResp); err != nil {
 			pollResp.Body.Close()
-			return nil, fmt.Errorf("modelscope: failed to decode poll response: %w", err)
+			return nil, fmt.Errorf("%s: failed to decode poll response: %w", label, err)
 		}
 		pollResp.Body.Close()
 
@@ -193,19 +207,19 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 			taskResp = tmpResp
 			goto done
 		case "FAILED":
-			return nil, fmt.Errorf("modelscope: task %s failed: %s", taskID, tmpResp.errorMessage())
+			return nil, fmt.Errorf("%s: task %s failed: %s", label, taskID, tmpResp.errorMessage())
 		case "PENDING", "RUNNING", "PROCESSING":
 			continue
 		case "CANCELED":
-			return nil, fmt.Errorf("modelscope: task %s was canceled", taskID)
+			return nil, fmt.Errorf("%s: task %s was canceled", label, taskID)
 		case "UNKNOWN":
-			return nil, fmt.Errorf("modelscope: task %s status unknown (may be expired)", taskID)
+			return nil, fmt.Errorf("%s: task %s status unknown (may be expired)", label, taskID)
 		default:
-			return nil, fmt.Errorf("modelscope: unexpected task status %q for task %s", tmpResp.TaskStatus, taskID)
+			return nil, fmt.Errorf("%s: unexpected task status %q for task %s", label, tmpResp.TaskStatus, taskID)
 		}
 	}
 
-	return nil, fmt.Errorf("modelscope: task %s timed out after %.0fs", taskID, maxWait.Seconds())
+	return nil, fmt.Errorf("%s: task %s timed out after %.0fs", label, taskID, maxWait.Seconds())
 
 done:
 	// --- Step 3: Download images ---
