@@ -581,7 +581,7 @@ func splitVisualLine(toks []wrapToken, width int) ([][]wrapToken, []string) {
 func (m *chatModel) renderStatus() string {
 	info := m.providerModelDisplay()
 	if pct := m.contextPercent(); pct >= 0 {
-		info += fmt.Sprintf("  |  ctx %d%%", pct)
+		info += fmt.Sprintf("  |  ctx %s%%", formatContextPercent(pct))
 	}
 	if rec := m.sessionDisplay(); rec != "" {
 		info += "  |  " + rec

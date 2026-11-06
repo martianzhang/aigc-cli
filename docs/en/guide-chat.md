@@ -514,7 +514,7 @@ context tokens > window − max(reserve_tokens, max_output + 1024)
 - Transient summary errors are retried. Repeated failures enter a cooldown. A provider context-overflow error forces one compact-and-retry; if that also fails, a local emergency trim drops the oldest complete turns.
 - `/compact [focus]` compacts manually (optional focus); the TUI keeps the transcript and appends a divider plus the new summary.
 - `/model` and `/provider` re-resolve the window for the new selection and reset the usage anchor; an explicit window from the previous model is not carried over blindly. `/model default` lets the API/provider choose a model; `/provider default` restores the CLI/config provider. `/context` shows the active provider, model and threshold.
-- `/context` shows token usage, threshold, breakdown, usage anchor, and the last compaction. The status bar also shows `ctx N%`.
+- `/context` shows token usage, threshold, breakdown, usage anchor, and the last compaction. The status bar also shows `ctx N%` with up to two decimals (for example `ctx 0.86%`); tiny non-zero values render as `<0.01%`.
 - Disable auto-compaction with `--no-auto-compact` or `defaults.chat.auto_compact: false`.
 
 ```yaml

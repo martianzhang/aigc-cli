@@ -24,11 +24,30 @@ func contextTestModel() *chatModel {
 func TestContextPercent(t *testing.T) {
 	m := contextTestModel()
 	if got := m.contextPercent(); got != 40 {
-		t.Fatalf("contextPercent() = %d, want 40", got)
+		t.Fatalf("contextPercent() = %v, want 40", got)
 	}
 	m.contextSize = 0
 	if got := m.contextPercent(); got != -1 {
-		t.Fatalf("contextPercent() with unknown window = %d, want -1", got)
+		t.Fatalf("contextPercent() with unknown window = %v, want -1", got)
+	}
+}
+
+func TestFormatContextPercent(t *testing.T) {
+	tests := []struct {
+		pct  float64
+		want string
+	}{
+		{0, "0"},
+		{0.004, "<0.01"},
+		{0.8595, "0.86"},
+		{12.345, "12.35"},
+		{40, "40"},
+		{999, "999"},
+	}
+	for _, tt := range tests {
+		if got := formatContextPercent(tt.pct); got != tt.want {
+			t.Errorf("formatContextPercent(%v) = %q, want %q", tt.pct, got, tt.want)
+		}
 	}
 }
 
@@ -49,7 +68,7 @@ func TestShowContext(t *testing.T) {
 		t.Fatal("showContext() added no message")
 	}
 	text := m.messages[len(m.messages)-1].content
-	for _, want := range []string{"Context usage", "51200 / 128000", "compact at", "last compaction", "usage"} {
+	for _, want := range []string{"Context usage", "51200 / 128000", "(40%)", "compact at", "last compaction", "usage"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("context output missing %q:\n%s", want, text)
 		}
@@ -61,6 +80,13 @@ func TestStatusBarShowsContextPercent(t *testing.T) {
 	got := m.renderStatus()
 	if !strings.Contains(got, "ctx 40%") {
 		t.Fatalf("renderStatus() = %q, want ctx 40%%", got)
+	}
+
+	// A 1M window keeps small usage below one percent; it must not collapse to 0.
+	m.contextSize = 1048576
+	m.contextTokens = 9013
+	if got := m.renderStatus(); !strings.Contains(got, "ctx 0.86%") {
+		t.Fatalf("renderStatus() = %q, want ctx 0.86%%", got)
 	}
 }
 

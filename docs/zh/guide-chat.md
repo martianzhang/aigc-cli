@@ -861,7 +861,7 @@ aigc-cli chat --zdr --message "你好"
 - 摘要失败会重试瞬时错误；连续失败进入冷却，避免每轮重复烧钱。主请求因上下文溢出失败时，会自动强制压缩并重试一次；压缩也失败时执行本地紧急裁剪（丢弃最旧的完整 turn）。
 - `/compact [关注点]` 手动触发压缩，可选参数作为摘要重点；手动压缩会保留屏幕上的历史，只追加分隔线和摘要。
 - `/model` 无参数时会列出当前 provider 的 `/models` 目录（带 context window），`/model <provider> <model>` 可以一步切换 provider 和模型；`/provider` 无参数时列出 `providers.<name>` 配置。切换后会按新模型重新解析窗口并重置 usage 锚点；上一个模型的显式窗口不会盲目沿用。`/context` 可随时确认当前 provider、model 和阈值。
-- `/context` 查看当前 token 占用、阈值、分类明细、usage 锚点和上次压缩收益；状态栏同时显示 `ctx N%`。
+- `/context` 查看当前 token 占用、阈值、分类明细、usage 锚点和上次压缩收益；状态栏同时显示 `ctx N%`，百分比最多保留两位小数（如 `ctx 0.86%`），极小的非零值显示为 `<0.01%`。
 - 关闭自动压缩用 `--no-auto-compact` 或 `defaults.chat.auto_compact: false`。
 
 ```yaml

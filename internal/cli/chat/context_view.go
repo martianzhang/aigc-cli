@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
@@ -10,15 +11,31 @@ import (
 
 // contextPercent returns the cached context usage as a percentage, or -1 when
 // the window is unknown.
-func (m *chatModel) contextPercent() int {
+func (m *chatModel) contextPercent() float64 {
 	if m.contextSize <= 0 || m.contextTokens <= 0 {
 		return -1
 	}
-	pct := m.contextTokens * 100 / m.contextSize
+	pct := float64(m.contextTokens) * 100 / float64(m.contextSize)
 	if pct > 999 {
 		pct = 999
 	}
 	return pct
+}
+
+// formatContextPercent renders a percentage with up to two decimals, dropping
+// trailing zeros so whole values stay compact ("40" instead of "40.00"). Tiny
+// non-zero values are shown as "<0.01" rather than a misleading "0".
+func formatContextPercent(pct float64) string {
+	if pct <= 0 {
+		return "0"
+	}
+	s := strconv.FormatFloat(pct, 'f', 2, 64)
+	s = strings.TrimRight(s, "0")
+	s = strings.TrimRight(s, ".")
+	if s == "0" {
+		return "<0.01"
+	}
+	return s
 }
 
 func (m *chatModel) showContext() {
@@ -38,8 +55,8 @@ func (m *chatModel) showContext() {
 	var b strings.Builder
 	b.WriteString("Context usage\n")
 	if settings.Window > 0 {
-		pct := usage.Tokens * 100 / settings.Window
-		fmt.Fprintf(&b, "  %d / %d tokens (%d%%)\n", usage.Tokens, settings.Window, pct)
+		pct := float64(usage.Tokens) * 100 / float64(settings.Window)
+		fmt.Fprintf(&b, "  %d / %d tokens (%s%%)\n", usage.Tokens, settings.Window, formatContextPercent(pct))
 		fmt.Fprintf(&b, "  compact at %d (reserve %d, keep recent %d)\n",
 			settings.Threshold(), settings.ReserveTokens, settings.KeepRecentTokens)
 		if !settings.Enabled {
