@@ -6,6 +6,7 @@ aigc-cli.exe
 # IDE
 .vscode/
 .idea/
+.opencode/
 downloads/
 __pycache__/
 *.swp
