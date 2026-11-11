@@ -26,9 +26,9 @@ func newRulesCmd() *cobra.Command {
   aigc-cli redact rules --json > rules.json
   aigc-cli redact rules --export > rules.yaml
 
-  # Inspect an external profile, or preview a reduced rule set
+  # Inspect an external profile, or toggle individual rules
   aigc-cli redact rules --profile strict
-  aigc-cli redact rules --only id_card,phone_mobile
+  aigc-cli redact rules --enable passport,lawyer_no
   aigc-cli redact rules --disable bank_card,plate
   aigc-cli redact rules --rules-file team-rules.yaml`,
 		SilenceUsage: true,

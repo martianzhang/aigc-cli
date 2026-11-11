@@ -145,3 +145,21 @@ python score.py --engine union --file out/union.jsonl
 3. Horizon 需要“连续字母数字扩展 + 校验位重分类”的后处理，才能用于身份证/USCC；ORG 召回仍是硬伤。
 4. 把 `mask` 策略（position / keep_prefix / keep_suffix / strategy）落到配置和单测。
 5. 如果需要纯 ONNX 的 ORG，继续评估 PII-Engineer-Chinese / OpenMed 中文 PII。
+
+## 参考项目与回归语料
+
+除了自造样例，本轮规则评估参考了公开的法律文书脱敏项目，只提炼模式，不复制真实当事人数据：
+
+- [qwertyzhu/legal-redactor](https://github.com/qwertyzhu/legal-redactor)（Apache-2.0）：虚构的起诉状、合同、判决书、律师函、判决叙事和负样例 corpus；
+- [RayBagel/LegalMask](https://github.com/RayBagel/LegalMask)（MIT）：法条保护、案号、金额、日期、地址分层处理思路；
+- [Lawbot 脱敏猫文档](https://www.lawbotai.cn/docs.html)：20 类法律文书敏感实体清单；
+- 元典 / 律师企业法律顾问 AI 应用指引：客户名称、个人信息、商业秘密、金额/日期等脱敏分类。
+
+据此补充的回归用例位于 `internal/redact/legal_corpus_test.go`，覆盖：
+
+- 角色词后的姓名（原告/被告/证人/法定代表人/审判长）与亲属关系姓名；
+- `以下简称 XX 公司` 的机构简称及全文传播；
+- 虚构/校验位错误的身份证号（标签上下文 + 日期段宽松校验）；
+- 地址楼栋/单元/房间后缀扩展；
+- 作品名 `《...》` 与法条/司法解释名的区分；
+- `账号` 后银行账号、IP、公司全称/简称、法条保护、负样例中的订单号。

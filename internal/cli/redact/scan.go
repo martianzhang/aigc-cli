@@ -53,9 +53,9 @@ func newScanCmd() *cobra.Command {
   aigc-cli --provider ollama --model has4 redact scan contract.txt --engine auto
   aigc-cli --provider local --model-engine tokencls redact scan contract.txt --engine auto
 
-  # Switch to an external rule profile, and show originals instead of masks
+  # Switch to an external rule profile, and toggle individual rules
   aigc-cli redact scan contract.txt --profile strict
-  aigc-cli redact scan contract.txt --only id_card,phone_mobile --reveal
+  aigc-cli redact scan contract.txt --enable passport,lawyer_no --reveal
 
   # Read from stdin
   cat contract.txt | aigc-cli redact scan - --json`,

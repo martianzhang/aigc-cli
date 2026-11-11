@@ -27,9 +27,11 @@ func TestMaskDefaults(t *testing.T) {
 		{"ID_CARD", "110105198503121234", "110105********1234"},
 		{"BANK_CARD", spaced, "**** **** **** " + card[12:16]},
 		{"PERSON", "张伟", "张*"},
-		{"PERSON", "欧阳娜娜", "欧阳**"},
-		{"PERSON", "Zhang Wei", "Z**** W**"},
+		{"PERSON", "欧阳娜娜", "欧阳*"},
+		{"PERSON", "Zhang Wei", "Z* W*"},
 		{"EMAIL", "zhangwei@example.com", "z*******@example.com"},
+		{"DATE", "1987年3月12日", "****年**月**日"},
+		{"DATE", "2024-03-15", "****-**-**"},
 		{"ADDRESS", "北京市朝阳区建国路88号", "北京市朝阳区******"},
 	}
 	for _, c := range cases {
@@ -97,5 +99,26 @@ func TestMaskKeepsAtLeastOneChar(t *testing.T) {
 	got := MaskValue("张伟", "PERSON", p)
 	if !strings.Contains(got, "*") {
 		t.Fatalf("expected at least one mask char, got %q", got)
+	}
+}
+
+func TestEthnicityKeepsZuSuffix(t *testing.T) {
+	if got := BlackValue("汉族", "ETHNICITY"); got != "█族" {
+		t.Fatalf("black ethnicity = %q, want █族", got)
+	}
+	if got := MaskValue("维吾尔族", "ETHNICITY", defaultMaskPolicy("ETHNICITY")); got != "*族" {
+		t.Fatalf("mask ethnicity = %q, want *族", got)
+	}
+	if got := BlackValue("周砚清", "PERSON"); got != "██" {
+		t.Fatalf("black person = %q, want ██", got)
+	}
+	if got := BlackValue("1987年3月12日", "DATE"); got != "████年██月██日" {
+		t.Fatalf("black date = %q, want ████年██月██日", got)
+	}
+	if got := MaskValue("1979年11月8日", "DATE", defaultMaskPolicy("DATE")); got != "****年**月**日" {
+		t.Fatalf("date masks should look identical, got %q", got)
+	}
+	if got := BlackValue("北京", "ADDRESS"); got != "██" {
+		t.Fatalf("non-ethnicity black = %q", got)
 	}
 }

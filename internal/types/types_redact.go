@@ -23,10 +23,11 @@ type RedactConfig struct {
 	Placeholder string `mapstructure:"placeholder" yaml:"placeholder,omitempty"`
 	// Engine selects rules | model | auto (auto = rules + model when configured).
 	Engine string `mapstructure:"engine" yaml:"engine,omitempty"`
-	// Date and Amount opt semantic entities into replacement. They are off by
-	// default because changing dates/amounts changes the meaning of a document.
-	Date   bool `mapstructure:"date" yaml:"date,omitempty"`
-	Amount bool `mapstructure:"amount" yaml:"amount,omitempty"`
+	// Date and Amount control replacement of DATE/AMOUNT spans. They default to
+	// true (dates can reveal an ID birth date, amounts may include salary or
+	// other commercial terms); set them to false to keep dates/amounts readable.
+	Date   *bool `mapstructure:"date" yaml:"date,omitempty"`
+	Amount *bool `mapstructure:"amount" yaml:"amount,omitempty"`
 
 	// Rules toggles built-in rules by name. Missing entries keep the built-in
 	// default. An unknown name is a configuration error.
@@ -156,3 +157,11 @@ type RedactChatnerConfig struct {
 // RedactDefaults is the defaults.redact section. It shares RedactConfig so the
 // provider/model selection and the command behavior live in one place.
 type RedactDefaults = RedactConfig
+
+// BoolDefault returns *v when set, otherwise def.
+func BoolDefault(v *bool, def bool) bool {
+	if v == nil {
+		return def
+	}
+	return *v
+}

@@ -139,7 +139,7 @@ func TestApplyMaskAndSpans(t *testing.T) {
 	}
 }
 
-func TestRulesFileAndOnly(t *testing.T) {
+func TestRulesFileAndEnable(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "a.txt")
 	if err := os.WriteFile(src, []byte("电话13812345678，合同HT-2024-123456。"), 0o644); err != nil {
@@ -155,7 +155,8 @@ custom:
 		t.Fatal(err)
 	}
 	out, err := runCommand(t, Deps{OutputDir: dir},
-		"scan", src, "--json", "--rules-file", rules, "--only", "contract_no_custom")
+		"scan", src, "--json", "--rules-file", rules,
+		"--enable", "contract_no_custom", "--disable", "phone_mobile,contract_no")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,5 +237,31 @@ func TestModelEngineOnlyAcceptsBackendNames(t *testing.T) {
 	_, err = (buildFlags{modelEngine: "has4"}).redactConfig()
 	if err == nil || !strings.Contains(err.Error(), "--model has4") {
 		t.Fatalf("bare model name error = %v, want guidance to --model has4", err)
+	}
+}
+
+func TestApplyDatesDefaultOn(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "a.txt")
+	if err := os.WriteFile(src, []byte("原告：张三，1987年3月12日出生，电话13812345678。\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runCommand(t, Deps{OutputDir: dir}, "apply", src, "--stdout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "<DATE_1>") {
+		t.Fatalf("date was not redacted by default:\n%s", out)
+	}
+	if strings.Contains(out, "1987年3月12日") {
+		t.Fatalf("date leaked:\n%s", out)
+	}
+
+	out, err = runCommand(t, Deps{OutputDir: dir}, "apply", src, "--stdout", "--disable", "date_cn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "1987年3月12日") {
+		t.Fatalf("--disable date_cn did not keep the date:\n%s", out)
 	}
 }

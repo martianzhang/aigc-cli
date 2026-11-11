@@ -45,7 +45,7 @@ func (p *Pipeline) Detect(ctx context.Context, doc *Document) (Result, error) {
 		}
 		result.Review = append(result.Review, r.Review...)
 	}
-	result.Spans = MergeSpans(result.Spans)
+	result.Spans = propagateExactSpans(doc, MergeSpans(result.Spans))
 	result.Review = dedupeSpans(result.Review)
 	return result, nil
 }

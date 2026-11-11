@@ -21,8 +21,8 @@ const mappingVersion = 1
 type ApplyOptions struct {
 	Style       string
 	Placeholder string
-	Date        bool
-	Amount      bool
+	SkipDate    bool
+	SkipAmount  bool
 	Aliases     map[string][]string
 	Masks       *MaskResolver
 }
@@ -50,10 +50,10 @@ func Apply(doc *Document, spans []Span, opts ApplyOptions) (string, *Mapping, er
 
 	kept := make([]Span, 0, len(spans))
 	for _, s := range spans {
-		if s.Type == "DATE" && !opts.Date {
+		if s.Type == "DATE" && opts.SkipDate {
 			continue
 		}
-		if s.Type == "AMOUNT" && !opts.Amount {
+		if s.Type == "AMOUNT" && opts.SkipAmount {
 			continue
 		}
 		kept = append(kept, s)
@@ -130,7 +130,7 @@ func Apply(doc *Document, spans []Span, opts ApplyOptions) (string, *Mapping, er
 			replacement = MaskValue(s.Text, s.Type, policy)
 			masked = replacement
 		case "black":
-			replacement = strings.Repeat("█", lenRunes(s.Text))
+			replacement = BlackValue(s.Text, s.Type)
 			masked = replacement
 		case "hash":
 		default:

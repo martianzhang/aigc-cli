@@ -17,4 +17,4 @@ tokencls:
   max_len: 256
   stride: 64
   operating_point: high_recall
-# 日期/金额默认不参与替换；需要时：aigc-cli redact apply f.txt --with-date --with-amount
+# 日期/金额/民族默认脱敏；需要保留时：--disable date_cn,amount,amount_cn,ethnicity_name,ethnicity_assign

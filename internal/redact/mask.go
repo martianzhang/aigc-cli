@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -52,12 +53,36 @@ func defaultMaskPolicy(typ string) MaskPolicy {
 		p.Strategy, p.Position, p.KeepPrefix = "email", "middle", 1
 		p.KeepSuffixRegex = "@.*$"
 	case "PERSON":
-		p.Strategy, p.Position, p.KeepPrefix = "name", "suffix", 1
+		// Keep the surname/initial but always use one star for the given name,
+		// so 张三 and 张三丰 look identical and length is not leaked.
+		p.Strategy, p.PreserveLength, p.MaskLen = "name", false, 1
 	case "ADDRESS":
 		p.Strategy, p.Position = "address", "suffix"
 		p.KeepPrefixRegex = `^.*?(?:省|市|区|县|镇|街道|乡)`
 	case "ORG":
 		p.Position = "all"
+	case "PASSWORD":
+		p.Position, p.PreserveLength, p.MaskLen = "all", false, 8
+	case "USERNAME":
+		p.Position, p.KeepPrefix, p.KeepSuffix = "middle", 2, 2
+	case "DB_URL":
+		p.Position, p.PreserveLength, p.MaskLen = "all", false, 12
+	case "HOST":
+		p.Position, p.KeepPrefix, p.KeepSuffix = "middle", 3, 4
+	case "CREDENTIAL", "COOKIE", "API_KEY", "TOKEN", "PRIVATE_KEY":
+		p.Position, p.PreserveLength, p.MaskLen = "all", false, 8
+	case "URL":
+		p.Position, p.PreserveLength, p.MaskLen = "all", false, 12
+	case "CRYPTO":
+		p.Position, p.KeepPrefix, p.KeepSuffix = "middle", 4, 4
+	case "WORK":
+		p.Position, p.PreserveLength, p.MaskLen = "all", false, 8
+	case "ETHNICITY":
+		// Keep only the generic 族 suffix; the number of stars must not reveal
+		// which ethnicity it was.
+		p.Position, p.KeepSuffix, p.PreserveLength, p.MaskLen = "prefix", 1, false, 1
+	case "DATE":
+		p.Strategy = "date"
 	}
 	return p
 }
@@ -108,7 +133,7 @@ func (r *MaskResolver) compileAll() error {
 
 func compileMask(p *MaskPolicy) error {
 	switch p.Strategy {
-	case "fixed", "name", "email", "address", "phone", "id_card", "bank_card":
+	case "fixed", "name", "email", "address", "phone", "id_card", "bank_card", "date":
 	default:
 		return fmt.Errorf("unknown mask strategy %q", p.Strategy)
 	}
@@ -155,7 +180,9 @@ func (r *MaskResolver) Policy(typ string) MaskPolicy {
 
 func isBuiltinMaskType(typ string) bool {
 	switch typ {
-	case "ID_CARD", "PHONE", "BANK_CARD", "EMAIL", "PERSON", "ADDRESS", "ORG":
+	case "ID_CARD", "PHONE", "BANK_CARD", "EMAIL", "PERSON", "ADDRESS", "ORG",
+		"PASSWORD", "USERNAME", "DB_URL", "HOST", "CREDENTIAL", "COOKIE", "API_KEY",
+		"TOKEN", "PRIVATE_KEY", "URL", "CRYPTO", "WORK", "ETHNICITY", "DATE":
 		return true
 	}
 	return false
@@ -195,6 +222,24 @@ func applyMaskConfig(dst *MaskPolicy, src *types.RedactMaskPolicy) {
 }
 
 // MaskValue masks one entity value according to p.
+// BlackValue masks every rune with a block, but keeps the 族 suffix in an
+// ethnicity because "█族" is more readable than "██" and still hides the name.
+func BlackValue(value, typ string) string {
+	runes := []rune(value)
+	switch strings.ToUpper(typ) {
+	case "PERSON":
+		return "██"
+	case "ETHNICITY":
+		if len(runes) > 1 && runes[len(runes)-1] == '族' {
+			return "█族"
+		}
+		return "█"
+	case "DATE":
+		return maskDate(value, "█")
+	}
+	return strings.Repeat("█", len(runes))
+}
+
 func MaskValue(value, typ string, p MaskPolicy) string {
 	if value == "" {
 		return value
@@ -216,6 +261,8 @@ func MaskValue(value, typ string, p MaskPolicy) string {
 		return maskEmail(value, p)
 	case "address":
 		keepStart, keepEnd = addressKeep(value, p)
+	case "date":
+		return maskDate(value, p.Char)
 	default:
 		switch p.Position {
 		case "middle":
@@ -353,10 +400,65 @@ func maskASCIIWords(value string, p MaskPolicy) string {
 	for i, w := range words {
 		runes := []rune(w)
 		if len(runes) > 1 {
-			words[i] = string(runes[0]) + strings.Repeat(p.Char, len(runes)-1)
+			maskLen := len(runes) - 1
+			if !p.PreserveLength && p.MaskLen > 0 {
+				maskLen = p.MaskLen
+			}
+			words[i] = string(runes[0]) + strings.Repeat(p.Char, maskLen)
 		}
 	}
 	return strings.Join(words, " ")
+}
+
+// maskDigits replaces every digit with char but keeps units/separators such as
+// 年/月/日 and - /.
+func maskDigits(value, char string) string {
+	var b strings.Builder
+	for _, r := range value {
+		if unicode.IsDigit(r) {
+			b.WriteString(char)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// maskDate masks every digit but keeps the calendar units. Component widths are
+// normalized (4/2/2) so 1987年3月12日 and 1979年11月8日 both become
+// ****年**月**日; an observer cannot infer the original digit count.
+func maskDate(value, char string) string {
+	switch {
+	case strings.Contains(value, "年"):
+		out := strings.Repeat(char, 4) + "年"
+		if strings.Contains(value, "月") {
+			out += strings.Repeat(char, 2) + "月"
+			if strings.Contains(value, "日") {
+				out += strings.Repeat(char, 2) + "日"
+			}
+		}
+		return out
+	case strings.Contains(value, "-"):
+		return maskDateSeparated(value, "-", char)
+	case strings.Contains(value, "/"):
+		return maskDateSeparated(value, "/", char)
+	case strings.Contains(value, "."):
+		return maskDateSeparated(value, ".", char)
+	}
+	return maskDigits(value, char)
+}
+
+func maskDateSeparated(value, sep, char string) string {
+	parts := strings.Split(value, sep)
+	widths := []int{4, 2, 2}
+	for i := range parts {
+		width := 2
+		if i < len(widths) {
+			width = widths[i]
+		}
+		parts[i] = strings.Repeat(char, width)
+	}
+	return strings.Join(parts, sep)
 }
 
 func minInt(a, b int) int {

@@ -83,7 +83,7 @@ func loadDeps() {
 type buildFlags struct {
 	engine      string
 	style       string
-	only        string
+	enable      string
 	disable     string
 	rulesFile   string
 	profile     string
@@ -93,7 +93,7 @@ type buildFlags struct {
 }
 
 func addRuleFlags(cmd *cobra.Command, f *buildFlags) {
-	cmd.Flags().StringVar(&f.only, "only", "", "Comma-separated rule names to enable (overrides config toggles)")
+	cmd.Flags().StringVar(&f.enable, "enable", "", "Comma-separated rule names to enable (in addition to the configured set)")
 	cmd.Flags().StringVar(&f.disable, "disable", "", "Comma-separated rule names to disable")
 	cmd.Flags().StringVar(&f.rulesFile, "rules-file", "", "YAML file overriding defaults.redact rules / overrides / custom")
 	cmd.Flags().StringVar(&f.profile, "profile", "", "Redact profile name from defaults.redact.profiles")
@@ -143,29 +143,43 @@ func (f buildFlags) redactConfig() (*types.RedactConfig, error) {
 			return nil, fmt.Errorf("unknown model engine %q (want auto, chatner or tokencls; use --model %s to select the model name)", f.modelEngine, f.modelEngine)
 		}
 	}
-	if f.only != "" {
-		enabled := map[string]bool{}
-		for _, name := range splitCSV(f.only) {
-			enabled[name] = true
+	if f.enable != "" {
+		if cfg.Rules == nil {
+			cfg.Rules = map[string]bool{}
 		}
-		cfg.Rules = map[string]bool{}
-		for _, name := range redactlib.BuiltinRuleNames() {
-			cfg.Rules[name] = enabled[name]
-		}
-		for i := range cfg.Custom {
-			on := enabled[cfg.Custom[i].Name]
-			cfg.Custom[i].Enabled = &on
+		for _, name := range splitCSV(f.enable) {
+			names := append([]string{name}, redactlib.RuleFamily(name)...)
+			for _, enabled := range names {
+				custom := false
+				for i := range cfg.Custom {
+					if cfg.Custom[i].Name == enabled {
+						on := true
+						cfg.Custom[i].Enabled = &on
+						custom = true
+					}
+				}
+				if !custom {
+					cfg.Rules[enabled] = true
+				}
+			}
 		}
 	}
 	for _, name := range splitCSV(f.disable) {
 		if cfg.Rules == nil {
 			cfg.Rules = map[string]bool{}
 		}
-		cfg.Rules[name] = false
-		for i := range cfg.Custom {
-			if cfg.Custom[i].Name == name {
-				off := false
-				cfg.Custom[i].Enabled = &off
+		names := append([]string{name}, redactlib.RuleFamily(name)...)
+		for _, disabled := range names {
+			custom := false
+			for i := range cfg.Custom {
+				if cfg.Custom[i].Name == disabled {
+					off := false
+					cfg.Custom[i].Enabled = &off
+					custom = true
+				}
+			}
+			if !custom {
+				cfg.Rules[disabled] = false
 			}
 		}
 	}
@@ -451,9 +465,9 @@ func validateRuleFlags(cfg *types.RedactConfig, f buildFlags) error {
 	for _, r := range cfg.Custom {
 		known[r.Name] = true
 	}
-	for _, name := range append(splitCSV(f.only), splitCSV(f.disable)...) {
+	for _, name := range append(splitCSV(f.enable), splitCSV(f.disable)...) {
 		if !known[name] {
-			return fmt.Errorf("unknown rule %q in --only/--disable", name)
+			return fmt.Errorf("unknown rule %q in --enable/--disable", name)
 		}
 	}
 	return nil

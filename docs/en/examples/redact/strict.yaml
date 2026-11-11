@@ -17,4 +17,4 @@ tokencls:
   max_len: 256
   stride: 64
   operating_point: high_recall
-# Dates/amounts stay opt-in: aigc-cli redact apply f.txt --with-date --with-amount
+# Dates/amounts/ethnicity are redacted by default; keep them with --disable date_cn,amount,amount_cn,ethnicity_name,ethnicity_assign

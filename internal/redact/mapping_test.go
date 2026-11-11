@@ -52,7 +52,7 @@ func TestApplyAliasesSharePlaceholder(t *testing.T) {
 	}
 }
 
-func TestApplyDateAmountOffByDefault(t *testing.T) {
+func TestApplyDateAmountDefaultsOn(t *testing.T) {
 	doc := NewDocument("t", "日期2024年3月15日，金额人民币1,000元。")
 	spans := []Span{
 		{Start: len("日期"), End: len("日期2024年3月15日"), Type: "DATE", Text: "2024年3月15日"},
@@ -63,15 +63,15 @@ func TestApplyDateAmountOffByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out != doc.Text {
-		t.Fatalf("date/amount should be untouched by default: %s", out)
+	if !strings.Contains(out, "<DATE_1>") || !strings.Contains(out, "<AMOUNT_1>") {
+		t.Fatalf("date/amount should be redacted by default: %s", out)
 	}
-	out, _, err = Apply(doc, spans, ApplyOptions{Style: "placeholder", Masks: masks, Date: true, Amount: true})
+	out, _, err = Apply(doc, spans, ApplyOptions{Style: "placeholder", Masks: masks, SkipDate: true, SkipAmount: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "<DATE_1>") || !strings.Contains(out, "<AMOUNT_1>") {
-		t.Fatalf("date/amount not redacted: %s", out)
+	if out != doc.Text {
+		t.Fatalf("SkipDate/SkipAmount should keep the original: %s", out)
 	}
 }
 
@@ -165,5 +165,48 @@ func TestApplyConfigAliasConflict(t *testing.T) {
 	}})
 	if err == nil {
 		t.Fatal("expected alias conflict error")
+	}
+}
+
+func TestApplyMasksHideNameLengthAndIdentity(t *testing.T) {
+	text := "张三与张三丰，汉族和维吾尔族。张三。"
+	doc := NewDocument("t", text)
+	mk := func(sub, typ string) Span {
+		start := strings.Index(text, sub)
+		return Span{Start: start, End: start + len(sub), Type: typ, Text: sub}
+	}
+	last := strings.LastIndex(text, "张三")
+	spans := []Span{
+		mk("张三", "PERSON"),
+		mk("张三丰", "PERSON"),
+		mk("汉族", "ETHNICITY"),
+		mk("维吾尔族", "ETHNICITY"),
+		{Start: last, End: last + len("张三"), Type: "PERSON", Text: "张三"},
+	}
+	masks, _ := NewMaskResolver(nil)
+	out, _, err := Apply(doc, spans, ApplyOptions{Style: "mask", Masks: masks})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(out, "张*") != 3 || strings.Count(out, "*族") != 2 {
+		t.Fatalf("mask should keep surname and use a fixed given-name mask, got: %s", out)
+	}
+	for _, leak := range []string{"张三", "张三丰", "汉族", "维吾尔族", "人1", "族1"} {
+		if strings.Contains(out, leak) {
+			t.Errorf("mask leaked %q: %s", leak, out)
+		}
+	}
+
+	out, _, err = Apply(doc, spans, ApplyOptions{Style: "black", Masks: masks})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(out, "██") != 3 || strings.Count(out, "█族") != 2 {
+		t.Fatalf("black should use identical fixed masks, got: %s", out)
+	}
+	for _, leak := range []string{"张三", "张三丰", "汉族", "维吾尔族", "█1", "族1"} {
+		if strings.Contains(out, leak) {
+			t.Errorf("black leaked %q: %s", leak, out)
+		}
 	}
 }

@@ -658,7 +658,7 @@ func decodeTokenSpans(doc *Document, items []tokenItem, labels []string) []Span 
 	}
 	closeSpan()
 	sort.Slice(spans, func(i, j int) bool { return spans[i].Start < spans[j].Start })
-	return dedupeSpans(spans)
+	return extendAddressSpans(doc, dedupeSpans(spans))
 }
 
 func splitTokenLabel(label string) (string, string) {

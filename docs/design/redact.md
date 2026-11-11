@@ -106,7 +106,7 @@ aigc-cli redact init
 | `redact apply f.txt --spans spans.json` | 只替换 `spans.json` 里的 span（人工复核后） |
 | `redact apply f.txt --stdout` | 输出到 stdout |
 
-- `apply --with-date` / `--with-amount` 可以在单次运行中开启日期/金额替换（默认关闭）。
+- 日期/金额默认替换；`date: false` / `amount: false` 或 `--disable date_cn,amount,amount_cn` 可保留。
 - 所有日志/进度走 stderr，保证 `--stdout` 可以干净地接管道。
 
 ---
@@ -270,8 +270,8 @@ defaults:
     style: placeholder            # placeholder | mask | black | hash
     placeholder: "<{type}_{n}>"   # 占位符模板
     engine: rules                 # rules | model | auto
-    date: false                   # 是否把 DATE 当敏感实体（默认关）
-    amount: false                 # 是否把 AMOUNT 当敏感实体（默认关）
+    date: true                    # 是否把 DATE 当敏感实体（默认开）
+    amount: true                  # 是否把 AMOUNT 当敏感实体（默认开）
 
     # ── 内置规则开关（只写要改的；未出现的用内置默认）──
     rules:
@@ -341,7 +341,7 @@ defaults:
         PHONE:      { keep_prefix: 3, keep_suffix: 4 }
         BANK_CARD:  { position: prefix, keep_suffix: 4 }
         EMAIL:      { keep_prefix: 1, keep_suffix_regex: "@.*$" }
-        PERSON:     { position: suffix, keep_prefix: 1, strategy: name }
+        PERSON:     { strategy: fixed, position: all, mask_len: 2 }  # 改为 **；默认张*
         ADDRESS:    { position: suffix, keep_prefix_regex: "^.*?(?:省|市|区|县|镇|街道)" }
         ORG:        { position: all }
 
@@ -402,7 +402,7 @@ defaults:
 CLI flags > defaults.redact.* 配置 > 内置默认
 ```
 
-- `--only a,b`：只启用列出的规则（覆盖 `rules` 开关）；
+- `--enable a,b`：在配置基础上额外启用规则（`--disable a,b` 关闭）；
 - `--disable a,b`：临时关闭；
 - `--style` / `--engine` / `--provider`：单次覆盖；
 - `--rules-file`：用外部 YAML 替换 `rules`/`overrides`/`custom` 三节（便于团队共享）。
@@ -466,18 +466,22 @@ defaults:
 
 | 类别 | 默认启用 | 规则 |
 |---|---|---|
-| 个人信息 | ✅ | `id_card` / `id_card_15` / `phone_mobile` / `phone_landline` / `phone_400` / `email` / `passport_ctx` / `travel_permit` / `vin` / `wechat` / `wxid` / `qq` / `plate` / `lawyer_no_ctx` / `medical_no` / `employee_no` / `engine_no` / `postcode` / `cert_no` |
+| 个人信息 | ✅ | `id_card` / `id_card_15` / `id_card_ctx` / `id_card_loose` / `role_name` / `role_name_verb` / `relative_name` / `name_assign` / `english_name` / `phone_mobile` / `phone_landline` / `phone_400` / `email` / `passport_ctx` / `travel_permit` / `vin` / `wechat` / `wxid` / `qq` / `plate` / `lawyer_no_ctx` / `medical_no` / `employee_no` / `engine_no` / `postcode` / `cert_no` |
 | 个人信息 | ❌ | `passport`（裸 E/G/D+8 位）、`lawyer_no`（裸 17 位） |
-| 单位与机构 | ✅ | `uscc` / `business_reg_no` |
-| 金融与网络 | ✅ | `bank_card` / `bank_account` / `jp_corporate_account` / `mac` / `stock_code` / `invoice_code` |
-| 金融与网络 | ❌ | `ip` / `url` / `amount` |
-| 文书与日期 | ✅ | `case_no` / `contract_no` / `doc_no` / `property_cert_no` / `construction_permit_no` / `policy_no` / `copyright_no` |
-| 文书与日期 | ❌ | `date_cn` |
+| 单位与机构 | ✅ | `uscc` / `business_reg_no` / `project_code` / `org_suffix` / `company_alias` |
+| 金融与网络 | ✅ | `bank_card` / `bank_account` / `tax_id` / `jp_corporate_account` / `mac` / `stock_code` / `invoice_code` / `password_assign` / `username_assign` / `db_host_assign` / `db_url` / `url_with_credentials` / `authorization_header` / `bearer_token` / `cookie_header` / `api_key_known` / `jwt_token` / `private_key_block` / `ado_username` / `ado_host` / `cli_password_space` / `cli_username_space` / `crypto_wallet` |
+| 金融与网络 | ❌ | `url`（`ip` / `amount` / `amount_cn` 默认开启） |
+| 文书与日期 | ✅ | `work_title` / `case_no` / `contract_no` / `doc_no` / `property_cert_no` / `construction_permit_no` / `policy_no` / `copyright_no` |
+| 文书与日期 | ✅ | `date_cn` |
 
 说明：
 
 - 带“标签”的规则（`passport_ctx`、`lawyer_no_ctx`、`bank_account`、`contract_no` 等）使用 `Group: 1`，只替换标签后的值，不替换“护照号：”这类前缀。
 - 裸 `passport` / `lawyer_no` / `ip` / `url` / `date_cn` / `amount` 默认关闭，避免误伤；按需在 `defaults.redact.rules` 打开。
+- 凭据规则覆盖常见 `key=value` / `--key=value` / `key: value` / JSON `"key":"value"` 形式；复杂连接串或不规则写法仍建议配合词表/模型。
+- `id_card_ctx` 依赖“公民身份号码/身份证号”标签，`id_card_loose` 只校验出生日期，用于虚构/校验位错误的证件号；`org_suffix` 识别常见中文公司/集团名。
+- 模型输出的 `ADDRESS` 会向前扩展到楼栋/单元/房间后缀，遇到标点或角色词停止。
+- `PERSON` 默认保留姓氏 + 固定一个 `*`（张* / 欧阳*），`ETHNICITY` 默认 `*族` / `█族`，`DATE` 统一为 `****年**月**日` / `████年██月██日`，避免通过长度/位数反推。
 - 语义类（姓名、地址、机构、性别、国籍、民族、年龄、宗教信仰、生物识别、健康、境外法院）仍由 `dictionary` / 模型负责，不放进正则。
 
 ### 5.2 三条硬规则（来自第一轮踩坑）

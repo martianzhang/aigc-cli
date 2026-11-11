@@ -95,8 +95,9 @@ func redactTextHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 		out, mapping, err := redactlib.Apply(doc, result.Spans, redactlib.ApplyOptions{
 			Style: style, Placeholder: redactCfg.Placeholder,
-			Date: redactCfg.Date, Amount: redactCfg.Amount,
-			Aliases: redactCfg.Aliases, Masks: masks,
+			SkipDate:   !types.BoolDefault(redactCfg.Date, true),
+			SkipAmount: !types.BoolDefault(redactCfg.Amount, true),
+			Aliases:    redactCfg.Aliases, Masks: masks,
 		})
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil

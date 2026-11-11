@@ -49,19 +49,20 @@ Grouped by category (`redact rules` shows each rule's `category`):
 
 | Category | Default | Rules |
 |---|---|---|
-| Personal | ✅ | ID card (18/15), mobile, landline, 400/800, email, passport (labelled), HK/Macau/Taiwan permits/residence permit, VIN, WeChat ID, wxid, QQ, licence plate, lawyer licence (labelled), medical/visit/inpatient number, employee ID, engine/motor number, postcode, certificate number |
+| Personal | ✅ | ID card (18/15; labelled or date-valid fictional numbers), mobile, landline, 400/800, email, passport (labelled), HK/Macau/Taiwan permits/residence permit, VIN, WeChat ID, wxid, QQ, licence plate, lawyer licence (labelled), medical/visit/inpatient number, employee ID, engine/motor number, postcode, certificate number; names after roles (原告/被告/证人/法定代表人…), relatives, English names after Mr./Ms./Dr., and ethnicity |
 | Personal | ❌ | Bare passport, bare 17-digit lawyer licence (noisy; use the labelled `passport_ctx` / `lawyer_no_ctx` rules) |
-| Organization | ✅ | Unified social credit code, business registration number |
-| Finance & network | ✅ | Bank card, bank account/corporate account, JP corporate account, MAC address, stock code, invoice code/number |
-| Finance & network | ❌ | IP, URL, amount |
-| Documents & dates | ✅ | Case number, contract number, official document number, property certificate number, construction/planning/pre-sale permit number, policy number, copyright registration number |
+| Organization | ✅ | Unified social credit code, business registration number; common Chinese company/group names (`...有限公司` / `...集团`), `以下简称 XX 公司` aliases and project codes |
+| Finance & network | ✅ | Bank card, bank account/corporate account, JP corporate account, MAC address, stock code, invoice code/number; passwords/API keys/tokens, usernames/accounts, database URLs and DB hosts, Authorization/Cookie headers, JWTs, cloud keys, private-key blocks, credential URLs, crypto wallets |
+| Finance & network | ✅ | IP, tax IDs, numeric and Chinese uppercase amounts; URL stays opt-in |
+| Documents & dates | ✅ | Case number, contract number, official document number, property certificate number, construction/planning/pre-sale permit number, policy number, copyright registration number; work titles (`《...》`, laws/judicial interpretations kept); dates |
 | Documents & dates | ❌ | Chinese dates |
 
-**Semantic entities** (names, addresses, organizations, gender, nationality,
+**Credential rules cover the common `key=value` / `--key=value` / `key: value` and quoted JSON forms only. A bare secret with no key or known prefix cannot be detected reliably; add a custom rule, dictionary entry or model for those.
+
+**Names after role words and relatives get a regex recall boost; names without an anchor, organization aliases, gender, nationality,
 ethnicity, age, religion, biometrics, health/condition descriptions, foreign
 courts, amounts/dates) are not reliable regex problems. Use `dictionary` /
-`dictionary_files`, or `engine: auto/model` with a model. Date/amount rules are
-off by default; enable them with `--with-date` / `--with-amount` or config.
+`dictionary_files`, or `engine: auto/model` with a model. Dates, amounts and ethnicity are redacted by default (dates can reveal an ID birth date; amounts may include salary or commercial terms). Set `date: false` / `amount: false` or disable the rules to keep them; Use `--enable date_cn,amount,amount_cn,ethnicity_name,ethnicity_assign` to force them back on.
 
 ---
 
@@ -144,8 +145,12 @@ Or from the CLI:
 ```bash
 aigc-cli config set defaults.redact.rules.bank_card false
 aigc-cli redact scan file.txt --disable bank_card,plate
-aigc-cli redact scan file.txt --only id_card,phone_mobile
+aigc-cli redact scan file.txt --enable passport,lawyer_no
 ```
+
+`--enable` adds rules on top of the configured set, while `--disable` turns
+them off. Rule families move together: `--disable id_card` also disables
+`id_card_15` / `id_card_ctx` / `id_card_loose`.
 
 ### Custom rules
 
@@ -270,14 +275,14 @@ defaults:
         ID_CARD:    { keep_prefix: 6, keep_suffix: 4 }
         BANK_CARD:  { position: prefix, keep_suffix: 4 }
         EMAIL:      { keep_prefix: 1, keep_suffix_regex: "@.*$" }
-        PERSON:     { position: suffix, keep_prefix: 1 }     # 张*
+        PERSON:     { strategy: fixed, position: all, mask_len: 2 }  # use **; default keeps surname
         ADDRESS:    { position: suffix, keep_prefix_regex: "^.*?(?:省|市|区|县|镇|街道)" }
 ```
 
 - `position`: `middle` (keep both ends), `prefix` (keep the tail), `suffix`
   (keep the head), `all`.
 - `strategy`: `fixed` / `name` / `email` / `address` / `phone` / `id_card` /
-  `bank_card`.
+  `bank_card` / `date`.
 - `preserve_length: false` with `mask_len: 3` hides the original length.
 - `keep_separators: true` keeps spaces/dashes (`138-****-5678`).
 - Built-in types ship with sensible defaults. The global `mask` section only
@@ -331,6 +336,8 @@ aigc-cli --provider local --model-engine tokencls redact scan complaint.txt --en
 - `auto` uses tokencls for a `local` provider, chatner for an explicit non-local
   provider (e.g. `ollama`), and tokencls when no provider is set but tokencls is
   configured.
+- Model-detected `ADDRESS` spans are extended to include building/room
+  suffixes (e.g. `3幢802室`), stopping at punctuation or role words.
 - The model returns entity strings, not offsets. The default
   `occurrence: anchored` only replaces occurrences with a role word
   (原告/联系人/电话/地址…) nearby; ambiguous occurrences are listed under
@@ -498,7 +505,7 @@ restore the text.
   (a "redaction space") is not implemented yet.
 - `mask` / `black` / `hash` are one-way; only `placeholder` is reliably
   reversible.
-- Dates and amounts are not replaced by default; use `--with-date` /
-  `--with-amount` (or `date: true` / `amount: true`).
+- Dates and amounts are replaced by default. Set `date: false` / `amount: false`
+  or `--disable date_cn,amount,amount_cn` to keep them; use `--enable` to turn them back on.
 - Recall is not 100%; run `check` and review manually before sharing.
 - Not a compliance or anonymization guarantee.

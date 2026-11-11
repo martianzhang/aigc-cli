@@ -43,15 +43,15 @@ aigc-cli redact rules
 
 | 类别 | 默认启用 | 规则 |
 |---|---|---|
-| 个人信息 | ✅ | 身份证号（18/15 位）、手机、座机、400/800、邮箱、护照号（带“护照号”标签）、港澳台通行证/居住证、车架号/VIN、微信号、wxid、QQ、车牌、律师执业证号（带标签）、病历/就诊卡/住院号、工号、发动机/电机号、邮政编码、证件号 |
+| 个人信息 | ✅ | 身份证号（18/15 位；带“身份证号”标签或日期段合法的虚构号码也能识别）、手机、座机、400/800、邮箱、护照号（带“护照号”标签）、港澳台通行证/居住证、车架号/VIN、微信号、wxid、QQ、车牌、律师执业证号（带标签）、病历/就诊卡/住院号、工号、发动机/电机号、邮政编码、证件号；原告/被告/证人/法定代表人等角色词后的姓名、亲属关系后的姓名、英文姓名（Mr./Ms./Dr. 后）、民族/族别 |
 | 个人信息 | ❌ | 裸护照号、裸 17 位律师证号（误伤高，建议配合标签用 `passport_ctx` / `lawyer_no_ctx`） |
-| 单位与机构 | ✅ | 统一社会信用代码、工商注册号 |
-| 金融与网络 | ✅ | 银行卡号、银行账户/对公账户、JP 对公账户、MAC 地址、股票代码、发票代码/号码 |
-| 金融与网络 | ❌ | IP、URL、金额 |
-| 文书与日期 | ✅ | 司法案号、合同编号、公文文号、不动产权证书号、建设工程规划/施工/预售许可证号、保单号、著作权登记号 |
+| 单位与机构 | ✅ | 统一社会信用代码、工商注册号、项目编号/代号；常见中文公司/集团名（`...有限公司` / `...集团`）、`以下简称 XX 公司` 的简称 |
+| 金融与网络 | ✅ | 银行卡号、银行账户/对公账户、JP 对公账户、MAC 地址、股票代码、发票代码/号码；密码/口令/API key/token、用户名/账号、数据库连接串、数据库主机、Authorization/Cookie 头、JWT、云厂商密钥、私钥块、带凭据 URL、加密钱包地址 |
+| 金融与网络 | ✅ | IP、纳税人识别号、大小写金额（含中文大写）；URL 默认关闭 |
+| 文书与日期 | ✅ | 司法案号、合同编号、公文文号、不动产权证书号、建设工程规划/施工/预售许可证号、保单号、著作权登记号；作品名（`《...》`，法条/司法解释名保留）；日期 |
 | 文书与日期 | ❌ | 中文日期 |
 
-**语义类**（姓名、地址、单位/机构、性别、国籍、民族、年龄、宗教信仰、生物识别、健康/疾病描述、境外法院、金额/日期）不是正则能可靠解决的：用 `dictionary` / `dictionary_files`，或 `engine: auto/model` 配合模型。日期/金额规则默认关闭；需要时用 `--with-date` / `--with-amount` 或配置开启。
+**语义类**中的姓名会用角色词/亲属关系补召回；没有锚点的人名、机构别名、性别、国籍、民族、年龄、宗教信仰、生物识别、健康/疾病描述、境外法院、金额/日期仍不是正则能可靠解决的；凭据类只覆盖常见 `key=value` / `--key=value` / `key: value` / JSON 引号形式，**没有 key 或已知前缀的裸密钥无法可靠识别**，需要自定义规则、词表或模型：用 `dictionary` / `dictionary_files`，或 `engine: auto/model` 配合模型。日期/金额/民族默认脱敏（日期可反推身份证生日，金额可能包含薪酬等商业信息）。需要保留时设 `date: false` / `amount: false`，或 `--disable date_cn,amount,amount_cn,ethnicity_name,ethnicity_assign`；用 `--enable date_cn,amount,amount_cn,ethnicity_name,ethnicity_assign` 可强制重新开启。
 
 ---
 
@@ -129,8 +129,11 @@ aigc-cli config set defaults.redact.rules.bank_card false
 
 ```bash
 aigc-cli redact scan file.txt --disable bank_card,plate
-aigc-cli redact scan file.txt --only id_card,phone_mobile
+aigc-cli redact scan file.txt --enable passport,lawyer_no
 ```
+
+`--enable` 在配置基础上追加启用，`--disable` 关闭；规则族会联动，例如
+`--disable id_card` 会同时关掉 `id_card_15` / `id_card_ctx` / `id_card_loose`。
 
 ### 自定义规则
 
@@ -253,14 +256,16 @@ defaults:
         ID_CARD:    { keep_prefix: 6, keep_suffix: 4 }
         BANK_CARD:  { position: prefix, keep_suffix: 4 }
         EMAIL:      { keep_prefix: 1, keep_suffix_regex: "@.*$" }
-        PERSON:     { position: suffix, keep_prefix: 1 }     # 张*
+        PERSON:     { strategy: fixed, position: all, mask_len: 2 }  # 改为 **；默认张*
         ADDRESS:    { position: suffix, keep_prefix_regex: "^.*?(?:省|市|区|县|镇|街道)" }
 ```
 
 - `position`：`middle`（保留首尾）/ `prefix`（只保留尾部）/ `suffix`（只保留头部）/ `all`；
-- `strategy`：`fixed` / `name` / `email` / `address` / `phone` / `id_card` / `bank_card`；
+- `strategy`：`fixed` / `name` / `email` / `address` / `phone` / `id_card` / `bank_card` / `date`；
 - `preserve_length: false` + `mask_len: 3` 输出固定 `***`，隐藏原长度；
 - `keep_separators: true` 保留空格、短横线，例如 `138-****-5678`；
+- 姓名默认保留姓氏 + 固定一个 `*`（`张*` / `欧阳*`），不泄露名字长度；不想保留姓氏可显式配置 `PERSON: { strategy: fixed, position: all, mask_len: 2 }`；民族默认 `*族` / `█族`；
+- 日期统一为 `****年**月**日`（或 `****-**-**`），数字全部遮盖，只保留年月日/分隔符，不泄露月日位数；black 风格为 `████年██月██日`；
 - 内置类型自带合理默认；全局 `mask` 只作用于自定义/未知类型，避免偷偷削弱身份证等默认策略。
 
 ---
@@ -306,6 +311,7 @@ aigc-cli --provider local --model-engine tokencls redact scan 起诉状.txt --en
 - `defaults.redact.model_engine`（或 `--model-engine`）选择模型后端：`auto` / `chatner` / `tokencls`；
 - 模型名用 `--model has4`（或 `defaults.redact.model`），**不要**写进 `--model-engine`；
 - 默认 `auto`：provider 是 `local` → tokencls；显式指定了非本地 provider（如 `ollama`）→ chatner；没有 provider 但配置了 tokencls → tokencls。
+- 模型识别的 `ADDRESS` 会自动扩展到楼栋/单元/房间后缀（如 `3幢802室`），遇到标点或“联系电话/统一社会信用代码”等角色词停止；
 - 值级模型返回的是实体字符串，不是 offset。默认 `occurrence: anchored`：只有实体附近出现“原告/联系人/电话/地址”等角色词时才替换，找不到锚点的出现位置会在 `scan` 的 `needs_review` 里列出，**不会自动替换**；
 - 非 loopback 的模型端点默认拒绝，必须显式 `--allow-remote`，防止原文被误发到公网。
 
@@ -455,6 +461,6 @@ aigc-cli redact apply 起诉状.txt --spans spans.json --mapping 起诉状.map.j
 - 只处理纯文本；Word/PDF/图片/扫描件不在 v1 范围。
 - 一个映射文件对应一个输出文档；跨文件共享编号（脱敏空间）尚未实现。
 - `mask` / `black` / `hash` 不可逆；`restore` 只保证 `placeholder`。
-- 日期、金额默认不替换；需要时用 `--with-date` / `--with-amount`（或配置 `date: true` / `amount: true`）。
+- 日期、金额默认替换。设 `date: false` / `amount: false` 或用 `--disable date_cn,amount,amount_cn` 可保留；用 `--enable` 可重新开启。模型/自定义规则产生的 DATE/AMOUNT span 也受这两个开关控制。
 - 不保证 100% 召回；导出前请用 `check` 回扫并人工复核。
 - 不是合规认证或匿名化保证。

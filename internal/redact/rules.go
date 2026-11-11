@@ -37,6 +37,24 @@ func BuiltinRules() []Rule {
 			Regex: `[1-9][0-9]{5}(?:19|20)[0-9]{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])[0-9]{3}[0-9Xx]`},
 		{Name: "id_card_15", Category: "个人信息", Type: "ID_CARD", Validator: ValidatorID, Boundary: "digit", Priority: 99, MaxLen: 15, DefaultEnabled: true,
 			Regex: `[1-9][0-9]{5}[0-9]{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])[0-9]{3}`},
+		{Name: "id_card_ctx", Category: "个人信息", Type: "ID_CARD", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 101, MaxLen: 18, DefaultEnabled: true,
+			Regex: `(?:公民身份号码|身份证号码|身份证号|身份证)[:：\s]*([1-9][0-9]{5}(?:19|20)[0-9]{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])[0-9]{3}[0-9Xx])`},
+		{Name: "id_card_loose", Category: "个人信息", Type: "ID_CARD", Validator: ValidatorIDDate, Boundary: "digit", Priority: 85, MaxLen: 18, DefaultEnabled: true,
+			Regex: `[1-9][0-9]{5}(?:19|20)[0-9]{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])[0-9]{3}[0-9Xx]`},
+		{Name: "role_name", Category: "个人信息", Type: "PERSON", Validator: ValidatorPersonName, Boundary: "none", Group: 1, Priority: 82, MaxLen: 4, DefaultEnabled: true,
+			Regex: `(?:原告|被告|第三人|上诉人|被上诉人|申请人|被申请人|证人|法定代表人|负责人|委托诉讼代理人|代理人|审判长|审判员|书记员|法官|检察官|律师|当事人|被告人|被害人|犯罪嫌疑人)[一二三四五六七八九十0-9]*[：:\s]*([\p{Han}]{2,4})(?:[，,。；;：:\s（(]|$)`},
+		{Name: "role_name_verb", Category: "个人信息", Type: "PERSON", Validator: ValidatorPersonName, Boundary: "none", Group: 1, Priority: 81, MaxLen: 4, DefaultEnabled: true,
+			Regex: `(?:证人|审判长|审判员|书记员|法官|检察官)\s*([\p{Han}]{2,4})(?:出庭|作证|陈述|证言|宣读|签字|到庭)`},
+		{Name: "relative_name", Category: "个人信息", Type: "PERSON", Validator: ValidatorPersonName, Boundary: "none", Group: 1, Priority: 80, MaxLen: 4, DefaultEnabled: true,
+			Regex: `(?:丈夫|妻子|父亲|母亲|儿子|女儿|兄弟|姐妹|配偶|亲属|家属)\s*([\p{Han}]{2,4})(?:亦|也|等|称|[，,。；;：:\s]|$)`},
+		{Name: "name_assign", Category: "个人信息", Type: "PERSON", Validator: ValidatorPersonName, Boundary: "none", Group: 1, Priority: 83, MaxLen: 4, DefaultEnabled: true,
+			Regex: `(?:姓名|名字|曾用名|化名)[：:\s]*([\p{Han}]{2,4})(?:[，,。；;：:\s（(]|$)`},
+		{Name: "english_name", Category: "个人信息", Type: "PERSON", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 78, MaxLen: 60, DefaultEnabled: true,
+			Regex: `\b(?:Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b`},
+		{Name: "ethnicity_name", Category: "个人信息", Type: "ETHNICITY", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 75, MaxLen: 10, DefaultEnabled: true,
+			Regex: `(俄罗斯族|乌孜别克族|柯尔克孜族|达斡尔族|鄂温克族|鄂伦春族|塔吉克族|塔塔尔族|哈萨克族|维吾尔族|朝鲜族|土家族|布依族|仡佬族|仫佬族|撒拉族|保安族|裕固族|独龙族|赫哲族|门巴族|珞巴族|基诺族|普米族|阿昌族|德昂族|布朗族|景颇族|纳西族|拉祜族|傈僳族|哈尼族|高山族|锡伯族|东乡族|毛南族|蒙古族|藏族|苗族|彝族|壮族|满族|侗族|瑶族|白族|傣族|黎族|佤族|畲族|水族|土族|京族|怒族|回族|汉族)(?:[，,。；;：:\s）)】]|和|及|与|或|、|的|$)`},
+		{Name: "ethnicity_assign", Category: "个人信息", Type: "ETHNICITY", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 76, MaxLen: 10, DefaultEnabled: true,
+			Regex: `(?:民族|族别)[:：\s]*([\p{Han}]{1,10}族?)`},
 		{Name: "phone_mobile", Category: "个人信息", Type: "PHONE", Validator: ValidatorPhone, Boundary: "digit", Priority: 70, MaxLen: 20, DefaultEnabled: true,
 			Regex: `(?:\+?86[-\s]?)?1[3-9][0-9](?:[-\s]?[0-9]{4}){2}`},
 		{Name: "phone_landline", Category: "个人信息", Type: "PHONE", Validator: ValidatorPhone, Boundary: "digit", Priority: 65, MaxLen: 20, DefaultEnabled: true,
@@ -81,12 +99,20 @@ func BuiltinRules() []Rule {
 			Regex: `[0-9A-HJ-NPQRTUWXY]{2}[0-9]{6}[0-9A-HJ-NPQRTUWXY]{10}`},
 		{Name: "business_reg_no", Category: "单位与机构", Type: "BUSINESS_REG_NO", Validator: ValidatorNone, Boundary: "digit", Group: 1, Priority: 84, MaxLen: 15, DefaultEnabled: true,
 			Regex: `(?:工商注册号|注册号)[:：\s]*([0-9]{15})`},
+		{Name: "project_code", Category: "单位与机构", Type: "PROJECT_NO", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 78, MaxLen: 32, DefaultEnabled: true,
+			Regex: `(?:项目编号|项目代号|项目编码|项目号|工程编号|课题编号)[:：\s]*([A-Za-z0-9._/-]{2,32})`},
+		{Name: "org_suffix", Category: "单位与机构", Type: "ORG", Validator: ValidatorNone, Boundary: "none", Priority: 86, MaxLen: 80, DefaultEnabled: true,
+			Regex: `[\p{Han}A-Za-z0-9（）()·]{2,8}(?:股份有限公司|有限责任公司|有限公司|集团有限公司|集团)`},
+		{Name: "company_alias", Category: "单位与机构", Type: "ORG", Validator: ValidatorCompanyShort, Boundary: "none", Group: 1, Priority: 84, MaxLen: 12, DefaultEnabled: true,
+			Regex: `(?:以下简称|简称)[：:\s]*[“"']?([\p{Han}]{2,12}公司)[”"']?`},
 
 		// ── 金融与网络 ──
 		{Name: "bank_card", Category: "金融与网络", Type: "BANK_CARD", Validator: ValidatorLuhn, Boundary: "digit", Priority: 90, MaxLen: 25, DefaultEnabled: true,
 			Regex: `[0-9](?:[ -]?[0-9]){12,18}`},
 		{Name: "bank_account", Category: "金融与网络", Type: "BANK_ACCOUNT", Validator: ValidatorNone, Boundary: "digit", Group: 1, Priority: 88, MaxLen: 32, DefaultEnabled: true,
-			Regex: `(?:银行账户|银行账号|对公账户|开户账号|收款账号|收款账户)[:：\s]*([0-9]{8,32})`},
+			Regex: `(?:银行账户|银行账号|对公账户|开户账号|收款账号|收款账户|账号|账户|卡号)[:：\s]*([0-9]{8,32})`},
+		{Name: "tax_id", Category: "金融与网络", Type: "TAX_ID", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 94, MaxLen: 20, DefaultEnabled: true,
+			Regex: `(?:纳税人识别号|纳税人识别码|税务登记号|税号)[:：\s]*([0-9A-Z]{15,20})`},
 		{Name: "jp_corporate_account", Category: "金融与网络", Type: "BANK_ACCOUNT", Validator: ValidatorNone, Boundary: "word", Group: 1, Priority: 87, MaxLen: 32, DefaultEnabled: true,
 			Regex: `(?:JP对公账户|日本对公账户)[:：\s]*([A-Za-z0-9\-]{4,32})`},
 		{Name: "mac", Category: "金融与网络", Type: "MAC", Validator: ValidatorNone, Boundary: "word", Priority: 72, MaxLen: 17, DefaultEnabled: true,
@@ -95,12 +121,48 @@ func BuiltinRules() []Rule {
 			Regex: `(?:股票代码|证券代码)[:：\s]*([0-9]{6})`},
 		{Name: "invoice_code", Category: "金融与网络", Type: "INVOICE_NO", Validator: ValidatorNone, Boundary: "digit", Group: 1, Priority: 79, MaxLen: 20, DefaultEnabled: true,
 			Regex: `(?:发票代码|发票号码|发票号)[:：\s]*([0-9]{8,20})`},
-		{Name: "ip", Category: "金融与网络", Type: "IP", Validator: ValidatorIP, Boundary: "word", Priority: 45, MaxLen: 45, DefaultEnabled: false,
+		{Name: "api_key_assign", Category: "金融与网络", Type: "API_KEY", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 98, MaxLen: 256, DefaultEnabled: true,
+			Regex: `(?i)(?:^|[\s;,?&{])"?[a-z0-9_.-]*(?:api[_-]?key|access[_-]?key|private[_-]?key|ssh[_-]?key|signing[_-]?key|secret[_-]?key)"?\s*[:=：]\s*("[^"\n]*"|'[^'\n]*'|[^\s;,，。；！？、（）【】《》"&']+)`},
+		{Name: "password_assign", Category: "金融与网络", Type: "PASSWORD", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 99, MaxLen: 256, DefaultEnabled: true,
+			Regex: `(?i)(?:^|[\s;,?&{])"?[a-z0-9_.-]*(?:password|passwd|pwd|passphrase|secret|token|密码|口令)"?\s*[:=：]\s*("[^"\n]*"|'[^'\n]*'|[^\s;,，。；！？、（）【】《》"']+)`},
+		{Name: "username_assign", Category: "金融与网络", Type: "USERNAME", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 97, MaxLen: 128, DefaultEnabled: true,
+			Regex: `(?i)(?:^|[\s;,?&{])"?[a-z0-9_.-]*(?:user[_-]?id|user[_-]?name|username|user|account|login|账号|用户名|账户)"?\s*[:=：]\s*("[^"\n]*"|'[^'\n]*'|[^\s;,，。；！？、（）【】《》"']+)`},
+		{Name: "db_host_assign", Category: "金融与网络", Type: "HOST", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 96, MaxLen: 253, DefaultEnabled: true,
+			Regex: `(?i)(?:^|[\s;,?&{])(?:"?(?:db[_-]?host|database[_-]?host|数据库(?:地址|主机))"?|--host|--hostname)\s*[:=：]\s*("[^"\n]*"|'[^'\n]*'|[^\s;,，。；！？、（）【】《》"']+)`},
+		{Name: "db_url", Category: "金融与网络", Type: "DB_URL", Validator: ValidatorNone, Boundary: "none", Priority: 98, MaxLen: 512, DefaultEnabled: true,
+			Regex: `(?i)\b(?:jdbc:[a-z0-9]+|mysql|mariadb|postgres(?:ql)?|mongodb(?:\+srv)?|redis|rediss|amqp|amqps|mssql|oracle|clickhouse)://[^\s"'<>，。；！？、（）【】《》]+`},
+		{Name: "url_with_credentials", Category: "金融与网络", Type: "URL", Validator: ValidatorNone, Boundary: "none", Priority: 96, MaxLen: 512, DefaultEnabled: true,
+			Regex: `(?i)\b[a-z][a-z0-9+.-]*://[^\s/@:]+:[^\s/@]+@[^\s"'<>，。；！？、（）【】《》]+`},
+		{Name: "authorization_header", Category: "金融与网络", Type: "CREDENTIAL", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 99, MaxLen: 1024, DefaultEnabled: true,
+			Regex: `(?i)\b(?:authorization|proxy-authorization)\s*[:=]\s*(?:(?:bearer|basic|token|digest)\s+)?([A-Za-z0-9._~+/=:-]{8,})`},
+		{Name: "bearer_token", Category: "金融与网络", Type: "CREDENTIAL", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 98, MaxLen: 1024, DefaultEnabled: true,
+			Regex: `(?i)\bBearer\s+([A-Za-z0-9._~+/=:-]{8,})`},
+		{Name: "cookie_header", Category: "金融与网络", Type: "COOKIE", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 97, MaxLen: 2048, DefaultEnabled: true,
+			Regex: `(?i)\b(?:set-)?cookie\s*:\s*([^\r\n]*=[^\r\n]+)`},
+		{Name: "api_key_known", Category: "金融与网络", Type: "API_KEY", Validator: ValidatorNone, Boundary: "word", Priority: 99, MaxLen: 256, DefaultEnabled: true,
+			Regex: `(?i)\b(?:AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-(?:ant-)?[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|LTAI[0-9A-Za-z]{12,}|AKID[0-9A-Za-z]{13,}|(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{16,})\b`},
+		{Name: "jwt_token", Category: "金融与网络", Type: "TOKEN", Validator: ValidatorNone, Boundary: "word", Priority: 99, MaxLen: 4096, DefaultEnabled: true,
+			Regex: `\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b`},
+		{Name: "private_key_block", Category: "金融与网络", Type: "PRIVATE_KEY", Validator: ValidatorNone, Boundary: "none", Priority: 100, MaxLen: 16384, DefaultEnabled: true,
+			Regex: `(?s)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----`},
+		{Name: "ado_username", Category: "金融与网络", Type: "USERNAME", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 96, MaxLen: 128, DefaultEnabled: true,
+			Regex: `(?i)(?:^|[\s;,])(?:"?(?:user\s*id|user\s*name)"?\s*=\s*)("[^";\n]*"|'[^';\n]*'|[^;\s"']+)`},
+		{Name: "ado_host", Category: "金融与网络", Type: "HOST", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 95, MaxLen: 253, DefaultEnabled: true,
+			Regex: `(?i)(?:^|[\s;,])(?:"?(?:server|data\s*source|network\s*address|db\s*server|database\s*server)"?\s*=\s*)("[^";\n]*"|'[^';\n]*'|[^;\s"']+)`},
+		{Name: "cli_password_space", Category: "金融与网络", Type: "PASSWORD", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 99, MaxLen: 256, DefaultEnabled: true,
+			Regex: `(?i)(?:^|\s)--?(?:password|passwd|pwd|pass)\s+("[^"\n]*"|'[^'\n]*'|[^\s;,，。；！？、（）【】《》"']+)`},
+		{Name: "cli_username_space", Category: "金融与网络", Type: "USERNAME", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 97, MaxLen: 128, DefaultEnabled: true,
+			Regex: `(?i)(?:^|\s)(?:--?user(?:name)?|-u)\s+("[^"\n]*"|'[^'\n]*'|[^\s;,，。；！？、（）【】《》"']+)`},
+		{Name: "crypto_wallet", Category: "金融与网络", Type: "CRYPTO", Validator: ValidatorNone, Boundary: "word", Priority: 90, MaxLen: 128, DefaultEnabled: true,
+			Regex: `\b(?:bc1[a-z0-9]{25,62}|[13][a-km-zA-HJ-NP-Z1-9]{25,34}|0x[a-fA-F0-9]{40})\b`},
+		{Name: "ip", Category: "金融与网络", Type: "IP", Validator: ValidatorIP, Boundary: "word", Priority: 45, MaxLen: 45, DefaultEnabled: true,
 			Regex: `(?:\d{1,3}\.){3}\d{1,3}`},
 		{Name: "url", Category: "金融与网络", Type: "URL", Validator: ValidatorURL, Boundary: "none", Priority: 44, MaxLen: 300, DefaultEnabled: false,
 			Regex: `https?://[^\s"'<>，。；！？、（）【】《》]+`},
-		{Name: "amount", Category: "金融与网络", Type: "AMOUNT", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 40, MaxLen: 64, DefaultEnabled: false,
+		{Name: "amount", Category: "金融与网络", Type: "AMOUNT", Validator: ValidatorNone, Boundary: "none", Group: 1, Priority: 40, MaxLen: 64, DefaultEnabled: true,
 			Regex: `(?:金额|价款|借款|本金|赔偿|费用|总价|合同金额|支付金额)[:：\s]*((?:人民币|RMB|¥|￥)?\s?[0-9][0-9,，]*(?:\.[0-9]{1,2})?\s*(?:元|万元|亿元|美元|USD)?)`},
+		{Name: "amount_cn", Category: "金融与网络", Type: "AMOUNT", Validator: ValidatorNone, Boundary: "none", Priority: 39, MaxLen: 64, DefaultEnabled: true,
+			Regex: `[零壹贰叁肆伍陆柒捌玖拾佰仟万亿圆元角分整]{2,}`},
 
 		// ── 文书与日期 ──
 		{Name: "case_no", Category: "文书与日期", Type: "CASE_NO", Validator: ValidatorNone, Boundary: "none", Priority: 86, MaxLen: 40, DefaultEnabled: true,
@@ -117,7 +179,9 @@ func BuiltinRules() []Rule {
 			Regex: `(?:保单号|保险单号|保单编号)[:：\s]*([A-Za-z0-9\-]{4,32})`},
 		{Name: "copyright_no", Category: "文书与日期", Type: "COPYRIGHT_NO", Validator: ValidatorNone, Boundary: "word", Group: 1, Priority: 80, MaxLen: 32, DefaultEnabled: true,
 			Regex: `(?:著作权登记号|作品登记号|著作权登记证书号)[:：\s]*([A-Za-z0-9\-]{4,32})`},
-		{Name: "date_cn", Category: "文书与日期", Type: "DATE", Validator: ValidatorNone, Boundary: "none", Priority: 40, MaxLen: 20, DefaultEnabled: false,
+		{Name: "work_title", Category: "文书与日期", Type: "WORK", Validator: ValidatorWorkTitle, Boundary: "none", Priority: 50, MaxLen: 44, DefaultEnabled: true,
+			Regex: `《[^》\n]{2,40}》`},
+		{Name: "date_cn", Category: "文书与日期", Type: "DATE", Validator: ValidatorNone, Boundary: "none", Priority: 40, MaxLen: 20, DefaultEnabled: true,
 			Regex: `(?:19|20)[0-9]{2}年(?:0?[1-9]|1[0-2])月(?:0?[1-9]|[12][0-9]|3[01])日|(?:19|20)[0-9]{2}[-/](?:0?[1-9]|1[0-2])[-/](?:0?[1-9]|[12][0-9]|3[01])`},
 	}
 }
@@ -127,6 +191,19 @@ type RuleEngine struct {
 	rules []Rule
 	allow []string
 	deny  []string
+}
+
+// ruleFamilies groups rules that share one entity so a single toggle controls
+// the whole family. A companion explicitly set in config still wins.
+var ruleFamilies = map[string][]string{
+	"id_card":   {"id_card_15", "id_card_ctx", "id_card_loose"},
+	"passport":  {"passport_ctx"},
+	"lawyer_no": {"lawyer_no_ctx"},
+}
+
+// RuleFamily returns the companion rule names for name (nil when none).
+func RuleFamily(name string) []string {
+	return append([]string(nil), ruleFamilies[name]...)
 }
 
 // RuleInfo is the effective, read-only view used by `redact rules`.
@@ -157,7 +234,7 @@ func (e *RuleEngine) Rules() []RuleInfo {
 	return out
 }
 
-// BuiltinRuleNames returns the built-in rule names (for --only expansion).
+// BuiltinRuleNames returns the built-in rule names (for --enable expansion).
 func BuiltinRuleNames() []string {
 	rules := BuiltinRules()
 	out := make([]string, 0, len(rules))
@@ -196,6 +273,18 @@ func NewRuleEngine(cfg *types.RedactConfig) (*RuleEngine, error) {
 				return nil, fmt.Errorf("redact.rules.%s: unknown built-in rule", name)
 			}
 			r.enabled = on
+		}
+		for primary, companions := range ruleFamilies {
+			on, ok := cfg.Rules[primary]
+			if !ok {
+				continue
+			}
+			for _, companion := range companions {
+				if _, explicit := cfg.Rules[companion]; explicit {
+					continue
+				}
+				byName[companion].enabled = on
+			}
 		}
 		for _, c := range cfg.Custom {
 			r, err := buildCustom(c)

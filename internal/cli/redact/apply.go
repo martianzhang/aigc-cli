@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 func newApplyCmd() *cobra.Command {
@@ -17,8 +18,6 @@ func newApplyCmd() *cobra.Command {
 	var mappingFile string
 	var encrypt bool
 	var force bool
-	var withDate bool
-	var withAmount bool
 	cmd := &cobra.Command{
 		Use:   "apply [file|-]",
 		Short: "Detect and replace sensitive spans (scan is optional)",
@@ -80,8 +79,9 @@ func newApplyCmd() *cobra.Command {
 			}
 			opts := redactlib.ApplyOptions{
 				Style: style, Placeholder: cfg.Placeholder,
-				Date: cfg.Date || withDate, Amount: cfg.Amount || withAmount,
-				Aliases: cfg.Aliases, Masks: masks,
+				SkipDate:   !types.BoolDefault(cfg.Date, true),
+				SkipAmount: !types.BoolDefault(cfg.Amount, true),
+				Aliases:    cfg.Aliases, Masks: masks,
 			}
 			output, mapping, err := redactlib.Apply(doc, spans, opts)
 			if err != nil {
@@ -116,8 +116,6 @@ func newApplyCmd() *cobra.Command {
 	cmd.Flags().StringVar(&mappingFile, "mapping", "", "Write the reversible mapping to this file")
 	cmd.Flags().BoolVar(&encrypt, "encrypt", false, "Encrypt the mapping with the aigc-cli master key")
 	cmd.Flags().BoolVar(&force, "force", false, "Ignore a sha256 mismatch in --spans")
-	cmd.Flags().BoolVar(&withDate, "with-date", false, "Redact DATE spans (off by default)")
-	cmd.Flags().BoolVar(&withAmount, "with-amount", false, "Redact AMOUNT spans (off by default)")
 	return cmd
 }
 
