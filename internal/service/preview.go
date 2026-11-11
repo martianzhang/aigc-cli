@@ -1,8 +1,6 @@
 package service
 
 import (
-	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"image"
@@ -16,19 +14,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mattn/go-sixel"
 	_ "golang.org/x/image/bmp"
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
-	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
 // PreviewFile opens a file or URL with the system default application.
-// For image files, it also attempts inline terminal display when the
-// terminal supports it (Kitty, iTerm2, or Sixel).
+// For image files, it also attempts inline terminal display when stdout is a
+// real terminal and the terminal supports it (Kitty, iTerm2, or Sixel).
 // URLs are downloaded to a temporary file first.
 func PreviewFile(path string) error {
 	// Detect URL — download to temp file first
@@ -56,8 +52,11 @@ func PreviewFile(path string) error {
 		return fmt.Errorf("%s is a directory", path)
 	}
 
-	// Try inline terminal image display for supported terminals
-	if isImageFile(path) {
+	// Try inline terminal image display for supported terminals. It writes the
+	// image bytes as an escape sequence, so it is only safe on a real terminal
+	// and when the user has not opted out; everywhere else (pipes, redirected
+	// logs, IDE/TUI capture) the system viewer is the only sane fallback.
+	if isImageFile(path) && inlinePreviewAllowed() {
 		if trySixelImage(path) {
 			return nil
 		}
@@ -109,39 +108,6 @@ func openSystemDefault(path string) error {
 	return nil
 }
 
-// trySixelImage attempts to display an image inline using the Sixel protocol.
-// Returns true if successful (terminal supports sixel and encoding succeeded).
-func trySixelImage(path string) bool {
-	if !isSixelCapableTerminal() {
-		return false
-	}
-
-	f, err := os.Open(path)
-	if err != nil {
-		return false
-	}
-	defer f.Close()
-
-	img, _, err := imgcodec.Decode(f)
-	if err != nil {
-		return false
-	}
-
-	// Scale the image to the preview budget derived from the current terminal
-	// (a fraction of the window, see previewFillRatio). When the terminal size
-	// is unknown the image is left untouched.
-	img = fitImageToTerminal(img)
-
-	enc := sixel.NewEncoder(os.Stdout)
-	enc.Width = img.Bounds().Dx()
-	enc.Height = img.Bounds().Dy()
-
-	if err := enc.Encode(img); err != nil {
-		return false
-	}
-	return true
-}
-
 // resizeImage scales an image to the given dimensions using Catmull-Rom
 // interpolation for smooth results. Non-positive dimensions return src as-is.
 func resizeImage(src image.Image, width, height int) image.Image {
@@ -151,79 +117,6 @@ func resizeImage(src image.Image, width, height int) image.Image {
 	dst := image.NewRGBA(image.Rect(0, 0, width, height))
 	draw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Src, nil)
 	return dst
-}
-
-// tryInlineImage attempts to display an image inline in the terminal
-// using the iTerm2 inline image protocol. Returns true if successful.
-func tryInlineImage(path string) bool {
-	if !isInlineCapableTerminal() {
-		return false
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false
-	}
-
-	ext := strings.ToLower(filepath.Ext(path))
-	mime := mimeFromExt(ext)
-	if mime == "" {
-		return false
-	}
-
-	encoded := base64.StdEncoding.EncodeToString(data)
-	// Pass an explicit pixel size only when the image exceeds the ~60% terminal
-	// budget, so it gets shrunk to fit. Smaller images get no size argument and
-	// iTerm2 renders them at their native size — previews are never enlarged.
-	sizeArg := ""
-	if cfg, _, err := imgcodec.DecodeConfig(bytes.NewReader(data)); err == nil {
-		if w, h, ok := previewInlineSize(cfg.Width, cfg.Height); ok {
-			sizeArg = fmt.Sprintf("width=%dpx;height=%dpx;", w, h)
-		}
-	}
-	// Start on a fresh line before the protocol escape, so the image renders
-	// at a predictable position regardless of prior text output on stdout.
-	header := fmt.Sprintf("\033]1337;File=inline=1;preserveAspectRatio=1;%smimeType=%s:", sizeArg, mime)
-	os.Stdout.WriteString("\n" + header + encoded + "\a\n")
-	return true
-}
-
-// isSixelCapableTerminal checks if the current terminal supports Sixel.
-func isSixelCapableTerminal() bool {
-	// WezTerm
-	if os.Getenv("TERM_PROGRAM") == "WezTerm" {
-		return true
-	}
-	// mintty (Git Bash on Windows)
-	if os.Getenv("TERM_PROGRAM") == "mintty" {
-		return true
-	}
-	// xterm with explicit sixel support
-	if strings.Contains(os.Getenv("TERM"), "sixel") {
-		return true
-	}
-	// Windows Terminal (has WT_SESSION, supports sixel since v1.22+)
-	if os.Getenv("WT_SESSION") != "" {
-		return true
-	}
-	// foot terminal
-	if os.Getenv("TERM") == "foot" {
-		return true
-	}
-	return false
-}
-
-// isInlineCapableTerminal checks if the current terminal supports iTerm2/Kitty inline images.
-func isInlineCapableTerminal() bool {
-	// iTerm2 sets TERM_PROGRAM=iTerm.app
-	if os.Getenv("TERM_PROGRAM") == "iTerm.app" {
-		return true
-	}
-	// Kitty sets KITTY_WINDOW_ID
-	if os.Getenv("KITTY_WINDOW_ID") != "" {
-		return true
-	}
-	return false
 }
 
 // detectImageExt guesses the file extension from image magic bytes.

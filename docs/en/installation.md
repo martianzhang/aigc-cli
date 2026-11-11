@@ -93,6 +93,7 @@ The file may contain API keys, so it is written with owner-only permissions (`06
 | `AIGC_CLI_NO_TITLE` | Non-empty: never write the tab title / progress indicator |
 | `AIGC_CLI_TITLE` | `1`: force titles on for an unrecognized terminal |
 | `AIGC_CLI_TITLE_BAR` | `1`: force the OSC 9;4 progress bar on unrecognized terminals |
+| `AIGC_CLI_NO_INLINE_PREVIEW` | Non-empty: never render images inline in the terminal; `preview` and `--preview` always use the system viewer |
 
 ## Proxy
 

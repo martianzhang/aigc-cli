@@ -280,6 +280,14 @@ aigc-cli · image … 1m20s    # 服务端只排队不报进度，显示已等�
 - 非终端（管道、重定向、CI）下完全不输出任何转义序列。
 - 开关：`AIGC_CLI_NO_TITLE=1` 全关（优先级最高）；`AIGC_CLI_TITLE=1` 在未识别的终端上强制开标题；`AIGC_CLI_TITLE_BAR=1` 强制开 OSC `9;4` 进度条。
 
+## 终端内联预览
+
+`preview` 命令和 `--preview` 参数在 iTerm2 / Kitty / Sixel 终端里会把图片直接画在终端里（不弹外部看图器），走的是同一类转义序列：
+
+- 同样**只在 `stdout` 是真实终端时**才写；管道、重定向、日志、IDE/TUI 捕获时一律不写（否则那串 base64 会当普通文本打在屏幕上），改用系统看图器。
+- 写进去的永远是预览尺寸的副本：照片转 JPEG、带透明度转 PNG，上限 512KB；超过上限（如超大 GIF）直接交给系统看图器。
+- 开关：`AIGC_CLI_NO_INLINE_PREVIEW=1` 完全关闭内联渲染，`preview` / `--preview` 一律用系统看图器。
+
 ## 优先级规则
 
 **CLI 参数 > JSON 输入 > YAML 配置 > 代码默认值**

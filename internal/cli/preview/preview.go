@@ -30,8 +30,11 @@ func NewCommand(deps func() Deps) *cobra.Command {
 		SilenceUsage: true,
 		Long: `Preview images and videos by opening them with the system default application.
 
-For image files, also attempts inline terminal display when using a
-supported terminal (iTerm2, Kitty).
+For image files, also attempts inline terminal display when the terminal is
+supported (iTerm2/Kitty or Sixel) and stdout is a real terminal. The inline
+payload is a preview-sized copy, and images that cannot be shrunk small enough
+are handed to the system viewer instead. Set AIGC_CLI_NO_INLINE_PREVIEW to skip
+inline rendering entirely.
 
 Examples:
   aigc-cli preview image_12345_0.png

@@ -19,6 +19,10 @@ aigc-cli preview photo.png --describe
 
 In iTerm2 and Sixel-capable terminals, `preview` renders the image inline instead of handing it to an external application:
 
+- Inline rendering only happens when **stdout is a real terminal**. Piped, redirected, or captured output (`| tee`, log files, IDE/TUI terminals) would otherwise receive the escape sequence as literal text — the base64 blob you would see is the image itself.
+- The payload is never the original file: an image larger than the budget is downscaled and re-encoded (JPEG, or PNG when the image has transparency), so a multi‑megabyte PNG previews from a few dozen KB.
+- The embedded payload is capped at 512 KB. An image that still exceeds the cap (for example an animated GIF, which is sent verbatim so the animation survives) is opened with the system default application instead.
+- The inline escape is skipped entirely when `AIGC_CLI_NO_INLINE_PREVIEW` is non-empty.
 - An image larger than the budget is scaled down to about 60% of the terminal width and height, so it never fills the whole window.
 - An image that is already smaller than the budget is shown at its original size — previews are never enlarged.
 - The aspect ratio is preserved and the image stays fully visible — nothing scrolls off.

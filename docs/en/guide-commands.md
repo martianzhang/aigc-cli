@@ -484,7 +484,7 @@ Run 'aigc-cli image --help' for usage and examples.
 | `-v` / `--verbose` | Show detailed output: full JSON, token usage, timing, cost |
 | `--json` | Pass request as JSON (file, string, or stdin) |
 | `--inject-json` | Merge a JSON object on top of the generated body (objects recurse, arrays append, scalars overwrite); for vendor-only request fields, takes precedence over `--json` |
-| `--preview` | Open system preview after generation |
+| `--preview` | Preview the result after generation: inline in the terminal when supported (see [Preview](guide-preview.md)), otherwise with the system viewer |
 | `--save-prompt` | Save the prompt as `<kind>_<task_id>.md` next to the output (`image` / `video`); works with every provider |
 | `--http-proxy` | Specify HTTP proxy |
 | `--no-proxy` | Ignore `http_proxy` config and `HTTP_PROXY` / `HTTPS_PROXY` for this run (direct connection) |

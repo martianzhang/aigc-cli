@@ -127,6 +127,21 @@ aigc-cli image --prompt "cat" -v
 aigc-cli chat --message "hello" -v
 ```
 
+### 为什么 `--preview` 打印了一大坨 base64？
+
+那串 base64 不是 API 响应，而是**图片本身**。`--preview` 在 iTerm2 / Kitty / Sixel 终端里是通过往 `stdout` 写图片转义序列来内联显示的，`OSC 1337` 协议要求 payload 就是 base64 后的图片字节。旧版本不管 `stdout` 是不是终端都照写，于是管道、重定向、日志或 IDE/TUI 终端把转义序列当普通文本打印出来，就看到了十几万行 base64。
+
+现在：只有 `stdout` 是真实终端才内联渲染，写进去的也是缩小重编码后的预览副本（照片转 JPEG、带透明度转 PNG，≤512KB）；超过上限直接交给系统看图器。
+
+如果仍然想避开内联：
+
+```bash
+AIGC_CLI_NO_INLINE_PREVIEW=1 aigc-cli image ... --preview   # 一律用系统看图器
+TERM_PROGRAM=none aigc-cli image ... --preview              # 同上，适合只想临时绕过的场景
+```
+
+更多说明见 [图片生成](guide-image.md) 的 `--preview` 参数与 [安装](installation.md#终端内联预览) 的内联预览一节。
+
 ## Midjourney
 
 ### MJ 的工作流是什么？

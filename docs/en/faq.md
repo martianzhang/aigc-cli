@@ -63,3 +63,19 @@ Depends on the provider:
 ### Are local features free?
 
 Yes — AIGC detection, OCR, background removal, TTS/ASR with local models are all free.
+
+## Preview
+
+### Why does `--preview` print a wall of base64?
+
+That blob is not the API response — it is the image itself. In iTerm2 / Kitty / Sixel terminals `--preview` (and `preview`) renders inline by writing an OSC 1337 escape to stdout, whose payload is the base64-encoded image. Older builds wrote it unconditionally, so when stdout was a pipe, a log, or captured by an IDE/TUI the escape was printed as literal text.
+
+Now the escape is only written when stdout is a real terminal, and the payload is a downscaled, re-encoded preview copy (JPEG, or PNG when the image has transparency) capped at 512 KB. Anything larger is opened with the system viewer instead.
+
+To always skip inline rendering:
+
+```bash
+AIGC_CLI_NO_INLINE_PREVIEW=1 aigc-cli image ... --preview
+```
+
+See [Preview](guide-preview.md) for details.
