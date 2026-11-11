@@ -1,12 +1,12 @@
 # 脱敏（redact）
 
-`aigc-cli redact` 对**纯文本**做敏感信息识别、替换、还原和残留检查。
+`aigc-cli redact` 对**文本、Word、PDF、图片**做敏感信息识别、替换、还原和残留检查。
 
 - **默认离线**：内置正则 + 校验位，不需要模型、不需要联网、不需要下载。
 - **可复核**：识别与替换分离，`scan` 先看结果，`apply --spans` 再按复核结果替换。
 - **可逆**：`style: placeholder` + 映射文件，可 `restore`。
 - **可选模型**：通过 Ollama 或任意 OpenAI 兼容端点补充机构名、别名、地址等语义实体。
-- **范围**：`txt / md / csv / json / stdin`。v1 不处理 Word、PDF、图片。
+- **范围**：`txt / md / csv / json / stdin / docx / pdf / image`；PDF/图片输出黑块且不可逆。
 
 > 这是辅助工具，不能保证找到所有敏感信息，也不能替代人工复核或合规评估。
 
@@ -57,7 +57,7 @@ aigc-cli redact restore 起诉状.redacted.docx --mapping 起诉状.map.json
 
 - `--dpi` 控制栅格化清晰度，默认 **300**；
 - 有文字层的页面优先用文字层提取；扫描页自动 OCR；
-- 输出为**纯图片 PDF**：页面渲染后画黑块，再重新生成 PDF；
+- 输出为**纯图片 PDF**：页面渲染后按字符/词框画黑块，再重新生成 PDF；
 - 不保留原文字层、注释、附件、JavaScript，复制输出 PDF 不会得到原文；
 - 不做 overlay 覆盖层，因为保留文字层的“遮盖”仍可被复制/提取；
 - PDF 不支持 `--mapping` / `restore`。
@@ -71,7 +71,7 @@ aigc-cli redact apply 判决书.pdf --dpi 300
 
 ### 图片
 
-- 自动 OCR 后直接画黑块；
+- 自动 OCR 后按字符/词框画黑块，只遮敏感片段，不整行涂黑；
 - 透明 PNG/WebP 会铺白底并输出 JPEG；不透明图片保持原扩展名；
 - JPEG quality 默认 85，输出会清理 EXIF/GPS；
 - 图片不支持 `--mapping` / `restore`。

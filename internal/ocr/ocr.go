@@ -180,12 +180,8 @@ func (e *Engine) init() error {
 		e.enDictList = dict
 	}
 
-	if err := ort.SetSharedLibraryPath(e.libPath); err != nil {
-		return fmt.Errorf("set library path: %w", err)
-	}
-	_ = ort.SetLogLevel(ort.LoggingLevelError)
-	if err := ort.InitializeEnvironment(); err != nil {
-		return fmt.Errorf("initialize environment: %w", err)
+	if err := onnxrt.InitEnvironment(e.libPath); err != nil {
+		return fmt.Errorf("initialize ONNX Runtime: %w", err)
 	}
 
 	// Detection session

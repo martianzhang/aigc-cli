@@ -82,7 +82,7 @@ aigc-cli redact apply judgment.pdf --dpi 300
 
 ### Images
 
-- OCR the image and fill sensitive lines with black boxes.
+- OCR the image and fill character/word boxes with black boxes, not whole lines.
 - Transparent PNG/WebP is flattened onto white and written as JPEG; opaque
   images keep their original extension.
 - JPEG quality is 85 and EXIF/GPS metadata is stripped.
