@@ -17,18 +17,23 @@ func captureListTools(t *testing.T, cfg *Config, mode string) string {
 	}
 	os.Stdout = w
 
+	// Read concurrently: the registry output can exceed the OS pipe buffer
+	// (notably 4KB on Windows), and a write-before-read capture deadlocks.
+	readCh := make(chan string, 1)
+	go func() {
+		data, _ := io.ReadAll(r)
+		readCh <- string(data)
+	}()
+
 	ListTools(cfg, mode)
 
 	os.Stdout = origStdout
 	if err := w.Close(); err != nil {
 		t.Fatalf("failed to close pipe writer: %v", err)
 	}
-	out, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatalf("failed to read pipe: %v", err)
-	}
+	out := <-readCh
 	r.Close()
-	return string(out)
+	return out
 }
 
 func TestListTools_allShowsEveryToolWithState(t *testing.T) {
