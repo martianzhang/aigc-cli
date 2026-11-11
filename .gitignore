@@ -79,3 +79,6 @@ TODO.md
 
 # Downloaded by aigc-cli ideas init, tracked in aigc-cli-models repo
 docs/ideas.json
+
+# Local design notes (not published)
+docs/design/
