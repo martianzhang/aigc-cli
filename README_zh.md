@@ -19,7 +19,7 @@
 |---|---|---|
 | 🤖 | **MCP Server** | 内置 MCP Server，对接 Claude Desktop、Cursor、Windsurf：37 个工具、4 个工作流 Prompt、4 个只读 Resource，全部工具带 MCP annotations。AI 代理可直接在对话中生成图片/视频/音乐、运行 Midjourney、OCR、搜索知识库、检测 AIGC、查询定价。工具的 `provider` 参数仅接受 `config.yaml` 白名单中的名称，永远无法远程传入 `base_url`/`api_key`。 |
 | 🔬 | **AIGC 取证** | 离线多信号融合：C2PA、TC260（国标 GB 45438-2025）、SynthID、ONNX 分类器、FFT 频谱、SRM 噪声、JPEG 量化。全部本地，无需 API Key。 |
-| 🔒 | **脱敏** | 纯文本离线脱敏：身份证、手机、银行卡、邮箱、统一社会信用代码、案号；映射可逆、残留可查，可选 Ollama 或本地 ONNX 模型补机构名/别名/地址。 |
+| 🔒 | **脱敏** | 文本/Word/PDF/图片离线脱敏：身份证、手机、银行卡、邮箱、统一社会信用代码、案号；映射可逆、残留可查，可选 Ollama 或本地 ONNX 模型补机构名/别名/地址。 |
 | 🔌 | **多协议支持** | 不止 OpenAI——同时支持 Anthropic Messages API、Ollama、本地 ONNX 模型和任意 OpenAI 兼容端点。 |
 | 🧠 | **Provider 自动适配** | 每个厂商自动走正确的 API 路由（OpenRouter 专用图片/视频 API、APIMart 异步任务等） |
 | 🎨 | **Midjourney 完整管线** | 17 子命令：imagine → blend → describe → upscale → zoom → inpaint → video → remix，无需 Discord。 |
@@ -177,7 +177,7 @@ aigc-cli
 ├── config     读写 config.yaml（get/set/list，密钥脱敏且自动加密）              →  docs/zh/guide-commands.md
 ├── preview / pr 看图 / --detail 元数据 / --describe 写说明                    →  docs/guide-preview.md
 ├── detect     检测 AIGC、元数据和篡改痕迹（多信号融合 + emoji）             →  docs/zh/guide-detect.md
-├── redact     纯文本离线脱敏（规则 + 校验位；可选 Ollama / 本地 ONNX 模型）              →  docs/zh/guide-redact.md
+├── redact     文本/Word/PDF/图片脱敏（规则 + 校验位；可选模型）              →  docs/zh/guide-redact.md
 │   ├── scan    只识别（JSON 输出字符偏移）
 │   ├── apply   识别 + 替换（--spans 可选复核）
 │   ├── restore 按映射文件还原占位符

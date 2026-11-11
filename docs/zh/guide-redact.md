@@ -37,6 +37,61 @@ aigc-cli redact rules
 
 ---
 
+## Word / PDF / 图片
+
+`redact apply` / `scan` 会自动识别文件类型，不需要额外指定模式。
+
+### Word（.docx）
+
+- 使用与 TXT 相同的 `style`：`placeholder` / `mask` / `black` / `hash`；
+- 保留原有字体、表格、页眉页脚；
+- `placeholder` 可配合 `--mapping` 生成映射，并用 `redact restore` 还原；
+- 只处理正文、表格、页眉页脚中的 `<w:t>` 文本；批注/脚注/嵌入对象暂不在 v1 范围。
+
+```bash
+aigc-cli redact apply 起诉状.docx --mapping 起诉状.map.json
+aigc-cli redact restore 起诉状.redacted.docx --mapping 起诉状.map.json
+```
+
+### PDF
+
+- `--dpi` 控制栅格化清晰度，默认 **300**；
+- 有文字层的页面优先用文字层提取；扫描页自动 OCR；
+- 输出为**纯图片 PDF**：页面渲染后画黑块，再重新生成 PDF；
+- 不保留原文字层、注释、附件、JavaScript，复制输出 PDF 不会得到原文；
+- 不做 overlay 覆盖层，因为保留文字层的“遮盖”仍可被复制/提取；
+- PDF 不支持 `--mapping` / `restore`。
+
+```bash
+aigc-cli redact scan 判决书.pdf --dpi 300
+aigc-cli redact apply 判决书.pdf --dpi 300
+```
+
+需要 `mutool`（mupdf-tools）用于渲染；OCR 需要先 `aigc-cli ocr init`。
+
+### 图片
+
+- 自动 OCR 后直接画黑块；
+- 透明 PNG/WebP 会铺白底并输出 JPEG；不透明图片保持原扩展名；
+- JPEG quality 默认 85，输出会清理 EXIF/GPS；
+- 图片不支持 `--mapping` / `restore`。
+
+```bash
+aigc-cli redact scan 扫描件.png
+aigc-cli redact apply 扫描件.png
+```
+
+### 支持矩阵
+
+| 格式 | `apply` | `scan` | `check` | `restore` / `--mapping` |
+|---|---|---|---|---|
+| TXT / MD / CSV / JSON | ✅ | ✅ | ✅ | ✅（placeholder） |
+| DOCX | ✅ | ✅ | ✅ | ✅（placeholder） |
+| PDF | ✅ 栅格化黑块 | ✅ | ❌ | ❌ |
+| 图片 | ✅ 黑块 | ✅ | ❌ | ❌ |
+
+PDF/图片的 `apply` 即使配置了 `style` 也始终使用黑块，不做符号替换。
+
 ## 默认能识别什么
 
 按类别（`redact rules` 会显示每条规则的 `category`）：

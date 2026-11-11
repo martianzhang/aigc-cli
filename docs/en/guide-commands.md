@@ -2,7 +2,7 @@
 
 ## redact
 
-Offline PII redaction for plain text. The default engine is rules + checksum
+Offline PII redaction for text, Word, PDF and images. The default engine is rules + checksum
 validators, with no model or network required:
 
 ```bash
@@ -11,8 +11,14 @@ aigc-cli redact apply complaint.txt --mapping complaint.map.json
 aigc-cli redact check complaint.redacted.txt --mapping complaint.map.json   # exit 2 on leftovers
 aigc-cli redact restore complaint.redacted.txt --mapping complaint.map.json
 aigc-cli redact rules
+
+# Word / PDF / images are detected automatically
+aigc-cli redact apply complaint.docx --mapping complaint.map.json
+aigc-cli redact apply judgment.pdf --dpi 300
+aigc-cli redact apply scan.png
 ```
 
+PDF/images are black-boxed and irreversible; DOCX supports placeholder restore.
 An optional Ollama/OpenAI-compatible model adds organizations, aliases and
 addresses (`--engine auto` + `defaults.redact.provider`). See
 [guide-redact.md](guide-redact.md) for rules, configuration, mask policies and

@@ -36,9 +36,14 @@ func NewCommand(deps func() Deps) *cobra.Command {
 	depsFn = deps
 	cmd := &cobra.Command{
 		Use:          "redact",
-		Short:        "Detect and redact PII in plain text (offline rules; optional local model)",
+		Short:        "Detect and redact PII in text, Word, PDF and images",
 		SilenceUsage: true,
-		Long: `Detect and redact sensitive data in plain text (txt/md/csv/json/stdin).
+		Long: `Detect and redact sensitive data in plain text, DOCX, PDF and images.
+
+Plain text (txt/md/csv/json/stdin) uses rules and an optional model. DOCX
+preserves formatting and supports mapping/restore. PDF and images are rendered
+or OCR'd and redacted with black boxes; their output is intentionally
+irreversible.
 
 The default engine is pure Go rules + checksum validators: no model, no network,
 and no download. It covers ID cards, phones, bank cards, email, unified social
@@ -67,7 +72,11 @@ Examples:
   # Inspect rules/styles and switch profiles
   aigc-cli redact rules
   aigc-cli redact scan contract.txt --profile strict
-  aigc-cli redact apply contract.txt --stdout --style mask`,
+
+  # Word / PDF / image: format is detected automatically
+  aigc-cli redact apply contract.docx --mapping contract.map.json
+  aigc-cli redact apply judgment.pdf --dpi 300
+  aigc-cli redact apply scan.png`,
 	}
 	cmd.AddCommand(newScanCmd(), newApplyCmd(), newRestoreCmd(), newCheckCmd(), newRulesCmd(), newInitCmd())
 	return cmd
@@ -86,6 +95,7 @@ type buildFlags struct {
 	enable      string
 	disable     string
 	rulesFile   string
+	dpi         int
 	profile     string
 	configFile  string
 	modelEngine string
@@ -104,6 +114,7 @@ func addRuleFlags(cmd *cobra.Command, f *buildFlags) {
 func addDetectFlags(cmd *cobra.Command, f *buildFlags) {
 	addRuleFlags(cmd, f)
 	cmd.Flags().StringVar(&f.engine, "engine", "", "Engine: rules (default), model, auto")
+	cmd.Flags().IntVar(&f.dpi, "dpi", 300, "PDF render DPI")
 	cmd.Flags().StringVar(&f.style, "style", "", "Replacement style: placeholder, mask, black, hash")
 	cmd.Flags().BoolVar(&f.allowRemote, "allow-remote", false, "Allow a non-loopback model endpoint (dangerous: original text leaves this machine)")
 }

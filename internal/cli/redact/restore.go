@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/docredact"
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
 )
 
@@ -25,6 +26,9 @@ func newRestoreCmd() *cobra.Command {
   # Read from stdin
   cat contract.redacted.txt | aigc-cli redact restore - --mapping contract.map.json
 
+  # Restore a DOCX produced with style=placeholder
+  aigc-cli redact restore contract.redacted.docx --mapping contract.map.json
+
   # Restore even if the placeholder or sha256 check fails (review first)
   aigc-cli redact restore contract.redacted.txt --mapping contract.map.json --force`,
 		SilenceUsage: true,
@@ -37,6 +41,29 @@ func newRestoreCmd() *cobra.Command {
 			input := "-"
 			if len(args) > 0 {
 				input = args[0]
+			}
+			if input != "-" {
+				if format, ferr := docredact.Detect(input); ferr == nil {
+					if format != docredact.FormatDOCX {
+						return fmt.Errorf("restore is not supported for %s input", format)
+					}
+					if stdout {
+						return fmt.Errorf("--stdout is only supported for text input")
+					}
+					m, err := redactlib.LoadMapping(mappingFile)
+					if err != nil {
+						return err
+					}
+					target := defaultRestoreOut(input)
+					if err := ensureNotInput(input, target); err != nil {
+						return err
+					}
+					if err := docredact.RestoreDOCX(input, target, m); err != nil {
+						return err
+					}
+					fmt.Fprintf(os.Stderr, "restored %d occurrence(s) -> %s\n", len(m.Occurrences), target)
+					return nil
+				}
 			}
 			_, text, err := readInput(input)
 			if err != nil {

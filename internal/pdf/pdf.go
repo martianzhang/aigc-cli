@@ -333,10 +333,8 @@ func renderPages(pdfPath, outputDir string, pageNums []string, dpi int) ([]strin
 	}
 
 	cmd := exec.Command(mutoolPath, args...)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return nil, err
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("mutool draw: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 
 	entries, err := os.ReadDir(outputDir)

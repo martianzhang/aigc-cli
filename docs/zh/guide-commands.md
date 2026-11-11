@@ -2,7 +2,7 @@
 
 ## 脱敏（redact）
 
-纯文本离线脱敏，默认只用内置正则 + 校验位，不需要模型或联网：
+文本、Word、PDF、图片离线脱敏，默认只用内置正则 + 校验位，不需要模型或联网：
 
 ```bash
 aigc-cli redact scan 起诉状.txt
@@ -10,9 +10,14 @@ aigc-cli redact apply 起诉状.txt --mapping 起诉状.map.json
 aigc-cli redact check 起诉状.redacted.txt --mapping 起诉状.map.json   # 有残留时退出码 2
 aigc-cli redact restore 起诉状.redacted.txt --mapping 起诉状.map.json
 aigc-cli redact rules
+
+# Word / PDF / 图片自动识别
+aigc-cli redact apply 起诉状.docx --mapping 起诉状.map.json
+aigc-cli redact apply 判决书.pdf --dpi 300
+aigc-cli redact apply 扫描件.png
 ```
 
-可选 Ollama 模型补机构名、别名、地址：`--engine auto` + `defaults.redact.provider`。完整规则、配置、掩码策略与限制见 [guide-redact.md](guide-redact.md)。
+PDF/图片输出黑块且不可逆；DOCX 可使用 placeholder 还原。可选 Ollama 模型补机构名、别名、地址：`--engine auto` + `defaults.redact.provider`。完整规则、配置、掩码策略与限制见 [guide-redact.md](guide-redact.md)。
 
 ## 检测 AIGC
 

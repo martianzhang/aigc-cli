@@ -19,7 +19,7 @@ Generate, detect, and manage AI content from the terminal. Supports OpenAI, Open
 |---|---|---|
 | 🤖 | **MCP Server** | Built-in MCP Server for Claude Desktop, Cursor, Windsurf: 37 tools, 4 workflow prompts, 4 read-only resources, full MCP annotations. AI agents can generate images/videos/music, run Midjourney, OCR, search KB, detect AIGC, query pricing — all in conversation. The `provider` argument only accepts names from your `config.yaml` whitelist; no `base_url`/`api_key` can ever be passed remotely. |
 | 🔬 | **AIGC Forensics** | Offline multi-signal fusion: C2PA, TC260 (GB 45438-2025), SynthID, ONNX classifier, FFT spectrum, SRM noise, JPEG quantization. Zero API key needed. |
-| 🔒 | **Redact** | Offline PII redaction for plain text: ID cards, phones, bank cards, email, USCC, case numbers; reversible mapping, residual check, optional Ollama or local ONNX model for organizations/aliases/addresses. |
+| 🔒 | **Redact** | Offline PII redaction for text, Word, PDF and images: ID cards, phones, bank cards, email, USCC, case numbers; reversible mapping, residual check, optional Ollama or local ONNX model for organizations/aliases/addresses. |
 | 🔌 | **Multi-Protocol** | Not just OpenAI — supports Anthropic Messages API, Ollama, local ONNX models alongside OpenAI-compatible endpoints. |
 | 🧠 | **Provider Auto-Adapt** | Each provider gets the correct API routing automatically (OpenRouter dedicated image/video API, APIMart async tasks, etc.) |
 | 🎨 | **Midjourney Pipeline** | 17 subcommands: imagine → blend → describe → upscale → zoom → inpaint → video → remix. No Discord required. |
@@ -184,7 +184,7 @@ aigc-cli
 ├── config     Read/edit config.yaml (get/set/list; secrets masked & auto-encrypted)  →  docs/en/guide-commands.md
 ├── preview / pr View images / --detail metadata / --describe caption                 →  docs/en/guide-preview.md
 ├── detect     Detect AIGC, metadata and tampering (multi-signal fusion + emoji)     →  docs/en/guide-detect.md
-├── redact     Offline PII redaction in plain text (rules + checksums; optional Ollama model) → docs/en/guide-redact.md
+├── redact     Offline PII redaction in text/Word/PDF/images (rules + checksums; optional model) → docs/en/guide-redact.md
 │   ├── scan    Detect spans (JSON with rune offsets)
 │   ├── apply   Detect + replace (--spans is optional review input)
 │   ├── restore Restore placeholders from a mapping file

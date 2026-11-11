@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/docredact"
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
 )
@@ -22,6 +23,9 @@ func newCheckCmd() *cobra.Command {
   # JSON output for CI or further processing
   aigc-cli redact check contract.redacted.txt --mapping contract.map.json --json
 
+  # DOCX is checked through its text layer
+  aigc-cli redact check contract.redacted.docx --mapping contract.map.json
+
   # Check stdin
   cat contract.redacted.txt | aigc-cli redact check - --mapping contract.map.json`,
 		SilenceUsage: true,
@@ -35,9 +39,27 @@ func newCheckCmd() *cobra.Command {
 			if len(args) > 0 {
 				input = args[0]
 			}
-			_, text, err := readInput(input)
-			if err != nil {
-				return err
+			text := ""
+			fromDocument := false
+			if input != "-" {
+				if format, ferr := docredact.Detect(input); ferr == nil {
+					if format != docredact.FormatDOCX {
+						return fmt.Errorf("check is not supported for %s input", format)
+					}
+					var err error
+					text, err = docredact.ExtractText(input)
+					if err != nil {
+						return err
+					}
+					fromDocument = true
+				}
+			}
+			if !fromDocument {
+				var err error
+				_, text, err = readInput(input)
+				if err != nil {
+					return err
+				}
 			}
 			m, err := redactlib.LoadMapping(mappingFile)
 			if err != nil {

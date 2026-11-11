@@ -43,6 +43,68 @@ aigc-cli redact rules
 
 ---
 
+## Word / PDF / images
+
+`redact apply` / `scan` detect the file type automatically; no mode flag is
+needed.
+
+### Word (.docx)
+
+- Uses the same `style` as TXT: `placeholder` / `mask` / `black` / `hash`.
+- Preserves fonts, tables, headers and footers.
+- `placeholder` can write a mapping and be restored with `redact restore`.
+- v1 processes `<w:t>` text in the body, tables, headers and footers; comments,
+  footnotes and embedded objects are out of scope.
+
+```bash
+aigc-cli redact apply complaint.docx --mapping complaint.map.json
+aigc-cli redact restore complaint.redacted.docx --mapping complaint.map.json
+```
+
+### PDF
+
+- `--dpi` controls rasterization, default **300**.
+- Pages with a text layer use it first; scanned pages fall back to OCR.
+- Output is an **image-only PDF**: pages are rendered, sensitive regions are
+  filled with black boxes, and a new PDF is written.
+- The original text layer, annotations, attachments and JavaScript are not
+  preserved, so the output cannot be copied back into text.
+- Overlay-only redaction is intentionally not supported.
+- PDF does not support `--mapping` / `restore`.
+
+```bash
+aigc-cli redact scan judgment.pdf --dpi 300
+aigc-cli redact apply judgment.pdf --dpi 300
+```
+
+`mutool` (mupdf-tools) is required for rendering; OCR requires
+`aigc-cli ocr init`.
+
+### Images
+
+- OCR the image and fill sensitive lines with black boxes.
+- Transparent PNG/WebP is flattened onto white and written as JPEG; opaque
+  images keep their original extension.
+- JPEG quality is 85 and EXIF/GPS metadata is stripped.
+- Images do not support `--mapping` / `restore`.
+
+```bash
+aigc-cli redact scan scan.png
+aigc-cli redact apply scan.png
+```
+
+### Support matrix
+
+| Format | `apply` | `scan` | `check` | `restore` / `--mapping` |
+|---|---|---|---|---|
+| TXT / MD / CSV / JSON | ✅ | ✅ | ✅ | ✅ (placeholder) |
+| DOCX | ✅ | ✅ | ✅ | ✅ (placeholder) |
+| PDF | ✅ rasterized black boxes | ✅ | ❌ | ❌ |
+| Images | ✅ black boxes | ✅ | ❌ | ❌ |
+
+For PDF/images `apply` always uses black boxes regardless of the configured
+`style`.
+
 ## What it detects by default
 
 Grouped by category (`redact rules` shows each rule's `category`):

@@ -3,11 +3,15 @@ package redact
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
+	clioptions "github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/docredact"
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 type scanSpan struct {
@@ -57,6 +61,10 @@ func newScanCmd() *cobra.Command {
   aigc-cli redact scan contract.txt --profile strict
   aigc-cli redact scan contract.txt --enable passport,lawyer_no --reveal
 
+  # PDF and image text is extracted/OCR'd automatically
+  aigc-cli redact scan judgment.pdf --dpi 300
+  aigc-cli redact scan scan.png
+
   # Read from stdin
   cat contract.txt | aigc-cli redact scan - --json`,
 		SilenceUsage: true,
@@ -70,6 +78,41 @@ func newScanCmd() *cobra.Command {
 			pipeline, masks, err := buildPipeline(flags)
 			if err != nil {
 				return err
+			}
+			if input != "-" {
+				if _, ferr := docredact.Detect(input); ferr == nil {
+					cfg, err := flags.redactConfig()
+					if err != nil {
+						return err
+					}
+					res, err := docredact.Scan(cmd.Context(), input, pipeline, docredact.Options{
+						Masks: masks, DPI: flags.dpi,
+						SkipDate: !types.BoolDefault(cfg.Date, true), SkipAmount: !types.BoolDefault(cfg.Amount, true),
+						ModelsDir: filepath.Join(clioptions.ConfigDir(), "models"),
+					})
+					if err != nil {
+						return err
+					}
+					id := filepath.Base(input)
+					doc := redactlib.NewDocument(id, res.Text)
+					result := redactlib.Result{Spans: res.Spans, Review: res.Review}
+					if asJSON {
+						out := scanOutput{
+							Version: 1, Doc: id, SHA256: doc.SHA256(), Offset: "rune",
+							Spans:  toScanSpans(doc, result.Spans),
+							Review: toScanSpans(doc, result.Review),
+							Stats:  statsFor(result),
+						}
+						data, err := json.MarshalIndent(out, "", "  ")
+						if err != nil {
+							return err
+						}
+						fmt.Fprintln(cmd.OutOrStdout(), string(data))
+						return nil
+					}
+					writeScanTable(cmd, doc, result, masks, reveal)
+					return nil
+				}
 			}
 			id, text, err := readInput(input)
 			if err != nil {

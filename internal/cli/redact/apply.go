@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
+	clioptions "github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/docredact"
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -38,7 +41,12 @@ func newApplyCmd() *cobra.Command {
   aigc-cli --provider ollama --model has4 redact apply contract.txt --engine auto --mapping contract.map.json
 
   # Encrypt the mapping (requires the aigc-cli master key)
-  aigc-cli redact apply contract.txt --mapping contract.map.json --encrypt`,
+  aigc-cli redact apply contract.txt --mapping contract.map.json --encrypt
+
+  # Word / PDF / image are detected automatically
+  aigc-cli redact apply contract.docx --mapping contract.map.json
+  aigc-cli redact apply judgment.pdf --dpi 300
+  aigc-cli redact apply scan.png`,
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,12 +55,6 @@ func newApplyCmd() *cobra.Command {
 			if len(args) > 0 {
 				input = args[0]
 			}
-			id, text, err := readInput(input)
-			if err != nil {
-				return err
-			}
-			doc := redactlib.NewDocument(id, text)
-
 			cfg, err := flags.redactConfig()
 			if err != nil {
 				return err
@@ -68,14 +70,64 @@ func newApplyCmd() *cobra.Command {
 					return err
 				}
 			}
-			spans, err := spansToApply(cmd, doc, spansFile, pipeline, force)
-			if err != nil {
-				return err
-			}
-
 			style := cfg.Style
 			if style == "" {
 				style = "placeholder"
+			}
+
+			if input != "-" {
+				if format, ferr := docredact.Detect(input); ferr == nil {
+					if spansFile != "" {
+						return fmt.Errorf("--spans is only supported for text input")
+					}
+					if stdout {
+						return fmt.Errorf("--stdout is only supported for text input")
+					}
+					if mappingFile != "" && format != docredact.FormatDOCX {
+						return fmt.Errorf("--mapping is not supported for %s input", format)
+					}
+					if mappingFile != "" && style != "placeholder" {
+						return fmt.Errorf("--mapping requires style=placeholder for DOCX")
+					}
+					target := defaultOut(input, ".redacted")
+					if err := ensureNotInput(input, target); err != nil {
+						return err
+					}
+					res, err := docredact.Apply(cmd.Context(), input, target, pipeline, docredact.Options{
+						Style: style, Placeholder: cfg.Placeholder, Masks: masks, Aliases: cfg.Aliases,
+						SkipDate: !types.BoolDefault(cfg.Date, true), SkipAmount: !types.BoolDefault(cfg.Amount, true),
+						DPI: flags.dpi, ModelsDir: filepath.Join(clioptions.ConfigDir(), "models"),
+					})
+					if err != nil {
+						return err
+					}
+					if mappingFile != "" {
+						if format != docredact.FormatDOCX {
+							return fmt.Errorf("--mapping is not supported for %s input", format)
+						}
+						if res.Mapping == nil {
+							return fmt.Errorf("--mapping requires style=placeholder for DOCX")
+						}
+						if err := redactlib.SaveMapping(mappingFile, res.Mapping, encrypt); err != nil {
+							return err
+						}
+					}
+					fmt.Fprintf(os.Stderr, "redacted %d occurrence(s) -> %s\n", len(res.Spans), res.OutputPath)
+					if mappingFile == "" && style == "placeholder" && format == docredact.FormatDOCX {
+						fmt.Fprintln(os.Stderr, "note: no --mapping written; restore will not be available")
+					}
+					return nil
+				}
+			}
+
+			id, text, err := readInput(input)
+			if err != nil {
+				return err
+			}
+			doc := redactlib.NewDocument(id, text)
+			spans, err := spansToApply(cmd, doc, spansFile, pipeline, force)
+			if err != nil {
+				return err
 			}
 			opts := redactlib.ApplyOptions{
 				Style: style, Placeholder: cfg.Placeholder,
