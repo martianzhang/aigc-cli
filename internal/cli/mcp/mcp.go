@@ -76,6 +76,7 @@ Example MCP host config:
 			options.ProviderNameAudioSFX:        options.Shared.ResolveProvider(options.ProviderNameAudioSFX),
 			options.ProviderNameMusic:           options.Shared.ResolveProvider(options.ProviderNameMusic),
 			options.ProviderNameMidjourney:      options.Shared.ResolveProvider(options.ProviderNameMidjourney),
+			options.ProviderNameRedact:          options.Shared.ResolveProvider(options.ProviderNameRedact),
 		}
 
 		mcpCfg := &mcp.Config{

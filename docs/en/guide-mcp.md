@@ -51,8 +51,11 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `add_watermark` | Add a visible AI watermark (test fixtures only; built-in gemini alpha map, unknown names rendered as text) | Free (local) |
 | `crop_watermark` | Crop to remove watermarks (no learning required; `target` = auto / n% / WxH) | Free (local) |
 | `recognize_text` | Offline OCR for images/PDFs (requires `aigc-cli ocr init`; markdown or json output) | Free (local) |
-| `redact_text` | Offline PII redaction (rules + checksums + `defaults.redact.dictionary`); originals are omitted unless `include_mapping=true` | Free (local) |
-| `redact_check` | Check text for leftover values (`values` list or the `mapping` from `redact_text`) | Free (local) |
+| `redact_text` | Redact plain text (rules + checksums + `defaults.redact.dictionary`); `engine=auto/model` adds a model; originals are omitted unless `include_mapping=true` | Free (local) |
+| `redact_check` | Check text or DOCX for leftover values (`values`, `mapping`, or `mapping_path`) | Free (local) |
+| `redact_scan` | Scan text/DOCX/PDF/image and return spans + review without writing; supports `engine` / `enable` / `disable` / `provider` / `dpi` | Free (local) |
+| `redact_apply` | Redact text/DOCX/PDF/image and write the output; DOCX/text use `style`, PDF/image always use black boxes; DOCX/text can write `mapping_path` | Free (local) |
+| `redact_restore` | Restore a DOCX from `mapping` / `mapping_path` (PDF and images are irreversible) | Free (local) |
 | `search` | Web search via the built-in free engine (DuckDuckGo scrape); returns titles + URLs. Read a result with `fetch`. No provider API, never billed | Free |
 | `fetch` | Fetch a URL with the built-in free fetcher (HTML→main-content markdown; non-HTML as-is), SSRF-guarded, paginated by character offset | Free |
 | `web_search` | Web search via the configured third-party provider (`defaults.search.provider`); **may bill per request**. Errors out when no provider is configured instead of silently using the built-in engine | Vendor-dependent |
@@ -64,9 +67,11 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `kb_list` | List all documents in the knowledge base | Free (local) |
 | `kb_show` | Show the full content of a knowledge base document by ID (first 12 chars) | Free (local) |
 
+> `redact_scan` / `redact_apply` accept `txt/md/csv/json/docx/pdf/image`; PDF rendering needs `mutool`, and PDF/image OCR needs `aigc-cli ocr init`. `redact_apply` writes `<name>.redacted<ext>` next to the input by default and never overwrites the input. If a `tools_enable` whitelist is configured, add `redact_scan` / `redact_apply` / `redact_restore` to it.
+
 > Every tool declares MCP annotations (`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`): hosts can skip confirmation for read-only tools, and no tool in this server is destructive.
 >
-> Tools declared read-only (`readOnlyHint=true`, hosts may skip confirmation): `list_models`, `get_model_pricing`, `get_balance`, `get_task`, `get_config`, `caption_image`, `search_ideas`, `detect_image`, `recognize_text`, `redact_text`, `redact_check`, `search`, `fetch`, `web_search`, `web_fetch`, `kb_find`, `kb_list`, `kb_show`.
+> Tools declared read-only (`readOnlyHint=true`, hosts may skip confirmation): `list_models`, `get_model_pricing`, `get_balance`, `get_task`, `get_config`, `caption_image`, `search_ideas`, `detect_image`, `recognize_text`, `redact_text`, `redact_check`, `redact_scan`, `search`, `fetch`, `web_search`, `web_fetch`, `kb_find`, `kb_list`, `kb_show`.
 
 ### Web access: naming rule and vendor selection
 

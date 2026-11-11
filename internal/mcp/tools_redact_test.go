@@ -113,3 +113,66 @@ func TestRedactCheckHandlerMapping(t *testing.T) {
 		t.Fatalf("check result = %+v", out)
 	}
 }
+
+func TestRedactTextHandlerDisableRule(t *testing.T) {
+	cfg := &Config{Redact: &types.RedactConfig{}}
+	res, err := redactTextHandler(cfg)(context.Background(), redactRequest(map[string]any{
+		"text": "电话13812345678", "disable": "phone_mobile,phone_landline,phone_400",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("handler error: %s", toolResultText(t, res))
+	}
+	var out redactTextResult
+	if err := json.Unmarshal([]byte(toolResultText(t, res)), &out); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.RedactedText, "<PHONE_1>") || !strings.Contains(out.RedactedText, "13812345678") {
+		t.Fatalf("redacted text = %q, want phone kept", out.RedactedText)
+	}
+}
+
+func TestRedactTextHandlerUnknownRule(t *testing.T) {
+	res, err := redactTextHandler(&Config{})(context.Background(), redactRequest(map[string]any{
+		"text": "13812345678", "enable": "no_such_rule",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error for unknown rule")
+	}
+}
+
+func TestRedactTextHandlerEngineAutoWithoutModel(t *testing.T) {
+	res, err := redactTextHandler(&Config{Redact: &types.RedactConfig{}})(context.Background(), redactRequest(map[string]any{
+		"text": "电话13812345678", "engine": "auto",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.IsError {
+		t.Fatalf("handler error: %s", toolResultText(t, res))
+	}
+	var out redactTextResult
+	if err := json.Unmarshal([]byte(toolResultText(t, res)), &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.RedactedText, "<PHONE_1>") {
+		t.Fatalf("redacted text = %q", out.RedactedText)
+	}
+}
+
+func TestRedactTextHandlerUnknownEngine(t *testing.T) {
+	res, err := redactTextHandler(&Config{})(context.Background(), redactRequest(map[string]any{
+		"text": "13812345678", "engine": "bogus",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error for unknown engine")
+	}
+}

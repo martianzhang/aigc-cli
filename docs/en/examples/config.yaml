@@ -89,6 +89,11 @@ base_url: "https://api.apimart.ai"
 #   - "remove_background"  # Offline background removal
 #   - "convert_depth"     # Offline image/video → depth map conversion
 #   - "recognize_text"     # Offline text recognition
+#   - "redact_text"        # Text redaction (rules + checksums + optional model)
+#   - "redact_check"       # Residual check (text / DOCX)
+#   - "redact_scan"        # Scan text/DOCX/PDF/image without writing
+#   - "redact_apply"       # Redact text/DOCX/PDF/image and write output
+#   - "redact_restore"     # Restore DOCX from a mapping
 #   - "caption_image"      # Local EXIF description read/write
 
 # Scenario B: Blocklist — only disable paid generation tools

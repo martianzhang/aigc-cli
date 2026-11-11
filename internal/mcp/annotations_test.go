@@ -26,6 +26,7 @@ var annotationTable = []annotationWant{
 	{"recognize_text", true, false, false, false},
 	{"redact_text", true, false, true, false},
 	{"redact_check", true, false, true, false},
+	{"redact_scan", true, false, true, false},
 	{"search_ideas", true, false, false, false},
 	{"caption_image", true, false, false, false},
 	{"kb_find", true, false, false, false},
@@ -65,6 +66,8 @@ var annotationTable = []annotationWant{
 	{"remove_watermark", false, false, false, true},
 	{"crop_watermark", false, false, false, true},
 	{"add_watermark", false, false, false, true},
+	{"redact_apply", false, false, false, true},
+	{"redact_restore", false, false, false, false},
 }
 
 func Test_toolAnnotations_matchTable(t *testing.T) {

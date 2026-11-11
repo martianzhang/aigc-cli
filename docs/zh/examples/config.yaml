@@ -84,6 +84,11 @@ base_url: "https://api.apimart.ai"
 #   - "remove_background"  # 离线背景去除
 #   - "convert_depth"     # 离线图片/视频深度转换
 #   - "recognize_text"     # 离线文字识别
+#   - "redact_text"        # 文本脱敏（规则 + 校验位 + 可选模型）
+#   - "redact_check"       # 残留检查（文本 / DOCX）
+#   - "redact_scan"        # 扫描 text/DOCX/PDF/图片，不写文件
+#   - "redact_apply"       # 脱敏 text/DOCX/PDF/图片并写文件
+#   - "redact_restore"     # 用 mapping 还原 DOCX
 #   - "caption_image"      # 本地 EXIF 描述读写
 
 # 场景 B：黑名单 — 只禁用花钱的生成类工具

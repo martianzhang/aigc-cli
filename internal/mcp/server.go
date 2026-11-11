@@ -187,8 +187,11 @@ var toolRegistry = []toolInfo{
 	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler(cfg) }},
 	{"crop_watermark", "Crop image to remove watermarks (no learning required)", func(desc string) mcp.Tool { return newCropWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return cropWatermarkHandler(cfg) }},
 	{"recognize_text", "Recognize text in images/PDF using offline OCR", func(desc string) mcp.Tool { return newRecognizeTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return recognizeTextHandler() }},
-	{"redact_text", "Redact PII in plain text (offline rules + dictionary)", func(desc string) mcp.Tool { return newRedactTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return redactTextHandler(cfg) }},
-	{"redact_check", "Check text for leftover sensitive values", func(desc string) mcp.Tool { return newRedactCheckTool() }, func(cfg *Config) server.ToolHandlerFunc { return redactCheckHandler(cfg) }},
+	{"redact_text", "Redact PII in plain text (rules, dictionary, optional model)", func(desc string) mcp.Tool { return newRedactTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return redactTextHandler(cfg) }},
+	{"redact_check", "Check text or DOCX for leftover sensitive values", func(desc string) mcp.Tool { return newRedactCheckTool() }, func(cfg *Config) server.ToolHandlerFunc { return redactCheckHandler(cfg) }},
+	{"redact_scan", "Scan a text/DOCX/PDF/image file for PII without writing", func(desc string) mcp.Tool { return newRedactScanTool() }, func(cfg *Config) server.ToolHandlerFunc { return redactScanHandler(cfg) }},
+	{"redact_apply", "Redact a text/DOCX/PDF/image file and write the result", func(desc string) mcp.Tool { return newRedactApplyTool() }, func(cfg *Config) server.ToolHandlerFunc { return redactApplyHandler(cfg) }},
+	{"redact_restore", "Restore a redacted DOCX from its mapping", func(desc string) mcp.Tool { return newRedactRestoreTool() }, func(cfg *Config) server.ToolHandlerFunc { return redactRestoreHandler(cfg) }},
 	// Web tools. Naming matches the chat primitives: search/fetch are built-in
 	// and free; web_search/web_fetch go through a third-party provider and may
 	// bill per request.

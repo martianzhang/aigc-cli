@@ -100,8 +100,11 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `add_watermark` | 添加可见 AI 水印（仅用于构造去水印测试样本；内置 gemini alpha map，未知名称按文字渲染） | ❌ |
 | `crop_watermark` | 裁切去水印（无需学习模板；`target` 支持 auto / n% / WxH） | ❌ |
 | `recognize_text` | 离线 OCR 识别图片/PDF 文字（需先 `aigc-cli ocr init`；输出 markdown 或 json） | ❌ |
-| `redact_text` | 离线脱敏纯文本（内置规则 + 校验位 + `defaults.redact.dictionary`）；默认**不返回**原文，`include_mapping=true` 才返回映射（含原文） | ❌ |
-| `redact_check` | 检查文本中是否残留指定原文：传 `values` 列表或 `redact_text` 返回的 `mapping` | ❌ |
+| `redact_text` | 脱敏纯文本（规则 + 校验位 + `defaults.redact.dictionary`）；`engine=auto/model` 可加模型；默认**不返回**原文，`include_mapping=true` 才返回映射（含原文） | ❌ |
+| `redact_check` | 检查文本或 DOCX 中是否残留指定原文：传 `values`、`mapping` 或 `mapping_path` | ❌ |
+| `redact_scan` | 扫描 text/DOCX/PDF/图片，返回 span 和 review，不写文件；可选 `engine` / `enable` / `disable` / `provider` / `dpi` | ❌ |
+| `redact_apply` | 脱敏 text/DOCX/PDF/图片并写文件；DOCX/文本支持 `style`，PDF/图片固定黑块；DOCX/文本可写 `mapping_path` | ❌ |
+| `redact_restore` | 用 `mapping` / `mapping_path` 还原 DOCX（PDF/图片不可逆） | ❌ |
 | `search` | 联网搜索：内置免费引擎（DuckDuckGo 抓取），返回标题+URL；用 `fetch` 读全文。不调厂商 API、不计费 | ❌ |
 | `fetch` | 抓 URL 正文：内置免费抓取（HTML→Markdown 主内容提取，非 HTML 原样返回），SSRF 防护，按字符分页 | ❌ |
 | `web_search` | 联网搜索：走配置的第三方厂商（`defaults.search.provider` 选择），**可能按次计费**；未配置厂商时明确报错，不静默回落内置引擎 | 视厂商 |
@@ -113,9 +116,11 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `kb_list` | 列出知识库中的全部文档 | ❌ |
 | `kb_show` | 按 ID（前 12 位）查看知识库文档全文 | ❌ |
 
+> `redact_scan` / `redact_apply` 支持 `txt/md/csv/json/docx/pdf/image`；PDF 渲染需要 `mutool`，PDF/图片 OCR 需要先 `aigc-cli ocr init`。`redact_apply` 默认输出到输入文件旁的 `<原名>.redacted<扩展名>`，不会覆盖输入。如果配置了 `tools_enable` 白名单，需要把 `redact_scan` / `redact_apply` / `redact_restore` 加进去。
+
 > 所有工具都声明了 MCP annotations（`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`）：宿主对只读工具可跳过确认，本服务器的任何工具都不是破坏性的。
 >
-> 声明为只读（`readOnlyHint=true`，宿主可跳过确认）的工具：`list_models`、`get_model_pricing`、`get_balance`、`get_task`、`get_config`、`caption_image`、`search_ideas`、`detect_image`、`recognize_text`、`redact_text`、`redact_check`、`search`、`fetch`、`web_search`、`web_fetch`、`kb_find`、`kb_list`、`kb_show`。
+> 声明为只读（`readOnlyHint=true`，宿主可跳过确认）的工具：`list_models`、`get_model_pricing`、`get_balance`、`get_task`、`get_config`、`caption_image`、`search_ideas`、`detect_image`、`recognize_text`、`redact_text`、`redact_check`、`redact_scan`、`search`、`fetch`、`web_search`、`web_fetch`、`kb_find`、`kb_list`、`kb_show`。
 
 ### 联网能力：命名规则与厂商选择
 
