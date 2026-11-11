@@ -7,9 +7,9 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -85,16 +85,12 @@ func hostOf(raw string) string {
 // writeProviderTable prints one row per configured provider. API key values are
 // never printed — only whether one is configured.
 func writeProviderTable(w io.Writer, rows []providerRow) error {
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	if _, err := fmt.Fprintln(tw, "NAME\tTYPE\tHOST\tKEY"); err != nil {
-		return err
-	}
+	headers := []string{"NAME", "TYPE", "HOST", "KEY"}
+	table := make([][]string, 0, len(rows))
 	for _, row := range rows {
-		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", row.name, row.typ, row.host, row.key); err != nil {
-			return err
-		}
+		table = append(table, []string{row.name, row.typ, row.host, row.key})
 	}
-	return tw.Flush()
+	return terminal.WriteTable(w, headers, table, terminal.TableOptions{})
 }
 
 // runListProviders prints the configured provider registry without any HTTP
