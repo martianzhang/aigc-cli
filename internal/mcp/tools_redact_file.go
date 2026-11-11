@@ -106,6 +106,7 @@ func redactEngineArgs() []mcp.ToolOption {
 			mcp.Description("Detection engine: rules (default), model, or auto (rules + model)")),
 		mcp.WithString("enable", mcp.Description("Comma-separated rule names to enable for this call")),
 		mcp.WithString("disable", mcp.Description("Comma-separated rule names to disable for this call")),
+		mcp.WithString("model", mcp.Description("Override the model name/pack for this call (e.g. has4, multilingual-ner)")),
 		mcp.WithString("provider", mcp.Description(providerArgDesc)),
 		mcp.WithBoolean("allow_remote",
 			mcp.Description("Allow sending text to a non-loopback model provider (default false)")),
@@ -114,10 +115,11 @@ func redactEngineArgs() []mcp.ToolOption {
 
 func redactScanHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		input, format, err := redactInput(req)
+		input, format, _, cleanup, err := redactInput(req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		defer cleanup()
 		pipeline, masks, redactCfg, err := cfg.redactPipeline(req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
@@ -146,10 +148,11 @@ func redactScanHandler(cfg *Config) server.ToolHandlerFunc {
 
 func redactApplyHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		input, format, err := redactInput(req)
+		input, format, outExt, cleanup, err := redactInput(req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		defer cleanup()
 		pipeline, masks, redactCfg, err := cfg.redactPipeline(req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
@@ -158,8 +161,15 @@ func redactApplyHandler(cfg *Config) server.ToolHandlerFunc {
 		if style == "" {
 			style = "placeholder"
 		}
-		output := redactOutputPath(input, req.GetString("output_path", ""), ".redacted")
-		if err := ensureRedactNotInput(input, output); err != nil {
+		original, perr := resolveRedactPath(req.GetString("file_path", ""))
+		if perr != nil {
+			return mcp.NewToolResultError(perr.Error()), nil
+		}
+		output := redactOutputPath(original, req.GetString("output_path", ""), ".redacted")
+		if outExt != "" && outExt != filepath.Ext(original) {
+			output = strings.TrimSuffix(output, filepath.Ext(output)) + outExt
+		}
+		if err := ensureRedactNotInput(original, output); err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 		if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
@@ -214,10 +224,11 @@ func redactApplyHandler(cfg *Config) server.ToolHandlerFunc {
 
 func redactRestoreHandler(_ *Config) server.ToolHandlerFunc {
 	return func(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		input, format, err := redactInput(req)
+		input, format, outExt, cleanup, err := redactInput(req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		defer cleanup()
 		if format != "docx" {
 			return mcp.NewToolResultError(fmt.Sprintf("restore is not supported for %s input", format)), nil
 		}
@@ -228,8 +239,15 @@ func redactRestoreHandler(_ *Config) server.ToolHandlerFunc {
 		if mapping == nil {
 			return mcp.NewToolResultError("mapping or mapping_path is required"), nil
 		}
-		output := redactRestoreOutput(input, req.GetString("output_path", ""))
-		if err := ensureRedactNotInput(input, output); err != nil {
+		original, perr := resolveRedactPath(req.GetString("file_path", ""))
+		if perr != nil {
+			return mcp.NewToolResultError(perr.Error()), nil
+		}
+		output := redactRestoreOutput(original, req.GetString("output_path", ""))
+		if outExt != "" && outExt != filepath.Ext(original) {
+			output = strings.TrimSuffix(output, filepath.Ext(output)) + outExt
+		}
+		if err := ensureRedactNotInput(original, output); err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 		if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
@@ -242,27 +260,39 @@ func redactRestoreHandler(_ *Config) server.ToolHandlerFunc {
 	}
 }
 
-func redactInput(req mcp.CallToolRequest) (string, string, error) {
+func redactInput(req mcp.CallToolRequest) (string, string, string, func(), error) {
+	noop := func() {}
 	raw, err := req.RequireString("file_path")
 	if err != nil {
-		return "", "", fmt.Errorf("file_path is required")
+		return "", "", "", noop, fmt.Errorf("file_path is required")
 	}
 	input, err := resolveRedactPath(raw)
 	if err != nil {
-		return "", "", err
+		return "", "", "", noop, err
 	}
-	format, err := redactFormat(input)
+	prepared, outExt, cleanup, err := docredact.PrepareInput(input)
 	if err != nil {
-		return "", "", err
+		return "", "", "", noop, err
 	}
-	return input, format, nil
+	format, err := redactFormat(prepared)
+	if err != nil {
+		cleanup()
+		return "", "", "", noop, err
+	}
+	return prepared, format, outExt, cleanup, nil
 }
 
 // redactFormat identifies document formats first and falls back to common
 // plain-text extensions.
 func redactFormat(path string) (string, error) {
-	if format, err := docredact.Detect(path); err == nil {
+	format, err := docredact.Detect(path)
+	if err == nil {
 		return format.String(), nil
+	}
+	// Known document containers must surface the precise reason (legacy .doc,
+	// unsupported spreadsheet, ...) instead of falling back to text.
+	if docredact.IsDocumentPath(path) {
+		return "", err
 	}
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".txt", ".md", ".markdown", ".csv", ".json", ".yaml", ".yml",

@@ -76,10 +76,34 @@ func applyDOCX(ctx context.Context, input, outPath string, pipeline *redactlib.P
 	return Result{OutputPath: outPath, Text: text, Spans: res.Spans, Review: res.Review, Mapping: mapping}, nil
 }
 
+// isOLEFile reports whether path is an OLE compound file. Encrypted OOXML and
+// legacy .doc files share this container instead of a ZIP archive.
+func isOLEFile(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	var head [8]byte
+	if _, err := io.ReadFull(f, head[:]); err != nil {
+		return false
+	}
+	return bytes.Equal(head[:], []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1})
+}
+
 func extractDOCX(path string) ([]*docxPart, *zip.ReadCloser, error) {
+	if isOLEFile(path) {
+		return nil, nil, fmt.Errorf("DOCX is encrypted or a legacy .doc file; remove the password or convert it to .docx first")
+	}
 	zr, err := zip.OpenReader(path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open docx: %w", err)
+	}
+	for _, f := range zr.File {
+		if strings.HasPrefix(f.Name, "word/embeddings/") || strings.HasPrefix(f.Name, "word/activeX/") {
+			zr.Close()
+			return nil, nil, fmt.Errorf("DOCX contains embedded objects or ActiveX controls; remove them or export to PDF before redacting")
+		}
 	}
 	var parts []*docxPart
 	for _, f := range zr.File {
@@ -105,7 +129,9 @@ func extractDOCX(path string) ([]*docxPart, *zip.ReadCloser, error) {
 }
 
 func docxPartName(name string) bool {
-	if name == "word/document.xml" {
+	switch name {
+	case "word/document.xml", "word/footnotes.xml", "word/endnotes.xml",
+		"word/comments.xml", "word/glossary/document.xml":
 		return true
 	}
 	base := filepath.Base(name)
@@ -144,10 +170,11 @@ func combineDOCXText(parts []*docxPart) (string, []int) {
 	var b strings.Builder
 	offsets := make([]int, len(parts))
 	for i, part := range parts {
-		offsets[i] = b.Len()
 		if i > 0 {
 			b.WriteString("\n\n")
 		}
+		// The offset must point at the part's first byte, after the separator.
+		offsets[i] = b.Len()
 		b.WriteString(part.text)
 	}
 	return b.String(), offsets

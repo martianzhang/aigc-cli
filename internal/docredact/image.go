@@ -1,11 +1,13 @@
 package docredact
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
+	"image/gif"
 	"os"
 	"path/filepath"
 	"sort"
@@ -94,14 +96,19 @@ func applyImage(ctx context.Context, input, outPath string, pipeline *redactlib.
 }
 
 func loadImage(path string) (image.Image, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, format, err := imgcodec.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("decode image: %w", err)
+	}
+	if format == "gif" {
+		g, err := gif.DecodeAll(bytes.NewReader(data))
+		if err == nil && len(g.Image) > 1 {
+			return nil, fmt.Errorf("animated GIF is not supported; export a static frame first")
+		}
 	}
 	return img, nil
 }
@@ -547,6 +554,10 @@ func imageOutputFormat(input string, alpha bool) string {
 		return "avif"
 	case "jxl":
 		return "jxl"
+	case "bmp":
+		return "bmp"
+	case "tif", "tiff":
+		return "tiff"
 	default:
 		return "jpg"
 	}

@@ -27,6 +27,8 @@ import (
 	"github.com/gen2brain/jpegli"
 	"github.com/gen2brain/jpegxl"
 	"github.com/gen2brain/webp"
+	"golang.org/x/image/bmp"
+	"golang.org/x/image/tiff"
 )
 
 func init() {
@@ -127,6 +129,14 @@ func Encode(w io.Writer, m image.Image, format string, quality int) (int64, erro
 	case "jxl":
 		if err := jpegxl.Encode(buf, m, jpegxl.Options{Quality: quality}); err != nil {
 			return 0, fmt.Errorf("jxl encode: %w", err)
+		}
+	case "bmp":
+		if err := bmp.Encode(buf, m); err != nil {
+			return 0, fmt.Errorf("bmp encode: %w", err)
+		}
+	case "tiff":
+		if err := tiff.Encode(buf, m, nil); err != nil {
+			return 0, fmt.Errorf("tiff encode: %w", err)
 		}
 	default:
 		return 0, fmt.Errorf("unsupported output format: %s", format)

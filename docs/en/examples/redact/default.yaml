@@ -1,5 +1,6 @@
 # Model: privyscope zh-Hans (Apache-2.0, https://github.com/zafrem/privyscope-zh-hans)
 # Install: aigc-cli redact init --model zh-pii
+# Chinese+English NER: aigc-cli redact init --model multilingual-ner (set model below)
 # default — everyday redaction: rules only, placeholder + mapping is reversible
 style: placeholder
 engine: rules              # rules | model | auto

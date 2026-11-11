@@ -1,5 +1,6 @@
 # 模型：privyscope zh-Hans（Apache-2.0，https://github.com/zafrem/privyscope-zh-hans）
 # 安装：aigc-cli redact init --model zh-pii
+# 中英混合 NER：aigc-cli redact init --model multilingual-ner（把下面的 model 改为 multilingual-ner）
 # default —— 日常脱敏：纯规则，placeholder + mapping 可还原
 style: placeholder
 engine: rules              # rules | model | auto

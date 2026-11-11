@@ -417,7 +417,9 @@ defaults:
     #   occurrence: anchored      # anchored | all | first
     #   anchor_window: 20
     # tokencls:
-    #   model: zh-pii             # models/redact/zh-pii/{model.onnx,config.json,tokenizer.json}
+    #   model: zh-pii             # 中文 PII；models/redact/zh-pii/{model.onnx,config.json,tokenizer.json}
+    #   # 中英混合 NER（PER/ORG/LOC/DATE）：aigc-cli redact init --model multilingual-ner
+    #   # model: multilingual-ner
     #   max_len: 512
     #   stride: 128
     #   operating_point: high_recall   # high_recall | balanced | high_precision

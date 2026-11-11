@@ -1,5 +1,6 @@
 # 模型：privyscope zh-Hans（Apache-2.0，https://github.com/zafrem/privyscope-zh-hans）
 # 安装：aigc-cli redact init --model zh-pii
+# 中英混合 NER：aigc-cli redact init --model multilingual-ner（把下面的 model 改为 multilingual-ner）
 # strict —— 更激进：规则 + 模型，并启用默认关闭的标识类规则
 style: placeholder
 engine: auto

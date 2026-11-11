@@ -11,6 +11,8 @@ import (
 	"slices"
 )
 
+const audioModelsBaseURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1"
+
 // ModelType distinguishes ASR (speech-to-text) from TTS (text-to-speech).
 type ModelType string
 
@@ -198,16 +200,19 @@ func Registry() map[string]ModelInfo {
 			SampleRate:  22050,
 			Files: []ModelFile{
 				{
-					URL:  "https://huggingface.co/csukuangfj/vits-ljs/resolve/main/vits-ljs.onnx",
-					Path: "model.onnx",
+					URL:    audioModelsBaseURL + "/audio-vits-ljs-model.onnx",
+					Path:   "model.onnx",
+					SHA256: "5bbd273797a9ecf8d94bd6ec02ad16cb41cbb85f055ad98d528ced3e44c9b31a",
 				},
 				{
-					URL:  "https://huggingface.co/csukuangfj/vits-ljs/resolve/main/tokens.txt",
-					Path: "tokens.txt",
+					URL:    audioModelsBaseURL + "/audio-vits-ljs-tokens.txt",
+					Path:   "tokens.txt",
+					SHA256: "5fee2c6b238d712287f2ecb08f34a8a8b413bcb7390862ef6fb6fd6f0f8d3a17",
 				},
 				{
-					URL:  "https://huggingface.co/csukuangfj/vits-ljs/resolve/main/lexicon.txt",
-					Path: "lexicon.txt",
+					URL:    audioModelsBaseURL + "/audio-vits-ljs-lexicon.txt",
+					Path:   "lexicon.txt",
+					SHA256: "bdccfc6da71c45c48e2e0056fcf0aab760577c5f959f6c1b5eb3e3e916fd5a0e",
 				},
 			},
 			NeedToken: false,
@@ -224,16 +229,19 @@ func Registry() map[string]ModelInfo {
 			SampleRate:  22050,
 			Files: []ModelFile{
 				{
-					URL:  "https://huggingface.co/csukuangfj/vits-vctk/resolve/main/vits-vctk.onnx",
-					Path: "model.onnx",
+					URL:    audioModelsBaseURL + "/audio-vits-vctk-model.onnx",
+					Path:   "model.onnx",
+					SHA256: "b7594574a9145a0e9897cb2858a87bc19daa7b2e61e66d966264477f856d3428",
 				},
 				{
-					URL:  "https://huggingface.co/csukuangfj/vits-vctk/resolve/main/tokens.txt",
-					Path: "tokens.txt",
+					URL:    audioModelsBaseURL + "/audio-vits-vctk-tokens.txt",
+					Path:   "tokens.txt",
+					SHA256: "5fee2c6b238d712287f2ecb08f34a8a8b413bcb7390862ef6fb6fd6f0f8d3a17",
 				},
 				{
-					URL:  "https://huggingface.co/csukuangfj/vits-vctk/resolve/main/lexicon.txt",
-					Path: "lexicon.txt",
+					URL:    audioModelsBaseURL + "/audio-vits-vctk-lexicon.txt",
+					Path:   "lexicon.txt",
+					SHA256: "bdccfc6da71c45c48e2e0056fcf0aab760577c5f959f6c1b5eb3e3e916fd5a0e",
 				},
 			},
 			NeedToken: false,
@@ -249,16 +257,19 @@ func Registry() map[string]ModelInfo {
 			SampleRate:  16000,
 			Files: []ModelFile{
 				{
-					URL:  "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-encoder.onnx",
-					Path: "encoder.onnx",
+					URL:    audioModelsBaseURL + "/audio-whisper-tiny-encoder.onnx",
+					Path:   "encoder.onnx",
+					SHA256: "42c1d4cbf889632ba21ab6f0d4064c80209755f265ce5cd630db4a6793e7089c",
 				},
 				{
-					URL:  "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-decoder.onnx",
-					Path: "decoder.onnx",
+					URL:    audioModelsBaseURL + "/audio-whisper-tiny-decoder.onnx",
+					Path:   "decoder.onnx",
+					SHA256: "e144c07dc6b55cece24392811f2d934b97013811f5e677d1315d341a0a74a25d",
 				},
 				{
-					URL:  "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-tokens.txt",
-					Path: "tokens.txt",
+					URL:    audioModelsBaseURL + "/audio-whisper-tiny-tokens.txt",
+					Path:   "tokens.txt",
+					SHA256: "b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126",
 				},
 			},
 			NeedToken: false,

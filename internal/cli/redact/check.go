@@ -42,12 +42,21 @@ func newCheckCmd() *cobra.Command {
 			text := ""
 			fromDocument := false
 			if input != "-" {
-				if format, ferr := docredact.Detect(input); ferr == nil {
+				prepared, _, cleanup, perr := prepareRedactInput(input)
+				if perr != nil {
+					return perr
+				}
+				defer cleanup()
+				format, ferr := docredact.Detect(prepared)
+				if ferr != nil && docredact.IsDocumentPath(input) {
+					return ferr
+				}
+				if ferr == nil {
 					if format != docredact.FormatDOCX {
 						return fmt.Errorf("check is not supported for %s input", format)
 					}
 					var err error
-					text, err = docredact.ExtractText(input)
+					text, err = docredact.ExtractText(prepared)
 					if err != nil {
 						return err
 					}

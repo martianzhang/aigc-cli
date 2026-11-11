@@ -525,3 +525,49 @@ func TestEthnicityRules(t *testing.T) {
 		t.Fatalf("水族箱 should not be treated as ethnicity: %+v", result.Spans)
 	}
 }
+
+func TestAgeSSNAndInternationalPhoneRules(t *testing.T) {
+	engine, err := NewRuleEngine(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := engine.Detect(NewDocument("t", "年龄：35岁，SSN 123-45-6789，电话 +1 (415) 555-0123。"))
+	found := map[string]string{}
+	for _, s := range result.Spans {
+		found[s.Type] = s.Text
+	}
+	if found["AGE"] != "35" {
+		t.Errorf("AGE = %q, spans = %+v", found["AGE"], result.Spans)
+	}
+	if found["SSN"] != "123-45-6789" {
+		t.Errorf("SSN = %q, spans = %+v", found["SSN"], result.Spans)
+	}
+	if !strings.Contains(found["PHONE"], "415") || !strings.Contains(found["PHONE"], "0123") {
+		t.Errorf("PHONE = %q, spans = %+v", found["PHONE"], result.Spans)
+	}
+}
+
+func TestEnglishAddressAndIDRules(t *testing.T) {
+	engine, err := NewRuleEngine(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := "Address: 123 Main Street, Apt 4B. Passport No: AB1234567. NI AB 12 34 56 C. Driver's License: D1234567."
+	result := engine.Detect(NewDocument("t", text))
+	found := map[string]string{}
+	for _, s := range result.Spans {
+		found[s.Type] = s.Text
+	}
+	if !strings.Contains(found["ADDRESS"], "123 Main Street") {
+		t.Errorf("ADDRESS = %q, spans = %+v", found["ADDRESS"], result.Spans)
+	}
+	if found["PASSPORT"] != "AB1234567" {
+		t.Errorf("PASSPORT = %q, spans = %+v", found["PASSPORT"], result.Spans)
+	}
+	if !strings.Contains(found["NATIONAL_ID"], "AB 12 34 56 C") {
+		t.Errorf("NATIONAL_ID = %q, spans = %+v", found["NATIONAL_ID"], result.Spans)
+	}
+	if found["DRIVER_LICENSE"] != "D1234567" {
+		t.Errorf("DRIVER_LICENSE = %q, spans = %+v", found["DRIVER_LICENSE"], result.Spans)
+	}
+}

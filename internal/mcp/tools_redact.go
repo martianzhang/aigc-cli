@@ -47,6 +47,7 @@ because it can restore the document.`),
 			mcp.Description("Detection engine: rules (default), model, or auto (rules + model)")),
 		mcp.WithString("enable", mcp.Description("Comma-separated rule names to enable for this call")),
 		mcp.WithString("disable", mcp.Description("Comma-separated rule names to disable for this call")),
+		mcp.WithString("model", mcp.Description("Override the model name/pack for this call (e.g. has4, multilingual-ner)")),
 		mcp.WithString("provider", mcp.Description(providerArgDesc)),
 		mcp.WithBoolean("allow_remote",
 			mcp.Description("Allow sending text to a non-loopback model provider (default false)")),
@@ -125,6 +126,17 @@ func redactTextHandler(cfg *Config) server.ToolHandlerFunc {
 // args may override the engine, toggle rules, and choose a named provider.
 func (cfg *Config) redactPipeline(req mcp.CallToolRequest) (*redactlib.Pipeline, *redactlib.MaskResolver, *types.RedactConfig, error) {
 	redactCfg := cloneRedactConfig(cfg.Redact)
+	modelOverride := strings.TrimSpace(req.GetString("model", ""))
+	if modelOverride != "" {
+		redactCfg.Model = modelOverride
+		if redactCfg.Tokencls == nil {
+			redactCfg.Tokencls = &types.RedactTokenclsConfig{}
+		} else {
+			copy := *redactCfg.Tokencls
+			redactCfg.Tokencls = &copy
+		}
+		redactCfg.Tokencls.Model = modelOverride
+	}
 	if err := applyRuleToggles(redactCfg, req.GetString("enable", ""), req.GetString("disable", "")); err != nil {
 		return nil, nil, nil, err
 	}
@@ -181,7 +193,10 @@ func (cfg *Config) redactPipeline(req mcp.CallToolRequest) (*redactlib.Pipeline,
 			if !req.GetBool("allow_remote", false) && !provider.IsLocalEndpoint(p.BaseURL) {
 				return nil, nil, nil, fmt.Errorf("model endpoint %s is not loopback; pass allow_remote=true only if sending original text is acceptable", p.BaseURL)
 			}
-			model := p.Model
+			model := modelOverride
+			if model == "" {
+				model = p.Model
+			}
 			if model == "" {
 				model = redactCfg.Model
 			}
@@ -363,6 +378,11 @@ func redactCheckHandler(_ *Config) server.ToolHandlerFunc {
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+			path, _, cleanup, err := docredact.PrepareInput(path)
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			defer cleanup()
 			format, err := redactFormat(path)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil

@@ -110,7 +110,7 @@ func TestWriteTokenclsModelsTable(t *testing.T) {
 	if err := writeTokenclsModelsTable(&out); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"zh-pii", "Apache-2.0", "privyscope"} {
+	for _, want := range []string{"zh-pii", "Apache-2.0", "privyscope", "multilingual-ner", "AFL-3.0"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("table missing %q:\n%s", want, out.String())
 		}
@@ -151,7 +151,7 @@ func TestInstallTokenclsModelInfo(t *testing.T) {
 
 func TestInstallTokenclsModelUnknownID(t *testing.T) {
 	err := installTokenclsModel(nil, "nope", "", false)
-	if err == nil || !strings.Contains(err.Error(), "available: zh-pii") {
+	if err == nil || !strings.Contains(err.Error(), "available: zh-pii, multilingual-ner") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -205,5 +205,27 @@ func TestExpandHome(t *testing.T) {
 	}
 	if got := expandHome("/tmp/models"); got != "/tmp/models" {
 		t.Fatalf("absolute path = %q", got)
+	}
+}
+
+func TestMultilingualModelPack(t *testing.T) {
+	info, ok := redactlib.FindTokenclsModel("multilingual-ner")
+	if !ok {
+		t.Fatal("multilingual-ner pack missing")
+	}
+	if info.License != "AFL-3.0" || !strings.Contains(info.Source, "aigc-cli-models") {
+		t.Fatalf("pack metadata = %+v", info)
+	}
+	var modelFile bool
+	for _, f := range info.Files {
+		if f.OutName == "model.onnx" {
+			modelFile = true
+			if f.SHA256 == "" || f.SizeMB < 100 {
+				t.Fatalf("model file metadata = %+v", f)
+			}
+		}
+	}
+	if !modelFile {
+		t.Fatal("model.onnx missing from pack")
 	}
 }

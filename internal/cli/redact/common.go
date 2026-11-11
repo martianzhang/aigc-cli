@@ -13,6 +13,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/docredact"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
@@ -90,16 +91,17 @@ func loadDeps() {
 
 // buildFlags are the detection flags shared by scan/apply/check.
 type buildFlags struct {
-	engine      string
-	style       string
-	enable      string
-	disable     string
-	rulesFile   string
-	dpi         int
-	profile     string
-	configFile  string
-	modelEngine string
-	allowRemote bool
+	engine        string
+	style         string
+	enable        string
+	disable       string
+	rulesFile     string
+	dpi           int
+	profile       string
+	configFile    string
+	modelEngine   string
+	tokenclsModel string
+	allowRemote   bool
 }
 
 func addRuleFlags(cmd *cobra.Command, f *buildFlags) {
@@ -109,6 +111,7 @@ func addRuleFlags(cmd *cobra.Command, f *buildFlags) {
 	cmd.Flags().StringVar(&f.profile, "profile", "", "Redact profile name from defaults.redact.profiles")
 	cmd.Flags().StringVar(&f.configFile, "redact-config", "", "External redact YAML overlaid on defaults.redact")
 	cmd.Flags().StringVar(&f.modelEngine, "model-engine", "", "Model backend: auto, chatner, tokencls; the model name goes in --model")
+	cmd.Flags().StringVar(&f.tokenclsModel, "tokencls-model", "", "Override the tokencls model pack for this call (e.g. zh-pii, multilingual-ner)")
 }
 
 func addDetectFlags(cmd *cobra.Command, f *buildFlags) {
@@ -412,6 +415,11 @@ func buildPipeline(f buildFlags) (*redactlib.Pipeline, *redactlib.MaskResolver, 
 			if tcCfg == nil {
 				tcCfg = &types.RedactTokenclsConfig{}
 			}
+			if f.tokenclsModel != "" {
+				copy := *tcCfg
+				copy.Model = f.tokenclsModel
+				tcCfg = &copy
+			}
 			modelsDir := ""
 			if p != nil {
 				modelsDir = p.ModelsDir
@@ -527,6 +535,15 @@ func writeOutput(w io.Writer, path, text string) error {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// prepareRedactInput converts legacy .doc to a temporary .docx. It returns the
+// path to operate on, the output extension, and a cleanup function.
+func prepareRedactInput(input string) (string, string, func(), error) {
+	if input == "-" {
+		return input, "", func() {}, nil
+	}
+	return docredact.PrepareInput(input)
 }
 
 func defaultOut(input, suffix string) string {

@@ -80,12 +80,21 @@ func newScanCmd() *cobra.Command {
 				return err
 			}
 			if input != "-" {
-				if _, ferr := docredact.Detect(input); ferr == nil {
+				prepared, _, cleanup, perr := prepareRedactInput(input)
+				if perr != nil {
+					return perr
+				}
+				defer cleanup()
+				_, ferr := docredact.Detect(prepared)
+				if ferr != nil && docredact.IsDocumentPath(input) {
+					return ferr
+				}
+				if ferr == nil {
 					cfg, err := flags.redactConfig()
 					if err != nil {
 						return err
 					}
-					res, err := docredact.Scan(cmd.Context(), input, pipeline, docredact.Options{
+					res, err := docredact.Scan(cmd.Context(), prepared, pipeline, docredact.Options{
 						Masks: masks, DPI: flags.dpi,
 						SkipDate: !types.BoolDefault(cfg.Date, true), SkipAmount: !types.BoolDefault(cfg.Amount, true),
 						ModelsDir: filepath.Join(clioptions.ConfigDir(), "models"),

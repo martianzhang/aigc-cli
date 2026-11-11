@@ -192,11 +192,11 @@ func TestRedactFileToolSchemas(t *testing.T) {
 	}{
 		{
 			tool: newRedactScanTool(), required: "file_path",
-			props: []string{"dpi", "include_text", "engine", "enable", "disable", "provider", "allow_remote"},
+			props: []string{"dpi", "include_text", "engine", "enable", "disable", "model", "provider", "allow_remote"},
 		},
 		{
 			tool: newRedactApplyTool(), required: "file_path",
-			props: []string{"output_path", "style", "dpi", "include_mapping", "mapping_path", "encrypt_mapping", "engine", "enable", "disable", "provider", "allow_remote"},
+			props: []string{"output_path", "style", "dpi", "include_mapping", "mapping_path", "encrypt_mapping", "engine", "enable", "disable", "model", "provider", "allow_remote"},
 		},
 		{
 			tool: newRedactRestoreTool(), required: "file_path",
@@ -212,5 +212,15 @@ func TestRedactFileToolSchemas(t *testing.T) {
 				t.Errorf("%s missing property %q", c.tool.Name, prop)
 			}
 		}
+	}
+}
+
+func TestRedactFormatLegacyDOC(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.doc")
+	if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := redactFormat(path); err == nil || !strings.Contains(err.Error(), "legacy .doc") {
+		t.Fatalf("error = %v, want legacy .doc guidance", err)
 	}
 }

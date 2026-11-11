@@ -18,6 +18,7 @@ const (
 	ValidatorUSCC         = "uscc"
 	ValidatorLuhn         = "luhn"
 	ValidatorPhone        = "phone"
+	ValidatorIntlPhone    = "intl_phone"
 	ValidatorIP           = "ip"
 	ValidatorURL          = "url"
 )
@@ -36,6 +37,7 @@ var validators = map[string]ValidatorFunc{
 	ValidatorUSCC:         ValidateUSCC,
 	ValidatorLuhn:         ValidateLuhn,
 	ValidatorPhone:        ValidatePhone,
+	ValidatorIntlPhone:    ValidateIntlPhone,
 	ValidatorIP:           ValidateIP,
 	ValidatorURL:          ValidateURL,
 }
@@ -261,6 +263,18 @@ func ValidatePhone(raw string) bool {
 		return v[3] >= '2' && v[3] <= '9'
 	}
 	return false
+}
+
+// ValidateIntlPhone accepts E.164-style numbers with a leading + and 7-15
+// digits. Chinese formats are handled by ValidatePhone.
+func ValidateIntlPhone(raw string) bool {
+	v := StripSeparators(raw)
+	if !strings.HasPrefix(v, "+") {
+		return false
+	}
+	digits := strings.TrimPrefix(v, "+")
+	digits = strings.NewReplacer("(", "", ")", "").Replace(digits)
+	return len(digits) >= 7 && len(digits) <= 15 && allDigits(digits)
 }
 
 func allDigits(s string) bool {

@@ -75,20 +75,44 @@ func Detect(path string) (Format, error) {
 	var head [512]byte
 	n, _ := f.Read(head[:])
 	b := head[:n]
+	ext := strings.ToLower(filepath.Ext(path))
 	switch {
 	case bytes.HasPrefix(b, []byte("%PDF-")):
 		return FormatPDF, nil
 	case bytes.HasPrefix(b, []byte{0x89, 'P', 'N', 'G'}),
 		bytes.HasPrefix(b, []byte{0xff, 0xd8, 0xff}),
 		bytes.HasPrefix(b, []byte("RIFF")) && len(b) >= 12 && string(b[8:12]) == "WEBP",
-		bytes.HasPrefix(b, []byte("GIF8")):
+		bytes.HasPrefix(b, []byte("GIF8")),
+		bytes.HasPrefix(b, []byte("BM")),
+		bytes.HasPrefix(b, []byte{'I', 'I', 0x2A, 0x00}),
+		bytes.HasPrefix(b, []byte{'M', 'M', 0x00, 0x2A}):
 		return FormatImage, nil
-	case strings.EqualFold(filepath.Ext(path), ".docx"):
+	case ext == ".docx" || ext == ".docm" || ext == ".dotx" || ext == ".dotm":
 		return FormatDOCX, nil
-	case strings.EqualFold(filepath.Ext(path), ".pdf"):
+	case ext == ".pdf":
 		return FormatPDF, nil
+	case ext == ".doc":
+		return FormatUnknown, fmt.Errorf("legacy .doc is not supported; convert it to .docx first")
+	case ext == ".odt" || ext == ".rtf" || ext == ".wps":
+		return FormatUnknown, fmt.Errorf("%s is not supported; convert it to .docx or .pdf first", ext)
+	case ext == ".ppt" || ext == ".pptx" || ext == ".xls" || ext == ".xlsx":
+		return FormatUnknown, fmt.Errorf("%s is not supported by redact", ext)
 	}
 	return FormatUnknown, fmt.Errorf("unsupported document format: %s", filepath.Base(path))
+}
+
+// IsDocumentPath reports whether path names a document container even when
+// Detect rejects it (legacy .doc, spreadsheets, slides, ...). Callers use it to
+// avoid treating an unsupported binary file as plain text.
+func IsDocumentPath(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".doc", ".docx", ".docm", ".dotx", ".dotm", ".pdf",
+		".odt", ".rtf", ".wps", ".ppt", ".pptx", ".xls", ".xlsx",
+		".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff",
+		".avif", ".jxl", ".heic", ".heif":
+		return true
+	}
+	return false
 }
 
 // Apply redacts path into outPath. The caller supplies the configured pipeline.

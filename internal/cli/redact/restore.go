@@ -3,6 +3,8 @@ package redact
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -43,7 +45,16 @@ func newRestoreCmd() *cobra.Command {
 				input = args[0]
 			}
 			if input != "-" {
-				if format, ferr := docredact.Detect(input); ferr == nil {
+				prepared, outExt, cleanup, perr := prepareRedactInput(input)
+				if perr != nil {
+					return perr
+				}
+				defer cleanup()
+				format, ferr := docredact.Detect(prepared)
+				if ferr != nil && docredact.IsDocumentPath(input) {
+					return ferr
+				}
+				if ferr == nil {
 					if format != docredact.FormatDOCX {
 						return fmt.Errorf("restore is not supported for %s input", format)
 					}
@@ -55,10 +66,13 @@ func newRestoreCmd() *cobra.Command {
 						return err
 					}
 					target := defaultRestoreOut(input)
+					if outExt != "" && outExt != filepath.Ext(input) {
+						target = strings.TrimSuffix(target, filepath.Ext(target)) + outExt
+					}
 					if err := ensureNotInput(input, target); err != nil {
 						return err
 					}
-					if err := docredact.RestoreDOCX(input, target, m); err != nil {
+					if err := docredact.RestoreDOCX(prepared, target, m); err != nil {
 						return err
 					}
 					fmt.Fprintf(os.Stderr, "restored %d occurrence(s) -> %s\n", len(m.Occurrences), target)

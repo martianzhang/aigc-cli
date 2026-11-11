@@ -102,7 +102,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `recognize_text` | 离线 OCR 识别图片/PDF 文字（需先 `aigc-cli ocr init`；输出 markdown 或 json） | ❌ |
 | `redact_text` | 脱敏纯文本（规则 + 校验位 + `defaults.redact.dictionary`）；`engine=auto/model` 可加模型；默认**不返回**原文，`include_mapping=true` 才返回映射（含原文） | ❌ |
 | `redact_check` | 检查文本或 DOCX 中是否残留指定原文：传 `values`、`mapping` 或 `mapping_path` | ❌ |
-| `redact_scan` | 扫描 text/DOCX/PDF/图片，返回 span 和 review，不写文件；可选 `engine` / `enable` / `disable` / `provider` / `dpi` | ❌ |
+| `redact_scan` | 扫描 text/DOCX/PDF/图片，返回 span 和 review，不写文件；可选 `engine` / `enable` / `disable` / `model` / `provider` / `dpi` | ❌ |
 | `redact_apply` | 脱敏 text/DOCX/PDF/图片并写文件；DOCX/文本支持 `style`，PDF/图片固定黑块；DOCX/文本可写 `mapping_path` | ❌ |
 | `redact_restore` | 用 `mapping` / `mapping_path` 还原 DOCX（PDF/图片不可逆） | ❌ |
 | `search` | 联网搜索：内置免费引擎（DuckDuckGo 抓取），返回标题+URL；用 `fetch` 读全文。不调厂商 API、不计费 | ❌ |
@@ -116,7 +116,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `kb_list` | 列出知识库中的全部文档 | ❌ |
 | `kb_show` | 按 ID（前 12 位）查看知识库文档全文 | ❌ |
 
-> `redact_scan` / `redact_apply` 支持 `txt/md/csv/json/docx/pdf/image`；PDF 渲染需要 `mutool`，PDF/图片 OCR 需要先 `aigc-cli ocr init`。`redact_apply` 默认输出到输入文件旁的 `<原名>.redacted<扩展名>`，不会覆盖输入。如果配置了 `tools_enable` 白名单，需要把 `redact_scan` / `redact_apply` / `redact_restore` 加进去。
+> `redact_scan` / `redact_apply` 支持 `txt/md/csv/json/docx/pdf/image`（图片含 PNG/JPEG/WebP/AVIF/JXL/HEIC/BMP/TIFF）；PDF 渲染需要 `mutool`，PDF/图片 OCR 需要先 `aigc-cli ocr init`。`.doc`、PPT/XLS、动图 GIF 和加密文档会明确报错。`redact_apply` 默认输出到输入文件旁的 `<原名>.redacted<扩展名>`，不会覆盖输入。如果配置了 `tools_enable` 白名单，需要把 `redact_scan` / `redact_apply` / `redact_restore` 加进去。
 
 > 所有工具都声明了 MCP annotations（`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`）：宿主对只读工具可跳过确认，本服务器的任何工具都不是破坏性的。
 >

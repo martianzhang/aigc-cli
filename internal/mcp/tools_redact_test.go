@@ -176,3 +176,16 @@ func TestRedactTextHandlerUnknownEngine(t *testing.T) {
 		t.Fatal("expected error for unknown engine")
 	}
 }
+
+func TestRedactTextHandlerModelOverride(t *testing.T) {
+	cfg := &Config{Redact: &types.RedactConfig{Engine: "model"}, ModelsDir: t.TempDir()}
+	res, err := redactTextHandler(cfg)(context.Background(), redactRequest(map[string]any{
+		"text": "13812345678", "model": "missing-model",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsError || !strings.Contains(toolResultText(t, res), "missing-model") {
+		t.Fatalf("result = %s, want missing-model error", toolResultText(t, res))
+	}
+}

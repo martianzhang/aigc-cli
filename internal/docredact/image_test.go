@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 	"image/color"
+	"image/gif"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -158,5 +159,38 @@ func TestImageCrossLineSpan(t *testing.T) {
 	}
 	if !foundID || !foundPhone {
 		t.Fatalf("cross-line spans not detected: %+v", res.Spans)
+	}
+}
+
+func TestAnimatedGIFRejected(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "anim.gif")
+	f, err := os.Create(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pal := color.Palette{color.White, color.Black}
+	frame1 := image.NewPaletted(image.Rect(0, 0, 4, 4), pal)
+	frame2 := image.NewPaletted(image.Rect(0, 0, 4, 4), pal)
+	frame2.SetColorIndex(0, 0, 1)
+	if err := gif.EncodeAll(f, &gif.GIF{Image: []*image.Paletted{frame1, frame2}, Delay: []int{1, 1}}); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	_, err = Apply(context.Background(), in, filepath.Join(dir, "out.jpg"), nil, Options{})
+	if err == nil || !strings.Contains(err.Error(), "animated GIF") {
+		t.Fatalf("error = %v, want animated GIF rejection", err)
+	}
+}
+
+func TestImageOutputFormatBMPAndTIFF(t *testing.T) {
+	cases := map[string]string{
+		"a.bmp": "bmp", "a.tif": "tiff", "a.tiff": "tiff", "a.png": "png",
+	}
+	for in, want := range cases {
+		if got := imageOutputFormat(in, false); got != want {
+			t.Errorf("imageOutputFormat(%s) = %s, want %s", in, got, want)
+		}
 	}
 }

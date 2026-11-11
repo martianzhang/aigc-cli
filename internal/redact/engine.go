@@ -94,6 +94,8 @@ func CanonicalType(label string) string {
 		return false
 	}
 	switch {
+	case strings.EqualFold(up, "AGE") || contains("年龄"):
+		return "AGE"
 	case contains("身份证", "ID_CARD", "NATIONAL_ID", "GOVERNMENT_ID", "ID_NUMBER"):
 		return "ID_CARD"
 	case contains("统一社会信用代码", "USCC", "TAX_ID", "CREDIT_CODE"):
@@ -112,12 +114,16 @@ func CanonicalType(label string) string {
 		return "PASSPORT"
 	case contains("律师", "LAWYER"):
 		return "LAWYER_NO"
+	case contains("SSN", "SOCIAL_SECURITY"):
+		return "SSN"
 	case contains("机构", "组织", "公司", "单位", "ORG", "ORGANIZATION", "COMPANY"):
 		return "ORG"
-	case contains("地址", "地点", "住址", "ADDRESS", "LOCATION", "STREET", "GPE", "LOC"):
+	case contains("地址", "地点", "住址", "ADDRESS", "LOCATION", "STREET", "GPE", "LOC", "FAC"):
 		return "ADDRESS"
 	case contains("人名", "姓名", "人物", "PERSON", "PER", "NAME"):
 		return "PERSON"
+	case contains("WORK_OF_ART", "WORK"):
+		return "WORK"
 	case contains("金额", "AMOUNT", "MONEY"):
 		return "AMOUNT"
 	case contains("日期", "时间", "DATE", "TIME"):

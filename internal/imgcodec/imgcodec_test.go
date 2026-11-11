@@ -90,7 +90,7 @@ func mustEncode(t *testing.T, img image.Image, format string, quality int) []byt
 
 func TestEncodeFormats(t *testing.T) {
 	img := testImage()
-	formats := []string{"jpg", "jpeg", "webp", "avif", "jxl", "png"}
+	formats := []string{"jpg", "jpeg", "webp", "avif", "jxl", "png", "bmp", "tiff"}
 
 	for _, format := range formats {
 		t.Run(format, func(t *testing.T) {
@@ -113,7 +113,7 @@ func TestDecodeRoundTrip(t *testing.T) {
 	img := testImage()
 
 	// 各 wasm 编码器输出的数据，必须能被 image.Decode 读回
-	formats := []string{"png", "jpg", "webp", "avif", "jxl"}
+	formats := []string{"png", "jpg", "webp", "avif", "jxl", "bmp", "tiff"}
 	for _, format := range formats {
 		t.Run(format, func(t *testing.T) {
 			data := mustEncode(t, img, format, 70)

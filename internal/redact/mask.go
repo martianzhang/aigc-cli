@@ -81,6 +81,12 @@ func defaultMaskPolicy(typ string) MaskPolicy {
 		// Keep only the generic 族 suffix; the number of stars must not reveal
 		// which ethnicity it was.
 		p.Position, p.KeepSuffix, p.PreserveLength, p.MaskLen = "prefix", 1, false, 1
+	case "SSN":
+		p.Position, p.PreserveLength, p.MaskLen = "all", false, 3
+	case "AGE":
+		p.Position, p.PreserveLength, p.MaskLen = "all", false, 1
+	case "NATIONAL_ID", "DRIVER_LICENSE":
+		p.Position, p.PreserveLength, p.MaskLen = "all", false, 3
 	case "DATE":
 		p.Strategy = "date"
 	}
@@ -182,7 +188,8 @@ func isBuiltinMaskType(typ string) bool {
 	switch typ {
 	case "ID_CARD", "PHONE", "BANK_CARD", "EMAIL", "PERSON", "ADDRESS", "ORG",
 		"PASSWORD", "USERNAME", "DB_URL", "HOST", "CREDENTIAL", "COOKIE", "API_KEY",
-		"TOKEN", "PRIVATE_KEY", "URL", "CRYPTO", "WORK", "ETHNICITY", "DATE":
+		"TOKEN", "PRIVATE_KEY", "URL", "CRYPTO", "WORK", "ETHNICITY", "DATE",
+		"AGE", "SSN", "NATIONAL_ID", "DRIVER_LICENSE":
 		return true
 	}
 	return false

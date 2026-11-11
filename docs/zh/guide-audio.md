@@ -561,7 +561,7 @@ aigc-cli audio tts --input "你好"     # 等价的别名
 - **引擎**：sherpa-onnx（C++，通过 Go binding 调用）
 - **编译**：需要 CGO（macOS/Linux 默认开启，无需额外配置）
 - **预编译库**：自动下载，用户无需安装 C 工具链
-- **模型文件**：通过 `audio init` 从 HuggingFace / GitHub Releases 下载
+- **模型文件**：通过 `audio init` 从 GitHub Releases 下载（k2-fsa 上游 + `martianzhang/aigc-cli-models` 镜像；`vits-ljs` / `vits-vctk` / `whisper-tiny` 已全部走镜像）
 - **输出格式**：仅支持 WAV（本地模式）
 - **默认音色**：zf_xiaoxiao（晓晓，中文女声，SID 47）
 

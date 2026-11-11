@@ -6,7 +6,8 @@
 - **可复核**：识别与替换分离，`scan` 先看结果，`apply --spans` 再按复核结果替换。
 - **可逆**：`style: placeholder` + 映射文件，可 `restore`。
 - **可选模型**：通过 Ollama 或任意 OpenAI 兼容端点补充机构名、别名、地址等语义实体。
-- **范围**：`txt / md / csv / json / stdin / docx / pdf / image`；PDF/图片输出黑块且不可逆。
+- **范围**：`txt / md / csv / json / stdin / docx / pdf / image`；图片支持 PNG/JPEG/WebP/AVIF/JXL/HEIC/BMP/TIFF；PDF/图片输出黑块且不可逆。
+- **`.doc`**：检测到 `.doc` 时会自动尝试用 LibreOffice（`soffice`）转成 `.docx` 再处理；未安装时明确报错。PPT/XLS、动图 GIF 不支持；加密/受保护的 PDF、DOCX 会明确报错，需先解除保护。
 
 > 这是辅助工具，不能保证找到所有敏感信息，也不能替代人工复核或合规评估。
 
@@ -46,7 +47,9 @@ aigc-cli redact rules
 - 使用与 TXT 相同的 `style`：`placeholder` / `mask` / `black` / `hash`；
 - 保留原有字体、表格、页眉页脚；
 - `placeholder` 可配合 `--mapping` 生成映射，并用 `redact restore` 还原；
-- 只处理正文、表格、页眉页脚中的 `<w:t>` 文本；批注/脚注/嵌入对象暂不在 v1 范围。
+- 处理正文、表格、页眉页脚、脚注、尾注、批注、词汇表（glossary）中的 `<w:t>` 文本；
+- 嵌入对象/ActiveX/宏不会自动脱敏，检测到会明确报错；请先移除或导出 PDF；
+- 加密或受保护的 DOCX 会明确报错，需先解除保护。
 
 ```bash
 aigc-cli redact apply 起诉状.docx --mapping 起诉状.map.json
@@ -72,6 +75,7 @@ aigc-cli redact apply 判决书.pdf --dpi 300
 ### 图片
 
 - 自动 OCR 后按字符/词框画黑块，只遮敏感片段，不整行涂黑；
+- 支持 PNG/JPEG/WebP/AVIF/JXL/HEIC/BMP/TIFF；动图 GIF 会明确拒绝，请先导出静态帧；
 - 透明 PNG/WebP 会铺白底并输出 JPEG；不透明图片保持原扩展名；
 - JPEG quality 默认 85，输出会清理 EXIF/GPS；
 - 图片不支持 `--mapping` / `restore`。
@@ -88,9 +92,11 @@ aigc-cli redact apply 扫描件.png
 | TXT / MD / CSV / JSON | ✅ | ✅ | ✅ | ✅（placeholder） |
 | DOCX | ✅ | ✅ | ✅ | ✅（placeholder） |
 | PDF | ✅ 栅格化黑块 | ✅ | ❌ | ❌ |
-| 图片 | ✅ 黑块 | ✅ | ❌ | ❌ |
+| 图片（含 BMP/TIFF） | ✅ 黑块 | ✅ | ❌ | ❌ |
 
 PDF/图片的 `apply` 即使配置了 `style` 也始终使用黑块，不做符号替换。
+
+`.doc` 会自动尝试用 LibreOffice 转成 `.docx`（未安装则报错）；PPT、XLS 不支持。加密或受保护的 PDF/DOCX 需要先解除密码/保护。
 
 ## 默认能识别什么
 
@@ -98,7 +104,7 @@ PDF/图片的 `apply` 即使配置了 `style` 也始终使用黑块，不做符�
 
 | 类别 | 默认启用 | 规则 |
 |---|---|---|
-| 个人信息 | ✅ | 身份证号（18/15 位；带“身份证号”标签或日期段合法的虚构号码也能识别）、手机、座机、400/800、邮箱、护照号（带“护照号”标签）、港澳台通行证/居住证、车架号/VIN、微信号、wxid、QQ、车牌、律师执业证号（带标签）、病历/就诊卡/住院号、工号、发动机/电机号、邮政编码、证件号；原告/被告/证人/法定代表人等角色词后的姓名、亲属关系后的姓名、英文姓名（Mr./Ms./Dr. 后）、民族/族别 |
+| 个人信息 | ✅ | 身份证号（18/15 位；带“身份证号”标签或日期段合法的虚构号码也能识别）、手机、座机、400/800、国际电话（`+1 (415) 555-0123`）、邮箱、护照号（中英文标签）、港澳台通行证/居住证、SSN（`123-45-6789`）、英国 NI 号、美国驾照号、英文街道地址（`123 Main Street, Apt 4B`）、车架号/VIN、微信号、wxid、QQ、车牌、律师执业证号（带标签）、病历/就诊卡/住院号、工号、发动机/电机号、邮政编码、证件号；原告/被告/证人/法定代表人等角色词后的姓名、亲属关系后的姓名、英文姓名（Mr./Ms./Dr. 后）、民族/族别、年龄（`年龄：35` / `35岁`） |
 | 个人信息 | ❌ | 裸护照号、裸 17 位律师证号（误伤高，建议配合标签用 `passport_ctx` / `lawyer_no_ctx`） |
 | 单位与机构 | ✅ | 统一社会信用代码、工商注册号、项目编号/代号；常见中文公司/集团名（`...有限公司` / `...集团`）、`以下简称 XX 公司` 的简称 |
 | 金融与网络 | ✅ | 银行卡号、银行账户/对公账户、JP 对公账户、MAC 地址、股票代码、发票代码/号码；密码/口令/API key/token、用户名/账号、数据库连接串、数据库主机、Authorization/Cookie 头、JWT、云厂商密钥、私钥块、带凭据 URL、加密钱包地址 |
@@ -106,7 +112,7 @@ PDF/图片的 `apply` 即使配置了 `style` 也始终使用黑块，不做符�
 | 文书与日期 | ✅ | 司法案号、合同编号、公文文号、不动产权证书号、建设工程规划/施工/预售许可证号、保单号、著作权登记号；作品名（`《...》`，法条/司法解释名保留）；日期 |
 | 文书与日期 | ❌ | 中文日期 |
 
-**语义类**中的姓名会用角色词/亲属关系补召回；没有锚点的人名、机构别名、性别、国籍、民族、年龄、宗教信仰、生物识别、健康/疾病描述、境外法院、金额/日期仍不是正则能可靠解决的；凭据类只覆盖常见 `key=value` / `--key=value` / `key: value` / JSON 引号形式，**没有 key 或已知前缀的裸密钥无法可靠识别**，需要自定义规则、词表或模型：用 `dictionary` / `dictionary_files`，或 `engine: auto/model` 配合模型。日期/金额/民族默认脱敏（日期可反推身份证生日，金额可能包含薪酬等商业信息）。需要保留时设 `date: false` / `amount: false`，或 `--disable date_cn,amount,amount_cn,ethnicity_name,ethnicity_assign`；用 `--enable date_cn,amount,amount_cn,ethnicity_name,ethnicity_assign` 可强制重新开启。
+**语义类**中的姓名会用角色词/亲属关系补召回；没有锚点的人名、机构别名、性别、国籍、复杂年龄表述、宗教信仰、生物识别、健康/疾病描述、境外法院、英文地址/境外机构/境外证件仍不是正则能可靠解决的；凭据类只覆盖常见 `key=value` / `--key=value` / `key: value` / JSON 引号形式，**没有 key 或已知前缀的裸密钥无法可靠识别**，需要自定义规则、词表或模型：用 `dictionary` / `dictionary_files`，或 `engine: auto/model` 配合模型。日期/金额/民族默认脱敏（日期可反推身份证生日，金额可能包含薪酬等商业信息）。需要保留时设 `date: false` / `amount: false`，或 `--disable date_cn,amount,amount_cn,ethnicity_name,ethnicity_assign`；用 `--enable date_cn,amount,amount_cn,ethnicity_name,ethnicity_assign` 可强制重新开启。
 
 ---
 
@@ -365,6 +371,7 @@ aigc-cli --provider local --model-engine tokencls redact scan 起诉状.txt --en
 - `engine: auto` 规则 + 模型并集；
 - `defaults.redact.model_engine`（或 `--model-engine`）选择模型后端：`auto` / `chatner` / `tokencls`；
 - 模型名用 `--model has4`（或 `defaults.redact.model`），**不要**写进 `--model-engine`；
+- 单次切换本地 tokencls 模型包用 `--tokencls-model multilingual-ner`（不影响配置文件）；
 - 默认 `auto`：provider 是 `local` → tokencls；显式指定了非本地 provider（如 `ollama`）→ chatner；没有 provider 但配置了 tokencls → tokencls。
 - 模型识别的 `ADDRESS` 会自动扩展到楼栋/单元/房间后缀（如 `3幢802室`），遇到标点或“联系电话/统一社会信用代码”等角色词停止；
 - 值级模型返回的是实体字符串，不是 offset。默认 `occurrence: anchored`：只有实体附近出现“原告/联系人/电话/地址”等角色词时才替换，找不到锚点的出现位置会在 `scan` 的 `needs_review` 里列出，**不会自动替换**；
@@ -381,9 +388,23 @@ privyscope / Horizon 这类带 offset 的模型。模型不随 CLI 二进制分�
 ```bash
 aigc-cli redact init --list
 aigc-cli redact init --model zh-pii
+# 中英混合 NER（PER/ORG/LOC/DATE）
+aigc-cli redact init --model multilingual-ner
 ```
 
-默认安装到 `~/.config/aigc-cli/models/redact/zh-pii/`：
+`multilingual-ner` 是 Davlan mBERT 多语言 NER（中文+英文，PER/ORG/LOC/DATE，AFL-3.0，约 174MB）：
+
+```yaml
+defaults:
+  redact:
+    model_engine: tokencls
+    tokencls:
+      model: multilingual-ner
+      max_len: 512
+      stride: 128
+```
+
+默认安装到 `~/.config/aigc-cli/models/redact/<model>/`：
 
 ```
 model.onnx        # ONNX 权重
@@ -428,6 +449,40 @@ aigc-cli redact scan 起诉状.txt --engine model
 - `inputs` / `output` 一般不用写；适配器会先尝试 `input_ids + attention_mask + token_type_ids`，失败再退回两输入，并尝试 `logits` / `output` / `emissions`。
 - `operating_point` 控制 BIOES 转移偏置：`high_recall`（默认，与 privyscope zh-Hans 一致）/ `balanced` / `high_precision`；也可以用 `biases: [outside, begin, single, inside, end, exit]` 六个值覆盖。
 - 需要 ONNX Runtime；未安装时先跑任意本地命令的 `init`（例如 `aigc-cli ocr init`）。
+
+### 接入第三方 ONNX NER 模型（中英混合）
+
+`tokencls` 不绑定 `zh-pii`：任何符合下面布局的 token-classification ONNX 模型都可以通过 `model_dir` 直接加载，适合引入中英混合 NER：
+
+```text
+<model_dir>/
+  model.onnx        # ONNX 权重（建议 int8 量化）
+  config.json       # {"id2label": {"0":"O", "1":"B-PER", ...}}
+  tokenizer.json    # HuggingFace tokenizer
+```
+
+```yaml
+defaults:
+  redact:
+    engine: auto
+    model_engine: tokencls
+    tokencls:
+      model_dir: ~/.config/aigc-cli/models/redact/bilingual-ner
+      max_len: 512
+      stride: 128
+```
+
+- 适配器兼容 `<s>` / `</s>` / `<pad>` 与 `[CLS]` / `[SEP]` / `[PAD]`，默认尝试 `input_ids + attention_mask + token_type_ids`，失败再退回两输入；
+- 标签通过 `CanonicalType` 归一：`PER` → 姓名、`ORG` → 机构、`LOC` / `GPE` / `FAC` → 地址、`MISC` / `EVENT` 等未知标签会被忽略，不会误遮；
+- 建议选 XLM-R / mBERT 在 WikiAnn 等中英数据上微调的 NER；导出示例：
+
+```bash
+optimum-cli export onnx --model <hf-model> --task token-classification <model_dir>
+```
+
+- 注意许可证（优先 Apache-2.0 / MIT，避免 NC）、模型体积和 CPU 延迟；base 模型 fp32 约 1GB，int8 量化后约数百 MB；
+- 如果模型只输出 PER/ORG/LOC，电话、身份证、邮箱等结构化字段仍由内置规则补齐；
+- 内置 model pack 已有 `zh-pii`（中文 PII）和 `multilingual-ner`（中英 PER/ORG/LOC/DATE）；其他第三方模型可以先用 `model_dir` 加载，稳定后再纳入 `redact init --model`。
 
 ## 如何验证模型是否生效
 
@@ -513,7 +568,7 @@ aigc-cli redact apply 起诉状.txt --spans spans.json --mapping 起诉状.map.j
 
 ## 限制
 
-- 只处理纯文本；Word/PDF/图片/扫描件不在 v1 范围。
+- 支持文本、DOCX、PDF 和图片；`.doc` 自动尝试 LibreOffice 转换，PPT/XLS、加密文档和动图 GIF 仍需先转换/解除保护。
 - 一个映射文件对应一个输出文档；跨文件共享编号（脱敏空间）尚未实现。
 - `mask` / `black` / `hash` 不可逆；`restore` 只保证 `placeholder`。
 - 日期、金额默认替换。设 `date: false` / `amount: false` 或用 `--disable date_cn,amount,amount_cn` 可保留；用 `--enable` 可重新开启。模型/自定义规则产生的 DATE/AMOUNT span 也受这两个开关控制。

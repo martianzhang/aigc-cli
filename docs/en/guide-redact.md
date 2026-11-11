@@ -1,7 +1,7 @@
 # Redaction (`redact`)
 
 `aigc-cli redact` detects, replaces, restores and re-checks sensitive data in
-**plain text**.
+**plain text, Word, PDF and images**.
 
 - **Offline by default**: built-in regex rules plus checksum validators. No
   model, no network, no download.
@@ -10,8 +10,13 @@
 - **Reversible**: `style: placeholder` plus a mapping file enables `restore`.
 - **Optional model**: Ollama or any OpenAI-compatible endpoint adds
   organizations, aliases and addresses.
-- **Scope**: `txt / md / csv / json / stdin`. Word, PDF and images are out of
-  scope in v1.
+- **Scope**: `txt / md / csv / json / stdin / docx / pdf / image`. Images
+  support PNG/JPEG/WebP/AVIF/JXL/HEIC/BMP/TIFF; PDF and images are redacted with
+  black boxes and are irreversible.
+- **`.doc`**: detected automatically and converted to `.docx` with LibreOffice
+  (`soffice`) when available; otherwise it fails with an explicit message.
+  PPT/XLS and animated GIF are not supported. Encrypted/protected PDF and DOCX
+  fail with an explicit message; remove the password/protection first.
 
 > This is an assistant, not a compliance or anonymization guarantee. Always
 > review the output before sharing it.
@@ -53,8 +58,11 @@ needed.
 - Uses the same `style` as TXT: `placeholder` / `mask` / `black` / `hash`.
 - Preserves fonts, tables, headers and footers.
 - `placeholder` can write a mapping and be restored with `redact restore`.
-- v1 processes `<w:t>` text in the body, tables, headers and footers; comments,
-  footnotes and embedded objects are out of scope.
+- Processes `<w:t>` text in the body, tables, headers, footers, footnotes,
+  endnotes, comments and the glossary.
+- Embedded objects, ActiveX controls and macros are not redacted; the file is
+  rejected with an explicit message, so remove them or export to PDF first.
+- Encrypted or protected DOCX files fail with an explicit message.
 
 ```bash
 aigc-cli redact apply complaint.docx --mapping complaint.map.json
@@ -83,6 +91,8 @@ aigc-cli redact apply judgment.pdf --dpi 300
 ### Images
 
 - OCR the image and fill character/word boxes with black boxes, not whole lines.
+- Supports PNG/JPEG/WebP/AVIF/JXL/HEIC/BMP/TIFF; animated GIF is rejected
+  explicitly, so export a static frame first.
 - Transparent PNG/WebP is flattened onto white and written as JPEG; opaque
   images keep their original extension.
 - JPEG quality is 85 and EXIF/GPS metadata is stripped.
@@ -100,10 +110,14 @@ aigc-cli redact apply scan.png
 | TXT / MD / CSV / JSON | ✅ | ✅ | ✅ | ✅ (placeholder) |
 | DOCX | ✅ | ✅ | ✅ | ✅ (placeholder) |
 | PDF | ✅ rasterized black boxes | ✅ | ❌ | ❌ |
-| Images | ✅ black boxes | ✅ | ❌ | ❌ |
+| Images (incl. BMP/TIFF) | ✅ black boxes | ✅ | ❌ | ❌ |
 
 For PDF/images `apply` always uses black boxes regardless of the configured
 `style`.
+
+`.doc` is converted automatically with LibreOffice when available, and fails
+with guidance otherwise. PPT/XLS are not supported. Encrypted/protected PDF and
+DOCX files require removing the password/protection.
 
 ## What it detects by default
 
@@ -111,7 +125,7 @@ Grouped by category (`redact rules` shows each rule's `category`):
 
 | Category | Default | Rules |
 |---|---|---|
-| Personal | ✅ | ID card (18/15; labelled or date-valid fictional numbers), mobile, landline, 400/800, email, passport (labelled), HK/Macau/Taiwan permits/residence permit, VIN, WeChat ID, wxid, QQ, licence plate, lawyer licence (labelled), medical/visit/inpatient number, employee ID, engine/motor number, postcode, certificate number; names after roles (原告/被告/证人/法定代表人…), relatives, English names after Mr./Ms./Dr., and ethnicity |
+| Personal | ✅ | ID card (18/15; labelled or date-valid fictional numbers), mobile, landline, 400/800, international phone (`+1 (415) 555-0123`), email, passport (Chinese/English labels), HK/Macau/Taiwan permits/residence permit, SSN (`123-45-6789`), UK NI number, US driver's licence, English street addresses (`123 Main Street, Apt 4B`), VIN, WeChat ID, wxid, QQ, licence plate, lawyer licence (labelled), medical/visit/inpatient number, employee ID, engine/motor number, postcode, certificate number; names after roles (原告/被告/证人/法定代表人…), relatives, English names after Mr./Ms./Dr., ethnicity, and age (`年龄：35` / `35岁`) |
 | Personal | ❌ | Bare passport, bare 17-digit lawyer licence (noisy; use the labelled `passport_ctx` / `lawyer_no_ctx` rules) |
 | Organization | ✅ | Unified social credit code, business registration number; common Chinese company/group names (`...有限公司` / `...集团`), `以下简称 XX 公司` aliases and project codes |
 | Finance & network | ✅ | Bank card, bank account/corporate account, JP corporate account, MAC address, stock code, invoice code/number; passwords/API keys/tokens, usernames/accounts, database URLs and DB hosts, Authorization/Cookie headers, JWTs, cloud keys, private-key blocks, credential URLs, crypto wallets |
@@ -122,8 +136,9 @@ Grouped by category (`redact rules` shows each rule's `category`):
 **Credential rules cover the common `key=value` / `--key=value` / `key: value` and quoted JSON forms only. A bare secret with no key or known prefix cannot be detected reliably; add a custom rule, dictionary entry or model for those.
 
 **Names after role words and relatives get a regex recall boost; names without an anchor, organization aliases, gender, nationality,
-ethnicity, age, religion, biometrics, health/condition descriptions, foreign
-courts, amounts/dates) are not reliable regex problems. Use `dictionary` /
+complex age phrasing, religion, biometrics, health/condition descriptions,
+foreign courts, English addresses/foreign organizations/foreign IDs) are not
+reliable regex problems. Use `dictionary` /
 `dictionary_files`, or `engine: auto/model` with a model. Dates, amounts and ethnicity are redacted by default (dates can reveal an ID birth date; amounts may include salary or commercial terms). Set `date: false` / `amount: false` or disable the rules to keep them; Use `--enable date_cn,amount,amount_cn,ethnicity_name,ethnicity_assign` to force them back on.
 
 ---
@@ -395,6 +410,8 @@ aigc-cli --provider local --model-engine tokencls redact scan complaint.txt --en
 - `defaults.redact.model_engine` (or `--model-engine`): `auto` / `chatner` / `tokencls`.
 - The model name goes in `--model has4` (or `defaults.redact.model`), not in
   `--model-engine`.
+- Override the local tokencls model pack for one call with
+  `--tokencls-model multilingual-ner` (does not change the config file).
 - `auto` uses tokencls for a `local` provider, chatner for an explicit non-local
   provider (e.g. `ollama`), and tokencls when no provider is set but tokencls is
   configured.
@@ -417,6 +434,21 @@ downloaded from `aigc-cli-models`:
 ```bash
 aigc-cli redact init --list
 aigc-cli redact init --model zh-pii
+# Chinese+English NER (PER/ORG/LOC/DATE)
+aigc-cli redact init --model multilingual-ner
+```
+
+`multilingual-ner` is Davlan mBERT multilingual NER (Chinese+English,
+PER/ORG/LOC/DATE, AFL-3.0, ~174MB):
+
+```yaml
+defaults:
+  redact:
+    model_engine: tokencls
+    tokencls:
+      model: multilingual-ner
+      max_len: 512
+      stride: 128
 ```
 
 The default install directory is
@@ -473,6 +505,52 @@ aigc-cli redact scan complaint.txt --engine model
   six raw `biases: [outside, begin, single, inside, end, exit]` to override.
 - ONNX Runtime must be installed; run any local command's `init` (e.g.
   `aigc-cli ocr init`) first.
+
+### Third-party bilingual ONNX NER models
+
+`tokencls` is not tied to `zh-pii`: any token-classification ONNX model with the
+layout below can be loaded through `model_dir`, including a Chinese+English NER
+model:
+
+```text
+<model_dir>/
+  model.onnx        # ONNX weights (int8 quantization recommended)
+  config.json       # {"id2label": {"0":"O", "1":"B-PER", ...}}
+  tokenizer.json    # HuggingFace tokenizer
+```
+
+```yaml
+defaults:
+  redact:
+    engine: auto
+    model_engine: tokencls
+    tokencls:
+      model_dir: ~/.config/aigc-cli/models/redact/bilingual-ner
+      max_len: 512
+      stride: 128
+```
+
+- The adapter accepts `<s>` / `</s>` / `<pad>` and `[CLS]` / `[SEP]` /
+  `[PAD]`, and tries `input_ids + attention_mask + token_type_ids` before
+  falling back to two inputs.
+- Labels go through `CanonicalType`: `PER` → person, `ORG` → organization,
+  `LOC` / `GPE` / `FAC` → address. `MISC` / `EVENT` and other unknown labels
+  are ignored instead of being masked.
+- XLM-R / mBERT models fine-tuned on WikiAnn (Chinese+English) are a good
+  starting point:
+
+```bash
+optimum-cli export onnx --model <hf-model> --task token-classification <model_dir>
+```
+
+- Check the license (prefer Apache-2.0 / MIT, avoid NC), model size and CPU
+  latency; a base model is ~1GB fp32 and a few hundred MB after int8
+  quantization.
+- If the model only emits PER/ORG/LOC, the built-in rules still cover phone,
+  ID card, email and other structured fields.
+- Official packs: `zh-pii` (Chinese PII) and `multilingual-ner`
+  (Chinese+English PER/ORG/LOC/DATE). Other third-party models work through
+  `model_dir` first and can be added to `redact init --model` later.
 
 ## How to verify the model is working
 
@@ -562,7 +640,7 @@ restore the text.
 
 ## Limitations
 
-- Plain text only; Word/PDF/images/scans are out of scope in v1.
+- Text, DOCX, PDF and images are supported; `.doc` is converted via LibreOffice when available, while PPT/XLS, encrypted documents and animated GIF require conversion/removal of protection first.
 - One mapping file describes one output document; cross-file shared numbering
   (a "redaction space") is not implemented yet.
 - `mask` / `black` / `hash` are one-way; only `placeholder` is reliably

@@ -128,6 +128,9 @@ func applyPDF(ctx context.Context, input, outPath string, pipeline *redactlib.Pi
 }
 
 func extractPDFPages(opts Options, input string) ([]pdfPageData, func(), error) {
+	if pdf.IsEncrypted(input) {
+		return nil, nil, fmt.Errorf("PDF is encrypted; remove the password or protection first")
+	}
 	meta, err := pdf.ExtractPageLines(input)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read PDF: %w", err)

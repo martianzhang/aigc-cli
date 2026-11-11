@@ -121,3 +121,51 @@ func TestViterbiHighRecallRecoversPrecisionHeavySpan(t *testing.T) {
 		t.Fatalf("balanced viterbi = %v, want [O O]", got)
 	}
 }
+
+func TestCanonicalTypeBilingualLabels(t *testing.T) {
+	cases := map[string]string{
+		"PER": "PERSON", "ORG": "ORG", "LOC": "ADDRESS",
+		"FAC": "ADDRESS", "AGE": "AGE", "SSN": "SSN", "MISC": "MISC",
+	}
+	for in, want := range cases {
+		if got := CanonicalType(in); got != want {
+			t.Errorf("CanonicalType(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestDecodeTokenSpansSkipsUnsupportedLabels(t *testing.T) {
+	doc := NewDocument("t", "Alice 35 Acme")
+	items := []tokenItem{
+		{startChar: 0, endChar: 5},
+		{startChar: 6, endChar: 8},
+		{startChar: 9, endChar: 13},
+	}
+	spans := decodeTokenSpans(doc, items, []string{"S-PER", "S-MISC", "S-ORG"})
+	if len(spans) != 2 {
+		t.Fatalf("spans = %+v, want 2 (MISC ignored)", spans)
+	}
+	if spans[0].Type != "PERSON" || spans[0].Text != "Alice" {
+		t.Fatalf("span0 = %+v", spans[0])
+	}
+	if spans[1].Type != "ORG" || spans[1].Text != "Acme" {
+		t.Fatalf("span1 = %+v", spans[1])
+	}
+}
+
+func TestViterbiBIOClosesSpanAtOutside(t *testing.T) {
+	// BIO models have no E/S tags: I-PER followed by O must be a legal close.
+	labels := []string{"O", "B-PER", "I-PER"}
+	logits := make([]float32, 12)
+	set := func(pos, label int, v float32) { logits[(pos+1)*len(labels)+label] = v }
+	set(0, 1, 10) // B-PER
+	set(1, 2, 10) // I-PER
+	set(2, 0, 10) // O
+	got := viterbiLabels(logits, 3, len(labels), labels, tokenTransitionBiases{})
+	want := []string{"B-PER", "I-PER", "O"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("path = %v, want %v", got, want)
+		}
+	}
+}

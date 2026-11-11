@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -76,7 +77,16 @@ func newApplyCmd() *cobra.Command {
 			}
 
 			if input != "-" {
-				if format, ferr := docredact.Detect(input); ferr == nil {
+				prepared, outExt, cleanup, perr := prepareRedactInput(input)
+				if perr != nil {
+					return perr
+				}
+				defer cleanup()
+				format, ferr := docredact.Detect(prepared)
+				if ferr != nil && docredact.IsDocumentPath(input) {
+					return ferr
+				}
+				if ferr == nil {
 					if spansFile != "" {
 						return fmt.Errorf("--spans is only supported for text input")
 					}
@@ -90,10 +100,13 @@ func newApplyCmd() *cobra.Command {
 						return fmt.Errorf("--mapping requires style=placeholder for DOCX")
 					}
 					target := defaultOut(input, ".redacted")
+					if outExt != "" && outExt != filepath.Ext(input) {
+						target = strings.TrimSuffix(target, filepath.Ext(target)) + outExt
+					}
 					if err := ensureNotInput(input, target); err != nil {
 						return err
 					}
-					res, err := docredact.Apply(cmd.Context(), input, target, pipeline, docredact.Options{
+					res, err := docredact.Apply(cmd.Context(), prepared, target, pipeline, docredact.Options{
 						Style: style, Placeholder: cfg.Placeholder, Masks: masks, Aliases: cfg.Aliases,
 						SkipDate: !types.BoolDefault(cfg.Date, true), SkipAmount: !types.BoolDefault(cfg.Amount, true),
 						DPI: flags.dpi, ModelsDir: filepath.Join(clioptions.ConfigDir(), "models"),

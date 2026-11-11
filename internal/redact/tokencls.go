@@ -507,11 +507,12 @@ func viterbiLabels(logits []float32, seqLen, numLabels int, labels []string, bia
 		if fk == 'O' {
 			return tk == 'O' || tk == 'B' || tk == 'S'
 		}
-		if fk == 'B' {
-			return (tk == 'I' || tk == 'E') && types[from] == types[to]
-		}
-		if fk == 'I' {
-			return (tk == 'I' || tk == 'E') && types[from] == types[to]
+		if fk == 'B' || fk == 'I' {
+			if tk == 'I' || tk == 'E' {
+				return types[from] == types[to]
+			}
+			// BIO models have no E tag; O closes the span.
+			return !bioes && tk == 'O'
 		}
 		// E/S close an entity; the next token starts fresh.
 		return tk == 'O' || tk == 'B' || tk == 'S'
@@ -588,6 +589,27 @@ func viterbiLabels(logits []float32, seqLen, numLabels int, labels []string, bia
 	return out
 }
 
+// supportedModelType is the allowlist of entity types a token-classification
+// model may emit. Unknown labels are ignored so third-party NER models cannot
+// turn MISC/EVENT spans into redaction boxes.
+func supportedModelType(typ string) bool {
+	switch strings.ToUpper(strings.TrimSpace(typ)) {
+	case "PERSON", "ADDRESS", "ORG", "PHONE", "EMAIL",
+		"ID_CARD", "PASSPORT", "TRAVEL_PERMIT", "SSN", "AGE", "ETHNICITY",
+		"NATIONAL_ID", "DRIVER_LICENSE",
+		"BANK_CARD", "BANK_ACCOUNT", "USCC", "TAX_ID", "DATE", "AMOUNT",
+		"CASE_NO", "CONTRACT_NO", "DOC_NO", "POLICY_NO", "MEDICAL_NO",
+		"PLATE", "VIN", "ENGINE_NO", "CERT_NO", "BUSINESS_REG_NO",
+		"PROJECT_NO", "INVOICE_NO", "PROPERTY_CERT_NO", "PERMIT_NO",
+		"COPYRIGHT_NO", "WORK", "LAWYER_NO", "POSTCODE", "WECHAT", "QQ",
+		"CRYPTO", "IP", "URL", "SECRET", "CREDENTIAL", "TOKEN", "PASSWORD",
+		"USERNAME", "HOST", "COOKIE", "DB_URL", "API_KEY", "PRIVATE_KEY",
+		"STOCK_CODE", "MAC", "EMPLOYEE_NO":
+		return true
+	}
+	return false
+}
+
 func decodeTokenSpans(doc *Document, items []tokenItem, labels []string) []Span {
 	var spans []Span
 	openStart, openEnd := -1, -1
@@ -616,6 +638,13 @@ func decodeTokenSpans(doc *Document, items []tokenItem, labels []string) []Span 
 			continue
 		}
 		typ := CanonicalType(ent)
+		if !supportedModelType(typ) {
+			// Third-party models (WikiAnn and friends) also emit MISC/EVENT and
+			// other labels we do not redact. Ignore them instead of masking
+			// arbitrary text.
+			closeSpan()
+			continue
+		}
 		switch tag {
 		case "B":
 			closeSpan()

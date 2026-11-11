@@ -44,6 +44,25 @@ func TokenclsModels() []TokenclsModelInfo {
 					SHA256: "a32b34975c89984d73fde7b00006012c8671b73b0e491c3aea63b4325c743207"},
 			},
 		},
+		{
+			ID:          "multilingual-ner",
+			Name:        "Davlan mBERT multilingual NER",
+			Description: "Chinese+English PER/ORG/LOC/DATE token classifier (10 languages)",
+			License:     "AFL-3.0",
+			Source:      "https://github.com/martianzhang/aigc-cli-models/releases/tag/v1",
+			Files: []TokenclsModelFile{
+				{URL: tokenclsModelsBaseURL + "/redact-multilingual-ner-model.onnx", OutName: "model.onnx", SizeMB: 171,
+					SHA256: "1213fdd405d295768b0d41d8214062f2f278f0e3acff6af67d8fd47360d2be0f"},
+				{URL: tokenclsModelsBaseURL + "/redact-multilingual-ner-tokenizer.json", OutName: "tokenizer.json", SizeMB: 3,
+					SHA256: "bf1b59b7b11c95f194f51708d918eea378e09d05f84c0e1656dc5180e8117088"},
+				{URL: tokenclsModelsBaseURL + "/redact-multilingual-ner-config.json", OutName: "config.json", SizeMB: 0,
+					SHA256: "8e5caefadaf9923a9e7d3de42ca97780c68fc4d83519d333f141b299e40af638"},
+				{URL: tokenclsModelsBaseURL + "/redact-multilingual-ner-LICENSE.txt", OutName: "LICENSE.txt", SizeMB: 0,
+					SHA256: "de0612c5780d0d21f9982d2cadfd715d2d3b7a0dfeb532a5023d42a1d4fdce5c"},
+				{URL: tokenclsModelsBaseURL + "/redact-multilingual-ner-NOTICE.txt", OutName: "NOTICE.txt", SizeMB: 0,
+					SHA256: "079b75d8f9e4291013249b8e072869f4960ebf4849e24e78e48f33d0b765015f"},
+			},
+		},
 	}
 }
 

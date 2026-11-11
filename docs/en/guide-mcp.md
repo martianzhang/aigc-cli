@@ -53,7 +53,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `recognize_text` | Offline OCR for images/PDFs (requires `aigc-cli ocr init`; markdown or json output) | Free (local) |
 | `redact_text` | Redact plain text (rules + checksums + `defaults.redact.dictionary`); `engine=auto/model` adds a model; originals are omitted unless `include_mapping=true` | Free (local) |
 | `redact_check` | Check text or DOCX for leftover values (`values`, `mapping`, or `mapping_path`) | Free (local) |
-| `redact_scan` | Scan text/DOCX/PDF/image and return spans + review without writing; supports `engine` / `enable` / `disable` / `provider` / `dpi` | Free (local) |
+| `redact_scan` | Scan text/DOCX/PDF/image and return spans + review without writing; supports `engine` / `enable` / `disable` / `model` / `provider` / `dpi` | Free (local) |
 | `redact_apply` | Redact text/DOCX/PDF/image and write the output; DOCX/text use `style`, PDF/image always use black boxes; DOCX/text can write `mapping_path` | Free (local) |
 | `redact_restore` | Restore a DOCX from `mapping` / `mapping_path` (PDF and images are irreversible) | Free (local) |
 | `search` | Web search via the built-in free engine (DuckDuckGo scrape); returns titles + URLs. Read a result with `fetch`. No provider API, never billed | Free |
@@ -67,7 +67,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `kb_list` | List all documents in the knowledge base | Free (local) |
 | `kb_show` | Show the full content of a knowledge base document by ID (first 12 chars) | Free (local) |
 
-> `redact_scan` / `redact_apply` accept `txt/md/csv/json/docx/pdf/image`; PDF rendering needs `mutool`, and PDF/image OCR needs `aigc-cli ocr init`. `redact_apply` writes `<name>.redacted<ext>` next to the input by default and never overwrites the input. If a `tools_enable` whitelist is configured, add `redact_scan` / `redact_apply` / `redact_restore` to it.
+> `redact_scan` / `redact_apply` accept `txt/md/csv/json/docx/pdf/image` (images include PNG/JPEG/WebP/AVIF/JXL/HEIC/BMP/TIFF); PDF rendering needs `mutool`, and PDF/image OCR needs `aigc-cli ocr init`. `.doc`, PPT/XLS, animated GIF and encrypted documents fail with an explicit message. `redact_apply` writes `<name>.redacted<ext>` next to the input by default and never overwrites the input. If a `tools_enable` whitelist is configured, add `redact_scan` / `redact_apply` / `redact_restore` to it.
 
 > Every tool declares MCP annotations (`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`): hosts can skip confirmation for read-only tools, and no tool in this server is destructive.
 >
