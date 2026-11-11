@@ -1,0 +1,14 @@
+# Model: privyscope zh-Hans (Apache-2.0, https://github.com/zafrem/privyscope-zh-hans)
+# Install: aigc-cli redact init --model zh-pii
+# default — everyday redaction: rules only, placeholder + mapping is reversible
+style: placeholder
+engine: rules              # rules | model | auto
+model_engine: auto         # auto | chatner | tokencls
+chatner:
+  occurrence: anchored     # replace only near role words; ambiguous hits go to needs_review
+  anchor_window: 20
+tokencls:
+  model: zh-pii
+  max_len: 256
+  stride: 64
+  operating_point: high_recall

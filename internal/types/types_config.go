@@ -196,6 +196,7 @@ type ConfigDefaults struct {
 	Search        *SearchDefaults     `mapstructure:"search" yaml:"search,omitempty"`
 	Ideas         *IdeasConfig        `mapstructure:"ideas" yaml:"ideas,omitempty"`
 	Decision      *DecisionDefaults   `mapstructure:"decision" yaml:"decision,omitempty"`
+	Redact        *RedactDefaults     `mapstructure:"redact" yaml:"redact,omitempty"`
 }
 
 // SearchDefaults holds the shared web-search vendor selection used by

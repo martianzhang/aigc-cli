@@ -51,6 +51,8 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 | `add_watermark` | Add a visible AI watermark (test fixtures only; built-in gemini alpha map, unknown names rendered as text) | Free (local) |
 | `crop_watermark` | Crop to remove watermarks (no learning required; `target` = auto / n% / WxH) | Free (local) |
 | `recognize_text` | Offline OCR for images/PDFs (requires `aigc-cli ocr init`; markdown or json output) | Free (local) |
+| `redact_text` | Offline PII redaction (rules + checksums + `defaults.redact.dictionary`); originals are omitted unless `include_mapping=true` | Free (local) |
+| `redact_check` | Check text for leftover values (`values` list or the `mapping` from `redact_text`) | Free (local) |
 | `search` | Web search via the built-in free engine (DuckDuckGo scrape); returns titles + URLs. Read a result with `fetch`. No provider API, never billed | Free |
 | `fetch` | Fetch a URL with the built-in free fetcher (HTML→main-content markdown; non-HTML as-is), SSRF-guarded, paginated by character offset | Free |
 | `web_search` | Web search via the configured third-party provider (`defaults.search.provider`); **may bill per request**. Errors out when no provider is configured instead of silently using the built-in engine | Vendor-dependent |
@@ -64,7 +66,7 @@ For Cursor/Windsurf: `.cursor/mcp.json` or Settings → MCP
 
 > Every tool declares MCP annotations (`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`): hosts can skip confirmation for read-only tools, and no tool in this server is destructive.
 >
-> Tools declared read-only (`readOnlyHint=true`, hosts may skip confirmation): `list_models`, `get_model_pricing`, `get_balance`, `get_task`, `get_config`, `caption_image`, `search_ideas`, `detect_image`, `recognize_text`, `search`, `fetch`, `web_search`, `web_fetch`, `kb_find`, `kb_list`, `kb_show`.
+> Tools declared read-only (`readOnlyHint=true`, hosts may skip confirmation): `list_models`, `get_model_pricing`, `get_balance`, `get_task`, `get_config`, `caption_image`, `search_ideas`, `detect_image`, `recognize_text`, `redact_text`, `redact_check`, `search`, `fetch`, `web_search`, `web_fetch`, `kb_find`, `kb_list`, `kb_show`.
 
 ### Web access: naming rule and vendor selection
 

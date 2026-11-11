@@ -402,6 +402,52 @@ defaults:
   # ── Optional: Force local ONNX (no provider config needed) ──
   # Just run: aigc-cli ocr scan x.png --provider local
 
+  # ── Redaction (redact) ──
+  # Offline rules by default; provider/model optionally layer a model on top.
+  redact:
+    # provider: ollama
+    # model: has4
+    # profile: default           # default entry in defaults.redact.profiles
+    # profiles:
+    #   default: ./redact/default.yaml
+    #   strict: ./redact/strict.yaml
+    # config_file: ./redact/default.yaml
+    # Complete examples: docs/en/examples/redact/
+    style: placeholder
+    engine: rules                # rules | model | auto
+    model_engine: auto           # auto | chatner | tokencls
+    rules:
+      id_card: true
+      phone_mobile: true
+      bank_card: true
+      email: true
+      uscc: true
+      case_no: true
+    # chatner:
+    #   occurrence: anchored      # anchored | all | first
+    #   anchor_window: 20
+    # tokencls:
+    #   model: zh-pii             # models/redact/zh-pii/{model.onnx,config.json,tokenizer.json}
+    #   max_len: 512
+    #   stride: 128
+    #   operating_point: high_recall   # high_recall | balanced | high_precision
+    # dictionary_files:
+    #   - "./dict/orgs.tsv"       # value<TAB>type (recommended); relative to config.yaml
+    #   - "./dict/projects.json"
+    # dictionary:
+    #   - value: "Acme Corp"
+    #     type: ORG
+    # custom:
+    #   - name: contract_no_custom
+    #     type: CONTRACT_NO
+    #     regex: '(?i)HT[-_]?[0-9]{4}[-_][0-9]{6}'
+    #     style: mask
+    # mask:
+    #   overrides:
+    #     PHONE: { keep_prefix: 3, keep_suffix: 4 }
+    # allow: ["北京市"]
+    # deny: ["某某项目"]
+
 # ── Typical Configuration Scenarios ──
 
 # Scenario A: Multiple commands share one account

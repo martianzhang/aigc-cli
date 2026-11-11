@@ -100,6 +100,8 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 | `add_watermark` | 添加可见 AI 水印（仅用于构造去水印测试样本；内置 gemini alpha map，未知名称按文字渲染） | ❌ |
 | `crop_watermark` | 裁切去水印（无需学习模板；`target` 支持 auto / n% / WxH） | ❌ |
 | `recognize_text` | 离线 OCR 识别图片/PDF 文字（需先 `aigc-cli ocr init`；输出 markdown 或 json） | ❌ |
+| `redact_text` | 离线脱敏纯文本（内置规则 + 校验位 + `defaults.redact.dictionary`）；默认**不返回**原文，`include_mapping=true` 才返回映射（含原文） | ❌ |
+| `redact_check` | 检查文本中是否残留指定原文：传 `values` 列表或 `redact_text` 返回的 `mapping` | ❌ |
 | `search` | 联网搜索：内置免费引擎（DuckDuckGo 抓取），返回标题+URL；用 `fetch` 读全文。不调厂商 API、不计费 | ❌ |
 | `fetch` | 抓 URL 正文：内置免费抓取（HTML→Markdown 主内容提取，非 HTML 原样返回），SSRF 防护，按字符分页 | ❌ |
 | `web_search` | 联网搜索：走配置的第三方厂商（`defaults.search.provider` 选择），**可能按次计费**；未配置厂商时明确报错，不静默回落内置引擎 | 视厂商 |
@@ -113,7 +115,7 @@ Ensure the binary is on your `$PATH`, or use an absolute path:
 
 > 所有工具都声明了 MCP annotations（`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`）：宿主对只读工具可跳过确认，本服务器的任何工具都不是破坏性的。
 >
-> 声明为只读（`readOnlyHint=true`，宿主可跳过确认）的工具：`list_models`、`get_model_pricing`、`get_balance`、`get_task`、`get_config`、`caption_image`、`search_ideas`、`detect_image`、`recognize_text`、`search`、`fetch`、`web_search`、`web_fetch`、`kb_find`、`kb_list`、`kb_show`。
+> 声明为只读（`readOnlyHint=true`，宿主可跳过确认）的工具：`list_models`、`get_model_pricing`、`get_balance`、`get_task`、`get_config`、`caption_image`、`search_ideas`、`detect_image`、`recognize_text`、`redact_text`、`redact_check`、`search`、`fetch`、`web_search`、`web_fetch`、`kb_find`、`kb_list`、`kb_show`。
 
 ### 联网能力：命名规则与厂商选择
 

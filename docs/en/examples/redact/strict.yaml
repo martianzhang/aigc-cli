@@ -1,0 +1,20 @@
+# Model: privyscope zh-Hans (Apache-2.0, https://github.com/zafrem/privyscope-zh-hans)
+# Install: aigc-cli redact init --model zh-pii
+# strict — more aggressive: rules + model, plus opt-in identifier rules
+style: placeholder
+engine: auto
+model_engine: auto
+rules:
+  passport: true           # bare passport numbers (off by default, higher false positives)
+  lawyer_no: true          # bare lawyer licence numbers (off by default)
+  ip: true
+  url: true
+chatner:
+  occurrence: anchored
+  anchor_window: 20
+tokencls:
+  model: zh-pii
+  max_len: 256
+  stride: 64
+  operating_point: high_recall
+# Dates/amounts stay opt-in: aigc-cli redact apply f.txt --with-date --with-amount

@@ -62,6 +62,7 @@ const (
 	ProviderNameDetect          = "detect"
 	ProviderNameBackground      = "background"
 	ProviderNameDecision        = "decision"
+	ProviderNameRedact          = "redact"
 	ProviderNameLocal           = "local"
 )
 
@@ -243,6 +244,12 @@ var CmdProviderMap = map[string]CmdProviderInfo{
 	ProviderNameOCR: {func(d *types.ConfigDefaults) (string, string) {
 		if d.OCR != nil {
 			return d.OCR.Provider, d.OCR.Model
+		}
+		return "", ""
+	}},
+	ProviderNameRedact: {func(d *types.ConfigDefaults) (string, string) {
+		if d.Redact != nil {
+			return d.Redact.Provider, d.Redact.Model
 		}
 		return "", ""
 	}},

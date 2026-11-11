@@ -387,6 +387,52 @@ defaults:
   # ── 可选：强制走本地 ONNX（无需配 provider）──
   # 命令行 aigc-cli ocr scan x.png --provider local 即可
 
+  # ── 脱敏（redact）──
+  # 默认纯规则、离线；provider/model 选择可选模型，其余字段控制规则与引擎。
+  redact:
+    # provider: ollama
+    # model: has4
+    # profile: default           # defaults.redact.profiles 中的默认项
+    # profiles:
+    #   default: ./redact/default.yaml
+    #   strict: ./redact/strict.yaml
+    # config_file: ./redact/default.yaml
+    # 完整示例：docs/zh/examples/redact/
+    style: placeholder
+    engine: rules                # rules | model | auto
+    model_engine: auto           # auto | chatner | tokencls
+    rules:
+      id_card: true
+      phone_mobile: true
+      bank_card: true
+      email: true
+      uscc: true
+      case_no: true
+    # chatner:
+    #   occurrence: anchored      # anchored | all | first
+    #   anchor_window: 20
+    # tokencls:
+    #   model: zh-pii             # models/redact/zh-pii/{model.onnx,config.json,tokenizer.json}
+    #   max_len: 512
+    #   stride: 128
+    #   operating_point: high_recall   # high_recall | balanced | high_precision
+    # dictionary_files:
+    #   - "./dict/orgs.tsv"       # value<TAB>type，推荐；路径相对 config.yaml
+    #   - "./dict/projects.json"
+    # dictionary:
+    #   - value: "北京云创智能科技有限公司"
+    #     type: ORG
+    # custom:
+    #   - name: contract_no_custom
+    #     type: CONTRACT_NO
+    #     regex: '(?i)HT[-_]?[0-9]{4}[-_][0-9]{6}'
+    #     style: mask
+    # mask:
+    #   overrides:
+    #     PHONE: { keep_prefix: 3, keep_suffix: 4 }
+    # allow: ["北京市"]
+    # deny: ["某某项目"]
+
 # ── 典型配置场景 ──
 
 # 场景 A：多命令共用同一个账号

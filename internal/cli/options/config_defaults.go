@@ -87,6 +87,16 @@ func KnowledgeDefaults() *types.KBDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.KBDefaults { return d.Knowledgebase })
 }
 
+// RedactConfig returns defaults.redact, or nil.
+func RedactConfig() *types.RedactConfig {
+	return RedactDefaults()
+}
+
+// RedactDefaults returns defaults.redact, or nil.
+func RedactDefaults() *types.RedactDefaults {
+	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.RedactDefaults { return d.Redact })
+}
+
 // SearchDefaults returns defaults.search, or nil.
 func SearchDefaults() *types.SearchDefaults {
 	return Field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.SearchDefaults { return d.Search })

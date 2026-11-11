@@ -9,7 +9,7 @@
 
 > [中文版文档](README_zh.md)
 
-Generate, detect, and manage AI content from the terminal. Supports OpenAI, OpenRouter, Anthropic, Ollama and any compatible relay — with local offline models for AIGC detection, OCR, background removal, and knowledge base.
+Generate, detect, and manage AI content from the terminal. Supports OpenAI, OpenRouter, Anthropic, Ollama and any compatible relay — with local offline models for AIGC detection, OCR, background removal, knowledge base, and PII redaction.
 
 ---
 
@@ -17,8 +17,9 @@ Generate, detect, and manage AI content from the terminal. Supports OpenAI, Open
 
 | | | |
 |---|---|---|
-| 🤖 | **MCP Server** | Built-in MCP Server for Claude Desktop, Cursor, Windsurf: 34 tools, 4 workflow prompts, 4 read-only resources, full MCP annotations. AI agents can generate images/videos/music, run Midjourney, OCR, search KB, detect AIGC, query pricing — all in conversation. The `provider` argument only accepts names from your `config.yaml` whitelist; no `base_url`/`api_key` can ever be passed remotely. |
+| 🤖 | **MCP Server** | Built-in MCP Server for Claude Desktop, Cursor, Windsurf: 37 tools, 4 workflow prompts, 4 read-only resources, full MCP annotations. AI agents can generate images/videos/music, run Midjourney, OCR, search KB, detect AIGC, query pricing — all in conversation. The `provider` argument only accepts names from your `config.yaml` whitelist; no `base_url`/`api_key` can ever be passed remotely. |
 | 🔬 | **AIGC Forensics** | Offline multi-signal fusion: C2PA, TC260 (GB 45438-2025), SynthID, ONNX classifier, FFT spectrum, SRM noise, JPEG quantization. Zero API key needed. |
+| 🔒 | **Redact** | Offline PII redaction for plain text: ID cards, phones, bank cards, email, USCC, case numbers; reversible mapping, residual check, optional Ollama or local ONNX model for organizations/aliases/addresses. |
 | 🔌 | **Multi-Protocol** | Not just OpenAI — supports Anthropic Messages API, Ollama, local ONNX models alongside OpenAI-compatible endpoints. |
 | 🧠 | **Provider Auto-Adapt** | Each provider gets the correct API routing automatically (OpenRouter dedicated image/video API, APIMart async tasks, etc.) |
 | 🎨 | **Midjourney Pipeline** | 17 subcommands: imagine → blend → describe → upscale → zoom → inpaint → video → remix. No Discord required. |
@@ -91,7 +92,7 @@ Add to your MCP config in Claude Desktop / Cursor / Windsurf:
 }
 ```
 
-AI agents can generate images/videos/music, run Midjourney, OCR, search the idea library or knowledge base, query model pricing, and detect AIGC directly in conversation — via 34 tools, 4 workflow prompts, and 4 read-only resources (all tools carry MCP annotations). The per-call `provider` argument is restricted to a whitelist of names from `config.providers`; no tool accepts `base_url` or `api_key`. See [docs/en/guide-mcp.md](docs/en/guide-mcp.md).
+AI agents can generate images/videos/music, run Midjourney, OCR, search the idea library or knowledge base, query model pricing, and detect AIGC directly in conversation — via 37 tools, 4 workflow prompts, and 4 read-only resources (all tools carry MCP annotations). The per-call `provider` argument is restricted to a whitelist of names from `config.providers`; no tool accepts `base_url` or `api_key`. See [docs/en/guide-mcp.md](docs/en/guide-mcp.md).
 
 ---
 
@@ -99,7 +100,7 @@ AI agents can generate images/videos/music, run Midjourney, OCR, search the idea
 
 | | Capability | Description |
 |---|---|---|
-| 🤖 | **MCP Server** | Built-in MCP protocol support with 34 tools, 4 workflow prompts, 4 read-only resources and MCP annotations; works out of the box with Claude Desktop / Cursor / Windsurf / VS Code |
+| 🤖 | **MCP Server** | Built-in MCP protocol support with 37 tools, 4 workflow prompts, 4 read-only resources and MCP annotations; works out of the box with Claude Desktop / Cursor / Windsurf / VS Code |
 | 🔬 | **AIGC Detection Engine** | C2PA / TC260 / SynthID / ONNX / FFT / SRM noise / JPEG quantization, offline, emoji output |
 | 🔌 | **Multi-Provider Unified Entry** | Change one `base_url` to switch providers, commands unchanged |
 | 🧠 | **Provider Auto-Adapt** | OpenRouter automatically routes to dedicated image/video APIs, zero config |
@@ -183,6 +184,12 @@ aigc-cli
 ├── config     Read/edit config.yaml (get/set/list; secrets masked & auto-encrypted)  →  docs/en/guide-commands.md
 ├── preview / pr View images / --detail metadata / --describe caption                 →  docs/en/guide-preview.md
 ├── detect     Detect AIGC, metadata and tampering (multi-signal fusion + emoji)     →  docs/en/guide-detect.md
+├── redact     Offline PII redaction in plain text (rules + checksums; optional Ollama model) → docs/en/guide-redact.md
+│   ├── scan    Detect spans (JSON with rune offsets)
+│   ├── apply   Detect + replace (--spans is optional review input)
+│   ├── restore Restore placeholders from a mapping file
+│   ├── check   Find leftover original values (exit 2)
+│   └── rules   List/export the effective rule set
 ├── decision / decide  Typed decision models (System One / Jev): state + question bank + images/audio/video → answers   →  docs/en/guide-decision.md
 ├── completion Generate shell completion scripts (bash/zsh/fish/powershell)
 ├── mcp        Start MCP Server (AI agent integration)                                →  docs/en/guide-mcp.md

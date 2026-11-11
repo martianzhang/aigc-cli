@@ -1,0 +1,20 @@
+# 模型：privyscope zh-Hans（Apache-2.0，https://github.com/zafrem/privyscope-zh-hans）
+# 安装：aigc-cli redact init --model zh-pii
+# strict —— 更激进：规则 + 模型，并启用默认关闭的标识类规则
+style: placeholder
+engine: auto
+model_engine: auto
+rules:
+  passport: true           # 裸护照号（默认关闭，误伤较多）
+  lawyer_no: true          # 裸律师执业证号（默认关闭）
+  ip: true
+  url: true
+chatner:
+  occurrence: anchored
+  anchor_window: 20
+tokencls:
+  model: zh-pii
+  max_len: 256
+  stride: 64
+  operating_point: high_recall
+# 日期/金额默认不参与替换；需要时：aigc-cli redact apply f.txt --with-date --with-amount

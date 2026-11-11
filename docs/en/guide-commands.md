@@ -1,5 +1,23 @@
 # Other Commands
 
+## redact
+
+Offline PII redaction for plain text. The default engine is rules + checksum
+validators, with no model or network required:
+
+```bash
+aigc-cli redact scan complaint.txt
+aigc-cli redact apply complaint.txt --mapping complaint.map.json
+aigc-cli redact check complaint.redacted.txt --mapping complaint.map.json   # exit 2 on leftovers
+aigc-cli redact restore complaint.redacted.txt --mapping complaint.map.json
+aigc-cli redact rules
+```
+
+An optional Ollama/OpenAI-compatible model adds organizations, aliases and
+addresses (`--engine auto` + `defaults.redact.provider`). See
+[guide-redact.md](guide-redact.md) for rules, configuration, mask policies and
+limitations.
+
 ## music
 
 Generate music from a natural-language prompt (APIMart suno/flowmusic async, OpenRouter Lyria sync streaming). See [guide-music.md](guide-music.md).

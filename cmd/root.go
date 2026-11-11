@@ -69,6 +69,8 @@ Models: image and video have no built-in model — pass --model or set
 
 Offline commands (detect, ocr, background, depth, upscale, vision, audio, ideas,
  knowledgebase) need a one-time model download: run 'aigc-cli <command> init'.
+ redact works offline out of the box; its optional ONNX model can be installed
+ with 'aigc-cli redact init --model zh-pii'.
 
 Output & exit: generated/downloaded files go to -o/--output (default ".").
  Results print as text; -v adds the full request/result JSON; --print-config is
@@ -213,10 +215,16 @@ func Execute() {
 	terminal.Default().Finish("")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		for _, line := range guidance.Explain(executed, err) {
-			fmt.Fprintln(os.Stderr, line)
+		code := 1
+		if ec, ok := err.(interface{ ExitCode() int }); ok {
+			code = ec.ExitCode()
 		}
-		os.Exit(1)
+		if code == 1 {
+			for _, line := range guidance.Explain(executed, err) {
+				fmt.Fprintln(os.Stderr, line)
+			}
+		}
+		os.Exit(code)
 	}
 }
 

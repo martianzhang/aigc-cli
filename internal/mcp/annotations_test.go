@@ -24,6 +24,8 @@ var annotationTable = []annotationWant{
 	// Pure local reads: no network, no writes.
 	{"detect_image", true, false, false, false},
 	{"recognize_text", true, false, false, false},
+	{"redact_text", true, false, true, false},
+	{"redact_check", true, false, true, false},
 	{"search_ideas", true, false, false, false},
 	{"caption_image", true, false, false, false},
 	{"kb_find", true, false, false, false},

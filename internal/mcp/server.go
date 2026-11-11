@@ -51,6 +51,11 @@ type Config struct {
 	// Providers is the named-provider whitelist from config.providers.
 	// The per-call `provider` tool argument may only reference these names.
 	Providers map[string]*types.NamedProvider
+	// Redact is the defaults.redact config used by redact_text/redact_check.
+	Redact *types.RedactConfig
+	// ConfigDir is the directory of config.yaml, used to resolve relative
+	// redact.dictionary_files paths.
+	ConfigDir string
 }
 
 // cmdProvider returns the effective provider for a command.
@@ -182,6 +187,8 @@ var toolRegistry = []toolInfo{
 	{"add_watermark", "Add visible AI watermark (test only)", func(desc string) mcp.Tool { return newAddWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return addWatermarkHandler(cfg) }},
 	{"crop_watermark", "Crop image to remove watermarks (no learning required)", func(desc string) mcp.Tool { return newCropWatermarkTool() }, func(cfg *Config) server.ToolHandlerFunc { return cropWatermarkHandler(cfg) }},
 	{"recognize_text", "Recognize text in images/PDF using offline OCR", func(desc string) mcp.Tool { return newRecognizeTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return recognizeTextHandler() }},
+	{"redact_text", "Redact PII in plain text (offline rules + dictionary)", func(desc string) mcp.Tool { return newRedactTextTool() }, func(cfg *Config) server.ToolHandlerFunc { return redactTextHandler(cfg) }},
+	{"redact_check", "Check text for leftover sensitive values", func(desc string) mcp.Tool { return newRedactCheckTool() }, func(cfg *Config) server.ToolHandlerFunc { return redactCheckHandler(cfg) }},
 	// Web tools. Naming matches the chat primitives: search/fetch are built-in
 	// and free; web_search/web_fetch go through a third-party provider and may
 	// bill per request.

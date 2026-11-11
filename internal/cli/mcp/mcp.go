@@ -111,6 +111,11 @@ Example MCP host config:
 				mcpCfg.Defaults = &types.ConfigDefaults{}
 			}
 			mcpCfg.Providers = cfg.Providers
+			mcpCfg.Redact = options.RedactConfig()
+			mcpCfg.ConfigDir = options.ConfigDir()
+			if options.Shared.CfgFile != "" {
+				mcpCfg.ConfigDir = filepath.Dir(options.Shared.CfgFile)
+			}
 		}
 		mcpCfg.ModelsDir = modelsRoot()
 
