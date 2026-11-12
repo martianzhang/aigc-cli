@@ -33,7 +33,8 @@ aigc-cli redact rules
 ```
 
 - `-o/--output` 仍然是输出目录（和其他命令一致，默认当前目录）；`apply` 写 `<输出目录>/<原名>.redacted<扩展名>`，`restore` 写 `<输出目录>/<原名去掉 .redacted>.restored<扩展名>`，绝不覆盖输入。
-- 需要管道时用 `--stdout`；stdin 输入默认也输出到 stdout。
+- 需要管道时用 `--stdout`；stdin 输入默认也输出到 stdout。DOCX / PDF / 图片也支持 `--stdout`：直接打印**脱敏后的文本预览**，不写输出文件。
+- `restore --stdout` 可用于 DOCX（打印还原后的文本，不写文件）。
 - `check` 发现残留时退出码为 **2**，方便 CI 判断。
 
 ---
@@ -56,6 +57,19 @@ aigc-cli redact apply 起诉状.docx --mapping 起诉状.map.json
 aigc-cli redact restore 起诉状.redacted.docx --mapping 起诉状.map.json
 ```
 
+需要先看一眼结果再决定是否出文件时，用 `--stdout`：它打印与 `.docx` 输出一致的替换后文本，**不写输出文件**。`--stdout` 仍可配合 `--mapping` 写出映射，打印出来的文本用 `redact restore - --mapping` 也能还原；`restore --stdout` 同理，只打印还原后的文本。
+
+```bash
+# 命令行复核：看哪些值被换成了什么
+aigc-cli redact apply 起诉状.docx --stdout | grep -o '<[A-Z_]*_[0-9]*>' | sort | uniq -c
+
+# 预览 + 映射（不写 .docx，但仍可还原）
+aigc-cli redact apply 起诉状.docx --stdout --mapping 起诉状.map.json
+
+# 还原预览（不写文件）
+aigc-cli redact restore 起诉状.redacted.docx --stdout --mapping 起诉状.map.json
+```
+
 ### PDF
 
 - `--dpi` 控制栅格化清晰度，默认 **300**；
@@ -70,6 +84,13 @@ aigc-cli redact scan 判决书.pdf --dpi 300
 aigc-cli redact apply 判决书.pdf --dpi 300
 ```
 
+只想在命令行检查识别结果时加 `--stdout`：它把 OCR/文字层文本按 `style` 替换后打印（默认 `placeholder`，最容易定位），**不写输出文件**；真正出文件时仍然是黑块。
+
+```bash
+# 先检查会遮哪些内容（不生成 PDF）
+aigc-cli redact apply 判决书.pdf --stdout --dpi 300
+```
+
 需要 `mutool`（mupdf-tools）用于渲染；OCR 需要先 `aigc-cli ocr init`。
 
 ### 图片
@@ -82,7 +103,11 @@ aigc-cli redact apply 判决书.pdf --dpi 300
 
 ```bash
 aigc-cli redact scan 扫描件.png
+
 aigc-cli redact apply 扫描件.png
+
+# 先检查会遮哪些内容（不生成图片）
+aigc-cli redact apply 扫描件.png --stdout
 ```
 
 ### 支持矩阵
@@ -94,7 +119,7 @@ aigc-cli redact apply 扫描件.png
 | PDF | ✅ 栅格化黑块 | ✅ | ❌ | ❌ |
 | 图片（含 BMP/TIFF） | ✅ 黑块 | ✅ | ❌ | ❌ |
 
-PDF/图片的 `apply` 即使配置了 `style` 也始终使用黑块，不做符号替换。
+PDF/图片的 `apply` 即使配置了 `style` 也始终使用黑块，不做符号替换；加 `--stdout` 时只打印按 `style` 替换的文本预览，不写输出文件。
 
 `.doc` 会自动尝试用 LibreOffice 转成 `.docx`（未安装则报错）；PPT、XLS 不支持。加密或受保护的 PDF/DOCX 需要先解除密码/保护。
 

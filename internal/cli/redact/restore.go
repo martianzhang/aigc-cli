@@ -31,6 +31,9 @@ func newRestoreCmd() *cobra.Command {
   # Restore a DOCX produced with style=placeholder
   aigc-cli redact restore contract.redacted.docx --mapping contract.map.json
 
+  # Preview the restored DOCX text on stdout without writing a file
+  aigc-cli redact restore contract.redacted.docx --stdout --mapping contract.map.json
+
   # Restore even if the placeholder or sha256 check fails (review first)
   aigc-cli redact restore contract.redacted.txt --mapping contract.map.json --force`,
 		SilenceUsage: true,
@@ -58,12 +61,24 @@ func newRestoreCmd() *cobra.Command {
 					if format != docredact.FormatDOCX {
 						return fmt.Errorf("restore is not supported for %s input", format)
 					}
-					if stdout {
-						return fmt.Errorf("--stdout is only supported for text input")
-					}
 					m, err := redactlib.LoadMapping(mappingFile)
 					if err != nil {
 						return err
+					}
+					if stdout {
+						text, err := docredact.ExtractText(prepared)
+						if err != nil {
+							return err
+						}
+						restored, err := redactlib.Restore(text, m, force)
+						if err != nil {
+							return err
+						}
+						if err := writeOutput(cmd.OutOrStdout(), "-", restored); err != nil {
+							return err
+						}
+						summaryTo(cmd.ErrOrStderr(), "-", restored, "restored %d occurrence(s) -> stdout (text preview; no file written)\n", len(m.Occurrences))
+						return nil
 					}
 					target := defaultRestoreOut(input)
 					if outExt != "" && outExt != filepath.Ext(input) {
@@ -101,11 +116,11 @@ func newRestoreCmd() *cobra.Command {
 			if err := writeOutput(cmd.OutOrStdout(), target, restored); err != nil {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "restored %d occurrence(s) -> %s\n", len(m.Occurrences), target)
+			summaryTo(cmd.ErrOrStderr(), target, restored, "restored %d occurrence(s) -> %s\n", len(m.Occurrences), target)
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&stdout, "stdout", false, "Write the restored text to stdout instead of a file")
+	cmd.Flags().BoolVar(&stdout, "stdout", false, "Write the restored text to stdout instead of a file (DOCX prints a text preview)")
 	cmd.Flags().StringVar(&mappingFile, "mapping", "", "Mapping file written by redact apply --mapping")
 	cmd.Flags().BoolVar(&force, "force", false, "Restore even if the output sha256 or placeholder check fails")
 	return cmd

@@ -47,7 +47,10 @@ func newApplyCmd() *cobra.Command {
   # Word / PDF / image are detected automatically
   aigc-cli redact apply contract.docx --mapping contract.map.json
   aigc-cli redact apply judgment.pdf --dpi 300
-  aigc-cli redact apply scan.png`,
+  aigc-cli redact apply scan.png
+
+  # Preview Word / PDF / image redaction on stdout without writing a file
+  aigc-cli redact apply judgment.pdf --stdout --dpi 300 | grep '<'`,
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -90,14 +93,19 @@ func newApplyCmd() *cobra.Command {
 					if spansFile != "" {
 						return fmt.Errorf("--spans is only supported for text input")
 					}
-					if stdout {
-						return fmt.Errorf("--stdout is only supported for text input")
-					}
 					if mappingFile != "" && format != docredact.FormatDOCX {
 						return fmt.Errorf("--mapping is not supported for %s input", format)
 					}
 					if mappingFile != "" && style != "placeholder" {
 						return fmt.Errorf("--mapping requires style=placeholder for DOCX")
+					}
+					opts := docredact.Options{
+						Style: style, Placeholder: cfg.Placeholder, Masks: masks, Aliases: cfg.Aliases,
+						SkipDate: !types.BoolDefault(cfg.Date, true), SkipAmount: !types.BoolDefault(cfg.Amount, true),
+						DPI: flags.dpi, ModelsDir: filepath.Join(clioptions.ConfigDir(), "models"),
+					}
+					if stdout {
+						return previewApply(cmd, prepared, pipeline, opts, mappingFile, encrypt)
 					}
 					target := defaultOut(input, ".redacted")
 					if outExt != "" && outExt != filepath.Ext(input) {
@@ -106,18 +114,11 @@ func newApplyCmd() *cobra.Command {
 					if err := ensureNotInput(input, target); err != nil {
 						return err
 					}
-					res, err := docredact.Apply(cmd.Context(), prepared, target, pipeline, docredact.Options{
-						Style: style, Placeholder: cfg.Placeholder, Masks: masks, Aliases: cfg.Aliases,
-						SkipDate: !types.BoolDefault(cfg.Date, true), SkipAmount: !types.BoolDefault(cfg.Amount, true),
-						DPI: flags.dpi, ModelsDir: filepath.Join(clioptions.ConfigDir(), "models"),
-					})
+					res, err := docredact.Apply(cmd.Context(), prepared, target, pipeline, opts)
 					if err != nil {
 						return err
 					}
 					if mappingFile != "" {
-						if format != docredact.FormatDOCX {
-							return fmt.Errorf("--mapping is not supported for %s input", format)
-						}
 						if res.Mapping == nil {
 							return fmt.Errorf("--mapping requires style=placeholder for DOCX")
 						}
@@ -167,7 +168,7 @@ func newApplyCmd() *cobra.Command {
 					return err
 				}
 			}
-			fmt.Fprintf(os.Stderr, "redacted %d occurrence(s), %d entities -> %s\n",
+			summaryTo(cmd.ErrOrStderr(), target, output, "redacted %d occurrence(s), %d entities -> %s\n",
 				len(mapping.Occurrences), len(mapping.Entities), target)
 			if mappingFile == "" && style == "placeholder" {
 				fmt.Fprintln(os.Stderr, "note: no --mapping written; restore will not be available")
@@ -176,12 +177,35 @@ func newApplyCmd() *cobra.Command {
 		},
 	}
 	addDetectFlags(cmd, &flags)
-	cmd.Flags().BoolVar(&stdout, "stdout", false, "Write the redacted text to stdout instead of a file")
+	cmd.Flags().BoolVar(&stdout, "stdout", false, "Write the redacted text to stdout instead of a file (DOCX/PDF/images print a text preview)")
 	cmd.Flags().StringVar(&spansFile, "spans", "", "Use reviewed spans from a redact scan --json file instead of detecting again")
 	cmd.Flags().StringVar(&mappingFile, "mapping", "", "Write the reversible mapping to this file")
 	cmd.Flags().BoolVar(&encrypt, "encrypt", false, "Encrypt the mapping with the aigc-cli master key")
 	cmd.Flags().BoolVar(&force, "force", false, "Ignore a sha256 mismatch in --spans")
 	return cmd
+}
+
+// previewApply prints the redacted text of a document to stdout instead of
+// writing a redacted file. DOCX can still export a mapping so the printed text
+// stays restorable with `redact restore`.
+func previewApply(cmd *cobra.Command, input string, pipeline *redactlib.Pipeline, opts docredact.Options, mappingFile string, encrypt bool) error {
+	res, err := docredact.PreviewText(cmd.Context(), input, pipeline, opts)
+	if err != nil {
+		return err
+	}
+	if mappingFile != "" {
+		if res.Mapping == nil {
+			return fmt.Errorf("--mapping requires style=placeholder for DOCX")
+		}
+		if err := redactlib.SaveMapping(mappingFile, res.Mapping, encrypt); err != nil {
+			return err
+		}
+	}
+	if err := writeOutput(cmd.OutOrStdout(), "-", res.Text); err != nil {
+		return err
+	}
+	summaryTo(cmd.ErrOrStderr(), "-", res.Text, "redacted %d occurrence(s) -> stdout (text preview; no file written)\n", len(res.Spans))
+	return nil
 }
 
 func spansToApply(cmd *cobra.Command, doc *redactlib.Document, path string, pipeline *redactlib.Pipeline, force bool) ([]redactlib.Span, error) {

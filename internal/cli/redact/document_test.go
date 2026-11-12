@@ -134,6 +134,127 @@ func TestPDFScanAndApplyViaCLI(t *testing.T) {
 	}
 }
 
+func TestDOCXApplyStdoutPreviewViaCLI(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "in.docx")
+	writeTestDOCX(t, src, "原告：张伟，电话13812345678。")
+
+	out, err := runCommand(t, Deps{OutputDir: dir}, "apply", src, "--stdout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "<PERSON_1>") || !strings.Contains(out, "<PHONE_1>") {
+		t.Fatalf("stdout preview = %q", out)
+	}
+	if strings.Contains(out, "13812345678") {
+		t.Fatalf("stdout preview leaked the original value: %q", out)
+	}
+	if !strings.Contains(out, "。\n\nredacted 2 occurrence(s) -> stdout") {
+		t.Fatalf("summary not separated from the stdout text: %q", out)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "in.redacted.docx")); statErr == nil {
+		t.Fatal("--stdout wrote a redacted file")
+	}
+}
+
+func TestDOCXApplyStdoutMappingViaCLI(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "in.docx")
+	writeTestDOCX(t, src, "原告：张伟，电话13812345678。")
+	mapping := filepath.Join(dir, "in.map.json")
+
+	if _, err := runCommand(t, Deps{OutputDir: dir}, "apply", src, "--stdout", "--mapping", mapping); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(mapping); err != nil {
+		t.Fatalf("mapping not written: %v", err)
+	}
+
+	// A non-placeholder style cannot be restored, so --mapping is rejected.
+	_, err := runCommand(t, Deps{OutputDir: dir}, "apply", src, "--stdout", "--style", "mask", "--mapping", mapping)
+	if err == nil || !strings.Contains(err.Error(), "style=placeholder") {
+		t.Fatalf("error = %v, want style=placeholder guidance", err)
+	}
+}
+
+func TestDOCXRestoreStdoutPreviewViaCLI(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "in.docx")
+	writeTestDOCX(t, src, "原告：张伟，电话13812345678。")
+	mapping := filepath.Join(dir, "in.map.json")
+	if _, err := runCommand(t, Deps{OutputDir: dir}, "apply", src, "--mapping", mapping); err != nil {
+		t.Fatal(err)
+	}
+	redacted := filepath.Join(dir, "in.redacted.docx")
+
+	out, err := runCommand(t, Deps{OutputDir: dir}, "restore", redacted, "--stdout", "--mapping", mapping)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "张伟") || !strings.Contains(out, "13812345678") {
+		t.Fatalf("restore preview = %q", out)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "in.restored.docx")); statErr == nil {
+		t.Fatal("restore --stdout wrote a file")
+	}
+}
+
+func TestPDFApplyStdoutPreviewViaCLI(t *testing.T) {
+	if _, err := exec.LookPath("mutool"); err != nil {
+		t.Skip("mutool not installed")
+	}
+	dir := t.TempDir()
+	src := filepath.Join(dir, "in.pdf")
+	creator := gopdf.NewCreator()
+	page := creator.NewPage(300, 200)
+	page.SetFont("Helvetica", 12)
+	page.DrawText(20, 150, "Email: a@example.com phone 13812345678")
+	data, err := creator.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(src, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runCommand(t, Deps{OutputDir: dir}, "apply", src, "--dpi", "100", "--stdout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "<EMAIL_1>") || !strings.Contains(out, "<PHONE_1>") {
+		t.Fatalf("stdout preview = %q", out)
+	}
+	if strings.Contains(out, "a@example.com") || strings.Contains(out, "13812345678") {
+		t.Fatalf("stdout preview leaked the original value: %q", out)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "in.redacted.pdf")); statErr == nil {
+		t.Fatal("--stdout wrote a redacted PDF")
+	}
+}
+
+func TestApplyStdoutSeparatesSummary(t *testing.T) {
+	dir := t.TempDir()
+
+	// The summary is always separated from stdout text by a blank line, both
+	// with and without a trailing newline in the redacted output.
+	for name, content := range map[string]string{
+		"no-nl.txt":   "电话13812345678",
+		"with-nl.txt": "电话13812345678\n",
+	} {
+		src := filepath.Join(dir, name)
+		if err := os.WriteFile(src, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		out, err := runCommand(t, Deps{OutputDir: dir}, "apply", src, "--stdout")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "<PHONE_1>\n\nredacted 1 occurrence(s), 1 entities -> -") {
+			t.Fatalf("%s: summary not separated by a blank line: %q", name, out)
+		}
+	}
+}
+
 func TestLegacyDOCRejectedViaCLI(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "old.doc")

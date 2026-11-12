@@ -537,6 +537,19 @@ func writeOutput(w io.Writer, path, text string) error {
 	return nil
 }
 
+// summaryTo prints the stderr summary for text written to target ("-" means
+// stdout). When the text went to stdout the summary is separated by a blank
+// line, so it never glues onto output that did not end with a newline.
+func summaryTo(w io.Writer, target, text, format string, args ...any) {
+	if target == "-" {
+		if text != "" && !strings.HasSuffix(text, "\n") {
+			fmt.Fprintln(w)
+		}
+		fmt.Fprintln(w)
+	}
+	fmt.Fprintf(w, format, args...)
+}
+
 // prepareRedactInput converts legacy .doc to a temporary .docx. It returns the
 // path to operate on, the output extension, and a cleanup function.
 func prepareRedactInput(input string) (string, string, func(), error) {

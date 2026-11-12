@@ -43,7 +43,8 @@ aigc-cli redact rules
 ```
 
 - `-o/--output` still means "output directory" (default: current directory). `apply` writes `<output-dir>/<stem>.redacted<ext>`; `restore` writes `<output-dir>/<stem-without-.redacted>.restored<ext>`. Neither ever overwrites the input.
-- Use `--stdout` for pipelines; stdin input also defaults to stdout.
+- Use `--stdout` for pipelines; stdin input also defaults to stdout. DOCX / PDF / images also accept `--stdout`: it prints a **redacted text preview** instead of writing an output file.
+- `restore --stdout` works for DOCX (prints the restored text, writes no file).
 - `check` exits with code **2** when leftovers are found (useful in CI).
 
 ---
@@ -69,6 +70,22 @@ aigc-cli redact apply complaint.docx --mapping complaint.map.json
 aigc-cli redact restore complaint.redacted.docx --mapping complaint.map.json
 ```
 
+To review the result before writing a file, add `--stdout`: it prints the same
+replaced text as the `.docx` output and **writes no file**. It still accepts
+`--mapping`, so the printed text can be restored with `redact restore -`;
+`restore --stdout` likewise only prints the restored text.
+
+```bash
+# Inspect what was replaced
+aigc-cli redact apply complaint.docx --stdout | grep -o '<[A-Z_]*_[0-9]*>' | sort | uniq -c
+
+# Preview plus mapping (no .docx written, still restorable)
+aigc-cli redact apply complaint.docx --stdout --mapping complaint.map.json
+
+# Restore preview (no file written)
+aigc-cli redact restore complaint.redacted.docx --stdout --mapping complaint.map.json
+```
+
 ### PDF
 
 - `--dpi` controls rasterization, default **300**.
@@ -83,6 +100,16 @@ aigc-cli redact restore complaint.redacted.docx --mapping complaint.map.json
 ```bash
 aigc-cli redact scan judgment.pdf --dpi 300
 aigc-cli redact apply judgment.pdf --dpi 300
+```
+
+To inspect detection from the command line, add `--stdout`: OCR/text-layer
+content is printed with `style` replacements (default `placeholder`, which is
+easiest to spot) and no output file is written. The file output is still black
+boxes.
+
+```bash
+# Check what would be covered, without producing a PDF
+aigc-cli redact apply judgment.pdf --stdout --dpi 300
 ```
 
 `mutool` (mupdf-tools) is required for rendering; OCR requires
@@ -101,6 +128,9 @@ aigc-cli redact apply judgment.pdf --dpi 300
 ```bash
 aigc-cli redact scan scan.png
 aigc-cli redact apply scan.png
+
+# Check what would be covered, without producing an image
+aigc-cli redact apply scan.png --stdout
 ```
 
 ### Support matrix
@@ -113,7 +143,8 @@ aigc-cli redact apply scan.png
 | Images (incl. BMP/TIFF) | ✅ black boxes | ✅ | ❌ | ❌ |
 
 For PDF/images `apply` always uses black boxes regardless of the configured
-`style`.
+`style`; with `--stdout` it prints a `style`-based text preview and writes no
+output file.
 
 `.doc` is converted automatically with LibreOffice when available, and fails
 with guidance otherwise. PPT/XLS are not supported. Encrypted/protected PDF and
