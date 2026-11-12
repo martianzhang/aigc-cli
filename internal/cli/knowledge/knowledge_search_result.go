@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/embedder"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/search"
@@ -19,7 +20,7 @@ import (
 
 func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []search.Result, _, project string, verbose bool) error {
 	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-	embedder, err := options.BuildKBEmbedder()
+	embedder, err := embedder.BuildKBEmbedder()
 	if err != nil {
 		return fmt.Errorf("embedder: %w", err)
 	}

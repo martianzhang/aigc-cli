@@ -10,6 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/martianzhang/aigc-cli/internal/embedder"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/search"
@@ -24,7 +25,7 @@ func knowledgeBaseDir() string {
 }
 
 func openKBStore() (*knowledge.Store, error) {
-	embedder, err := options.BuildKBEmbedder()
+	embedder, err := embedder.BuildKBEmbedder()
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +297,7 @@ func kbSearchHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-		embedder, err := options.BuildKBEmbedder()
+		embedder, err := embedder.BuildKBEmbedder()
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("embedder: %v", err)), nil
 		}
@@ -407,7 +408,7 @@ func kbAddHandler() server.ToolHandlerFunc {
 		}
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-		embedder, err := options.BuildKBEmbedder()
+		embedder, err := embedder.BuildKBEmbedder()
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("embedder: %v", err)), nil
 		}
@@ -474,7 +475,7 @@ func kbFetchHandler() server.ToolHandlerFunc {
 		}
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-		embedder, err := options.BuildKBEmbedder()
+		embedder, err := embedder.BuildKBEmbedder()
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("embedder: %v", err)), nil
 		}

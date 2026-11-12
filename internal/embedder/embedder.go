@@ -1,4 +1,4 @@
-package options
+package embedder
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -24,7 +25,7 @@ const (
 func BuildKBEmbedder() (knowledge.Embedder, error) {
 	var ref, model string
 	var timeout time.Duration
-	if cfg := KnowledgeDefaults(); cfg != nil {
+	if cfg := options.KnowledgeDefaults(); cfg != nil {
 		ref, model = cfg.EmbeddingProvider, cfg.EmbeddingModel
 		timeout = secondsOrZero(cfg.EmbeddingTimeout)
 	}
@@ -59,7 +60,7 @@ func BuildIdeasEmbedder(ic *types.IdeasConfig) (knowledge.Embedder, error) {
 // model is the embedding model id; it is required for a named provider.
 // timeout is the per-request timeout (0 = the backend default).
 func BuildEmbedder(providerRef, model string, timeout time.Duration) (knowledge.Embedder, error) {
-	modelsDir := filepath.Join(ConfigDir(), "models")
+	modelsDir := filepath.Join(options.ConfigDir(), "models")
 	switch providerRef {
 	case "":
 		return knowledge.NewEmbedder(nil, modelsDir, ONNXLibPath())
@@ -72,7 +73,7 @@ func BuildEmbedder(providerRef, model string, timeout time.Duration) (knowledge.
 	if model == "" {
 		return nil, fmt.Errorf("embedding_provider %q requires embedding_model to be set", providerRef)
 	}
-	if err := provider.ValidateProviderRef(providerRef, providerMap(Shared.Cfg)); err != nil {
+	if err := provider.ValidateProviderRef(providerRef, options.ProviderMap()); err != nil {
 		return nil, err
 	}
 	ep := resolveNamedProvider(providerRef)
@@ -88,15 +89,22 @@ func secondsOrZero(secs *int) time.Duration {
 	return time.Duration(*secs) * time.Second
 }
 
+func cfgString(cfg *types.Config, getter func(*types.Config) string) string {
+	if cfg == nil {
+		return ""
+	}
+	return getter(cfg)
+}
+
 // resolveNamedProvider resolves a named provider reference to its effective
 // base URL / API key, independent of any command's defaults.
 func resolveNamedProvider(name string) *provider.EffectiveProvider {
 	global := &provider.GlobalConfig{
-		APIKey:  cfgString(Shared.Cfg, func(c *types.Config) string { return c.APIKey }),
-		BaseURL: cfgString(Shared.Cfg, func(c *types.Config) string { return c.BaseURL }),
-		Proxy:   cfgString(Shared.Cfg, func(c *types.Config) string { return c.HTTPProxy }),
+		APIKey:  cfgString(options.Shared.Cfg, func(c *types.Config) string { return c.APIKey }),
+		BaseURL: cfgString(options.Shared.Cfg, func(c *types.Config) string { return c.BaseURL }),
+		Proxy:   cfgString(options.Shared.Cfg, func(c *types.Config) string { return c.HTTPProxy }),
 	}
-	return provider.ResolveCmdProvider(nil, name, providerMap(Shared.Cfg), global)
+	return provider.ResolveCmdProvider(nil, name, options.ProviderMap(), global)
 }
 
 // ONNXLibPath returns the ONNX Runtime shared library path when present, else "".
@@ -110,7 +118,7 @@ func ONNXLibPath() string {
 	default:
 		name = "onnxruntime.dll"
 	}
-	path := filepath.Join(ConfigDir(), "models", name)
+	path := filepath.Join(options.ConfigDir(), "models", name)
 	if _, err := os.Stat(path); err == nil {
 		return path
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/embedder"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/spf13/cobra"
@@ -105,7 +106,7 @@ func openKBStore() (*knowledge.Store, error) {
 	if err := ensureKBDir(); err != nil {
 		return nil, err
 	}
-	embedder, err := options.BuildKBEmbedder()
+	embedder, err := embedder.BuildKBEmbedder()
 	if err != nil {
 		return nil, err
 	}

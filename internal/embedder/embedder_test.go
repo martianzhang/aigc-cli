@@ -1,16 +1,17 @@
-package options
+package embedder
 
 import (
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 func TestBuildEmbedderReservedBackends(t *testing.T) {
-	orig := Shared.Cfg
-	defer func() { Shared.Cfg = orig }()
-	Shared.Cfg = nil
+	orig := options.Shared.Cfg
+	defer func() { options.Shared.Cfg = orig }()
+	options.Shared.Cfg = nil
 
 	for _, ref := range []string{"", "local", "onnx", "hash"} {
 		e, err := BuildEmbedder(ref, "", 0)
@@ -25,10 +26,10 @@ func TestBuildEmbedderReservedBackends(t *testing.T) {
 }
 
 func TestBuildEmbedderNamedProvider(t *testing.T) {
-	orig := Shared.Cfg
-	defer func() { Shared.Cfg = orig }()
+	orig := options.Shared.Cfg
+	defer func() { options.Shared.Cfg = orig }()
 
-	Shared.Cfg = &types.Config{}
+	options.Shared.Cfg = &types.Config{}
 	if _, err := BuildEmbedder("nope", "m", 0); err == nil {
 		t.Error("BuildEmbedder(unknown provider) = nil error, want error")
 	}
@@ -36,7 +37,7 @@ func TestBuildEmbedderNamedProvider(t *testing.T) {
 		t.Error("BuildEmbedder(missing model) = nil error, want error")
 	}
 
-	Shared.Cfg = &types.Config{Providers: map[string]*types.NamedProvider{
+	options.Shared.Cfg = &types.Config{Providers: map[string]*types.NamedProvider{
 		"ollama": {Type: types.ProviderOllama, BaseURL: "http://localhost:11434"},
 	}}
 	e, err := BuildEmbedder("ollama", "embeddinggemma-2", 0)

@@ -2,7 +2,13 @@ package options
 
 import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+// ProviderMap returns the configured named providers (nil-safe).
+func ProviderMap() map[string]*types.NamedProvider {
+	return providerMap(Shared.Cfg)
+}
 
 // IsAPIMartProvider reports whether p should use APIMart's asynchronous
 // task protocol. The --mode flag overrides detection: "async" forces APIMart,

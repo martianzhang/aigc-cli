@@ -10,6 +10,7 @@ import (
 	"golang.org/x/net/html"
 
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
+	"github.com/martianzhang/aigc-cli/internal/embedder"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/netguard"
 	"github.com/martianzhang/aigc-cli/internal/options"
@@ -133,7 +134,7 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 		defer func() { _ = store.Close() }()
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
-		embedder, err := options.BuildKBEmbedder()
+		embedder, err := embedder.BuildKBEmbedder()
 		if err != nil {
 			return fmt.Errorf("embedder: %w", err)
 		}

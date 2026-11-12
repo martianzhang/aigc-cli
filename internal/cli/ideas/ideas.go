@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/embedder"
 	"github.com/martianzhang/aigc-cli/internal/ideas"
-	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
@@ -160,7 +160,7 @@ func run(d Deps, args []string, f *cmdFlags) error {
 		var lists [][]ideas.IdeaEntry
 		if ideas.HasLocal(sources) {
 			ic := ideasConfig(d.Cfg)
-			embedder, embErr := options.BuildIdeasEmbedder(ic)
+			embedder, embErr := embedder.BuildIdeasEmbedder(ic)
 			if embErr != nil {
 				ui.Eprintf("Warning: %v\n", embErr)
 			}
