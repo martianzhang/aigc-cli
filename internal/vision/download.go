@@ -32,6 +32,7 @@ type ModelFile struct {
 	URL      string
 	Filename string
 	Size     string
+	SHA256   string // optional; empty for large ONNX files without a published digest
 }
 
 // ModelFiles returns the list of files to download for a given variant.
@@ -67,11 +68,13 @@ func ModelFiles(variant string) ([]ModelFile, error) {
 			URL:      fmt.Sprintf("%s_vocab.json", base),
 			Filename: "vocab.json",
 			Size:     "~1 MB",
+			SHA256:   "394fdc63c71aabe0a9b97117f5d62fb5fcc4d59b2b3ea929a3929e6a53217b3c",
 		},
 		{
 			URL:      fmt.Sprintf("%s_merges.txt", base),
 			Filename: "merges.txt",
 			Size:     "~0.5 MB",
+			SHA256:   "1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5",
 		},
 	}, nil
 }
@@ -101,7 +104,7 @@ func InitModel(modelsDir, variant string, force bool) error {
 			}
 		}
 		ui.Printf("  Downloading %s (%s)...\n", f.Filename, f.Size)
-		if err := modelstore.Install(context.Background(), nil, f.URL, targetPath, modelstore.Options{Force: force}); err != nil {
+		if err := modelstore.Install(context.Background(), nil, f.URL, targetPath, modelstore.Options{Force: force, SHA256: f.SHA256}); err != nil {
 			return fmt.Errorf("download %s: %w", f.Filename, err)
 		}
 		ui.Printf("    Saved: %s\n", targetPath)

@@ -215,6 +215,10 @@ func TestModelFiles(t *testing.T) {
 		"vocab.json":          false,
 		"merges.txt":          false,
 	}
+	wantSHA := map[string]string{
+		"vocab.json": "394fdc63c71aabe0a9b97117f5d62fb5fcc4d59b2b3ea929a3929e6a53217b3c",
+		"merges.txt": "1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5",
+	}
 
 	for _, f := range files {
 		if _, ok := wantNames[f.Filename]; !ok {
@@ -224,6 +228,9 @@ func TestModelFiles(t *testing.T) {
 		}
 		if f.URL == "" {
 			t.Errorf("model file %q has empty URL", f.Filename)
+		}
+		if want, ok := wantSHA[f.Filename]; ok && f.SHA256 != want {
+			t.Errorf("model file %q SHA256 = %q, want %q", f.Filename, f.SHA256, want)
 		}
 	}
 	for name, found := range wantNames {

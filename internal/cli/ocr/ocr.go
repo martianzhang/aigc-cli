@@ -183,7 +183,8 @@ func downloadDict(modelsDir string) error {
 		return nil
 	}
 	ui.Println("  Downloading dict_en_words.txt...")
-	if err := modelstore.Install(options.Context(), nil, "https://github.com/martianzhang/aigc-cli-models/releases/download/v1/dict_en_words.txt", dictPath, modelstore.Options{}); err != nil {
+	const dictSHA = "a716712fcf2afc6443b7fa370dd202ac65e3f7452540e17a2a0dc3d6a7bfa74c"
+	if err := modelstore.Install(options.Context(), nil, "https://github.com/martianzhang/aigc-cli-models/releases/download/v1/dict_en_words.txt", dictPath, modelstore.Options{SHA256: dictSHA}); err != nil {
 		return fmt.Errorf("dict_en_words.txt not available yet (OCR works without it): %w", err)
 	}
 	ui.Println("  ✓ dict_en_words.txt")

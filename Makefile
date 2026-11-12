@@ -12,7 +12,7 @@ OUTPUT ?= $(BINARY)$(GOEXE)
 # Resolve golangci-lint once (empty when not installed).
 GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null)
 
-.PHONY: all build clean run install lint vet test test-race test-integration fmt cover cover-check bench bench-baseline bench-check release help ideas docs-check tidy-check vuln pre-commit
+.PHONY: all build clean run install lint vet test test-race test-integration fmt cover cover-check bench bench-baseline bench-check size release help ideas docs-check tidy-check vuln pre-commit
 
 all: build
 
@@ -65,6 +65,10 @@ bench-check: ## Compare current benchmarks with benchmarks/baseline.txt
 	$(GO) test $(BENCH_PKGS) -run '^$$' -bench . -benchmem -count=5 > .bench-new.txt
 	$(BENCHSTAT) benchmarks/baseline.txt .bench-new.txt
 	@rm -f .bench-new.txt
+
+size: build ## Report the release binary size
+	@ls -lh $(OUTPUT)
+	@echo "Build with an optional slim tag set in a future release if local ONNX/wasm is not needed."
 
 cover: fmt ## Run tests with coverage report
 	$(GO) test ./... -coverprofile=coverage.out -count=1
