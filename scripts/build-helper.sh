@@ -1,20 +1,38 @@
 #!/bin/bash
 # Compile the C helper library for the current platform.
 # Usage: bash scripts/build-helper.sh
+#
+# Honors GOOS/GOARCH so release CI can cross-compile the helper to match the
+# binary it ships next to (e.g. darwin/amd64 on an arm64 macOS runner).
 set -euo pipefail
 
-# Detect platform
-RAW_OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m)
+# Target platform: GOOS/GOARCH first (go build uses the same), host otherwise.
+if command -v go >/dev/null 2>&1; then
+  RAW_OS=$(go env GOOS)
+  ARCH=$(go env GOARCH)
+else
+  RAW_OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+  ARCH=$(uname -m)
+fi
 RPATH="\$ORIGIN"
 
 # Normalize OS name
 case "$RAW_OS" in
-  mingw*|msys*|cygwin*) OS="windows" ;;
+  mingw*|msys*|cygwin*|windows) OS="windows" ;;
   darwin*) OS="darwin" ;;
   linux*)  OS="linux" ;;
   *) echo "unsupported: $RAW_OS"; exit 1 ;;
 esac
+
+# macOS ships a universal SDK, so clang can emit the other architecture.
+ARCH_FLAG=""
+if [ "$OS" = "darwin" ]; then
+  case "$ARCH" in
+    x86_64|amd64)  ARCH_FLAG="-arch x86_64" ;;
+    aarch64|arm64) ARCH_FLAG="-arch arm64" ;;
+    *) echo "unsupported arch: $ARCH"; exit 1 ;;
+  esac
+fi
 
 # Go module uses "macos" not "darwin"
 case "$OS" in
@@ -48,7 +66,7 @@ echo "Building $OUTPUT for $OS-$ARCH..."
 echo "  sherpa headers: $SHERPA_DIR"
 echo "  lib dir: $LIB_DIR"
 
-gcc -shared $SONAME -o "$OUTPUT" \
+gcc -shared $ARCH_FLAG $SONAME -o "$OUTPUT" \
   -I"$SHERPA_DIR" \
   -L"$LIB_DIR" \
   -lsherpa-onnx-c-api \

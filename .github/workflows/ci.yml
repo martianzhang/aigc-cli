@@ -112,20 +112,47 @@ jobs:
       - name: Build (Unix - helper + binary)
         shell: bash
         if: matrix.goos != 'windows'
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
         run: |
+          set -euo pipefail
           go mod download
           bash scripts/build-helper.sh
           name="aigc-cli-${{ matrix.label }}"
           go build -ldflags="-s -w" -o "$name" .
-          # Package: helper + sherpa-onnx lib + binary
+          # Pick the sherpa-onnx runtime libs for the build's own architecture.
+          # Never use `ls $sherpa_dir/lib | head -1`: it sorts aarch64 first and
+          # silently ships ARM64 libs inside the amd64 package.
           os_pkg="${{ matrix.goos }}"; [ "$os_pkg" = "darwin" ] && os_pkg="macos"
           sherpa_dir=$(go env GOMODCACHE)/github.com/k2-fsa/sherpa-onnx-go-${os_pkg}@v1.13.4
           case "${{ matrix.label }}" in
-            darwin-*) lib_dir="$sherpa_dir/lib/$(ls $sherpa_dir/lib/ | head -1)" ;;
-            linux-*)  lib_dir="$sherpa_dir/lib/$(ls $sherpa_dir/lib/ | head -1)" ;;
+            linux-amd64)  lib_dir="$sherpa_dir/lib/x86_64-unknown-linux-gnu" ;;
+            linux-arm64)  lib_dir="$sherpa_dir/lib/aarch64-unknown-linux-gnu" ;;
+            darwin-amd64) lib_dir="$sherpa_dir/lib/x86_64-apple-darwin" ;;
+            darwin-arm64) lib_dir="$sherpa_dir/lib/aarch64-apple-darwin" ;;
+            *) echo "no sherpa-onnx lib mapping for ${{ matrix.label }}"; exit 1 ;;
           esac
-          shopt -s nullglob
-          tar czf "aigc-cli-${{ matrix.label }}.tar.gz" "$name" libaigc-sherpa-helper.* "$lib_dir"/*.so "$lib_dir"/*.dylib 2>/dev/null
+          [ -d "$lib_dir" ] || { echo "missing lib dir: $lib_dir"; find "$sherpa_dir/lib" -maxdepth 2; exit 1; }
+          # findHelperLib() only looks beside the executable (or in the models
+          # dir), so stage a flat package: binary + helper + native libs as
+          # siblings, no absolute GOMODCACHE paths inside the archive.
+          stage="$RUNNER_TEMP/aigc-pkg"
+          rm -rf "$stage"; mkdir -p "$stage"
+          cp "$name" libaigc-sherpa-helper.* "$stage"/
+          cp "$lib_dir"/*.so "$lib_dir"/*.dylib "$stage"/ 2>/dev/null || true
+          # libonnxruntime.dylib is a byte-identical duplicate of the versioned
+          # dylib. Keep only libonnxruntime.<ver>.dylib so the package records
+          # which ONNX Runtime version it ships (and stays ~28 MB smaller).
+          if compgen -G "$stage/libonnxruntime.*.dylib" >/dev/null; then
+            rm -f "$stage/libonnxruntime.dylib"
+          fi
+          ( cd "$stage" && tar czf "$GITHUB_WORKSPACE/aigc-cli-${{ matrix.label }}.tar.gz" * )
+          if tar tzf "aigc-cli-${{ matrix.label }}.tar.gz" | grep -q '/'; then
+            echo "package must be flat, found nested paths:"
+            tar tzf "aigc-cli-${{ matrix.label }}.tar.gz"
+            exit 1
+          fi
           # keep runtime libs for standalone asset upload below
           cp "$lib_dir"/libsherpa-onnx-c-api.* . 2>/dev/null || true
           echo "binary=aigc-cli-${{ matrix.label }}.tar.gz" >> "$GITHUB_ENV"
