@@ -180,6 +180,9 @@ func TestApplyAlpha(t *testing.T) {
 // TestDetectFile is an integration test that requires the actual model and ONNX Runtime.
 // It follows the same pattern as internal/onnx/onnx_test.go.
 func TestDetectFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test: needs ONNX Runtime + RMBG model")
+	}
 	modelsDir := os.ExpandEnv("$HOME/.config/aigc-cli/models")
 	if _, err := os.Stat(modelsDir); err != nil {
 		t.Skip("models directory not found:", modelsDir)

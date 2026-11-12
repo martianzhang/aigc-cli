@@ -15,6 +15,9 @@ import (
 // TestConvertDepthHandlerAnnotateFace 验证 convert_depth 工具带 annotate=face
 // 时，输出图片包含人脸标注（蓝色关键点/红色检测框）。需要模型，缺失时跳过。
 func TestConvertDepthHandlerAnnotateFace(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test: needs depth + face models")
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatalf("home: %v", err)

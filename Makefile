@@ -41,13 +41,13 @@ lint: ## Run static analysis (go vet + golangci-lint if available)
 
 vet: lint
 
-test: fmt ## Run tests
-	$(GO) test ./... -count=1
+test: fmt ## Run hermetic tests (integration tests skip via -short)
+	$(GO) test ./... -short -count=1
 
 test-race: fmt ## Run tests with the race detector
 	$(GO) test -race ./... -count=1 -timeout=25m
 
-test-integration: fmt ## Run integration tests (build tag: integration)
+test-integration: fmt ## Run integration tests (no -short; build tag: integration)
 	$(GO) test -tags=integration ./... -count=1 -timeout=30m
 
 bench: ## Run benchmarks (optional: BENCH=ClipString)

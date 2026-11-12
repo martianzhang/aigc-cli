@@ -11,6 +11,9 @@ import (
 // TestConvertAnnotateCallback 验证 Annotate 回调在写盘前被逐帧调用，且返回的
 // 替换像素会覆盖深度帧（生成彩色标注视频）。需要 ffmpeg + 深度模型，缺失时跳过。
 func TestConvertAnnotateCallback(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test: needs ffmpeg + depth model")
+	}
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		t.Skip("ffmpeg not installed")
 	}

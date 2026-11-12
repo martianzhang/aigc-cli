@@ -40,7 +40,7 @@ jobs:
       - name: Test
         env:
           CGO_ENABLED: "0"
-        run: go test ./... -count=1 -timeout=10m
+        run: go test ./... -short -count=1 -timeout=10m
 
   race:
     # The race detector is slow, so run it once on Linux for every package.
@@ -55,7 +55,7 @@ jobs:
       - name: Race detector
         env:
           CGO_ENABLED: "0"
-        run: go test -race ./... -count=1 -timeout=25m
+        run: go test -race ./... -short -count=1 -timeout=25m
 
   quality:
     # Repo hygiene checks that are independent of the OS matrix.
@@ -76,7 +76,7 @@ jobs:
         env:
           CGO_ENABLED: "0"
         run: |
-          go test ./... -coverprofile=coverage.out -count=1
+          go test ./... -short -coverprofile=coverage.out -count=1
           total=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | tr -d '%')
           echo "total coverage: ${total}%"
           awk -v total="$total" 'BEGIN { if (total + 0 < 58.0) { print "coverage " total "% is below the 58% floor"; exit 1 } }'
