@@ -1,12 +1,12 @@
 package audio
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // localDryRunField is one aligned "# key: value" line of a local dry-run plan.
@@ -19,11 +19,11 @@ type localDryRunField struct {
 // no equivalent curl, so --dry-run prints the resolved parameters instead of
 // loading a model or writing a file.
 func printLocalDryRun(command string, fields []localDryRunField) {
-	fmt.Printf("# %s dry run (local ONNX)\n", command)
+	ui.Printf("# %s dry run (local ONNX)\n", command)
 	for _, f := range fields {
-		fmt.Printf("# %-9s %s\n", f.key+":", f.value)
+		ui.Printf("# %-9s %s\n", f.key+":", f.value)
 	}
-	fmt.Println("# no model loaded, no file written")
+	ui.Println("# no model loaded, no file written")
 }
 
 // outputDir returns the directory local outputs are written to.

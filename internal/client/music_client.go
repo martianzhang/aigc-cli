@@ -6,6 +6,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 const (
@@ -35,8 +36,8 @@ func (c *Client) MusicGetTask(taskID string) (*types.MusicTaskData, error) {
 // MusicPollTask polls a music task until completion or failure.
 // Success on completed/success/succeeded; failure on failed/failure.
 func (c *Client) MusicPollTask(taskID string, maxWait time.Duration) (*types.MusicTaskData, error) {
-	fmt.Printf("Task submitted: %s\n", taskID)
-	fmt.Printf("Waiting %v before first poll...\n", initialDelay)
+	ui.Printf("Task submitted: %s\n", taskID)
+	ui.Printf("Waiting %v before first poll...\n", initialDelay)
 	select {
 	case <-time.After(initialDelay):
 	case <-c.requestContext().Done():
@@ -53,14 +54,14 @@ func (c *Client) MusicPollTask(taskID string, maxWait time.Duration) (*types.Mus
 	wait := pollWait(maxWait, maxPollDuration)
 
 	if isTTY {
-		fmt.Print("  Progress: 0% ")
+		ui.Print("  Progress: 0% ")
 	}
 
 	for {
 		select {
 		case <-c.requestContext().Done():
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, c.requestContext().Err()
 		default:
@@ -68,7 +69,7 @@ func (c *Client) MusicPollTask(taskID string, maxWait time.Duration) (*types.Mus
 
 		if time.Since(start) > wait {
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, fmt.Errorf("polling timed out after %v", wait)
 		}
@@ -76,7 +77,7 @@ func (c *Client) MusicPollTask(taskID string, maxWait time.Duration) (*types.Mus
 		task, err := c.MusicGetTask(taskID)
 		if err != nil {
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, fmt.Errorf("failed to query task: %w", err)
 		}
@@ -86,21 +87,21 @@ func (c *Client) MusicPollTask(taskID string, maxWait time.Duration) (*types.Mus
 
 		if isTTY {
 			bar := progressBar(progress, 20)
-			fmt.Printf("\r  %s %s %d%% ", spinner[si%len(spinner)], bar, progress)
+			ui.Printf("\r  %s %s %d%% ", spinner[si%len(spinner)], bar, progress)
 			si++
 		} else {
-			fmt.Printf("  Status: %s, Progress: %d%%\n", task.Status, progress)
+			ui.Printf("  Status: %s, Progress: %d%%\n", task.Status, progress)
 		}
 
 		switch task.Status {
 		case "completed", "success", "succeeded":
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return task, nil
 		case "failed", "failure":
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			if task.Error != nil && task.Error.Message != "" {
 				return task, fmt.Errorf("task failed: %s", task.Error.Message)
@@ -112,7 +113,7 @@ func (c *Client) MusicPollTask(taskID string, maxWait time.Duration) (*types.Mus
 		case <-time.After(DefaultPollInterval):
 		case <-c.requestContext().Done():
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, c.requestContext().Err()
 		}

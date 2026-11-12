@@ -14,6 +14,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 func runAudioSpeak(cmd *cobra.Command, args []string) error {
@@ -57,17 +58,17 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 	}
 
 	if audioDryRun {
-		fmt.Println(buildAudioSpeechCurl(req))
+		ui.Println(buildAudioSpeechCurl(req))
 		return nil
 	}
 
 	if options.Shared.Verbose {
-		fmt.Printf("Request: model=%s voice=%s format=%s speed=%.1f\n",
+		ui.Printf("Request: model=%s voice=%s format=%s speed=%.1f\n",
 			req.Model, req.Voice, req.ResponseFormat, req.Speed)
 		if req.Instructions != "" {
-			fmt.Printf("Instructions: %s\n", req.Instructions)
+			ui.Printf("Instructions: %s\n", req.Instructions)
 		}
-		fmt.Printf("Input length: %d chars\n", len(req.Input))
+		ui.Printf("Input length: %d chars\n", len(req.Input))
 	}
 
 	c := client.NewFromProvider(p)
@@ -85,21 +86,21 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 		actualFormat = audioFormatFromContentType(contentType)
 	}
 
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Printf("Voice: %s\n", req.Voice)
-	fmt.Printf("Format: %s\n", actualFormat)
-	fmt.Printf("Size: %d bytes\n", len(audioData))
-	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+	ui.Printf("Model: %s\n", req.Model)
+	ui.Printf("Voice: %s\n", req.Voice)
+	ui.Printf("Format: %s\n", actualFormat)
+	ui.Printf("Size: %d bytes\n", len(audioData))
+	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	filename, err := saveAudioFile(audioData, actualFormat)
 	if err != nil {
 		return fmt.Errorf("failed to save audio: %w", err)
 	}
-	fmt.Printf("Saved: %s\n", filename)
+	ui.Printf("Saved: %s\n", filename)
 
 	if audioSpeechPlay {
 		if err := service.PreviewFile(filename); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: playback failed: %v\n", err)
+			ui.Eprintf("Warning: playback failed: %v\n", err)
 		}
 	}
 	return nil
@@ -148,7 +149,7 @@ func runLocalAudioSpeak(_ *cobra.Command) error {
 	}
 
 	if options.Shared.Verbose {
-		fmt.Printf("Local mode: model=%s input=%d chars\n", modelID, len(req.Input))
+		ui.Printf("Local mode: model=%s input=%d chars\n", modelID, len(req.Input))
 	}
 
 	sid := resolveSID(audioSpeechVoice)
@@ -166,20 +167,20 @@ func runLocalAudioSpeak(_ *cobra.Command) error {
 	}
 	elapsed := time.Since(start)
 
-	fmt.Printf("Model: %s (local)\n", modelID)
-	fmt.Printf("Format: wav\n")
-	fmt.Printf("Duration: %.1fs (%.1f sec audio)\n", elapsed.Seconds(), float64(len(pcm))/float64(sampleRate))
+	ui.Printf("Model: %s (local)\n", modelID)
+	ui.Printf("Format: wav\n")
+	ui.Printf("Duration: %.1fs (%.1f sec audio)\n", elapsed.Seconds(), float64(len(pcm))/float64(sampleRate))
 
 	wavData := &audio.AudioData{Samples: pcm, SampleRate: sampleRate}
 	filename, err := saveAudioWAV(wavData)
 	if err != nil {
 		return fmt.Errorf("failed to save audio: %w", err)
 	}
-	fmt.Printf("Saved: %s\n", filename)
+	ui.Printf("Saved: %s\n", filename)
 
 	if audioSpeechPlay {
 		if err := service.PreviewFile(filename); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: playback failed: %v\n", err)
+			ui.Eprintf("Warning: playback failed: %v\n", err)
 		}
 	}
 	return nil

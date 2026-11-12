@@ -2,11 +2,11 @@ package knowledge
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -79,11 +79,11 @@ Use --show to display full chunk content inline.`,
 		}
 
 		if len(docs) == 0 {
-			fmt.Fprintln(os.Stderr, "No results found.")
+			ui.Eprintln("No results found.")
 			return nil
 		}
 
-		fmt.Fprintf(os.Stderr, "Found %d matching document(s)\n", len(docs))
+		ui.Eprintf("Found %d matching document(s)\n", len(docs))
 
 		for i, d := range docs {
 			source := d.doc.URL
@@ -91,19 +91,19 @@ Use --show to display full chunk content inline.`,
 				source = d.doc.FilePath
 			}
 
-			fmt.Println("\n---")
-			fmt.Printf("### [%d] %s\n", i+1, d.doc.Title)
-			fmt.Printf("**ID:** `%s`  \n", knowledge.ShortID(d.doc.ID))
-			fmt.Printf("**Source:** %s  \n", source)
-			fmt.Printf("**Score:** %.4f (%d chunk(s))  \n", d.score, len(d.chunks))
-			fmt.Printf("**Show:** `aigc-cli kb show %s`  \n", knowledge.ShortID(d.doc.ID))
+			ui.Println("\n---")
+			ui.Printf("### [%d] %s\n", i+1, d.doc.Title)
+			ui.Printf("**ID:** `%s`  \n", knowledge.ShortID(d.doc.ID))
+			ui.Printf("**Source:** %s  \n", source)
+			ui.Printf("**Score:** %.4f (%d chunk(s))  \n", d.score, len(d.chunks))
+			ui.Printf("**Show:** `aigc-cli kb show %s`  \n", knowledge.ShortID(d.doc.ID))
 
 			if d.summary != "" {
-				fmt.Println()
-				fmt.Println(d.summary)
+				ui.Println()
+				ui.Println(d.summary)
 			}
 		}
-		fmt.Println("\n---")
+		ui.Println("\n---")
 
 		if !kbFindShow {
 			return nil
@@ -111,15 +111,15 @@ Use --show to display full chunk content inline.`,
 
 		// --show: output full content for each document
 		for _, d := range docs {
-			fmt.Printf("\n## %s (`%s`)\n\n", d.doc.Title, knowledge.ShortID(d.doc.ID))
+			ui.Printf("\n## %s (`%s`)\n\n", d.doc.Title, knowledge.ShortID(d.doc.ID))
 			for _, c := range d.chunks {
 				if c.Heading != "" {
-					fmt.Printf("### %s\n\n", strings.TrimPrefix(c.Heading, "# "))
+					ui.Printf("### %s\n\n", strings.TrimPrefix(c.Heading, "# "))
 				}
-				fmt.Println(c.Content)
-				fmt.Println()
+				ui.Println(c.Content)
+				ui.Println()
 			}
-			fmt.Println("---")
+			ui.Println("---")
 		}
 		return nil
 	},

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/martianzhang/aigc-cli/internal/modelstore"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 const modelsBaseURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1"
@@ -95,27 +96,27 @@ func InitModel(modelsDir, variant string, force bool) error {
 		targetPath := filepath.Join(resolvedDir, f.Filename)
 		if !force {
 			if _, err := os.Stat(targetPath); err == nil {
-				fmt.Printf("  Already exists: %s\n", f.Filename)
+				ui.Printf("  Already exists: %s\n", f.Filename)
 				continue
 			}
 		}
-		fmt.Printf("  Downloading %s (%s)...\n", f.Filename, f.Size)
+		ui.Printf("  Downloading %s (%s)...\n", f.Filename, f.Size)
 		if err := modelstore.Install(context.Background(), nil, f.URL, targetPath, modelstore.Options{Force: force}); err != nil {
 			return fmt.Errorf("download %s: %w", f.Filename, err)
 		}
-		fmt.Printf("    Saved: %s\n", targetPath)
+		ui.Printf("    Saved: %s\n", targetPath)
 	}
 	return nil
 }
 
 // ListModels prints available model variants to stdout.
 func ListModels() {
-	fmt.Println("Available vision models:")
+	ui.Println("Available vision models:")
 	for _, v := range AvailableModelVariants {
 		marker := ""
 		if v.ID == DefaultModelVariant {
 			marker = " (default)"
 		}
-		fmt.Printf("  %-15s %-25s %s%s\n", v.ID, v.Description, v.Size, marker)
+		ui.Printf("  %-15s %-25s %s%s\n", v.ID, v.Description, v.Size, marker)
 	}
 }

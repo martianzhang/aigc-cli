@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
@@ -166,12 +166,12 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	}
 
 	taskID := submitResp.TaskID
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Printf("Task ID: %s\n", taskID)
+	ui.Printf("Model: %s\n", req.Model)
+	ui.Printf("Task ID: %s\n", taskID)
 	if totalLimit != "" {
-		fmt.Printf("Quota: %s/%s remaining (model: %s/%s)\n", totalRemain, totalLimit, modelRemain, modelLimit)
+		ui.Printf("Quota: %s/%s remaining (model: %s/%s)\n", totalRemain, totalLimit, modelRemain, modelLimit)
 	}
-	fmt.Println("Polling for completion...")
+	ui.Println("Polling for completion...")
 
 	// --- Step 2: Poll task status ---
 	pollInterval := client.DefaultPollInterval
@@ -227,7 +227,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 
 done:
 	// --- Step 3: Download images ---
-	fmt.Printf("Duration: %.1fs\n", time.Since(start).Seconds())
+	ui.Printf("Duration: %.1fs\n", time.Since(start).Seconds())
 
 	savePromptFile(promptTaskID("modelscope", 0), req.Prompt)
 
@@ -250,10 +250,10 @@ done:
 		taskID := fmt.Sprintf("modelscope_%d", time.Now().Unix())
 		filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("image_%s_%d%s", taskID, i, ext))
 		if err := fsutil.WriteFileAtomic(filename, data, 0644); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
+			ui.Eprintf("Warning: failed to save %s: %v\n", filename, err)
 			continue
 		}
-		fmt.Printf("Image %d: %s\n", i+1, filename)
+		ui.Printf("Image %d: %s\n", i+1, filename)
 		saved = append(saved, filename)
 	}
 

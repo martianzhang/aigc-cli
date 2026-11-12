@@ -7,6 +7,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runLocalDecode implements the pure local decode/convert mode (no API call).
@@ -28,21 +29,21 @@ func runLocalDecode(imageURLs []string, targetFormat string) error {
 	var results []string
 	for _, src := range imageURLs {
 		if strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://") {
-			fmt.Fprintf(os.Stderr, "Warning: skipping remote URL (local files only): %s\n", src)
+			ui.Eprintf("Warning: skipping remote URL (local files only): %s\n", src)
 			continue
 		}
 		if !service.IsFile(src) && !strings.HasPrefix(src, "data:") {
-			fmt.Fprintf(os.Stderr, "Warning: file not found: %s\n", src)
+			ui.Eprintf("Warning: file not found: %s\n", src)
 			continue
 		}
 
 		dest, created, err := service.ResolveImageSource(src, targetFormat, outDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: decode %s: %v\n", src, err)
+			ui.Eprintf("Warning: decode %s: %v\n", src, err)
 			continue
 		}
 		if !created {
-			fmt.Fprintf(os.Stderr, "Warning: %s: no conversion needed\n", src)
+			ui.Eprintf("Warning: %s: no conversion needed\n", src)
 			continue
 		}
 		results = append(results, dest)
@@ -51,12 +52,12 @@ func runLocalDecode(imageURLs []string, targetFormat string) error {
 	if len(results) == 0 {
 		return fmt.Errorf("no files were decoded")
 	}
-	fmt.Println("Decode results:")
+	ui.Println("Decode results:")
 	for _, r := range results {
-		fmt.Printf("  %s\n", r)
+		ui.Printf("  %s\n", r)
 		if genPreview {
 			if e := service.PreviewFile(r); e != nil {
-				fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
+				ui.Eprintf("Warning: preview failed: %v\n", e)
 			}
 		}
 	}

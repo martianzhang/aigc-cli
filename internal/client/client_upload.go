@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // uploadClient creates an independent http.Client for file uploads. It uses
@@ -87,12 +88,12 @@ func (c *Client) ResolveLocalImages(urls []string) ([]string, error) {
 	resolved := make([]string, len(urls))
 	for i, u := range urls {
 		if isLocalFile(u) {
-			fmt.Printf("  Uploading local file: %s ...\n", u)
+			ui.Printf("  Uploading local file: %s ...\n", u)
 			resp, err := c.UploadImage(u)
 			if err != nil {
 				return nil, fmt.Errorf("failed to upload %s: %w", u, err)
 			}
-			fmt.Printf("  -> %s\n", resp.URL)
+			ui.Printf("  -> %s\n", resp.URL)
 			resolved[i] = resp.URL
 		} else {
 			resolved[i] = u

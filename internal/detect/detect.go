@@ -11,6 +11,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/forensic"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
@@ -105,7 +106,7 @@ func ParseWatermarkBox(s string, imgW, imgH int) (x, y, w, h int, ok bool) {
 				return imgW - w - 10, imgH - h - 10, w, h, true
 			}
 		}
-		fmt.Fprintf(os.Stderr, "Warning: invalid --watermark-box format %q, expected \"w,h\" (e.g. \"200,60\")\n", s)
+		ui.Eprintf("Warning: invalid --watermark-box format %q, expected \"w,h\" (e.g. \"200,60\")\n", s)
 		return 0, 0, 0, 0, false
 	case 4:
 		if x, err := strconv.Atoi(strings.TrimSpace(parts[0])); err == nil {
@@ -137,10 +138,10 @@ func ParseWatermarkBox(s string, imgW, imgH int) (x, y, w, h int, ok bool) {
 				}
 			}
 		}
-		fmt.Fprintf(os.Stderr, "Warning: invalid --watermark-box format %q, expected \"x,y,w,h\" (e.g. \"800,900,200,60\")\n", s)
+		ui.Eprintf("Warning: invalid --watermark-box format %q, expected \"x,y,w,h\" (e.g. \"800,900,200,60\")\n", s)
 		return 0, 0, 0, 0, false
 	default:
-		fmt.Fprintf(os.Stderr, "Warning: invalid --watermark-box format %q, expected \"w,h\" or \"x,y,w,h\"\n", s)
+		ui.Eprintf("Warning: invalid --watermark-box format %q, expected \"w,h\" or \"x,y,w,h\"\n", s)
 		return 0, 0, 0, 0, false
 	}
 }

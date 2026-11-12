@@ -3,7 +3,6 @@ package video
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // video flag variables
@@ -169,16 +169,16 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(curl)
+		ui.Println(curl)
 		return nil
 	}
 
 	if options.Shared.Verbose {
 		if plan.Body == nil {
-			fmt.Printf("Request: GET %s\n\n", plan.URL)
+			ui.Printf("Request: GET %s\n\n", plan.URL)
 		} else {
 			prettyReq, _ := json.MarshalIndent(plan.Body, "", "  ")
-			fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+			ui.Printf("Request:\n%s\n\n", string(prettyReq))
 		}
 	}
 
@@ -213,14 +213,14 @@ func runVideo(cmd *cobra.Command, args []string) error {
 			}
 			if err == nil && vidGIF {
 				if conv, cerr := convertSavedToGIF(saved); cerr != nil {
-					fmt.Fprintf(os.Stderr, "Warning: GIF conversion failed: %v\n", cerr)
+					ui.Eprintf("Warning: GIF conversion failed: %v\n", cerr)
 				} else {
 					saved = conv
 				}
 			}
 			if err == nil && vidCropMargin != "" && !vidGIF {
 				if cropped, cerr := cropSavedVideos(saved); cerr != nil {
-					fmt.Fprintf(os.Stderr, "Warning: video crop failed: %v\n", cerr)
+					ui.Eprintf("Warning: video crop failed: %v\n", cerr)
 				} else {
 					saved = cropped
 				}
@@ -228,7 +228,7 @@ func runVideo(cmd *cobra.Command, args []string) error {
 			if err == nil && vidPreview {
 				for _, f := range saved {
 					if e := service.PreviewFile(f); e != nil {
-						fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
+						ui.Eprintf("Warning: preview failed: %v\n", e)
 					}
 				}
 			}

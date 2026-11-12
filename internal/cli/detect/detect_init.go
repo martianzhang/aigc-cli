@@ -10,6 +10,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/modelstore"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 const modelsBaseURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1"
@@ -96,17 +97,17 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 	}
 	modelPath := filepath.Join(modelsDir, info.filename)
 	if _, err := os.Stat(modelPath); err == nil && !detectForce {
-		fmt.Printf("Model already exists: %s\n  Use --force to re-download.\n", modelPath)
+		ui.Printf("Model already exists: %s\n  Use --force to re-download.\n", modelPath)
 		return nil
 	}
 
-	fmt.Printf("Downloading %s model - %s (%s)...\n", modelID, info.desc, info.size)
+	ui.Printf("Downloading %s model - %s (%s)...\n", modelID, info.desc, info.size)
 	if err := modelstore.Install(options.Context(), nil, info.url, modelPath, modelstore.Options{Force: detectForce}); err != nil {
 		return fmt.Errorf("model download failed: %w", err)
 	}
-	fmt.Println("  Done.")
+	ui.Println("  Done.")
 
-	fmt.Println("\nDone! Run 'aigc-cli detect' to use AIGC detection.")
+	ui.Println("\nDone! Run 'aigc-cli detect' to use AIGC detection.")
 	return nil
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // applyMJInject attaches the --inject-json value, if any, to an MJ request.
@@ -42,13 +43,13 @@ func runMJSubmitAndPoll(c client.APIClient, action string, req any) error {
 		return err
 	}
 	if mjDryRun {
-		fmt.Println(buildMJCurl(action, req))
+		ui.Println(buildMJCurl(action, req))
 		return nil
 	}
 
 	if options.Shared.Verbose {
 		prettyReq, _ := json.MarshalIndent(req, "", "  ")
-		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+		ui.Printf("Request:\n%s\n\n", string(prettyReq))
 	}
 
 	resp, err := c.MidjourneySubmit(action, req)
@@ -60,17 +61,17 @@ func runMJSubmitAndPoll(c client.APIClient, action string, req any) error {
 	}
 
 	task := resp.Data[0]
-	fmt.Printf("Response code: %d\n", resp.Code)
-	fmt.Printf("Task ID: %s\n", task.TaskID)
-	fmt.Printf("Status: %s\n\n", task.Status)
+	ui.Printf("Response code: %d\n", resp.Code)
+	ui.Printf("Task ID: %s\n", task.TaskID)
+	ui.Printf("Status: %s\n\n", task.Status)
 
 	// If the task immediately entered MODAL state, don't wait
 	if task.Status == "modal" {
-		fmt.Println("Task entered MODAL state -- call `midjourney modal` to submit parameters.")
+		ui.Println("Task entered MODAL state -- call `midjourney modal` to submit parameters.")
 		return nil
 	}
 
-	fmt.Println("Polling for completion...")
+	ui.Println("Polling for completion...")
 	taskData, err := c.MidjourneyPollTask(task.TaskID, clientfactory.TaskWait(types.MediaMidjourney))
 	if err != nil {
 		return fmt.Errorf("polling failed: %w", err)
@@ -88,52 +89,52 @@ func displayMJResult(task *types.MJTaskData) {
 
 	if options.Shared.Verbose {
 		pretty, _ := json.MarshalIndent(task, "", "  ")
-		fmt.Printf("\nTask result:\n%s\n", string(pretty))
+		ui.Printf("\nTask result:\n%s\n", string(pretty))
 	}
 
-	fmt.Println()
-	fmt.Printf("Action: %s | Status: %s\n", task.Action, task.Status)
+	ui.Println()
+	ui.Printf("Action: %s | Status: %s\n", task.Action, task.Status)
 
 	if task.FailReason != "" {
-		fmt.Printf("Fail reason: %s\n", task.FailReason)
+		ui.Printf("Fail reason: %s\n", task.FailReason)
 		return
 	}
 
 	if task.Status != "SUCCESS" && task.Status != "success" {
-		fmt.Printf("Task is in state: %s\n", task.Status)
+		ui.Printf("Task is in state: %s\n", task.Status)
 		if task.Status == "MODAL" || task.Status == "modal" {
-			fmt.Println("Call `midjourney modal` with --task-id and --mask-url/--prompt to continue.")
+			ui.Println("Call `midjourney modal` with --task-id and --mask-url/--prompt to continue.")
 		}
 		return
 	}
 
 	if task.GridImageURL != "" {
-		fmt.Printf("Grid image: %s\n", task.GridImageURL)
+		ui.Printf("Grid image: %s\n", task.GridImageURL)
 	}
 	for i, u := range task.ImageURLs {
-		fmt.Printf("Image %d: %s\n", i+1, u)
+		ui.Printf("Image %d: %s\n", i+1, u)
 	}
 	if task.VideoURL != "" {
-		fmt.Printf("Video: %s\n", task.VideoURL)
+		ui.Printf("Video: %s\n", task.VideoURL)
 	}
 	for i, u := range task.VideoURLs {
-		fmt.Printf("Video %d: %s\n", i+1, u)
+		ui.Printf("Video %d: %s\n", i+1, u)
 	}
 	if task.Prompt != "" {
-		fmt.Printf("Prompt: %s\n", task.Prompt)
+		ui.Printf("Prompt: %s\n", task.Prompt)
 	}
 	if task.Description != "" {
-		fmt.Printf("Description: %s\n", task.Description)
+		ui.Printf("Description: %s\n", task.Description)
 	}
 	if len(task.Buttons) > 0 {
-		fmt.Println("\nFollow-up buttons:")
+		ui.Println("\nFollow-up buttons:")
 		for _, b := range task.Buttons {
-			fmt.Printf("  [%s] customId: %s\n", b.Label, b.CustomID)
+			ui.Printf("  [%s] customId: %s\n", b.Label, b.CustomID)
 		}
 	}
 
 	if task.Cost > 0 || task.ActualTime > 0 {
-		fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
+		ui.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 			task.ActualTime, task.Cost, task.CreditsCost)
 	}
 }

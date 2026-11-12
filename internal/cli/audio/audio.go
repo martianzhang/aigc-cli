@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 var audioCmd = &cobra.Command{
@@ -76,15 +77,15 @@ Examples:
 		if _, err := os.Stat(path); err != nil {
 			return fmt.Errorf("file not found: %s", path)
 		}
-		fmt.Fprintf(os.Stderr, "Playing...\n")
+		ui.Eprintf("Playing...\n")
 		if err := audio.PlayAudioFile(path); err != nil {
 			if errors.Is(err, audio.ErrPlaybackUnavailable) {
-				fmt.Fprintf(os.Stderr, "In-process playback unavailable, opening system player...\n")
+				ui.Eprintf("In-process playback unavailable, opening system player...\n")
 				return service.OpenWithSystemDefault(path)
 			}
 			return fmt.Errorf("playback failed: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "Done.\n")
+		ui.Eprintf("Done.\n")
 		return nil
 	},
 }

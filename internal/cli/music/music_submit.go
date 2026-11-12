@@ -13,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // ============================================================================
@@ -39,13 +40,13 @@ func buildMusicCurl(baseURL, apiKey string, body any) string {
 // --dry-run short-circuits here (mirrors runMJSubmitAndPoll).
 func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any) ([]string, error) {
 	if musicDryRun {
-		fmt.Println(buildMusicCurl(baseURL, apiKey, body))
+		ui.Println(buildMusicCurl(baseURL, apiKey, body))
 		return nil, nil
 	}
 
 	if options.Shared.Verbose {
 		prettyReq, _ := json.MarshalIndent(body, "", "  ")
-		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+		ui.Printf("Request:\n%s\n\n", string(prettyReq))
 	}
 
 	resp, err := c.MusicSubmit(body)
@@ -57,11 +58,11 @@ func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any)
 	}
 
 	task := resp.Data[0]
-	fmt.Printf("Response code: %d\n", resp.Code)
-	fmt.Printf("Task ID: %s\n", task.TaskID)
-	fmt.Printf("Status: %s\n\n", task.Status)
+	ui.Printf("Response code: %d\n", resp.Code)
+	ui.Printf("Task ID: %s\n", task.TaskID)
+	ui.Printf("Status: %s\n\n", task.Status)
 
-	fmt.Println("Polling for completion...")
+	ui.Println("Polling for completion...")
 	taskData, err := c.MusicPollTask(task.TaskID, clientfactory.TaskWait(types.MediaMusic))
 	if err != nil {
 		return nil, fmt.Errorf("polling failed: %w", err)
@@ -86,14 +87,14 @@ func displayMusicResult(task *types.MusicTaskData) {
 
 	if options.Shared.Verbose {
 		pretty, _ := json.MarshalIndent(task, "", "  ")
-		fmt.Printf("\nTask result:\n%s\n", string(pretty))
+		ui.Printf("\nTask result:\n%s\n", string(pretty))
 	}
 
-	fmt.Println()
-	fmt.Printf("Status: %s\n", task.Status)
+	ui.Println()
+	ui.Printf("Status: %s\n", task.Status)
 
 	if task.Error != nil && task.Error.Message != "" {
-		fmt.Printf("Error: %s\n", task.Error.Message)
+		ui.Printf("Error: %s\n", task.Error.Message)
 		return
 	}
 
@@ -103,24 +104,24 @@ func displayMusicResult(task *types.MusicTaskData) {
 			if title == "" {
 				title = fmt.Sprintf("Track %d", i+1)
 			}
-			fmt.Printf("Track %d: %s\n", i+1, title)
+			ui.Printf("Track %d: %s\n", i+1, title)
 			switch {
 			case float64(track.Duration) > 0:
-				fmt.Printf("  Duration: %.1fs\n", float64(track.Duration))
+				ui.Printf("  Duration: %.1fs\n", float64(track.Duration))
 			case track.DurationSeconds != "":
-				fmt.Printf("  Duration: %ss\n", track.DurationSeconds)
+				ui.Printf("  Duration: %ss\n", track.DurationSeconds)
 			}
 			if u := musicTrackURL(track); u != "" {
-				fmt.Printf("  Audio: %s\n", u)
+				ui.Printf("  Audio: %s\n", u)
 			}
 			if track.ImageURL != "" {
-				fmt.Printf("  Image: %s\n", track.ImageURL)
+				ui.Printf("  Image: %s\n", track.ImageURL)
 			}
 		}
 	}
 
 	if task.Cost > 0 || task.ActualTime > 0 {
-		fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
+		ui.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 			task.ActualTime, task.Cost, task.CreditsCost)
 	}
 }

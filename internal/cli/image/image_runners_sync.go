@@ -2,13 +2,13 @@ package image
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runSyncImage handles OpenAI/OpenRouter-compatible synchronous image generation.
@@ -22,12 +22,12 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDisp
 
 	elapsed := time.Since(start)
 
-	fmt.Printf("Provider: %s\n", ctx.providerFor().ProviderType)
-	fmt.Printf("Model: %s\n", req.Model)
+	ui.Printf("Provider: %s\n", ctx.providerFor().ProviderType)
+	ui.Printf("Model: %s\n", req.Model)
 	if syncResp.Created > 0 {
-		fmt.Printf("Created: %s\n", time.Unix(syncResp.Created, 0).Format("2006-01-02 15:04:05"))
+		ui.Printf("Created: %s\n", time.Unix(syncResp.Created, 0).Format("2006-01-02 15:04:05"))
 	}
-	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	taskID := promptTaskID("image_sync", syncResp.Created)
 	savePromptFile(taskID, req.Prompt)
@@ -53,25 +53,25 @@ func saveOpenAIImageResponse(resp *types.OpenAIImageResponse, taskID string) ([]
 		if img.B64JSON != "" {
 			filename, err := service.SaveBase64Image(options.Shared.OutputDir, taskID, img.B64JSON, i)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, err)
+				ui.Eprintf("Warning: failed to save image %d: %v\n", i, err)
 				continue
 			}
-			fmt.Printf("Image %d: %s\n", i+1, filename)
+			ui.Printf("Image %d: %s\n", i+1, filename)
 			saved = append(saved, filename)
 		} else if img.URL != "" {
 			filename, err := service.DownloadFile(img.URL, options.Shared.OutputDir, fmt.Sprintf("%s_%d", taskID, i))
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, err)
+				ui.Eprintf("Warning: failed to download image %d: %v\n", i, err)
 				continue
 			}
-			fmt.Printf("Image %d: %s\n", i+1, filename)
+			ui.Printf("Image %d: %s\n", i+1, filename)
 			saved = append(saved, filename)
 		} else {
-			fmt.Printf("Image %d: <no data>\n", i+1)
+			ui.Printf("Image %d: <no data>\n", i+1)
 			continue
 		}
 		if img.RevisedPrompt != "" && options.Shared.Verbose {
-			fmt.Printf("  Revised prompt: %s\n", img.RevisedPrompt)
+			ui.Printf("  Revised prompt: %s\n", img.RevisedPrompt)
 		}
 	}
 	if len(saved) == 0 {

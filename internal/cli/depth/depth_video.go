@@ -1,8 +1,6 @@
 package depth
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -11,6 +9,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/argutil"
 	"github.com/martianzhang/aigc-cli/internal/depth"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runDepthAnnotateVideo computes the depth video, then overlays skeleton/face
@@ -43,16 +42,16 @@ func runDepthAnnotateVideo(_ *cobra.Command) error {
 		Verbose:       d.Verbose,
 		Annotate:      annotate,
 		OnProgress: func(done, total int, fps float64) {
-			fmt.Printf("  frame %d/%d (%.1f fps)\n", done, total, fps)
+			ui.Printf("  frame %d/%d (%.1f fps)\n", done, total, fps)
 		},
 	})
 	if err != nil {
 		return err
 	}
-	fmt.Printf("\nDepth video saved: %s\n", out)
+	ui.Printf("\nDepth video saved: %s\n", out)
 	if depthPreview {
 		if err := service.PreviewFile(out); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+			ui.Eprintf("Warning: preview failed: %v\n", err)
 		}
 	}
 	return nil
@@ -98,16 +97,16 @@ func runDepthVideo(_ *cobra.Command) error {
 		EncodeArgs:    depthEncodeArgs,
 		Verbose:       d.Verbose,
 		OnProgress: func(done, total int, fps float64) {
-			fmt.Printf("  frame %d/%d (%.1f fps)\n", done, total, fps)
+			ui.Printf("  frame %d/%d (%.1f fps)\n", done, total, fps)
 		},
 	})
 	if err != nil {
 		return err
 	}
-	fmt.Printf("\nDepth video saved: %s\n", out)
+	ui.Printf("\nDepth video saved: %s\n", out)
 	if depthPreview {
 		if err := service.PreviewFile(out); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+			ui.Eprintf("Warning: preview failed: %v\n", err)
 		}
 	}
 	return nil
@@ -130,16 +129,16 @@ type depthDryRunInfo struct {
 
 // printDepthDryRun prints the ffmpeg commands the video conversion would run.
 func printDepthDryRun(info depthDryRunInfo) {
-	fmt.Printf("# Depth conversion dry run\n")
-	fmt.Printf("# input:  %s\n", info.input)
-	fmt.Printf("# output: %s\n", info.outPath)
-	fmt.Printf("# model:  %s (%s)\n", info.model.ID, info.model.Desc)
-	fmt.Printf("# invert: %v, smooth: %v, keep_audio: %v\n", info.invert, !info.noSmooth, info.keepAudio)
+	ui.Printf("# Depth conversion dry run\n")
+	ui.Printf("# input:  %s\n", info.input)
+	ui.Printf("# output: %s\n", info.outPath)
+	ui.Printf("# model:  %s (%s)\n", info.model.ID, info.model.Desc)
+	ui.Printf("# invert: %v, smooth: %v, keep_audio: %v\n", info.invert, !info.noSmooth, info.keepAudio)
 	if info.color {
-		fmt.Printf("# color: Spectral_r (near = warm, far = cool)\n")
+		ui.Printf("# color: Spectral_r (near = warm, far = cool)\n")
 	}
 	if info.parallel > 0 {
-		fmt.Printf("# parallel: %d inference workers\n", info.parallel)
+		ui.Printf("# parallel: %d inference workers\n", info.parallel)
 	}
 
 	tmp := "/tmp/aigc-depth-frames"
@@ -153,7 +152,7 @@ func printDepthDryRun(info depthDryRunInfo) {
 		extract = append(extract, "-to", info.endTime)
 	}
 	extract = append(extract, "-vf", "fps=24", pattern)
-	fmt.Printf("%s\n", strings.Join(extract, " "))
+	ui.Printf("%s\n", strings.Join(extract, " "))
 
 	encode := []string{"ffmpeg", "-y", "-framerate", "24",
 		"-i", pattern, "-c:v", "libx264", "-preset", "medium", "-crf", "23",
@@ -161,10 +160,10 @@ func printDepthDryRun(info depthDryRunInfo) {
 	if extra := argutil.Split(info.encodeArgs); len(extra) > 0 {
 		encode = append(encode[:len(encode)-1], append(extra, info.outPath)...)
 	}
-	fmt.Printf("%s\n", strings.Join(encode, " "))
+	ui.Printf("%s\n", strings.Join(encode, " "))
 
 	if info.keepAudio {
-		fmt.Printf("# audio: source track will be muxed (aligned to start/end)\n")
+		ui.Printf("# audio: source track will be muxed (aligned to start/end)\n")
 	}
-	fmt.Printf("\n# Then run per-frame depth inference between the two commands.\n")
+	ui.Printf("\n# Then run per-frame depth inference between the two commands.\n")
 }

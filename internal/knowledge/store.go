@@ -5,10 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"modernc.org/sqlite"
 )
 
@@ -61,7 +61,7 @@ func (s *Store) checkEmbedder(dim int, embedder Embedder) error {
 		return err
 	}
 	if stored != fp && s.hasEmbeddings() {
-		fmt.Fprintf(os.Stderr, "Warning: knowledge base indexed with %s but queried with %s; run \"aigc-cli kb reset\" and re-add documents to rebuild the index\n", stored, fp)
+		ui.Eprintf("Warning: knowledge base indexed with %s but queried with %s; run \"aigc-cli kb reset\" and re-add documents to rebuild the index\n", stored, fp)
 	}
 	return nil
 }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // openRouterModalities maps user-facing --type values (including aliases) to
@@ -131,12 +131,12 @@ func runOpenRouterMediaDiscovery(base, modality string) error {
 		if modelLike != "" {
 			printNoLikeMatches()
 		} else {
-			fmt.Println("No models found.")
+			ui.Println("No models found.")
 		}
 		return nil
 	}
 
-	fmt.Printf("%s (%d)\n\n", openRouterModalityTitles[modality], len(list.Data))
+	ui.Printf("%s (%d)\n\n", openRouterModalityTitles[modality], len(list.Data))
 	for _, m := range list.Data {
 		printOpenRouterMediaModel(m)
 	}
@@ -202,22 +202,22 @@ func openRouterParamSummary(params map[string]types.OpenRouterParamDescriptor) s
 }
 
 func printOpenRouterMediaModel(m types.OpenRouterMediaModel) {
-	fmt.Printf("  %s\n", m.ID)
+	ui.Printf("  %s\n", m.ID)
 	if m.Name != "" && m.Name != m.ID {
-		fmt.Printf("    ─ %s\n", m.Name)
+		ui.Printf("    ─ %s\n", m.Name)
 	}
 	if m.Architecture != nil {
 		in := strings.Join(m.Architecture.InputModalities, ", ")
 		out := strings.Join(m.Architecture.OutputModalities, ", ")
-		fmt.Printf("    ─ %s → %s\n", in, out)
+		ui.Printf("    ─ %s → %s\n", in, out)
 	}
 	if m.SupportsStreaming {
-		fmt.Printf("    ─ streaming\n")
+		ui.Printf("    ─ streaming\n")
 	}
 	if summary := openRouterParamSummary(m.SupportedParameters); summary != "" {
-		fmt.Printf("    ─ %s\n", summary)
+		ui.Printf("    ─ %s\n", summary)
 	}
-	fmt.Println()
+	ui.Println()
 }
 
 // printOpenRouterImageCapabilities appends image-generation capabilities from
@@ -239,10 +239,10 @@ func printOpenRouterImageCapabilities(base, modelID string) {
 		if m.ID != modelID {
 			continue
 		}
-		fmt.Fprintf(os.Stderr, "\nImage capabilities (from /v1/images/models):\n  %s\n",
+		ui.Eprintf("\nImage capabilities (from /v1/images/models):\n  %s\n",
 			openRouterParamSummary(m.SupportedParameters))
 		if forms := openRouterSizeForms(m.SupportedParameters); forms != "" {
-			fmt.Fprintf(os.Stderr, "  --size: %s\n", forms)
+			ui.Eprintf("  --size: %s\n", forms)
 		}
 		return
 	}
@@ -311,12 +311,12 @@ func runOpenRouterStandardDiscovery(base, modality string) error {
 		if modelLike != "" {
 			printNoLikeMatches()
 		} else {
-			fmt.Println("No models found.")
+			ui.Println("No models found.")
 		}
 		return nil
 	}
 
-	fmt.Printf("%s (%d)\n\n", openRouterModalityTitles[modality], len(list.Data))
+	ui.Printf("%s (%d)\n\n", openRouterModalityTitles[modality], len(list.Data))
 	// Text and all-modality listings are long (hundreds of models), so they
 	// stay one line per model. Every other modality shows capabilities.
 	compact := modality == "text" || modality == "all"
@@ -337,29 +337,29 @@ func printOpenRouterModel(m types.OpenRouterModel, compact, showModality, showPr
 	if compact && showPrice {
 		line += "  " + formatOpenRouterPrice(m.Pricing)
 	}
-	fmt.Println(line)
+	ui.Println(line)
 	if compact {
 		return
 	}
 
 	if m.Name != "" && m.Name != m.ID {
-		fmt.Printf("    ─ %s\n", m.Name)
+		ui.Printf("    ─ %s\n", m.Name)
 	}
 	if m.Architecture != nil {
-		fmt.Printf("    ─ %s → %s\n",
+		ui.Printf("    ─ %s → %s\n",
 			joinOrDash(m.Architecture.InputModalities),
 			joinOrDash(m.Architecture.OutputModalities))
 	}
 	if len(m.SupportedVoices) > 0 {
-		fmt.Printf("    ─ voices: %s\n", formatVoiceList(m.SupportedVoices))
+		ui.Printf("    ─ voices: %s\n", formatVoiceList(m.SupportedVoices))
 	}
 	if showPrice {
-		fmt.Printf("    ─ %s\n", formatOpenRouterPrice(m.Pricing))
+		ui.Printf("    ─ %s\n", formatOpenRouterPrice(m.Pricing))
 	}
 	if m.ExpirationDate != nil && *m.ExpirationDate != "" {
-		fmt.Printf("    ─ expires %s\n", *m.ExpirationDate)
+		ui.Printf("    ─ expires %s\n", *m.ExpirationDate)
 	}
-	fmt.Println()
+	ui.Println()
 }
 
 // joinOrDash joins modality names, falling back to "-" when unknown.
@@ -468,7 +468,7 @@ func runModelsOpenAI(p *provider.EffectiveProvider) error {
 	}
 
 	if len(models) == 0 {
-		fmt.Println("No models found.")
+		ui.Println("No models found.")
 		return nil
 	}
 
@@ -482,26 +482,26 @@ func runModelsOpenAI(p *provider.EffectiveProvider) error {
 		if modelLike != "" {
 			printNoLikeMatches()
 		} else {
-			fmt.Println("No models found.")
+			ui.Println("No models found.")
 		}
 		return nil
 	}
 
-	fmt.Printf("Available models (%d):\n\n", len(visible))
+	ui.Printf("Available models (%d):\n\n", len(visible))
 	for _, m := range visible {
 		displayID := strings.TrimPrefix(m.ID, "models/")
 		line := fmt.Sprintf("  %s", displayID)
 		if m.OwnedBy != "" && m.OwnedBy != "openai" && m.OwnedBy != "custom" {
 			line += fmt.Sprintf("  (by %s)", m.OwnedBy)
 		}
-		fmt.Println(line)
+		ui.Println(line)
 	}
 	if p.ProviderType == provider.OpenRouter {
-		fmt.Println()
-		fmt.Println("Other modalities: aigc-cli models --type all")
-		fmt.Println("Types: text, image, video, audio, speech, transcription, embeddings, rerank, decisions, all")
+		ui.Println()
+		ui.Println("Other modalities: aigc-cli models --type all")
+		ui.Println("Types: text, image, video, audio, speech, transcription, embeddings, rerank, decisions, all")
 	}
-	fmt.Println()
+	ui.Println()
 	return nil
 }
 
@@ -548,20 +548,20 @@ func runModelsDetailFromList(c *client.Client, modelID string) error {
 }
 
 func printOpenAIModelDetail(model *types.OpenAIModel) {
-	fmt.Printf("  %s\n", model.ID)
+	ui.Printf("  %s\n", model.ID)
 	if model.Object != "" {
-		fmt.Printf("    Object:   %s\n", model.Object)
+		ui.Printf("    Object:   %s\n", model.Object)
 	}
 	if model.OwnedBy != "" {
-		fmt.Printf("    Owned by: %s\n", model.OwnedBy)
+		ui.Printf("    Owned by: %s\n", model.OwnedBy)
 	}
 	if model.Created > 0 {
-		fmt.Printf("    Created:  %s\n", time.Unix(model.Created, 0).Format("2006-01-02 15:04:05"))
+		ui.Printf("    Created:  %s\n", time.Unix(model.Created, 0).Format("2006-01-02 15:04:05"))
 	}
 	if len(model.SupportedEndpointTypes) > 0 {
-		fmt.Printf("    Endpoints: %s\n", strings.Join(model.SupportedEndpointTypes, ", "))
+		ui.Printf("    Endpoints: %s\n", strings.Join(model.SupportedEndpointTypes, ", "))
 	}
-	fmt.Println()
+	ui.Println()
 }
 
 // runModelsOpenRouterDetail prints OpenRouter's single-model response verbatim.
@@ -591,7 +591,7 @@ func runModelsOpenRouterDetail(modelID string, p *provider.EffectiveProvider) er
 	if err != nil {
 		return fmt.Errorf("failed to format response: %w", err)
 	}
-	fmt.Println(pretty)
+	ui.Println(pretty)
 	if openRouterOutputsImage(raw) {
 		printOpenRouterImageCapabilities(base, modelID)
 	}

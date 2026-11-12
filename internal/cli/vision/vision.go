@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/vision"
 )
 
@@ -109,7 +110,7 @@ func runVisionInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("create models directory: %w", err)
 	}
 
-	fmt.Println("[1/2] Ensuring ONNX Runtime...")
+	ui.Println("[1/2] Ensuring ONNX Runtime...")
 	if _, err := onnxrt.EnsureInstalled(modelsDir, visionForceFlag); err != nil {
 		return err
 	}
@@ -117,12 +118,12 @@ func runVisionInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("[2/2] Downloading vision model (%s)...\n", variant)
+	ui.Printf("[2/2] Downloading vision model (%s)...\n", variant)
 	if err := vision.InitModel(modelsDir, variant, visionForceFlag); err != nil {
 		return fmt.Errorf("download vision model: %w", err)
 	}
 
-	fmt.Printf("\nDone! Run 'aigc-cli vision describe <image>' to describe an image.\n")
+	ui.Printf("\nDone! Run 'aigc-cli vision describe <image>' to describe an image.\n")
 	return nil
 }
 
@@ -183,7 +184,7 @@ func runVisionDescribe(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("online vision failed: %w", err)
 		}
-		fmt.Println(desc)
+		ui.Println(desc)
 		return nil
 	}
 
@@ -236,7 +237,7 @@ func runVisionDescribe(cmd *cobra.Command, args []string) error {
 	if result == "" {
 		result = "(no output generated)"
 	}
-	fmt.Println(result)
+	ui.Println(result)
 	return nil
 }
 

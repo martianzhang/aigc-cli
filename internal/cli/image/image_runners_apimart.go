@@ -9,6 +9,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runAsyncImage handles APIMart-compatible asynchronous (task-based) image generation.
@@ -23,12 +24,12 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	}
 
 	task := resp.Data[0]
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Printf("Response code: %d\n", resp.Code)
-	fmt.Printf("Task ID: %s\n", task.TaskID)
-	fmt.Printf("Status: %s\n\n", task.Status)
+	ui.Printf("Model: %s\n", req.Model)
+	ui.Printf("Response code: %d\n", resp.Code)
+	ui.Printf("Task ID: %s\n", task.TaskID)
+	ui.Printf("Status: %s\n\n", task.Status)
 
-	fmt.Println("Polling for completion...")
+	ui.Println("Polling for completion...")
 	taskData, err := c.PollTask(task.TaskID, clientfactory.TaskWait(types.MediaImage))
 	if err != nil {
 		return nil, fmt.Errorf("polling failed: %w", err)
@@ -36,13 +37,13 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 
 	if options.Shared.Verbose {
 		prettyResult, _ := json.MarshalIndent(taskData, "", "  ")
-		fmt.Printf("\nTask result:\n%s\n", string(prettyResult))
+		ui.Printf("\nTask result:\n%s\n", string(prettyResult))
 	}
 
-	fmt.Println()
+	ui.Println()
 	savePromptFile(taskData.ID, req.Prompt)
 
-	fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
+	ui.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 		taskData.ActualTime, taskData.Cost, taskData.CreditsCost)
 
 	if taskData.Result == nil || len(taskData.Result.Images) == 0 {

@@ -2,10 +2,10 @@ package image
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runLocalCompress implements the pure local compression mode (no API call).
@@ -26,16 +26,16 @@ func runLocalCompress(compressVal string, imageURLs []string, outputFormat strin
 	var results []*service.CompressResult
 	for _, src := range imageURLs {
 		if strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://") {
-			fmt.Fprintf(os.Stderr, "Warning: skipping remote URL (local files only): %s\n", src)
+			ui.Eprintf("Warning: skipping remote URL (local files only): %s\n", src)
 			continue
 		}
 		if !service.IsFile(src) {
-			fmt.Fprintf(os.Stderr, "Warning: file not found: %s\n", src)
+			ui.Eprintf("Warning: file not found: %s\n", src)
 			continue
 		}
 		result, err := service.CompressImage(src, opts)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: compress %s: %v\n", src, err)
+			ui.Eprintf("Warning: compress %s: %v\n", src, err)
 			continue
 		}
 		results = append(results, result)
@@ -43,15 +43,15 @@ func runLocalCompress(compressVal string, imageURLs []string, outputFormat strin
 	if len(results) == 0 {
 		return fmt.Errorf("no files were compressed")
 	}
-	fmt.Println("Compression results:")
+	ui.Println("Compression results:")
 	var totalBefore, totalAfter int64
 	for _, r := range results {
 		if r.Skipped {
-			fmt.Printf("  %s: skipped (%s)\n", r.DstPath, r.Reason)
+			ui.Printf("  %s: skipped (%s)\n", r.DstPath, r.Reason)
 		} else {
 			pct := 100 - int(float64(r.After)/float64(r.Before)*100)
 			params := formatParams(r.Format, r.Quality)
-			fmt.Printf("  %s: %s → %s (%d%% saved)%s\n", r.DstPath, formatBytes(r.Before), formatBytes(r.After), pct, params)
+			ui.Printf("  %s: %s → %s (%d%% saved)%s\n", r.DstPath, formatBytes(r.Before), formatBytes(r.After), pct, params)
 		}
 		totalBefore += r.Before
 		totalAfter += r.After
@@ -60,7 +60,7 @@ func runLocalCompress(compressVal string, imageURLs []string, outputFormat strin
 		pct := 100 - int(float64(totalAfter)/float64(totalBefore)*100)
 		first := results[0]
 		params := formatParams(first.Format, first.Quality)
-		fmt.Printf("Total: %s → %s (%d%% saved)%s\n", formatBytes(totalBefore), formatBytes(totalAfter), pct, params)
+		ui.Printf("Total: %s → %s (%d%% saved)%s\n", formatBytes(totalBefore), formatBytes(totalAfter), pct, params)
 	}
 	return nil
 }

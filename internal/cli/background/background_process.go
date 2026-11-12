@@ -18,6 +18,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 func processOneFile(path, outDir string, opts background.Options, doReplace bool, repColor color.Color, repImg image.Image, runOnlineBG bool, bgProvider *provider.EffectiveProvider) error {
@@ -47,7 +48,7 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 		if err != nil {
 			return fmt.Errorf("online generation failed: %w", err)
 		}
-		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(onlineOut))
+		ui.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(onlineOut))
 		return nil
 	}
 
@@ -60,7 +61,7 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 		if err := background.SavePNG(outPath, gray); err != nil {
 			return err
 		}
-		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
+		ui.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
 		return nil
 	}
 
@@ -73,10 +74,10 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 		if err := background.SavePNG(outPath, outImg); err != nil {
 			return err
 		}
-		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
+		ui.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
 		if bgPreview {
 			if err := service.PreviewFile(outPath); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+				ui.Eprintf("Warning: preview failed: %v\n", err)
 			}
 		}
 		return nil
@@ -99,10 +100,10 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 		if err := background.SavePNG(outPath, outImg); err != nil {
 			return err
 		}
-		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
+		ui.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
 		if bgPreview {
 			if err := service.PreviewFile(outPath); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+				ui.Eprintf("Warning: preview failed: %v\n", err)
 			}
 		}
 		return nil

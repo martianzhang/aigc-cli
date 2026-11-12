@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
@@ -12,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runAPIMartVideo handles video generation via APIMart async task API.
@@ -26,13 +26,13 @@ func runAPIMartVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 	}
 
 	task := resp.Data[0]
-	fmt.Printf("Provider: %s\n", p.ProviderType)
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Printf("Response code: %d\n", resp.Code)
-	fmt.Printf("Task ID: %s\n", task.TaskID)
-	fmt.Printf("Status: %s\n\n", task.Status)
+	ui.Printf("Provider: %s\n", p.ProviderType)
+	ui.Printf("Model: %s\n", req.Model)
+	ui.Printf("Response code: %d\n", resp.Code)
+	ui.Printf("Task ID: %s\n", task.TaskID)
+	ui.Printf("Status: %s\n\n", task.Status)
 
-	fmt.Println("Polling for completion...")
+	ui.Println("Polling for completion...")
 	taskData, err := c.PollTask(task.TaskID, clientfactory.TaskWait(types.MediaVideo))
 	if err != nil {
 		return nil, fmt.Errorf("polling failed: %w", err)
@@ -40,10 +40,10 @@ func runAPIMartVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 
 	if options.Shared.Verbose {
 		prettyResult, _ := json.MarshalIndent(taskData, "", "  ")
-		fmt.Printf("\nTask result:\n%s\n", string(prettyResult))
+		ui.Printf("\nTask result:\n%s\n", string(prettyResult))
 	}
 
-	fmt.Println()
+	ui.Println()
 	savePromptFile(taskData.ID, req.Prompt)
 	out := &RunResult{}
 	if taskData.Result == nil || len(taskData.Result.Videos) == 0 {
@@ -60,14 +60,14 @@ func runAPIMartVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 		if urls := lastFrameURLs(taskData.Result.Images); len(urls) > 0 {
 			frames, ferr := service.DownloadLastFrames(urls, options.Shared.OutputDir, taskData.ID)
 			if ferr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: last-frame download failed: %v\n", ferr)
+				ui.Eprintf("Warning: last-frame download failed: %v\n", ferr)
 			} else {
 				out.LastFrames = frames
 			}
 		}
 	}
 
-	fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
+	ui.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 		taskData.ActualTime, taskData.Cost, taskData.CreditsCost)
 	return out, nil
 }

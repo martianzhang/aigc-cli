@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // ensureAudioRuntime ensures the helper library and sherpa-onnx libs are available.
@@ -26,9 +28,9 @@ func ensureAudioRuntime() error {
 	baseURL := "https://github.com/martianzhang/aigc-cli-models/releases/download/v1"
 
 	if _, err := os.Stat(helperPath); err == nil {
-		fmt.Printf("Audio helper: %s\n", helperPath)
+		ui.Printf("Audio helper: %s\n", helperPath)
 	} else if err := downloadAsset(baseURL, helperName, modelsDir); err == nil {
-		fmt.Printf("Audio helper: %s\n", helperPath)
+		ui.Printf("Audio helper: %s\n", helperPath)
 	} else if err := compileHelper(helperPath, modelsDir); err != nil {
 		return fmt.Errorf("cannot install audio runtime.\nUse a release build or run: bash scripts/build-helper.sh")
 	}
@@ -46,17 +48,17 @@ func ensureRuntimeLibs(baseURL, dir string) {
 	for _, name := range libs[runtime.GOOS] {
 		dst := filepath.Join(dir, name)
 		if _, err := os.Stat(dst); err == nil {
-			fmt.Printf("Runtime lib: %s\n", dst)
+			ui.Printf("Runtime lib: %s\n", dst)
 			continue
 		}
 		if sherpaDir := findSherpaDir(); sherpaDir != "" {
 			if copySherpaLib(sherpaDir, name, dst) {
-				fmt.Printf("Runtime lib: %s\n", dst)
+				ui.Printf("Runtime lib: %s\n", dst)
 			}
 		}
 		if baseURL != "" {
 			if err := downloadAsset(baseURL, name, dir); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: download %s: %v\n", name, err)
+				ui.Eprintf("Warning: download %s: %v\n", name, err)
 			}
 		}
 	}
@@ -116,7 +118,7 @@ func compileHelper(helperPath, _ string) error {
 		return fmt.Errorf("sherpa-onnx headers not found")
 	}
 	libDir := findSherpaLibDir(sherpaDir)
-	fmt.Printf("Compiling audio helper...\n")
+	ui.Printf("Compiling audio helper...\n")
 	args := []string{"-shared", "-o", helperPath, "-I" + sherpaDir, src}
 	if libDir != "" {
 		args = append(args, "-L"+libDir, "-lsherpa-onnx-c-api")
@@ -130,7 +132,7 @@ func compileHelper(helperPath, _ string) error {
 	if err := runCmd("gcc", args...); err != nil {
 		return err
 	}
-	fmt.Printf("Installed: %s\n", helperPath)
+	ui.Printf("Installed: %s\n", helperPath)
 	return nil
 }
 

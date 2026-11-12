@@ -10,6 +10,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // SubmitAndGetText submits an MJ action, polls for completion, downloads
@@ -48,7 +49,7 @@ func SubmitAndGetText(c client.APIClient, action string, req any, injectJSON str
 				dlErr = derr
 			}
 			for _, f := range saved {
-				fmt.Printf("Saved: %s\n", f)
+				ui.Printf("Saved: %s\n", f)
 			}
 		}
 		if taskData.VideoURL != "" {
@@ -58,7 +59,7 @@ func SubmitAndGetText(c client.APIClient, action string, req any, injectJSON str
 				dlErr = derr
 			}
 			for _, f := range saved {
-				fmt.Printf("Saved: %s\n", f)
+				ui.Printf("Saved: %s\n", f)
 			}
 		}
 		if len(taskData.VideoURLs) > 0 {
@@ -71,7 +72,7 @@ func SubmitAndGetText(c client.APIClient, action string, req any, injectJSON str
 				dlErr = derr
 			}
 			for _, f := range saved {
-				fmt.Printf("Saved: %s\n", f)
+				ui.Printf("Saved: %s\n", f)
 			}
 		}
 	}

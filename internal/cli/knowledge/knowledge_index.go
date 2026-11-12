@@ -8,6 +8,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -37,7 +38,7 @@ embedding model, or after manually copying files into docs/.`,
 		docsDir := filepath.Join(kbBaseDir, "docs")
 		info, err := os.Stat(docsDir)
 		if err != nil || !info.IsDir() {
-			fmt.Fprintln(os.Stderr, "docs/ directory not found. Add documents with 'kb add' or 'kb fetch' first.")
+			ui.Eprintln("docs/ directory not found. Add documents with 'kb add' or 'kb fetch' first.")
 			return nil
 		}
 
@@ -74,14 +75,14 @@ embedding model, or after manually copying files into docs/.`,
 		}
 
 		if len(files) == 0 {
-			fmt.Fprintln(os.Stderr, "No .md files found in docs/.")
+			ui.Eprintln("No .md files found in docs/.")
 			return nil
 		}
 
 		for _, f := range files {
 			data, err := os.ReadFile(f.path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "  Error reading %s: %v\n", f.path, err)
+				ui.Eprintf("  Error reading %s: %v\n", f.path, err)
 				continue
 			}
 			content := string(data)
@@ -103,7 +104,7 @@ embedding model, or after manually copying files into docs/.`,
 				Checksum: docID,
 			}
 			if err := store.SaveDocument(doc); err != nil {
-				fmt.Fprintf(os.Stderr, "  Error saving doc %s: %v\n", f.path, err)
+				ui.Eprintf("  Error saving doc %s: %v\n", f.path, err)
 				continue
 			}
 
@@ -120,7 +121,7 @@ embedding model, or after manually copying files into docs/.`,
 				return fmt.Errorf("save chunks: %w", err)
 			}
 
-			fmt.Fprintf(os.Stderr, "  Indexed: %s (%d chunks)\n", filepath.Base(f.path), len(rawChunks))
+			ui.Eprintf("  Indexed: %s (%d chunks)\n", filepath.Base(f.path), len(rawChunks))
 		}
 
 		return nil

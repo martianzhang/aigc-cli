@@ -22,6 +22,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/rmbg"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // rmbgDetector 是全局缓存的 RMBG Detector 实例（惰性初始化）。
@@ -146,15 +147,15 @@ func runBackground(cmd *cobra.Command, args []string) error {
 			rmbgDetector = d
 		}
 		modelName := filepath.Base(rmbgDetector.ModelPath())
-		fmt.Printf("Using Model: %s\n", modelName)
+		ui.Printf("Using Model: %s\n", modelName)
 	}
 
 	for _, arg := range args {
 		start := time.Now()
 		if err := processOneFile(arg, outDir, opts, doReplace, repColor, repImg, useOnlineBG, bgProvider); err != nil {
-			fmt.Fprintf(os.Stderr, "Error processing %s: %v\n", arg, err)
+			ui.Eprintf("Error processing %s: %v\n", arg, err)
 		} else {
-			fmt.Printf("Time Cost: %s\n", time.Since(start).Round(time.Millisecond))
+			ui.Printf("Time Cost: %s\n", time.Since(start).Round(time.Millisecond))
 		}
 	}
 

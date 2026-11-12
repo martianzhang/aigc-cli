@@ -7,6 +7,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 const (
@@ -38,8 +39,8 @@ func (c *Client) MidjourneyGetTask(taskID string) (*types.MJTaskData, error) {
 // MidjourneyPollTask polls an MJ task until completion, failure, or MODAL state.
 // Returns the task data regardless of terminal state (caller checks .Status).
 func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*types.MJTaskData, error) {
-	fmt.Printf("Task submitted: %s\n", taskID)
-	fmt.Printf("Waiting %v before first poll...\n", initialDelay)
+	ui.Printf("Task submitted: %s\n", taskID)
+	ui.Printf("Waiting %v before first poll...\n", initialDelay)
 	select {
 	case <-time.After(initialDelay):
 	case <-c.requestContext().Done():
@@ -56,7 +57,7 @@ func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*type
 	wait := pollWait(maxWait, maxPollDuration)
 
 	if isTTY {
-		fmt.Print("  Progress: 0% ")
+		ui.Print("  Progress: 0% ")
 	}
 
 	for {
@@ -64,7 +65,7 @@ func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*type
 		select {
 		case <-c.requestContext().Done():
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, c.requestContext().Err()
 		default:
@@ -72,7 +73,7 @@ func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*type
 
 		if time.Since(start) > wait {
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, fmt.Errorf("polling timed out after %v", wait)
 		}
@@ -80,7 +81,7 @@ func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*type
 		task, err := c.MidjourneyGetTask(taskID)
 		if err != nil {
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, fmt.Errorf("failed to query task: %w", err)
 		}
@@ -94,22 +95,22 @@ func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*type
 
 		if isTTY {
 			bar := progressBar(progress, 20)
-			fmt.Printf("\r  %s %s %d%% ", spinner[si%len(spinner)], bar, progress)
+			ui.Printf("\r  %s %s %d%% ", spinner[si%len(spinner)], bar, progress)
 			si++
 		} else {
-			fmt.Printf("  Status: %s, Progress: %s\n", task.Status, task.Progress)
+			ui.Printf("  Status: %s, Progress: %s\n", task.Status, task.Progress)
 		}
 
 		switch task.Status {
 		case "SUCCESS", "FAILURE", "success", "failure", "failed":
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return task, nil
 		case "MODAL":
 			// MODAL is a valid non-terminal state — caller should check this
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return task, nil
 		default:
@@ -121,7 +122,7 @@ func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*type
 		case <-time.After(DefaultPollInterval):
 		case <-c.requestContext().Done():
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, c.requestContext().Err()
 		}

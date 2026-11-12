@@ -2,11 +2,11 @@ package music
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // musicTrackURL picks the preferred downloadable URL from a track.
@@ -40,13 +40,13 @@ func downloadMusics(tracks []types.MusicTrack, taskID string) ([]string, error) 
 		attempted++
 		filename, err := service.DownloadFile(url, options.Shared.OutputDir, fmt.Sprintf("music_%s_%d", taskID, i))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to download music %d: %v\n", i, err)
+			ui.Eprintf("Warning: failed to download music %d: %v\n", i, err)
 			if firstErr == nil {
 				firstErr = err
 			}
 			continue
 		}
-		fmt.Printf("Saved: %s\n", filename)
+		ui.Printf("Saved: %s\n", filename)
 		saved = append(saved, filename)
 	}
 	if attempted > 0 && len(saved) == 0 {

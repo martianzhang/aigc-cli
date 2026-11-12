@@ -14,6 +14,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // downloadModelFiles downloads all files for a model from the registry.
@@ -70,7 +71,7 @@ func downloadSingleFile(url, dest, label string, force bool, wantSHA string) err
 			for _, e := range entries {
 				if e.IsDir() || strings.HasSuffix(e.Name(), ".onnx") {
 					if !force {
-						fmt.Printf("%s: already installed (%s)\n", label, url)
+						ui.Printf("%s: already installed (%s)\n", label, url)
 						return nil
 					}
 					break
@@ -79,16 +80,16 @@ func downloadSingleFile(url, dest, label string, force bool, wantSHA string) err
 		}
 	} else if _, err := os.Stat(dest); err == nil && !force {
 		if wantSHA == "" {
-			fmt.Printf("%s: already exists\n", dest)
+			ui.Printf("%s: already exists\n", dest)
 			return nil
 		}
 		if err := verifySHA256(dest, wantSHA); err == nil {
-			fmt.Printf("%s: verified\n", dest)
+			ui.Printf("%s: verified\n", dest)
 			return nil
 		}
-		fmt.Printf("%s: checksum mismatch, re-downloading\n", dest)
+		ui.Printf("%s: checksum mismatch, re-downloading\n", dest)
 	}
-	fmt.Printf("Downloading %s...\n", url)
+	ui.Printf("Downloading %s...\n", url)
 	if err := service.SaveResource(url, dest); err != nil {
 		return fmt.Errorf("download %s: %w", label, err)
 	}
@@ -100,7 +101,7 @@ func downloadSingleFile(url, dest, label string, force bool, wantSHA string) err
 	}
 	if strings.HasSuffix(label, ".tar.bz2") {
 		extractDir := strings.TrimSuffix(dest, ".tar.bz2")
-		fmt.Printf("Extracting %s...\n", label)
+		ui.Printf("Extracting %s...\n", label)
 		if err := extractTarBz2(dest, extractDir); err != nil {
 			return fmt.Errorf("extract: %w", err)
 		}
@@ -193,7 +194,7 @@ func extractTar(tarr *tar.Reader, extractDir string) error {
 				return err
 			}
 		case tar.TypeSymlink, tar.TypeLink:
-			fmt.Printf("Warning: skipping link entry %s\n", header.Name)
+			ui.Printf("Warning: skipping link entry %s\n", header.Name)
 		}
 	}
 	return nil
@@ -205,6 +206,6 @@ func downloadAsset(baseURL, name, dir string) error {
 	if _, err := os.Stat(dest); err == nil {
 		return nil
 	}
-	fmt.Printf("Downloading %s...\n", url)
+	ui.Printf("Downloading %s...\n", url)
 	return service.SaveResource(url, dest)
 }

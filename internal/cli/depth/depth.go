@@ -3,7 +3,6 @@ package depth
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/depth"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // Deps carries the runtime configuration the depth command needs.
@@ -125,7 +125,7 @@ func runDepthAnnotateImage(cmd *cobra.Command) error {
 
 	if depthPreview {
 		if err := service.PreviewFile(depthAnnotatePath()); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+			ui.Eprintf("Warning: preview failed: %v\n", err)
 		}
 	}
 	return nil
@@ -161,13 +161,13 @@ func runDepthImage(_ *cobra.Command) error {
 		if size == 0 {
 			size = depth.ModelInputSize
 		}
-		fmt.Printf("# Depth conversion dry run\n")
-		fmt.Printf("# input:  %s\n", depthInput)
-		fmt.Printf("# output: %s\n", outPath)
-		fmt.Printf("# model:  %s (%s)\n", modelInfo.ID, modelInfo.Desc)
-		fmt.Printf("# size:   %d (short side, 14-aligned)\n", size)
-		fmt.Printf("# invert: %v, color: %v\n", depthInvert, depthColor)
-		fmt.Printf("# (single-image inference, no ffmpeg needed)\n")
+		ui.Printf("# Depth conversion dry run\n")
+		ui.Printf("# input:  %s\n", depthInput)
+		ui.Printf("# output: %s\n", outPath)
+		ui.Printf("# model:  %s (%s)\n", modelInfo.ID, modelInfo.Desc)
+		ui.Printf("# size:   %d (short side, 14-aligned)\n", size)
+		ui.Printf("# invert: %v, color: %v\n", depthInvert, depthColor)
+		ui.Printf("# (single-image inference, no ffmpeg needed)\n")
 		return nil
 	}
 
@@ -183,10 +183,10 @@ func runDepthImage(_ *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Depth image saved: %s\n", out)
+	ui.Printf("Depth image saved: %s\n", out)
 	if depthPreview && !depthSkeleton && !depthFace {
 		if err := service.PreviewFile(out); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+			ui.Eprintf("Warning: preview failed: %v\n", err)
 		}
 	}
 	return nil

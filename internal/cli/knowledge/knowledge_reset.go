@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -23,11 +24,11 @@ Use --force to skip confirmation.`,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if !kbResetForce {
-			fmt.Fprintf(os.Stderr, "This will delete ALL knowledge base data. Continue? [y/N]: ")
+			ui.Eprintf("This will delete ALL knowledge base data. Continue? [y/N]: ")
 			var response string
 			_, _ = fmt.Scanln(&response)
 			if response != "y" && response != "Y" {
-				fmt.Fprintln(os.Stderr, "Cancelled.")
+				ui.Eprintln("Cancelled.")
 				return nil
 			}
 		}
@@ -38,7 +39,7 @@ Use --force to skip confirmation.`,
 		if err := os.Remove(dbPath); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("remove db: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "  Removed: %s\n", dbPath)
+		ui.Eprintf("  Removed: %s\n", dbPath)
 
 		// Remove WAL and SHM files. They may not exist; cleanup is best-effort.
 		for _, ext := range []string{"-wal", "-shm"} {
@@ -50,10 +51,10 @@ Use --force to skip confirmation.`,
 		if err := os.RemoveAll(docsDir); err != nil {
 			return fmt.Errorf("remove docs: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "  Removed: %s\n", docsDir)
+		ui.Eprintf("  Removed: %s\n", docsDir)
 
 		// Reinitialize
-		fmt.Fprintf(os.Stderr, "Reinitializing...\n")
+		ui.Eprintf("Reinitializing...\n")
 		if err := ensureKBDir(); err != nil {
 			return err
 		}
@@ -64,7 +65,7 @@ Use --force to skip confirmation.`,
 		}
 		_ = store.Close()
 
-		fmt.Fprintf(os.Stderr, "Knowledge base reset complete.\n")
+		ui.Eprintf("Knowledge base reset complete.\n")
 		return nil
 	},
 }

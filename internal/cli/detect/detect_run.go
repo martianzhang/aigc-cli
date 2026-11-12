@@ -1,11 +1,10 @@
 package detect
 
 import (
-	"fmt"
-	"os"
 	"sync"
 
 	"github.com/martianzhang/aigc-cli/internal/onnx"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/wmremove"
 )
 
@@ -36,7 +35,7 @@ func detectFiles(paths []string, pathOverride string) error {
 
 	for _, path := range paths {
 		if err := detectOneFile(path, pathOverride, aiDetector); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			ui.Eprintf("Error: %v\n", err)
 		}
 	}
 	return nil

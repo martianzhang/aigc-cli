@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
@@ -14,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // savePromptFile saves the generation prompt to image_{taskID}.md.
@@ -22,7 +22,7 @@ func savePromptFile(taskID, prompt string) {
 		return
 	}
 	if err := service.SavePrompt(options.Shared.OutputDir, "image", taskID, prompt); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+		ui.Eprintf("Warning: %v\n", err)
 	}
 }
 
@@ -72,12 +72,12 @@ func GenerateAndSave(c client.APIClient, p *provider.EffectiveProvider, req *typ
 
 	if options.Shared.Verbose {
 		if imgCfg != nil {
-			fmt.Fprintf(os.Stderr, "\r\n[image] cfg: model=%s quality=%s size=%s res=%s\r\n",
+			ui.Eprintf("\r\n[image] cfg: model=%s quality=%s size=%s res=%s\r\n",
 				imgCfg.Model, imgCfg.Quality, imgCfg.Size, imgCfg.Resolution)
 		} else {
-			fmt.Fprintf(os.Stderr, "\r\n[image] WARNING: no image config loaded (check defaults.image in config.yaml)\r\n")
+			ui.Eprintf("\r\n[image] WARNING: no image config loaded (check defaults.image in config.yaml)\r\n")
 		}
-		fmt.Fprintf(os.Stderr, "[image] req before: model=%s quality=%s size=%s res=%s\r\n",
+		ui.Eprintf("[image] req before: model=%s quality=%s size=%s res=%s\r\n",
 			req.Model, req.Quality, req.Size, req.Resolution)
 	}
 
@@ -132,7 +132,7 @@ func GenerateAndSave(c client.APIClient, p *provider.EffectiveProvider, req *typ
 		req.Resolution = "1k"
 	}
 	if options.Shared.Verbose {
-		fmt.Fprintf(os.Stderr, "[image] req after:  model=%s quality=%s size=%s res=%s\r\n",
+		ui.Eprintf("[image] req after:  model=%s quality=%s size=%s res=%s\r\n",
 			req.Model, req.Quality, req.Size, req.Resolution)
 	}
 	if req.Model == "" {
@@ -179,7 +179,7 @@ func postProcessImages(saved []string) {
 	}
 	targetSize, quality, err := service.ParseCompressOption(genCompress)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: invalid --compress value %q: %v\n", genCompress, err)
+		ui.Eprintf("Warning: invalid --compress value %q: %v\n", genCompress, err)
 		return
 	}
 	opts := &service.CompressOptions{
@@ -190,17 +190,17 @@ func postProcessImages(saved []string) {
 	for _, path := range saved {
 		result, err := service.CompressImage(path, opts)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: compress %s: %v\n", path, err)
+			ui.Eprintf("Warning: compress %s: %v\n", path, err)
 			continue
 		}
 		if result.Skipped {
-			fmt.Printf("Compress %s: skipped (%s)\n", path, result.Reason)
+			ui.Printf("Compress %s: skipped (%s)\n", path, result.Reason)
 		} else {
 			savedStr := formatBytes(result.After)
 			originalStr := formatBytes(result.Before)
 			pct := 100 - int(float64(result.After)/float64(result.Before)*100)
 			params := formatParams(result.Format, result.Quality)
-			fmt.Printf("Compress %s: %s → %s (%d%% saved)%s → %s\n", path, originalStr, savedStr, pct, params, result.DstPath)
+			ui.Printf("Compress %s: %s → %s (%d%% saved)%s → %s\n", path, originalStr, savedStr, pct, params, result.DstPath)
 		}
 	}
 }

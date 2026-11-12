@@ -1,7 +1,6 @@
 package detect
 
 import (
-	"fmt"
 	"image"
 	"os"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
@@ -99,7 +99,7 @@ func applyWatermarkActions(path string, result *service.DetectResult) {
 				removed = runMIGan(path, decodedImg, b.Dx()-regionW, b.Dy()-regionH, regionW, regionH, producer)
 			}
 			if !removed {
-				fmt.Fprintf(os.Stderr, "  MI-GAN removal failed. Try --alpha-map or --producer <name>.\n")
+				ui.Eprintf("  MI-GAN removal failed. Try --alpha-map or --producer <name>.\n")
 			}
 		} else {
 			wmOK := producer != "" || len(dets) > 0 || detectAlphaMap
@@ -107,29 +107,29 @@ func applyWatermarkActions(path string, result *service.DetectResult) {
 				res, wmErr := watermark.RemoveFileHinted(path, outPath, producer)
 				if wmErr == nil && res.Removed {
 					if res.Name != "" {
-						fmt.Printf("  Watermark removed (alpha-map, %s) -> %s\n", res.Name, outPath)
+						ui.Printf("  Watermark removed (alpha-map, %s) -> %s\n", res.Name, outPath)
 					} else {
-						fmt.Printf("  Watermark removed (alpha-map) -> %s\n", outPath)
+						ui.Printf("  Watermark removed (alpha-map) -> %s\n", outPath)
 					}
 					removed = true
 				}
 			}
 			if !removed {
 				if wmDetector == nil {
-					fmt.Fprintf(os.Stderr, "  MI-GAN model not found. Use --alpha-map or install migan.onnx.\n")
+					ui.Eprintf("  MI-GAN model not found. Use --alpha-map or install migan.onnx.\n")
 				} else {
-					fmt.Fprintf(os.Stderr, "  Alpha-map removal failed. Try --mi-gan or --producer <name>.\n")
+					ui.Eprintf("  Alpha-map removal failed. Try --mi-gan or --producer <name>.\n")
 				}
 			}
 		}
 		if removed && detectPreview {
 			if err := service.PreviewFile(outPath); err != nil {
-				fmt.Fprintf(os.Stderr, "  Preview failed: %v\n", err)
+				ui.Eprintf("  Preview failed: %v\n", err)
 			}
 		}
 		if !removed {
 			if err := stripMetadata(path); err == nil {
-				fmt.Printf("  AI metadata removed -> %s\n", outPath)
+				ui.Printf("  AI metadata removed -> %s\n", outPath)
 			}
 		}
 	}
@@ -141,13 +141,13 @@ func applyWatermarkActions(path string, result *service.DetectResult) {
 		outPath := strings.TrimSuffix(path, filepath.Ext(path)) + "_watermarked.png"
 		res, err := watermark.AddWatermarkFile(path, outPath, producer)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  Error: %v\n", err)
+			ui.Eprintf("  Error: %v\n", err)
 		} else {
 			metaNote := ""
-			fmt.Printf("  Watermark added (%s%s) -> %s\n", res.Name, metaNote, outPath)
+			ui.Printf("  Watermark added (%s%s) -> %s\n", res.Name, metaNote, outPath)
 			if detectPreview {
 				if err := service.PreviewFile(outPath); err != nil {
-					fmt.Fprintf(os.Stderr, "  Preview failed: %v\n", err)
+					ui.Eprintf("  Preview failed: %v\n", err)
 				}
 			}
 		}
@@ -156,7 +156,7 @@ func applyWatermarkActions(path string, result *service.DetectResult) {
 	// --crop-watermark: generic crop-based watermark removal
 	if detectCropWM != "" {
 		if err := handleCropWatermark(path); err != nil {
-			fmt.Fprintf(os.Stderr, "  Crop error: %v\n", err)
+			ui.Eprintf("  Crop error: %v\n", err)
 		}
 	}
 }

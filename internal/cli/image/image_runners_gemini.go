@@ -2,7 +2,6 @@ package image
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runGeminiImage handles image generation via Gemini native generateContent API.
@@ -26,8 +26,8 @@ func runGeminiImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 
 	elapsed := time.Since(start)
 
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+	ui.Printf("Model: %s\n", req.Model)
+	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	savePromptFile(promptTaskID("image", 0), req.Prompt)
 
@@ -37,10 +37,10 @@ func runGeminiImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 			prefix := fmt.Sprintf("image_%d", time.Now().Unix())
 			filename, err := service.SaveBase64Image(options.Shared.OutputDir, prefix, img.URL, i)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, err)
+				ui.Eprintf("Warning: failed to save image %d: %v\n", i, err)
 				continue
 			}
-			fmt.Printf("Image %d saved: %s\n", i+1, filename)
+			ui.Printf("Image %d saved: %s\n", i+1, filename)
 			saved = append(saved, filename)
 		} else if img.URL != "" {
 			data, err := service.FetchBytes(img.URL)
@@ -59,10 +59,10 @@ func runGeminiImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 			}
 			filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("image_%d_%d%s", time.Now().Unix(), i, ext))
 			if err := fsutil.WriteFileAtomic(filename, data, 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
+				ui.Eprintf("Warning: failed to save %s: %v\n", filename, err)
 				continue
 			}
-			fmt.Printf("Image %d saved: %s\n", i+1, filename)
+			ui.Printf("Image %d saved: %s\n", i+1, filename)
 			saved = append(saved, filename)
 		}
 	}

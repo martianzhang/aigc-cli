@@ -1,10 +1,10 @@
 package depth
 
 import (
-	"fmt"
 	"image"
 
 	"github.com/martianzhang/aigc-cli/internal/annotate"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // annotateSkeleton detects a human pose and overlays it onto the depth image.
@@ -12,7 +12,7 @@ func annotateSkeleton(input, output string) error {
 	if err := annotate.AnnotateImage(input, output, output, annotate.Options{Skeleton: true}); err != nil {
 		return err
 	}
-	fmt.Printf("Skeleton annotated on depth: %s\n", output)
+	ui.Printf("Skeleton annotated on depth: %s\n", output)
 	return nil
 }
 
@@ -21,7 +21,7 @@ func annotateFace(input, output string) error {
 	if err := annotate.AnnotateImage(input, output, output, annotate.Options{Face: true}); err != nil {
 		return err
 	}
-	fmt.Printf("Face annotated on depth: %s\n", output)
+	ui.Printf("Face annotated on depth: %s\n", output)
 	return nil
 }
 

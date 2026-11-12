@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // modelsHTTPClient bounds public model-discovery requests by --timeout. Nil
@@ -97,7 +98,7 @@ func runModelsMarketplace(mediaType, base string) error {
 		if modelLike != "" {
 			printNoLikeMatches()
 		} else {
-			fmt.Println("No models found.")
+			ui.Println("No models found.")
 		}
 		return nil
 	}
@@ -126,10 +127,10 @@ func runModelsMarketplace(mediaType, base string) error {
 	if mediaType != "" {
 		title = strings.ToUpper(mediaType[:1]) + mediaType[1:] + " Models"
 	}
-	fmt.Printf("%s (%d total)\n\n", title, len(allModels))
+	ui.Printf("%s (%d total)\n\n", title, len(allModels))
 
 	for _, g := range groups {
-		fmt.Printf("  %s:\n", g.vendor)
+		ui.Printf("  %s:\n", g.vendor)
 		for _, m := range g.models {
 			line := fmt.Sprintf("    %-30s", m.ModelName)
 			if cmdPriceChanged {
@@ -139,9 +140,9 @@ func runModelsMarketplace(mediaType, base string) error {
 			if tags != "" {
 				line += "  " + tags
 			}
-			fmt.Println(line)
+			ui.Println(line)
 		}
-		fmt.Println()
+		ui.Println()
 	}
 	return nil
 }
@@ -184,14 +185,14 @@ func runModelsPricing(modelName, baseURL string) error {
 		return fmt.Errorf("model %q not found", modelName)
 	}
 
-	fmt.Printf("%s\n", data.ModelName)
-	fmt.Printf("  Billing: %s\n", data.BillingType)
-	fmt.Printf("  Base price: $%.5f\n", data.ModelPrice)
-	fmt.Printf("  Discount: %.0f%%\n", (1-data.DiscountRate)*100)
-	fmt.Printf("  Qualities: %s\n", strings.Join(data.SupportedQualities, ", "))
+	ui.Printf("%s\n", data.ModelName)
+	ui.Printf("  Billing: %s\n", data.BillingType)
+	ui.Printf("  Base price: $%.5f\n", data.ModelPrice)
+	ui.Printf("  Discount: %.0f%%\n", (1-data.DiscountRate)*100)
+	ui.Printf("  Qualities: %s\n", strings.Join(data.SupportedQualities, ", "))
 
 	if data.BillingType == "size_quality" && len(data.SizeQualityPrices) > 0 {
-		fmt.Printf("\n  Size × Quality pricing (lowest):\n")
+		ui.Printf("\n  Size × Quality pricing (lowest):\n")
 		type sq struct {
 			size, quality string
 			price         float64
@@ -217,7 +218,7 @@ func runModelsPricing(modelName, baseURL string) error {
 		}
 
 		for _, s := range cheapest {
-			fmt.Printf("    %-14s  %-6s  $%.5f\n", s.size, s.quality, s.price)
+			ui.Printf("    %-14s  %-6s  $%.5f\n", s.size, s.quality, s.price)
 		}
 	}
 	return nil

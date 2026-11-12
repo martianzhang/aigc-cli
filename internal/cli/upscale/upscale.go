@@ -20,6 +20,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	up "github.com/martianzhang/aigc-cli/internal/upscale"
 )
 
@@ -107,12 +108,12 @@ func runUpscale(_ *cobra.Command, _ []string) error {
 	}
 
 	if upDryRun {
-		fmt.Printf("# upscale dry run\n")
-		fmt.Printf("# input:   %s\n", upInput)
-		fmt.Printf("# output:  %s\n", outPath)
-		fmt.Printf("# model:   %s (%s, native x%d, ~%.1fMB, %s)\n", info.ID, info.Name, info.Scale, info.SizeMB, info.License)
-		fmt.Printf("# scale:   %s\n", scaleLabel(upScale, info.Scale))
-		fmt.Printf("# file:    %s\n", modelPath)
+		ui.Printf("# upscale dry run\n")
+		ui.Printf("# input:   %s\n", upInput)
+		ui.Printf("# output:  %s\n", outPath)
+		ui.Printf("# model:   %s (%s, native x%d, ~%.1fMB, %s)\n", info.ID, info.Name, info.Scale, info.SizeMB, info.License)
+		ui.Printf("# scale:   %s\n", scaleLabel(upScale, info.Scale))
+		ui.Printf("# file:    %s\n", modelPath)
 		return nil
 	}
 
@@ -141,7 +142,7 @@ func runUpscale(_ *cobra.Command, _ []string) error {
 	defer det.Close()
 
 	b := img.Bounds()
-	fmt.Printf("Upscaling %dx%d with %s (native x%d)...\n", b.Dx(), b.Dy(), info.ID, det.Scale())
+	ui.Printf("Upscaling %dx%d with %s (native x%d)...\n", b.Dx(), b.Dy(), info.ID, det.Scale())
 	out, err := det.Upscale(img)
 	if err != nil {
 		return err
@@ -156,11 +157,11 @@ func runUpscale(_ *cobra.Command, _ []string) error {
 	if _, err := imgcodec.EncodeToFile(out, outPath, "png", 100); err != nil {
 		return fmt.Errorf("encode output: %w", err)
 	}
-	fmt.Printf("Saved: %s (%dx%d)\n", outPath, out.Bounds().Dx(), out.Bounds().Dy())
+	ui.Printf("Saved: %s (%dx%d)\n", outPath, out.Bounds().Dx(), out.Bounds().Dy())
 
 	if upPreview {
 		if err := service.PreviewFile(outPath); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+			ui.Eprintf("Warning: preview failed: %v\n", err)
 		}
 	}
 	return nil

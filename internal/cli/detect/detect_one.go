@@ -18,6 +18,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
@@ -116,7 +117,7 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 				if len(regions) > 0 {
 					bounds := watermark.ComputeCropBounds(imgW, imgH, regions)
 					if bounds.Valid {
-						fmt.Printf("  Croped Size: %dx%d\n", bounds.W, bounds.H)
+						ui.Printf("  Croped Size: %dx%d\n", bounds.W, bounds.H)
 					}
 				}
 			}
@@ -125,7 +126,7 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 
 	if detectPreview && !detectRemoveWM {
 		if err := service.PreviewFile(path); err != nil {
-			fmt.Fprintf(os.Stderr, "  Preview failed: %v\n", err)
+			ui.Eprintf("  Preview failed: %v\n", err)
 		}
 	}
 	applyWatermarkActions(path, result)

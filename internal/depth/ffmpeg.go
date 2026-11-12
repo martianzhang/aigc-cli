@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 const (
@@ -36,7 +37,7 @@ func ffprobeAvailable() bool {
 func probeVideo(input string, haveFFprobe bool) (*videoInfo, error) {
 	info := &videoInfo{FPS: 30}
 	if !haveFFprobe {
-		fmt.Println("  (ffprobe not found; assuming 30 fps)")
+		ui.Println("  (ffprobe not found; assuming 30 fps)")
 		return info, nil
 	}
 	out, err := exec.Command("ffprobe", "-v", "error",
@@ -95,7 +96,7 @@ func extractFrames(input, tmpDir string, info *videoInfo, startTime, endTime str
 	args = append(args, pattern)
 
 	if verbose {
-		fmt.Printf("  ffmpeg %s\n", strings.Join(args, " "))
+		ui.Printf("  ffmpeg %s\n", strings.Join(args, " "))
 	}
 	cmd := exec.Command("ffmpeg", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -116,7 +117,7 @@ func encodeDepthVideo(tmpDir, outPath, inputPath string, info *videoInfo, startS
 	args = append(args, outPath)
 
 	if verbose {
-		fmt.Printf("  ffmpeg %s\n", strings.Join(args, " "))
+		ui.Printf("  ffmpeg %s\n", strings.Join(args, " "))
 	}
 	cmd := exec.Command("ffmpeg", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -143,7 +144,7 @@ func encodeDepthVideo(tmpDir, outPath, inputPath string, info *videoInfo, startS
 			return fmt.Errorf("replace video with muxed audio: %w", err)
 		}
 	} else if verbose {
-		fmt.Fprintf(os.Stderr, "Warning: audio mux failed (source may have no audio): %v\n%s", err, string(out))
+		ui.Eprintf("Warning: audio mux failed (source may have no audio): %v\n%s", err, string(out))
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // scanWithSomark parses one document (PDF or image) through the SoMark / OXR
@@ -33,14 +34,14 @@ func scanWithSomark(cmd *cobra.Command, p *provider.EffectiveProvider, inputPath
 		return fmt.Errorf("document parse failed: %w", err)
 	}
 	for _, warning := range result.Warnings {
-		fmt.Fprintf(os.Stderr, "⚠ %s\n", warning)
+		ui.Eprintf("⚠ %s\n", warning)
 	}
 	if options.Shared.Verbose {
 		timing := ""
 		if result.ProcessingTimeMS > 0 {
 			timing = fmt.Sprintf(" in %dms", result.ProcessingTimeMS)
 		}
-		fmt.Fprintf(os.Stderr, "Parsed %d page(s) %s%s (task %s)\n",
+		ui.Eprintf("Parsed %d page(s) %s%s (task %s)\n",
 			result.PageNum, result.FileType, timing, result.TaskID)
 	}
 
@@ -58,7 +59,7 @@ func scanWithSomark(cmd *cobra.Command, p *provider.EffectiveProvider, inputPath
 		if err := service.SaveResource(result.ZipURL, zipPath); err != nil {
 			return fmt.Errorf("download zip: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "Saved: %s\n", zipPath)
+		ui.Eprintf("Saved: %s\n", zipPath)
 		return nil
 	}
 
@@ -68,7 +69,7 @@ func scanWithSomark(cmd *cobra.Command, p *provider.EffectiveProvider, inputPath
 
 	if writesToStdout(options.Shared.OutputDir) {
 		if len(result.Markdown) > 0 {
-			fmt.Fprintln(os.Stderr, "⚠ -o - keeps remote image URLs; images are not downloaded")
+			ui.Eprintln("⚠ -o - keeps remote image URLs; images are not downloaded")
 		}
 		printText(text)
 		return nil
@@ -80,17 +81,17 @@ func scanWithSomark(cmd *cobra.Command, p *provider.EffectiveProvider, inputPath
 	assetDir := base + ".assets"
 	text, images := service.LocalizeMarkdownImages(text, assetDir, filepath.Base(assetDir))
 	for _, failure := range images.Failed {
-		fmt.Fprintf(os.Stderr, "⚠ image not saved (link kept remote): %s\n", failure)
+		ui.Eprintf("⚠ image not saved (link kept remote): %s\n", failure)
 	}
 	if len(images.Saved) > 0 {
-		fmt.Fprintf(os.Stderr, "Saved: %d image(s) in %s\n", len(images.Saved), filepath.Base(assetDir))
+		ui.Eprintf("Saved: %d image(s) in %s\n", len(images.Saved), filepath.Base(assetDir))
 	}
 
 	outPath := base + ".md"
 	if err := os.WriteFile(outPath, []byte(text+"\n"), 0644); err != nil {
 		return fmt.Errorf("save output: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "Saved: %s\n", outPath)
+	ui.Eprintf("Saved: %s\n", outPath)
 
 	if ocrScanPreview {
 		printText(text)
@@ -137,7 +138,7 @@ func warnIgnoredFlags(cmd *cobra.Command) {
 	for _, name := range flagsIgnoredBySomark {
 		flag := cmd.Flags().Lookup(name)
 		if flag != nil && flag.Changed {
-			fmt.Fprintf(os.Stderr, "⚠ --%s has no effect on SoMark/OXR document parsing\n", name)
+			ui.Eprintf("⚠ --%s has no effect on SoMark/OXR document parsing\n", name)
 		}
 	}
 }

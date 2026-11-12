@@ -16,6 +16,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // chatStdin is os.Stdin by default; tests replace it with a fixed reader.
@@ -213,7 +214,7 @@ func sendChatRequest(_ *cobra.Command, req *types.ChatRequest) error {
 	p := options.Shared.ResolveProvider(options.ProviderNameChat)
 
 	if chatDryRun {
-		fmt.Println(buildChatCurl(req, p))
+		ui.Println(buildChatCurl(req, p))
 		return nil
 	}
 
@@ -229,7 +230,7 @@ func sendChatRequest(_ *cobra.Command, req *types.ChatRequest) error {
 
 	// Non-streaming: print result (streaming already written to OutputWriter)
 	if !req.Stream && result != nil && len(result.Choices) > 0 {
-		fmt.Println(result.Choices[0].Message.Content)
+		ui.Println(result.Choices[0].Message.Content)
 	}
 
 	// Web-search citations (to stderr, when the provider attached any)

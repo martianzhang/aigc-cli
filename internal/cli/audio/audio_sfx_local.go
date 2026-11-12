@@ -13,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // checkLocalSFXFlags rejects online-only flags in local mode.
@@ -125,16 +126,16 @@ func runLocalSFX(prompt string, p *provider.EffectiveProvider, inject json.RawMe
 		return fmt.Errorf("failed to save audio: %w", err)
 	}
 
-	fmt.Printf("Model: %s (local)\n", modelID)
-	fmt.Printf("Format: wav %dHz %dch\n", generated.SampleRate, generated.Channels)
-	fmt.Printf("Duration: %.2fs\n", generated.Duration())
-	fmt.Printf("Seed: %d\n", generated.Seed)
-	fmt.Printf("Inference: %.1fs\n", elapsed.Seconds())
-	fmt.Printf("Saved: %s\n", filename)
+	ui.Printf("Model: %s (local)\n", modelID)
+	ui.Printf("Format: wav %dHz %dch\n", generated.SampleRate, generated.Channels)
+	ui.Printf("Duration: %.2fs\n", generated.Duration())
+	ui.Printf("Seed: %d\n", generated.Seed)
+	ui.Printf("Inference: %.1fs\n", elapsed.Seconds())
+	ui.Printf("Saved: %s\n", filename)
 
 	if sfxPlay {
 		if err := service.PreviewFile(filename); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: playback failed: %v\n", err)
+			ui.Eprintf("Warning: playback failed: %v\n", err)
 		}
 	}
 	return nil

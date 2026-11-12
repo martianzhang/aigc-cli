@@ -1,13 +1,12 @@
 package video
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/martianzhang/aigc-cli/internal/gif"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // RunResult is a video generation run's outcome: the downloaded video files plus
@@ -39,10 +38,10 @@ func saveLastFrames(out *RunResult) {
 			Verbose: options.Shared.Verbose,
 		})
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: last-frame extraction failed for %s: %v\n", filepath.Base(f), err)
+			ui.Eprintf("Warning: last-frame extraction failed for %s: %v\n", filepath.Base(f), err)
 			continue
 		}
-		fmt.Printf("Saved: %s\n", p)
+		ui.Printf("Saved: %s\n", p)
 		out.LastFrames = append(out.LastFrames, p)
 	}
 }

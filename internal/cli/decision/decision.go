@@ -13,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 var (
@@ -87,7 +88,7 @@ func runDecision(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if decisionList {
-		fmt.Println(strings.Join(sortedQuestionNames(b.Questions), ","))
+		ui.Println(strings.Join(sortedQuestionNames(b.Questions), ","))
 		return nil
 	}
 
@@ -131,7 +132,7 @@ func runDecision(cmd *cobra.Command, args []string) error {
 	}
 
 	if decisionDryRun {
-		fmt.Println(buildDecisionCurl(req, ep))
+		ui.Println(buildDecisionCurl(req, ep))
 		return nil
 	}
 

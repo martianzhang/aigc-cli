@@ -3,13 +3,13 @@ package knowledge
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
@@ -67,15 +67,15 @@ var kbPruneCmd = &cobra.Command{
 			res, err := store.DB().Exec(
 				"DELETE FROM documents WHERE checksum=? AND id!=?", d.checksum, d.keepID)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "  Error cleaning dup %s: %v\n", knowledge.ShortID(d.checksum), err)
+				ui.Eprintf("  Error cleaning dup %s: %v\n", knowledge.ShortID(d.checksum), err)
 				continue
 			}
 			n, _ := res.RowsAffected()
 			removed += int(n)
-			fmt.Fprintf(os.Stderr, "  Removed %d duplicate(s) of %s\n", n, knowledge.ShortID(d.checksum))
+			ui.Eprintf("  Removed %d duplicate(s) of %s\n", n, knowledge.ShortID(d.checksum))
 		}
 
-		fmt.Fprintf(os.Stderr, "Duplicates removed: %d\n", removed)
+		ui.Eprintf("Duplicates removed: %d\n", removed)
 
 		// Check URLs if requested
 		if kbPruneCheckURLs {
@@ -89,16 +89,16 @@ var kbPruneCmd = &cobra.Command{
 				if d.URL == "" {
 					continue
 				}
-				fmt.Fprintf(os.Stderr, "  Checking: %s\n", d.URL[:minInt(60, len(d.URL))])
+				ui.Eprintf("  Checking: %s\n", d.URL[:minInt(60, len(d.URL))])
 				resp, err := client.Head(d.URL)
 				if err != nil || resp.StatusCode >= 400 {
 					code := 0
 					if resp != nil {
 						code = resp.StatusCode
 					}
-					fmt.Fprintf(os.Stderr, "    Dead (%d): %s\n    Removing...\n", code, d.Title)
+					ui.Eprintf("    Dead (%d): %s\n    Removing...\n", code, d.Title)
 					if err := store.DeleteDocument(d.ID); err != nil {
-						fmt.Fprintf(os.Stderr, "    Error: %v\n", err)
+						ui.Eprintf("    Error: %v\n", err)
 					}
 				}
 				if resp != nil {

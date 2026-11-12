@@ -6,6 +6,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/gif"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // ensureFFmpegAvailable 校验 ffmpeg 可用；不可用则返回带安装提示的错误。
@@ -45,7 +46,7 @@ func convertSavedToGIF(saved []string) ([]string, error) {
 		if err != nil {
 			return out, fmt.Errorf("%s: %w", filepath.Base(f), err)
 		}
-		fmt.Printf("Saved: %s\n", p)
+		ui.Printf("Saved: %s\n", p)
 		out = append(out, p)
 	}
 	return out, nil
@@ -74,6 +75,6 @@ func convertLocalToGIF(input string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Saved: %s\n", out)
+	ui.Printf("Saved: %s\n", out)
 	return nil
 }

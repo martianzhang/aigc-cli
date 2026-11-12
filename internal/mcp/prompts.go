@@ -7,6 +7,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // promptInfo pairs a workflow prompt template with its handler.
@@ -79,9 +80,9 @@ func registerPrompts(s *server.MCPServer) {
 
 // ListPrompts prints all registered MCP prompts and exits.
 func ListPrompts(_ *Config) {
-	fmt.Println("Available MCP prompts:")
+	ui.Println("Available MCP prompts:")
 	for _, info := range promptRegistry {
-		fmt.Printf("  %-26s  %s\n", info.prompt.Name, info.prompt.Description)
+		ui.Printf("  %-26s  %s\n", info.prompt.Name, info.prompt.Description)
 	}
 }
 

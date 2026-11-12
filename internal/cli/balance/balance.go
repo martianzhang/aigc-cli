@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // Deps carries the runtime configuration the balance command needs.
@@ -153,6 +154,6 @@ func printBalance(d Deps, scope string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(text)
+	ui.Println(text)
 	return nil
 }

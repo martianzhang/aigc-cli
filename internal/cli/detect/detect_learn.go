@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
@@ -59,16 +60,16 @@ func runLearnWatermark(name string) error {
 		if err := watermark.SaveWatermarkPNG(outputPath, lr); err != nil {
 			return fmt.Errorf("save watermark: %w", err)
 		}
-		fmt.Printf("\nWatermark config saved: %s\n", outputPath)
-		fmt.Printf("  Name:             %s\n", lr.Name)
-		fmt.Printf("  Alpha map:        %dx%d\n", lr.AlphaMap.Width, lr.AlphaMap.Height)
-		fmt.Printf("  Native width:     %dpx\n", lr.NativeWidth)
-		fmt.Printf("  Margin X frac:    %.6f\n", lr.MarginXFrac)
-		fmt.Printf("  Margin Y frac:    %.6f\n", lr.MarginYFrac)
-		fmt.Printf("  Detect threshold: %.2f\n", lr.DetectThreshold)
-		fmt.Printf("  Remove strategy:  %s\n", lr.RemoveStrategy)
-		fmt.Println()
-		fmt.Printf("Use: aigc-cli detect <image> --remove-watermark --producer %s\n", name)
+		ui.Printf("\nWatermark config saved: %s\n", outputPath)
+		ui.Printf("  Name:             %s\n", lr.Name)
+		ui.Printf("  Alpha map:        %dx%d\n", lr.AlphaMap.Width, lr.AlphaMap.Height)
+		ui.Printf("  Native width:     %dpx\n", lr.NativeWidth)
+		ui.Printf("  Margin X frac:    %.6f\n", lr.MarginXFrac)
+		ui.Printf("  Margin Y frac:    %.6f\n", lr.MarginYFrac)
+		ui.Printf("  Detect threshold: %.2f\n", lr.DetectThreshold)
+		ui.Printf("  Remove strategy:  %s\n", lr.RemoveStrategy)
+		ui.Println()
+		ui.Printf("Use: aigc-cli detect <image> --remove-watermark --producer %s\n", name)
 		return nil
 	}
 
@@ -95,7 +96,7 @@ func runLearnWatermark(name string) error {
 		if i == 0 {
 			firstBounds.w, firstBounds.h = b.Dx(), b.Dy()
 		} else if b.Dx() != firstBounds.w || b.Dy() != firstBounds.h {
-			fmt.Printf("  \u26a0  Pair %d dimensions differ (%dx%d vs %dx%d), skipping\n",
+			ui.Printf("  \u26a0  Pair %d dimensions differ (%dx%d vs %dx%d), skipping\n",
 				i+1, b.Dx(), b.Dy(), firstBounds.w, firstBounds.h)
 			continue
 		}
@@ -122,7 +123,7 @@ func runLearnWatermark(name string) error {
 			grayVar = math.Sqrt(grayVar/bN - grayLum*grayLum)
 		}
 		if blackLum > 80 {
-			fmt.Printf("  Pair %d: black bg=%.1f (too bright), skipping\n", i+1, blackLum)
+			ui.Printf("  Pair %d: black bg=%.1f (too bright), skipping\n", i+1, blackLum)
 			continue
 		}
 		bgTag := "[GOOD]"
@@ -134,7 +135,7 @@ func runLearnWatermark(name string) error {
 			noiseTag = "[WARN]"
 		}
 		bName := filepath.Base(paths[0])
-		fmt.Printf("  %s: black=%.1f gray=%.1f noise=%.1f/%.1f bg=%s noise=%s\n",
+		ui.Printf("  %s: black=%.1f gray=%.1f noise=%.1f/%.1f bg=%s noise=%s\n",
 			bName, blackLum, grayLum, blackVar, grayVar, bgTag, noiseTag)
 
 		seedPairs = append(seedPairs, seedPair{blackImg, grayImg})
@@ -145,21 +146,21 @@ func runLearnWatermark(name string) error {
 	}
 
 	sq := watermark.AssessSeedQuality(seedPairs[0].black, seedPairs[0].gray)
-	fmt.Println("Seed quality:")
-	fmt.Printf("  Background:  black=%.1f (expect ~0), gray=%.1f (expect ~128)  %s\n",
+	ui.Println("Seed quality:")
+	ui.Printf("  Background:  black=%.1f (expect ~0), gray=%.1f (expect ~128)  %s\n",
 		sq.BlackBG, sq.GrayBG, scoreTag(sq.BGScore))
-	fmt.Printf("  Gradient:    gx=%.4f gy=%.4f (threshold |g|<0.01)  %s\n",
+	ui.Printf("  Gradient:    gx=%.4f gy=%.4f (threshold |g|<0.01)  %s\n",
 		sq.Gx, sq.Gy, scoreTag(sq.GradientScore))
-	fmt.Printf("  Edge noise:  black=%.1f, gray=%.1f (good<5, warn<15)  %s\n",
+	ui.Printf("  Edge noise:  black=%.1f, gray=%.1f (good<5, warn<15)  %s\n",
 		sq.BlackNoise, sq.GrayNoise, scoreTag(sq.NoiseScore))
-	fmt.Printf("  WM signal:   max=%.0f (good>50)  %s\n",
+	ui.Printf("  WM signal:   max=%.0f (good>50)  %s\n",
 		sq.SignalMax, scoreTag(sq.SignalScore))
 	if len(seedPairs) > 1 {
-		fmt.Printf("  Pairs:       %d (averaged)\n", len(seedPairs))
+		ui.Printf("  Pairs:       %d (averaged)\n", len(seedPairs))
 	}
 
 	if sq.BGScore == watermark.SeedFail || sq.NoiseScore == watermark.SeedFail {
-		fmt.Println("  \u26a0  Low quality seeds -- alpha map may be noisy. Try regenerating seed images.")
+		ui.Println("  \u26a0  Low quality seeds -- alpha map may be noisy. Try regenerating seed images.")
 	}
 
 	strategy := detectLearnStrategy
@@ -180,16 +181,16 @@ func runLearnWatermark(name string) error {
 		return fmt.Errorf("save watermark: %w", err)
 	}
 
-	fmt.Printf("\nWatermark config saved: %s\n", outputPath)
-	fmt.Printf("  Name:             %s\n", lr.Name)
-	fmt.Printf("  Alpha map:        %dx%d\n", lr.AlphaMap.Width, lr.AlphaMap.Height)
-	fmt.Printf("  Native width:     %dpx\n", lr.NativeWidth)
-	fmt.Printf("  Margin X frac:    %.6f\n", lr.MarginXFrac)
-	fmt.Printf("  Margin Y frac:    %.6f\n", lr.MarginYFrac)
-	fmt.Printf("  Detect threshold: %.2f\n", lr.DetectThreshold)
-	fmt.Printf("  Remove strategy:  %s\n", lr.RemoveStrategy)
-	fmt.Println()
-	fmt.Printf("Use: aigc-cli detect <image> --remove-watermark --producer %s\n", name)
+	ui.Printf("\nWatermark config saved: %s\n", outputPath)
+	ui.Printf("  Name:             %s\n", lr.Name)
+	ui.Printf("  Alpha map:        %dx%d\n", lr.AlphaMap.Width, lr.AlphaMap.Height)
+	ui.Printf("  Native width:     %dpx\n", lr.NativeWidth)
+	ui.Printf("  Margin X frac:    %.6f\n", lr.MarginXFrac)
+	ui.Printf("  Margin Y frac:    %.6f\n", lr.MarginYFrac)
+	ui.Printf("  Detect threshold: %.2f\n", lr.DetectThreshold)
+	ui.Printf("  Remove strategy:  %s\n", lr.RemoveStrategy)
+	ui.Println()
+	ui.Printf("Use: aigc-cli detect <image> --remove-watermark --producer %s\n", name)
 
 	return nil
 }

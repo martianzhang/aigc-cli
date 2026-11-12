@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // CropVideoOptions 是一次视频裁边（去水印）的输入参数。
@@ -42,7 +44,7 @@ func CropVideo(opts CropVideoOptions) (string, error) {
 	args = append(args, opts.ExtraArgs...)
 	args = append(args, out)
 
-	fmt.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
+	ui.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
 
 	cmd := exec.Command("ffmpeg", args...)
 	if outBuf, err := cmd.CombinedOutput(); err != nil {

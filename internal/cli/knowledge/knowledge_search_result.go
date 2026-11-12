@@ -13,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/search"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
@@ -25,7 +26,7 @@ func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []sear
 
 	for _, sr := range results {
 		if verbose {
-			fmt.Fprintf(os.Stderr, "  Fetching: %s\n", sr.URL)
+			ui.Eprintf("  Fetching: %s\n", sr.URL)
 		}
 		if err := wait.Sleep(options.Context(), 500*time.Millisecond); err != nil {
 			return err
@@ -34,7 +35,7 @@ func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []sear
 		fetchResult, fetchErr := knowledge.FetchURL(sr.URL)
 		if fetchErr != nil {
 			if verbose {
-				fmt.Fprintf(os.Stderr, "    Skip: %v\n", fetchErr)
+				ui.Eprintf("    Skip: %v\n", fetchErr)
 			}
 			continue
 		}
@@ -43,7 +44,7 @@ func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []sear
 		existing, _ := store.GetDocument(docID)
 		if existing != nil {
 			if verbose {
-				fmt.Fprintf(os.Stderr, "    Already in KB\n")
+				ui.Eprintf("    Already in KB\n")
 			}
 			if content := tryReadDoc(docID); content != "" {
 				outputDoc(docID, fetchResult.Title, fetchResult.URL, content)
@@ -60,12 +61,12 @@ func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []sear
 			}
 			if err := store.SaveDocument(doc); err != nil {
 				if verbose {
-					fmt.Fprintf(os.Stderr, "    Error saving: %v\n", err)
+					ui.Eprintf("    Error saving: %v\n", err)
 				}
 			} else {
 				if err := knowledge.SaveDocFile(kbBaseDir, project, docID, fetchResult.Title, fetchResult.Content); err != nil {
 					if verbose {
-						fmt.Fprintf(os.Stderr, "    Error saving doc file: %v\n", err)
+						ui.Eprintf("    Error saving doc file: %v\n", err)
 					}
 					_ = store.DeleteDocument(docID)
 					continue
@@ -79,17 +80,17 @@ func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []sear
 				embeddings, err := knowledge.EmbedAll(embedder, contents)
 				if err != nil {
 					if verbose {
-						fmt.Fprintf(os.Stderr, "    Error embedding: %v\n", err)
+						ui.Eprintf("    Error embedding: %v\n", err)
 					}
 					continue
 				}
 				if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
 					if verbose {
-						fmt.Fprintf(os.Stderr, "    Error saving chunks: %v\n", err)
+						ui.Eprintf("    Error saving chunks: %v\n", err)
 					}
 				}
 				if verbose {
-					fmt.Fprintf(os.Stderr, "    Saved: %s\n", fetchResult.Title)
+					ui.Eprintf("    Saved: %s\n", fetchResult.Title)
 				}
 			}
 		}
@@ -99,14 +100,14 @@ func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []sear
 }
 
 func outputDoc(docID, title, url, content string) {
-	fmt.Println("---")
-	fmt.Printf("id: %s\n", knowledge.ShortID(docID))
-	fmt.Printf("title: %s\n", title)
-	fmt.Printf("url: %s\n", url)
+	ui.Println("---")
+	ui.Printf("id: %s\n", knowledge.ShortID(docID))
+	ui.Printf("title: %s\n", title)
+	ui.Printf("url: %s\n", url)
 	if host := extractHost(url); host != "" {
-		fmt.Printf("source: %s\n", host)
+		ui.Printf("source: %s\n", host)
 	}
-	fmt.Println(content)
+	ui.Println(content)
 }
 
 // extractHost returns the hostname from a URL, or empty string.
@@ -195,10 +196,10 @@ func outputLocalResults(results knowledge.SearchResults, verbose bool) {
 		return
 	}
 
-	fmt.Printf("From knowledge base:\n\n")
+	ui.Printf("From knowledge base:\n\n")
 	for i, d := range docs {
-		fmt.Printf("[%d] %s\n", i+1, d.title)
-		fmt.Printf("    id: %s | source: %s | score: %.4f (%d chunk(s))\n", d.docID, d.source, d.score, d.nchunk)
+		ui.Printf("[%d] %s\n", i+1, d.title)
+		ui.Printf("    id: %s | source: %s | score: %.4f (%d chunk(s))\n", d.docID, d.source, d.score, d.nchunk)
 	}
-	fmt.Println()
+	ui.Println()
 }

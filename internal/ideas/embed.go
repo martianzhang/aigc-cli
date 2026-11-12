@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 const (
@@ -99,7 +100,7 @@ func LoadOrBuildEmbeddings(entries []IdeaEntry, embedder knowledge.Embedder, dat
 		}
 	}
 	if err := saveEmbeddingCache(path, model, dim, hash, vectors); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not cache ideas embeddings: %v\n", err)
+		ui.Eprintf("Warning: could not cache ideas embeddings: %v\n", err)
 	}
 	return vectors, nil
 }

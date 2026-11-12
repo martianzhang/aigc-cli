@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
@@ -32,13 +33,13 @@ func runAgnesVideo(ctx context.Context, c *client.Client, p *provider.EffectiveP
 		return nil, fmt.Errorf("agnes video submission returned no video id")
 	}
 
-	fmt.Printf("Provider: %s\n", p.ProviderType)
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Printf("Task ID: %s\n", createResp.TaskID)
-	fmt.Printf("Status: %s\n\n", createResp.Status)
+	ui.Printf("Provider: %s\n", p.ProviderType)
+	ui.Printf("Model: %s\n", req.Model)
+	ui.Printf("Task ID: %s\n", createResp.TaskID)
+	ui.Printf("Status: %s\n\n", createResp.Status)
 
 	// Step 2: Poll
-	fmt.Println("Polling for completion...")
+	ui.Println("Polling for completion...")
 	agnesMaxWait := clientfactory.TaskWait(types.MediaVideo)
 	start := time.Now()
 	var videoURL string
@@ -68,7 +69,7 @@ func runAgnesVideo(ctx context.Context, c *client.Client, p *provider.EffectiveP
 		default:
 			// queued / pending / in_progress -- keep waiting
 			progress := fmt.Sprintf("%.0fs", time.Since(start).Seconds())
-			fmt.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
+			ui.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
 			if err := wait.Sleep(ctx, client.DefaultPollInterval); err != nil {
 				return nil, err
 			}
@@ -80,16 +81,16 @@ func runAgnesVideo(ctx context.Context, c *client.Client, p *provider.EffectiveP
 	}
 
 	// Step 3: Download
-	fmt.Println()
-	fmt.Printf("Downloading video...\n")
+	ui.Println()
+	ui.Printf("Downloading video...\n")
 	savePromptFile(videoID, req.Prompt)
 	filename, err := service.DownloadFile(videoURL, options.Shared.OutputDir, fmt.Sprintf("video_agnes_%s", videoID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to download video: %w", err)
 	}
-	fmt.Printf("Saved: %s\n", filename)
+	ui.Printf("Saved: %s\n", filename)
 
 	elapsed := time.Since(start).Seconds()
-	fmt.Printf("Completed in %.0fs\n", elapsed)
+	ui.Printf("Completed in %.0fs\n", elapsed)
 	return &RunResult{Videos: []string{filename}}, nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 var audioInitCmd = &cobra.Command{
@@ -73,12 +74,12 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 		}
 		models := audio.ListByType(typ, audioInitLang)
 		if len(models) == 0 {
-			fmt.Println("No models found matching the criteria.")
+			ui.Println("No models found matching the criteria.")
 			return nil
 		}
-		fmt.Printf("Available models (type=%s lang=%s):\n", audioInitType, audioInitLang)
+		ui.Printf("Available models (type=%s lang=%s):\n", audioInitType, audioInitLang)
 		for _, m := range models {
-			fmt.Printf("  %-24s  %-6s  %-8s  %s\n", m.ID, m.Type, m.Size, m.Description)
+			ui.Printf("  %-24s  %-6s  %-8s  %s\n", m.ID, m.Type, m.Size, m.Description)
 		}
 		return nil
 	}
@@ -90,12 +91,12 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("list installed: %w", err)
 		}
 		if len(installed) == 0 {
-			fmt.Println("No audio models installed. Run 'aigc-cli audio init --model <id>' to download one.")
+			ui.Println("No audio models installed. Run 'aigc-cli audio init --model <id>' to download one.")
 			return nil
 		}
-		fmt.Println("Installed audio models:")
+		ui.Println("Installed audio models:")
 		for _, m := range installed {
-			fmt.Printf("  %-24s  %-6s  %-8s  %s\n", m.ID, m.Type, m.Size, m.Description)
+			ui.Printf("  %-24s  %-6s  %-8s  %s\n", m.ID, m.Type, m.Size, m.Description)
 		}
 		return nil
 	}
@@ -117,14 +118,14 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 		count := engine.NumSpeakers()
 		engine.Close()
 		if count <= 0 {
-			fmt.Printf("Model %q has 1 voice\n", modelID)
+			ui.Printf("Model %q has 1 voice\n", modelID)
 			return nil
 		}
-		fmt.Printf("Model %q has %d voices (SID 0-%d)\n", modelID, count, count-1)
+		ui.Printf("Model %q has %d voices (SID 0-%d)\n", modelID, count, count-1)
 
 		names := voiceNamesForModel(modelID, count)
 		if len(names) > 0 {
-			fmt.Println("\nNamed voices:")
+			ui.Println("\nNamed voices:")
 			type vs struct {
 				sid  int
 				name string
@@ -135,10 +136,10 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 			}
 			sort.Slice(sorted, func(i, j int) bool { return sorted[i].sid < sorted[j].sid })
 			for _, v := range sorted {
-				fmt.Printf("  %-4d  %s\n", v.sid, v.name)
+				ui.Printf("  %-4d  %s\n", v.sid, v.name)
 			}
 		} else {
-			fmt.Printf("Use --voice <SID> to select a voice (0-%d)\n", count-1)
+			ui.Printf("Use --voice <SID> to select a voice (0-%d)\n", count-1)
 		}
 		return nil
 	}
@@ -152,14 +153,14 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 		if err := downloadFromURL(audioInitURL, audioModelsDir(), name, audioInitForce); err != nil {
 			return fmt.Errorf("download: %w", err)
 		}
-		fmt.Printf("Custom model installed as %q.\n", name)
+		ui.Printf("Custom model installed as %q.\n", name)
 		return nil
 	}
 
 	// ── Download models ──
 	if len(audioInitModel) == 0 {
 		audioInitModel = []string{"kokoro", "sense-voice"}
-		fmt.Println("No model specified, downloading defaults: kokoro (TTS) + sense-voice (ASR)")
+		ui.Println("No model specified, downloading defaults: kokoro (TTS) + sense-voice (ASR)")
 	}
 
 	// Ensure ONNX Runtime is installed
@@ -182,9 +183,9 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 	}
 	if needsSherpa {
 		if err := ensureAudioRuntime(); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: audio runtime not fully installed: %v\n", err)
-			fmt.Fprintf(os.Stderr, "  Local TTS/ASR will not work. Use a release build or install GCC and run:\n")
-			fmt.Fprintf(os.Stderr, "    bash scripts/build-helper.sh\n")
+			ui.Eprintf("Warning: audio runtime not fully installed: %v\n", err)
+			ui.Eprintf("  Local TTS/ASR will not work. Use a release build or install GCC and run:\n")
+			ui.Eprintf("    bash scripts/build-helper.sh\n")
 		}
 	}
 
@@ -192,12 +193,12 @@ func runAudioInit(cmd *cobra.Command, args []string) error {
 		if err := downloadModelFiles(info, modelsDir, audioInitForce); err != nil {
 			return fmt.Errorf("model %q: %w", info.ID, err)
 		}
-		fmt.Printf("Model %q installed. %s\n", info.ID, modelTryHint(info))
+		ui.Printf("Model %q installed. %s\n", info.ID, modelTryHint(info))
 		if info.License != "" {
 			if info.LicenseURL != "" {
-				fmt.Printf("License: %s (%s)\n", info.License, info.LicenseURL)
+				ui.Printf("License: %s (%s)\n", info.License, info.LicenseURL)
 			} else {
-				fmt.Printf("License: %s\n", info.License)
+				ui.Printf("License: %s\n", info.License)
 			}
 		}
 	}

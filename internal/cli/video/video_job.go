@@ -8,6 +8,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // openRouterJobInfo is saved to disk so the user can resume a timed-out video job.
@@ -51,9 +52,9 @@ func removeJobInfo(jobID string) {
 	path := jobFilePath(jobID)
 	if err := os.Remove(path); err != nil {
 		if !os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Warning: failed to remove job file %s: %v\n", path, err)
+			ui.Eprintf("Warning: failed to remove job file %s: %v\n", path, err)
 		}
 		return
 	}
-	fmt.Printf("Job file removed: %s\n", path)
+	ui.Printf("Job file removed: %s\n", path)
 }

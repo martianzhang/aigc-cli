@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // Deps carries the runtime callbacks the preview command needs.
@@ -57,11 +58,11 @@ func run(d Deps, args []string, detail bool, describe string) error {
 			if describe != "" {
 				caption, err := d.ReadInput(describe)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error reading caption: %v\n", err)
+					ui.Eprintf("Error reading caption: %v\n", err)
 					continue
 				}
 				if err := service.WriteDescription(arg, string(caption)); err != nil {
-					fmt.Fprintf(os.Stderr, "Error writing caption to %s: %v\n", arg, err)
+					ui.Eprintf("Error writing caption to %s: %v\n", arg, err)
 					continue
 				}
 			}
@@ -71,11 +72,11 @@ func run(d Deps, args []string, detail bool, describe string) error {
 			if describe == "" {
 				if strings.HasSuffix(strings.ToLower(arg), ".md") {
 					if err := previewMarkdown(arg); err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+						ui.Eprintf("Warning: %v\n", err)
 					}
 				} else {
 					if err := service.PreviewFile(arg); err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+						ui.Eprintf("Warning: %v\n", err)
 					}
 				}
 			}
@@ -127,7 +128,7 @@ func previewMarkdown(path string) error {
 		return fmt.Errorf("write stdout: %w", err)
 	}
 	if len(data) > 0 && data[len(data)-1] != '\n' {
-		fmt.Println()
+		ui.Println()
 	}
 	return nil
 }
@@ -136,35 +137,35 @@ func previewMarkdown(path string) error {
 func showDetail(path string) {
 	result, err := service.DetectImage(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "  Detect error: %v\n", err)
+		ui.Eprintf("  Detect error: %v\n", err)
 		return
 	}
 
-	fmt.Printf("\n%s %s %s\n", strings.Repeat("━", 3), filepath.Base(path), strings.Repeat("━", 3))
-	fmt.Printf("  Size:      %s", result.SizeHuman)
+	ui.Printf("\n%s %s %s\n", strings.Repeat("━", 3), filepath.Base(path), strings.Repeat("━", 3))
+	ui.Printf("  Size:      %s", result.SizeHuman)
 	if result.Width > 0 && result.Height > 0 {
-		fmt.Printf("  %dx%d", result.Width, result.Height)
+		ui.Printf("  %dx%d", result.Width, result.Height)
 	}
-	fmt.Println()
-	fmt.Printf("  Format:    %s\n", result.Format)
+	ui.Println()
+	ui.Printf("  Format:    %s\n", result.Format)
 
 	if result.C2PA != nil && result.C2PA.Present {
 		line := fmt.Sprintf("  C2PA:      %s", result.C2PA.Vendor)
 		if result.C2PA.Source != "" {
 			line += " / " + result.C2PA.Source
 		}
-		fmt.Println(line)
+		ui.Println(line)
 	}
 	if result.TC260 != nil && result.TC260.Present {
 		line := "  TC260:     " + result.TC260.Provider
 		if result.TC260.Data != "" {
 			line += " / " + result.TC260.Data
 		}
-		fmt.Println(line)
+		ui.Println(line)
 	}
 	if desc, err := service.ReadDescription(path); err == nil && desc != "" {
 		desc = strings.ReplaceAll(desc, "\n", "\n               ")
-		fmt.Printf("  Caption:    %s\n", desc)
+		ui.Printf("  Caption:    %s\n", desc)
 	}
-	fmt.Println()
+	ui.Println()
 }

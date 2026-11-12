@@ -10,6 +10,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/modelstore"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	up "github.com/martianzhang/aigc-cli/internal/upscale"
 )
 
@@ -74,7 +75,7 @@ func runInit(d Deps, models []string, force bool) error {
 
 	if len(models) == 0 {
 		models = []string{up.DefaultModelID}
-		fmt.Printf("No model specified; downloading default: %s\n", up.DefaultModelID)
+		ui.Printf("No model specified; downloading default: %s\n", up.DefaultModelID)
 	}
 
 	dir := up.Dir(sharedDir)
@@ -89,35 +90,35 @@ func runInit(d Deps, models []string, force bool) error {
 		}
 		target := filepath.Join(dir, info.File)
 		if _, err := os.Stat(target); err == nil && !force {
-			fmt.Printf("%s already installed: %s\n", info.ID, target)
+			ui.Printf("%s already installed: %s\n", info.ID, target)
 			continue
 		}
-		fmt.Printf("Downloading %s (%s, ~%.1fMB, %s)...\n", info.Name, info.ID, info.SizeMB, info.License)
+		ui.Printf("Downloading %s (%s, ~%.1fMB, %s)...\n", info.Name, info.ID, info.SizeMB, info.License)
 		if err := modelstore.Install(options.Context(), nil, up.URL(info), target, modelstore.Options{Force: force}); err != nil {
 			return fmt.Errorf("download %s: %w", info.ID, err)
 		}
-		fmt.Printf("  Saved: %s\n", target)
+		ui.Printf("  Saved: %s\n", target)
 	}
-	fmt.Println("Done.")
+	ui.Println("Done.")
 	return nil
 }
 
 func printModelList() {
-	fmt.Printf("Available upscale models (saved to %s):\n\n", up.Dir("<models_dir>"))
+	ui.Printf("Available upscale models (saved to %s):\n\n", up.Dir("<models_dir>"))
 	for _, m := range up.Models {
 		marker := "  "
 		if m.ID == up.DefaultModelID {
 			marker = "* "
 		}
-		fmt.Printf("  %s%-30s  x%d  %6.1fMB  %-14s %s\n", marker, m.ID, m.Scale, m.SizeMB, m.License, m.Name)
-		fmt.Printf("      %s\n", m.Use)
+		ui.Printf("  %s%-30s  x%d  %6.1fMB  %-14s %s\n", marker, m.ID, m.Scale, m.SizeMB, m.License, m.Name)
+		ui.Printf("      %s\n", m.Use)
 	}
-	fmt.Println("\n  * = default.")
-	fmt.Println("  Licenses (upstream weights): Real-ESRGAN BSD-3-Clause, Real-CUGAN MIT, Swin2SR Apache-2.0.")
-	fmt.Println("  Quick pick: general → realesr-general-x4v3; photo HQ → real-esrgan-x4plus;")
-	fmt.Println("              anime → real-cugan-2x / real-esrgan-x4plus-anime-6b / anime-4b32f (faster);")
-	fmt.Println("              fastest anime/video → real-esrgan-animevideov3;")
-	fmt.Println("              noisy/compressed → swin2sr-realworld-x4 | swin2sr-compressed-x4; classical → swin2sr-classical-x4.")
+	ui.Println("\n  * = default.")
+	ui.Println("  Licenses (upstream weights): Real-ESRGAN BSD-3-Clause, Real-CUGAN MIT, Swin2SR Apache-2.0.")
+	ui.Println("  Quick pick: general → realesr-general-x4v3; photo HQ → real-esrgan-x4plus;")
+	ui.Println("              anime → real-cugan-2x / real-esrgan-x4plus-anime-6b / anime-4b32f (faster);")
+	ui.Println("              fastest anime/video → real-esrgan-animevideov3;")
+	ui.Println("              noisy/compressed → swin2sr-realworld-x4 | swin2sr-compressed-x4; classical → swin2sr-classical-x4.")
 }
 
 func printInstalled(modelsDir string) {
@@ -125,11 +126,11 @@ func printInstalled(modelsDir string) {
 	var found bool
 	for _, m := range up.Models {
 		if _, err := os.Stat(filepath.Join(dir, m.File)); err == nil {
-			fmt.Printf("  %-30s %s\n", m.ID, filepath.Join(dir, m.File))
+			ui.Printf("  %-30s %s\n", m.ID, filepath.Join(dir, m.File))
 			found = true
 		}
 	}
 	if !found {
-		fmt.Printf("No upscale models installed in %s\n  Run 'aigc-cli upscale init' to download one.\n", dir)
+		ui.Printf("No upscale models installed in %s\n  Run 'aigc-cli upscale init' to download one.\n", dir)
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // ToMP4Options 是把任意 ffmpeg 可解码媒体（GIF/WebP/MOV/…）转换为 MP4 的输入参数。
@@ -50,7 +52,7 @@ func ToMP4(opts ToMP4Options) (string, error) {
 	args = append(args, out)
 
 	// 把命令行回显到 stdout，用户可直接复制复现。
-	fmt.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
+	ui.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
 
 	cmd := exec.Command("ffmpeg", args...)
 	if outBuf, err := cmd.CombinedOutput(); err != nil {

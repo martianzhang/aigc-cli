@@ -4,12 +4,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // maxQuestions is the API limit on questions per request.
@@ -161,10 +161,10 @@ func resolveImages(cliImages, bankImages []string, maxEdge int) ([]string, error
 			resized, ok, resizeErr := service.ResizeImageBytes(data, maxEdge)
 			switch {
 			case resizeErr != nil:
-				fmt.Fprintf(os.Stderr, "Warning: resize %s: %v (sending original)\n", label, resizeErr)
+				ui.Eprintf("Warning: resize %s: %v (sending original)\n", label, resizeErr)
 			case ok:
 				if options.Shared.Verbose {
-					fmt.Fprintf(os.Stderr, "Resized %s to longest edge %dpx\n", label, maxEdge)
+					ui.Eprintf("Resized %s to longest edge %dpx\n", label, maxEdge)
 				}
 				data = resized
 			}

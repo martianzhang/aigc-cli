@@ -18,6 +18,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/pdf"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // scanPDF handles PDF input: tries text extraction first; falls back to OCR
@@ -202,10 +203,10 @@ func scanPDFWithLayout(_ *cobra.Command, pdfPath string) error {
 	if err := os.WriteFile(outPath, []byte(markdown), 0644); err != nil {
 		return fmt.Errorf("save output: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "Saved: %s\n", outPath)
+	ui.Eprintf("Saved: %s\n", outPath)
 
 	if ocrScanPreview {
-		fmt.Print(markdown)
+		ui.Print(markdown)
 	}
 
 	return nil

@@ -10,6 +10,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // Deps carries the runtime configuration the models command needs.
@@ -256,7 +257,7 @@ func matchesLike(values ...string) bool {
 
 // printNoLikeMatches reports an empty filtered listing.
 func printNoLikeMatches() {
-	fmt.Printf("No models match --like %q.\n", modelLike)
+	ui.Printf("No models match --like %q.\n", modelLike)
 }
 
 // isHTML checks whether the first non-whitespace bytes look like HTML.
@@ -278,5 +279,5 @@ var cmdPriceChanged bool
 
 // printAPIURL prints the API endpoint being called in a consistent format.
 func printAPIURL(apiURL string) {
-	fmt.Printf("API: %s\n", apiURL)
+	ui.Printf("API: %s\n", apiURL)
 }

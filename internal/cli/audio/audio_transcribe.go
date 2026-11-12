@@ -16,6 +16,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 func runAudioTranscribe(cmd *cobra.Command, args []string) error {
@@ -64,11 +65,11 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 
 	if service.IsFile(audioTranscribeInput) {
 		if options.Shared.Verbose {
-			fmt.Printf("Uploading file: %s\n", audioTranscribeInput)
+			ui.Printf("Uploading file: %s\n", audioTranscribeInput)
 		}
 
 		if audioDryRun {
-			fmt.Print(buildAudioTranscribeFileCurl(audioTranscribeInput, audioTranscribeModel, audioTranscribeLanguage))
+			ui.Print(buildAudioTranscribeFileCurl(audioTranscribeInput, audioTranscribeModel, audioTranscribeLanguage))
 			return nil
 		}
 
@@ -78,21 +79,21 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 		}
 
 		elapsed := time.Since(start)
-		fmt.Printf("Model: %s\n", audioTranscribeModel)
-		fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+		ui.Printf("Model: %s\n", audioTranscribeModel)
+		ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 		if sttResp.Usage != nil {
 			costStr := ""
 			if sttResp.Usage.Cost > 0 {
 				costStr = fmt.Sprintf(" | Cost: $%.5f", sttResp.Usage.Cost)
 			}
-			fmt.Printf("Audio: %.1fs%s\n", sttResp.Usage.Seconds, costStr)
+			ui.Printf("Audio: %.1fs%s\n", sttResp.Usage.Seconds, costStr)
 		}
 
 		filename, err := saveTranscriptionFile(sttResp.Text, audioTranscribeInput)
 		if err != nil {
 			return fmt.Errorf("failed to save transcription: %w", err)
 		}
-		fmt.Printf("Saved: %s\n", filename)
+		ui.Printf("Saved: %s\n", filename)
 		return nil
 	}
 
@@ -118,12 +119,12 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 	}
 
 	if audioDryRun {
-		fmt.Println(buildAudioTranscribeCurl(req))
+		ui.Println(buildAudioTranscribeCurl(req))
 		return nil
 	}
 
 	if options.Shared.Verbose {
-		fmt.Printf("Sending base64-encoded %s (%d bytes raw)\n", format, len(data))
+		ui.Printf("Sending base64-encoded %s (%d bytes raw)\n", format, len(data))
 	}
 
 	sttResp, err := c.AudioTranscribe(req)
@@ -132,21 +133,21 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 	}
 
 	elapsed := time.Since(start)
-	fmt.Printf("Model: %s\n", audioTranscribeModel)
-	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+	ui.Printf("Model: %s\n", audioTranscribeModel)
+	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 	if sttResp.Usage != nil {
 		costStr := ""
 		if sttResp.Usage.Cost > 0 {
 			costStr = fmt.Sprintf(" | Cost: $%.5f", sttResp.Usage.Cost)
 		}
-		fmt.Printf("Audio: %.1fs%s\n", sttResp.Usage.Seconds, costStr)
+		ui.Printf("Audio: %.1fs%s\n", sttResp.Usage.Seconds, costStr)
 	}
 
 	filename, err := saveTranscriptionFile(sttResp.Text, audioTranscribeInput)
 	if err != nil {
 		return fmt.Errorf("failed to save transcription: %w", err)
 	}
-	fmt.Printf("Saved: %s\n", filename)
+	ui.Printf("Saved: %s\n", filename)
 	return nil
 }
 
@@ -185,7 +186,7 @@ func runLocalAudioTranscribe(_ *cobra.Command) error {
 	}
 
 	if options.Shared.Verbose {
-		fmt.Printf("Local ASR: model=%s file=%s\n", modelID, input)
+		ui.Printf("Local ASR: model=%s file=%s\n", modelID, input)
 	}
 
 	start := time.Now()
@@ -202,7 +203,7 @@ func runLocalAudioTranscribe(_ *cobra.Command) error {
 	elapsed := time.Since(start)
 
 	if options.Shared.Verbose {
-		fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+		ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 	}
 
 	// Save transcription to file
@@ -210,6 +211,6 @@ func runLocalAudioTranscribe(_ *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("failed to save transcription: %w", err)
 	}
-	fmt.Printf("Saved: %s\n", filename)
+	ui.Printf("Saved: %s\n", filename)
 	return nil
 }

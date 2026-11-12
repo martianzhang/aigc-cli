@@ -14,6 +14,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/argutil"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // ConvertOptions 控制视频到深度视频的转换参数。
@@ -105,8 +106,8 @@ func Convert(opts ConvertOptions) (string, error) {
 	}
 
 	if opts.Verbose {
-		fmt.Printf("Converting %s → %s\n", input, outPath)
-		fmt.Printf("  model=%s  fps=%.2f  %dx%d  invert=%v  smooth=%v\n",
+		ui.Printf("Converting %s → %s\n", input, outPath)
+		ui.Printf("  model=%s  fps=%.2f  %dx%d  invert=%v  smooth=%v\n",
 			modelInfo.ID, info.FPS, info.Width, info.Height, opts.Invert, opts.Smooth)
 	}
 
@@ -233,7 +234,7 @@ func Convert(opts ConvertOptions) (string, error) {
 		if resultsErr[i] != nil {
 			// Skip the frame entirely: remove the source PNG so it never
 			// leaks a color frame into the encoded grayscale video.
-			fmt.Fprintf(os.Stderr, "Warning: skip %s: %v\n", framePath, resultsErr[i])
+			ui.Eprintf("Warning: skip %s: %v\n", framePath, resultsErr[i])
 			_ = os.Remove(framePath)
 			continue
 		}

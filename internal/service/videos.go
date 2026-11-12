@@ -2,10 +2,10 @@ package service
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // DownloadVideos downloads all generated videos into outputDir. Returns paths
@@ -20,13 +20,13 @@ func DownloadVideos(videos []types.VideoResult, outputDir, taskID string) ([]str
 			attempted++
 			filename, err := DownloadFile(url, outputDir, fmt.Sprintf("video_%s_%d_%d", taskID, i, j))
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to download video %d-%d: %v\n", i, j, err)
+				ui.Eprintf("Warning: failed to download video %d-%d: %v\n", i, j, err)
 				if firstErr == nil {
 					firstErr = err
 				}
 				continue
 			}
-			fmt.Printf("Saved: %s\n", filename)
+			ui.Printf("Saved: %s\n", filename)
 			saved = append(saved, filename)
 		}
 	}
@@ -52,13 +52,13 @@ func DownloadLastFrames(urls []string, outputDir, taskID string) ([]string, erro
 		}
 		filename, err := DownloadFile(u, outputDir, name)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to download last frame %d: %v\n", i, err)
+			ui.Eprintf("Warning: failed to download last frame %d: %v\n", i, err)
 			if firstErr == nil {
 				firstErr = err
 			}
 			continue
 		}
-		fmt.Printf("Saved: %s\n", filename)
+		ui.Printf("Saved: %s\n", filename)
 		saved = append(saved, filename)
 	}
 	return saved, downloadFailure("last frames", attempted, len(saved), firstErr)

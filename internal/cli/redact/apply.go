@@ -13,6 +13,7 @@ import (
 	clioptions "github.com/martianzhang/aigc-cli/internal/options"
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 func newApplyCmd() *cobra.Command {
@@ -126,9 +127,9 @@ func newApplyCmd() *cobra.Command {
 							return err
 						}
 					}
-					fmt.Fprintf(os.Stderr, "redacted %d occurrence(s) -> %s\n", len(res.Spans), res.OutputPath)
+					ui.Eprintf("redacted %d occurrence(s) -> %s\n", len(res.Spans), res.OutputPath)
 					if mappingFile == "" && style == "placeholder" && format == docredact.FormatDOCX {
-						fmt.Fprintln(os.Stderr, "note: no --mapping written; restore will not be available")
+						ui.Eprintln("note: no --mapping written; restore will not be available")
 					}
 					return nil
 				}
@@ -171,7 +172,7 @@ func newApplyCmd() *cobra.Command {
 			summaryTo(cmd.ErrOrStderr(), target, output, "redacted %d occurrence(s), %d entities -> %s\n",
 				len(mapping.Occurrences), len(mapping.Entities), target)
 			if mappingFile == "" && style == "placeholder" {
-				fmt.Fprintln(os.Stderr, "note: no --mapping written; restore will not be available")
+				ui.Eprintln("note: no --mapping written; restore will not be available")
 			}
 			return nil
 		},

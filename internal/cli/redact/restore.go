@@ -2,7 +2,6 @@ package redact
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -10,6 +9,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/docredact"
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 func newRestoreCmd() *cobra.Command {
@@ -90,7 +90,7 @@ func newRestoreCmd() *cobra.Command {
 					if err := docredact.RestoreDOCX(prepared, target, m); err != nil {
 						return err
 					}
-					fmt.Fprintf(os.Stderr, "restored %d occurrence(s) -> %s\n", len(m.Occurrences), target)
+					ui.Eprintf("restored %d occurrence(s) -> %s\n", len(m.Occurrences), target)
 					return nil
 				}
 			}

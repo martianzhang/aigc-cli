@@ -3,13 +3,13 @@ package service
 import (
 	"fmt"
 	"image/color"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 var imageExts = map[string]bool{
@@ -97,11 +97,11 @@ func DownloadImages(images []types.ImageResult, outputDir, taskID string) ([]str
 			}
 			filename := filepath.Join(outputDir, fmt.Sprintf("image_%s_%d_%d%s", taskID, i, j, ext))
 			if err := fsutil.WriteFileAtomic(filename, data, 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save %s: %v\n", filename, err)
+				ui.Eprintf("Warning: failed to save %s: %v\n", filename, err)
 				remember(err)
 				continue
 			}
-			fmt.Printf("Saved: %s\n", filename)
+			ui.Printf("Saved: %s\n", filename)
 			saved = append(saved, filename)
 		}
 	}

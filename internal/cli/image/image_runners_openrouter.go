@@ -2,13 +2,13 @@ package image
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runOpenRouterDedicatedImage handles image generation via OpenRouter's
@@ -25,11 +25,11 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest,
 
 	elapsed := time.Since(start)
 
-	fmt.Printf("Model: %s\n", req.Model)
+	ui.Printf("Model: %s\n", req.Model)
 	if orResp.Created > 0 {
-		fmt.Printf("Created: %s\n", time.Unix(orResp.Created, 0).Format("2006-01-02 15:04:05"))
+		ui.Printf("Created: %s\n", time.Unix(orResp.Created, 0).Format("2006-01-02 15:04:05"))
 	}
-	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	savePromptFile(promptTaskID("image", orResp.Created), req.Prompt)
 
@@ -39,23 +39,23 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest,
 			prefix := fmt.Sprintf("image_%d", time.Now().Unix())
 			filename, err := service.SaveBase64Image(options.Shared.OutputDir, prefix, img.B64JSON, i)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to save image %d: %v\n", i, err)
+				ui.Eprintf("Warning: failed to save image %d: %v\n", i, err)
 				continue
 			}
-			fmt.Printf("Image %d saved: %s\n", i+1, filename)
+			ui.Printf("Image %d saved: %s\n", i+1, filename)
 			saved = append(saved, filename)
 		} else if img.URL != "" {
 			taskID := fmt.Sprintf("%d", time.Now().Unix())
 			filename, err := service.DownloadFile(img.URL, options.Shared.OutputDir, fmt.Sprintf("image_%s_%d", taskID, i))
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to download image %d: %v\n", i, err)
+				ui.Eprintf("Warning: failed to download image %d: %v\n", i, err)
 				continue
 			}
-			fmt.Printf("Image %d: %s\n", i+1, filename)
+			ui.Printf("Image %d: %s\n", i+1, filename)
 			saved = append(saved, filename)
 		}
 		if img.RevisedPrompt != "" {
-			fmt.Printf("  Revised prompt: %s\n", img.RevisedPrompt)
+			ui.Printf("  Revised prompt: %s\n", img.RevisedPrompt)
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 func buildDecisionCurl(req *provider.DecisionRequest, p *provider.EffectiveProvider) string {
@@ -27,6 +28,6 @@ func printJSONResponse(resp *provider.DecisionResponse) error {
 	if err != nil {
 		return fmt.Errorf("encode response: %w", err)
 	}
-	fmt.Println(string(data))
+	ui.Println(string(data))
 	return nil
 }

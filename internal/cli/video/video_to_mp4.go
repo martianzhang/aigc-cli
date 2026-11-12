@@ -6,6 +6,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/gif"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // convertLocalToMP4 转换单个本地媒体文件（GIF/WebP/MOV/…）为 MP4（纯本地，不调 API）。
@@ -30,6 +31,6 @@ func convertLocalToMP4(input string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Saved: %s\n", out)
+	ui.Printf("Saved: %s\n", out)
 	return nil
 }

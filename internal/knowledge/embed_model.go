@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // modelsBaseURL is the shared model download host.
@@ -55,7 +56,7 @@ func InitEmbedModel(modelsDir string, force bool) error {
 		path := filepath.Join(dir, f.OutName)
 		if !force {
 			if _, err := os.Stat(path); err == nil {
-				fmt.Printf("  Already exists: %s\n", f.OutName)
+				ui.Printf("  Already exists: %s\n", f.OutName)
 				continue
 			}
 		}
@@ -63,7 +64,7 @@ func InitEmbedModel(modelsDir string, force bool) error {
 		if f.SizeMB > 0 {
 			size = fmt.Sprintf(" (%d MB)", f.SizeMB)
 		}
-		fmt.Printf("  Downloading %s%s...\n", f.OutName, size)
+		ui.Printf("  Downloading %s%s...\n", f.OutName, size)
 		if err := service.SaveResource(f.URL, path); err != nil {
 			return fmt.Errorf("download %s: %w", f.OutName, err)
 		}

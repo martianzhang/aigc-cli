@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/vault"
 	"github.com/spf13/cobra"
 )
@@ -84,7 +85,7 @@ The identity key is included in plaintext — keep the archive secure.`,
 				}
 				data, err := os.ReadFile(filepath.Join(docsDir, entry.Name()))
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "  Warning: skipping %s: %v\n", entry.Name(), err)
+					ui.Eprintf("  Warning: skipping %s: %v\n", entry.Name(), err)
 					continue
 				}
 				if err := addFileToTar(tw, "docs/"+entry.Name(), data); err != nil {
@@ -104,7 +105,7 @@ The identity key is included in plaintext — keep the archive secure.`,
 			return fmt.Errorf("write archive: %w", err)
 		}
 
-		fmt.Fprintf(os.Stderr, "Vault exported to %s\n", outputPath)
+		ui.Eprintf("Vault exported to %s\n", outputPath)
 		return nil
 	},
 }
@@ -151,7 +152,7 @@ var kbVaultImportCmd = &cobra.Command{
 				if err := vault.ImportIdentity(keyStr); err != nil {
 					return fmt.Errorf("import identity: %w", err)
 				}
-				fmt.Fprintf(os.Stderr, "  Imported identity key\n")
+				ui.Eprintf("  Imported identity key\n")
 
 			case "metadata.json":
 				metaPath := filepath.Join(vaultBaseDir, "metadata.json")
@@ -161,7 +162,7 @@ var kbVaultImportCmd = &cobra.Command{
 				if err := fsutil.WritePrivate(metaPath, data); err != nil {
 					return fmt.Errorf("write metadata: %w", err)
 				}
-				fmt.Fprintf(os.Stderr, "  Imported metadata\n")
+				ui.Eprintf("  Imported metadata\n")
 
 			default:
 				if strings.HasPrefix(header.Name, "docs/") {
@@ -173,12 +174,12 @@ var kbVaultImportCmd = &cobra.Command{
 					if err := fsutil.WritePrivate(dest, data); err != nil {
 						return fmt.Errorf("write %s: %w", docName, err)
 					}
-					fmt.Fprintf(os.Stderr, "  Imported: %s\n", docName)
+					ui.Eprintf("  Imported: %s\n", docName)
 				}
 			}
 		}
 
-		fmt.Fprintf(os.Stderr, "Vault imported from %s\n", archivePath)
+		ui.Eprintf("Vault imported from %s\n", archivePath)
 		return nil
 	},
 }

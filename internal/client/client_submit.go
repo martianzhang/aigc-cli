@@ -13,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // the user-supplied value is respected as-is.
@@ -309,8 +310,8 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 
 // PollTask polls a task (image or video) until completion or failure.
 func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData, error) {
-	fmt.Printf("Task submitted: %s\n", taskID)
-	fmt.Printf("Waiting %v before first poll...\n", initialDelay)
+	ui.Printf("Task submitted: %s\n", taskID)
+	ui.Printf("Waiting %v before first poll...\n", initialDelay)
 	select {
 	case <-time.After(initialDelay):
 	case <-c.requestContext().Done():
@@ -328,7 +329,7 @@ func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData
 
 	// Print initial progress line
 	if isTTY {
-		fmt.Print("  Progress: 0% ")
+		ui.Print("  Progress: 0% ")
 	}
 
 	for {
@@ -336,7 +337,7 @@ func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData
 		select {
 		case <-c.requestContext().Done():
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, c.requestContext().Err()
 		default:
@@ -344,7 +345,7 @@ func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData
 
 		if time.Since(start) > wait {
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, fmt.Errorf("polling timed out after %v\n  The task may still be running. Use: aigc-cli task %s", wait, taskID)
 		}
@@ -352,7 +353,7 @@ func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData
 		task, err := c.GetTask(taskID)
 		if err != nil {
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, fmt.Errorf("failed to query task: %w", err)
 		}
@@ -360,21 +361,21 @@ func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData
 		prog.Percent(task.Progress)
 		if isTTY {
 			bar := progressBar(task.Progress, 20)
-			fmt.Printf("\r  %s %s %d%% ", spinner[si%len(spinner)], bar, task.Progress)
+			ui.Printf("\r  %s %s %d%% ", spinner[si%len(spinner)], bar, task.Progress)
 			si++
 		} else {
-			fmt.Printf("  Status: %s, Progress: %d%%\n", task.Status, task.Progress)
+			ui.Printf("  Status: %s, Progress: %d%%\n", task.Status, task.Progress)
 		}
 
 		switch task.Status {
 		case "completed", "success", "succeeded":
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return task, nil
 		case "failed", "failure":
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			if task.Error != nil && task.Error.Message != "" {
 				return nil, fmt.Errorf("task %s failed: %s", taskID, task.Error.Message)
@@ -389,7 +390,7 @@ func (c *Client) PollTask(taskID string, maxWait time.Duration) (*types.TaskData
 		case <-time.After(DefaultPollInterval):
 		case <-c.requestContext().Done():
 			if isTTY {
-				fmt.Println()
+				ui.Println()
 			}
 			return nil, c.requestContext().Err()
 		}

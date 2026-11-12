@@ -3,7 +3,6 @@ package knowledge
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/netguard"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
@@ -47,7 +47,7 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 		}
 
 		// Fetch the page
-		fmt.Fprintf(os.Stderr, "Fetching: %s\n", rawURL)
+		ui.Eprintf("Fetching: %s\n", rawURL)
 		resp, err := netguard.NewGuardedClient(clientfactory.HTTPTimeout("", knowledge.DefaultFetchTimeout)).Get(rawURL)
 		if err != nil {
 			return fmt.Errorf("fetch %s: %w", rawURL, err)
@@ -108,7 +108,7 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 		walk(doc)
 
 		if len(links) == 0 {
-			fmt.Fprintln(os.Stderr, "No discoverable links found.")
+			ui.Eprintln("No discoverable links found.")
 			return nil
 		}
 
@@ -116,11 +116,11 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 			links = links[:kbMapLimit]
 		}
 
-		fmt.Fprintf(os.Stderr, "Discovered %d link(s)\n", len(links))
+		ui.Eprintf("Discovered %d link(s)\n", len(links))
 
 		if kbMapDryRun {
 			for _, link := range links {
-				fmt.Println(link)
+				ui.Println(link)
 			}
 			return nil
 		}
@@ -140,7 +140,7 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 		project := detectProject(cmd)
 
 		for _, link := range links {
-			fmt.Fprintf(os.Stderr, "  Fetching: %s\n", link)
+			ui.Eprintf("  Fetching: %s\n", link)
 			if err := wait.Sleep(options.Context(), 500*time.Millisecond); err != nil {
 				return err
 			}
@@ -148,7 +148,7 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 			existingDocID, err := findURLInStore(store, link)
 			if err == nil && existingDocID != "" {
 				// Already exists, read and output
-				fmt.Fprintf(os.Stderr, "    Already in KB\n")
+				ui.Eprintf("    Already in KB\n")
 				if content := tryReadDoc(existingDocID); content != "" {
 					outputDoc(existingDocID, link, link, content)
 				}
@@ -157,14 +157,14 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 
 			result, fetchErr := knowledge.FetchURL(link)
 			if fetchErr != nil {
-				fmt.Fprintf(os.Stderr, "    Error: %v\n", fetchErr)
+				ui.Eprintf("    Error: %v\n", fetchErr)
 				continue
 			}
 
 			docID := knowledge.Checksum(result.Content)
 			existing, _ := store.GetDocument(docID)
 			if existing != nil {
-				fmt.Fprintf(os.Stderr, "    Already in KB (same content)\n")
+				ui.Eprintf("    Already in KB (same content)\n")
 				if content := tryReadDoc(docID); content != "" {
 					outputDoc(docID, result.Title, result.URL, content)
 				}
@@ -180,11 +180,11 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 				Checksum: docID,
 			}
 			if err := store.SaveDocument(doc); err != nil {
-				fmt.Fprintf(os.Stderr, "    Error saving: %v\n", err)
+				ui.Eprintf("    Error saving: %v\n", err)
 				continue
 			}
 			if err := knowledge.SaveDocFile(kbBaseDir, project, docID, result.Title, result.Content); err != nil {
-				fmt.Fprintf(os.Stderr, "    Error saving doc file: %v\n", err)
+				ui.Eprintf("    Error saving doc file: %v\n", err)
 				_ = store.DeleteDocument(docID)
 				continue
 			}
@@ -196,15 +196,15 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 			}
 			embeddings, err := knowledge.EmbedAll(embedder, contents)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "    Error embedding: %v\n", err)
+				ui.Eprintf("    Error embedding: %v\n", err)
 				continue
 			}
 			if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
-				fmt.Fprintf(os.Stderr, "    Error saving chunks: %v\n", err)
+				ui.Eprintf("    Error saving chunks: %v\n", err)
 				continue
 			}
 
-			fmt.Fprintf(os.Stderr, "    Added: %s\n", result.Title)
+			ui.Eprintf("    Added: %s\n", result.Title)
 			outputDoc(docID, result.Title, result.URL, result.Content)
 		}
 

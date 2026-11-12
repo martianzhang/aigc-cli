@@ -6,6 +6,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/gif"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // cropSavedVideos 把已下载的视频按 --crop-margin 裁掉水印边。
@@ -30,7 +31,7 @@ func cropSavedVideos(saved []string) ([]string, error) {
 		if err != nil {
 			return out, fmt.Errorf("%s: %w", filepath.Base(f), err)
 		}
-		fmt.Printf("Saved: %s\n", p)
+		ui.Printf("Saved: %s\n", p)
 		out = append(out, p)
 	}
 	return out, nil
@@ -57,6 +58,6 @@ func cropLocalVideo(input string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Saved: %s\n", out)
+	ui.Printf("Saved: %s\n", out)
 	return nil
 }

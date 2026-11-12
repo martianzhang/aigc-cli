@@ -2,13 +2,13 @@ package knowledge
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/search"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 var (
@@ -44,12 +44,12 @@ By default, only searches the web. Use --local to also include local KB results.
 			localResults, err := store.Search(query, 10, project)
 			if err != nil {
 				if verbose {
-					fmt.Fprintf(os.Stderr, "Local search error: %v\n", err)
+					ui.Eprintf("Local search error: %v\n", err)
 				}
 			} else if len(localResults) > 0 {
 				outputLocalResults(localResults, verbose)
 			} else if verbose {
-				fmt.Fprintf(os.Stderr, "No local results found.\n")
+				ui.Eprintf("No local results found.\n")
 			}
 		}
 
@@ -79,7 +79,7 @@ func searchWebWithRouter(store *knowledge.Store, cmd *cobra.Command, query, proj
 	}
 
 	if verbose {
-		fmt.Fprintf(os.Stderr, "Using provider: %s\n", searchResult.Provider)
+		ui.Eprintf("Using provider: %s\n", searchResult.Provider)
 	}
 
 	return fetchSearchResults(store, cmd, searchResult.Results, query, project, verbose)

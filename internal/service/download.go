@@ -19,6 +19,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 const (
@@ -69,8 +70,8 @@ func SaveBase64Image(outputDir, prefix, b64 string, index int) (string, error) {
 	if err := fsutil.WriteFileAtomic(filename, []byte(b64), 0644); err != nil {
 		return "", fmt.Errorf("failed to save base64 text: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "  Saved: %s (raw base64 — could not decode as image)\n", filename)
-	fmt.Fprintf(os.Stderr, "  Convert with: base64 -d %s > %s.png\n", filepath.Base(filename), strings.TrimSuffix(filename, ".txt"))
+	ui.Eprintf("  Saved: %s (raw base64 — could not decode as image)\n", filename)
+	ui.Eprintf("  Convert with: base64 -d %s > %s.png\n", filepath.Base(filename), strings.TrimSuffix(filename, ".txt"))
 	return filename, nil
 }
 
@@ -248,18 +249,18 @@ func stripWhitespace(s string) string {
 func SaveBase64Fallback(outputDir, prefix, raw string, index int) string {
 	// Ensure output directory exists
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to create output directory: %v\n", err)
+		ui.Eprintf("Warning: failed to create output directory: %v\n", err)
 		return ""
 	}
 
 	filename := filepath.Join(outputDir, fmt.Sprintf("%s_%d.txt", prefix, index))
 	// Save pure base64 data — no comments, base64 -d reads this directly
 	if err := fsutil.WriteFileAtomic(filename, []byte(raw), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to save raw data %s: %v\n", filename, err)
+		ui.Eprintf("Warning: failed to save raw data %s: %v\n", filename, err)
 		return ""
 	}
-	fmt.Fprintf(os.Stderr, "  Saved: %s (raw base64 — could not decode as image)\n", filename)
-	fmt.Fprintf(os.Stderr, "  Convert with: base64 -d %s > %s.png\n", filepath.Base(filename), strings.TrimSuffix(filename, ".txt"))
+	ui.Eprintf("  Saved: %s (raw base64 — could not decode as image)\n", filename)
+	ui.Eprintf("  Convert with: base64 -d %s > %s.png\n", filepath.Base(filename), strings.TrimSuffix(filename, ".txt"))
 	return filename
 }
 
@@ -277,7 +278,7 @@ func SavePrompt(outputDir, kind, taskID, prompt string) error {
 	if err := fsutil.WriteFileAtomic(filename, []byte(content), 0644); err != nil {
 		return fmt.Errorf("save prompt file: %w", err)
 	}
-	fmt.Printf("Prompt saved: %s\n", filename)
+	ui.Printf("Prompt saved: %s\n", filename)
 	return nil
 }
 
@@ -430,10 +431,10 @@ func SaveResourceWithBearer(source, token, dest string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		fmt.Fprintln(os.Stderr, "This model requires authentication. Use --hf-token:")
-		fmt.Fprintln(os.Stderr, "  1. Accept terms on the model's HuggingFace page")
-		fmt.Fprintln(os.Stderr, "  2. Create a token at https://huggingface.co/settings/tokens")
-		fmt.Fprintln(os.Stderr, "  3. aigc-cli X init --hf-token hf_...")
+		ui.Eprintln("This model requires authentication. Use --hf-token:")
+		ui.Eprintln("  1. Accept terms on the model's HuggingFace page")
+		ui.Eprintln("  2. Create a token at https://huggingface.co/settings/tokens")
+		ui.Eprintln("  3. aigc-cli X init --hf-token hf_...")
 		return fmt.Errorf("HTTP 401 unauthorized")
 	}
 

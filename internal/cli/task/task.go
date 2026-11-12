@@ -10,6 +10,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // Deps carries the runtime configuration and callbacks the task command needs.
@@ -89,7 +90,7 @@ Example:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			text, err := QueryText(deps(), args[0])
 			if text != "" {
-				fmt.Println(text)
+				ui.Println(text)
 			}
 			return err
 		},

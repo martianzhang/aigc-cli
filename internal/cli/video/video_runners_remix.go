@@ -3,7 +3,6 @@ package video
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runVideoRemix handles the VEO3 remix (video extension) flow.
@@ -47,13 +47,13 @@ func runVideoRemix(cmd *cobra.Command) error {
 
 	if vidDryRun {
 		curl := buildVideoRemixCurl(req)
-		fmt.Println(curl)
+		ui.Println(curl)
 		return nil
 	}
 
 	if options.Shared.Verbose {
 		prettyReq, _ := json.MarshalIndent(req, "", "  ")
-		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+		ui.Printf("Request:\n%s\n\n", string(prettyReq))
 	}
 
 	c := clientfactory.NewClient("video")
@@ -67,12 +67,12 @@ func runVideoRemix(cmd *cobra.Command) error {
 	}
 
 	task := resp.Data[0]
-	fmt.Printf("Provider: %s\n", options.Shared.ResolveProvider("video").ProviderType)
-	fmt.Printf("Response code: %d\n", resp.Code)
-	fmt.Printf("Task ID: %s\n", task.TaskID)
-	fmt.Printf("Status: %s\n\n", task.Status)
+	ui.Printf("Provider: %s\n", options.Shared.ResolveProvider("video").ProviderType)
+	ui.Printf("Response code: %d\n", resp.Code)
+	ui.Printf("Task ID: %s\n", task.TaskID)
+	ui.Printf("Status: %s\n\n", task.Status)
 
-	fmt.Println("Polling for completion...")
+	ui.Println("Polling for completion...")
 	taskData, err := c.PollTask(task.TaskID, clientfactory.TaskWait(types.MediaVideo))
 	if err != nil {
 		return fmt.Errorf("polling failed: %w", err)
@@ -80,10 +80,10 @@ func runVideoRemix(cmd *cobra.Command) error {
 
 	if options.Shared.Verbose {
 		prettyResult, _ := json.MarshalIndent(taskData, "", "  ")
-		fmt.Printf("\nTask result:\n%s\n", string(prettyResult))
+		ui.Printf("\nTask result:\n%s\n", string(prettyResult))
 	}
 
-	fmt.Println()
+	ui.Println()
 	savePromptFile(taskData.ID, req.Prompt)
 	var saved []string
 	if taskData.Result == nil || len(taskData.Result.Videos) == 0 {
@@ -95,19 +95,19 @@ func runVideoRemix(cmd *cobra.Command) error {
 	}
 	if vidCropMargin != "" {
 		if cropped, cerr := cropSavedVideos(saved); cerr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: video crop failed: %v\n", cerr)
+			ui.Eprintf("Warning: video crop failed: %v\n", cerr)
 		} else {
 			saved = cropped
 		}
 	}
 
-	fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
+	ui.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 		taskData.ActualTime, taskData.Cost, taskData.CreditsCost)
 
 	if vidPreview {
 		for _, f := range saved {
 			if e := service.PreviewFile(f); e != nil {
-				fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
+				ui.Eprintf("Warning: preview failed: %v\n", e)
 			}
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/wmremove"
 )
 
@@ -26,7 +27,7 @@ func tryInitWMRemove() (*wmremove.Detector, error) {
 // runMIGan runs MI-GAN inpainting on the given region and saves the result.
 func runMIGan(path string, img image.Image, x, y, w, h int, producer string) bool {
 	if img == nil {
-		fmt.Fprintf(os.Stderr, "  MI-GAN error: no image data\n")
+		ui.Eprintf("  MI-GAN error: no image data\n")
 		return false
 	}
 	pad := 50
@@ -44,18 +45,18 @@ func runMIGan(path string, img image.Image, x, y, w, h int, producer string) boo
 	mask := wmremove.GenerateMask(b.Dx(), b.Dy(), mx, my, mw, mh)
 	outImg, err := wmDetector.RemoveWatermark(img, mask)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "  MI-GAN error: %v\n", err)
+		ui.Eprintf("  MI-GAN error: %v\n", err)
 		return false
 	}
 	outPath := cleanPath(path)
 	if err := wmremove.SavePNG(outPath, outImg); err != nil {
-		fmt.Fprintf(os.Stderr, "  MI-GAN error: save %s: %v\n", outPath, err)
+		ui.Eprintf("  MI-GAN error: save %s: %v\n", outPath, err)
 		return false
 	}
 	if producer != "" {
-		fmt.Printf("  Watermark removed (mi-gan, %s) -> %s\n", producer, outPath)
+		ui.Printf("  Watermark removed (mi-gan, %s) -> %s\n", producer, outPath)
 	} else {
-		fmt.Printf("  Watermark removed (mi-gan) -> %s\n", outPath)
+		ui.Printf("  Watermark removed (mi-gan) -> %s\n", outPath)
 	}
 	return true
 }

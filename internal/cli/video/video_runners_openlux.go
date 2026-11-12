@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
@@ -24,13 +25,13 @@ func runOpenLuxVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 		return nil, fmt.Errorf("openlux video submission failed: %w", err)
 	}
 
-	fmt.Printf("Provider: %s\n", p.ProviderType)
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Printf("Task ID: %s\n", createResp.ID)
-	fmt.Printf("Status: %s\n\n", createResp.Status)
+	ui.Printf("Provider: %s\n", p.ProviderType)
+	ui.Printf("Model: %s\n", req.Model)
+	ui.Printf("Task ID: %s\n", createResp.ID)
+	ui.Printf("Status: %s\n\n", createResp.Status)
 
 	// Step 2: Poll
-	fmt.Println("Polling for completion...")
+	ui.Println("Polling for completion...")
 	taskID := createResp.ID
 	openluxMaxWait := clientfactory.TaskWait(types.MediaVideo)
 	start := time.Now()
@@ -58,7 +59,7 @@ func runOpenLuxVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 		default:
 			// pending / running / in_progress / queued -- keep waiting
 			progress := fmt.Sprintf("%.0fs", time.Since(start).Seconds())
-			fmt.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
+			ui.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
 			if err := wait.Sleep(ctx, client.DefaultPollInterval); err != nil {
 				return nil, err
 			}
@@ -70,16 +71,16 @@ func runOpenLuxVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 	}
 
 	// Step 3: Download
-	fmt.Println()
-	fmt.Printf("Downloading video...\n")
+	ui.Println()
+	ui.Printf("Downloading video...\n")
 	savePromptFile(taskID, req.Prompt)
 	filename, err := service.DownloadFile(videoURL, options.Shared.OutputDir, fmt.Sprintf("video_openlux_%s", taskID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to download video: %w", err)
 	}
-	fmt.Printf("Saved: %s\n", filename)
+	ui.Printf("Saved: %s\n", filename)
 
 	elapsed := time.Since(start).Seconds()
-	fmt.Printf("Completed in %.0fs\n", elapsed)
+	ui.Printf("Completed in %.0fs\n", elapsed)
 	return &RunResult{Videos: []string{filename}}, nil
 }

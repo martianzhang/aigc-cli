@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/vault"
 	"github.com/spf13/cobra"
 )
@@ -48,24 +49,24 @@ as shown in 'kb list'.`,
 			}
 		}
 
-		fmt.Printf("ID:       %s\n", doc.ID)
+		ui.Printf("ID:       %s\n", doc.ID)
 		if doc.URL != "" {
-			fmt.Printf("URL:      %s\n", doc.URL)
+			ui.Printf("URL:      %s\n", doc.URL)
 			if host := extractHost(doc.URL); host != "" {
-				fmt.Printf("Source:   %s\n", host)
+				ui.Printf("Source:   %s\n", host)
 			}
 		}
 		if doc.FilePath != "" {
-			fmt.Printf("File:     %s\n", doc.FilePath)
+			ui.Printf("File:     %s\n", doc.FilePath)
 		}
-		fmt.Printf("Title:    %s\n", doc.Title)
+		ui.Printf("Title:    %s\n", doc.Title)
 		if doc.Project != "" {
-			fmt.Printf("Project:  %s\n", doc.Project)
+			ui.Printf("Project:  %s\n", doc.Project)
 		}
-		fmt.Printf("Size:     %.1f KB\n", float64(doc.Size)/1024)
-		fmt.Printf("Created:  %s\n", doc.CreatedAt.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Updated:  %s\n", doc.UpdatedAt.Format("2006-01-02 15:04:05"))
-		fmt.Println()
+		ui.Printf("Size:     %.1f KB\n", float64(doc.Size)/1024)
+		ui.Printf("Created:  %s\n", doc.CreatedAt.Format("2006-01-02 15:04:05"))
+		ui.Printf("Updated:  %s\n", doc.UpdatedAt.Format("2006-01-02 15:04:05"))
+		ui.Println()
 
 		// Show chunks
 		rows, err := store.DB().Query(
@@ -87,12 +88,12 @@ as shown in 'kb list'.`,
 				return fmt.Errorf("scan chunk: %w", err)
 			}
 			if heading != "" {
-				fmt.Printf("--- Chunk %d: %s ---\n", chunkIndex, heading)
+				ui.Printf("--- Chunk %d: %s ---\n", chunkIndex, heading)
 			} else {
-				fmt.Printf("--- Chunk %d ---\n", chunkIndex)
+				ui.Printf("--- Chunk %d ---\n", chunkIndex)
 			}
-			fmt.Println(content)
-			fmt.Println()
+			ui.Println(content)
+			ui.Println()
 		}
 
 		return rows.Err()
@@ -133,15 +134,15 @@ func showVault(docID string) error {
 		return fmt.Errorf("load: %w", err)
 	}
 
-	fmt.Printf("Title: %s\nID: %s\n", match.Title, knowledge.ShortID(match.ID))
+	ui.Printf("Title: %s\nID: %s\n", match.Title, knowledge.ShortID(match.ID))
 	if match.URL != "" {
-		fmt.Printf("URL: %s\n", match.URL)
+		ui.Printf("URL: %s\n", match.URL)
 	}
 	if match.FilePath != "" {
-		fmt.Printf("File: %s\n", match.FilePath)
+		ui.Printf("File: %s\n", match.FilePath)
 	}
-	fmt.Printf("Size: %d bytes\n\n", len(plaintext))
-	fmt.Println(string(plaintext))
+	ui.Printf("Size: %d bytes\n\n", len(plaintext))
+	ui.Println(string(plaintext))
 
 	return nil
 }

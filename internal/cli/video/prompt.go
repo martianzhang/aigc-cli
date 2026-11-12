@@ -1,11 +1,9 @@
 package video
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // savePromptFile saves the generation prompt to video_{taskID}.md when
@@ -15,6 +13,6 @@ func savePromptFile(taskID, prompt string) {
 		return
 	}
 	if err := service.SavePrompt(options.Shared.OutputDir, "video", taskID, prompt); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+		ui.Eprintf("Warning: %v\n", err)
 	}
 }

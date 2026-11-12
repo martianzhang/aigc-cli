@@ -10,6 +10,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/modelstore"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 const (
@@ -53,16 +54,16 @@ func runBackgroundInit(cmd *cobra.Command, args []string) error {
 	}
 	modelPath := filepath.Join(modelsDir, rmbgModelFilename)
 	if _, err := os.Stat(modelPath); err == nil && !bgInitForce {
-		fmt.Printf("RMBG model already exists: %s\n  Use --force to re-download.\n", modelPath)
+		ui.Printf("RMBG model already exists: %s\n  Use --force to re-download.\n", modelPath)
 		return nil
 	}
 
-	fmt.Printf("Downloading %s (%s)...\n", rmbgModelDesc, rmbgModelSize)
+	ui.Printf("Downloading %s (%s)...\n", rmbgModelDesc, rmbgModelSize)
 	if err := modelstore.Install(options.Context(), nil, rmbgModelURL, modelPath, modelstore.Options{Force: bgInitForce}); err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
-	fmt.Println("  Done.")
-	fmt.Println("\nRMBG 2.0 model installed!")
+	ui.Println("  Done.")
+	ui.Println("\nRMBG 2.0 model installed!")
 	return nil
 }
 

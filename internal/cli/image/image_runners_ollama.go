@@ -1,7 +1,6 @@
 package image
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
@@ -9,6 +8,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // ollamaGenerateImages sends a request to Ollama's /api/generate and returns saved filenames.
@@ -24,11 +24,11 @@ func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Printf("Duration: %.1fs\n", time.Since(start).Seconds())
+	ui.Printf("Model: %s\n", req.Model)
+	ui.Printf("Duration: %.1fs\n", time.Since(start).Seconds())
 	savePromptFile(promptTaskID("image_ollama", 0), req.Prompt)
 	for i, f := range saved {
-		fmt.Printf("Image %d: %s\n", i+1, f)
+		ui.Printf("Image %d: %s\n", i+1, f)
 	}
 	postProcessImages(saved)
 	return saved, nil

@@ -7,6 +7,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/vault"
 	"github.com/spf13/cobra"
 )
@@ -60,7 +61,7 @@ var kbListCmd = &cobra.Command{
 		}
 
 		if len(docs) == 0 {
-			fmt.Fprintln(os.Stderr, "Knowledge base is empty. Add documents with 'kb add' or 'kb fetch'.")
+			ui.Eprintln("Knowledge base is empty. Add documents with 'kb add' or 'kb fetch'.")
 			return nil
 		}
 
@@ -81,10 +82,10 @@ var kbListCmd = &cobra.Command{
 		renderTable(os.Stdout, rows)
 		shown := len(docs)
 		if shown > 0 && kbListOffset+shown < total {
-			fmt.Fprintf(os.Stderr, "\nShowing %d-%d of %d documents. Use --limit and --offset to navigate.\n",
+			ui.Eprintf("\nShowing %d-%d of %d documents. Use --limit and --offset to navigate.\n",
 				kbListOffset+1, kbListOffset+shown, total)
 		} else if total > 0 {
-			fmt.Fprintf(os.Stderr, "\nTotal: %d documents.\n", total)
+			ui.Eprintf("\nTotal: %d documents.\n", total)
 		}
 		return nil
 	},
@@ -152,7 +153,7 @@ func listVault() error {
 	}
 
 	if len(vaultItems) == 0 {
-		fmt.Fprintln(os.Stderr, "Vault is empty. Use 'kb add --vault' to add files.")
+		ui.Eprintln("Vault is empty. Use 'kb add --vault' to add files.")
 		return nil
 	}
 

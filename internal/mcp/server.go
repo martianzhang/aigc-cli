@@ -22,6 +22,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // GenerateDeps lets the CLI inject its image/video/music orchestration without
@@ -303,17 +304,13 @@ func Run(cfg *Config) error {
 		return nil
 	}
 
-	// The shared CLI runners print progress to os.Stdout, which collides with
-	// MCP's JSON-RPC stream. Capture the protocol writer first, then point the
-	// process-wide stdout at stderr so progress output cannot corrupt it.
+	// All CLI/library progress goes through internal/ui. Capture the protocol
+	// writer first, then point ui.Out at stderr so tool progress cannot corrupt
+	// the JSON-RPC stream. No process-wide os.Stdout swap is needed.
 	options.Shared.OutputDir = cfg.Output
 	s := NewServer(cfg)
 
 	protocolOut := options.Stdout()
-	realOut := os.Stdout
-	os.Stdout = os.Stderr
-	defer func() { os.Stdout = realOut }()
-
 	restoreStdout := options.SetStdout(os.Stderr)
 	defer restoreStdout()
 
@@ -338,9 +335,9 @@ func ListTools(cfg *Config, mode string) {
 	}
 
 	if showAll {
-		fmt.Printf("MCP tools: %d registered, %d enabled\n\n", len(toolRegistry), enabledCount)
+		ui.Printf("MCP tools: %d registered, %d enabled\n\n", len(toolRegistry), enabledCount)
 	} else {
-		fmt.Printf("MCP tools: %d enabled (of %d registered; use --list-tools=all to show the rest)\n\n",
+		ui.Printf("MCP tools: %d enabled (of %d registered; use --list-tools=all to show the rest)\n\n",
 			enabledCount, len(toolRegistry))
 	}
 
@@ -360,14 +357,14 @@ func ListTools(cfg *Config, mode string) {
 				note = "  [in tools_disable]"
 			}
 		}
-		fmt.Printf("  %s %-24s  %s%s\n", mark, info.name, info.desc, note)
+		ui.Printf("  %s %-24s  %s%s\n", mark, info.name, info.desc, note)
 	}
 
 	if len(cfg.ToolsEnable) > 0 {
-		fmt.Printf("\n  tools_enable:  %v\n", cfg.ToolsEnable)
+		ui.Printf("\n  tools_enable:  %v\n", cfg.ToolsEnable)
 	}
 	if len(cfg.ToolsDisable) > 0 {
-		fmt.Printf("  tools_disable: %v\n", cfg.ToolsDisable)
+		ui.Printf("  tools_disable: %v\n", cfg.ToolsDisable)
 	}
 }
 

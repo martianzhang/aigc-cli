@@ -11,6 +11,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/ocr"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // newOCREngine creates an OCR engine with the standard model setup and the
@@ -58,16 +59,16 @@ func saveOCRResult(_ *cobra.Command, result *ocr.OCRResult, inputPath string) er
 	if err := os.WriteFile(outPath, []byte(rawText+"\n"), 0644); err != nil {
 		return fmt.Errorf("save output: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "Saved: %s\n", outPath)
+	ui.Eprintf("Saved: %s\n", outPath)
 
 	if ocrScanPreview {
 		if len(result.Pages) == 0 || len(result.Pages[0].Lines) == 0 {
-			fmt.Println("(no text detected)")
+			ui.Println("(no text detected)")
 			return nil
 		}
-		fmt.Print(rawText)
+		ui.Print(rawText)
 		if !strings.HasSuffix(rawText, "\n") {
-			fmt.Println()
+			ui.Println()
 		}
 	}
 
@@ -82,9 +83,9 @@ func writesToStdout(outputDir string) bool {
 
 // printText writes OCR text to stdout, guaranteeing exactly one trailing newline.
 func printText(text string) {
-	fmt.Print(text)
+	ui.Print(text)
 	if !strings.HasSuffix(text, "\n") {
-		fmt.Println()
+		ui.Println()
 	}
 }
 

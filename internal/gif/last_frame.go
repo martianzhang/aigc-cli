@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // ExtractLastFrameOptions 是一次「抽取视频尾帧」的输入参数。
@@ -35,7 +37,7 @@ func ExtractLastFrame(opts ExtractLastFrameOptions) (string, error) {
 	args := []string{"-y", "-sseof", "-1", "-i", input,
 		"-vf", "reverse", "-frames:v", "1", "-update", "1", out}
 
-	fmt.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
+	ui.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
 
 	cmd := exec.Command("ffmpeg", args...)
 	if outBuf, err := cmd.CombinedOutput(); err != nil {

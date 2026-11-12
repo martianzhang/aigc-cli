@@ -2,10 +2,10 @@ package knowledge
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/vault"
 	"github.com/spf13/cobra"
 )
@@ -44,11 +44,11 @@ func fetchToKB(cmd *cobra.Command, args []string) error {
 	project := detectProject(cmd)
 
 	for _, url := range args {
-		fmt.Fprintf(os.Stderr, "  Fetching: %s\n", url)
+		ui.Eprintf("  Fetching: %s\n", url)
 
 		result, err := knowledge.FetchURL(url)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  Error: %v\n", err)
+			ui.Eprintf("  Error: %v\n", err)
 			continue
 		}
 
@@ -57,11 +57,11 @@ func fetchToKB(cmd *cobra.Command, args []string) error {
 
 		existing, err := store.GetDocument(docID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  Error checking: %v\n", err)
+			ui.Eprintf("  Error checking: %v\n", err)
 			continue
 		}
 		if existing != nil {
-			fmt.Fprintf(os.Stderr, "  Skipped (already exists): %s\n", result.Title)
+			ui.Eprintf("  Skipped (already exists): %s\n", result.Title)
 			continue
 		}
 
@@ -70,11 +70,11 @@ func fetchToKB(cmd *cobra.Command, args []string) error {
 			Project: project, Size: result.Size, Checksum: checksum,
 		}
 		if err := store.SaveDocument(doc); err != nil {
-			fmt.Fprintf(os.Stderr, "  Error saving doc: %v\n", err)
+			ui.Eprintf("  Error saving doc: %v\n", err)
 			continue
 		}
 		if err := knowledge.SaveDocFile(kbBaseDir, project, docID, result.Title, result.Content); err != nil {
-			fmt.Fprintf(os.Stderr, "  Error saving doc file: %v\n", err)
+			ui.Eprintf("  Error saving doc file: %v\n", err)
 			_ = store.DeleteDocument(docID)
 			continue
 		}
@@ -86,15 +86,15 @@ func fetchToKB(cmd *cobra.Command, args []string) error {
 		}
 		embeddings, err := knowledge.EmbedAll(embedder, contents)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  Error embedding: %v\n", err)
+			ui.Eprintf("  Error embedding: %v\n", err)
 			continue
 		}
 		if err := store.SaveChunks(docID, rawChunks, embeddings, false); err != nil {
-			fmt.Fprintf(os.Stderr, "  Error saving chunks: %v\n", err)
+			ui.Eprintf("  Error saving chunks: %v\n", err)
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "  Added: %s (%d chunks, %s)\n",
+		ui.Eprintf("  Added: %s (%d chunks, %s)\n",
 			result.Title, len(rawChunks), result.URL)
 	}
 	return nil
@@ -120,18 +120,18 @@ func fetchToVault(args []string) error {
 	}
 
 	for _, url := range args {
-		fmt.Fprintf(os.Stderr, "  Fetching: %s\n", url)
+		ui.Eprintf("  Fetching: %s\n", url)
 
 		result, err := knowledge.FetchURL(url)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  Error: %v\n", err)
+			ui.Eprintf("  Error: %v\n", err)
 			continue
 		}
 
 		docID := knowledge.Checksum(result.Content)
 		existing, _ := store.GetDocument(docID)
 		if existing != nil {
-			fmt.Fprintf(os.Stderr, "  Skipped (already exists): %s\n", result.Title)
+			ui.Eprintf("  Skipped (already exists): %s\n", result.Title)
 			continue
 		}
 
@@ -141,7 +141,7 @@ func fetchToVault(args []string) error {
 			IsVault: true, Size: result.Size, Checksum: docID,
 		}
 		if err := store.SaveDocument(doc); err != nil {
-			fmt.Fprintf(os.Stderr, "  Error saving doc: %v\n", err)
+			ui.Eprintf("  Error saving doc: %v\n", err)
 			continue
 		}
 
@@ -153,11 +153,11 @@ func fetchToVault(args []string) error {
 		}
 		embeddings, err := knowledge.EmbedAll(embedder, contents)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  Error embedding: %v\n", err)
+			ui.Eprintf("  Error embedding: %v\n", err)
 			continue
 		}
 		if err := store.SaveVaultEmbeddings(docID, embeddings); err != nil {
-			fmt.Fprintf(os.Stderr, "  Error saving vectors: %v\n", err)
+			ui.Eprintf("  Error saving vectors: %v\n", err)
 		}
 
 		// Encrypt content to vault file
@@ -166,11 +166,11 @@ func fetchToVault(args []string) error {
 			Size: result.Size,
 		}
 		if err := v.Save(vaultDoc, []byte(result.Content)); err != nil {
-			fmt.Fprintf(os.Stderr, "  Error encrypting: %v\n", err)
+			ui.Eprintf("  Error encrypting: %v\n", err)
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "  Added to vault: %s\n", result.Title)
+		ui.Eprintf("  Added to vault: %s\n", result.Title)
 	}
 	return nil
 }

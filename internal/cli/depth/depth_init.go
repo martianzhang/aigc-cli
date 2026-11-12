@@ -12,6 +12,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/modelstore"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 const (
@@ -80,14 +81,14 @@ func runDepthInit(_ *cobra.Command, _ []string) error {
 		info, _ := depth.ResolveModel(id)
 		modelPath := depth.ModelPath(sharedDir, id)
 		if _, err := os.Stat(modelPath); err == nil && !videoInitForce {
-			fmt.Printf("%s already exists: %s\n  Use --force to re-download.\n", info.ID, modelPath)
+			ui.Printf("%s already exists: %s\n  Use --force to re-download.\n", info.ID, modelPath)
 			continue
 		}
-		fmt.Printf("Downloading %s (%s, %s)...\n", info.ID, info.Size, info.License)
+		ui.Printf("Downloading %s (%s, %s)...\n", info.ID, info.Size, info.License)
 		if err := modelstore.Install(options.Context(), nil, depthModelURL(id), modelPath, modelstore.Options{Force: videoInitForce}); err != nil {
 			return fmt.Errorf("download %s failed: %w", id, err)
 		}
-		fmt.Println("  Done.")
+		ui.Println("  Done.")
 	}
 
 	if videoInitAll || videoInitSkeleton {
@@ -101,7 +102,7 @@ func runDepthInit(_ *cobra.Command, _ []string) error {
 		}
 	}
 
-	fmt.Println("\nModels installed!")
+	ui.Println("\nModels installed!")
 	return nil
 }
 
@@ -117,14 +118,14 @@ func downloadSkeletonModels(sharedDir string) error {
 	}
 	path := filepath.Join(dir, file)
 	if _, err := os.Stat(path); err == nil && !videoInitForce {
-		fmt.Printf("skeleton model already exists: %s\n", path)
+		ui.Printf("skeleton model already exists: %s\n", path)
 		return nil
 	}
-	fmt.Printf("Downloading YOLOv8n-pose (skeleton, 13.5MB)...\n")
+	ui.Printf("Downloading YOLOv8n-pose (skeleton, 13.5MB)...\n")
 	if err := modelstore.Install(options.Context(), nil, url, path, modelstore.Options{Force: videoInitForce}); err != nil {
 		return fmt.Errorf("download skeleton model failed: %w", err)
 	}
-	fmt.Println("  Done.")
+	ui.Println("  Done.")
 	return nil
 }
 
@@ -142,10 +143,10 @@ func downloadFaceModels(sharedDir string) error {
 
 	download := func(url, path, label string) error {
 		if _, err := os.Stat(path); err == nil && !videoInitForce {
-			fmt.Printf("face model already exists: %s\n", path)
+			ui.Printf("face model already exists: %s\n", path)
 			return nil
 		}
-		fmt.Printf("Downloading face model: %s\n", label)
+		ui.Printf("Downloading face model: %s\n", label)
 		if err := modelstore.Install(options.Context(), nil, url, path, modelstore.Options{Force: videoInitForce}); err != nil {
 			return fmt.Errorf("download %s failed: %w", label, err)
 		}
@@ -162,7 +163,7 @@ func downloadFaceModels(sharedDir string) error {
 			return err
 		}
 	}
-	fmt.Println("  Face models done.")
+	ui.Println("  Face models done.")
 	return nil
 }
 

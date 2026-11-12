@@ -2,8 +2,6 @@ package mcp
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/image"
@@ -15,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -106,7 +105,7 @@ Example MCP host config:
 
 		if cfg != nil {
 		} else if loadErr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: config load error (will use defaults only): %v\n", loadErr)
+			ui.Eprintf("Warning: config load error (will use defaults only): %v\n", loadErr)
 		}
 		if cfg != nil {
 			if mcpCfg.APIKey == "" {

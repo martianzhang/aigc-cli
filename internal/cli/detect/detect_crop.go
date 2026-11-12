@@ -12,6 +12,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/detect"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/watermark"
 )
 
@@ -37,8 +38,8 @@ func handleCropWatermark(path string) error {
 		if len(regions) > 0 {
 			bounds = watermark.ComputeCropBounds(imgW, imgH, regions)
 			if !bounds.Valid {
-				fmt.Printf("  Auto detection failed: %s\n", bounds.Reason)
-				fmt.Printf("  Falling back to default 90%% crop (trimming 5%% from each side)\n")
+				ui.Printf("  Auto detection failed: %s\n", bounds.Reason)
+				ui.Printf("  Falling back to default 90%% crop (trimming 5%% from each side)\n")
 				marginRatio := 0.05
 				marginX := int(float64(imgW) * marginRatio)
 				marginY := int(float64(imgH) * marginRatio)
@@ -57,7 +58,7 @@ func handleCropWatermark(path string) error {
 				W: imgW - marginX*2, H: imgH - marginY*2,
 				Valid: true,
 			}
-			fmt.Printf("  No watermark detected, applying default margin: %.0f%%\n", marginRatio*100)
+			ui.Printf("  No watermark detected, applying default margin: %.0f%%\n", marginRatio*100)
 		}
 	} else {
 		targetW, targetH, keepRatio, parseErr := detect.ParseCropTarget(detectCropWM)
@@ -113,10 +114,10 @@ func handleCropWatermark(path string) error {
 		}
 	}
 
-	fmt.Printf("  Cropped: %dx%d -> %dx%d -> %s\n", imgW, imgH, bounds.W, bounds.H, outPath)
+	ui.Printf("  Cropped: %dx%d -> %dx%d -> %s\n", imgW, imgH, bounds.W, bounds.H, outPath)
 	if detectPreview {
 		if err := service.PreviewFile(outPath); err != nil {
-			fmt.Fprintf(os.Stderr, "  Preview failed: %v\n", err)
+			ui.Eprintf("  Preview failed: %v\n", err)
 		}
 	}
 	return nil

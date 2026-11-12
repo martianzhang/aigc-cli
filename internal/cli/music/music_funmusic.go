@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // funMusicDefaultModel is the code last-resort model for Alibaba Fun-Music.
@@ -50,10 +50,10 @@ func BuildFunMusicBody(req *types.MusicGenerateRequest) (any, error) {
 		return types.MaybeInject(req.RawJSON, req.InjectJSON)
 	}
 	if req.Duration != nil {
-		fmt.Fprintln(os.Stderr, "Warning: fun-music ignores --duration (length is derived from the lyrics)")
+		ui.Eprintln("Warning: fun-music ignores --duration (length is derived from the lyrics)")
 	}
 	if req.Title != "" {
-		fmt.Fprintln(os.Stderr, "Warning: fun-music ignores --title")
+		ui.Eprintln("Warning: fun-music ignores --title")
 	}
 
 	model := funMusicModel(req.Model)
@@ -111,13 +111,13 @@ func runFunMusicMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *
 	}
 
 	if musicDryRun {
-		fmt.Println(buildFunMusicCurl(ctx.baseURL, ctx.apiKey, body))
+		ui.Println(buildFunMusicCurl(ctx.baseURL, ctx.apiKey, body))
 		return nil, nil
 	}
 
 	if options.Shared.Verbose {
 		pretty, _ := json.MarshalIndent(body, "", "  ")
-		fmt.Printf("Request:\n%s\n\n", string(pretty))
+		ui.Printf("Request:\n%s\n\n", string(pretty))
 	}
 
 	resp, err := c.FunMusicGenerate(body)
@@ -127,14 +127,14 @@ func runFunMusicMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *
 
 	track := resp.Track()
 	if built, ok := body.(map[string]any); ok {
-		fmt.Printf("Model: %v\n", built["model"])
+		ui.Printf("Model: %v\n", built["model"])
 	}
-	fmt.Printf("Duration: %ds\n", resp.Usage.Duration)
+	ui.Printf("Duration: %ds\n", resp.Usage.Duration)
 	if track.AudioURL != "" {
-		fmt.Printf("Audio: %s\n", track.AudioURL)
+		ui.Printf("Audio: %s\n", track.AudioURL)
 	}
 	if options.Shared.Verbose && track.Lyrics != "" {
-		fmt.Printf("Lyrics:\n%s\n", track.Lyrics)
+		ui.Printf("Lyrics:\n%s\n", track.Lyrics)
 	}
 
 	label := resp.Output.Audio.ID

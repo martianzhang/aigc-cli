@@ -18,6 +18,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // Deps carries runtime configuration for the redact command.
@@ -435,7 +436,7 @@ func buildPipeline(f buildFlags) (*redactlib.Pipeline, *redactlib.MaskResolver, 
 				if engine == "model" {
 					return nil, nil, err
 				}
-				fmt.Fprintf(os.Stderr, "warning: redact ONNX model disabled: %v\n", err)
+				ui.Eprintf("warning: redact ONNX model disabled: %v\n", err)
 			} else {
 				engines = append(engines, eng)
 			}

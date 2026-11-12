@@ -7,6 +7,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runImageEditsJSON handles ZeekAI's image-to-image endpoint:
@@ -23,12 +24,12 @@ func runImageEditsJSON(c client.APIClient, req *types.GenerateRequest, ctx *imag
 	}
 	elapsed := time.Since(start)
 
-	fmt.Printf("Provider: %s\n", ctx.providerFor().ProviderType)
-	fmt.Printf("Model: %s\n", req.Model)
+	ui.Printf("Provider: %s\n", ctx.providerFor().ProviderType)
+	ui.Printf("Model: %s\n", req.Model)
 	if resp.Created > 0 {
-		fmt.Printf("Created: %s\n", time.Unix(resp.Created, 0).Format("2006-01-02 15:04:05"))
+		ui.Printf("Created: %s\n", time.Unix(resp.Created, 0).Format("2006-01-02 15:04:05"))
 	}
-	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	taskID := promptTaskID("image_sync", resp.Created)
 	savePromptFile(taskID, req.Prompt)

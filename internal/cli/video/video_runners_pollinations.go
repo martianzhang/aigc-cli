@@ -12,6 +12,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runPollinationsVideo handles video generation via pollinations.ai's
@@ -25,9 +26,9 @@ func runPollinationsVideo(ctx context.Context, c *client.Client, p *provider.Eff
 		return nil, fmt.Errorf("prompt is required for pollinations video generation")
 	}
 
-	fmt.Printf("Provider: %s\n", p.ProviderType)
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Println("Requesting video (pollinations generates synchronously; this may take a few minutes)...")
+	ui.Printf("Provider: %s\n", p.ProviderType)
+	ui.Printf("Model: %s\n", req.Model)
+	ui.Println("Requesting video (pollinations generates synchronously; this may take a few minutes)...")
 
 	start := time.Now()
 	data, contentType, err := c.PollinationsVideoGenerate(req)
@@ -50,8 +51,8 @@ func runPollinationsVideo(ctx context.Context, c *client.Client, p *provider.Eff
 		return nil, fmt.Errorf("failed to save video: %w", err)
 	}
 
-	fmt.Printf("Size: %d bytes\n", len(data))
-	fmt.Printf("Saved: %s\n", filename)
-	fmt.Printf("Completed in %.0fs\n", elapsed)
+	ui.Printf("Size: %d bytes\n", len(data))
+	ui.Printf("Saved: %s\n", filename)
+	ui.Printf("Completed in %.0fs\n", elapsed)
 	return &RunResult{Videos: []string{filename}}, nil
 }

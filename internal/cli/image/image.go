@@ -3,7 +3,6 @@ package image
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // imageCmd represents the `aigc-cli image` command.
@@ -178,7 +178,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(curl)
+		ui.Println(curl)
 		return nil
 	}
 
@@ -195,17 +195,17 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	// (uploaded URLs for APIMart, data URIs elsewhere) rather than raw local paths.
 	if options.Shared.Verbose {
 		if plan.Multipart {
-			fmt.Printf("Request (multipart/form-data):\n")
+			ui.Printf("Request (multipart/form-data):\n")
 			for _, f := range plan.FormFields {
-				fmt.Printf("  %s=%s\n", f.Name, f.Value)
+				ui.Printf("  %s=%s\n", f.Name, f.Value)
 			}
 			for _, f := range plan.FormFiles {
-				fmt.Printf("  %s=@%s\n", f.Field, f.Path)
+				ui.Printf("  %s=@%s\n", f.Field, f.Path)
 			}
-			fmt.Println()
+			ui.Println()
 		} else {
 			prettyReq, _ := json.MarshalIndent(plan.Body, "", "  ")
-			fmt.Printf("Request:\n%s\n\n", string(prettyReq))
+			ui.Printf("Request:\n%s\n\n", string(prettyReq))
 		}
 	}
 
@@ -223,7 +223,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 			if genPreview {
 				for _, f := range saved {
 					if e := service.PreviewFile(f); e != nil {
-						fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
+						ui.Eprintf("Warning: preview failed: %v\n", e)
 					}
 				}
 			}

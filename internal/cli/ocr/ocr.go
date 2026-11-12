@@ -10,6 +10,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/modelstore"
 	"github.com/martianzhang/aigc-cli/internal/ocr"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // ocrCmd represents the `aigc-cli ocr` command group.
@@ -106,26 +107,26 @@ func runOCRInit(cmd *cobra.Command, args []string) error {
 	listInstalled, _ := cmd.Flags().GetBool("list-installed")
 
 	if listModels {
-		fmt.Println("Available OCR model pack:")
+		ui.Println("Available OCR model pack:")
 		for _, m := range ocr.Models() {
-			fmt.Printf("  %-20s  %s\n", m.ID, m.Description)
+			ui.Printf("  %-20s  %s\n", m.ID, m.Description)
 		}
 		return nil
 	}
 
 	if listInstalled {
 		modelsDir := defaultOCRModelsDir()
-		fmt.Printf("Installed models in %s:\n", modelsDir)
+		ui.Printf("Installed models in %s:\n", modelsDir)
 		entries, err := os.ReadDir(modelsDir)
 		if err != nil {
 			if os.IsNotExist(err) {
-				fmt.Println("  (none installed)")
+				ui.Println("  (none installed)")
 				return nil
 			}
 			return fmt.Errorf("read models dir: %w", err)
 		}
 		if len(entries) == 0 {
-			fmt.Println("  (none installed)")
+			ui.Println("  (none installed)")
 			return nil
 		}
 		for _, e := range entries {
@@ -134,7 +135,7 @@ func runOCRInit(cmd *cobra.Command, args []string) error {
 			if size == 0 {
 				size = 1
 			}
-			fmt.Printf("  %-40s  %d MB\n", e.Name(), size)
+			ui.Printf("  %-40s  %d MB\n", e.Name(), size)
 		}
 		return nil
 	}
@@ -149,26 +150,26 @@ func runOCRInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("create models dir: %w", err)
 	}
 
-	fmt.Printf("Downloading %s...\n", modelPack.Name)
+	ui.Printf("Downloading %s...\n", modelPack.Name)
 	for _, f := range modelPack.Files {
 		outPath := filepath.Join(modelsDir, f.OutName)
 		if _, err := os.Stat(outPath); err == nil {
-			fmt.Printf("  ✓ %s (already exists)\n", f.OutName)
+			ui.Printf("  ✓ %s (already exists)\n", f.OutName)
 			continue
 		}
-		fmt.Printf("  Downloading %s (%d MB)...\n", f.OutName, f.SizeMB)
+		ui.Printf("  Downloading %s (%d MB)...\n", f.OutName, f.SizeMB)
 		if err := modelstore.Install(options.Context(), nil, f.URL, outPath, modelstore.Options{}); err != nil {
 			return fmt.Errorf("download %s: %w", f.OutName, err)
 		}
-		fmt.Printf("  ✓ %s\n", f.OutName)
+		ui.Printf("  ✓ %s\n", f.OutName)
 	}
 
 	// Download English dictionary for word splitting & spellcheck.
 	if err := downloadDict(modelsDir); err != nil {
-		fmt.Printf("  ⚠ %v\n", err)
+		ui.Printf("  ⚠ %v\n", err)
 	}
 
-	fmt.Println("\nOCR models installed. Run 'aigc-cli ocr scan <image>' to test.")
+	ui.Println("\nOCR models installed. Run 'aigc-cli ocr scan <image>' to test.")
 	return nil
 }
 
@@ -178,14 +179,14 @@ func runOCRInit(cmd *cobra.Command, args []string) error {
 func downloadDict(modelsDir string) error {
 	dictPath := filepath.Join(modelsDir, "dict_en_words.txt")
 	if _, err := os.Stat(dictPath); err == nil {
-		fmt.Println("  ✓ dict_en_words.txt (already exists)")
+		ui.Println("  ✓ dict_en_words.txt (already exists)")
 		return nil
 	}
-	fmt.Println("  Downloading dict_en_words.txt...")
+	ui.Println("  Downloading dict_en_words.txt...")
 	if err := modelstore.Install(options.Context(), nil, "https://github.com/martianzhang/aigc-cli-models/releases/download/v1/dict_en_words.txt", dictPath, modelstore.Options{}); err != nil {
 		return fmt.Errorf("dict_en_words.txt not available yet (OCR works without it): %w", err)
 	}
-	fmt.Println("  ✓ dict_en_words.txt")
+	ui.Println("  ✓ dict_en_words.txt")
 	return nil
 }
 

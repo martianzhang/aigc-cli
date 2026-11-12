@@ -7,6 +7,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -33,9 +34,9 @@ Use --force to re-download models.`,
 		defer func() { _ = store.Close() }()
 
 		count, _ := store.CountDocuments()
-		fmt.Fprintf(os.Stderr, "Knowledge base initialized at %s\n", kbBaseDir)
+		ui.Eprintf("Knowledge base initialized at %s\n", kbBaseDir)
 		if count > 0 {
-			fmt.Fprintf(os.Stderr, "Existing documents: %d\n", count)
+			ui.Eprintf("Existing documents: %d\n", count)
 		}
 
 		docsDir := kbBaseDir + "/docs"
@@ -45,14 +46,14 @@ Use --force to re-download models.`,
 
 		// Download embedding model to shared models dir
 		modelsDir := filepath.Join(options.ConfigDir(), "models")
-		fmt.Fprintf(os.Stderr, "Downloading embedding model...\n")
+		ui.Eprintf("Downloading embedding model...\n")
 		if err := knowledge.InitEmbedModel(modelsDir, kbInitForceModel); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: model download failed: %v\n", err)
-			fmt.Fprintf(os.Stderr, "  The knowledge base will work without it, but search quality\n")
-			fmt.Fprintf(os.Stderr, "  will be limited until 'kb init' completes successfully.\n")
-			fmt.Fprintf(os.Stderr, "  Retry with: aigc-cli kb init --force\n")
+			ui.Eprintf("Warning: model download failed: %v\n", err)
+			ui.Eprintf("  The knowledge base will work without it, but search quality\n")
+			ui.Eprintf("  will be limited until 'kb init' completes successfully.\n")
+			ui.Eprintf("  Retry with: aigc-cli kb init --force\n")
 		} else {
-			fmt.Fprintf(os.Stderr, "Embedding model ready.\n")
+			ui.Eprintf("Embedding model ready.\n")
 		}
 
 		return nil

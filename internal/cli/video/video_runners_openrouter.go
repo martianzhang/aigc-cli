@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // openRouterVideoBody maps a generic video request onto OpenRouter's shape.
@@ -70,7 +70,7 @@ func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.Effecti
 
 	if options.Shared.Verbose {
 		prettyReq, _ := json.MarshalIndent(orReq, "", "  ")
-		fmt.Printf("OpenRouter Video Request:\n%s\n\n", string(prettyReq))
+		ui.Printf("OpenRouter Video Request:\n%s\n\n", string(prettyReq))
 	}
 
 	// Step 1: Submit
@@ -79,11 +79,11 @@ func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.Effecti
 		return nil, fmt.Errorf("OpenRouter video submission failed: %w", err)
 	}
 
-	fmt.Printf("Provider: %s\n", p.ProviderType)
-	fmt.Printf("Model: %s\n", orReq.Model)
-	fmt.Printf("Video job submitted.\n")
-	fmt.Printf("Job ID: %s\n", submitResp.ID)
-	fmt.Printf("Status: %s\n\n", submitResp.Status)
+	ui.Printf("Provider: %s\n", p.ProviderType)
+	ui.Printf("Model: %s\n", orReq.Model)
+	ui.Printf("Video job submitted.\n")
+	ui.Printf("Job ID: %s\n", submitResp.ID)
+	ui.Printf("Status: %s\n\n", submitResp.Status)
 
 	// Save job info for later resume
 	jobInfo := &openRouterJobInfo{
@@ -94,13 +94,13 @@ func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.Effecti
 		CreatedAt:  time.Now().Unix(),
 	}
 	if err := saveJobInfo(jobInfo); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to save job info: %v\n", err)
+		ui.Eprintf("Warning: failed to save job info: %v\n", err)
 	} else {
-		fmt.Printf("Job info saved. Resume later with: --job-id %s\n", submitResp.ID)
+		ui.Printf("Job info saved. Resume later with: --job-id %s\n", submitResp.ID)
 	}
 
 	// Step 2: Poll
-	fmt.Println("Polling for completion (this may take 30s-a few minutes)...")
+	ui.Println("Polling for completion (this may take 30s-a few minutes)...")
 	pollStart := time.Now()
 	pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, client.DefaultPollInterval, clientfactory.TaskWait(types.MediaVideo))
 	if err != nil {
@@ -108,11 +108,11 @@ func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.Effecti
 	}
 
 	elapsed := time.Since(pollStart).Seconds()
-	fmt.Printf("Completed in %.0fs\n\n", elapsed)
+	ui.Printf("Completed in %.0fs\n\n", elapsed)
 
 	if options.Shared.Verbose {
 		prettyResult, _ := json.MarshalIndent(pollResp, "", "  ")
-		fmt.Printf("Video result:\n%s\n\n", string(prettyResult))
+		ui.Printf("Video result:\n%s\n\n", string(prettyResult))
 	}
 
 	savePromptFile(submitResp.ID, orReq.Prompt)
@@ -127,12 +127,12 @@ func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.Effecti
 	for i, u := range pollResp.UnsignedURLs {
 		ext := service.ExtractExt(u)
 		filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("video_%s_%d%s", submitResp.ID, i, ext))
-		fmt.Printf("Downloading video %d/%d...\n", i+1, len(pollResp.UnsignedURLs))
+		ui.Printf("Downloading video %d/%d...\n", i+1, len(pollResp.UnsignedURLs))
 		if err := service.SaveResourceWithAuth(u, apiKey, filename); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to download video %d: %v\n", i, err)
+			ui.Eprintf("Warning: failed to download video %d: %v\n", i, err)
 			continue
 		}
-		fmt.Printf("Saved: %s\n", filename)
+		ui.Printf("Saved: %s\n", filename)
 		saved = append(saved, filename)
 	}
 
@@ -147,11 +147,11 @@ func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.Effecti
 	}
 
 	if pollResp.Usage != nil {
-		fmt.Printf("Tokens: %d in / %d out", pollResp.Usage.InputTokens, pollResp.Usage.OutputTokens)
+		ui.Printf("Tokens: %d in / %d out", pollResp.Usage.InputTokens, pollResp.Usage.OutputTokens)
 		if pollResp.Usage.TotalCost > 0 {
-			fmt.Printf(" | Cost: $%.5f", pollResp.Usage.TotalCost)
+			ui.Printf(" | Cost: $%.5f", pollResp.Usage.TotalCost)
 		}
-		fmt.Println()
+		ui.Println()
 	}
 
 	return &RunResult{Videos: saved}, nil
@@ -165,9 +165,9 @@ func runOpenRouterVideoResume(jobID string) error {
 		return err
 	}
 
-	fmt.Printf("Resuming video job: %s\n", info.JobID)
-	fmt.Printf("Model: %s | Created: %s\n", info.Model, time.Unix(info.CreatedAt, 0).Format("2006-01-02 15:04:05"))
-	fmt.Printf("Prompt: %s\n\n", info.Prompt)
+	ui.Printf("Resuming video job: %s\n", info.JobID)
+	ui.Printf("Model: %s | Created: %s\n", info.Model, time.Unix(info.CreatedAt, 0).Format("2006-01-02 15:04:05"))
+	ui.Printf("Prompt: %s\n\n", info.Prompt)
 
 	c := clientfactory.NewClient("video")
 	clientfactory.ApplyTimeout(c, "video", client.VideoTimeout)
@@ -189,7 +189,7 @@ func runOpenRouterVideoResume(jobID string) error {
 		return fmt.Errorf("video job %s is %s: %s", info.JobID, statusResp.Status, errMsg)
 	default:
 		// pending / running -- poll
-		fmt.Printf("Job status: %s. Polling for completion...\n", statusResp.Status)
+		ui.Printf("Job status: %s. Polling for completion...\n", statusResp.Status)
 		pollResp, err := c.OpenRouterVideoPollUntilComplete(info.PollingURL, client.DefaultPollInterval, clientfactory.TaskWait(types.MediaVideo))
 		if err != nil {
 			return fmt.Errorf("polling failed: %w", err)
@@ -199,7 +199,7 @@ func runOpenRouterVideoResume(jobID string) error {
 
 	if options.Shared.Verbose {
 		prettyStatus, _ := json.MarshalIndent(statusResp, "", "  ")
-		fmt.Printf("Video status:\n%s\n\n", string(prettyStatus))
+		ui.Printf("Video status:\n%s\n\n", string(prettyStatus))
 	}
 
 	savePromptFile(info.JobID, info.Prompt)
@@ -214,12 +214,12 @@ func runOpenRouterVideoResume(jobID string) error {
 	for i, u := range statusResp.UnsignedURLs {
 		ext := service.ExtractExt(u)
 		filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("video_%s_%d%s", info.JobID, i, ext))
-		fmt.Printf("Downloading video %d/%d...\n", i+1, len(statusResp.UnsignedURLs))
+		ui.Printf("Downloading video %d/%d...\n", i+1, len(statusResp.UnsignedURLs))
 		if err := service.SaveResourceWithAuth(u, apiKey, filename); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to download video %d: %v\n", i, err)
+			ui.Eprintf("Warning: failed to download video %d: %v\n", i, err)
 			continue
 		}
-		fmt.Printf("Saved: %s\n", filename)
+		ui.Printf("Saved: %s\n", filename)
 		saved = append(saved, filename)
 	}
 	// Fully downloaded: the job file is no longer needed for a retry.
@@ -231,24 +231,24 @@ func runOpenRouterVideoResume(jobID string) error {
 	}
 	if vidCropMargin != "" {
 		if cropped, cerr := cropSavedVideos(saved); cerr != nil {
-			fmt.Fprintf(os.Stderr, "Warning: video crop failed: %v\n", cerr)
+			ui.Eprintf("Warning: video crop failed: %v\n", cerr)
 		} else {
 			saved = cropped
 		}
 	}
 
 	if statusResp.Usage != nil {
-		fmt.Printf("Tokens: %d in / %d out", statusResp.Usage.InputTokens, statusResp.Usage.OutputTokens)
+		ui.Printf("Tokens: %d in / %d out", statusResp.Usage.InputTokens, statusResp.Usage.OutputTokens)
 		if statusResp.Usage.TotalCost > 0 {
-			fmt.Printf(" | Cost: $%.5f", statusResp.Usage.TotalCost)
+			ui.Printf(" | Cost: $%.5f", statusResp.Usage.TotalCost)
 		}
-		fmt.Println()
+		ui.Println()
 	}
 
 	if vidPreview {
 		for _, f := range saved {
 			if e := service.PreviewFile(f); e != nil {
-				fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
+				ui.Eprintf("Warning: preview failed: %v\n", e)
 			}
 		}
 	}

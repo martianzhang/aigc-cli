@@ -15,6 +15,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 var sfxCmd = &cobra.Command{
@@ -107,14 +108,14 @@ func runAudioSFX(cmd *cobra.Command, _ []string) error {
 	}
 
 	if audioDryRun {
-		fmt.Println(buildSFXCurl(p, req))
+		ui.Println(buildSFXCurl(p, req))
 		return nil
 	}
 
 	if options.Shared.Verbose {
-		fmt.Printf("Provider: %s (%s)\n", firstNonEmpty(p.Name, p.ProviderType.String()), p.BaseURL)
-		fmt.Printf("Model: %s\n", req.Model)
-		fmt.Printf("Prompt: %d chars, duration=%.1fs\n", len(req.Prompt), req.DurationSeconds)
+		ui.Printf("Provider: %s (%s)\n", firstNonEmpty(p.Name, p.ProviderType.String()), p.BaseURL)
+		ui.Printf("Model: %s\n", req.Model)
+		ui.Printf("Prompt: %d chars, duration=%.1fs\n", len(req.Prompt), req.DurationSeconds)
 	}
 
 	start := time.Now()
@@ -132,20 +133,20 @@ func runAudioSFX(cmd *cobra.Command, _ []string) error {
 		format = audioFormatFromContentType(result.ContentType)
 	}
 
-	fmt.Printf("Model: %s\n", req.Model)
-	fmt.Printf("Format: %s\n", format)
-	fmt.Printf("Size: %d bytes\n", len(result.Data))
-	fmt.Printf("Duration: %.1fs\n", elapsed.Seconds())
+	ui.Printf("Model: %s\n", req.Model)
+	ui.Printf("Format: %s\n", format)
+	ui.Printf("Size: %d bytes\n", len(result.Data))
+	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	filename, err := saveAudioFile(result.Data, format)
 	if err != nil {
 		return fmt.Errorf("failed to save audio: %w", err)
 	}
-	fmt.Printf("Saved: %s\n", filename)
+	ui.Printf("Saved: %s\n", filename)
 
 	if sfxPlay {
 		if err := service.PreviewFile(filename); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: playback failed: %v\n", err)
+			ui.Eprintf("Warning: playback failed: %v\n", err)
 		}
 	}
 	return nil

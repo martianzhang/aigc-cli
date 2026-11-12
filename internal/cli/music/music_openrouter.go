@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // openRouterMusicDefaultModel is the code last-resort model for OpenRouter music.
@@ -80,14 +81,14 @@ func buildOpenRouterMusicCurl(baseURL, apiKey string, req *types.MusicGenerateRe
 // runOpenRouterMusic streams a music generation and saves the decoded audio.
 func runOpenRouterMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *musicDispatchCtx) ([]string, error) {
 	if musicDryRun {
-		fmt.Println(buildOpenRouterMusicCurl(ctx.baseURL, ctx.apiKey, req))
+		ui.Println(buildOpenRouterMusicCurl(ctx.baseURL, ctx.apiKey, req))
 		return nil, nil
 	}
 
 	orReq := buildOpenRouterMusicReq(req)
 	if options.Shared.Verbose {
 		pretty, _ := json.MarshalIndent(orReq, "", "  ")
-		fmt.Printf("Request:\n%s\n\n", string(pretty))
+		ui.Printf("Request:\n%s\n\n", string(pretty))
 	}
 
 	audio, transcript, err := c.OpenRouterMusicGenerate(orReq)
@@ -103,9 +104,9 @@ func runOpenRouterMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx
 	if err != nil {
 		return nil, fmt.Errorf("failed to save music: %w", err)
 	}
-	fmt.Printf("Saved: %s\n", saved)
+	ui.Printf("Saved: %s\n", saved)
 	if transcript != "" {
-		fmt.Println(transcript)
+		ui.Println(transcript)
 	}
 	return []string{saved}, nil
 }

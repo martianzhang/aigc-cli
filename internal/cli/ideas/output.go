@@ -9,6 +9,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // --- keyword resolution ---
@@ -49,7 +50,7 @@ func saveIdeaImages(entries []ideas.IdeaEntry, outputDir string) ([]string, erro
 				continue
 			}
 			if err := service.SaveResource(imgURL, path); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to download %s: %v\n", imgURL, err)
+				ui.Eprintf("Warning: failed to download %s: %v\n", imgURL, err)
 				continue
 			}
 			saved = append(saved, path)
@@ -90,11 +91,11 @@ func localImagePath(remoteURL, outputDir string) string {
 
 func outputMarkdown(results []ideas.SearchResult, keywords string, total int, savedFiles []string, preview bool, meta string) error {
 	if meta != "" {
-		fmt.Println(meta)
-		fmt.Println()
+		ui.Println(meta)
+		ui.Println()
 	}
 	md := ideas.FormatResultsMarkdown(results, keywords, total)
-	fmt.Println(md)
+	ui.Println(md)
 
 	for _, r := range results {
 		if preview && len(savedFiles) > 0 {
@@ -105,7 +106,7 @@ func outputMarkdown(results []ideas.SearchResult, keywords string, total int, sa
 				f := savedFiles[0]
 				savedFiles = savedFiles[1:]
 				if e := service.PreviewFile(f); e != nil {
-					fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", e)
+					ui.Eprintf("Warning: preview failed: %v\n", e)
 				}
 			}
 		}

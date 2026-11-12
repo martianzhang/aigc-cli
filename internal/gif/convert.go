@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // ConvertOptions 是一次视频→GIF 转换的输入参数。
@@ -45,7 +47,7 @@ func Convert(opts ConvertOptions) (string, error) {
 	args = append(args, out)
 
 	// 把命令行回显到 stdout，用户可直接复制复现。
-	fmt.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
+	ui.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
 
 	cmd := exec.Command("ffmpeg", args...)
 	if outBuf, err := cmd.CombinedOutput(); err != nil {

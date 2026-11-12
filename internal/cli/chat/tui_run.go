@@ -16,6 +16,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // runChatTUI initialises and runs the Bubble Tea TUI chat program.
@@ -124,8 +125,8 @@ func runChatTUI(cmd *cobra.Command) error {
 	// Modified Enter (Alt/Shift/Ctrl) must insert a newline rather than submit.
 	// Ask the terminal to report modified keys and translate the sequences it
 	// sends back to what Bubble Tea understands — v1 has no parser for them.
-	fmt.Fprint(os.Stdout, enableModifiedKeys)
-	defer fmt.Fprint(os.Stdout, disableModifiedKeys)
+	ui.Fprint(ui.Out(), enableModifiedKeys)
+	defer ui.Fprint(ui.Out(), disableModifiedKeys)
 
 	p := tea.NewProgram(
 		tuiModel,

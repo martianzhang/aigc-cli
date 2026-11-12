@@ -15,6 +15,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 const dataURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1/ideas.json"
@@ -92,11 +93,11 @@ func runInit(d Deps) error {
 	}
 
 	if _, err := os.Stat(targetPath); err == nil {
-		fmt.Fprintf(os.Stderr, "%s already exists.\n  To re-download the latest data, delete it first:\n    rm %s\n  Then run 'aigc-cli ideas init' again.\n", targetPath, targetPath)
+		ui.Eprintf("%s already exists.\n  To re-download the latest data, delete it first:\n    rm %s\n  Then run 'aigc-cli ideas init' again.\n", targetPath, targetPath)
 		return fmt.Errorf("ideas data already exists")
 	}
 
-	fmt.Printf("Downloading ideas data from GitHub...\n")
+	ui.Printf("Downloading ideas data from GitHub...\n")
 
 	client := httpClient()
 
@@ -119,7 +120,7 @@ func runInit(d Deps) error {
 	if err := json.Unmarshal(rawData, &entries); err != nil {
 		return fmt.Errorf("downloaded data is corrupted (invalid JSON): %w", err)
 	}
-	fmt.Printf("Downloaded %d prompt entries.\n", len(entries))
+	ui.Printf("Downloaded %d prompt entries.\n", len(entries))
 
 	dir := filepath.Dir(targetPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -129,7 +130,7 @@ func runInit(d Deps) error {
 	if err := fsutil.WriteFileAtomic(targetPath, rawData, 0644); err != nil {
 		return fmt.Errorf("cannot save %s: %w", targetPath, err)
 	}
-	fmt.Printf("Saved to %s\n", targetPath)
+	ui.Printf("Saved to %s\n", targetPath)
 
 	return nil
 }

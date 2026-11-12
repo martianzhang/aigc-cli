@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -13,6 +12,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // Deps carries the runtime configuration the ideas command needs.
@@ -162,7 +162,7 @@ func run(d Deps, args []string, f *cmdFlags) error {
 			ic := ideasConfig(d.Cfg)
 			embedder, embErr := options.BuildIdeasEmbedder(ic)
 			if embErr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: %v\n", embErr)
+				ui.Eprintf("Warning: %v\n", embErr)
 			}
 			if embedder != nil {
 				usedSemantic = true
@@ -254,7 +254,7 @@ func emptyResult(f *cmdFlags, message string) error {
 	if f.promptOnly {
 		return errors.New(message)
 	}
-	fmt.Println(message)
+	ui.Println(message)
 	return nil
 }
 
@@ -262,6 +262,6 @@ func emptyResult(f *cmdFlags, message string) error {
 // the output can be piped straight into `aigc-cli image -p`.
 func printPrompts(results []ideas.SearchResult) {
 	for _, r := range results {
-		fmt.Println(strings.TrimSpace(r.Entry.DisplayPrompt()))
+		ui.Println(strings.TrimSpace(r.Entry.DisplayPrompt()))
 	}
 }

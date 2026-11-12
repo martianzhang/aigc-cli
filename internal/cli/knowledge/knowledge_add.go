@@ -8,6 +8,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 	"github.com/martianzhang/aigc-cli/internal/vault"
 	"github.com/spf13/cobra"
 )
@@ -66,7 +67,7 @@ Use --recursive/-r to add all supported files in a directory.`,
 		}
 
 		if len(files) == 0 {
-			fmt.Fprintln(os.Stderr, "No supported files found.")
+			ui.Eprintln("No supported files found.")
 			return nil
 		}
 
@@ -76,7 +77,7 @@ Use --recursive/-r to add all supported files in a directory.`,
 
 		for _, f := range files {
 			if err := processAndStoreFile(store, chunker, embedder, f, project, loaders); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %s: %v\n", f, err)
+				ui.Eprintf("Error: %s: %v\n", f, err)
 			}
 		}
 
@@ -112,7 +113,7 @@ func processAndStoreFile(store *knowledge.Store, chunker *knowledge.Chunker, emb
 		return fmt.Errorf("check existing: %w", err)
 	}
 	if existing != nil && existing.Checksum == checksum {
-		fmt.Fprintf(os.Stderr, "  Skipped (unchanged): %s\n", filePath)
+		ui.Eprintf("  Skipped (unchanged): %s\n", filePath)
 		return nil
 	}
 
@@ -152,7 +153,7 @@ func processAndStoreFile(store *knowledge.Store, chunker *knowledge.Chunker, emb
 		return fmt.Errorf("save chunks: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "  Added: %s (%d chunks)\n", filePath, len(rawChunks))
+	ui.Eprintf("  Added: %s (%d chunks)\n", filePath, len(rawChunks))
 	return nil
 }
 
@@ -178,7 +179,7 @@ func addToVault(args []string) error {
 	for _, arg := range args {
 		data, err := os.ReadFile(arg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %s: %v\n", arg, err)
+			ui.Eprintf("Error: %s: %v\n", arg, err)
 			continue
 		}
 		content := string(data)
@@ -195,7 +196,7 @@ func addToVault(args []string) error {
 			Checksum: docID,
 		}
 		if err := store.SaveDocument(doc); err != nil {
-			fmt.Fprintf(os.Stderr, "Error saving doc: %s: %v\n", arg, err)
+			ui.Eprintf("Error saving doc: %s: %v\n", arg, err)
 			continue
 		}
 
@@ -207,11 +208,11 @@ func addToVault(args []string) error {
 		}
 		embeddings, err := knowledge.EmbedAll(embedder, contents)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error embedding: %s: %v\n", arg, err)
+			ui.Eprintf("Error embedding: %s: %v\n", arg, err)
 			continue
 		}
 		if err := store.SaveVaultEmbeddings(docID, embeddings); err != nil {
-			fmt.Fprintf(os.Stderr, "Error saving vectors: %s: %v\n", arg, err)
+			ui.Eprintf("Error saving vectors: %s: %v\n", arg, err)
 		}
 
 		// Encrypt content to vault file
@@ -222,11 +223,11 @@ func addToVault(args []string) error {
 			Size:     int64(len(data)),
 		}
 		if err := v.Save(vaultDoc, data); err != nil {
-			fmt.Fprintf(os.Stderr, "Error encrypting: %s: %v\n", arg, err)
+			ui.Eprintf("Error encrypting: %s: %v\n", arg, err)
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "  Added to vault: %s\n", title)
+		ui.Eprintf("  Added to vault: %s\n", title)
 	}
 	return nil
 }

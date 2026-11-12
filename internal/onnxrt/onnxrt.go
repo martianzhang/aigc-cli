@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // Version is the ONNX Runtime version used by this project.
@@ -53,21 +54,21 @@ func EnsureInstalled(modelsDir string, force bool) (string, error) {
 	libPath := filepath.Join(modelsDir, info.libName)
 
 	if _, err := os.Stat(libPath); err == nil && !force {
-		fmt.Printf("ONNX Runtime already installed: %s\n", libPath)
+		ui.Printf("ONNX Runtime already installed: %s\n", libPath)
 		return libPath, nil
 	}
 
-	fmt.Printf("Downloading ONNX Runtime %s (%s)...\n", Version, runtime.GOOS)
+	ui.Printf("Downloading ONNX Runtime %s (%s)...\n", Version, runtime.GOOS)
 	archivePath := filepath.Join(modelsDir, info.archiveName)
 	if err := service.SaveResource(info.url, archivePath); err != nil {
 		return "", fmt.Errorf("ONNX Runtime download failed: %w", err)
 	}
-	fmt.Println("  Extracting...")
+	ui.Println("  Extracting...")
 	if err := extractRuntime(archivePath, modelsDir, info.libName, info); err != nil {
 		return "", fmt.Errorf("extraction failed: %w", err)
 	}
 	_ = os.Remove(archivePath)
-	fmt.Printf("  Installed: %s\n", libPath)
+	ui.Printf("  Installed: %s\n", libPath)
 	return libPath, nil
 }
 
@@ -86,21 +87,21 @@ func EnsureGPUInstalled(modelsDir string, force bool) error {
 
 	gpuPath := filepath.Join(modelsDir, gpu.libName)
 	if _, err := os.Stat(gpuPath); err == nil && !force {
-		fmt.Printf("ONNX Runtime GPU already installed: %s\n", gpuPath)
+		ui.Printf("ONNX Runtime GPU already installed: %s\n", gpuPath)
 		return nil
 	}
 
-	fmt.Printf("Downloading ONNX Runtime GPU %s (%s)...\n", Version, runtime.GOOS)
+	ui.Printf("Downloading ONNX Runtime GPU %s (%s)...\n", Version, runtime.GOOS)
 	archivePath := filepath.Join(modelsDir, gpu.archiveName)
 	if err := service.SaveResource(gpu.url, archivePath); err != nil {
 		return fmt.Errorf("ONNX Runtime GPU download failed: %w", err)
 	}
-	fmt.Println("  Extracting...")
+	ui.Println("  Extracting...")
 	if err := extractGPUArchive(archivePath, modelsDir); err != nil {
 		return fmt.Errorf("GPU extraction failed: %w", err)
 	}
 	_ = os.Remove(archivePath)
-	fmt.Printf("  Installed: %s\n", gpuPath)
+	ui.Printf("  Installed: %s\n", gpuPath)
 	return nil
 }
 

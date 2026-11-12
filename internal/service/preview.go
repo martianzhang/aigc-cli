@@ -20,6 +20,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // PreviewFile opens a file or URL with the system default application.
@@ -40,7 +41,7 @@ func PreviewFile(path string) error {
 		if err := fsutil.WriteFileAtomic(saveName, data, 0644); err != nil {
 			return fmt.Errorf("failed to save %s: %w", saveName, err)
 		}
-		fmt.Printf("Saved: %s\n", saveName)
+		ui.Printf("Saved: %s\n", saveName)
 		path = saveName
 	}
 
@@ -68,17 +69,17 @@ func PreviewFile(path string) error {
 	// Try in-process audio playback (no external app needed), falling back to
 	// the system player when this build has no audio backend or no device.
 	if isAudioFile(path) {
-		fmt.Fprintf(os.Stderr, "Playing...\n")
+		ui.Eprintf("Playing...\n")
 		err := audio.PlayAudioFile(path)
 		if err == nil {
-			fmt.Fprintf(os.Stderr, "Done.\n")
+			ui.Eprintf("Done.\n")
 			return nil
 		}
 		if errors.Is(err, audio.ErrPlaybackUnavailable) {
-			fmt.Fprintf(os.Stderr, "In-process playback unavailable, opening system player...\n")
+			ui.Eprintf("In-process playback unavailable, opening system player...\n")
 			return openSystemDefault(path)
 		}
-		fmt.Fprintf(os.Stderr, "Warning: audio playback failed: %v\n", err)
+		ui.Eprintf("Warning: audio playback failed: %v\n", err)
 		return nil
 	}
 

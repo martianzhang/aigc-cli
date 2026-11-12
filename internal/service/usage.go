@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // PrintUsage prints token usage and cost information.
@@ -28,14 +29,14 @@ func PrintUsage(usage *types.OpenAIImageUsage) {
 	}
 	if tokenStr != "" || usage.Cost > 0 {
 		if tokenStr != "" {
-			fmt.Printf("Tokens: %s", tokenStr)
+			ui.Printf("Tokens: %s", tokenStr)
 		}
 		if usage.Cost > 0 {
 			if tokenStr != "" {
-				fmt.Printf(" | ")
+				ui.Printf(" | ")
 			}
-			fmt.Printf("Cost: $%.5f", usage.Cost)
+			ui.Printf("Cost: $%.5f", usage.Cost)
 		}
-		fmt.Println()
+		ui.Println()
 	}
 }

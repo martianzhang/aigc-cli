@@ -18,6 +18,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 func runOCRScan(cmd *cobra.Command, args []string) error {
@@ -85,11 +86,11 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 		if err := os.WriteFile(outPath, []byte(text+"\n"), 0644); err != nil {
 			return fmt.Errorf("save output: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "Saved: %s\n", outPath)
+		ui.Eprintf("Saved: %s\n", outPath)
 		if ocrScanPreview {
-			fmt.Print(text)
+			ui.Print(text)
 			if !strings.HasSuffix(text, "\n") {
-				fmt.Println()
+				ui.Println()
 			}
 		}
 		return nil

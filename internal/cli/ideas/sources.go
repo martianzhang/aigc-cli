@@ -2,13 +2,12 @@ package ideas
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 // onlineSearchTimeout bounds the concurrent online source queries. It must
@@ -48,12 +47,12 @@ func localResults(dataPath, keywords string, embedder knowledge.Embedder, ic *ty
 	}
 	vectors, err := ideas.LoadOrBuildEmbeddings(entries, embedder, dataPath, maxRunes, ideasProgress)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: ideas semantic search disabled: %v\n", err)
+		ui.Eprintf("Warning: ideas semantic search disabled: %v\n", err)
 		return bm25List, false, nil
 	}
 	semanticList, err := ideas.SemanticEntries(entries, vectors, embedder, keywords, topK)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: ideas semantic search disabled: %v\n", err)
+		ui.Eprintf("Warning: ideas semantic search disabled: %v\n", err)
 		return bm25List, false, nil
 	}
 
@@ -68,7 +67,7 @@ func localResults(dataPath, keywords string, embedder knowledge.Embedder, ic *ty
 // ideasProgress reports embedding build progress (only called on a cache miss).
 func ideasProgress(done, total int) {
 	if done == total || done%1024 == 0 {
-		fmt.Fprintf(os.Stderr, "  Building ideas embeddings: %d/%d\n", done, total)
+		ui.Eprintf("  Building ideas embeddings: %d/%d\n", done, total)
 	}
 }
 
@@ -86,7 +85,7 @@ func searchOnlineSources(sources []ideas.Source, keywords string, limit int, ver
 	merged, errs := ideas.SearchOnline(ctx, online, keywords, limit)
 	if verbose {
 		for _, err := range errs {
-			fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+			ui.Eprintf("Warning: %v\n", err)
 		}
 	}
 	return merged
