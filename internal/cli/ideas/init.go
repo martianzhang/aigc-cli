@@ -3,17 +3,14 @@ package ideas
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
-	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/ideas"
+	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
@@ -99,21 +96,9 @@ func runInit(d Deps) error {
 
 	ui.Printf("Downloading ideas data from GitHub...\n")
 
-	client := httpClient()
-
-	resp, err := client.Get(dataURL)
+	rawData, err := service.FetchBytes(dataURL)
 	if err != nil {
 		return fmt.Errorf("download failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download failed: HTTP %d\n  URL: %s", resp.StatusCode, dataURL)
-	}
-
-	rawData, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
-	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
 	}
 
 	var entries []ideas.IdeaEntry
@@ -133,15 +118,4 @@ func runInit(d Deps) error {
 	ui.Printf("Saved to %s\n", targetPath)
 
 	return nil
-}
-
-func httpClient() *http.Client {
-	client := &http.Client{
-		Timeout:   clientfactory.HTTPTimeout("", 120*time.Second),
-		Transport: http.DefaultClient.Transport,
-	}
-	if client.Transport == nil {
-		client.Transport = http.DefaultTransport
-	}
-	return client
 }

@@ -1,0 +1,140 @@
+Unified CLI for OpenAI-compatible APIs (OpenAI, OpenRouter, APIMart and any
+compatible relay), plus local offline models for AIGC detection, OCR, background
+removal, depth maps, TTS/ASR, and image understanding.
+
+Generate images, videos and music, run Midjourney, chat with tools, search the
+web, fetch pages as Markdown, search prompt ideas and knowledge bases — or
+expose all of it to AI agents via MCP.
+
+Chat is the default command when no subcommand is given: bare aigc-cli opens
+the interactive TUI, positional text sends a single message, and chat flags
+such as -p/--save/--session work without typing the "chat" subcommand.
+
+Getting started (no config file required):
+  1. Credentials:  export OPENAI_API_KEY=sk-xxx
+                   export OPENAI_BASE_URL=https://api.apimart.ai   # any OpenAI-compatible endpoint
+                   (or per-command flags --api-key/--api-base; Ollama/local needs no key)
+  2. Inspect:      aigc-cli --print-config                # effective config as YAML
+  3. Run:          aigc-cli image --prompt "A cat" --dry-run   # preview request, zero cost
+
+Persistent config lives at ~/.config/aigc-cli/config.yaml and must already exist
+ (copy docs/*/examples/config.yaml). Then write values with:
+   aigc-cli config set api_key sk-xxx --force
+   aigc-cli config set defaults.image.model gpt-image-2
+
+Models: image and video have no built-in model — pass --model or set
+ defaults.<cmd>.model in config.yaml. Other commands apply their own default.
+ Run 'aigc-cli models' to list what the current endpoint offers.
+
+Offline commands (detect, ocr, background, depth, upscale, vision, audio, ideas,
+ knowledgebase) need a one-time model download: run 'aigc-cli <command> init'.
+ redact works offline out of the box; its optional ONNX model can be installed
+ with 'aigc-cli redact init --model zh-pii'.
+
+Output & exit: generated/downloaded files go to -o/--output (default ".").
+ Results print as text; -v adds the full request/result JSON; --print-config is
+ YAML. Exit code 0 = success, 1 = error (message on stderr).
+
+Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
+'aigc-cli <command> --help' for command-specific flags.
+
+Usage:
+  aigc-cli [message] [flags]
+  aigc-cli [command]
+
+Examples:
+# Setup (env vars need no config file)
+  export OPENAI_API_KEY=sk-xxx
+  export OPENAI_BASE_URL=https://api.apimart.ai
+  aigc-cli --print-config                                 # show effective config
+
+# Chat is the default command when no subcommand is given
+  aigc-cli                                               # interactive chat (TUI)
+  aigc-cli --save                                        # interactive chat + session
+  aigc-cli "Hello, who are you?"                         # one-shot message
+  aigc-cli -p "Hello, who are you?" --dry-run            # preview the request
+  echo "Translate this" | aigc-cli -p "en to zh"         # piped stdin + instruction
+
+# Common workflows
+  aigc-cli image --prompt "A cat under starry sky"
+  aigc-cli video --prompt "A kitten yawning at the camera"
+  aigc-cli chat --message "Hello, who are you?"
+  aigc-cli midjourney imagine --prompt "a cute cat --ar 16:9"
+  aigc-cli detect photo.png
+  aigc-cli mcp
+
+# Diagnostics — --dry-run/--json are per-command flags, not global
+  aigc-cli image --prompt "A cat" --dry-run              # print equivalent curl, zero cost (also video/chat/depth; midjourney/music/audio: on their subcommands)
+  aigc-cli image --json '{"prompt":"a red fox","n":4}'   # pass request as JSON (image/video/chat/midjourney/music)
+  aigc-cli image --prompt "A cat" -v                     # verbose debug output (full result JSON + token/cost stats)
+
+# Agent integration and guides
+  aigc-cli mcp --list-tools                              # list MCP tools (--list-prompts for workflow prompts)
+  # docs/zh/ and docs/en/ guide-*.md files are the authoritative reference
+
+Available Commands:
+  audio         Audio operations (also: voice)
+  background    Remove or replace image background using AI (also: bg)
+  balance       Query API key or user account balance
+  chat          Chat with AI models (streaming by default)
+  config        Read or edit the config file (get/set/list)
+  decision      Run typed decision questions (choice / yes-no / score) against text
+  depth         Convert image/video to grayscale depth map (offline ONNX)
+  detect        Detect watermarks, metadata, and AIGC signals in images
+  fetch         Fetch a URL/local file as Markdown, or save a media URL to a file
+  ideas         Search AI image prompt ideas (also: idea)
+  image         Generate images (also: img)
+  knowledgebase Local knowledge base management (also: kb)
+  mcp           Start MCP server for AI agent integration
+  midjourney    Midjourney image generation (also: mj)
+  models        List available AI models (also: model)
+  music         AI music generation (APIMart suno/flowmusic, OpenRouter Lyria-3, Bailian Fun-Music)
+  ocr           OCR text recognition (offline ONNX or online document parser)
+  preview       Preview images and videos (also: pr, --detail for metadata, --describe to set caption)
+  redact        Detect and redact PII in text, Word, PDF and images
+  search        Search the web and print the provider's raw JSON response
+  task          Query task status and result
+  upscale       Upscale image resolution with a local AI super-resolution model (offline ONNX)
+  version       Print the version information
+  video         Generate videos (text/image-to-video, remix, GIF/MP4)
+  vision        Local image understanding: describe images offline
+
+Flags:
+      --api-base string          API base URL (env: OPENAI_BASE_URL)
+      --api-key string           API key (env: OPENAI_API_KEY)
+      --config string            path to config file (must exist; default ~/.config/aigc-cli/config.yaml)
+      --context-size int         Input context window in tokens (0 = auto-detect from the model). Auto-compacts near the window while keeping recent messages.
+      --dry-run                  Print the equivalent curl without calling the API
+      --http-proxy string        HTTP proxy URL (env: HTTP_PROXY / HTTPS_PROXY / NO_PROXY)
+      --inject-json string       JSON object merged additively into the request body (arrays append, scalars overwrite); JSON string or file path
+      --interactive              Enter interactive multi-turn chat mode
+      --json string              JSON file, string, or "-" for stdin
+      --keep-recent-tokens int   Recent tokens kept verbatim after compaction (0 = default 20000)
+      --list-sessions            List saved chat sessions and exit (newest 20 by default)
+      --max-output int           Maximum tokens in response
+      --message stringArray      User message (repeatable; an existing file path is read as the message)
+  -m, --model string             Model name (overrides defaults.{cmd}.model; required by image/video when unset)
+      --name string              Session name (requires --save or --session; renames on resume)
+      --no-auto-compact          Disable automatic context compaction (manual /compact still works)
+      --no-proxy                 ignore http_proxy config and HTTP_PROXY / HTTPS_PROXY for this run (direct connection)
+      --no-skills                Disable skills discovery and loading
+      --no-stream                Disable streaming, wait for full response
+  -o, --output string            output directory for downloaded/generated files (default ".")
+      --print-config             show effective configuration and exit
+  -p, --prompt stringArray       Alias for --message (repeatable; an existing file path is read)
+  -P, --provider string          Named provider from config.providers (overrides defaults.{cmd}.provider)
+      --reserve-tokens int       Tokens reserved below the context window for output and tool schemas (0 = default 16384)
+      --save                     Save this chat as a JSONL session (default dir: ~/.config/aigc-cli/sessions)
+      --search-provider string   Third-party vendor name for the web_search/web_fetch tools: duckduckgo/firecrawl/brave/doubao/deepseek/exa/wsa (overrides defaults.search.provider)
+      --session string           Resume a session by id or JSONL file path (implies saving)
+      --session-dir string       Session directory (default ~/.config/aigc-cli/sessions)
+      --session-limit int        Max sessions shown by --list-sessions (0 = all) (default 20)
+      --skill stringArray        Load a skill file or directory (repeatable)
+  -s, --system string            System prompt to set AI behavior
+  -t, --temperature float        Sampling temperature (0-2)
+      --timeout int              HTTP request timeout in seconds; also caps async task polling (overrides config timeout / defaults.<cmd>.timeout)
+  -v, --verbose                  verbose debug output
+  -y, --yes                      Auto-approve confirm-gated tools in both TUI and non-interactive mode
+      --zdr                      request zero data retention where supported (OpenRouter chat/music)
+
+Use "aigc-cli [command] --help" for more information about a command.

@@ -130,11 +130,7 @@ func (s *Sampler) topKLogits(logits []float32) int64 {
 		return s.greedy(logits)
 	}
 
-	// Normalize and sample
-	r := math.Float64frombits(0x3FF0000000000000) // not used for greedy
-	_ = r                                         // placeholder for actual random sampling (currently greedy within top-k)
-
-	// Pick highest probability among top-k (deterministic)
+	// Pick the highest-probability token among the top-k (deterministic).
 	bestIdx := 0
 	bestVal := float64(0)
 	for i, p := range filteredProbs {

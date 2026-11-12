@@ -87,21 +87,17 @@ func TestDownloadTokenclsFiles(t *testing.T) {
 		t.Fatalf("second install downloaded %d extra file(s)", hits.Load()-before)
 	}
 
-	// A corrupted file is an error unless --force is used.
+	// A corrupted file is re-downloaded (checksum mismatch is repaired).
 	corrupt := filepath.Join(dir, "model.onnx")
 	if err := os.WriteFile(corrupt, []byte("corrupt"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := downloadTokenclsFiles(io.Discard, dir, info, false); err == nil ||
-		!strings.Contains(err.Error(), "checksum mismatch") {
-		t.Fatalf("corrupt install error = %v, want checksum mismatch", err)
-	}
-	if err := downloadTokenclsFiles(io.Discard, dir, info, true); err != nil {
-		t.Fatal(err)
+	if err := downloadTokenclsFiles(io.Discard, dir, info, false); err != nil {
+		t.Fatalf("corrupt install error = %v", err)
 	}
 	got, _ := os.ReadFile(corrupt)
 	if string(got) != "fake-onnx" {
-		t.Fatalf("force install left %q", got)
+		t.Fatalf("repair install left %q", got)
 	}
 }
 
@@ -165,7 +161,7 @@ func TestDownloadTokenclsFilesFailures(t *testing.T) {
 		URL: server.URL + "/missing", OutName: "model.onnx",
 	}}}
 	if err := downloadTokenclsFiles(io.Discard, t.TempDir(), info, false); err == nil ||
-		!strings.Contains(err.Error(), "download model.onnx") {
+		!strings.Contains(err.Error(), "install model.onnx") {
 		t.Fatalf("download error = %v", err)
 	}
 
