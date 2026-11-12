@@ -3,24 +3,20 @@ package decision
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/martianzhang/aigc-cli/internal/provider"
-	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
 func buildDecisionCurl(req *provider.DecisionRequest, p *provider.EffectiveProvider) string {
-	body, err := json.Marshal(req)
+	plan := &reqbuild.Plan{Method: http.MethodPost, URL: provider.SystemOneEndpoint(p.BaseURL), Body: req}
+	curl, err := plan.RenderCurlsErr(p.APIKey)
 	if err != nil {
-		body = []byte("{}")
+		return fmt.Sprintf("# failed to render preview: %v", err)
 	}
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", provider.SystemOneEndpoint(p.BaseURL))
-	if p.APIKey != "" {
-		cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
-	}
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(body))
-	return cmd
+	return curl
 }
 
 func printJSONResponse(resp *provider.DecisionResponse) error {

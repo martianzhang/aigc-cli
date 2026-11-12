@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
@@ -253,7 +255,8 @@ func buildChatCurl(req *types.ChatRequest, p *provider.EffectiveProvider) string
 	if err != nil {
 		return fmt.Sprintf("# failed to render preview: %v", err)
 	}
-	auth := fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
+	apiKey := p.APIKey
+	var headers []reqbuild.Header
 
 	switch p.Type {
 	case types.ProviderAnthropic:
@@ -262,8 +265,11 @@ func buildChatCurl(req *types.ChatRequest, p *provider.EffectiveProvider) string
 		if err != nil {
 			return fmt.Sprintf("# failed to render preview: %v", err)
 		}
-		auth = fmt.Sprintf("  -H \"x-api-key: %s\" \\\n", service.MaskKey(p.APIKey))
-		auth += fmt.Sprintf("  -H \"anthropic-version: %s\" \\\n", client.AnthropicVersion)
+		headers = []reqbuild.Header{
+			{Name: "x-api-key", Value: service.MaskKey(p.APIKey)},
+			{Name: "anthropic-version", Value: client.AnthropicVersion},
+		}
+		apiKey = "" // do not also render a Bearer header
 	case types.ProviderOpenAIResponses:
 		url = base + client.ResponsesPath
 		body, err = client.ResponsesBody(req)
@@ -272,11 +278,18 @@ func buildChatCurl(req *types.ChatRequest, p *provider.EffectiveProvider) string
 		}
 	}
 
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += auth
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(body))
-	return cmd
+	plan := &reqbuild.Plan{
+		Method:  http.MethodPost,
+		URL:     url,
+		Body:    json.RawMessage(body),
+		Headers: headers,
+		Stream:  req.Stream,
+	}
+	curl, err := plan.RenderCurlsErr(apiKey)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
+	return curl
 }
 
 // printUsageStats prints token/cost/timing stats to stderr. p identifies the
