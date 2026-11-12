@@ -54,6 +54,7 @@ type Plan struct {
 	UploadURL string   // absolute upload endpoint (render-only)
 	Note      string   // optional trailing preview comment
 	Stream    bool     // render `curl -N` for streaming (SSE) endpoints
+	ExtraArgs []string // extra curl arguments appended verbatim (e.g. --output)
 
 	// Multipart marks the request body itself as multipart/form-data (used by
 	// POST /images/edits). When true, the request is rendered from FormFields +
@@ -118,6 +119,9 @@ func (p *Plan) renderMultipartCurl(apiKey string) string {
 	for _, f := range p.FormFiles {
 		lines = append(lines, fmt.Sprintf("  -F \"%s=@%s\"", f.Field, f.Path))
 	}
+	for _, arg := range p.ExtraArgs {
+		lines = append(lines, "  "+arg)
+	}
 	cmd := joinCurlLines(lines)
 	if p.Note != "" {
 		cmd += "\n# note: " + p.Note
@@ -154,6 +158,9 @@ func (p *Plan) renderRequestCurl(apiKey string) (string, error) {
 			return "", fmt.Errorf("marshal preview body: %w", err)
 		}
 		lines = append(lines, fmt.Sprintf("  -d '%s'", string(data)))
+	}
+	for _, arg := range p.ExtraArgs {
+		lines = append(lines, "  "+arg)
 	}
 	cmd := joinCurlLines(lines)
 	if p.Note != "" {

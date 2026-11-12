@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
@@ -313,7 +315,6 @@ func buildSFXCurl(p *provider.EffectiveProvider, req *provider.SoundEffectReques
 		format = "mp3"
 	}
 
-	var b strings.Builder
 	switch p.ProviderType {
 	case provider.ElevenLabs:
 		outputFormat := "mp3_44100_128"
@@ -322,35 +323,48 @@ func buildSFXCurl(p *provider.EffectiveProvider, req *provider.SoundEffectReques
 		}
 		payload, err := provider.ElevenLabsSFXPayload(req, firstNonEmpty(req.Model, provider.DefaultSFXModelElevenLabs))
 		if err != nil {
-			fmt.Fprintf(&b, "# %v\n", err)
-			return b.String()
+			return fmt.Sprintf("# %v", err)
 		}
-		data, _ := json.MarshalIndent(payload, "", "  ")
-		fmt.Fprintf(&b, "curl -X POST %s/v1/sound-generation?output_format=%s \\\n", base, outputFormat)
-		fmt.Fprintf(&b, "  -H \"xi-api-key: %s\" \\\n", masked)
-		b.WriteString("  -H \"Content-Type: application/json\" \\\n")
-		fmt.Fprintf(&b, "  -d '%s' \\\n", string(data))
-		fmt.Fprintf(&b, "  --output sfx.%s\n", format)
+		plan := &reqbuild.Plan{
+			Method:    http.MethodPost,
+			URL:       fmt.Sprintf("%s/v1/sound-generation?output_format=%s", base, outputFormat),
+			Body:      payload,
+			Headers:   []reqbuild.Header{{Name: "xi-api-key", Value: masked}},
+			ExtraArgs: []string{"--output sfx." + format},
+		}
+		curl, err := plan.RenderCurlsErr("") // xi-api-key is already masked above
+		if err != nil {
+			return fmt.Sprintf("# %v", err)
+		}
+		return curl
 	case provider.Stability:
-		fmt.Fprintf(&b, "curl -X POST %s/v2beta/audio/stable-audio-2/text-to-audio \\\n", base)
-		fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", masked)
-		b.WriteString("  -H \"Accept: audio/*\" \\\n")
 		fields, err := provider.StabilitySFXFields(req, firstNonEmpty(req.Model, provider.DefaultSFXModelStability))
 		if err != nil {
-			fmt.Fprintf(&b, "# %v\n", err)
-			return b.String()
+			return fmt.Sprintf("# %v", err)
 		}
 		keys := make([]string, 0, len(fields))
 		for key := range fields {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
+		form := make([]reqbuild.FormField, 0, len(keys))
 		for _, key := range keys {
-			fmt.Fprintf(&b, "  -F %s=%q \\\n", key, fields[key])
+			form = append(form, reqbuild.FormField{Name: key, Value: fields[key]})
 		}
-		fmt.Fprintf(&b, "  --output sfx.%s\n", format)
+		plan := &reqbuild.Plan{
+			Method:     http.MethodPost,
+			URL:        base + "/v2beta/audio/stable-audio-2/text-to-audio",
+			Multipart:  true,
+			FormFields: form,
+			Headers:    []reqbuild.Header{{Name: "Accept", Value: "audio/*"}},
+			ExtraArgs:  []string{"--output sfx." + format},
+		}
+		curl, err := plan.RenderCurlsErr(p.APIKey)
+		if err != nil {
+			return fmt.Sprintf("# %v", err)
+		}
+		return curl
 	default:
-		fmt.Fprintf(&b, "# unsupported provider type: %s\n", p.ProviderType)
+		return fmt.Sprintf("# unsupported provider type: %s", p.ProviderType)
 	}
-	return b.String()
 }

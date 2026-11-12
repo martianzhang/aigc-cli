@@ -1,14 +1,14 @@
 package audio
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
-	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -71,40 +71,49 @@ func audioEndpoint(cmdName string) (base, key string) {
 // buildAudioSpeechCurl generates a dry-run curl command for TTS requests.
 func buildAudioSpeechCurl(req *types.AudioSpeechRequest) string {
 	base, key := audioEndpoint(options.ProviderNameAudioSpeak)
-	payload, _ := json.MarshalIndent(req, "", "  ")
-	var b strings.Builder
-	fmt.Fprintf(&b, "curl %s/audio/speech \\\n", base)
-	fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(key))
-	b.WriteString("  -H \"Content-Type: application/json\" \\\n")
-	fmt.Fprintf(&b, "  -d '%s' \\\n", string(payload))
-	fmt.Fprintf(&b, "  --output speech.%s\n", req.ResponseFormat)
-	return b.String()
+	plan := &reqbuild.Plan{
+		Method:    http.MethodPost,
+		URL:       base + "/audio/speech",
+		Body:      req,
+		ExtraArgs: []string{"--output speech." + req.ResponseFormat},
+	}
+	curl, err := plan.RenderCurlsErr(key)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
+	return curl
 }
 
 // buildAudioTranscribeCurl generates a dry-run curl command for base64 (JSON) STT.
 func buildAudioTranscribeCurl(req *types.AudioTranscribeRequest) string {
 	base, key := audioEndpoint(options.ProviderNameAudioTranscribe)
-	payload, _ := json.MarshalIndent(req, "", "  ")
-	var b strings.Builder
-	fmt.Fprintf(&b, "curl %s/audio/transcriptions \\\n", base)
-	fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(key))
-	b.WriteString("  -H \"Content-Type: application/json\" \\\n")
-	fmt.Fprintf(&b, "  -d '%s'\n", string(payload))
-	return b.String()
+	plan := &reqbuild.Plan{Method: http.MethodPost, URL: base + "/audio/transcriptions", Body: req}
+	curl, err := plan.RenderCurlsErr(key)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
+	return curl
 }
 
 // buildAudioTranscribeFileCurl generates a dry-run curl command for multipart
 // file STT.
 func buildAudioTranscribeFileCurl(input, model, language string) string {
 	base, key := audioEndpoint(options.ProviderNameAudioTranscribe)
-	var b strings.Builder
-	fmt.Fprintf(&b, "curl %s/audio/transcriptions \\\n", base)
-	fmt.Fprintf(&b, "  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(key))
-	fmt.Fprintf(&b, "  -F file=\"@%s\" \\\n", input)
-	fmt.Fprintf(&b, "  -F model=\"%s\"", model)
-	if language != "" {
-		fmt.Fprintf(&b, " \\\n  -F language=\"%s\"", language)
+	plan := &reqbuild.Plan{
+		Method:    http.MethodPost,
+		URL:       base + "/audio/transcriptions",
+		Multipart: true,
+		FormFiles: []reqbuild.FormFile{{Field: "file", Path: input}},
+		FormFields: []reqbuild.FormField{
+			{Name: "model", Value: model},
+		},
 	}
-	b.WriteString("\n")
-	return b.String()
+	if language != "" {
+		plan.FormFields = append(plan.FormFields, reqbuild.FormField{Name: "language", Value: language})
+	}
+	curl, err := plan.RenderCurlsErr(key)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
+	return curl
 }
