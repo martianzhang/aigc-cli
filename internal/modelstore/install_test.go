@@ -82,3 +82,62 @@ func TestInstallResumesPartialDownload(t *testing.T) {
 		t.Fatalf("Range headers = %v, want [bytes=4-]", ranges)
 	}
 }
+
+func TestInstallPinsTOFUChecksum(t *testing.T) {
+	const body = "tofu-model"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "model.onnx")
+	if err := Install(context.Background(), srv.Client(), srv.URL, dest, Options{}); err != nil {
+		t.Fatalf("first Install() error = %v", err)
+	}
+	pin, err := os.ReadFile(dest + ".sha256")
+	if err != nil {
+		t.Fatalf("sidecar not written: %v", err)
+	}
+	if strings.TrimSpace(string(pin)) != sum(body) {
+		t.Fatalf("sidecar = %q, want %q", pin, sum(body))
+	}
+	if err := Install(context.Background(), srv.Client(), srv.URL, dest, Options{}); err != nil {
+		t.Fatalf("second Install() error = %v", err)
+	}
+}
+
+func TestInstallRejectsTamperedTOFUFile(t *testing.T) {
+	const body = "trusted"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("tampered"))
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "model.onnx")
+	if err := os.WriteFile(dest, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dest+".sha256", []byte(sum(body)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Install(context.Background(), srv.Client(), srv.URL, dest, Options{Force: true}); err == nil {
+		t.Fatal("Install() error = nil, want TOFU checksum mismatch")
+	}
+}
+
+func TestInstallPinsLegacyFile(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "legacy.onnx")
+	if err := os.WriteFile(dest, []byte("legacy"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Install(context.Background(), nil, "http://unused.invalid", dest, Options{}); err != nil {
+		t.Fatalf("Install() error = %v", err)
+	}
+	pin, err := os.ReadFile(dest + ".sha256")
+	if err != nil {
+		t.Fatalf("legacy pin not written: %v", err)
+	}
+	if strings.TrimSpace(string(pin)) != sum("legacy") {
+		t.Fatalf("pin = %q, want legacy digest", pin)
+	}
+}

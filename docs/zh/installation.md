@@ -134,6 +134,14 @@ aigc-cli audio transcribe \
 | **启动复杂度** | 极简 | 简单 | 简单 | 中等 |
 | **许可证** | MIT | Apache 2.0 | MIT | MIT |
 
+### 模型下载校验和（TOFU）
+
+本地模型首次下载成功后，会在模型文件旁写入 `<model>.sha256`（TOFU，信任首次使用）。后续 `init` 会校验该摘要，避免半截或被替换的模型文件继续被加载。
+
+- 上游已发布摘要的小文件（vision `vocab.json`/`merges.txt`、OCR 词典等）直接使用发布值校验。
+- 大 ONNX 模型上游暂未发布摘要，因此使用本地 TOFU allowlist；删除模型或对应 `.sha256` 后重新 `init` 会重新建立信任。
+- 下载时支持 HTTP Range 续传，`.part` 文件只在完整校验通过后才替换正式模型。
+
 ## 配置 API Key
 
 三种设置方式（优先级从高到低）：

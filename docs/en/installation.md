@@ -55,6 +55,14 @@ aigc-cli audio speak --text "Hello world"
 
 For local TTS/ASR (sherpa-onnx offline), see [guide-audio.md](guide-audio.md).
 
+### Model download checksums (TOFU)
+
+After a local model is installed, a `<model>.sha256` sidecar records its digest (trust-on-first-use). Later `init` runs verify that digest, so a truncated or replaced model file is not loaded.
+
+- Small assets with published digests (vision `vocab.json`/`merges.txt`, the OCR word list) are verified against the published value.
+- Large ONNX models do not publish upstream digests yet, so they use the local TOFU allowlist. Deleting the model or its `.sha256` and re-running `init` re-establishes trust.
+- Downloads support HTTP Range resume; a `.part` file only replaces the model after the checksum passes.
+
 ## Configuration
 
 ### Priority

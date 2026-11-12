@@ -22,8 +22,17 @@ type Options struct {
 	Progress func(done, total int64)
 }
 
-// Install downloads url to dest. An existing destination with a matching (or
-// unspecified) checksum is reused. Partial downloads resume via Range.
+// Install downloads url to dest. An existing destination with a matching
+// checksum is reused; partial downloads resume via Range.
+//
+// Checksum policy:
+//   - opts.SHA256 is authoritative when set (published release digest).
+//   - Otherwise a sidecar dest+".sha256" acts as a TOFU allowlist: the first
+//     successful install records the digest, and later installs verify it.
+//     A legacy file without a sidecar is pinned on first sight.
+//
+// This gives every model a stable local digest even when the upstream release
+// does not publish one.
 func Install(ctx context.Context, client *http.Client, url, dest string, opts Options) error {
 	if client == nil {
 		client = http.DefaultClient
@@ -31,12 +40,22 @@ func Install(ctx context.Context, client *http.Client, url, dest string, opts Op
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return fmt.Errorf("create model dir: %w", err)
 	}
+	expected := opts.SHA256
+	if expected == "" {
+		if pin, ok := readPin(dest); ok {
+			expected = pin
+		}
+	}
 	if !opts.Force {
 		if _, err := os.Stat(dest); err == nil {
-			if opts.SHA256 == "" {
-				return nil
-			}
-			if verify(dest, opts.SHA256) == nil {
+			if expected == "" {
+				// Legacy install without a published digest: pin what is on disk.
+				sum, err := digest(dest)
+				if err == nil {
+					_ = writePin(dest, sum)
+					return nil
+				}
+			} else if verify(dest, expected) == nil {
 				return nil
 			}
 			// Checksum mismatch: re-download instead of trusting a corrupt file.
@@ -99,11 +118,18 @@ func Install(ctx context.Context, client *http.Client, url, dest string, opts Op
 	if err := f.Close(); err != nil {
 		return fmt.Errorf("close partial model: %w", err)
 	}
-	if opts.SHA256 != "" {
-		if err := verify(part, opts.SHA256); err != nil {
+	if expected != "" {
+		if err := verify(part, expected); err != nil {
 			_ = os.Remove(part)
 			return err
 		}
+	} else {
+		sum, err := digest(part)
+		if err != nil {
+			_ = os.Remove(part)
+			return fmt.Errorf("hash partial model: %w", err)
+		}
+		expected = sum
 	}
 	if err := os.Rename(part, dest); err != nil {
 		// Windows does not replace an existing target.
@@ -113,7 +139,42 @@ func Install(ctx context.Context, client *http.Client, url, dest string, opts Op
 			return fmt.Errorf("install model: %w", retryErr)
 		}
 	}
+	if err := writePin(dest, expected); err != nil {
+		return fmt.Errorf("record model checksum: %w", err)
+	}
 	return nil
+}
+
+// pinPath is the sidecar TOFU allowlist for one model file.
+func pinPath(dest string) string { return dest + ".sha256" }
+
+func readPin(dest string) (string, bool) {
+	data, err := os.ReadFile(pinPath(dest))
+	if err != nil {
+		return "", false
+	}
+	sum := strings.TrimSpace(string(data))
+	if len(sum) != 64 {
+		return "", false
+	}
+	return strings.ToLower(sum), true
+}
+
+func writePin(dest, sum string) error {
+	return os.WriteFile(pinPath(dest), []byte(strings.ToLower(sum)+"\n"), 0o644)
+}
+
+func digest(path string) (string, error) {
+	h := sha256.New()
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 type progressReader struct {
