@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/modelstore"
 	"github.com/martianzhang/aigc-cli/internal/ocr"
 	"github.com/martianzhang/aigc-cli/internal/options"
-	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
 // ocrCmd represents the `aigc-cli ocr` command group.
@@ -157,7 +157,7 @@ func runOCRInit(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		fmt.Printf("  Downloading %s (%d MB)...\n", f.OutName, f.SizeMB)
-		if err := service.SaveResource(f.URL, outPath); err != nil {
+		if err := modelstore.Install(options.Context(), nil, f.URL, outPath, modelstore.Options{}); err != nil {
 			return fmt.Errorf("download %s: %w", f.OutName, err)
 		}
 		fmt.Printf("  ✓ %s\n", f.OutName)
@@ -182,10 +182,7 @@ func downloadDict(modelsDir string) error {
 		return nil
 	}
 	fmt.Println("  Downloading dict_en_words.txt...")
-	if err := service.SaveResource(
-		"https://github.com/martianzhang/aigc-cli-models/releases/download/v1/dict_en_words.txt",
-		dictPath,
-	); err != nil {
+	if err := modelstore.Install(options.Context(), nil, "https://github.com/martianzhang/aigc-cli-models/releases/download/v1/dict_en_words.txt", dictPath, modelstore.Options{}); err != nil {
 		return fmt.Errorf("dict_en_words.txt not available yet (OCR works without it): %w", err)
 	}
 	fmt.Println("  ✓ dict_en_words.txt")

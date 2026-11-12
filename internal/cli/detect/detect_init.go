@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/modelstore"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
-	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
 const modelsBaseURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1"
@@ -101,7 +101,7 @@ func runDetectInit(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Downloading %s model - %s (%s)...\n", modelID, info.desc, info.size)
-	if err := service.SaveResource(info.url, modelPath); err != nil {
+	if err := modelstore.Install(options.Context(), nil, info.url, modelPath, modelstore.Options{Force: detectForce}); err != nil {
 		return fmt.Errorf("model download failed: %w", err)
 	}
 	fmt.Println("  Done.")

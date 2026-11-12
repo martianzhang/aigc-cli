@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/modelstore"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
-	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
 const (
@@ -58,7 +58,7 @@ func runBackgroundInit(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Downloading %s (%s)...\n", rmbgModelDesc, rmbgModelSize)
-	if err := service.SaveResource(rmbgModelURL, modelPath); err != nil {
+	if err := modelstore.Install(options.Context(), nil, rmbgModelURL, modelPath, modelstore.Options{Force: bgInitForce}); err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 	fmt.Println("  Done.")
