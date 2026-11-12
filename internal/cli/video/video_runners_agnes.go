@@ -8,6 +8,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
 // runAgnesVideo handles video generation via agnes.ai's async task API.
@@ -68,7 +69,9 @@ func runAgnesVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 			// queued / pending / in_progress -- keep waiting
 			progress := fmt.Sprintf("%.0fs", time.Since(start).Seconds())
 			fmt.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
-			time.Sleep(client.DefaultPollInterval)
+			if err := wait.Sleep(options.Context(), client.DefaultPollInterval); err != nil {
+				return nil, err
+			}
 		}
 
 		if videoURL != "" {

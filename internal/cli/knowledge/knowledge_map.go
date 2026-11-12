@@ -13,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/netguard"
+	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
 var (
@@ -139,7 +140,9 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 
 		for _, link := range links {
 			fmt.Fprintf(os.Stderr, "  Fetching: %s\n", link)
-			time.Sleep(500 * time.Millisecond)
+			if err := wait.Sleep(options.Context(), 500*time.Millisecond); err != nil {
+				return err
+			}
 
 			existingDocID, err := findURLInStore(store, link)
 			if err == nil && existingDocID != "" {

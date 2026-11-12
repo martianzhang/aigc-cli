@@ -17,6 +17,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
 // --- ModelScope async image generation ---
@@ -180,7 +181,9 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 
 	var taskResp modelScopeTaskResponse
 	for time.Now().Before(deadline) {
-		time.Sleep(pollInterval)
+		if err := wait.Sleep(options.Context(), pollInterval); err != nil {
+			return nil, err
+		}
 
 		pollURL := fmt.Sprintf("%s/v1/tasks/%s", baseURL, taskID)
 		pollReq, err := http.NewRequest("GET", pollURL, nil)

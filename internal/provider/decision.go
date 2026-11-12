@@ -70,7 +70,7 @@ func Decide(p *EffectiveProvider, req *DecisionRequest, timeout time.Duration) (
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequest("POST", SystemOneEndpoint(p.BaseURL), bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(Context(), "POST", SystemOneEndpoint(p.BaseURL), bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}

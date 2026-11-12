@@ -114,7 +114,7 @@ func ollamaNativeChat(p *EffectiveProvider, b64Image, textPrompt string) (string
 	baseURL = strings.TrimSuffix(baseURL, "/v1")
 	apiURL := baseURL + "/api/chat"
 
-	req, err := http.NewRequest("POST", apiURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(Context(), "POST", apiURL, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
@@ -183,7 +183,7 @@ func openaiCompatVisionChat(p *EffectiveProvider, dataURL, textPrompt string) (s
 	}
 	chatURL := baseURL + "/chat/completions"
 
-	req, err := http.NewRequest("POST", chatURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(Context(), "POST", chatURL, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
@@ -261,7 +261,7 @@ func anthropicVisionChat(p *EffectiveProvider, b64Image, mimeType, textPrompt st
 	baseURL := strings.TrimRight(p.BaseURL, "/")
 	chatURL := baseURL + "/messages"
 
-	req, err := http.NewRequest("POST", chatURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(Context(), "POST", chatURL, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}

@@ -34,7 +34,7 @@ func (p *FirecrawlProvider) SearchRaw(query string, limit int, opts Options) ([]
 	if err != nil {
 		return nil, nil, err
 	}
-	req, err := http.NewRequest("POST", "https://api.firecrawl.dev/v1/search",
+	req, err := http.NewRequestWithContext(Context(), "POST", "https://api.firecrawl.dev/v1/search",
 		bytes.NewReader(bodyJSON))
 	if err != nil {
 		return nil, nil, err

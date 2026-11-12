@@ -120,7 +120,7 @@ func (p *ExaProvider) Fetch(url string) (title, content string, err error) {
 // human-readable `error` string, which is included in the returned error to
 // make auth/quota failures diagnosable.
 func (p *ExaProvider) post(path string, bodyJSON json.RawMessage, out any) (json.RawMessage, error) {
-	req, err := http.NewRequest("POST", p.baseURL+path, bytes.NewReader(bodyJSON))
+	req, err := http.NewRequestWithContext(Context(), "POST", p.baseURL+path, bytes.NewReader(bodyJSON))
 	if err != nil {
 		return nil, err
 	}

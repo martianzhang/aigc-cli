@@ -47,7 +47,7 @@ func (p *FreesoundProvider) SearchRaw(query string, limit int, opts Options) ([]
 		return nil, nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+	req, err := http.NewRequestWithContext(Context(), http.MethodGet, apiURL, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("freesound request: %w", err)
 	}

@@ -115,7 +115,7 @@ func (p *DeepSeekProvider) Fetch(url string) (title, content string, err error) 
 // post sends a JSON request to a DeepSeek tool endpoint, decodes the response
 // body into out, and returns the raw body for debugging.
 func (p *DeepSeekProvider) post(path string, bodyJSON json.RawMessage, out any) (json.RawMessage, error) {
-	req, err := http.NewRequest("POST", p.baseURL+path, bytes.NewReader(bodyJSON))
+	req, err := http.NewRequestWithContext(Context(), "POST", p.baseURL+path, bytes.NewReader(bodyJSON))
 	if err != nil {
 		return nil, err
 	}

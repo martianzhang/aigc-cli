@@ -33,7 +33,7 @@ func (p *BraveProvider) SearchRaw(query string, limit int, opts Options) ([]Resu
 		return nil, nil, err
 	}
 
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(Context(), "GET", apiURL, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("brave request: %w", err)
 	}

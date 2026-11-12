@@ -13,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/search"
+	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
 func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []search.Result, _, project string, verbose bool) error {
@@ -26,7 +27,9 @@ func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []sear
 		if verbose {
 			fmt.Fprintf(os.Stderr, "  Fetching: %s\n", sr.URL)
 		}
-		time.Sleep(500 * time.Millisecond)
+		if err := wait.Sleep(options.Context(), 500*time.Millisecond); err != nil {
+			return err
+		}
 
 		fetchResult, fetchErr := knowledge.FetchURL(sr.URL)
 		if fetchErr != nil {

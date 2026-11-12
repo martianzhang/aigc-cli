@@ -109,7 +109,7 @@ func tencentResultCount(limit int) int {
 // Pages entries. Tencent's error envelope carries Error.Code/Message, which is
 // included in the returned error so auth/quota failures are diagnosable.
 func (p *TencentWSAProvider) post(bodyJSON json.RawMessage) (json.RawMessage, []string, error) {
-	req, err := http.NewRequest(http.MethodPost, p.baseURL+"/SearchPro", bytes.NewReader(bodyJSON))
+	req, err := http.NewRequestWithContext(Context(), http.MethodPost, p.baseURL+"/SearchPro", bytes.NewReader(bodyJSON))
 	if err != nil {
 		return nil, nil, err
 	}

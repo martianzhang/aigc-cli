@@ -91,7 +91,7 @@ func generateElevenLabsSFX(p *EffectiveProvider, req *SoundEffectRequest) (*Soun
 		endpoint += "?output_format=" + url.QueryEscape(format)
 	}
 
-	httpReq, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(Context(), http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("elevenlabs request: %w", err)
 	}
@@ -128,7 +128,7 @@ func generateStabilitySFX(p *EffectiveProvider, req *SoundEffectRequest) (*Sound
 	}
 
 	endpoint := strings.TrimRight(p.BaseURL, "/") + "/v2beta/audio/stable-audio-2/text-to-audio"
-	httpReq, err := http.NewRequest(http.MethodPost, endpoint, &body)
+	httpReq, err := http.NewRequestWithContext(Context(), http.MethodPost, endpoint, &body)
 	if err != nil {
 		return nil, fmt.Errorf("stability request: %w", err)
 	}

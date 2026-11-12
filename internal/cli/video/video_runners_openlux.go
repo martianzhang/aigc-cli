@@ -8,6 +8,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
 // runOpenLuxVideo handles video generation via api.openlux.ai's unified API (submit -> poll -> download).
@@ -58,7 +59,9 @@ func runOpenLuxVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 			// pending / running / in_progress / queued -- keep waiting
 			progress := fmt.Sprintf("%.0fs", time.Since(start).Seconds())
 			fmt.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
-			time.Sleep(client.DefaultPollInterval)
+			if err := wait.Sleep(options.Context(), client.DefaultPollInterval); err != nil {
+				return nil, err
+			}
 		}
 
 		if videoURL != "" {

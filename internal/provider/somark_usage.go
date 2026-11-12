@@ -50,7 +50,7 @@ func GetSomarkUsage(p *EffectiveProvider) (*SomarkUsage, error) {
 		return nil, fmt.Errorf("build usage request: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, somarkAPIURL(p.BaseURL, "/usage"), &body)
+	req, err := http.NewRequestWithContext(Context(), http.MethodPost, somarkAPIURL(p.BaseURL, "/usage"), &body)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}

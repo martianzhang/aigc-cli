@@ -139,7 +139,7 @@ func ParseDocument(p *EffectiveProvider, filePath string, payload, inject json.R
 	}
 
 	endpoint := SomarkParseURL(p.BaseURL)
-	req, err := http.NewRequest(http.MethodPost, endpoint, &form)
+	req, err := http.NewRequestWithContext(Context(), http.MethodPost, endpoint, &form)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}

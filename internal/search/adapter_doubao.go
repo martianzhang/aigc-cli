@@ -36,7 +36,7 @@ func (p *DoubaoProvider) SearchRaw(query string, limit int, opts Options) ([]Res
 		return nil, nil, err
 	}
 
-	req, err := http.NewRequest("POST", "https://open.feedcoopapi.com/search_api/web_search",
+	req, err := http.NewRequestWithContext(Context(), "POST", "https://open.feedcoopapi.com/search_api/web_search",
 		bytes.NewReader(bodyJSON))
 	if err != nil {
 		return nil, nil, err

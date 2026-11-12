@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
 var kbPruneCheckURLs bool
@@ -100,7 +103,9 @@ var kbPruneCmd = &cobra.Command{
 				if resp != nil {
 					resp.Body.Close()
 				}
-				time.Sleep(200 * time.Millisecond)
+				if err := wait.Sleep(options.Context(), 200*time.Millisecond); err != nil {
+					return err
+				}
 			}
 		}
 

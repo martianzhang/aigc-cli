@@ -9,9 +9,10 @@ import (
 )
 
 // NewClient creates an API client from the resolved provider for cmdName.
+// The client is bound to the process-wide context so Ctrl-C cancels requests.
 func NewClient(cmdName string) *client.Client {
 	p := Shared.ResolveProvider(cmdName)
-	return client.NewFromProvider(p)
+	return client.NewFromProvider(p).WithContext(Context())
 }
 
 // ApplyTimeout sets the HTTP client timeout from CLI flag / config, falling

@@ -57,7 +57,7 @@ func (p *PixabayProvider) SearchRaw(query string, limit int, opts Options) ([]Re
 		raw, cached = readSearchCache("pixabay", key, pixabayCacheTTL)
 	}
 	if !cached {
-		req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+		req, err := http.NewRequestWithContext(Context(), http.MethodGet, apiURL, nil)
 		if err != nil {
 			return nil, nil, fmt.Errorf("pixabay request: %w", err)
 		}

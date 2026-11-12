@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -214,7 +217,16 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 // Execute adds all child commands to the root command and sets flags.
 // Usage errors gain concise, command-scoped hints via guidance.Explain.
 func Execute() {
-	executed, err := rootCmd.ExecuteC()
+	// Ctrl-C cancels in-flight HTTP requests and polling loops instead of
+	// waiting for them to finish. The context is installed process-wide so
+	// clients created deep inside commands inherit it.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	options.SetContext(ctx)
+	provider.SetContext(ctx)
+	search.SetContext(ctx)
+
+	executed, err := rootCmd.ExecuteContextC(ctx)
 	// Clear the tab progress indicator before any exit path, including errors.
 	terminal.Default().Finish("")
 	if err != nil {
