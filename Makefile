@@ -12,7 +12,7 @@ OUTPUT ?= $(BINARY)$(GOEXE)
 # Resolve golangci-lint once (empty when not installed).
 GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null)
 
-.PHONY: all build clean run install lint vet test test-race test-integration fmt cover cover-check bench release help ideas docs-check tidy-check vuln pre-commit
+.PHONY: all build clean run install lint vet test test-race test-integration fmt cover cover-check bench bench-baseline bench-check release help ideas docs-check tidy-check vuln pre-commit
 
 all: build
 
@@ -52,6 +52,19 @@ test-integration: fmt ## Run integration tests (build tag: integration)
 
 bench: ## Run benchmarks (optional: BENCH=ClipString)
 	$(GO) test ./... -run '^$$' -bench '$(if $(BENCH),$(BENCH),.)' -benchmem -count=1
+
+BENCH_PKGS ?= ./internal/cli/chat ./internal/agent ./internal/session
+BENCHSTAT  ?= $(GO) run golang.org/x/perf/cmd/benchstat@latest
+
+bench-baseline: ## Record a benchmark baseline (benchmarks/baseline.txt)
+	@mkdir -p benchmarks
+	$(GO) test $(BENCH_PKGS) -run '^$$' -bench . -benchmem -count=5 > benchmarks/baseline.txt
+
+bench-check: ## Compare current benchmarks with benchmarks/baseline.txt
+	@test -f benchmarks/baseline.txt || { echo "run 'make bench-baseline' first"; exit 1; }
+	$(GO) test $(BENCH_PKGS) -run '^$$' -bench . -benchmem -count=5 > .bench-new.txt
+	$(BENCHSTAT) benchmarks/baseline.txt .bench-new.txt
+	@rm -f .bench-new.txt
 
 cover: fmt ## Run tests with coverage report
 	$(GO) test ./... -coverprofile=coverage.out -count=1
