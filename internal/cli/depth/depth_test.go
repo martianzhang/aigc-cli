@@ -1,6 +1,10 @@
 package depth
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/martianzhang/aigc-cli/internal/argutil"
+)
 
 func TestSplitArgs(t *testing.T) {
 	tests := []struct {
@@ -17,13 +21,13 @@ func TestSplitArgs(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := splitArgs(tc.in)
+			got := argutil.Split(tc.in)
 			if len(got) != len(tc.want) {
-				t.Fatalf("splitArgs(%q) = %v, want %v", tc.in, got, tc.want)
+				t.Fatalf("argutil.Split(%q) = %v, want %v", tc.in, got, tc.want)
 			}
 			for i := range got {
 				if got[i] != tc.want[i] {
-					t.Fatalf("splitArgs(%q) = %v, want %v", tc.in, got, tc.want)
+					t.Fatalf("argutil.Split(%q) = %v, want %v", tc.in, got, tc.want)
 				}
 			}
 		})

@@ -101,26 +101,7 @@ as shown in 'kb list'.`,
 
 // findDocByPrefix finds a document by matching the ID prefix.
 func findDocByPrefix(store *knowledge.Store, prefix string) (*knowledge.Document, error) {
-	rows, err := store.DB().Query(
-		"SELECT id FROM documents WHERE id LIKE ? || '%'", prefix)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	var fullID string
-	if rows.Next() {
-		if err := rows.Scan(&fullID); err != nil {
-			return nil, err
-		}
-	}
-	if rows.Next() {
-		return nil, fmt.Errorf("ambiguous prefix: multiple documents match %q", prefix)
-	}
-	if fullID == "" {
-		return nil, nil
-	}
-	return store.GetDocument(fullID)
+	return store.FindByIDPrefix(prefix)
 }
 
 func showVault(docID string) error {
@@ -136,7 +117,7 @@ func showVault(docID string) error {
 	}
 	var match *vault.VaultDoc
 	for _, d := range docs {
-		if len(d.ID) >= 12 && d.ID[:12] == docID || d.ID == docID {
+		if len(d.ID) >= 12 && knowledge.ShortID(d.ID) == docID || d.ID == docID {
 			if match != nil {
 				return fmt.Errorf("ambiguous prefix: multiple documents match %q", docID)
 			}
@@ -152,7 +133,7 @@ func showVault(docID string) error {
 		return fmt.Errorf("load: %w", err)
 	}
 
-	fmt.Printf("Title: %s\nID: %s\n", match.Title, match.ID[:12])
+	fmt.Printf("Title: %s\nID: %s\n", match.Title, knowledge.ShortID(match.ID))
 	if match.URL != "" {
 		fmt.Printf("URL: %s\n", match.URL)
 	}

@@ -104,36 +104,6 @@ func extractFrames(input, tmpDir string, info *videoInfo, startTime, endTime str
 	return nil
 }
 
-// parseEncodeArgs 把空格分隔的 ffmpeg 参数字符串拆分为参数切片。
-// 支持双引号包裹的值（如 -vf "scale=100:100"）。
-func parseEncodeArgs(s string) []string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
-	}
-	// 简单拆分：按空格切分，遇到引号包裹时整体作为一个参数。
-	var args []string
-	var cur strings.Builder
-	inQuote := false
-	for _, r := range s {
-		switch {
-		case r == '"':
-			inQuote = !inQuote
-		case r == ' ' && !inQuote:
-			if cur.Len() > 0 {
-				args = append(args, cur.String())
-				cur.Reset()
-			}
-		default:
-			cur.WriteRune(r)
-		}
-	}
-	if cur.Len() > 0 {
-		args = append(args, cur.String())
-	}
-	return args
-}
-
 // encodeDepthVideo 把灰度帧序列编码为 H.264 mp4（yuv420p + faststart）。
 // extraArgs 为用户自定义的 ffmpeg 编码参数（追加在默认参数之后，可覆盖 CRF 等）。
 // 可选：第二遍 ffmpeg 把源视频音轨 mux 进输出，音轨按 startSec/durSec 对齐截取。

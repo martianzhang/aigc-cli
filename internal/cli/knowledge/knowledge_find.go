@@ -93,10 +93,10 @@ Use --show to display full chunk content inline.`,
 
 			fmt.Println("\n---")
 			fmt.Printf("### [%d] %s\n", i+1, d.doc.Title)
-			fmt.Printf("**ID:** `%s`  \n", d.doc.ID[:12])
+			fmt.Printf("**ID:** `%s`  \n", knowledge.ShortID(d.doc.ID))
 			fmt.Printf("**Source:** %s  \n", source)
 			fmt.Printf("**Score:** %.4f (%d chunk(s))  \n", d.score, len(d.chunks))
-			fmt.Printf("**Show:** `aigc-cli kb show %s`  \n", d.doc.ID[:12])
+			fmt.Printf("**Show:** `aigc-cli kb show %s`  \n", knowledge.ShortID(d.doc.ID))
 
 			if d.summary != "" {
 				fmt.Println()
@@ -111,7 +111,7 @@ Use --show to display full chunk content inline.`,
 
 		// --show: output full content for each document
 		for _, d := range docs {
-			fmt.Printf("\n## %s (`%s`)\n\n", d.doc.Title, d.doc.ID[:12])
+			fmt.Printf("\n## %s (`%s`)\n\n", d.doc.Title, knowledge.ShortID(d.doc.ID))
 			for _, c := range d.chunks {
 				if c.Heading != "" {
 					fmt.Printf("### %s\n\n", strings.TrimPrefix(c.Heading, "# "))

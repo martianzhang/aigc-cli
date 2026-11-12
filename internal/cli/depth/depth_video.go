@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/argutil"
 	"github.com/martianzhang/aigc-cli/internal/depth"
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
@@ -157,7 +158,7 @@ func printDepthDryRun(info depthDryRunInfo) {
 	encode := []string{"ffmpeg", "-y", "-framerate", "24",
 		"-i", pattern, "-c:v", "libx264", "-preset", "medium", "-crf", "23",
 		"-pix_fmt", "yuv420p", "-movflags", "+faststart", info.outPath}
-	if extra := splitArgs(info.encodeArgs); len(extra) > 0 {
+	if extra := argutil.Split(info.encodeArgs); len(extra) > 0 {
 		encode = append(encode[:len(encode)-1], append(extra, info.outPath)...)
 	}
 	fmt.Printf("%s\n", strings.Join(encode, " "))
@@ -166,32 +167,4 @@ func printDepthDryRun(info depthDryRunInfo) {
 		fmt.Printf("# audio: source track will be muxed (aligned to start/end)\n")
 	}
 	fmt.Printf("\n# Then run per-frame depth inference between the two commands.\n")
-}
-
-// splitArgs splits a space-separated argument string, honoring double quotes.
-func splitArgs(s string) []string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
-	}
-	var args []string
-	var cur strings.Builder
-	inQuote := false
-	for _, r := range s {
-		switch {
-		case r == '"':
-			inQuote = !inQuote
-		case r == ' ' && !inQuote:
-			if cur.Len() > 0 {
-				args = append(args, cur.String())
-				cur.Reset()
-			}
-		default:
-			cur.WriteRune(r)
-		}
-	}
-	if cur.Len() > 0 {
-		args = append(args, cur.String())
-	}
-	return args
 }

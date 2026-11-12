@@ -3,10 +3,12 @@ package midjourney
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -34,17 +36,13 @@ func applyMJInject(req any) error {
 
 func buildMJCurl(action string, reqBody any) string {
 	p := options.Shared.ResolveProvider(options.ProviderNameMidjourney)
-	body, err := json.Marshal(reqBody)
+	url := client.NormalizeBaseURL(p.BaseURL) + "/midjourney/generations/" + action
+	plan := &reqbuild.Plan{Method: http.MethodPost, URL: url, Body: reqBody}
+	curl, err := plan.RenderCurlsErr(p.APIKey)
 	if err != nil {
 		return fmt.Sprintf("# failed to render preview: %v", err)
 	}
-	url := client.NormalizeBaseURL(p.BaseURL) + "/midjourney/generations/" + action
-
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(body))
-	return cmd
+	return curl
 }
 
 // ============================================================================

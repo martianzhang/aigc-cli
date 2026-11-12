@@ -71,7 +71,7 @@ var kbListCmd = &cobra.Command{
 				added = "-"
 			}
 			rows = append(rows, tblRow{cells: []string{
-				d.ID[:12],
+				knowledge.ShortID(d.ID),
 				d.Title,
 				displaySource(d.URL, d.FilePath),
 				added,
@@ -165,7 +165,7 @@ func listVault() error {
 		if source == "" {
 			source = "(no source)"
 		}
-		rows = append(rows, tblRow{cells: []string{d.ID[:12], d.Title, source}})
+		rows = append(rows, tblRow{cells: []string{knowledge.ShortID(d.ID), d.Title, source}})
 	}
 	renderTable(os.Stdout, rows)
 	return nil

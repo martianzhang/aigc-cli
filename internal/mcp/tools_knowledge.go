@@ -218,7 +218,7 @@ func kbFindHandler() server.ToolHandlerFunc {
 				docMap[r.Document.ID] = &docRes{
 					title:   r.Document.Title,
 					source:  source,
-					docID:   r.Document.ID[:12],
+					docID:   knowledge.ShortID(r.Document.ID),
 					score:   r.Score,
 					summary: firstParagraph(r.Chunk.Content),
 				}
@@ -524,7 +524,7 @@ func kbListHandler() server.ToolHandlerFunc {
 				source = d.FilePath
 			}
 			fmt.Fprintf(&out, "%d. %s\n   ID: %s\n   Source: %s\n   Size: %.1f KB\n\n",
-				i+1, d.Title, d.ID[:12], source, float64(d.Size)/1024)
+				i+1, d.Title, knowledge.ShortID(d.ID), source, float64(d.Size)/1024)
 		}
 		return mcp.NewToolResultText(out.String()), nil
 	}
@@ -562,7 +562,7 @@ func kbShowHandler() server.ToolHandlerFunc {
 			return mcp.NewToolResultText(fmt.Sprintf("Document %q found but content file is missing.", docID)), nil
 		}
 
-		out := fmt.Sprintf("Title: %s\nID: %s\n", doc.Title, doc.ID[:12])
+		out := fmt.Sprintf("Title: %s\nID: %s\n", doc.Title, knowledge.ShortID(doc.ID))
 		if doc.URL != "" {
 			out += fmt.Sprintf("URL: %s\n", doc.URL)
 		}
@@ -577,26 +577,7 @@ func kbShowHandler() server.ToolHandlerFunc {
 
 // findDocByIDPrefix looks up a document by ID prefix.
 func findDocByIDPrefix(store *knowledge.Store, prefix string) (*knowledge.Document, error) {
-	rows, err := store.DB().Query(
-		"SELECT id FROM documents WHERE id LIKE ? || '%'", prefix)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	var fullID string
-	if rows.Next() {
-		if err := rows.Scan(&fullID); err != nil {
-			return nil, err
-		}
-	}
-	if rows.Next() {
-		return nil, fmt.Errorf("ambiguous prefix: multiple documents match %q", prefix)
-	}
-	if fullID == "" {
-		return nil, nil
-	}
-	return store.GetDocument(fullID)
+	return store.FindByIDPrefix(prefix)
 }
 
 // findDocByIDPrefix looks up a document by ID prefix.
@@ -607,7 +588,7 @@ func tryReadDocFile(baseDir, docID string) string {
 		if err != nil || info.IsDir() {
 			return nil
 		}
-		if strings.HasPrefix(info.Name(), docID[:12]) {
+		if strings.HasPrefix(info.Name(), knowledge.ShortID(docID)) {
 			found = path
 			return filepath.SkipAll
 		}

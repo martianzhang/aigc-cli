@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -180,9 +181,11 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	c := options.NewClient(options.ProviderNameVideo)
+	options.ApplyTimeout(c, "video", client.VideoTimeout)
+
 	// Upload local images before dispatch so the request carries public URLs.
 	if len(plan.Uploads) > 0 {
-		c := options.NewClient(options.ProviderNameVideo)
 		if err := plan.applyUploads(c, req); err != nil {
 			return err
 		}
@@ -197,7 +200,7 @@ func runVideo(cmd *cobra.Command, args []string) error {
 	}
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {
-			out, err := s.run(req)
+			out, err := s.run(cmd.Context(), c, p, req)
 			// return_last_frame：优先使用 provider 返回的尾帧图；未返回则本地抽帧。
 			// 在 GIF/裁边之前处理，因为 GIF 转换会替换掉原始 mp4。
 			if err == nil && wantsLastFrame(req) {

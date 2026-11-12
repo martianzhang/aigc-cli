@@ -77,7 +77,11 @@ func (v *Vault) Load(docID string) (*VaultDoc, []byte, error) {
 
 	doc, err := v.getMetadata(docID)
 	if err != nil {
-		doc = &VaultDoc{ID: docID, Title: docID[:12], Size: int64(len(plaintext))}
+		title := docID
+		if len(title) > 12 {
+			title = title[:12]
+		}
+		doc = &VaultDoc{ID: docID, Title: title, Size: int64(len(plaintext))}
 	}
 
 	return doc, plaintext, nil

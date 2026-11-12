@@ -3,13 +3,14 @@ package music
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/provider"
-	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -17,21 +18,16 @@ import (
 // Curl builder
 // ============================================================================
 func buildMusicCurl(baseURL, apiKey string, body any) string {
-	bodyJSON, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Sprintf("# failed to render preview: %v", err)
-	}
 	base := strings.TrimRight(baseURL, "/")
 	if !client.HasVersionSuffix(base) {
 		base += "/v1"
 	}
-	url := base + "/music/generations"
-
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(apiKey))
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(bodyJSON))
-	return cmd
+	plan := &reqbuild.Plan{Method: http.MethodPost, URL: base + "/music/generations", Body: body}
+	curl, err := plan.RenderCurlsErr(apiKey)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
+	return curl
 }
 
 // ============================================================================

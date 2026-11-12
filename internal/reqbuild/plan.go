@@ -53,6 +53,7 @@ type Plan struct {
 	Uploads   []Upload // ordered
 	UploadURL string   // absolute upload endpoint (render-only)
 	Note      string   // optional trailing preview comment
+	Stream    bool     // render `curl -N` for streaming (SSE) endpoints
 
 	// Multipart marks the request body itself as multipart/form-data (used by
 	// POST /images/edits). When true, the request is rendered from FormFields +
@@ -139,7 +140,11 @@ func renderUploadCurl(u Upload, uploadURL, apiKey string) string {
 
 // renderRequestCurl renders the generation request itself.
 func (p *Plan) renderRequestCurl(apiKey string) (string, error) {
-	lines := []string{fmt.Sprintf("curl -X %s %s", p.Method, p.URL)}
+	command := "curl"
+	if p.Stream {
+		command += " -N"
+	}
+	lines := []string{fmt.Sprintf("%s -X %s %s", command, p.Method, p.URL)}
 	lines = appendAuthLine(lines, apiKey)
 	lines = appendHeaderLines(lines, p.Headers)
 	if p.Method != http.MethodGet {

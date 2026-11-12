@@ -1,6 +1,7 @@
 package video
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -18,15 +20,12 @@ import (
 // Billing follows the model's advertised price: official models are paidOnly
 // and need paid Pollen, while community models can also be priced (a model is
 // free only when its price is zero).
-func runPollinationsVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
+func runPollinationsVideo(ctx context.Context, c *client.Client, p *provider.EffectiveProvider, req *types.VideoGenerateRequest) (*RunResult, error) {
 	if req.Prompt == "" {
 		return nil, fmt.Errorf("prompt is required for pollinations video generation")
 	}
 
-	c := options.NewClient("video")
-	options.ApplyTimeout(c, "video", client.VideoTimeout)
-
-	fmt.Printf("Provider: %s\n", options.Shared.ResolveProvider("video").ProviderType)
+	fmt.Printf("Provider: %s\n", p.ProviderType)
 	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Println("Requesting video (pollinations generates synchronously; this may take a few minutes)...")
 

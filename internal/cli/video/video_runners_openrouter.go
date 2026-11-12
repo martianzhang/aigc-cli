@@ -1,6 +1,7 @@
 package video
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -62,7 +64,7 @@ func openRouterAPIKey() string {
 
 // runOpenRouterVideo handles video generation via OpenRouter's dedicated video API.
 // buildVideoPlan already embedded local images as data URIs in req.
-func runOpenRouterVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
+func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.EffectiveProvider, req *types.VideoGenerateRequest) (*RunResult, error) {
 	orReq := openRouterVideoBody(req)
 
 	if options.Shared.Verbose {
@@ -70,16 +72,13 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 		fmt.Printf("OpenRouter Video Request:\n%s\n\n", string(prettyReq))
 	}
 
-	c := options.NewClient("video")
-	options.ApplyTimeout(c, "video", client.VideoTimeout)
-
 	// Step 1: Submit
 	submitResp, err := c.OpenRouterVideoSubmit(orReq)
 	if err != nil {
 		return nil, fmt.Errorf("OpenRouter video submission failed: %w", err)
 	}
 
-	fmt.Printf("Provider: %s\n", options.Shared.ResolveProvider("video").ProviderType)
+	fmt.Printf("Provider: %s\n", p.ProviderType)
 	fmt.Printf("Model: %s\n", orReq.Model)
 	fmt.Printf("Video job submitted.\n")
 	fmt.Printf("Job ID: %s\n", submitResp.ID)
@@ -122,7 +121,7 @@ func runOpenRouterVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 		return nil, fmt.Errorf("video job completed but no download URLs returned")
 	}
 
-	apiKey := openRouterAPIKey()
+	apiKey := p.APIKey
 	var saved []string
 	for i, u := range pollResp.UnsignedURLs {
 		ext := service.ExtractExt(u)

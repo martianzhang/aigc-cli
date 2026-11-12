@@ -1,9 +1,11 @@
 package video
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -26,7 +28,7 @@ func loadVideoDefaults() *types.VideoDefaults {
 // Returns the saved videos (plus any last-frame images). Shared by CLI (video
 // command) and agent loop (chat) — single source of truth.
 // Supports APIMart async and OpenRouter video providers.
-func GenerateAndSave(req *types.VideoGenerateRequest) (*RunResult, error) {
+func GenerateAndSave(ctx context.Context, c *client.Client, p *provider.EffectiveProvider, req *types.VideoGenerateRequest) (*RunResult, error) {
 	// Always load the user's config — options.Shared.Cfg may be nil if PersistentPreRunE hasn't run.
 	vidCfg := loadVideoDefaults()
 
@@ -65,15 +67,22 @@ func GenerateAndSave(req *types.VideoGenerateRequest) (*RunResult, error) {
 		return nil, fmt.Errorf("model is required: set via defaults.video.model in config.yaml")
 	}
 
-	// Resolve provider (named provider > global > builtin) and dispatch.
-	// Each strategy runner builds its own video-scoped client internally.
-	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
+	// Resolve provider/client when the caller did not supply them (agent or
+	// tests), then dispatch. Runners receive both, so per-call providers and
+	// cancellation cannot silently diverge from the strategy that matched.
+	if p == nil {
+		p = options.Shared.ResolveProvider(options.ProviderNameVideo)
+	}
+	if c == nil {
+		c = options.NewClient(options.ProviderNameVideo)
+	}
+	options.ApplyTimeout(c, "video", client.VideoTimeout)
+
 	plan, err := buildVideoPlan(req, p)
 	if err != nil {
 		return nil, err
 	}
 	if len(plan.Uploads) > 0 {
-		c := options.NewClient(options.ProviderNameVideo)
 		if err := plan.applyUploads(c, req); err != nil {
 			return nil, err
 		}
@@ -86,7 +95,7 @@ func GenerateAndSave(req *types.VideoGenerateRequest) (*RunResult, error) {
 	}
 	for _, s := range videoStrategies {
 		if s.match(req, vctx) {
-			out, err := s.run(req)
+			out, err := s.run(ctx, c, p, req)
 			if err != nil {
 				return nil, err
 			}

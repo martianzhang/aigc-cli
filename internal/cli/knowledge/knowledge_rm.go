@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/martianzhang/aigc-cli/internal/knowledge"
 )
 
 // kbRmCmd removes a document from the knowledge base.
@@ -34,7 +36,7 @@ Use --all to remove all documents.`,
 				}
 				for _, d := range docs {
 					if err := store.DeleteDocument(d.ID); err != nil {
-						fmt.Fprintf(os.Stderr, "Error deleting %s: %v\n", d.ID[:12], err)
+						fmt.Fprintf(os.Stderr, "Error deleting %s: %v\n", knowledge.ShortID(d.ID), err)
 					} else {
 						fmt.Fprintf(os.Stderr, "  Removed: %s\n", d.Title)
 					}

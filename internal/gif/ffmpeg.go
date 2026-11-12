@@ -3,6 +3,8 @@ package gif
 import (
 	"os/exec"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/argutil"
 )
 
 // Available reports whether ffmpeg is on PATH.
@@ -18,30 +20,7 @@ func MissingHint() error {
 
 // SplitExtraArgs 把空格分隔的额外 ffmpeg 参数拆为切片（支持引号包裹的值）。
 func SplitExtraArgs(s string) []string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
-	}
-	var args []string
-	var cur strings.Builder
-	inQuote := false
-	for _, r := range s {
-		switch {
-		case r == '"':
-			inQuote = !inQuote
-		case r == ' ' && !inQuote:
-			if cur.Len() > 0 {
-				args = append(args, cur.String())
-				cur.Reset()
-			}
-		default:
-			cur.WriteRune(r)
-		}
-	}
-	if cur.Len() > 0 {
-		args = append(args, cur.String())
-	}
-	return args
+	return argutil.Split(s)
 }
 
 // missingFFmpegError 标记 ffmpeg 未安装这一可识别错误。

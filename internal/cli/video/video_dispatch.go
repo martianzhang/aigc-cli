@@ -1,6 +1,10 @@
 package video
 
 import (
+	"context"
+
+	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -18,7 +22,7 @@ type videoDispatchCtx struct {
 // or an error.
 type videoStrategy struct {
 	match func(req *types.VideoGenerateRequest, ctx *videoDispatchCtx) bool
-	run   func(*types.VideoGenerateRequest) (*RunResult, error)
+	run   func(context.Context, *client.Client, *provider.EffectiveProvider, *types.VideoGenerateRequest) (*RunResult, error)
 }
 
 // videoStrategies is the ordered dispatch table for video generation.

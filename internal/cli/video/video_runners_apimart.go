@@ -1,21 +1,21 @@
 package video
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // runAPIMartVideo handles video generation via APIMart async task API.
 // Local images are uploaded by videoPlan.applyUploads before dispatch.
-func runAPIMartVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
-	c := options.NewClient("video")
-	options.ApplyTimeout(c, "video", client.VideoTimeout)
+func runAPIMartVideo(ctx context.Context, c *client.Client, p *provider.EffectiveProvider, req *types.VideoGenerateRequest) (*RunResult, error) {
 	resp, err := c.VideoSubmit(req)
 	if err != nil {
 		return nil, fmt.Errorf("submission failed: %w", err)
@@ -25,7 +25,7 @@ func runAPIMartVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 	}
 
 	task := resp.Data[0]
-	fmt.Printf("Provider: %s\n", options.Shared.ResolveProvider("video").ProviderType)
+	fmt.Printf("Provider: %s\n", p.ProviderType)
 	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Printf("Response code: %d\n", resp.Code)
 	fmt.Printf("Task ID: %s\n", task.TaskID)

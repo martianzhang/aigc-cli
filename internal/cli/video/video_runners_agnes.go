@@ -1,11 +1,13 @@
 package video
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/wait"
@@ -14,10 +16,7 @@ import (
 // runAgnesVideo handles video generation via agnes.ai's async task API.
 // Uses POST /v1/videos for submission and GET /agnesapi?video_id= for polling.
 // agnes has no upload endpoint, so buildVideoPlan embeds local files as data URIs.
-func runAgnesVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
-	c := options.NewClient("video")
-	options.ApplyTimeout(c, "video", client.VideoTimeout)
-
+func runAgnesVideo(ctx context.Context, c *client.Client, p *provider.EffectiveProvider, req *types.VideoGenerateRequest) (*RunResult, error) {
 	// Step 1: Submit
 	createResp, err := c.AgnesVideoSubmit(req)
 	if err != nil {
@@ -32,7 +31,7 @@ func runAgnesVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 		return nil, fmt.Errorf("agnes video submission returned no video id")
 	}
 
-	fmt.Printf("Provider: %s\n", options.Shared.ResolveProvider("video").ProviderType)
+	fmt.Printf("Provider: %s\n", p.ProviderType)
 	fmt.Printf("Model: %s\n", req.Model)
 	fmt.Printf("Task ID: %s\n", createResp.TaskID)
 	fmt.Printf("Status: %s\n\n", createResp.Status)
@@ -69,7 +68,7 @@ func runAgnesVideo(req *types.VideoGenerateRequest) (*RunResult, error) {
 			// queued / pending / in_progress -- keep waiting
 			progress := fmt.Sprintf("%.0fs", time.Since(start).Seconds())
 			fmt.Printf("  Status: %s, Elapsed: %s\n", queryResp.Status, progress)
-			if err := wait.Sleep(options.Context(), client.DefaultPollInterval); err != nil {
+			if err := wait.Sleep(ctx, client.DefaultPollInterval); err != nil {
 				return nil, err
 			}
 		}

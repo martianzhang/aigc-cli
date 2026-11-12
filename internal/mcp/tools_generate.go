@@ -197,7 +197,7 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 		reporter.report(progressDispatch, progressDispatchMessage(p.ProviderType.String()))
 		reporter.report(progressGenerating, progressGeneratingMessage)
 
-		res, err := video.GenerateAndSave(req)
+		res, err := video.GenerateAndSave(ctx, client.NewFromProvider(p), p, req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}

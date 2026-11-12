@@ -3,12 +3,13 @@ package music
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
-	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -94,17 +95,12 @@ func BuildFunMusicBody(req *types.MusicGenerateRequest) (any, error) {
 
 // buildFunMusicCurl renders the equivalent curl command for the native endpoint.
 func buildFunMusicCurl(baseURL, apiKey string, body any) string {
-	bodyJSON, err := json.Marshal(body)
+	plan := &reqbuild.Plan{Method: http.MethodPost, URL: client.FunMusicEndpoint(baseURL), Body: body}
+	curl, err := plan.RenderCurlsErr(apiKey)
 	if err != nil {
 		return fmt.Sprintf("# failed to render preview: %v", err)
 	}
-	url := client.FunMusicEndpoint(baseURL)
-
-	cmd := fmt.Sprintf("curl -X POST '%s' \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(apiKey))
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(bodyJSON))
-	return cmd
+	return curl
 }
 
 // runFunMusicMusic runs the DashScope-native synchronous Fun-Music path.

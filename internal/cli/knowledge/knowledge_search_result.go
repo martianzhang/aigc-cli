@@ -100,7 +100,7 @@ func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []sear
 
 func outputDoc(docID, title, url, content string) {
 	fmt.Println("---")
-	fmt.Printf("id: %s\n", docID[:12])
+	fmt.Printf("id: %s\n", knowledge.ShortID(docID))
 	fmt.Printf("title: %s\n", title)
 	fmt.Printf("url: %s\n", url)
 	if host := extractHost(url); host != "" {
@@ -128,7 +128,7 @@ func tryReadDoc(docID string) string {
 		if err != nil || info.IsDir() {
 			return nil
 		}
-		if strings.HasPrefix(info.Name(), docID[:12]) {
+		if strings.HasPrefix(info.Name(), knowledge.ShortID(docID)) {
 			found = path
 			return filepath.SkipAll
 		}
@@ -164,7 +164,7 @@ func outputLocalResults(results knowledge.SearchResults, verbose bool) {
 				source = r.Document.FilePath
 			}
 			docMap[r.Document.ID] = &docRes{
-				docID: r.Document.ID[:12], title: r.Document.Title,
+				docID: knowledge.ShortID(r.Document.ID), title: r.Document.Title,
 				source: source, score: r.Score,
 			}
 			d = docMap[r.Document.ID]

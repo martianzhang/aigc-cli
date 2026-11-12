@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/argutil"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 )
 
@@ -311,7 +312,7 @@ func Convert(opts ConvertOptions) (string, error) {
 			durSec = 0
 		}
 	}
-	if err := encodeDepthVideo(tmpDir, outPath, input, info, startSec, durSec, opts.KeepAudio, opts.Verbose, parseEncodeArgs(opts.EncodeArgs)); err != nil {
+	if err := encodeDepthVideo(tmpDir, outPath, input, info, startSec, durSec, opts.KeepAudio, opts.Verbose, argutil.Split(opts.EncodeArgs)); err != nil {
 		return "", err
 	}
 

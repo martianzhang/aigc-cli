@@ -1,13 +1,14 @@
 package video
 
 import (
-	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -101,15 +102,11 @@ func buildVideoCurl(req *types.VideoGenerateRequest) string {
 
 func buildVideoRemixCurl(req *types.VideoRemixRequest) string {
 	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
-	body, err := json.Marshal(req)
+	url := fmt.Sprintf("%s/videos/%s/remix", client.NormalizeBaseURL(p.BaseURL), vidTaskID)
+	plan := &reqbuild.Plan{Method: http.MethodPost, URL: url, Body: req}
+	curl, err := plan.RenderCurlsErr(p.APIKey)
 	if err != nil {
 		return fmt.Sprintf("# failed to render preview: %v", err)
 	}
-	url := fmt.Sprintf("%s/videos/%s/remix", client.NormalizeBaseURL(p.BaseURL), vidTaskID)
-
-	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(body))
-	return cmd
+	return curl
 }

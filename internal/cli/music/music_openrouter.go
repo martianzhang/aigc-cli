@@ -3,10 +3,12 @@ package music
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -67,13 +69,12 @@ func buildOpenRouterMusicCurl(baseURL, apiKey string, req *types.MusicGenerateRe
 	if !client.HasVersionSuffix(base) {
 		base += "/v1"
 	}
-	url := base + "/chat/completions"
-
-	cmd := fmt.Sprintf("curl -N -X POST %s \\\n", url)
-	cmd += fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(apiKey))
-	cmd += "  -H \"Content-Type: application/json\" \\\n"
-	cmd += fmt.Sprintf("  -d '%s'", string(bodyJSON))
-	return cmd
+	plan := &reqbuild.Plan{Method: http.MethodPost, URL: base + "/chat/completions", Body: json.RawMessage(bodyJSON), Stream: true}
+	curl, err := plan.RenderCurlsErr(apiKey)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
+	return curl
 }
 
 // runOpenRouterMusic streams a music generation and saves the decoded audio.

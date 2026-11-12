@@ -4,7 +4,23 @@ linters:
     - govet
     - errcheck
     - staticcheck
+    - depguard
   settings:
+    depguard:
+      rules:
+        no-cli-from-core:
+          files:
+            - "**/internal/service/**"
+            - "**/internal/client/**"
+            - "**/internal/provider/**"
+            - "**/internal/agent/**"
+            - "**/internal/knowledge/**"
+            - "**/internal/types/**"
+          deny:
+            - pkg: "github.com/martianzhang/aigc-cli/internal/cli/"
+              desc: "core packages must not depend on CLI/cobra packages"
+        # TODO(A1): also forbid internal/mcp -> internal/cli once the
+        # image/video/music/balance orchestration moves into service/generate.
     errcheck:
       # Read-side Close and CLI output writes are intentionally fire-and-forget.
       # Write-side Close/Sync is still checked explicitly in the code.

@@ -1,6 +1,10 @@
 package depth
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/martianzhang/aigc-cli/internal/argutil"
+)
 
 func TestParseTimeToSeconds(t *testing.T) {
 	tests := []struct {
@@ -91,13 +95,13 @@ func TestParseEncodeArgs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseEncodeArgs(tt.in)
+			got := argutil.Split(tt.in)
 			if len(got) != len(tt.want) {
-				t.Fatalf("parseEncodeArgs(%q) = %v, want %v", tt.in, got, tt.want)
+				t.Fatalf("argutil.Split(%q) = %v, want %v", tt.in, got, tt.want)
 			}
 			for i := range got {
 				if got[i] != tt.want[i] {
-					t.Fatalf("parseEncodeArgs(%q) = %v, want %v", tt.in, got, tt.want)
+					t.Fatalf("argutil.Split(%q) = %v, want %v", tt.in, got, tt.want)
 				}
 			}
 		})

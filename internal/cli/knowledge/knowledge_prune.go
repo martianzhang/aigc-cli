@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/wait"
 )
 
@@ -66,12 +67,12 @@ var kbPruneCmd = &cobra.Command{
 			res, err := store.DB().Exec(
 				"DELETE FROM documents WHERE checksum=? AND id!=?", d.checksum, d.keepID)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "  Error cleaning dup %s: %v\n", d.checksum[:12], err)
+				fmt.Fprintf(os.Stderr, "  Error cleaning dup %s: %v\n", knowledge.ShortID(d.checksum), err)
 				continue
 			}
 			n, _ := res.RowsAffected()
 			removed += int(n)
-			fmt.Fprintf(os.Stderr, "  Removed %d duplicate(s) of %s\n", n, d.checksum[:12])
+			fmt.Fprintf(os.Stderr, "  Removed %d duplicate(s) of %s\n", n, knowledge.ShortID(d.checksum))
 		}
 
 		fmt.Fprintf(os.Stderr, "Duplicates removed: %d\n", removed)
