@@ -91,7 +91,7 @@ OpenRouter 有两种图片生成路径：
 | `POST /v1/images` | **专用 Image API** — 用于 DALL-E、GPT-Image 等专用图片模型 | [Image Generation Guide](https://openrouter.ai/docs/guides/overview/multimodal/image-generation) |
 | `POST /v1/responses` | **Responses API** — 用于 Gemini、Claude 等支持图片输出的多模态模型 | [Responses API](https://openrouter.ai/docs/guides/overview/multimodal/image-generation) |
 
-路由策略（`cmd/image.go` 中的 `imageStrategies`）：
+路由策略（`internal/cli/image/image_dispatch.go` 中的 `imageStrategies`）：
 1. 非 DALL-E/GPT-Image 模型 → Responses API（`POST /v1/responses`）
 2. DALL-E/GPT-Image 模型 → 专用 Image API（`POST /v1/images`）
 
@@ -241,7 +241,7 @@ OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io
 1. 在 `internal/provider/detect.go` 的 `Type` 枚举中添加新类型
 2. 添加对应的域名列表
 3. 在 `internal/client/` 中实现对应的客户端方法
-4. 在 `cmd/` 的策略表（`imageStrategies` / `videoStrategies`）中添加路由规则
+4. 在 `internal/cli/<cmd>/` 的策略表（`imageStrategies` / `videoStrategies`）中添加路由规则
 
 ---
 
@@ -249,7 +249,7 @@ OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io
 
 以下命令使用 match-run 策略表进行 Provider 分发：
 
-### `image` 策略表（`cmd/image.go`）
+### `image` 策略表（`internal/cli/image/image_dispatch.go`）
 
 | 优先级 | 匹配条件 | 路由目标 | 使用的端点 |
 |---|---|---|---|
@@ -258,7 +258,7 @@ OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io
 | 3 | APIMart 域名 | 异步任务 | `POST /v1/images/generations` (async) |
 | 4 | 默认（兜底） | OpenAI 兼容同步 | `POST /v1/images/generations` (sync) |
 
-### `video` 策略表（`cmd/video.go`）
+### `video` 策略表（`internal/cli/video/video_dispatch.go`）
 
 | 优先级 | 匹配条件 | 路由目标 | 使用的端点 |
 |---|---|---|---|
@@ -266,7 +266,7 @@ OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io
 | 2 | OpenLux | OpenLux 统一视频 API | `POST /v1/video/create` |
 | 3 | 默认（兜底） | APIMart 异步任务 | `POST /v1/videos/generations` |
 
-### `music` 策略表（`cmd/music_generate.go` / `cmd/music_shared.go`）
+### `music` 策略表（`internal/cli/music/`）
 
 按 Provider 类型分派（非 match-run 表）：
 
@@ -277,7 +277,7 @@ OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io
 
 `suno` / `flowmusic` 由请求体的 `model` 字段区分（名称含 `flowmusic` 走 flowmusic）。
 
-### `models` 策略表（`cmd/models.go`）
+### `models` 策略表（`internal/cli/models/`）
 
 | 条件 | 路由目标 | 端点 |
 |---|---|---|

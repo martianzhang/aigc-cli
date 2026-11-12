@@ -25,33 +25,28 @@ make build
 
 ```
 aigc-cli/
-├── cmd/              # cobra 命令定义（薄层：解析参数→调用逻辑→输出结果）
-│   ├── image.go      # 图片生成（命令定义 + 主流程）
-│   ├── image_request.go   # 请求构建 + 输入解析
-│   ├── image_dispatch.go  # 策略上下文/类型/路由表
-│   ├── image_runners.go   # 各 Provider 执行函数 + 下载
-│   ├── image_helpers.go   # Image 模块专有辅助函数
-│   ├── video.go      # 视频生成（命令定义 + 主流程）
-│   ├── video_request.go
-│   ├── video_dispatch.go
-│   ├── video_runners.go
-│   ├── video_helpers.go
-│   ├── chat.go       # AI 对话
-│   ├── util.go       # 跨命令共享工具函数
-│   ├── util_ptr.go   # 泛型安全导航（field / deref）
-│   ├── config_defaults.go # 配置 section 访问器（chatDefaults() 等）
-│   ├── mcp.go        # MCP Server 入口
+├── cmd/              # cobra wiring（通常只有 rootCmd.AddCommand）
+│   ├── root.go       # 入口、PersistentPreRunE、全局 flags、ExecuteContext
+│   ├── config.go     # config get/set/list
+│   ├── image.go      # 一行：rootCmd.AddCommand(image.Cmd())
 │   └── ...
 ├── internal/
+│   ├── cli/<cmd>/    # 命令实现：flag 解析 + 输出；image/video/chat/...
+│   ├── cli/options/  # Shared 状态、配置访问器、client factory、flag 工具
 │   ├── client/       # HTTP API 客户端（APIMart / OpenAI / OpenRouter 等）
-│   ├── config/       # YAML 配置加载（viper）
+│   ├── config/       # YAML 配置加载（viper）+ 密钥加密
 │   ├── provider/     # Provider 检测 + 命名 Provider 解析 + 在线 LLM 调用
-│   ├── imgcodec/     # 图片编解码（wasm codec）
+│   ├── service/      # 下载、输入解析、图片/视频落盘等共享业务逻辑
+│   ├── httpx/        # 重试、Retry-After、响应体大小上限
+│   ├── modelstore/   # 模型下载、Range 续传、SHA256 校验
+│   ├── imgcodec/     # 图片编解码（wasm codec）+ 解码炸弹上限
+│   ├── argutil/      # ffmpeg 风格参数拆分
+│   ├── wait/         # context-aware 休眠
 │   ├── mcp/          # MCP Server 实现
 │   └── types/        # 请求/响应数据结构和配置类型
-├── docs/             # 用户文档（zh/ 与 en/）
+├── docs/             # 用户文档（zh/ 与 en/，文件集合需一致）
 │   └── release_notes/ # 各版本 release notes
-├── scripts/          # 辅助脚本（helper.c / build-helper.sh 等）
+├── scripts/          # 辅助脚本（helper.c / build-helper.sh / check_docs.py）
 ├── main.go           # 入口
 ├── Makefile          # 统一构建入口
 └── AGENTS.md         # AI 助手开发约束（引用 SPEC.md）

@@ -197,6 +197,17 @@ jobs:
           # keep runtime libs for standalone asset upload below
           cp "$lib_dir"/libsherpa-onnx-c-api.* . 2>/dev/null || true
           echo "binary=aigc-cli-${{ matrix.label }}.tar.gz" >> "$GITHUB_ENV"
+      - name: Checksums
+        shell: bash
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          sums="SHA256SUMS-${{ matrix.label }}.txt"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${{ env.binary }}" > "$sums"
+          else
+            shasum -a 256 "${{ env.binary }}" > "$sums"
+          fi
+          cat "$sums"
       - name: Upload Release Asset
         shell: bash
         if: startsWith(github.ref, 'refs/tags/v')
@@ -204,13 +215,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ github.ref_name }}"
+          sums="SHA256SUMS-${{ matrix.label }}.txt"
           notes_file="docs/release_notes/${tag}.md"
           notes_flag="--generate-notes"
           [ -f "$notes_file" ] && notes_flag="--notes-file $notes_file"
 
           # Create release with notes, or upload to existing
-          gh release create "$tag" "${{ env.binary }}" --title "$tag" $notes_flag 2>/dev/null || \
-            gh release upload "$tag" "${{ env.binary }}" --clobber
+          gh release create "$tag" "${{ env.binary }}" "$sums" --title "$tag" $notes_flag 2>/dev/null || \
+            gh release upload "$tag" "${{ env.binary }}" "$sums" --clobber
 
           # If release already existed, update notes
           [ -f "$notes_file" ] && gh release edit "$tag" --notes-file "$notes_file" 2>/dev/null || true

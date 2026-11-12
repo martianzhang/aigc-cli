@@ -48,38 +48,38 @@ var chatCmd = &cobra.Command{
 - Go 驼峰式：`APIKey`、`HTTPProxy`、`baseURL`
 - 不要用拼音命名，不要用单字母变量（循环变量除外）
 
-## 5. 配置访问器（⚡ 新增，防长链 nil 判断）
+## 5. 配置访问器（⚡ 防长链 nil 判断）
 
 **禁止**手写 `shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil && ...` 这类逐级 nil 判断。
 
-一律通过访问器 / 泛型工具获取：
+一律通过访问器 / 泛型工具获取（实现在 `internal/cli/options/config_defaults.go`）：
 
 ```go
-// 按 section 访问器（已定义于 cmd/config_defaults.go）
-cfg := chatDefaults()        // *types.ChatDefaults，nil-safe
-cfg := imageDefaults()       // *types.ImageDefaults
-cfg := audioDefaults()       // *types.AudioDefaults
-cfg := knowledgeDefaults()   // *types.KBDefaults
-cfg := detectConfig()        // *types.DetectConfig
+cfg := options.ChatDefaults()      // *types.ChatDefaults，nil-safe
+cfg := options.ImageDefaults()     // *types.ImageDefaults
+cfg := options.VideoDefaults()     // *types.VideoDefaults
+cfg := options.AudioDefaults()     // *types.AudioDefaults
+cfg := options.KnowledgeDefaults() // *types.KBDefaults
+cfg := options.DetectConfig()      // *types.DetectConfig
 ```
 
 访问器返回 nil 时再判空：
 
 ```go
-if cfg := chatDefaults(); cfg != nil && cfg.Model != "" {
-	shared.Model = cfg.Model
+if cfg := options.ChatDefaults(); cfg != nil && cfg.Model != "" {
+	options.Shared.Model = cfg.Model
 }
 ```
 
-新增配置 section 时，在 `cmd/config_defaults.go` 用 `field` 组合添加访问器：
+新增配置 section 时，在 `internal/cli/options/config_defaults.go` 用 `field` 组合添加访问器：
 
 ```go
-func myDefaults() *types.MyDefaults {
-	return field(defaultsOrNil(), func(d *types.ConfigDefaults) *types.MyDefaults { return d.My })
+func MyDefaults() *types.MyDefaults {
+	return field(DefaultsOrNil(), func(d *types.ConfigDefaults) *types.MyDefaults { return d.My })
 }
 ```
 
-通用工具（`cmd/util_ptr.go`）：
+通用工具（`internal/cli/options/ptr.go`）：
 - `field(p, f)`：单步安全导航，nil 短路，可链式组合
 - `deref(p, def)`：指针安全取值，nil 回退默认值
 
@@ -102,11 +102,17 @@ scope: `image` / `video` / `chat` / `ideas` / `midjourney` / `mcp` / `config` / 
 
 ## 8. 文件规模与共享工具
 
-### 8.1 文件规模
+### 8.1 文件规模与分层
 
-单个 `.go` 文件尽量控制在 200 行以内（不含空白行和注释）。超过后建议按功能域拆分到独立文件，便于 AI 分析。拆分时保持 `package cmd` 不变，不修改任何代码逻辑。
+单个 `.go` 文件尽量控制在 200 行以内（不含空白行和注释）。超过后建议按功能域拆分到独立文件，便于 AI 分析。
 
-示例：`cmd/image.go`（823 行 → 5 个文件）
+当前结构：
+
+- `cmd/`：仅 cobra wiring。每个命令文件通常只做 `rootCmd.AddCommand(<pkg>.Cmd())`。
+- `internal/cli/<cmd>/`：命令定义、flag 解析、输出格式；业务编排尽量下沉。
+- `internal/service/`、`internal/client/`、`internal/provider/`、`internal/knowledge/` 等：可复用业务逻辑，**不得 import `internal/cli`**（depguard 已强制）。
+
+示例：`internal/cli/image/`（原 `cmd/image.go` 拆分后）
 
 | 文件 | 职责 |
 |---|---|
@@ -116,25 +122,32 @@ scope: `image` / `video` / `chat` / `ideas` / `midjourney` / `mcp` / `config` / 
 | `image_runners.go` | 各 Provider 执行函数和 `downloadImages` |
 | `image_helpers.go` | Image 模块专有辅助函数 |
 
-同样，`cmd/video.go`（901 行 → 5 个文件）：`video.go` / `video_request.go` / `video_dispatch.go` / `video_runners.go` / `video_helpers.go`。
+`internal/cli/video/` 同理：`video.go` / `video_request.go` / `video_dispatch.go` / `video_runners*.go` / `video_helpers.go`。
 
 ### 8.2 共享工具
 
-跨模块复用的公共函数放在 `cmd/util.go` 中，不挂靠在任何一个命令文件上。当前已提取的共享函数：
+跨命令复用的功能放在 `internal/` 下的独立包，不挂靠在某个命令目录里。当前主要共享包：
 
-| 函数 | 调用方 | 职责 |
-|---|---|---|
-| `readInput` | image / video / midjourney / chat | 从文件、stdin 或字符串读取输入 |
-| `isFile` | image / video / midjourney | 判断路径是否为已有文件 |
-| `httpGet` | image / video | HTTP GET 或 data URI 转二进制 |
-| `applyTimeout` | image / video / midjourney | 按优先级设置 HTTP 客户端超时 |
-| `setIntFlag` | video / chat | 按 cobra flag 是否变更设置 `*int` 字段 |
-| `setBoolFlag` | video / chat | 按 cobra flag 是否变更设置 `*bool` 字段 |
-| `downloadVideos` | video / midjourney / task | 下载生成的视频列表到输出目录 |
-| `field` / `deref` | 全命令 | 泛型安全导航 + 指针安全取值（`util_ptr.go`） |
-| `chatDefaults()` 等 | 全命令 | 配置 section 访问器（`config_defaults.go`） |
+| 包 | 职责 |
+|---|---|
+| `internal/service` | 下载、输入解析、图片编解码入口、输出掩码等 |
+| `internal/fsutil` | 原子写、私有文件权限、临时文件清理 |
+| `internal/httpx` | GET/HEAD 重试、`Retry-After`、响应体大小上限 |
+| `internal/modelstore` | 模型下载、Range 续传、SHA256 校验 |
+| `internal/argutil` | ffmpeg 风格参数拆分 |
+| `internal/wait` | context-aware 休眠（轮询/限速） |
+| `internal/imgcodec` | 图片编解码 + 解码炸弹上限 |
+| `internal/terminal` | 标题/进度条、表格渲染 |
+| `internal/cli/options` | 共享配置状态、访问器、client factory、flag 工具 |
 
-**规则**：新增的跨命令公共函数必须放在 `cmd/util.go`（或 `util_ptr.go` / `config_defaults.go`）中，不要放在某个命令的专属文件（如 `image_*.go`）里。如果某个函数理论上可以独立存在、不依赖具体命令的业务逻辑，它就是共享工具函数。
+**规则**：新增的跨命令公共函数必须放在对应 `internal/*` 包中，不要复制到某个命令目录。若一个函数不依赖具体命令的业务逻辑，它就是共享工具函数。
+
+### 8.3 context 与 I/O
+
+- 所有 HTTP 请求使用 `http.NewRequestWithContext`；CLI 客户端通过 `options.NewClient` 自动绑定进程 context。
+- 轮询/限速用 `wait.Sleep(ctx, d)`，禁止裸 `time.Sleep`（会忽略 Ctrl-C）。
+- 库代码不直接 `fmt.Print*` 到 stdout；优先接收 `io.Writer` / `options.Stdout()`，避免污染 MCP 协议流。
+- 写文件必须检查 `Close`/`Sync`（或用 `fsutil` 原子写）。
 
 ## 9. 跨平台兼容（Windows / macOS / Linux）
 
