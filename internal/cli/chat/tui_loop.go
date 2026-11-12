@@ -11,7 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
-	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -97,9 +97,9 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 			pw := &progWriter{prog: prog, turn: turn}
 			req.OutputWriter = pw
 
-			// Redirect options.Stderr() so tool-execution config output goes to
+			// Redirect cliutil.Stderr() so tool-execution config output goes to
 			// the TUI as logMsg rather than raw stderr.
-			restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
+			restoreStderr := cliutil.SetStderr(&logWriter{prog: prog, turn: turn})
 			result, err = turnClient.ChatCompletion(req)
 			pw.Flush()
 			restoreStderr()
@@ -219,7 +219,7 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 					})
 				} else {
 					// Redirect stderr during tool execution
-					restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
+					restoreStderr := cliutil.SetStderr(&logWriter{prog: prog, turn: turn})
 					toolResult = m.rt.Execute(ctx, turnClient, tc)
 					restoreStderr()
 
@@ -386,7 +386,7 @@ func (w *progWriter) flush() {
 var _ io.Writer = (*progWriter)(nil)
 
 // logWriter — io.Writer that sends logMsg messages to a tea.Program.
-// Used for capturing options.Stderr() output during tool execution.
+// Used for capturing cliutil.Stderr() output during tool execution.
 type logWriter struct {
 	prog *tea.Program
 	turn uint64

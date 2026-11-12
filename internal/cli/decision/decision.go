@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -119,7 +120,7 @@ func runDecision(cmd *cobra.Command, args []string) error {
 	}
 
 	cliModel := ""
-	if options.HasFlagChanged(cmd, "model") {
+	if cliutil.HasFlagChanged(cmd, "model") {
 		cliModel = options.Shared.Model
 	}
 	req := &provider.DecisionRequest{

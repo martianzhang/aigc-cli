@@ -1,4 +1,4 @@
-package options
+package cliutil
 
 // Deref returns the value pointed to by p, or def when p is nil.
 func Deref[T any](p *T, def T) T {

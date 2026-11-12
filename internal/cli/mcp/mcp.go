@@ -8,6 +8,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/music"
 	"github.com/martianzhang/aigc-cli/internal/cli/video"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/mcp"
 	"github.com/martianzhang/aigc-cli/internal/options"
@@ -142,11 +143,11 @@ func init() {
 	// Override PersistentPreRunE to skip the api key check for mcp command.
 	// Some MCP tools (list_models, get_model_pricing) work without API key.
 	mcpCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		options.Shared.APIKeySet = options.HasFlagChanged(cmd, "api-key")
-		options.Shared.APIBaseSet = options.HasFlagChanged(cmd, "api-base")
-		options.Shared.ProviderSet = options.HasFlagChanged(cmd, "provider")
-		options.Shared.ZDRSet = options.HasFlagChanged(cmd, "zdr")
-		options.Shared.HTTPProxySet = options.HasFlagChanged(cmd, "http-proxy")
+		options.Shared.APIKeySet = cliutil.HasFlagChanged(cmd, "api-key")
+		options.Shared.APIBaseSet = cliutil.HasFlagChanged(cmd, "api-base")
+		options.Shared.ProviderSet = cliutil.HasFlagChanged(cmd, "provider")
+		options.Shared.ZDRSet = cliutil.HasFlagChanged(cmd, "zdr")
+		options.Shared.HTTPProxySet = cliutil.HasFlagChanged(cmd, "http-proxy")
 
 		// Load config to populate shared fields if not set via flags
 		if c, err := config.Load(options.Shared.CfgFile); err == nil {
@@ -160,7 +161,7 @@ func init() {
 			if options.Shared.HTTPProxy == "" && !options.Shared.NoProxy {
 				options.Shared.HTTPProxy = c.HTTPProxy
 			}
-			if !options.HasFlagChanged(cmd, "output") && c.OutputDir != "" {
+			if !cliutil.HasFlagChanged(cmd, "output") && c.OutputDir != "" {
 				options.Shared.OutputDir = c.OutputDir
 			}
 		}

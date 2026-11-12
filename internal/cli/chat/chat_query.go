@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 )
 
 // printToolArgs echoes a tool call's arguments to stderr (verbose tool-use
@@ -15,11 +15,11 @@ func printToolArgs(argsJSON string) {
 	}
 	var m map[string]any
 	if err := json.Unmarshal([]byte(argsJSON), &m); err != nil {
-		fmt.Fprintf(options.Stderr(), "  %s\r\n", clipString(argsJSON, 120))
+		fmt.Fprintf(cliutil.Stderr(), "  %s\r\n", clipString(argsJSON, 120))
 		return
 	}
 	for k, v := range m {
 		s := fmt.Sprintf("%v", v)
-		fmt.Fprintf(options.Stderr(), "  %s=%s\r\n", k, clipString(s, 80))
+		fmt.Fprintf(cliutil.Stderr(), "  %s=%s\r\n", k, clipString(s, 80))
 	}
 }

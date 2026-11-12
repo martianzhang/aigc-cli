@@ -1,4 +1,4 @@
-package options
+package cliutil
 
 import "github.com/spf13/cobra"
 

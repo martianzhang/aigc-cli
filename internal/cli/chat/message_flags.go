@@ -3,10 +3,9 @@ package chat
 import (
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
 // messageValues backs --message and its --prompt/-p alias. Both flags share one
@@ -59,5 +58,5 @@ func addMessageFlags(f *pflag.FlagSet) {
 // messageFlagChanged reports whether any user message input is present, either
 // from --message/--prompt or from positional args added by RunDefault.
 func messageFlagChanged(cmd *cobra.Command) bool {
-	return options.HasFlagChanged(cmd, "message") || options.HasFlagChanged(cmd, "prompt") || len(chatMessages) > 0
+	return cliutil.HasFlagChanged(cmd, "message") || cliutil.HasFlagChanged(cmd, "prompt") || len(chatMessages) > 0
 }

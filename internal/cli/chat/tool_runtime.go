@@ -9,6 +9,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -83,7 +84,7 @@ func (rt *toolRuntime) RequestTools() []types.ToolDefinition {
 	}
 
 	if len(shadowed) > 0 && options.Shared.Verbose {
-		fmt.Fprintf(options.Stderr(),
+		fmt.Fprintf(cliutil.Stderr(),
 			"[tools] %d MCP tool(s) shadowed by built-in primitives and not sent: %s\r\n",
 			len(shadowed), strings.Join(shadowed, ", "))
 	}

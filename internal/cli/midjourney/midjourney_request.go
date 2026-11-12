@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -57,21 +57,21 @@ func buildMJImagineReq(cmd *cobra.Command) (*types.MJImagineRequest, error) {
 		Extra:          mjExtra,
 	}
 
-	options.SetIntFlag(cmd, "seed", &req.Seed, mjSeed)
-	options.SetIntFlag(cmd, "stylize", &req.Stylize, mjStylize)
-	options.SetIntFlag(cmd, "chaos", &req.Chaos, mjChaos)
-	options.SetIntFlag(cmd, "weird", &req.Weird, mjWeird)
-	options.SetIntFlag(cmd, "cw", &req.Cw, mjCw)
-	options.SetIntFlag(cmd, "sw", &req.Sw, mjSw)
-	options.SetIntFlag(cmd, "repeat", &req.Repeat, mjRepeat)
-	options.SetIntFlag(cmd, "stop", &req.Stop, mjStop)
-	options.SetFloatFlag(cmd, "iw", &req.Iw, mjIw)
-	options.SetFloatFlag(cmd, "dw", &req.Dw, mjDw)
-	options.SetBoolFlag(cmd, "tile", &req.Tile, mjTile)
-	options.SetBoolFlag(cmd, "niji", &req.Niji, mjNiji)
-	options.SetBoolFlag(cmd, "raw", &req.Raw, mjRaw)
-	options.SetBoolFlag(cmd, "draft", &req.Draft, mjDraft)
-	options.SetBoolFlag(cmd, "hd", &req.Hd, mjHd)
+	cliutil.SetIntFlag(cmd, "seed", &req.Seed, mjSeed)
+	cliutil.SetIntFlag(cmd, "stylize", &req.Stylize, mjStylize)
+	cliutil.SetIntFlag(cmd, "chaos", &req.Chaos, mjChaos)
+	cliutil.SetIntFlag(cmd, "weird", &req.Weird, mjWeird)
+	cliutil.SetIntFlag(cmd, "cw", &req.Cw, mjCw)
+	cliutil.SetIntFlag(cmd, "sw", &req.Sw, mjSw)
+	cliutil.SetIntFlag(cmd, "repeat", &req.Repeat, mjRepeat)
+	cliutil.SetIntFlag(cmd, "stop", &req.Stop, mjStop)
+	cliutil.SetFloatFlag(cmd, "iw", &req.Iw, mjIw)
+	cliutil.SetFloatFlag(cmd, "dw", &req.Dw, mjDw)
+	cliutil.SetBoolFlag(cmd, "tile", &req.Tile, mjTile)
+	cliutil.SetBoolFlag(cmd, "niji", &req.Niji, mjNiji)
+	cliutil.SetBoolFlag(cmd, "raw", &req.Raw, mjRaw)
+	cliutil.SetBoolFlag(cmd, "draft", &req.Draft, mjDraft)
+	cliutil.SetBoolFlag(cmd, "hd", &req.Hd, mjHd)
 
 	if req.Prompt == "" {
 		return nil, fmt.Errorf("prompt is required (use --prompt or --json)")

@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
@@ -68,7 +69,7 @@ func imageFlagOverlay(cmd *cobra.Command) (map[string]any, error) {
 		}
 		set["image_urls"] = urls
 	}
-	if options.HasFlagChanged(cmd, "model") {
+	if cliutil.HasFlagChanged(cmd, "model") {
 		set["model"] = options.Shared.Model
 	}
 

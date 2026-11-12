@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/embedder"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
@@ -138,7 +139,7 @@ func shouldAutoSave() bool {
 	}
 	// Config auto_save (only when explicitly configured)
 	if cfg := options.KnowledgeDefaults(); cfg != nil {
-		return options.Deref(cfg.AutoSave, true)
+		return cliutil.Deref(cfg.AutoSave, true)
 	}
 	return true
 }

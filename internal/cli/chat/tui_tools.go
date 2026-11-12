@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
-	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -77,7 +77,7 @@ func (m *chatModel) handleDirectToolCall(input string) (tea.Model, tea.Cmd) {
 				})
 
 				// Redirect stderr during tool execution
-				restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
+				restoreStderr := cliutil.SetStderr(&logWriter{prog: prog, turn: turn})
 				result := m.rt.Execute(ctx, turnClient, tc)
 				restoreStderr()
 				summary := summarizeToolResult(cmdName, result)

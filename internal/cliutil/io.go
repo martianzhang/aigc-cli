@@ -1,4 +1,4 @@
-package options
+package cliutil
 
 import (
 	"io"

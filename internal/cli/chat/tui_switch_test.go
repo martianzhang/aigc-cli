@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/session"
@@ -181,7 +182,7 @@ func TestSwitchModelDoesNotBlockOnModelProbe(t *testing.T) {
 func TestSwitchModelDoesNotWriteToStderr(t *testing.T) {
 	withChatConfig(t, nil, 0, 0, 0)
 	var stderr bytes.Buffer
-	restore := options.SetStderr(&stderr)
+	restore := cliutil.SetStderr(&stderr)
 	t.Cleanup(restore)
 
 	m := switchTestModel()

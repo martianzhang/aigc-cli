@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/session"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -402,8 +402,8 @@ func TestPrintSessionPathWritesToStderr(t *testing.T) {
 	t.Cleanup(func() { _ = sess.Close("exit") })
 
 	var stdout, stderr bytes.Buffer
-	restoreStdout := options.SetStdout(&stdout)
-	restoreStderr := options.SetStderr(&stderr)
+	restoreStdout := cliutil.SetStdout(&stdout)
+	restoreStderr := cliutil.SetStderr(&stderr)
 	t.Cleanup(func() {
 		restoreStdout()
 		restoreStderr()
@@ -430,8 +430,8 @@ func TestPrintSessionPathSkipsResumedSession(t *testing.T) {
 	t.Cleanup(func() { _ = sess.Close("exit") })
 
 	var stdout, stderr bytes.Buffer
-	restoreStdout := options.SetStdout(&stdout)
-	restoreStderr := options.SetStderr(&stderr)
+	restoreStdout := cliutil.SetStdout(&stdout)
+	restoreStderr := cliutil.SetStderr(&stderr)
 	t.Cleanup(func() {
 		restoreStdout()
 		restoreStderr()

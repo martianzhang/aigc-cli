@@ -11,6 +11,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/session"
@@ -65,11 +66,11 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 		if cooldown > 0 {
 			cooldown--
 		} else if settings.Enabled && settings.Window > 0 {
-			opts := compactionOptions(settings, anchor, toolsTokens, sess, options.Shared.Model, "threshold", false, options.Stderr())
+			opts := compactionOptions(settings, anchor, toolsTokens, sess, options.Shared.Model, "threshold", false, cliutil.Stderr())
 			res, cerr := agent.AutoCompact(ctx, c, *history, opts)
 			if cerr != nil {
 				cooldown = 3
-				fmt.Fprintf(options.Stderr(), "[auto-compact] failed: %v\r\n", cerr)
+				fmt.Fprintf(cliutil.Stderr(), "[auto-compact] failed: %v\r\n", cerr)
 			} else if res != nil {
 				*history = res.History
 				anchor = nil
@@ -82,7 +83,7 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 		if turnCount > 1 {
 			// No leading blank line: the streamed reply already ended with a
 			// newline (or produced no output at all for a tool-only turn).
-			fmt.Fprint(options.Stderr(), "---\r\n")
+			fmt.Fprint(cliutil.Stderr(), "---\r\n")
 		}
 
 		var result *types.ChatResponse
@@ -93,14 +94,14 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 				Model:        options.Shared.Model,
 				Messages:     *history,
 				Stream:       !chatNoStream,
-				OutputWriter: options.Stdout(),
+				OutputWriter: cliutil.Stdout(),
 				InjectJSON:   chatInjectRaw,
 			}
 			if len(tools) > 0 {
 				req.Tools = tools
 			}
-			options.SetFloatFlag(cmd, "temperature", &req.Temperature, chatTemperature)
-			options.SetIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
+			cliutil.SetFloatFlag(cmd, "temperature", &req.Temperature, chatTemperature)
+			cliutil.SetIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
 
 			result, err = c.ChatCompletion(req)
 			if err == nil {
@@ -110,8 +111,8 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 				break
 			}
 			recovered = true
-			fmt.Fprintf(options.Stderr(), "[auto-compact] context overflow; compacting and retrying once\r\n")
-			opts := compactionOptions(settings, anchor, toolsTokens, sess, options.Shared.Model, "overflow", true, options.Stderr())
+			fmt.Fprintf(cliutil.Stderr(), "[auto-compact] context overflow; compacting and retrying once\r\n")
+			opts := compactionOptions(settings, anchor, toolsTokens, sess, options.Shared.Model, "overflow", true, cliutil.Stderr())
 			res, cerr := agent.AutoCompact(ctx, c, *history, opts)
 			if cerr != nil || res == nil {
 				trimmed, keepLast, dropped, ok := agent.EmergencyTrim(*history, settings, toolsTokens)
@@ -134,7 +135,7 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 				}
 				*history = trimmed
 				anchor = nil
-				fmt.Fprintf(options.Stderr(), "[auto-compact] dropped %d oldest messages locally\r\n", dropped)
+				fmt.Fprintf(cliutil.Stderr(), "[auto-compact] dropped %d oldest messages locally\r\n", dropped)
 				continue
 			}
 			*history = res.History
@@ -171,20 +172,20 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 			}
 
 			for _, tc := range choice.Message.ToolCalls {
-				fmt.Fprintf(options.Stderr(), "[tool] %s:\r\n", tc.Function.Name)
+				fmt.Fprintf(cliutil.Stderr(), "[tool] %s:\r\n", tc.Function.Name)
 				printToolArgs(tc.Function.Arguments)
 
 				var toolResult string
 				if confirm.needs(tc.Function.Name, tc.Function.Arguments) && !chatYes {
 					toolResult = blockedToolResult(tc.Function.Name)
-					fmt.Fprintf(options.Stderr(), "[tool] blocked: requires confirmation (rerun with --yes)\r\n")
+					fmt.Fprintf(cliutil.Stderr(), "[tool] blocked: requires confirmation (rerun with --yes)\r\n")
 				} else {
 					toolStart := time.Now()
 					toolResult = rt.Execute(ctx, c, tc)
 					elapsed := time.Since(toolStart).Round(time.Millisecond)
 
 					resultSummary := summarizeToolResult(tc.Function.Name, toolResult)
-					fmt.Fprintf(options.Stderr(), "[tool] done in %v: %s\r\n", elapsed, resultSummary)
+					fmt.Fprintf(cliutil.Stderr(), "[tool] done in %v: %s\r\n", elapsed, resultSummary)
 				}
 
 				toolMessage := types.ChatMessage{
@@ -206,7 +207,7 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 		// A whitespace-only reply (the assistant content of a tool-call turn) is
 		// dropped rather than printed as a run of blank lines.
 		if chatNoStream && strings.TrimSpace(choice.Message.Content) != "" {
-			fmt.Fprintln(options.Stdout(), choice.Message.Content)
+			fmt.Fprintln(cliutil.Stdout(), choice.Message.Content)
 		}
 		*history = append(*history, choice.Message)
 		if sess != nil {
@@ -223,7 +224,7 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 		}
 
 		if turnCount >= maxIterations {
-			fmt.Fprintf(options.Stderr(), "%s\r\n", maxIterationsNotice(maxIterations))
+			fmt.Fprintf(cliutil.Stderr(), "%s\r\n", maxIterationsNotice(maxIterations))
 		}
 
 		return nil
@@ -232,7 +233,7 @@ func runAgentLoopWithSession(ctx context.Context, c *client.Client, rt *toolRunt
 	// The budget ran out on a tool-call turn (the tools ran, the next round-trip
 	// was refused). Say so instead of returning silently with the task half-done.
 	if turnCount >= maxIterations {
-		fmt.Fprintf(options.Stderr(), "%s\r\n", maxIterationsNotice(maxIterations))
+		fmt.Fprintf(cliutil.Stderr(), "%s\r\n", maxIterationsNotice(maxIterations))
 	}
 
 	return nil

@@ -14,6 +14,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/guidance"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/mcpcli"
@@ -281,7 +282,7 @@ func init() {
 }
 
 func hasFlagChanged(cmd *cobra.Command, name string) bool {
-	return options.HasFlagChanged(cmd, name)
+	return cliutil.HasFlagChanged(cmd, name)
 }
 
 // requireExplicitConfigPath fails when a user-supplied --config file is absent,

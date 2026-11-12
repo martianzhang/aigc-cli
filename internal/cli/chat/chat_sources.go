@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -41,7 +42,7 @@ func printSources(result *types.ChatResponse) {
 		return
 	}
 
-	w := options.Stderr()
+	w := cliutil.Stderr()
 	fmt.Fprintf(w, "\n---  Sources (%d):\n", len(sources))
 
 	shown := sources

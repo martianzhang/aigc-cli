@@ -13,6 +13,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -41,7 +42,7 @@ func runChatTUI(cmd *cobra.Command) error {
 
 	mcpMgr, mcpErr := mcpcli.NewManager(context.Background(), options.MCPConfig())
 	if mcpErr != nil {
-		fmt.Fprintf(options.Stderr(), "mcp: %v\n", mcpErr)
+		fmt.Fprintf(cliutil.Stderr(), "mcp: %v\n", mcpErr)
 	}
 	defer func() { _ = mcpMgr.Close() }()
 
@@ -146,7 +147,7 @@ func runChatTUI(cmd *cobra.Command) error {
 	// A stray write to the process stderr would land in the middle of the alt
 	// screen and can leave stale rows (for example, a model-switch warning).
 	// Tool/agent logs already redirect stderr to logWriter explicitly.
-	restoreStderr := options.SetStderr(io.Discard)
+	restoreStderr := cliutil.SetStderr(io.Discard)
 	defer restoreStderr()
 
 	// Store program reference for goroutines

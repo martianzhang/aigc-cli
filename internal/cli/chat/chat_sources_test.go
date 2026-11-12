@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -13,7 +14,7 @@ import (
 
 func TestPrintSourcesRendersCitationsToStderr(t *testing.T) {
 	var buf bytes.Buffer
-	restore := options.SetStderr(&buf)
+	restore := cliutil.SetStderr(&buf)
 	t.Cleanup(restore)
 
 	res := &types.ChatResponse{Choices: []types.ChatChoice{{Message: types.ChatMessage{
@@ -48,7 +49,7 @@ func TestPrintSourcesCapsWithoutVerbose(t *testing.T) {
 	t.Cleanup(func() { options.Shared.Verbose = prevVerbose })
 
 	var buf bytes.Buffer
-	restore := options.SetStderr(&buf)
+	restore := cliutil.SetStderr(&buf)
 	t.Cleanup(restore)
 
 	var anns []types.ChatAnnotation
@@ -74,7 +75,7 @@ func TestPrintSourcesCapsWithoutVerbose(t *testing.T) {
 
 func TestPrintSourcesSilentWithoutAnnotations(t *testing.T) {
 	var buf bytes.Buffer
-	restore := options.SetStderr(&buf)
+	restore := cliutil.SetStderr(&buf)
 	t.Cleanup(restore)
 
 	printSources(nil)

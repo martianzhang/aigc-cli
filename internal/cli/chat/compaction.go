@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/session"
@@ -84,7 +85,7 @@ func resolveCompactionSettingsWithDetect(cmd *cobra.Command, cfg *types.ChatDefa
 	}
 
 	if warn && usedFallback {
-		fmt.Fprintf(options.Stderr(), "[context] no context window known for model %q; using fallback %d tokens. Set --context-size or defaults.chat.context_size to override.\n", model, s.Window)
+		fmt.Fprintf(cliutil.Stderr(), "[context] no context window known for model %q; using fallback %d tokens. Set --context-size or defaults.chat.context_size to override.\n", model, s.Window)
 	}
 	return s
 }

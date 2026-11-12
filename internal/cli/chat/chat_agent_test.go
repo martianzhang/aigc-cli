@@ -15,6 +15,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/session"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -48,8 +49,8 @@ func TestRunAgentLoop_noStreamPrintsOnce(t *testing.T) {
 	prevModel, prevNoStream := options.Shared.Model, chatNoStream
 	options.Shared.Model, chatNoStream = "test-model", true
 	var out bytes.Buffer
-	restoreOut := options.SetStdout(&out)
-	restoreErr := options.SetStderr(io.Discard)
+	restoreOut := cliutil.SetStdout(&out)
+	restoreErr := cliutil.SetStderr(io.Discard)
 	t.Cleanup(func() {
 		options.Shared.Model, chatNoStream = prevModel, prevNoStream
 		restoreOut()
@@ -110,8 +111,8 @@ func TestRunAgentLoopRecoversFromContextOverflow(t *testing.T) {
 	prevModel, prevNoStream := options.Shared.Model, chatNoStream
 	options.Shared.Model, chatNoStream = "test-model", true
 	var out bytes.Buffer
-	restoreOut := options.SetStdout(&out)
-	restoreErr := options.SetStderr(io.Discard)
+	restoreOut := cliutil.SetStdout(&out)
+	restoreErr := cliutil.SetStderr(io.Discard)
 	t.Cleanup(func() {
 		options.Shared.Model, chatNoStream = prevModel, prevNoStream
 		restoreOut()
@@ -170,8 +171,8 @@ func TestRunAgentLoopAppliesInjectJSON(t *testing.T) {
 	options.Shared.Model, chatNoStream = "test-model", true
 	chatInjectRaw = json.RawMessage(`{"plugins":[{"id":"web","max_results":5}]}`)
 	var out, errBuf bytes.Buffer
-	restoreOut := options.SetStdout(&out)
-	restoreErr := options.SetStderr(&errBuf)
+	restoreOut := cliutil.SetStdout(&out)
+	restoreErr := cliutil.SetStderr(&errBuf)
 	t.Cleanup(func() {
 		options.Shared.Model, chatNoStream, chatInjectRaw = prevModel, prevNoStream, prevInject
 		restoreOut()
@@ -205,8 +206,8 @@ func TestRunAgentLoop_noLeadingBlankLine(t *testing.T) {
 	prevModel, prevNoStream, prevVerbose := options.Shared.Model, chatNoStream, options.Shared.Verbose
 	options.Shared.Model, chatNoStream, options.Shared.Verbose = "test-model", true, false
 	var out, errBuf bytes.Buffer
-	restoreOut := options.SetStdout(&out)
-	restoreErr := options.SetStderr(&errBuf)
+	restoreOut := cliutil.SetStdout(&out)
+	restoreErr := cliutil.SetStderr(&errBuf)
 	t.Cleanup(func() {
 		options.Shared.Model, chatNoStream, options.Shared.Verbose = prevModel, prevNoStream, prevVerbose
 		restoreOut()
@@ -248,8 +249,8 @@ func TestRunAgentLoop_maxIterationsNoticeOnToolTurn(t *testing.T) {
 	prevModel, prevNoStream := options.Shared.Model, chatNoStream
 	options.Shared.Model, chatNoStream = "test-model", true
 	var errBuf bytes.Buffer
-	restoreOut := options.SetStdout(io.Discard)
-	restoreErr := options.SetStderr(&errBuf)
+	restoreOut := cliutil.SetStdout(io.Discard)
+	restoreErr := cliutil.SetStderr(&errBuf)
 	t.Cleanup(func() {
 		options.Shared.Model, chatNoStream = prevModel, prevNoStream
 		restoreOut()
@@ -283,8 +284,8 @@ func TestRunAgentLoopWithSessionPersistsMessages(t *testing.T) {
 
 	prevModel, prevNoStream := options.Shared.Model, chatNoStream
 	options.Shared.Model, chatNoStream = "test-model", true
-	restoreOut := options.SetStdout(io.Discard)
-	restoreErr := options.SetStderr(io.Discard)
+	restoreOut := cliutil.SetStdout(io.Discard)
+	restoreErr := cliutil.SetStderr(io.Discard)
 	t.Cleanup(func() {
 		options.Shared.Model, chatNoStream = prevModel, prevNoStream
 		restoreOut()

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/session"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -209,7 +210,7 @@ func closeSession(sess *session.Session) {
 		return
 	}
 	if err := sess.Close("exit"); err != nil {
-		fmt.Fprintf(options.Stderr(), "session: %v\n", err)
+		fmt.Fprintf(cliutil.Stderr(), "session: %v\n", err)
 	}
 }
 
@@ -219,7 +220,7 @@ func printSessionPath(sess *session.Session, created bool) {
 	}
 	// Session/resume hints are diagnostics, not assistant output. Keep them on
 	// stderr so stdout stays clean for pipes and scripts that consume the reply.
-	out := options.Stderr()
+	out := cliutil.Stderr()
 	fmt.Fprintf(out, "Session: %s\n", sess.Path())
 	if name := sess.Name(); name != "" {
 		fmt.Fprintf(out, "Name:    %s\n", name)

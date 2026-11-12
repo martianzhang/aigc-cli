@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/skill"
 )
@@ -99,7 +100,7 @@ func logSkillDiagnostics(diags []skill.Diagnostic) {
 		return
 	}
 	for _, d := range diags {
-		fmt.Fprintf(options.Stderr(), "skill: %s: %s\n", d.Path, d.Message)
+		fmt.Fprintf(cliutil.Stderr(), "skill: %s: %s\n", d.Path, d.Message)
 	}
 }
 

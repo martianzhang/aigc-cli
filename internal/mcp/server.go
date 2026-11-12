@@ -17,6 +17,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -310,8 +311,8 @@ func Run(cfg *Config) error {
 	options.Shared.OutputDir = cfg.Output
 	s := NewServer(cfg)
 
-	protocolOut := options.Stdout()
-	restoreStdout := options.SetStdout(os.Stderr)
+	protocolOut := cliutil.Stdout()
+	restoreStdout := cliutil.SetStdout(os.Stderr)
 	defer restoreStdout()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)

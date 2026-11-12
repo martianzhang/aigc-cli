@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -58,10 +59,10 @@ func buildVideoRequest(cmd *cobra.Command) (*types.VideoGenerateRequest, error) 
 		AudioURLs:  vidAudioURLs,
 	}
 
-	options.SetIntFlag(cmd, "duration", &req.Duration, vidDuration)
-	options.SetIntFlag(cmd, "seed", &req.Seed, vidSeed)
-	options.SetBoolFlag(cmd, "generate-audio", &req.GenerateAudio, vidGenerateAudio)
-	options.SetBoolFlag(cmd, "return-last-frame", &req.ReturnLastFrame, vidReturnLastFrame)
+	cliutil.SetIntFlag(cmd, "duration", &req.Duration, vidDuration)
+	cliutil.SetIntFlag(cmd, "seed", &req.Seed, vidSeed)
+	cliutil.SetBoolFlag(cmd, "generate-audio", &req.GenerateAudio, vidGenerateAudio)
+	cliutil.SetBoolFlag(cmd, "return-last-frame", &req.ReturnLastFrame, vidReturnLastFrame)
 
 	// --first-frame / --last-frame -> image_with_roles
 	if cmd.Flags().Changed("first-frame") || cmd.Flags().Changed("last-frame") {

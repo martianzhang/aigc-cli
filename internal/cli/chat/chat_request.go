@@ -13,6 +13,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
@@ -62,10 +63,10 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		}
 
 		set := map[string]any{}
-		if options.HasFlagChanged(cmd, "model") {
+		if cliutil.HasFlagChanged(cmd, "model") {
 			set["model"] = options.Shared.Model
 		}
-		if options.HasFlagChanged(cmd, "system") || messageFlagChanged(cmd) {
+		if cliutil.HasFlagChanged(cmd, "system") || messageFlagChanged(cmd) {
 			messages, err := flagMessages()
 			if err != nil {
 				return nil, err
@@ -75,13 +76,13 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 			}
 			set["messages"] = messages
 		}
-		if options.HasFlagChanged(cmd, "no-stream") {
+		if cliutil.HasFlagChanged(cmd, "no-stream") {
 			set["stream"] = !chatNoStream
 		}
-		if options.HasFlagChanged(cmd, "temperature") {
+		if cliutil.HasFlagChanged(cmd, "temperature") {
 			set["temperature"] = chatTemperature
 		}
-		if options.HasFlagChanged(cmd, "max-output") {
+		if cliutil.HasFlagChanged(cmd, "max-output") {
 			set["max_tokens"] = chatMaxTokens
 		}
 
@@ -105,7 +106,7 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		Model:        options.Shared.Model,
 		Messages:     messages,
 		Stream:       !chatNoStream,
-		OutputWriter: options.Stdout(),
+		OutputWriter: cliutil.Stdout(),
 	}
 	// Piped stdin becomes one additional user message, appended after any
 	// --message values. This makes `echo "..." | aigc-cli chat --message "..."`
@@ -118,7 +119,7 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 	if text != "" {
 		expanded, images, warnings := expandUserInput(text, readDenyPatterns())
 		for _, warning := range warnings {
-			fmt.Fprintf(options.Stderr(), "⚠️  %s\n", warning)
+			fmt.Fprintf(cliutil.Stderr(), "⚠️  %s\n", warning)
 		}
 		req.Messages = append(req.Messages, types.ChatMessage{
 			Role:    "user",
@@ -130,7 +131,7 @@ func buildChatRequest(cmd *cobra.Command) (*types.ChatRequest, error) {
 		v := chatTemperature
 		req.Temperature = &v
 	}
-	options.SetIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
+	cliutil.SetIntFlag(cmd, "max-output", &req.MaxTokens, chatMaxTokens)
 
 	req.InjectJSON = inject
 	return req, nil
@@ -192,7 +193,7 @@ func flagMessages() ([]types.ChatMessage, error) {
 		}
 		expanded, images, warnings := expandUserInput(text, deny)
 		for _, warning := range warnings {
-			fmt.Fprintf(options.Stderr(), "⚠️  %s\n", warning)
+			fmt.Fprintf(cliutil.Stderr(), "⚠️  %s\n", warning)
 		}
 		messages = append(messages, types.ChatMessage{Role: "user", Content: expanded, Images: images})
 	}
@@ -221,7 +222,7 @@ func sendChatRequest(_ *cobra.Command, req *types.ChatRequest) error {
 	}
 
 	c := client.NewFromProvider(p)
-	req.OutputWriter = options.Stdout()
+	req.OutputWriter = cliutil.Stdout()
 
 	start := time.Now()
 	result, err := c.ChatCompletion(req)
@@ -313,7 +314,7 @@ func printUsageStats(result *types.ChatResponse, elapsed time.Duration, p *provi
 		}
 	}
 	parts = append(parts, fmt.Sprintf("Time: %v", elapsed.Round(time.Millisecond)))
-	fmt.Fprintln(options.Stderr(), "---  "+strings.Join(parts, "  |  "))
+	fmt.Fprintln(cliutil.Stderr(), "---  "+strings.Join(parts, "  |  "))
 }
 
 // toURLs converts a single URL string to a slice (for MJ API compatibility).

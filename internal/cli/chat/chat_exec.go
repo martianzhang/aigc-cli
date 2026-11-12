@@ -10,6 +10,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -90,7 +91,7 @@ func executeToolCallMCPRaw(ctx context.Context, _ *client.Client, mcp *mcpcli.Ma
 		resolved := resolveFileRefs(args)
 		if resolved != args {
 			if options.Shared.Verbose {
-				fmt.Fprintf(options.Stderr(), "\r\n[agent] resolved @file refs in %s\r\n", tc.Function.Name)
+				fmt.Fprintf(cliutil.Stderr(), "\r\n[agent] resolved @file refs in %s\r\n", tc.Function.Name)
 			}
 			args = resolved
 		}

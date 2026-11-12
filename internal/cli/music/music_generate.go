@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -92,8 +93,8 @@ func buildMusicGenerateReq(cmd *cobra.Command) (*types.MusicGenerateRequest, err
 		Lyrics: musicLyrics,
 		Format: musicFormat,
 	}
-	options.SetBoolFlag(cmd, "instrumental", &req.Instrumental, musicInstrumental)
-	options.SetIntFlag(cmd, "duration", &req.Duration, musicDuration)
+	cliutil.SetBoolFlag(cmd, "instrumental", &req.Instrumental, musicInstrumental)
+	cliutil.SetIntFlag(cmd, "duration", &req.Duration, musicDuration)
 
 	// Config defaults fill only empty/nil fields — flags win.
 	if cfg := options.MusicDefaults(); cfg != nil {

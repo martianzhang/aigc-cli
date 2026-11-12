@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -51,7 +52,7 @@ func buildVideoRequestFromJSON(cmd *cobra.Command) (*types.VideoGenerateRequest,
 func videoFlagOverlay(cmd *cobra.Command, raw []byte) (map[string]any, error) {
 	set := map[string]any{}
 
-	if options.HasFlagChanged(cmd, "model") {
+	if cliutil.HasFlagChanged(cmd, "model") {
 		set["model"] = options.Shared.Model
 	}
 	if cmd.Flags().Changed("prompt") {

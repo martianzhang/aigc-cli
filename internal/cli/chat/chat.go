@@ -12,6 +12,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/mcpcli"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -202,7 +203,7 @@ func runChat(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	mcpMgr, mcpErr := mcpcli.NewManager(ctx, options.MCPConfig())
 	if mcpErr != nil {
-		fmt.Fprintf(options.Stderr(), "mcp: %v\n", mcpErr)
+		fmt.Fprintf(cliutil.Stderr(), "mcp: %v\n", mcpErr)
 	}
 	defer func() { _ = mcpMgr.Close() }()
 	rt := newToolRuntime(chatCfg, mcpMgr)
@@ -227,7 +228,7 @@ func runChat(cmd *cobra.Command, args []string) error {
 	}
 	if options.Shared.Verbose && len(history) > len(req.Messages) {
 		added := len(history) - len(req.Messages)
-		fmt.Fprintf(options.Stderr(), "Agent loop completed: %d additional messages accumulated (tool calls + responses)\n", added)
+		fmt.Fprintf(cliutil.Stderr(), "Agent loop completed: %d additional messages accumulated (tool calls + responses)\n", added)
 	}
 	return nil
 }

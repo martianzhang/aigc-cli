@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -170,7 +171,7 @@ func runVisionDescribe(cmd *cobra.Command, args []string) error {
 	p := options.Shared.ResolveProvider(options.ProviderNameVision)
 	if provider.IsOnlineProvider(p) {
 		// Model priority: --model flag (explicit) > p.Model (from provider config)
-		if options.HasFlagChanged(cmd, "model") {
+		if cliutil.HasFlagChanged(cmd, "model") {
 			p.Model = visionModelFlag
 		}
 		if p.Model == "" {

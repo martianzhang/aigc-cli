@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -67,8 +68,8 @@ func TestNonInteractiveToolConfirmationFailsClosed(t *testing.T) {
 			prevModel, prevNoStream, prevYes, prevCfg := options.Shared.Model, chatNoStream, chatYes, options.Shared.Cfg
 			options.Shared.Model, chatNoStream, chatYes, options.Shared.Cfg = "test-model", true, tt.yes, tt.cfg
 			var errBuf bytes.Buffer
-			restoreOut := options.SetStdout(io.Discard)
-			restoreErr := options.SetStderr(&errBuf)
+			restoreOut := cliutil.SetStdout(io.Discard)
+			restoreErr := cliutil.SetStderr(&errBuf)
 			t.Cleanup(func() {
 				options.Shared.Model, chatNoStream, chatYes, options.Shared.Cfg = prevModel, prevNoStream, prevYes, prevCfg
 				restoreOut()
