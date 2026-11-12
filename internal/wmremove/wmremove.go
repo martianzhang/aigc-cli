@@ -3,10 +3,10 @@ package wmremove
 import (
 	"fmt"
 	"image"
-	"image/png"
 	"os"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 )
 
@@ -148,12 +148,8 @@ func (d *Detector) Close() {
 }
 
 func SavePNG(path string, img image.Image) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return png.Encode(f, img)
+	_, err := imgcodec.EncodeToFile(img, path, "png", 0)
+	return err
 }
 
 func DefaultLibPath(modelsDir string) (string, error) {

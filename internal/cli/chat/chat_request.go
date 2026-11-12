@@ -248,18 +248,27 @@ func sendChatRequest(_ *cobra.Command, req *types.ChatRequest) error {
 func buildChatCurl(req *types.ChatRequest, p *provider.EffectiveProvider) string {
 	base := client.NormalizeBaseURL(p.BaseURL)
 	url := base + client.ChatPath
-	body, _ := client.ChatBody(req, p.ZDR, p.BaseURL)
+	body, err := client.ChatBody(req, p.ZDR, p.BaseURL)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
 	auth := fmt.Sprintf("  -H \"Authorization: Bearer %s\" \\\n", service.MaskKey(p.APIKey))
 
 	switch p.Type {
 	case types.ProviderAnthropic:
 		url = base + client.AnthropicChatPath
-		body, _ = client.AnthropicChatBody(req)
+		body, err = client.AnthropicChatBody(req)
+		if err != nil {
+			return fmt.Sprintf("# failed to render preview: %v", err)
+		}
 		auth = fmt.Sprintf("  -H \"x-api-key: %s\" \\\n", service.MaskKey(p.APIKey))
 		auth += fmt.Sprintf("  -H \"anthropic-version: %s\" \\\n", client.AnthropicVersion)
 	case types.ProviderOpenAIResponses:
 		url = base + client.ResponsesPath
-		body, _ = client.ResponsesBody(req)
+		body, err = client.ResponsesBody(req)
+		if err != nil {
+			return fmt.Sprintf("# failed to render preview: %v", err)
+		}
 	}
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)

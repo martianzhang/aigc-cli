@@ -173,7 +173,11 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	if genDryRun {
-		fmt.Println(plan.RenderCurls(p.APIKey))
+		curl, err := plan.RenderCurlsErr(p.APIKey)
+		if err != nil {
+			return err
+		}
+		fmt.Println(curl)
 		return nil
 	}
 

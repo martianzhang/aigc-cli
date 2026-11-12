@@ -101,7 +101,7 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	c.setOpenRouterHeaders(httpReq)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClientFor(req.Stream).Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("API request failed: %w", err)
 	}

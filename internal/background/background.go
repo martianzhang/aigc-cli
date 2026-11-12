@@ -16,10 +16,9 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"image/png"
-	"os"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/rmbg"
 )
 
@@ -177,12 +176,8 @@ func compositeOnImage(fg *image.NRGBA, bg image.Image) *image.NRGBA {
 
 // SavePNG 将 image.Image 保存为 PNG 文件。
 func SavePNG(path string, img image.Image) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return png.Encode(f, img)
+	_, err := imgcodec.EncodeToFile(img, path, "png", 0)
+	return err
 }
 
 // ParsePadding 解析 padding 字符串 "20" 或 "10,20,30,40"。

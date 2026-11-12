@@ -111,9 +111,13 @@ const imageEditsDataURINote = "local image files are embedded as data: URIs (dat
 func buildImageCurl(req *types.GenerateRequest, p *provider.EffectiveProvider) string {
 	pl, err := buildImagePlan(req, p)
 	if err != nil {
-		return ""
+		return fmt.Sprintf("# failed to build preview: %v", err)
 	}
-	return pl.RenderCurls(p.APIKey)
+	curl, err := pl.RenderCurlsErr(p.APIKey)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
+	return curl
 }
 
 // resolvePrompt resolves the prompt text from --prompt flag.

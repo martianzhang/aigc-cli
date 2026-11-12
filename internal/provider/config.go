@@ -230,12 +230,26 @@ var (
 	directTransport     *http.Transport
 )
 
+// baseTransport captures the standard library's tuned defaults once, before
+// client.ConfigureDefaultClient replaces http.DefaultTransport. Cloning it
+// keeps dial/TLS timeouts, HTTP/2 and the idle connection pool while we only
+// override Proxy.
+var baseTransport = func() *http.Transport {
+	if t, ok := http.DefaultTransport.(*http.Transport); ok {
+		return t.Clone()
+	}
+	return &http.Transport{}
+}()
+
+func newBaseTransport() *http.Transport { return baseTransport.Clone() }
+
 // NewDirectTransport returns a shared transport that never uses a proxy.
 // Its Proxy field is nil, which disables proxy use entirely (unlike an empty
 // proxy URL, which falls back to the environment).
 func NewDirectTransport() *http.Transport {
 	directTransportOnce.Do(func() {
-		directTransport = &http.Transport{}
+		directTransport = newBaseTransport()
+		directTransport.Proxy = nil
 	})
 	return directTransport
 }
@@ -254,7 +268,8 @@ func NewTransport(proxyURL string) *http.Transport {
 	if t, ok := transportCache.m[proxyURL]; ok {
 		return t
 	}
-	tr := &http.Transport{Proxy: ProxyFunc(proxyURL)}
+	tr := newBaseTransport()
+	tr.Proxy = ProxyFunc(proxyURL)
 	transportCache.m[proxyURL] = tr
 	return tr
 }

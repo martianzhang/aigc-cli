@@ -22,6 +22,7 @@ import (
 	"image/png"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/gen2brain/avif"
 	"github.com/gen2brain/jpegli"
@@ -149,15 +150,35 @@ func Encode(w io.Writer, m image.Image, format string, quality int) (int64, erro
 }
 
 // EncodeToFile 将图片按 format 编码到 path，返回文件字节数。
+// 先写同目录临时文件，检查 Sync/Close 后再 rename，避免失败时留下半截文件。
 func EncodeToFile(m image.Image, path, format string, quality int) (int64, error) {
-	f, err := os.Create(path)
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
 	if err != nil {
 		return 0, fmt.Errorf("create %s: %w", path, err)
 	}
-	defer f.Close()
-	n, err := Encode(f, m, format, quality)
+	tmpName := tmp.Name()
+	cleanup := func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+	}
+
+	n, err := Encode(tmp, m, format, quality)
 	if err != nil {
+		cleanup()
 		return 0, err
+	}
+	if err := tmp.Sync(); err != nil {
+		cleanup()
+		return 0, fmt.Errorf("sync %s: %w", path, err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return 0, fmt.Errorf("close %s: %w", path, err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		_ = os.Remove(tmpName)
+		return 0, fmt.Errorf("replace %s: %w", path, err)
 	}
 	return n, nil
 }

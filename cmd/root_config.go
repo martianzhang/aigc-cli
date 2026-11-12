@@ -167,10 +167,6 @@ func runPrintConfig(cmd *cobra.Command) {
 		}
 	}
 
-	// --print-config exits before the shared startup hook, so run the master
-	// secret + plaintext auto-encryption here as well.
-	if configFound {
-		ensureMasterSecret()
-		encryptPlaintextConfigSecrets()
-	}
+	// --print-config only reads and masks values; it must not create a master
+	// secret or rewrite the config as a side effect.
 }

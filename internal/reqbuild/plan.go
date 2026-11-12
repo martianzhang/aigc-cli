@@ -77,9 +77,17 @@ func Placeholder(i int) string {
 	return "<UPLOAD_URL_" + strconv.Itoa(i) + ">"
 }
 
-// RenderCurls renders the equivalent curl commands for the plan: one multipart
-// upload per Upload, then the request. It is pure and performs no I/O.
+// RenderCurls renders the equivalent curl commands for the plan. It returns an
+// empty string when the body cannot be marshalled; callers that can surface an
+// error should use RenderCurlsErr instead.
 func (p *Plan) RenderCurls(apiKey string) string {
+	curl, _ := p.RenderCurlsErr(apiKey)
+	return curl
+}
+
+// RenderCurlsErr renders the equivalent curl commands for the plan: one
+// multipart upload per Upload, then the request. It is pure and performs no I/O.
+func (p *Plan) RenderCurlsErr(apiKey string) (string, error) {
 	blocks := make([]string, 0, len(p.Uploads)+1)
 	for _, u := range p.Uploads {
 		blocks = append(blocks, renderUploadCurl(u, p.UploadURL, apiKey))
@@ -87,9 +95,13 @@ func (p *Plan) RenderCurls(apiKey string) string {
 	if p.Multipart {
 		blocks = append(blocks, p.renderMultipartCurl(apiKey))
 	} else {
-		blocks = append(blocks, p.renderRequestCurl(apiKey))
+		block, err := p.renderRequestCurl(apiKey)
+		if err != nil {
+			return "", err
+		}
+		blocks = append(blocks, block)
 	}
-	return strings.Join(blocks, "\n")
+	return strings.Join(blocks, "\n"), nil
 }
 
 // renderMultipartCurl renders a multipart/form-data request: one -F per text
@@ -126,20 +138,23 @@ func renderUploadCurl(u Upload, uploadURL, apiKey string) string {
 }
 
 // renderRequestCurl renders the generation request itself.
-func (p *Plan) renderRequestCurl(apiKey string) string {
+func (p *Plan) renderRequestCurl(apiKey string) (string, error) {
 	lines := []string{fmt.Sprintf("curl -X %s %s", p.Method, p.URL)}
 	lines = appendAuthLine(lines, apiKey)
 	lines = appendHeaderLines(lines, p.Headers)
 	if p.Method != http.MethodGet {
 		lines = append(lines, "  -H \"Content-Type: application/json\"")
-		data, _ := marshalBody(p.Body)
+		data, err := marshalBody(p.Body)
+		if err != nil {
+			return "", fmt.Errorf("marshal preview body: %w", err)
+		}
 		lines = append(lines, fmt.Sprintf("  -d '%s'", string(data)))
 	}
 	cmd := joinCurlLines(lines)
 	if p.Note != "" {
 		cmd += "\n# note: " + p.Note
 	}
-	return cmd
+	return cmd, nil
 }
 
 // appendHeaderLines appends extra headers as curl -H lines.

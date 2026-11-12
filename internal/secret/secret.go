@@ -86,10 +86,37 @@ var (
 	mu        sync.Mutex
 	cached    string
 	cachedSet bool
+	// ensureHook, when set by the CLI, creates the master secret on first use.
+	// Keeping it lazy avoids a keyring round-trip (and a 1s timeout in headless
+	// environments) for commands that never touch encrypted data.
+	ensureHook func() error
 )
 
-// Load returns the master secret without generating one.
+// SetEnsureHook installs the first-use generator. It is called without the
+// secret mutex held, so the hook may call Ensure safely.
+func SetEnsureHook(fn func() error) {
+	mu.Lock()
+	defer mu.Unlock()
+	ensureHook = fn
+}
+
+// Load returns the master secret. If none exists and a hook is installed, the
+// hook is invoked once to create one before retrying.
 func Load() (string, error) {
+	mu.Lock()
+	value, err := loadLocked()
+	hook := ensureHook
+	mu.Unlock()
+	if err == nil {
+		return value, nil
+	}
+	if !errors.Is(err, ErrNotFound) || hook == nil {
+		return value, err
+	}
+	if hookErr := hook(); hookErr != nil {
+		// The hook already returns an actionable ErrUnavailable/ErrNotFound.
+		return "", hookErr
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	return loadLocked()

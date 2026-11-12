@@ -131,11 +131,9 @@ func TestConfigSetAPIKeyRequiresForce(t *testing.T) {
 	}
 }
 
-func TestPrintConfigEncryptsPlaintextSecrets(t *testing.T) {
+func TestPrintConfigDoesNotRewriteConfig(t *testing.T) {
 	path := writeCmdConfig(t, configTestFixture)
-	t.Setenv(secret.EnvVar, "test-master-key")
-	secret.Reset()
-	t.Cleanup(secret.Reset)
+	before := readConfigFile(t, path)
 
 	prev := shared.CfgFile
 	shared.CfgFile = path
@@ -143,12 +141,10 @@ func TestPrintConfigEncryptsPlaintextSecrets(t *testing.T) {
 
 	runPrintConfig(newConfigCmd())
 
-	got := readConfigFile(t, path)
-	if strings.Contains(got, "sk-1234567890abcd") || strings.Contains(got, "sk-provider-secret-1234") {
-		t.Errorf("plaintext secrets survived --print-config:\n%s", got)
-	}
-	if strings.Count(got, secret.EncryptedPrefix) != 2 {
-		t.Errorf("want 2 encrypted secrets after --print-config:\n%s", got)
+	// --print-config is read-only: masking happens on an in-memory copy and
+	// secrets are not encrypted as a side effect.
+	if got := readConfigFile(t, path); got != before {
+		t.Errorf("--print-config rewrote the config file:\n%s", got)
 	}
 }
 

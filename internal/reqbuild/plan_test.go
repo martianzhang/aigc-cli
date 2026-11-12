@@ -35,6 +35,16 @@ func twoUploadPlan() *Plan {
 	}
 }
 
+func TestRenderCurlsErrReportsMarshalFailure(t *testing.T) {
+	p := &Plan{Method: http.MethodPost, URL: testGenURL, Body: make(chan int)}
+	if _, err := p.RenderCurlsErr(testAPIKey); err == nil {
+		t.Fatal("RenderCurlsErr() error = nil, want marshal failure")
+	}
+	if got := p.RenderCurls(testAPIKey); got != "" {
+		t.Fatalf("RenderCurls() = %q, want empty on failure", got)
+	}
+}
+
 func TestRenderCurlsPostWithUploads(t *testing.T) {
 	p := twoUploadPlan()
 	got := p.RenderCurls(testAPIKey)

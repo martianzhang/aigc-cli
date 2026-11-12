@@ -199,10 +199,14 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 		knowledge.SetFetchTimeout(requestTimeout)
 		mcpcli.SetInitTimeout(requestTimeout)
 
-		// Make sure a local encryption master secret exists, then encrypt any
-		// plaintext secrets still on disk.
-		ensureMasterSecret()
-		encryptPlaintextConfigSecrets()
+		// The master secret is created lazily by secret.Load (see the hook in
+		// init), so commands that never touch encrypted data do not pay a
+		// keyring round-trip. Config read/list still migrate plaintext secrets
+		// proactively; `config set` encrypts its value on write.
+		if topLevelCommand(cmd) == "config" && cmd.Name() != "set" {
+			_ = ensureMasterSecret()
+			encryptPlaintextConfigSecrets()
+		}
 		return nil
 	},
 }
@@ -239,6 +243,10 @@ func init() {
 
 	// Append agent-oriented conventions to every subcommand's --help output.
 	installAgentHelp(rootCmd)
+
+	// Create the master secret only when a command actually needs encrypted
+	// data (vault, config secrets, encrypted redact mappings).
+	secret.SetEnsureHook(ensureMasterSecret)
 
 	// Run parent PersistentPreRunE hooks as well, so the shared startup
 	// (master secret + plaintext auto-encryption) also runs for commands that
@@ -280,19 +288,19 @@ func requireExplicitConfigPath(path string) error {
 // ensureMasterSecret resolves (and on first use generates) the local
 // encryption master secret. It never fails the command: when the keyring is
 // unavailable it prints a one-line hint to set AIGC_CLI_MASTER_KEY.
-func ensureMasterSecret() {
+func ensureMasterSecret() error {
 	// Env override or explicit opt-out: nothing to generate.
 	if os.Getenv(secret.EnvVar) != "" || os.Getenv(secret.DisableEnvVar) != "" {
-		return
+		return nil
 	}
 	_, created, err := vault.EnsureIdentity()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
-		return
+		return err
 	}
 	if created {
 		fmt.Fprintln(os.Stderr, "Generated local encryption key (stored in the system keyring).")
 	}
+	return nil
 }
 
 // encryptPlaintextConfigSecrets rewrites the config file so plaintext secrets

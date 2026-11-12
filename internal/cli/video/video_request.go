@@ -92,12 +92,19 @@ func buildVideoCurl(req *types.VideoGenerateRequest) string {
 	if err != nil {
 		return fmt.Sprintf("# failed to build preview: %v", err)
 	}
-	return plan.RenderCurls(p.APIKey)
+	curl, err := plan.RenderCurlsErr(p.APIKey)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
+	return curl
 }
 
 func buildVideoRemixCurl(req *types.VideoRemixRequest) string {
 	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
-	body, _ := json.Marshal(req)
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
 	url := fmt.Sprintf("%s/videos/%s/remix", client.NormalizeBaseURL(p.BaseURL), vidTaskID)
 
 	cmd := fmt.Sprintf("curl -X POST %s \\\n", url)

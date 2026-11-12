@@ -55,8 +55,14 @@ func buildOpenRouterMusicReq(req *types.MusicGenerateRequest) *types.OpenRouterM
 
 // buildOpenRouterMusicCurl renders the equivalent streaming curl command.
 func buildOpenRouterMusicCurl(baseURL, apiKey string, req *types.MusicGenerateRequest) string {
-	bodyJSON, _ := json.Marshal(buildOpenRouterMusicReq(req))
-	bodyJSON, _ = client.ApplyOpenRouterZDR(bodyJSON, options.Shared.ZDR, baseURL)
+	bodyJSON, err := json.Marshal(buildOpenRouterMusicReq(req))
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
+	bodyJSON, err = client.ApplyOpenRouterZDR(bodyJSON, options.Shared.ZDR, baseURL)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
 	base := strings.TrimRight(baseURL, "/")
 	if !client.HasVersionSuffix(base) {
 		base += "/v1"

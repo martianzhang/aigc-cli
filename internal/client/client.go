@@ -38,6 +38,10 @@ const (
 	uploadTimeout       = 300 * time.Second
 	// Default HTTP client timeout for API requests (used as initial value for DefaultTimeout)
 	defaultHTTPTimeout = 180 * time.Second
+	// streamResponseTimeout bounds a streaming chat response. The regular HTTP
+	// timeout is tuned for one-shot calls; reasoning models and long tool
+	// answers can stream for much longer.
+	streamResponseTimeout = 30 * time.Minute
 	// Modality-specific HTTP timeouts (exported for use by cmd/ commands)
 	ImageTimeout = 180 * time.Second
 	VideoTimeout = 600 * time.Second
@@ -128,6 +132,18 @@ func (c *Client) GetContext() context.Context {
 // SetTimeout sets the HTTP client timeout. Use 0 for no timeout.
 func (c *Client) SetTimeout(d time.Duration) {
 	c.httpClient.Timeout = d
+}
+
+// httpClientFor returns the client to use for one request. Streaming responses
+// get a longer total timeout, unless the caller already configured a larger
+// one (or disabled the timeout entirely).
+func (c *Client) httpClientFor(stream bool) *http.Client {
+	if !stream || c.httpClient == nil || c.httpClient.Timeout == 0 || c.httpClient.Timeout >= streamResponseTimeout {
+		return c.httpClient
+	}
+	cp := *c.httpClient
+	cp.Timeout = streamResponseTimeout
+	return &cp
 }
 
 // New creates a new API client.

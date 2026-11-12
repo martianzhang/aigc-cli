@@ -7,10 +7,34 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+func TestStreamingClientUsesLongerTimeout(t *testing.T) {
+	c := &Client{httpClient: &http.Client{Timeout: 180 * time.Second}}
+	if got := c.httpClientFor(false).Timeout; got != 180*time.Second {
+		t.Fatalf("non-stream timeout = %v, want 180s", got)
+	}
+	stream := c.httpClientFor(true)
+	if stream.Timeout != streamResponseTimeout {
+		t.Fatalf("stream timeout = %v, want %v", stream.Timeout, streamResponseTimeout)
+	}
+	if stream == c.httpClient {
+		t.Fatal("streaming must use a shallow copy, not mutate the shared client")
+	}
+
+	c.httpClient.Timeout = 0 // explicit "no timeout" wins
+	if got := c.httpClientFor(true); got != c.httpClient {
+		t.Fatal("zero timeout must remain unbounded")
+	}
+	c.httpClient.Timeout = 2 * time.Hour
+	if got := c.httpClientFor(true).Timeout; got != 2*time.Hour {
+		t.Fatalf("larger configured timeout = %v, want 2h", got)
+	}
+}
 
 func TestProgressBar_zero(t *testing.T) {
 	got := progressBar(0, 20)

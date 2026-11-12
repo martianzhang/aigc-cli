@@ -163,7 +163,11 @@ func runVideo(cmd *cobra.Command, args []string) error {
 	}
 
 	if vidDryRun {
-		fmt.Println(plan.RenderCurls(p.APIKey))
+		curl, err := plan.RenderCurlsErr(p.APIKey)
+		if err != nil {
+			return err
+		}
+		fmt.Println(curl)
 		return nil
 	}
 

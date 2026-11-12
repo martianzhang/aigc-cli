@@ -94,7 +94,10 @@ func BuildFunMusicBody(req *types.MusicGenerateRequest) (any, error) {
 
 // buildFunMusicCurl renders the equivalent curl command for the native endpoint.
 func buildFunMusicCurl(baseURL, apiKey string, body any) string {
-	bodyJSON, _ := json.Marshal(body)
+	bodyJSON, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
 	url := client.FunMusicEndpoint(baseURL)
 
 	cmd := fmt.Sprintf("curl -X POST '%s' \\\n", url)

@@ -27,7 +27,11 @@ func writeDryRun(w io.Writer, query, provider string, limit int, opts search.Opt
 	fmt.Fprintln(w, "# dry run: no request sent")
 	fmt.Fprintf(w, "# query: %s\n", oneLine(query))
 	fmt.Fprintf(w, "# provider: %s\n", provider)
-	_, err = fmt.Fprintln(w, plan.RenderCurls(""))
+	curl, err := plan.RenderCurlsErr("")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(w, curl)
 	return err
 }
 

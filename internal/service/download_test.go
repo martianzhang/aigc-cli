@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/terminal"
@@ -463,5 +464,69 @@ func TestDownloadImagesAllFailedReturnsError(t *testing.T) {
 	}
 	if len(saved) != 0 {
 		t.Errorf("saved = %v, want none", saved)
+	}
+}
+
+func TestDownloadFileSniffsExtensionInOneRequest(t *testing.T) {
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = io.WriteString(w, "\x00\x00\x00\x18ftypmp42rest-of-video")
+	}))
+	defer srv.Close()
+
+	path, err := DownloadFile(srv.URL+"/content?id=1", t.TempDir(), "video_1")
+	if err != nil {
+		t.Fatalf("DownloadFile() error = %v", err)
+	}
+	if got := atomic.LoadInt32(&hits); got != 1 {
+		t.Errorf("server hits = %d, want 1 (extension must be sniffed in one download)", got)
+	}
+	if ext := filepath.Ext(path); ext != ".mp4" {
+		t.Errorf("saved extension = %q, want .mp4", ext)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read saved file: %v", err)
+	}
+	if !bytes.HasPrefix(data, []byte("\x00\x00\x00\x18ftypmp42")) {
+		t.Errorf("saved data = %q, want the downloaded bytes", data)
+	}
+}
+
+func TestDownloadFileRejectsHTTPError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "no such object", http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	if _, err := DownloadFile(srv.URL+"/content", t.TempDir(), "video_1"); err == nil {
+		t.Fatal("DownloadFile() error = nil, want HTTP 404 failure")
+	}
+}
+
+func TestSniffMediaExt(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		want string
+	}{
+		{"png", "\x89PNG\r\n\x1a\n", ".png"},
+		{"jpeg", "\xff\xd8\xff\xe0", ".jpg"},
+		{"mp4", "\x00\x00\x00\x18ftypmp42", ".mp4"},
+		{"m4a", "\x00\x00\x00\x18ftypM4A ", ".m4a"},
+		{"webm", "\x1a\x45\xdf\xa3webm", ".webm"},
+		{"wav", "RIFF\x00\x00\x00\x00WAVEfmt ", ".wav"},
+		{"mp3-id3", "ID3\x04\x00\x00", ".mp3"},
+		{"mp3-frame", "\xff\xfb\x90\x00", ".mp3"},
+		{"unknown", "not-media", ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := sniffMediaExt([]byte(tc.data)); got != tc.want {
+				t.Errorf("sniffMediaExt(%q) = %q, want %q", tc.data, got, tc.want)
+			}
+		})
 	}
 }

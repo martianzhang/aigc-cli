@@ -38,7 +38,7 @@ func (c *Client) anthropicChatCompletion(req *types.ChatRequest) (*types.ChatRes
 	httpReq.Header.Set("anthropic-version", AnthropicVersion)
 	c.setOpenRouterHeaders(httpReq)
 
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.httpClientFor(req.Stream).Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("anthropic API request failed: %w", err)
 	}

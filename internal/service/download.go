@@ -5,6 +5,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -13,9 +14,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
+)
+
+const (
+	// fetchTimeout bounds one resource fetch. Downloads that make progress are
+	// still bounded by this overall deadline to avoid infinite hangs.
+	fetchTimeout = 5 * time.Minute
+	// maxFetchBytes caps a resource held in memory (FetchBytes / DownloadImages).
+	maxFetchBytes = 256 << 20
 )
 
 // ExtractExt returns the file extension from a URL, defaulting to ".mp4".
@@ -129,16 +139,46 @@ func FetchBytes(rawURL string) ([]byte, error) {
 	}
 
 	// Regular HTTP GET (absolute URL only)
-	if strings.HasPrefix(cleaned, "http://") || strings.HasPrefix(cleaned, "https://") {
-		resp, err := http.Get(cleaned)
+	if isHTTPURL(cleaned) {
+		ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
+		defer cancel()
+		resp, err := doHTTPGet(ctx, cleaned)
 		if err != nil {
 			return nil, err
 		}
 		defer resp.Body.Close()
-		return io.ReadAll(resp.Body)
+		data, err := io.ReadAll(io.LimitReader(resp.Body, maxFetchBytes+1))
+		if err != nil {
+			return nil, err
+		}
+		if len(data) > maxFetchBytes {
+			return nil, fmt.Errorf("response exceeds %d MB", maxFetchBytes>>20)
+		}
+		return data, nil
 	}
 
 	return nil, fmt.Errorf("unsupported image source: %s", cleaned[:min(len(cleaned), 60)])
+}
+
+func isHTTPURL(raw string) bool {
+	return strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://")
+}
+
+// doHTTPGet performs a GET with a context and rejects non-200 responses.
+func doHTTPGet(ctx context.Context, rawURL string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		_ = resp.Body.Close()
+		return nil, fmt.Errorf("HTTP %d for %s", resp.StatusCode, rawURL)
+	}
+	return resp, nil
 }
 
 // decodeBase64Any tries multiple base64 decoding strategies.
@@ -408,24 +448,164 @@ func SaveResourceWithAuth(source, apiKey, dest string) error {
 // DownloadFile saves a resource (HTTP URL, data URI, or base64) to outputDir
 // with auto-naming: <taskID><ext>. The extension comes from the source URL,
 // or is sniffed from the actual content when the URL has no extension.
+// A URL without an extension is streamed exactly once: the first bytes are
+// buffered for sniffing and the rest goes straight to the temporary file.
 func DownloadFile(source, outputDir, taskID string) (string, error) {
-	ext := extFromSource(source)
-	if ext == "" {
-		ext = sniffExtFromSource(source)
+	cleaned := strings.TrimSpace(source)
+	if ext := extFromSource(cleaned); ext != "" {
+		filename := filepath.Join(outputDir, taskID+ext)
+		return filename, SaveResource(cleaned, filename)
 	}
+	if isHTTPURL(cleaned) {
+		return downloadHTTPAndSniff(cleaned, outputDir, taskID)
+	}
+
+	// data URI / raw base64: decode once, then sniff.
+	data, err := FetchBytes(cleaned)
+	if err != nil {
+		return "", err
+	}
+	ext := sniffMediaExt(data)
 	if ext == "" {
-		ext = ".png"
+		ext = ".bin"
 	}
 	filename := filepath.Join(outputDir, taskID+ext)
-	return filename, SaveResource(source, filename)
+	return filename, fsutil.WriteFileAtomic(filename, data, 0644)
 }
 
-// sniffExtFromSource attempts to determine the file extension by fetching
-// the source and inspecting magic bytes. Returns "" on failure.
-func sniffExtFromSource(source string) string {
-	data, err := FetchBytes(source)
-	if err != nil || len(data) < 4 {
-		return ""
+// downloadHTTPAndSniff streams one HTTP response to a temp file, sniffs the
+// leading bytes for the real extension, then renames it into place.
+func downloadHTTPAndSniff(source, outputDir, taskID string) (string, error) {
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return "", fmt.Errorf("create output dir: %w", err)
 	}
-	return imageExtFromMagic(data)
+	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
+	defer cancel()
+	resp, err := doHTTPGet(ctx, source)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	tmp, err := os.CreateTemp(outputDir, "."+taskID+".tmp-*")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+	cleanup := func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+	}
+
+	head := make([]byte, 512)
+	n, readErr := io.ReadFull(resp.Body, head)
+	if readErr != nil && !errors.Is(readErr, io.ErrUnexpectedEOF) && !errors.Is(readErr, io.EOF) {
+		cleanup()
+		return "", fmt.Errorf("read %s: %w", source, readErr)
+	}
+	if n > 0 {
+		if _, err := tmp.Write(head[:n]); err != nil {
+			cleanup()
+			return "", fmt.Errorf("write temp file: %w", err)
+		}
+	}
+	if _, err := io.Copy(tmp, resp.Body); err != nil {
+		cleanup()
+		return "", fmt.Errorf("download %s: %w", source, err)
+	}
+
+	ext := sniffMediaExt(head[:n])
+	if ext == "" {
+		ext = extFromContentType(resp.Header.Get("Content-Type"))
+	}
+	if ext == "" {
+		ext = ".bin"
+	}
+	if err := tmp.Sync(); err != nil {
+		cleanup()
+		return "", fmt.Errorf("sync temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return "", fmt.Errorf("close temp file: %w", err)
+	}
+
+	final := filepath.Join(outputDir, taskID+ext)
+	if err := os.Rename(tmpName, final); err != nil {
+		// Windows does not replace an existing target.
+		_ = os.Remove(final)
+		if retryErr := os.Rename(tmpName, final); retryErr != nil {
+			_ = os.Remove(tmpName)
+			return "", fmt.Errorf("save %s: %w", final, retryErr)
+		}
+	}
+	return final, nil
+}
+
+// sniffMediaExt recognizes image, video and audio containers by magic bytes.
+func sniffMediaExt(data []byte) string {
+	if ext := imageExtFromMagic(data); ext != "" {
+		return ext
+	}
+	if len(data) >= 12 {
+		switch {
+		case string(data[4:8]) == "ftyp":
+			switch string(data[8:12]) {
+			case "M4A ", "M4B ", "M4P ":
+				return ".m4a"
+			default:
+				return ".mp4"
+			}
+		case string(data[0:4]) == "RIFF" && string(data[8:12]) == "WAVE":
+			return ".wav"
+		}
+	}
+	if len(data) >= 4 {
+		switch {
+		case data[0] == 0x1A && data[1] == 0x45 && data[2] == 0xDF && data[3] == 0xA3:
+			return ".webm"
+		case string(data[0:4]) == "OggS":
+			return ".ogg"
+		case string(data[0:4]) == "fLaC":
+			return ".flac"
+		}
+	}
+	if len(data) >= 3 && string(data[0:3]) == "ID3" {
+		return ".mp3"
+	}
+	if len(data) >= 2 && data[0] == 0xFF && (data[1] == 0xFB || data[1] == 0xF3 || data[1] == 0xF2) {
+		return ".mp3"
+	}
+	return ""
+}
+
+// extFromContentType maps the response content type to a file extension when
+// magic-byte sniffing is inconclusive.
+func extFromContentType(contentType string) string {
+	mediaType, _, _ := strings.Cut(contentType, ";")
+	switch strings.ToLower(strings.TrimSpace(mediaType)) {
+	case "image/png":
+		return ".png"
+	case "image/jpeg":
+		return ".jpg"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	case "video/mp4":
+		return ".mp4"
+	case "video/webm":
+		return ".webm"
+	case "audio/mpeg", "audio/mp3":
+		return ".mp3"
+	case "audio/wav", "audio/x-wav":
+		return ".wav"
+	case "audio/ogg":
+		return ".ogg"
+	case "audio/flac":
+		return ".flac"
+	case "audio/mp4", "audio/m4a":
+		return ".m4a"
+	}
+	return ""
 }

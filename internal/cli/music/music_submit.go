@@ -17,7 +17,10 @@ import (
 // Curl builder
 // ============================================================================
 func buildMusicCurl(baseURL, apiKey string, body any) string {
-	bodyJSON, _ := json.Marshal(body)
+	bodyJSON, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Sprintf("# failed to render preview: %v", err)
+	}
 	base := strings.TrimRight(baseURL, "/")
 	if !client.HasVersionSuffix(base) {
 		base += "/v1"

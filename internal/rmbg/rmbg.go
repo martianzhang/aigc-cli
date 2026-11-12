@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
-	"image/png"
 	"os"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
@@ -178,16 +177,6 @@ func (d *Detector) Close() {
 		_ = d.input.Destroy()
 	}
 	_ = ort.DestroyEnvironment()
-}
-
-// SavePNG saves image.Image to a PNG file.
-func SavePNG(path string, img image.Image) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return png.Encode(f, img)
 }
 
 // DefaultLibPath returns the path to the ONNX Runtime shared library.

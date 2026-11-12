@@ -224,14 +224,23 @@ func tryEncode(img image.Image, dstPath, outFmt string, quality int) (int64, err
 	if err != nil {
 		return 0, fmt.Errorf("create temp: %w", err)
 	}
-	defer f.Close()
+	cleanup := func() {
+		_ = f.Close()
+		_ = os.Remove(dstPath)
+	}
 
 	if err := encodeImageTo(img, f, outFmt, quality); err != nil {
-		f.Close()
-		_ = os.Remove(dstPath)
+		cleanup()
 		return 0, err
 	}
-	f.Close()
+	if err := f.Sync(); err != nil {
+		cleanup()
+		return 0, fmt.Errorf("sync output: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(dstPath)
+		return 0, fmt.Errorf("close output: %w", err)
+	}
 
 	info, err := os.Stat(dstPath)
 	if err != nil {

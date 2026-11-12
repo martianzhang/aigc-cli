@@ -417,7 +417,11 @@ func builtinFetchPlan(normalizedURL string, headers []webfetch.Header) (*reqbuil
 func writeCurlPreview(w io.Writer, provider string, plan *reqbuild.Plan, extraArgs []string) error {
 	fmt.Fprintln(w, "# dry run: no request sent")
 	fmt.Fprintf(w, "# provider: %s\n", provider)
-	_, err := fmt.Fprintln(w, appendCurlArgs(plan.RenderCurls(""), extraArgs))
+	curl, err := plan.RenderCurlsErr("")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(w, appendCurlArgs(curl, extraArgs))
 	return err
 }
 

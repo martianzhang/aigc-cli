@@ -48,7 +48,10 @@ func runMIGan(path string, img image.Image, x, y, w, h int, producer string) boo
 		return false
 	}
 	outPath := cleanPath(path)
-	_ = wmremove.SavePNG(outPath, outImg)
+	if err := wmremove.SavePNG(outPath, outImg); err != nil {
+		fmt.Fprintf(os.Stderr, "  MI-GAN error: save %s: %v\n", outPath, err)
+		return false
+	}
 	if producer != "" {
 		fmt.Printf("  Watermark removed (mi-gan, %s) -> %s\n", producer, outPath)
 	} else {

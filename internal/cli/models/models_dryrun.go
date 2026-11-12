@@ -12,5 +12,10 @@ import (
 // comment.
 func printModelsCurl(url, apiKey, note string) {
 	plan := &reqbuild.Plan{Method: http.MethodGet, URL: url, Note: note}
-	fmt.Println(plan.RenderCurls(apiKey))
+	curl, err := plan.RenderCurlsErr(apiKey)
+	if err != nil {
+		fmt.Printf("# failed to render preview: %v\n", err)
+		return
+	}
+	fmt.Println(curl)
 }
