@@ -18,6 +18,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/httpx"
+	"github.com/martianzhang/aigc-cli/internal/netguard"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
@@ -167,12 +168,19 @@ func isHTTPURL(raw string) bool {
 }
 
 // doHTTPGet performs a GET with a context and rejects non-200 responses.
+// The URL and every redirect hop are SSRF-checked; loopback stays allowed so a
+// local provider (Ollama/LocalAI) can serve media, while private/link-local and
+// metadata addresses are rejected.
 func doHTTPGet(ctx context.Context, rawURL string) (*http.Response, error) {
+	if err := netguard.ValidatePublicURLAllowLocal(rawURL); err != nil {
+		return nil, err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := httpx.Do(ctx, http.DefaultClient, req, httpx.DefaultPolicy)
+	client := netguard.NewGuardedClientAllowLocal(0)
+	resp, err := httpx.Do(ctx, client, req, httpx.DefaultPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -422,9 +430,13 @@ func SaveResourceWithBearer(source, token, dest string) error {
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
+	if err := netguard.ValidatePublicURLAllowLocal(cleaned); err != nil {
+		return err
+	}
 	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := httpx.Do(ctx, http.DefaultClient, req, httpx.DefaultPolicy)
+	client := netguard.NewGuardedClientAllowLocal(0)
+	resp, err := httpx.Do(ctx, client, req, httpx.DefaultPolicy)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}

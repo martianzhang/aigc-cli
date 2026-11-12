@@ -23,9 +23,9 @@ func TestDownloadLastFrames(t *testing.T) {
 	dir := t.TempDir()
 	// A blank URL is skipped; indices are preserved in the multi-frame naming.
 	urls := []string{
-		"https://cdn.example.com/a.png",
+		srv.URL + "/a.png",
 		"",
-		"https://cdn.example.com/b.png",
+		srv.URL + "/b.png",
 	}
 	saved, err := DownloadLastFrames(urls, dir, "task_1")
 	if err != nil {
@@ -60,7 +60,7 @@ func TestDownloadLastFramesSingleName(t *testing.T) {
 	defer func() { http.DefaultClient = oldClient }()
 
 	dir := t.TempDir()
-	saved, err := DownloadLastFrames([]string{"https://cdn.example.com/only.png"}, dir, "task_2")
+	saved, err := DownloadLastFrames([]string{srv.URL + "/only.png"}, dir, "task_2")
 	if err != nil {
 		t.Fatalf("DownloadLastFrames() error = %v", err)
 	}

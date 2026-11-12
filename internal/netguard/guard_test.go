@@ -3,6 +3,7 @@ package netguard
 import (
 	"net"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 )
@@ -130,7 +131,7 @@ func TestCheckRedirect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := checkRedirect(publicReq, nil); err != nil {
+	if err := checkRedirect(publicReq, nil, false); err != nil {
 		t.Errorf("checkRedirect(public) = %v, want nil", err)
 	}
 
@@ -138,12 +139,38 @@ func TestCheckRedirect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := checkRedirect(blockedReq, nil); err == nil {
+	if err := checkRedirect(blockedReq, nil, false); err == nil {
 		t.Error("checkRedirect(loopback) = nil, want error")
 	}
 
 	via := make([]*http.Request, 10)
-	if err := checkRedirect(publicReq, via); err == nil {
+	if err := checkRedirect(publicReq, via, false); err == nil {
 		t.Error("checkRedirect(10 redirects) = nil, want error")
+	}
+}
+
+func TestValidatePublicURLAllowLocal(t *testing.T) {
+	for _, u := range []string{"http://127.0.0.1:11434/", "http://[::1]/"} {
+		if err := ValidatePublicURLAllowLocal(u); err != nil {
+			t.Errorf("ValidatePublicURLAllowLocal(%q) = %v, want nil", u, err)
+		}
+	}
+	for _, u := range []string{"http://10.0.0.1/", "http://169.254.169.254/"} {
+		if err := ValidatePublicURLAllowLocal(u); err == nil {
+			t.Errorf("ValidatePublicURLAllowLocal(%q) = nil, want error", u)
+		}
+	}
+}
+
+func TestGuardedClientAllowLocalRedirectPolicy(t *testing.T) {
+	client := NewGuardedClientAllowLocal(time.Second)
+	via := []*http.Request{{}}
+	loop := &http.Request{URL: &url.URL{Scheme: "http", Host: "127.0.0.1:11434"}}
+	if err := client.CheckRedirect(loop, via); err != nil {
+		t.Errorf("loopback redirect = %v, want nil", err)
+	}
+	private := &http.Request{URL: &url.URL{Scheme: "http", Host: "10.0.0.1"}}
+	if err := client.CheckRedirect(private, via); err == nil {
+		t.Error("private redirect = nil, want rejection")
 	}
 }

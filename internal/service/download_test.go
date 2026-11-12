@@ -443,7 +443,7 @@ func TestDownloadImagesWritesIntoFreshOutputDir(t *testing.T) {
 	defer func() { http.DefaultClient = oldClient }()
 
 	dir := filepath.Join(t.TempDir(), "fresh", "nested")
-	images := []types.ImageResult{{URL: []string{"https://cdn.example.com/a.png"}}}
+	images := []types.ImageResult{{URL: []string{srv.URL + "/a.png"}}}
 	saved, err := DownloadImages(images, dir, "task_1")
 	if err != nil {
 		t.Fatalf("DownloadImages() error = %v", err)
@@ -528,5 +528,36 @@ func TestSniffMediaExt(t *testing.T) {
 				t.Errorf("sniffMediaExt(%q) = %q, want %q", tc.data, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestFetchBytesRejectsPrivateAddress(t *testing.T) {
+	if _, err := FetchBytes("http://10.0.0.1/private.png"); err == nil {
+		t.Fatal("FetchBytes() error = nil, want SSRF rejection")
+	}
+}
+
+func TestFetchBytesAllowsLoopback(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("png-bytes"))
+	}))
+	defer srv.Close()
+
+	data, err := FetchBytes(srv.URL + "/image.png")
+	if err != nil {
+		t.Fatalf("FetchBytes(loopback) error = %v", err)
+	}
+	if string(data) != "png-bytes" {
+		t.Fatalf("FetchBytes() = %q", data)
+	}
+}
+
+func TestSaveResourceRejectsPrivateAddress(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "out.png")
+	if err := SaveResource("http://10.0.0.1/private.png", dest); err == nil {
+		t.Fatal("SaveResource() error = nil, want SSRF rejection")
+	}
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		t.Fatal("destination must not be created on rejected URLs")
 	}
 }
