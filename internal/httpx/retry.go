@@ -5,11 +5,32 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand/v2"
 	"net/http"
 	"strconv"
 	"time"
 )
+
+// DefaultMaxBodyBytes caps a buffered HTTP response body (32 MiB). API
+// responses are small; this only guards against a misbehaving endpoint.
+const DefaultMaxBodyBytes int64 = 32 << 20
+
+// ReadAllLimited reads at most max bytes and reports an error when the body is
+// larger, instead of silently truncating it.
+func ReadAllLimited(r io.Reader, max int64) ([]byte, error) {
+	if max <= 0 {
+		max = DefaultMaxBodyBytes
+	}
+	data, err := io.ReadAll(io.LimitReader(r, max+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > max {
+		return nil, fmt.Errorf("response exceeds %d MB", max>>20)
+	}
+	return data, nil
+}
 
 // Policy controls retry behavior for one request.
 type Policy struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,6 +101,7 @@ func (m *chatModel) runTUIAgentLoop(ctx context.Context, turn uint64) {
 			// the TUI as logMsg rather than raw stderr.
 			restoreStderr := options.SetStderr(&logWriter{prog: prog, turn: turn})
 			result, err = turnClient.ChatCompletion(req)
+			pw.Flush()
 			restoreStderr()
 			if err == nil {
 				break
@@ -332,17 +334,53 @@ func (m *chatModel) appendSkippedToolCalls(history []types.ChatMessage, rest []t
 // ---------------------------------------------------------------------------
 
 // progWriter — io.Writer that sends streamChunk messages to a tea.Program.
-// Used for AI response streaming content.
+// Deltas are coalesced for a few dozen milliseconds: one tea.Msg per SSE token
+// makes the TUI re-render (and copy the transcript) thousands of times.
 type progWriter struct {
 	prog *tea.Program
 	turn uint64
+
+	mu    sync.Mutex
+	buf   strings.Builder
+	timer *time.Timer
 }
 
+const streamFlushInterval = 40 * time.Millisecond
+
 func (w *progWriter) Write(p []byte) (int, error) {
-	if w.prog != nil {
-		w.prog.Send(streamChunk{turn: w.turn, text: string(p)})
+	w.mu.Lock()
+	w.buf.Write(p)
+	if w.timer == nil {
+		w.timer = time.AfterFunc(streamFlushInterval, w.flush)
 	}
+	w.mu.Unlock()
 	return len(p), nil
+}
+
+// Flush sends any buffered text immediately. Call it when the stream ends so
+// the tail is never lost.
+func (w *progWriter) Flush() {
+	w.mu.Lock()
+	if w.timer != nil {
+		w.timer.Stop()
+		w.timer = nil
+	}
+	w.mu.Unlock()
+	w.flush()
+}
+
+func (w *progWriter) flush() {
+	w.mu.Lock()
+	text := w.buf.String()
+	w.buf.Reset()
+	if w.timer != nil {
+		w.timer.Stop()
+		w.timer = nil
+	}
+	w.mu.Unlock()
+	if text != "" && w.prog != nil {
+		w.prog.Send(streamChunk{turn: w.turn, text: text})
+	}
 }
 
 var _ io.Writer = (*progWriter)(nil)

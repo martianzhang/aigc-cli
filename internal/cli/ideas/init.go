@@ -3,7 +3,6 @@ package ideas
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/ideas"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -110,7 +110,7 @@ func runInit(d Deps) error {
 		return fmt.Errorf("download failed: HTTP %d\n  URL: %s", resp.StatusCode, dataURL)
 	}
 
-	rawData, err := io.ReadAll(resp.Body)
+	rawData, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}

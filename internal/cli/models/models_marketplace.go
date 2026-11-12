@@ -3,13 +3,13 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -55,7 +55,7 @@ func runModelsMarketplace(mediaType, base string) error {
 			return fmt.Errorf("failed to fetch models (page %d): %w", page, err)
 		}
 
-		body, err := io.ReadAll(resp.Body)
+		body, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 		resp.Body.Close()
 		if err != nil {
 			return fmt.Errorf("failed to read response: %w", err)
@@ -163,7 +163,7 @@ func runModelsPricing(modelName, baseURL string) error {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}

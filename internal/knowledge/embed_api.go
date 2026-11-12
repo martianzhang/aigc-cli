@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"net/http"
 	"strings"
 	"time"
@@ -102,7 +102,7 @@ func (e *APIEmbedder) EmbedBatch(texts []string) ([]Embedding, error) {
 		return nil, fmt.Errorf("embedding request failed: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, err := io.ReadAll(resp.Body)
+	raw, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read embedding response: %w", err)
 	}

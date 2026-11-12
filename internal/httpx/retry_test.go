@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -71,6 +72,19 @@ func TestDoStopsOnContextCancel(t *testing.T) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
 	if _, err := Do(ctx, srv.Client(), req, Policy{MaxAttempts: 3, BaseDelay: time.Minute}); err == nil {
 		t.Fatal("Do() error = nil, want context cancellation")
+	}
+}
+
+func TestReadAllLimited(t *testing.T) {
+	data, err := ReadAllLimited(strings.NewReader("hello"), 10)
+	if err != nil {
+		t.Fatalf("ReadAllLimited() error = %v", err)
+	}
+	if string(data) != "hello" {
+		t.Fatalf("data = %q, want hello", data)
+	}
+	if _, err := ReadAllLimited(strings.NewReader("0123456789"), 4); err == nil {
+		t.Fatal("ReadAllLimited() error = nil, want size limit error")
 	}
 }
 

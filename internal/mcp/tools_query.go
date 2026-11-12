@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/balance"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -87,7 +87,7 @@ func getModelPricingHandler() server.ToolHandlerFunc {
 		}
 		defer resp.Body.Close()
 
-		body, err := io.ReadAll(resp.Body)
+		body, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to read response: %v", err)), nil
 		}
@@ -297,7 +297,7 @@ func fetchModels(baseURL, mediaType, _ string) ([]types.MarketplaceModel, error)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch models (page %d): %w", page, err)
 		}
-		body, err := io.ReadAll(resp.Body)
+		body, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 		resp.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response: %w", err)

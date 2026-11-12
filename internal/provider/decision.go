@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 )
 
 // SystemOneEndpoint builds the /v1/systemone URL from a provider base_url.
@@ -86,7 +87,7 @@ func Decide(p *EffectiveProvider, req *DecisionRequest, timeout time.Duration) (
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
 	}

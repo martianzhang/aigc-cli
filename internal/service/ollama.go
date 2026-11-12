@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -69,7 +69,7 @@ func OllamaGenerateImages(baseURL string, req *types.GenerateRequest, outputDir 
 	defer httpResp.Body.Close()
 
 	if httpResp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(httpResp.Body)
+		respBody, _ := httpx.ReadAllLimited(httpResp.Body, httpx.DefaultMaxBodyBytes)
 		return nil, fmt.Errorf("ollama returned HTTP %d: %s", httpResp.StatusCode, string(respBody))
 	}
 
