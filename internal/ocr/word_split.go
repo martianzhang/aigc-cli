@@ -100,12 +100,12 @@ func (e *Engine) tryLoadDictionary() {
 		filepath.Join(home, ".config", "aigc-cli", "models", "dict_en_words.txt"),
 	} {
 		if _, err := os.Stat(p); err == nil {
-			e.LoadDictionary(p)
+			_, _ = e.LoadDictionary(p)
 			return
 		}
 	}
 	if p := defaultDictPath(); p != "" {
-		e.LoadDictionary(p)
+		_, _ = e.LoadDictionary(p)
 	}
 }
 

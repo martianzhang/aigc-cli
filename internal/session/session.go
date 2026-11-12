@@ -74,13 +74,13 @@ func New(path string, header Header) (*Session, error) {
 		header.ID = NewID(time.Now())
 	}
 	if err := writeJSONLine(f, header); err != nil {
-		f.Close()
-		os.Remove(path)
+		_ = f.Close()
+		_ = os.Remove(path)
 		return nil, err
 	}
 	if err := f.Sync(); err != nil {
-		f.Close()
-		os.Remove(path)
+		_ = f.Close()
+		_ = os.Remove(path)
 		return nil, fmt.Errorf("sync session %s: %w", path, err)
 	}
 

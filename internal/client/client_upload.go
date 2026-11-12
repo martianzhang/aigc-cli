@@ -48,7 +48,9 @@ func (c *Client) UploadImage(filePath string) (*types.UploadResponse, error) {
 	if _, err := io.Copy(fw, file); err != nil {
 		return nil, fmt.Errorf("failed to copy file content: %w", err)
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		return nil, fmt.Errorf("finalize multipart body: %w", err)
+	}
 
 	httpReq, err := http.NewRequestWithContext(c.requestContext(), http.MethodPost, c.baseURL+UploadPath, &buf)
 	if err != nil {

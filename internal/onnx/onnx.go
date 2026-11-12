@@ -80,7 +80,7 @@ func (d *Detector) init() error {
 	var err error
 	d.input, err = ort.NewTensor(shape, inputData)
 	if err != nil {
-		ort.DestroyEnvironment()
+		_ = ort.DestroyEnvironment()
 		return fmt.Errorf("create input tensor: %w", err)
 	}
 
@@ -88,8 +88,8 @@ func (d *Detector) init() error {
 	outputData := make([]float32, 2)
 	d.output, err = ort.NewTensor(outputShape, outputData)
 	if err != nil {
-		d.input.Destroy()
-		ort.DestroyEnvironment()
+		_ = d.input.Destroy()
+		_ = ort.DestroyEnvironment()
 		return fmt.Errorf("create output tensor: %w", err)
 	}
 
@@ -106,9 +106,9 @@ func (d *Detector) init() error {
 		opts.Destroy()
 	}
 	if err != nil {
-		d.output.Destroy()
-		d.input.Destroy()
-		ort.DestroyEnvironment()
+		_ = d.output.Destroy()
+		_ = d.input.Destroy()
+		_ = ort.DestroyEnvironment()
 		return fmt.Errorf("create session: %w", err)
 	}
 
@@ -166,15 +166,15 @@ func (d *Detector) ModelPath() string { return d.modelPath }
 // Close releases all ONNX Runtime resources.
 func (d *Detector) Close() {
 	if d.session != nil {
-		d.session.Destroy()
+		_ = d.session.Destroy()
 	}
 	if d.output != nil {
-		d.output.Destroy()
+		_ = d.output.Destroy()
 	}
 	if d.input != nil {
-		d.input.Destroy()
+		_ = d.input.Destroy()
 	}
-	ort.DestroyEnvironment()
+	_ = ort.DestroyEnvironment()
 }
 
 // DefaultLibPath returns the path to the ONNX Runtime shared library.

@@ -334,7 +334,7 @@ func (c *Client) handleResponsesSSE(resp *http.Response, w io.Writer) (*types.Ch
 			if event.Delta != "" {
 				fmt.Fprint(w, event.Delta)
 				if s, ok := w.(interface{ Sync() error }); ok {
-					s.Sync()
+					_ = s.Sync()
 				}
 				contentBuf.WriteString(event.Delta)
 			}

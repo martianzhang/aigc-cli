@@ -50,7 +50,7 @@ func previewDOCX(ctx context.Context, input string, pipeline *redactlib.Pipeline
 	if err != nil {
 		return Result{}, err
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 	text, _ := combineDOCXText(parts)
 	doc := redactlib.NewDocument(filepath.Base(input), text)
 	res, err := pipeline.Detect(ctx, doc)

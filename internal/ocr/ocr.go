@@ -186,13 +186,13 @@ func (e *Engine) init() error {
 
 	// Detection session
 	if err := e.initDet(); err != nil {
-		ort.DestroyEnvironment()
+		_ = ort.DestroyEnvironment()
 		return fmt.Errorf("detection init: %w", err)
 	}
 	// Recognition session
 	if err := e.initRec(); err != nil {
 		e.cleanupDet()
-		ort.DestroyEnvironment()
+		_ = ort.DestroyEnvironment()
 		return fmt.Errorf("recognition init: %w", err)
 	}
 	// Optional English recognition session
@@ -201,7 +201,7 @@ func (e *Engine) init() error {
 			if err := e.initEnRec(); err != nil {
 				e.cleanupRec()
 				e.cleanupDet()
-				ort.DestroyEnvironment()
+				_ = ort.DestroyEnvironment()
 				return fmt.Errorf("english rec init: %w", err)
 			}
 		}
@@ -212,7 +212,7 @@ func (e *Engine) init() error {
 			e.cleanupEnRec()
 			e.cleanupRec()
 			e.cleanupDet()
-			ort.DestroyEnvironment()
+			_ = ort.DestroyEnvironment()
 			return fmt.Errorf("classifier init: %w", err)
 		}
 	}
@@ -252,7 +252,7 @@ func (e *Engine) reinitDet(size int) error {
 	outputData := make([]float32, totalOut)
 	e.detOut, err = ort.NewTensor(outputShape, outputData)
 	if err != nil {
-		e.detIn.Destroy()
+		_ = e.detIn.Destroy()
 		e.detIn = nil
 		return fmt.Errorf("create det output tensor: %w", err)
 	}
@@ -266,9 +266,9 @@ func (e *Engine) reinitDet(size int) error {
 		nil,
 	)
 	if err != nil {
-		e.detOut.Destroy()
+		_ = e.detOut.Destroy()
 		e.detOut = nil
-		e.detIn.Destroy()
+		_ = e.detIn.Destroy()
 		e.detIn = nil
 		return fmt.Errorf("create det session: %w", err)
 	}
@@ -311,7 +311,7 @@ func (e *Engine) initRec() error {
 	outputData := make([]float32, totalOut)
 	e.recOut, err = ort.NewTensor(outputShape, outputData)
 	if err != nil {
-		e.recIn.Destroy()
+		_ = e.recIn.Destroy()
 		return fmt.Errorf("create rec output tensor: %w", err)
 	}
 
@@ -324,8 +324,8 @@ func (e *Engine) initRec() error {
 		nil,
 	)
 	if err != nil {
-		e.recOut.Destroy()
-		e.recIn.Destroy()
+		_ = e.recOut.Destroy()
+		_ = e.recIn.Destroy()
 		return fmt.Errorf("create rec session: %w", err)
 	}
 	return nil
@@ -351,7 +351,7 @@ func (e *Engine) initEnRec() error {
 	outputData := make([]float32, totalOut)
 	e.enOut, err = ort.NewTensor(outputShape, outputData)
 	if err != nil {
-		e.enIn.Destroy()
+		_ = e.enIn.Destroy()
 		return fmt.Errorf("create en output tensor: %w", err)
 	}
 
@@ -364,8 +364,8 @@ func (e *Engine) initEnRec() error {
 		nil,
 	)
 	if err != nil {
-		e.enOut.Destroy()
-		e.enIn.Destroy()
+		_ = e.enOut.Destroy()
+		_ = e.enIn.Destroy()
 		return fmt.Errorf("create en rec session: %w", err)
 	}
 	return nil
@@ -389,7 +389,7 @@ func (e *Engine) initCls() error {
 	outputData := make([]float32, 2)
 	e.clsOut, err = ort.NewTensor(outputShape, outputData)
 	if err != nil {
-		e.clsIn.Destroy()
+		_ = e.clsIn.Destroy()
 		return fmt.Errorf("create cls output tensor: %w", err)
 	}
 
@@ -402,8 +402,8 @@ func (e *Engine) initCls() error {
 		nil,
 	)
 	if err != nil {
-		e.clsOut.Destroy()
-		e.clsIn.Destroy()
+		_ = e.clsOut.Destroy()
+		_ = e.clsIn.Destroy()
 		return fmt.Errorf("create cls session: %w", err)
 	}
 	return nil
@@ -411,49 +411,49 @@ func (e *Engine) initCls() error {
 
 func (e *Engine) cleanupDet() {
 	if e.det != nil {
-		e.det.Destroy()
+		_ = e.det.Destroy()
 	}
 	if e.detOut != nil {
-		e.detOut.Destroy()
+		_ = e.detOut.Destroy()
 	}
 	if e.detIn != nil {
-		e.detIn.Destroy()
+		_ = e.detIn.Destroy()
 	}
 }
 
 func (e *Engine) cleanupRec() {
 	if e.rec != nil {
-		e.rec.Destroy()
+		_ = e.rec.Destroy()
 	}
 	if e.recOut != nil {
-		e.recOut.Destroy()
+		_ = e.recOut.Destroy()
 	}
 	if e.recIn != nil {
-		e.recIn.Destroy()
+		_ = e.recIn.Destroy()
 	}
 }
 
 func (e *Engine) cleanupEnRec() {
 	if e.enRec != nil {
-		e.enRec.Destroy()
+		_ = e.enRec.Destroy()
 	}
 	if e.enOut != nil {
-		e.enOut.Destroy()
+		_ = e.enOut.Destroy()
 	}
 	if e.enIn != nil {
-		e.enIn.Destroy()
+		_ = e.enIn.Destroy()
 	}
 }
 
 func (e *Engine) cleanupCls() {
 	if e.cls != nil {
-		e.cls.Destroy()
+		_ = e.cls.Destroy()
 	}
 	if e.clsOut != nil {
-		e.clsOut.Destroy()
+		_ = e.clsOut.Destroy()
 	}
 	if e.clsIn != nil {
-		e.clsIn.Destroy()
+		_ = e.clsIn.Destroy()
 	}
 }
 
@@ -463,7 +463,7 @@ func (e *Engine) Close() {
 	e.cleanupEnRec()
 	e.cleanupRec()
 	e.cleanupDet()
-	ort.DestroyEnvironment()
+	_ = ort.DestroyEnvironment()
 }
 
 // DefaultLibPath returns the path to the ONNX Runtime shared library.

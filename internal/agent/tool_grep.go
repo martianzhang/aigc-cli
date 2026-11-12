@@ -195,9 +195,13 @@ func grepGoImpl(args *grepArgs, searchPath string) string {
 	}
 
 	if isDir {
-		filepath.Walk(searchPath, walkFn)
+		if err := filepath.Walk(searchPath, walkFn); err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
 	} else {
-		walkFn(searchPath, nil, nil)
+		if err := walkFn(searchPath, nil, nil); err != nil {
+			return fmt.Sprintf("Error: %v", err)
+		}
 	}
 
 	if len(matches) == 0 {

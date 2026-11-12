@@ -37,7 +37,7 @@ var kbListCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("open store: %w", err)
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		limit := kbListLimit
 		if limit <= 0 {
@@ -124,7 +124,7 @@ func listVault() error {
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	docs, err := store.ListDocuments(100, 0, "")
 	if err != nil {

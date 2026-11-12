@@ -26,7 +26,7 @@ embedding model, or after manually copying files into docs/.`,
 		if err != nil {
 			return fmt.Errorf("open store: %w", err)
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
 		embedder, err := options.BuildKBEmbedder()

@@ -73,7 +73,7 @@ func (d *Detector) init() error {
 	var err error
 	d.input, err = ort.NewTensor(inputShape, inputData)
 	if err != nil {
-		ort.DestroyEnvironment()
+		_ = ort.DestroyEnvironment()
 		return fmt.Errorf("create input tensor: %w", err)
 	}
 
@@ -82,8 +82,8 @@ func (d *Detector) init() error {
 	outputData := make([]float32, totalOutput)
 	d.output, err = ort.NewTensor(OutputShape, outputData)
 	if err != nil {
-		d.input.Destroy()
-		ort.DestroyEnvironment()
+		_ = d.input.Destroy()
+		_ = ort.DestroyEnvironment()
 		return fmt.Errorf("create output tensor: %w", err)
 	}
 
@@ -100,9 +100,9 @@ func (d *Detector) init() error {
 		opts.Destroy()
 	}
 	if err != nil {
-		d.output.Destroy()
-		d.input.Destroy()
-		ort.DestroyEnvironment()
+		_ = d.output.Destroy()
+		_ = d.input.Destroy()
+		_ = ort.DestroyEnvironment()
 		return fmt.Errorf("create session: %w", err)
 	}
 
@@ -169,15 +169,15 @@ func (d *Detector) ModelPath() string { return d.modelPath }
 // Close 释放所有 ONNX Runtime 资源。
 func (d *Detector) Close() {
 	if d.session != nil {
-		d.session.Destroy()
+		_ = d.session.Destroy()
 	}
 	if d.output != nil {
-		d.output.Destroy()
+		_ = d.output.Destroy()
 	}
 	if d.input != nil {
-		d.input.Destroy()
+		_ = d.input.Destroy()
 	}
-	ort.DestroyEnvironment()
+	_ = ort.DestroyEnvironment()
 }
 
 // SavePNG saves image.Image to a PNG file.

@@ -88,7 +88,7 @@ func (c *Client) MidjourneyPollTask(taskID string, maxWait time.Duration) (*type
 		// Parse progress from string like "100%" or "50%"
 		progress := 0
 		if task.Progress != "" {
-			fmt.Sscanf(task.Progress, "%d%%", &progress)
+			_, _ = fmt.Sscanf(task.Progress, "%d%%", &progress)
 		}
 		prog.Percent(progress)
 

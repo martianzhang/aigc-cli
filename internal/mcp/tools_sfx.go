@@ -210,7 +210,7 @@ func generateLocalSFX(cfg *Config, p *provider.EffectiveProvider, request mcp.Ca
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("load sfx model: %v (run 'aigc-cli audio init --model %s')", err, audio.SFXDefaultModelID)), nil
 	}
-	defer engine.Close()
+	defer func() { _ = engine.Close() }()
 
 	seed := int64(0)
 	if tuning.Seed != nil {

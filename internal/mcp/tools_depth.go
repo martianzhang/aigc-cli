@@ -105,7 +105,9 @@ func convertDepthHandler(cfg *Config) server.ToolHandlerFunc {
 
 		// Resolve ONNX Runtime + model directory.
 		sharedDir := filepath.Join(configDir(), "models")
-		os.MkdirAll(sharedDir, 0755)
+		if err := os.MkdirAll(sharedDir, 0755); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("create models dir: %v", err)), nil
+		}
 		libPath, err := onnxrt.LibPath(sharedDir)
 		if err != nil || libPath == "" {
 			libPath, err = onnxrt.EnsureInstalled(sharedDir, false)

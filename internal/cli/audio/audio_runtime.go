@@ -55,7 +55,9 @@ func ensureRuntimeLibs(baseURL, dir string) {
 			}
 		}
 		if baseURL != "" {
-			downloadAsset(baseURL, name, dir)
+			if err := downloadAsset(baseURL, name, dir); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: download %s: %v\n", name, err)
+			}
 		}
 	}
 }
@@ -76,7 +78,9 @@ func copySherpaLib(sherpaDir, name, dst string) bool {
 			if e.IsDir() && strings.Contains(e.Name(), archSubstr) {
 				src := filepath.Join(libDir, e.Name(), name)
 				if data, err := os.ReadFile(src); err == nil {
-					os.WriteFile(dst, data, 0755)
+					if err := os.WriteFile(dst, data, 0755); err != nil {
+						return false
+					}
 					return true
 				}
 			}
@@ -88,7 +92,9 @@ func copySherpaLib(sherpaDir, name, dst string) bool {
 		if e.IsDir() {
 			src := filepath.Join(libDir, e.Name(), name)
 			if data, err := os.ReadFile(src); err == nil {
-				os.WriteFile(dst, data, 0755)
+				if err := os.WriteFile(dst, data, 0755); err != nil {
+					return false
+				}
 				return true
 			}
 		}
@@ -103,7 +109,7 @@ func compileHelper(helperPath, _ string) error {
 	}
 	sherpaDir := findSherpaDir()
 	if sherpaDir == "" {
-		runCmd("go", "mod", "download")
+		_ = runCmd("go", "mod", "download")
 		sherpaDir = findSherpaDir()
 	}
 	if sherpaDir == "" {

@@ -34,7 +34,7 @@ func fetchToKB(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
 	embedder, err := options.BuildKBEmbedder()
@@ -73,7 +73,11 @@ func fetchToKB(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(os.Stderr, "  Error saving doc: %v\n", err)
 			continue
 		}
-		knowledge.SaveDocFile(kbBaseDir, project, docID, result.Title, result.Content)
+		if err := knowledge.SaveDocFile(kbBaseDir, project, docID, result.Title, result.Content); err != nil {
+			fmt.Fprintf(os.Stderr, "  Error saving doc file: %v\n", err)
+			_ = store.DeleteDocument(docID)
+			continue
+		}
 
 		rawChunks := chunker.Chunk(result.Content)
 		contents := make([]string, len(rawChunks))
@@ -102,7 +106,7 @@ func fetchToVault(args []string) error {
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	v, err := vault.Open(vaultBaseDir)
 	if err != nil {

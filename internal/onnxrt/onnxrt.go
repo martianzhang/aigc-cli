@@ -66,7 +66,7 @@ func EnsureInstalled(modelsDir string, force bool) (string, error) {
 	if err := extractRuntime(archivePath, modelsDir, info.libName, info); err != nil {
 		return "", fmt.Errorf("extraction failed: %w", err)
 	}
-	os.Remove(archivePath)
+	_ = os.Remove(archivePath)
 	fmt.Printf("  Installed: %s\n", libPath)
 	return libPath, nil
 }
@@ -99,7 +99,7 @@ func EnsureGPUInstalled(modelsDir string, force bool) error {
 	if err := extractGPUArchive(archivePath, modelsDir); err != nil {
 		return fmt.Errorf("GPU extraction failed: %w", err)
 	}
-	os.Remove(archivePath)
+	_ = os.Remove(archivePath)
 	fmt.Printf("  Installed: %s\n", gpuPath)
 	return nil
 }
@@ -225,7 +225,7 @@ func extractZip(archivePath, modelsDir, internalPath, libName string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	target := filepath.Join(modelsDir, libName)
 	for _, f := range r.File {
@@ -261,7 +261,7 @@ func extractTGZ(archivePath, modelsDir, internalPath, libName string) error {
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 
 	tarr := tar.NewReader(gzr)
 	target := filepath.Join(modelsDir, libName)
@@ -306,7 +306,7 @@ func extractAllFromZip(archivePath, modelsDir string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	extracted := 0
 	for _, f := range r.File {
@@ -356,7 +356,7 @@ func extractAllFromTGZ(archivePath, modelsDir string) error {
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 
 	tarr := tar.NewReader(gzr)
 	extracted := 0

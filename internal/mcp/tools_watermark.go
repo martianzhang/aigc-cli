@@ -85,7 +85,9 @@ func loadCustomWatermarks() {
 		return
 	}
 	dir := filepath.Join(home, ".config", "aigc-cli", "watermark")
-	watermark.LoadWatermarkPNGsFromDir(dir)
+	// Custom watermarks are optional; a bad/missing directory must not break
+	// the add_watermark tool.
+	_ = watermark.LoadWatermarkPNGsFromDir(dir)
 }
 
 // addWatermarkHandler handles the add_watermark tool call.

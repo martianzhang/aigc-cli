@@ -36,7 +36,7 @@ func FindFiles(argsJSON string) string {
 	}
 
 	var results []string
-	filepath.Walk(root, func(fpath string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(root, func(fpath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -65,7 +65,9 @@ func FindFiles(argsJSON string) string {
 			results = append(results, fmt.Sprintf("%s  (%s, %s)", fpath, sizeStr, info.ModTime().Format("2006-01-02")))
 		}
 		return nil
-	})
+	}); err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
 
 	if len(results) == 0 {
 		return fmt.Sprintf("No files found matching %q under %s", params.Pattern, root)

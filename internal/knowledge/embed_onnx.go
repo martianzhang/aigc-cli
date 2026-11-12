@@ -59,20 +59,20 @@ func NewONNXEmbedder(modelDir, libPath string) (*ONNXEmbedder, error) {
 
 	inputTensor, err := makeTensor()
 	if err != nil {
-		ort.DestroyEnvironment()
+		_ = ort.DestroyEnvironment()
 		return nil, fmt.Errorf("create input_ids: %w", err)
 	}
 	attnTensor, err := makeTensor()
 	if err != nil {
-		inputTensor.Destroy()
-		ort.DestroyEnvironment()
+		_ = inputTensor.Destroy()
+		_ = ort.DestroyEnvironment()
 		return nil, fmt.Errorf("create attention_mask: %w", err)
 	}
 	tokTypeTensor, err := makeTensor()
 	if err != nil {
-		inputTensor.Destroy()
-		attnTensor.Destroy()
-		ort.DestroyEnvironment()
+		_ = inputTensor.Destroy()
+		_ = attnTensor.Destroy()
+		_ = ort.DestroyEnvironment()
 		return nil, fmt.Errorf("create token_type_ids: %w", err)
 	}
 
@@ -80,10 +80,10 @@ func NewONNXEmbedder(modelDir, libPath string) (*ONNXEmbedder, error) {
 	outData := make([]float32, seqLen*dim)
 	outputTensor, err := ort.NewTensor(outShape, outData)
 	if err != nil {
-		inputTensor.Destroy()
-		attnTensor.Destroy()
-		tokTypeTensor.Destroy()
-		ort.DestroyEnvironment()
+		_ = inputTensor.Destroy()
+		_ = attnTensor.Destroy()
+		_ = tokTypeTensor.Destroy()
+		_ = ort.DestroyEnvironment()
 		return nil, fmt.Errorf("create output: %w", err)
 	}
 
@@ -100,11 +100,11 @@ func NewONNXEmbedder(modelDir, libPath string) (*ONNXEmbedder, error) {
 		opts.Destroy()
 	}
 	if err != nil {
-		inputTensor.Destroy()
-		attnTensor.Destroy()
-		tokTypeTensor.Destroy()
-		outputTensor.Destroy()
-		ort.DestroyEnvironment()
+		_ = inputTensor.Destroy()
+		_ = attnTensor.Destroy()
+		_ = tokTypeTensor.Destroy()
+		_ = outputTensor.Destroy()
+		_ = ort.DestroyEnvironment()
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
@@ -186,19 +186,19 @@ func (e *ONNXEmbedder) Name() string { return "onnx:" + EmbedModelID }
 
 func (e *ONNXEmbedder) Close() {
 	if e.session != nil {
-		e.session.Destroy()
+		_ = e.session.Destroy()
 	}
 	if e.output != nil {
-		e.output.Destroy()
+		_ = e.output.Destroy()
 	}
 	if e.inputIDs != nil {
-		e.inputIDs.Destroy()
+		_ = e.inputIDs.Destroy()
 	}
 	if e.attention != nil {
-		e.attention.Destroy()
+		_ = e.attention.Destroy()
 	}
 	if e.tokenTypes != nil {
-		e.tokenTypes.Destroy()
+		_ = e.tokenTypes.Destroy()
 	}
-	ort.DestroyEnvironment()
+	_ = ort.DestroyEnvironment()
 }

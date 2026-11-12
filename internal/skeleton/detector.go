@@ -51,7 +51,7 @@ func NewDetector(libPath, modelPath string) (*Detector, error) {
 	var err error
 	d.input, err = ort.NewTensor(inShape, inData)
 	if err != nil {
-		ort.DestroyEnvironment()
+		_ = ort.DestroyEnvironment()
 		return nil, fmt.Errorf("create input tensor: %w", err)
 	}
 	// 输出 [1,56,8400]
@@ -59,8 +59,8 @@ func NewDetector(libPath, modelPath string) (*Detector, error) {
 	outData := make([]float32, 1*OutChannels*NumAnchors)
 	d.output, err = ort.NewTensor(outShape, outData)
 	if err != nil {
-		d.input.Destroy()
-		ort.DestroyEnvironment()
+		_ = d.input.Destroy()
+		_ = ort.DestroyEnvironment()
 		return nil, fmt.Errorf("create output tensor: %w", err)
 	}
 
@@ -84,9 +84,9 @@ func NewDetector(libPath, modelPath string) (*Detector, error) {
 		opts.Destroy()
 	}
 	if err != nil {
-		d.output.Destroy()
-		d.input.Destroy()
-		ort.DestroyEnvironment()
+		_ = d.output.Destroy()
+		_ = d.input.Destroy()
+		_ = ort.DestroyEnvironment()
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 	return d, nil
@@ -244,13 +244,13 @@ func minf(a, b float32) float32 {
 // Close 释放资源。
 func (d *Detector) Close() {
 	if d.session != nil {
-		d.session.Destroy()
+		_ = d.session.Destroy()
 	}
 	if d.output != nil {
-		d.output.Destroy()
+		_ = d.output.Destroy()
 	}
 	if d.input != nil {
-		d.input.Destroy()
+		_ = d.input.Destroy()
 	}
 	// ONNX Runtime 环境是进程级单例（ortEnvOnce 初始化），由所有
 	// Detector 共享；这里不销毁环境，避免其他 session 崩溃。

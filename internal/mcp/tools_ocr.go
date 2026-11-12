@@ -187,7 +187,7 @@ func ocrPDF(engine *ocr.Engine, pdfPath string) (*ocr.OCRResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	pngs, err := pdf.RenderToImages(pdfPath, tmpDir, 300)
 	if err != nil {

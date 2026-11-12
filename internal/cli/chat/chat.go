@@ -204,7 +204,7 @@ func runChat(cmd *cobra.Command, args []string) error {
 	if mcpErr != nil {
 		fmt.Fprintf(options.Stderr(), "mcp: %v\n", mcpErr)
 	}
-	defer mcpMgr.Close()
+	defer func() { _ = mcpMgr.Close() }()
 	rt := newToolRuntime(chatCfg, mcpMgr)
 
 	p := options.Shared.ResolveProvider(options.ProviderNameChat)

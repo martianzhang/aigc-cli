@@ -260,7 +260,7 @@ func handleSSE(resp *http.Response, w io.Writer) (*types.ChatResponse, error) {
 				fmt.Fprint(w, content)
 				// Sync the writer if it supports it (e.g., os.Stdout)
 				if s, ok := w.(interface{ Sync() error }); ok {
-					s.Sync()
+					_ = s.Sync()
 				}
 				full.Choices[0].Message.Content += content
 			}

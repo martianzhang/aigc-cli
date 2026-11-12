@@ -181,12 +181,12 @@ func NewTokenClassifier(cfg *types.RedactTokenclsConfig, modelsDir string) (*Tok
 		if success {
 			return tc, nil
 		}
-		ids.Destroy()
-		attn.Destroy()
+		_ = ids.Destroy()
+		_ = attn.Destroy()
 		if types != nil {
-			types.Destroy()
+			_ = types.Destroy()
 		}
-		out.Destroy()
+		_ = out.Destroy()
 	}
 	return nil, fmt.Errorf("create tokencls session: %w", lastErr)
 }
@@ -242,25 +242,25 @@ func (tc *TokenClassifier) allocate(withTypes bool) (*ort.Tensor[int64], *ort.Te
 	}
 	attn, err := ort.NewTensor[int64](shape, make([]int64, tc.maxLen))
 	if err != nil {
-		ids.Destroy()
+		_ = ids.Destroy()
 		return nil, nil, nil, nil, fmt.Errorf("create attention tensor: %w", err)
 	}
 	var typesTensor *ort.Tensor[int64]
 	if withTypes {
 		typesTensor, err = ort.NewTensor[int64](shape, make([]int64, tc.maxLen))
 		if err != nil {
-			ids.Destroy()
-			attn.Destroy()
+			_ = ids.Destroy()
+			_ = attn.Destroy()
 			return nil, nil, nil, nil, fmt.Errorf("create type_ids tensor: %w", err)
 		}
 	}
 	outShape := ort.NewShape(1, int64(tc.maxLen), int64(len(tc.labels)))
 	out, err := ort.NewTensor[float32](outShape, make([]float32, tc.maxLen*len(tc.labels)))
 	if err != nil {
-		ids.Destroy()
-		attn.Destroy()
+		_ = ids.Destroy()
+		_ = attn.Destroy()
 		if typesTensor != nil {
-			typesTensor.Destroy()
+			_ = typesTensor.Destroy()
 		}
 		return nil, nil, nil, nil, fmt.Errorf("create logits tensor: %w", err)
 	}
@@ -303,11 +303,11 @@ func (tc *TokenClassifier) Close() {
 	}
 	for _, v := range []*ort.Tensor[int64]{tc.inputIDs, tc.attention, tc.typeIDs} {
 		if v != nil {
-			v.Destroy()
+			_ = v.Destroy()
 		}
 	}
 	if tc.output != nil {
-		tc.output.Destroy()
+		_ = tc.output.Destroy()
 	}
 }
 

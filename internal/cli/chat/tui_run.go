@@ -42,7 +42,7 @@ func runChatTUI(cmd *cobra.Command) error {
 	if mcpErr != nil {
 		fmt.Fprintf(options.Stderr(), "mcp: %v\n", mcpErr)
 	}
-	defer mcpMgr.Close()
+	defer func() { _ = mcpMgr.Close() }()
 
 	rt := newToolRuntime(chatCfg, mcpMgr)
 	agentTools := rt.RequestTools()

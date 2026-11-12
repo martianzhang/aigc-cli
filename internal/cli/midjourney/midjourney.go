@@ -81,9 +81,9 @@ func init() {
 	registerSharedFlags(mjImagineCmd)
 	registerImagineStructuredFlags(mjImagineCmd)
 	// Override to remove task-id from shared (not needed for imagine)
-	mjImagineCmd.Flags().MarkHidden("task-id")
-	mjImagineCmd.Flags().MarkHidden("index")
-	mjImagineCmd.Flags().MarkHidden("custom-id")
+	_ = mjImagineCmd.Flags().MarkHidden("task-id")
+	_ = mjImagineCmd.Flags().MarkHidden("index")
+	_ = mjImagineCmd.Flags().MarkHidden("custom-id")
 
 	// --- blend ---
 	mjBlendCmd.Flags().StringArrayVar(&mjImageURLs, "image-url", nil, "Image URLs or local paths (2-4 required, repeatable)")
@@ -100,9 +100,9 @@ func init() {
 	// --- edits ---
 	registerSharedFlags(mjEditsCmd)
 	registerImagineStructuredFlags(mjEditsCmd)
-	mjEditsCmd.Flags().MarkHidden("task-id")
-	mjEditsCmd.Flags().MarkHidden("index")
-	mjEditsCmd.Flags().MarkHidden("custom-id")
+	_ = mjEditsCmd.Flags().MarkHidden("task-id")
+	_ = mjEditsCmd.Flags().MarkHidden("index")
+	_ = mjEditsCmd.Flags().MarkHidden("custom-id")
 
 	// --- task-action subcommands (flags registered in registerMJTaskActionSubcommand) ---
 

@@ -122,7 +122,9 @@ func applyWatermarkActions(path string, result *service.DetectResult) {
 			}
 		}
 		if removed && detectPreview {
-			service.PreviewFile(outPath)
+			if err := service.PreviewFile(outPath); err != nil {
+				fmt.Fprintf(os.Stderr, "  Preview failed: %v\n", err)
+			}
 		}
 		if !removed {
 			if err := stripMetadata(path); err == nil {
@@ -143,7 +145,9 @@ func applyWatermarkActions(path string, result *service.DetectResult) {
 			metaNote := ""
 			fmt.Printf("  Watermark added (%s%s) -> %s\n", res.Name, metaNote, outPath)
 			if detectPreview {
-				service.PreviewFile(outPath)
+				if err := service.PreviewFile(outPath); err != nil {
+					fmt.Fprintf(os.Stderr, "  Preview failed: %v\n", err)
+				}
 			}
 		}
 	}

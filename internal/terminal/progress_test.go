@@ -4,9 +4,41 @@ import (
 	"bytes"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
+
+// syncBuffer makes test reads safe against Progress's keep-alive goroutine,
+// which writes to the same writer under Progress.mu.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func (b *syncBuffer) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Len()
+}
+
+func (b *syncBuffer) Reset() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.buf.Reset()
+}
 
 func TestNewDisabledWithoutTTY(t *testing.T) {
 	p := New(&bytes.Buffer{})
@@ -39,7 +71,7 @@ func TestNewDisabledByEnv(t *testing.T) {
 		{name: "opt-out beats force", env: map[string]string{"TERM": "xterm", EnvTitle: "1", EnvDisable: "1"}, want: false},
 	}
 	for _, tc := range tests {
-		var buf bytes.Buffer
+		var buf syncBuffer
 		p := newEnabled(&buf, func(k string) string { return tc.env[k] })
 		if p.Enabled() != tc.want {
 			t.Errorf("%s: Enabled() = %v, want %v", tc.name, p.Enabled(), tc.want)
@@ -73,7 +105,7 @@ func TestSupportsProgressBar(t *testing.T) {
 }
 
 func TestTitleAndProgressSequences(t *testing.T) {
-	var buf bytes.Buffer
+	var buf syncBuffer
 	p := &Progress{w: &buf, enabled: true, bar: true}
 
 	p.Stage("video")
@@ -114,7 +146,7 @@ func TestTitleAndProgressSequences(t *testing.T) {
 }
 
 func TestRepeatedUpdatesAreDeduped(t *testing.T) {
-	var buf bytes.Buffer
+	var buf syncBuffer
 	p := &Progress{w: &buf, enabled: true, bar: true}
 	p.Stage("chat")
 	p.Percent(40)
@@ -135,7 +167,7 @@ func TestRepeatedUpdatesAreDeduped(t *testing.T) {
 }
 
 func TestTitleOnlyTerminalOmitsProgressBar(t *testing.T) {
-	var buf bytes.Buffer
+	var buf syncBuffer
 	p := &Progress{w: &buf, enabled: true}
 	p.Percent(10)
 	if got := buf.String(); got != "\x1b]0;aigc-cli 10%\x07" {
@@ -144,7 +176,7 @@ func TestTitleOnlyTerminalOmitsProgressBar(t *testing.T) {
 }
 
 func TestPercentClamped(t *testing.T) {
-	var buf bytes.Buffer
+	var buf syncBuffer
 	p := &Progress{w: &buf, enabled: true}
 	p.Percent(-5)
 	if !strings.Contains(buf.String(), "aigc-cli\x07") {
@@ -158,7 +190,7 @@ func TestPercentClamped(t *testing.T) {
 }
 
 func TestClearDropsBarKeepsLabel(t *testing.T) {
-	var buf bytes.Buffer
+	var buf syncBuffer
 	p := &Progress{w: &buf, enabled: true, bar: true}
 	p.Stage("image")
 	p.Percent(5)
@@ -233,7 +265,7 @@ func TestClearOnInterruptNoopWhenDisabled(t *testing.T) {
 }
 
 func TestBusyStageWritesLabelAndBarOnce(t *testing.T) {
-	var buf bytes.Buffer
+	var buf syncBuffer
 	p := &Progress{w: &buf, enabled: true, bar: true}
 	p.BusyStage("chat")
 	want := "\x1b]9;4;3\x07" + "\x1b]0;aigc-cli · chat …\x07"
@@ -248,7 +280,7 @@ func TestBusyStageWritesLabelAndBarOnce(t *testing.T) {
 }
 
 func TestPausedStageUsesPausedBar(t *testing.T) {
-	var buf bytes.Buffer
+	var buf syncBuffer
 	p := &Progress{w: &buf, enabled: true, bar: true}
 	p.PausedStage("chat · confirm")
 	want := "\x1b]9;4;4\x07" + "\x1b]0;aigc-cli · chat · confirm …\x07"
@@ -263,7 +295,7 @@ func TestPausedStageUsesPausedBar(t *testing.T) {
 }
 
 func TestBusyTitleShowsElapsed(t *testing.T) {
-	var buf bytes.Buffer
+	var buf syncBuffer
 	p := &Progress{w: &buf, enabled: true}
 	p.BusyStage("image")
 	p.mu.Lock()

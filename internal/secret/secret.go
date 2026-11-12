@@ -246,8 +246,12 @@ func getWithTimeout() (string, error) {
 		err   error
 	}
 	ch := make(chan result, 1)
+	// Capture the getter before starting the goroutine. Tests swap the hook
+	// during cleanup; reading the global inside the goroutine would race with
+	// that write when the call times out and the goroutine is left behind.
+	get := keyringGet
 	go func() {
-		v, err := keyringGet(Service, Account)
+		v, err := get(Service, Account)
 		ch <- result{v, err}
 	}()
 	select {
@@ -267,7 +271,8 @@ func getWithTimeout() (string, error) {
 // setWithTimeout is getWithTimeout's write counterpart.
 func setWithTimeout(value string) error {
 	ch := make(chan error, 1)
-	go func() { ch <- keyringSet(Service, Account, value) }()
+	set := keyringSet
+	go func() { ch <- set(Service, Account, value) }()
 	select {
 	case err := <-ch:
 		if err != nil {

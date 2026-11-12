@@ -46,8 +46,8 @@ func probeVideo(input string, haveFFprobe bool) (*videoInfo, error) {
 	}
 	fields := strings.Split(strings.TrimSpace(string(out)), ",")
 	if len(fields) >= 3 {
-		fmt.Sscanf(fields[0], "%d", &info.Width)
-		fmt.Sscanf(fields[1], "%d", &info.Height)
+		_, _ = fmt.Sscanf(fields[0], "%d", &info.Width)
+		_, _ = fmt.Sscanf(fields[1], "%d", &info.Height)
 		var num, den int
 		n, _ := fmt.Sscanf(fields[2], "%d/%d", &num, &den)
 		if n == 2 && den > 0 {
@@ -167,7 +167,9 @@ func encodeDepthVideo(tmpDir, outPath, inputPath string, info *videoInfo, startS
 	muxArgs = append(muxArgs, "-i", inputPath,
 		"-map", "0:v:0", "-map", "1:a:0?", "-c", "copy", "-shortest", outPath+".tmp.mp4")
 	if out, err := exec.Command("ffmpeg", muxArgs...).CombinedOutput(); err == nil {
-		os.Rename(outPath+".tmp.mp4", outPath)
+		if err := os.Rename(outPath+".tmp.mp4", outPath); err != nil {
+			return fmt.Errorf("replace video with muxed audio: %w", err)
+		}
 	} else if verbose {
 		fmt.Fprintf(os.Stderr, "Warning: audio mux failed (source may have no audio): %v\n%s", err, string(out))
 	}

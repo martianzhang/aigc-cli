@@ -26,7 +26,7 @@ var kbPruneCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		// Check for duplicate checksums
 		rows, err := store.DB().Query(`
@@ -38,7 +38,7 @@ var kbPruneCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("find duplicates: %w", err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		type dup struct {
 			checksum string

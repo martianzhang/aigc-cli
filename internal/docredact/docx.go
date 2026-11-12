@@ -36,7 +36,7 @@ func scanDOCX(ctx context.Context, input string, pipeline *redactlib.Pipeline, o
 	if err != nil {
 		return Result{}, err
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 	text, _ := combineDOCXText(parts)
 	doc := redactlib.NewDocument(filepath.Base(input), text)
 	res, err := pipeline.Detect(ctx, doc)
@@ -51,7 +51,7 @@ func applyDOCX(ctx context.Context, input, outPath string, pipeline *redactlib.P
 	if err != nil {
 		return Result{}, err
 	}
-	zr.Close()
+	_ = zr.Close()
 	text, offsets := combineDOCXText(parts)
 	doc := redactlib.NewDocument(filepath.Base(input), text)
 	res, err := pipeline.Detect(ctx, doc)
@@ -101,7 +101,7 @@ func extractDOCX(path string) ([]*docxPart, *zip.ReadCloser, error) {
 	}
 	for _, f := range zr.File {
 		if strings.HasPrefix(f.Name, "word/embeddings/") || strings.HasPrefix(f.Name, "word/activeX/") {
-			zr.Close()
+			_ = zr.Close()
 			return nil, nil, fmt.Errorf("DOCX contains embedded objects or ActiveX controls; remove them or export to PDF before redacting")
 		}
 	}
@@ -113,13 +113,13 @@ func extractDOCX(path string) ([]*docxPart, *zip.ReadCloser, error) {
 		}
 		rc, err := f.Open()
 		if err != nil {
-			zr.Close()
+			_ = zr.Close()
 			return nil, nil, err
 		}
 		data, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
-			zr.Close()
+			_ = zr.Close()
 			return nil, nil, err
 		}
 		parts = append(parts, parseDOCXPart(name, data))
@@ -240,7 +240,7 @@ func rewriteDOCX(input string, parts []*docxPart, offsets []int, spans []redactl
 	if err != nil {
 		return nil, err
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 
 	changed := map[string][]byte{}
 	for i, part := range parts {
@@ -264,13 +264,13 @@ func rewriteDOCX(input string, parts []*docxPart, offsets []int, spans []redactl
 	for _, f := range zr.File {
 		rc, err := f.Open()
 		if err != nil {
-			zw.Close()
+			_ = zw.Close()
 			return nil, err
 		}
 		data, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
-			zw.Close()
+			_ = zw.Close()
 			return nil, err
 		}
 		if d, ok := changed[f.Name]; ok {
@@ -281,11 +281,11 @@ func rewriteDOCX(input string, parts []*docxPart, offsets []int, spans []redactl
 			ExternalAttrs: f.ExternalAttrs, Comment: f.Comment,
 		})
 		if err != nil {
-			zw.Close()
+			_ = zw.Close()
 			return nil, err
 		}
 		if _, err := w.Write(data); err != nil {
-			zw.Close()
+			_ = zw.Close()
 			return nil, err
 		}
 	}
@@ -344,7 +344,7 @@ func RestoreDOCX(input, outPath string, m *redactlib.Mapping) error {
 	if err != nil {
 		return err
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 	values := map[string]string{}
 	for _, e := range m.Entities {
 		values[e.Placeholder] = e.Value
@@ -370,19 +370,19 @@ func rewriteZip(input, outPath string, changed map[string][]byte) error {
 	if err != nil {
 		return err
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 	var out bytes.Buffer
 	zw := zip.NewWriter(&out)
 	for _, f := range zr.File {
 		rc, err := f.Open()
 		if err != nil {
-			zw.Close()
+			_ = zw.Close()
 			return err
 		}
 		data, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
-			zw.Close()
+			_ = zw.Close()
 			return err
 		}
 		if d, ok := changed[f.Name]; ok {
@@ -393,11 +393,11 @@ func rewriteZip(input, outPath string, changed map[string][]byte) error {
 			ExternalAttrs: f.ExternalAttrs, Comment: f.Comment,
 		})
 		if err != nil {
-			zw.Close()
+			_ = zw.Close()
 			return err
 		}
 		if _, err := w.Write(data); err != nil {
-			zw.Close()
+			_ = zw.Close()
 			return err
 		}
 	}

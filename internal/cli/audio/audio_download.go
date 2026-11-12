@@ -39,7 +39,9 @@ func downloadFromURL(url, baseDir, name string, force bool) error {
 		return err
 	}
 	modelDir := filepath.Join(baseDir, safeName)
-	os.MkdirAll(modelDir, 0755)
+	if err := os.MkdirAll(modelDir, 0755); err != nil {
+		return fmt.Errorf("create model dir: %w", err)
+	}
 	filename := filepath.Base(url)
 	dest := filepath.Join(modelDir, filename)
 	return downloadSingleFile(url, dest, filename, force, "")
@@ -92,7 +94,7 @@ func downloadSingleFile(url, dest, label string, force bool, wantSHA string) err
 	}
 	if wantSHA != "" {
 		if err := verifySHA256(dest, wantSHA); err != nil {
-			os.Remove(dest)
+			_ = os.Remove(dest)
 			return fmt.Errorf("verify %s: %w", label, err)
 		}
 	}
@@ -102,7 +104,7 @@ func downloadSingleFile(url, dest, label string, force bool, wantSHA string) err
 		if err := extractTarBz2(dest, extractDir); err != nil {
 			return fmt.Errorf("extract: %w", err)
 		}
-		os.Remove(dest)
+		_ = os.Remove(dest)
 	}
 	return nil
 }

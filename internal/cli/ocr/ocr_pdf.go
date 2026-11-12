@@ -79,7 +79,7 @@ func scanPDF(cmd *cobra.Command, pdfPath string) error {
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	var pngs []string
 	if ocrScanPages != "" {

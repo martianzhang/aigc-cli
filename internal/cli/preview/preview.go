@@ -104,7 +104,7 @@ func run(d Deps, args []string, detail bool, describe string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	if _, err := tmpFile.Write(data); err != nil {
 		tmpFile.Close()
@@ -123,7 +123,9 @@ func previewMarkdown(path string) error {
 	if err != nil {
 		return fmt.Errorf("read file: %w", err)
 	}
-	os.Stdout.Write(data)
+	if _, err := os.Stdout.Write(data); err != nil {
+		return fmt.Errorf("write stdout: %w", err)
+	}
 	if len(data) > 0 && data[len(data)-1] != '\n' {
 		fmt.Println()
 	}

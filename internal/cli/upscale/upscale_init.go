@@ -68,7 +68,8 @@ func runInit(d Deps, models []string, force bool) error {
 	if _, err := onnxrt.EnsureInstalled(sharedDir, force); err != nil {
 		return err
 	}
-	onnxrt.EnsureGPUInstalled(sharedDir, force)
+	// GPU runtime is optional: the CPU runtime is enough for local inference.
+	_ = onnxrt.EnsureGPUInstalled(sharedDir, force)
 
 	if len(models) == 0 {
 		models = []string{up.DefaultModelID}

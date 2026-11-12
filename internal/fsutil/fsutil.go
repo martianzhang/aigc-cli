@@ -50,8 +50,9 @@ func WriteFileAtomicFromReader(path string, r io.Reader, perm os.FileMode) (int6
 	// cleanup closes and removes the temporary file after a failure. The
 	// destination has not been touched at this point.
 	cleanup := func() {
-		tmp.Close()
-		os.Remove(tmpName)
+		// Best-effort cleanup after a failed write; the destination is untouched.
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
 	}
 
 	written, err := io.Copy(tmp, r)
@@ -68,11 +69,11 @@ func WriteFileAtomicFromReader(path string, r io.Reader, perm os.FileMode) (int6
 		return written, fmt.Errorf("sync %s: %w", filepath.Base(path), err)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName)
+		_ = os.Remove(tmpName)
 		return written, fmt.Errorf("close %s: %w", filepath.Base(path), err)
 	}
 	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
+		_ = os.Remove(tmpName)
 		return written, fmt.Errorf("replace %s: %w", filepath.Base(path), err)
 	}
 	return written, nil

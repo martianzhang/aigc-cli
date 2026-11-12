@@ -36,7 +36,7 @@ Use 'aigc-cli vision <command> --help' for details.`,
   aigc-cli vision describe photo.jpg
   aigc-cli vision describe photo.jpg --prompt "请用中文详细描述这张图片"`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		_ = cmd.Help()
 	},
 }
 

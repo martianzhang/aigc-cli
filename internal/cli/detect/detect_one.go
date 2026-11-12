@@ -123,7 +123,9 @@ func detectOneFile(path, pathOverride string, aiDetector *onnx.Detector) error {
 	}
 
 	if detectPreview && !detectRemoveWM {
-		service.PreviewFile(path)
+		if err := service.PreviewFile(path); err != nil {
+			fmt.Fprintf(os.Stderr, "  Preview failed: %v\n", err)
+		}
 	}
 	applyWatermarkActions(path, result)
 

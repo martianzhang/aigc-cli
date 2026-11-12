@@ -144,7 +144,7 @@ func (e *Engine) initVisionEncoder() error {
 	outData := make([]float32, 1*ImageSeqLength*HiddenDim)
 	e.visionOutput, err = ort.NewTensor(outShape, outData)
 	if err != nil {
-		e.visionPixels.Destroy()
+		_ = e.visionPixels.Destroy()
 		return fmt.Errorf("create vision output tensor: %w", err)
 	}
 
@@ -180,7 +180,7 @@ func (e *Engine) initEmbedTokens() error {
 	outData := make([]float32, HiddenDim)
 	e.embedOutput, err = ort.NewTensor(outShape, outData)
 	if err != nil {
-		e.embedInput.Destroy()
+		_ = e.embedInput.Destroy()
 		return fmt.Errorf("create embed output tensor: %w", err)
 	}
 
@@ -221,7 +221,7 @@ func (e *Engine) initEncoderModel() error {
 	}
 	e.encAttentionMask, err = ort.NewTensor(maskShape, maskData)
 	if err != nil {
-		e.encInputEmbeds.Destroy()
+		_ = e.encInputEmbeds.Destroy()
 		return fmt.Errorf("create encoder mask tensor: %w", err)
 	}
 
@@ -229,8 +229,8 @@ func (e *Engine) initEncoderModel() error {
 	outData := make([]float32, maxSeq*HiddenDim)
 	e.encOutput, err = ort.NewTensor(outShape, outData)
 	if err != nil {
-		e.encInputEmbeds.Destroy()
-		e.encAttentionMask.Destroy()
+		_ = e.encInputEmbeds.Destroy()
+		_ = e.encAttentionMask.Destroy()
 		return fmt.Errorf("create encoder output tensor: %w", err)
 	}
 
@@ -270,7 +270,7 @@ func (e *Engine) initDecoderModel() error {
 	encStateData := make([]float32, 1*ImageSeqLength*HiddenDim)
 	e.decEncStates, err = ort.NewTensor(encStateShape, encStateData)
 	if err != nil {
-		e.decInputEmbeds.Destroy()
+		_ = e.decInputEmbeds.Destroy()
 		return fmt.Errorf("create decoder enc_states tensor: %w", err)
 	}
 
@@ -282,8 +282,8 @@ func (e *Engine) initDecoderModel() error {
 	}
 	e.decEncAttnMask, err = ort.NewTensor(maskShape, maskData)
 	if err != nil {
-		e.decInputEmbeds.Destroy()
-		e.decEncStates.Destroy()
+		_ = e.decInputEmbeds.Destroy()
+		_ = e.decEncStates.Destroy()
 		return fmt.Errorf("create decoder mask tensor: %w", err)
 	}
 
@@ -435,9 +435,9 @@ func (e *Engine) runVisionEncoder(pixels []float32) ([]float32, error) {
 func (e *Engine) runEmbedTokens(ids []int64) ([]float32, error) {
 	// Since pure-onnx requires fixed-shape tensors, we recreate the embed
 	// session each time with the correct input size.
-	e.embedSession.Destroy()
-	e.embedInput.Destroy()
-	e.embedOutput.Destroy()
+	_ = e.embedSession.Destroy()
+	_ = e.embedInput.Destroy()
+	_ = e.embedOutput.Destroy()
 
 	n := int64(len(ids))
 	inShape := ort.NewShape(1, n)
@@ -450,7 +450,7 @@ func (e *Engine) runEmbedTokens(ids []int64) ([]float32, error) {
 	outData := make([]float32, int(n)*HiddenDim)
 	e.embedOutput, err = ort.NewTensor(outShape, outData)
 	if err != nil {
-		e.embedInput.Destroy()
+		_ = e.embedInput.Destroy()
 		return nil, fmt.Errorf("create embed output: %w", err)
 	}
 	e.embedSession, err = e.newSession(
@@ -532,85 +532,85 @@ func (e *Engine) runDecoderStep(tokenEmbeds []float32, encStates []float32, seqL
 
 func (e *Engine) Close() {
 	if e.decOutput != nil {
-		e.decOutput.Destroy()
+		_ = e.decOutput.Destroy()
 	}
 	if e.decEncAttnMask != nil {
-		e.decEncAttnMask.Destroy()
+		_ = e.decEncAttnMask.Destroy()
 	}
 	if e.decEncStates != nil {
-		e.decEncStates.Destroy()
+		_ = e.decEncStates.Destroy()
 	}
 	if e.decInputEmbeds != nil {
-		e.decInputEmbeds.Destroy()
+		_ = e.decInputEmbeds.Destroy()
 	}
 	if e.encoderSession != nil {
-		e.encoderSession.Destroy()
+		_ = e.encoderSession.Destroy()
 	}
 	if e.encOutput != nil {
-		e.encOutput.Destroy()
+		_ = e.encOutput.Destroy()
 	}
 	if e.encAttentionMask != nil {
-		e.encAttentionMask.Destroy()
+		_ = e.encAttentionMask.Destroy()
 	}
 	if e.encInputEmbeds != nil {
-		e.encInputEmbeds.Destroy()
+		_ = e.encInputEmbeds.Destroy()
 	}
 	if e.embedSession != nil {
-		e.embedSession.Destroy()
+		_ = e.embedSession.Destroy()
 	}
 	if e.embedOutput != nil {
-		e.embedOutput.Destroy()
+		_ = e.embedOutput.Destroy()
 	}
 	if e.embedInput != nil {
-		e.embedInput.Destroy()
+		_ = e.embedInput.Destroy()
 	}
 	if e.visionSession != nil {
-		e.visionSession.Destroy()
+		_ = e.visionSession.Destroy()
 	}
 	if e.visionOutput != nil {
-		e.visionOutput.Destroy()
+		_ = e.visionOutput.Destroy()
 	}
 	if e.visionPixels != nil {
-		e.visionPixels.Destroy()
+		_ = e.visionPixels.Destroy()
 	}
-	ort.DestroyEnvironment()
+	_ = ort.DestroyEnvironment()
 }
 
 func (e *Engine) cleanup() {
 	if e.decOutput != nil {
-		e.decOutput.Destroy()
+		_ = e.decOutput.Destroy()
 	}
 	if e.decEncAttnMask != nil {
-		e.decEncAttnMask.Destroy()
+		_ = e.decEncAttnMask.Destroy()
 	}
 	if e.decEncStates != nil {
-		e.decEncStates.Destroy()
+		_ = e.decEncStates.Destroy()
 	}
 	if e.decInputEmbeds != nil {
-		e.decInputEmbeds.Destroy()
+		_ = e.decInputEmbeds.Destroy()
 	}
 	if e.encOutput != nil {
-		e.encOutput.Destroy()
+		_ = e.encOutput.Destroy()
 	}
 	if e.encAttentionMask != nil {
-		e.encAttentionMask.Destroy()
+		_ = e.encAttentionMask.Destroy()
 	}
 	if e.encInputEmbeds != nil {
-		e.encInputEmbeds.Destroy()
+		_ = e.encInputEmbeds.Destroy()
 	}
 	if e.embedOutput != nil {
-		e.embedOutput.Destroy()
+		_ = e.embedOutput.Destroy()
 	}
 	if e.embedInput != nil {
-		e.embedInput.Destroy()
+		_ = e.embedInput.Destroy()
 	}
 	if e.visionOutput != nil {
-		e.visionOutput.Destroy()
+		_ = e.visionOutput.Destroy()
 	}
 	if e.visionPixels != nil {
-		e.visionPixels.Destroy()
+		_ = e.visionPixels.Destroy()
 	}
-	ort.DestroyEnvironment()
+	_ = ort.DestroyEnvironment()
 }
 
 // IsReady checks if all model files exist.

@@ -30,7 +30,7 @@ Use --force to re-download models.`,
 		if err != nil {
 			return fmt.Errorf("open store: %w", err)
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		count, _ := store.CountDocuments()
 		fmt.Fprintf(os.Stderr, "Knowledge base initialized at %s\n", kbBaseDir)

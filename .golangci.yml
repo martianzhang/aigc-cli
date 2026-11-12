@@ -2,11 +2,31 @@ version: "2"
 linters:
   enable:
     - govet
-  disable:
     - errcheck
+    - staticcheck
+  settings:
+    errcheck:
+      # Read-side Close and CLI output writes are intentionally fire-and-forget.
+      # Write-side Close/Sync is still checked explicitly in the code.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        # ONNX Runtime resource teardown; failures are not actionable.
+        - (*ort.Tensor).Destroy
+        - (*ort.Session).Destroy
+        - ort.DestroyEnvironment
+  exclusions:
+    rules:
+      # Test cleanup often ignores Close/Write errors; production code is still
+      # covered by errcheck.
+      - path: _test\.go
+        linters:
+          - errcheck
 formatters:
   enable:
     - gofmt
 run:
   timeout: 3m
-

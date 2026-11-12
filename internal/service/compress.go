@@ -118,7 +118,7 @@ func encodeWithQuality(img image.Image, dstPath, outFmt string, quality int, bef
 		return nil, err
 	}
 	if afterSize >= beforeSize {
-		os.Remove(dstPath)
+		_ = os.Remove(dstPath)
 		return &CompressResult{
 			DstPath: dstPath, Before: beforeSize, After: afterSize,
 			Skipped: true, Format: outFmt, Quality: quality,
@@ -174,13 +174,13 @@ func binarySearchQuality(img image.Image, dstPath, outFmt string, targetSize, be
 
 		if bestQuality > 0 {
 			// Re-encode at best quality (file was overwritten by later iterations)
-			os.Remove(dstPath)
+			_ = os.Remove(dstPath)
 			finalSize, err := tryEncode(workImg, dstPath, outFmt, bestQuality)
 			if err != nil {
 				return nil, err
 			}
 			if finalSize >= beforeSize {
-				os.Remove(dstPath)
+				_ = os.Remove(dstPath)
 				return nil, fmt.Errorf("compressed not smaller (%d ≥ %d bytes)", finalSize, beforeSize)
 			}
 			return &CompressResult{
@@ -206,7 +206,7 @@ func binarySearchQuality(img image.Image, dstPath, outFmt string, targetSize, be
 		return nil, err
 	}
 	if finalSize >= beforeSize {
-		os.Remove(dstPath)
+		_ = os.Remove(dstPath)
 		return nil, fmt.Errorf("cannot meet target (smallest: %d bytes at %dx%d q=5, target %d bytes)",
 			finalSize, smallW, smallH, targetSize)
 	}
@@ -228,7 +228,7 @@ func tryEncode(img image.Image, dstPath, outFmt string, quality int) (int64, err
 
 	if err := encodeImageTo(img, f, outFmt, quality); err != nil {
 		f.Close()
-		os.Remove(dstPath)
+		_ = os.Remove(dstPath)
 		return 0, err
 	}
 	f.Close()
@@ -351,7 +351,7 @@ func encodePalettedPNG(img image.Image, dstPath string, nColors int, beforeSize 
 	defer f.Close()
 	if err := enc.Encode(f, dst); err != nil {
 		f.Close()
-		os.Remove(dstPath)
+		_ = os.Remove(dstPath)
 		return nil, fmt.Errorf("encode paletted png: %w", err)
 	}
 	f.Close()
@@ -361,7 +361,7 @@ func encodePalettedPNG(img image.Image, dstPath string, nColors int, beforeSize 
 	}
 	afterSize := info.Size()
 	if afterSize >= beforeSize {
-		os.Remove(dstPath)
+		_ = os.Remove(dstPath)
 		return &CompressResult{
 			DstPath: dstPath, Before: beforeSize, After: afterSize,
 			Skipped: true, Format: "png",

@@ -60,7 +60,13 @@ func fetchSearchResults(store *knowledge.Store, _ *cobra.Command, results []sear
 					fmt.Fprintf(os.Stderr, "    Error saving: %v\n", err)
 				}
 			} else {
-				knowledge.SaveDocFile(kbBaseDir, project, docID, fetchResult.Title, fetchResult.Content)
+				if err := knowledge.SaveDocFile(kbBaseDir, project, docID, fetchResult.Title, fetchResult.Content); err != nil {
+					if verbose {
+						fmt.Fprintf(os.Stderr, "    Error saving doc file: %v\n", err)
+					}
+					_ = store.DeleteDocument(docID)
+					continue
+				}
 
 				rawChunks := chunker.Chunk(fetchResult.Content)
 				contents := make([]string, len(rawChunks))
@@ -115,16 +121,18 @@ func extractHost(raw string) string {
 func tryReadDoc(docID string) string {
 	docsDir := filepath.Join(kbBaseDir, "docs")
 	var found string
-	filepath.Walk(docsDir, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(docsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
 		if strings.HasPrefix(info.Name(), docID[:12]) {
 			found = path
-			return fmt.Errorf("stop")
+			return filepath.SkipAll
 		}
 		return nil
-	})
+	}); err != nil {
+		return ""
+	}
 	if found == "" {
 		return ""
 	}

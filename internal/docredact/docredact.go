@@ -172,7 +172,7 @@ func ExtractText(input string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 	text, _ := combineDOCXText(parts)
 	return text, nil
 }

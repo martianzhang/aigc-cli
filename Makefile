@@ -12,7 +12,7 @@ OUTPUT ?= $(BINARY)$(GOEXE)
 # Resolve golangci-lint once (empty when not installed).
 GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null)
 
-.PHONY: all build clean run install lint vet test fmt cover bench release help ideas
+.PHONY: all build clean run install lint vet test test-race test-integration fmt cover cover-check bench release help ideas docs-check tidy-check vuln pre-commit
 
 all: build
 
@@ -42,7 +42,13 @@ lint: ## Run static analysis (go vet + golangci-lint if available)
 vet: lint
 
 test: fmt ## Run tests
-	$(GO) test ./... -v -count=1
+	$(GO) test ./... -count=1
+
+test-race: fmt ## Run tests with the race detector
+	$(GO) test -race ./... -count=1 -timeout=25m
+
+test-integration: fmt ## Run integration tests (build tag: integration)
+	$(GO) test -tags=integration ./... -count=1 -timeout=30m
 
 bench: ## Run benchmarks (optional: BENCH=ClipString)
 	$(GO) test ./... -run '^$$' -bench '$(if $(BENCH),$(BENCH),.)' -benchmem -count=1
@@ -53,6 +59,27 @@ cover: fmt ## Run tests with coverage report
 	@echo "=== Detailed coverage ==="
 	$(GO) tool cover -func=coverage.out | tail -1
 	@rm -f coverage.out
+
+COVER_MIN ?= 58
+
+cover-check: fmt ## Fail when total coverage drops below COVER_MIN (default 58%)
+	$(GO) test ./... -coverprofile=coverage.out -count=1
+	@total=$$($(GO) tool cover -func=coverage.out | tail -1 | awk '{print $$3}' | tr -d '%'); \
+	echo "total coverage: $$total% (floor: $(COVER_MIN)%)"; \
+	awk -v total="$$total" -v min="$(COVER_MIN)" 'BEGIN { if (total + 0 < min + 0) { print "coverage is below the floor"; exit 1 } }'
+	@rm -f coverage.out
+
+docs-check: ## Check published Markdown links and zh/en parity
+	python3 scripts/check_docs.py
+
+tidy-check: ## Fail when go.mod/go.sum are not tidy
+	$(GO) mod tidy
+	git diff --exit-code -- go.mod go.sum
+
+vuln: ## Run govulncheck
+	$(GO) run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+pre-commit: fmt lint test docs-check tidy-check ## Local gate before committing
 
 ## Cross-compile the Go binary for all targets into dist/ (native helper/libs are packaged by CI)
 TARGETS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64

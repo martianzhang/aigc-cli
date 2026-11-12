@@ -94,7 +94,7 @@ func openChatSession(cfg *types.ChatDefaults) (*session.Session, bool, error) {
 	}
 	if chatName != "" {
 		if err := sess.AppendName(chatName); err != nil {
-			sess.Close("error")
+			_ = sess.Close("error")
 			return nil, false, err
 		}
 	}

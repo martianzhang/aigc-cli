@@ -60,20 +60,20 @@ func (d *Detector) RemoveWatermark(img image.Image, mask *image.Gray) (*image.NR
 	if err != nil {
 		return nil, fmt.Errorf("create image tensor: %w", err)
 	}
-	defer imgTensor.Destroy()
+	defer func() { _ = imgTensor.Destroy() }()
 
 	maskTensor, err := ort.NewTensor(maskShape, maskData)
 	if err != nil {
 		return nil, fmt.Errorf("create mask tensor: %w", err)
 	}
-	defer maskTensor.Destroy()
+	defer func() { _ = maskTensor.Destroy() }()
 
 	outData := make([]uint8, 3*w*h)
 	outTensor, err := ort.NewTensor(outShape, outData)
 	if err != nil {
 		return nil, fmt.Errorf("create output tensor: %w", err)
 	}
-	defer outTensor.Destroy()
+	defer func() { _ = outTensor.Destroy() }()
 
 	opts := ort.NewCUDASessionOptions()
 	session, err := ort.NewAdvancedSession(
@@ -90,7 +90,7 @@ func (d *Detector) RemoveWatermark(img image.Image, mask *image.Gray) (*image.NR
 	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
-	defer session.Destroy()
+	defer func() { _ = session.Destroy() }()
 
 	if err := session.Run(); err != nil {
 		return nil, fmt.Errorf("inference failed: %w", err)
@@ -144,7 +144,7 @@ func compositeResult(img image.Image, mask *image.Gray, result []uint8, w, h int
 }
 
 func (d *Detector) Close() {
-	ort.DestroyEnvironment()
+	_ = ort.DestroyEnvironment()
 }
 
 func SavePNG(path string, img image.Image) error {

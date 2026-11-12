@@ -146,7 +146,7 @@ func Convert(opts ConvertOptions) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	if err := extractFrames(input, tmpDir, info, opts.StartTime, opts.EndTime, opts.Verbose); err != nil {
 		return "", err
@@ -233,7 +233,7 @@ func Convert(opts ConvertOptions) (string, error) {
 			// Skip the frame entirely: remove the source PNG so it never
 			// leaks a color frame into the encoded grayscale video.
 			fmt.Fprintf(os.Stderr, "Warning: skip %s: %v\n", framePath, resultsErr[i])
-			os.Remove(framePath)
+			_ = os.Remove(framePath)
 			continue
 		}
 		gray := results[i]

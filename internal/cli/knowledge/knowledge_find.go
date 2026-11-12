@@ -31,7 +31,7 @@ Use --show to display full chunk content inline.`,
 		if err != nil {
 			return fmt.Errorf("open store: %w", err)
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		project := resolveSearchProject(cmd)
 		query := args[0]

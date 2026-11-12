@@ -25,7 +25,7 @@ Use --force to skip confirmation.`,
 		if !kbResetForce {
 			fmt.Fprintf(os.Stderr, "This will delete ALL knowledge base data. Continue? [y/N]: ")
 			var response string
-			fmt.Scanln(&response)
+			_, _ = fmt.Scanln(&response)
 			if response != "y" && response != "Y" {
 				fmt.Fprintln(os.Stderr, "Cancelled.")
 				return nil
@@ -40,9 +40,9 @@ Use --force to skip confirmation.`,
 		}
 		fmt.Fprintf(os.Stderr, "  Removed: %s\n", dbPath)
 
-		// Remove WAL and SHM files
+		// Remove WAL and SHM files. They may not exist; cleanup is best-effort.
 		for _, ext := range []string{"-wal", "-shm"} {
-			os.Remove(dbPath + ext)
+			_ = os.Remove(dbPath + ext)
 		}
 
 		// Remove docs/ directory
@@ -62,7 +62,7 @@ Use --force to skip confirmation.`,
 		if err != nil {
 			return fmt.Errorf("reinitialize: %w", err)
 		}
-		store.Close()
+		_ = store.Close()
 
 		fmt.Fprintf(os.Stderr, "Knowledge base reset complete.\n")
 		return nil

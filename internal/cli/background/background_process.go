@@ -74,7 +74,9 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 		}
 		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
 		if bgPreview {
-			service.PreviewFile(outPath)
+			if err := service.PreviewFile(outPath); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+			}
 		}
 		return nil
 	}
@@ -98,7 +100,9 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 		}
 		fmt.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
 		if bgPreview {
-			service.PreviewFile(outPath)
+			if err := service.PreviewFile(outPath); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: preview failed: %v\n", err)
+			}
 		}
 		return nil
 	}

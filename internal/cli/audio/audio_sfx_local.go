@@ -107,7 +107,7 @@ func runLocalSFX(prompt string, p *provider.EffectiveProvider, inject json.RawMe
 	if err != nil {
 		return fmt.Errorf("load sfx model: %w", err)
 	}
-	defer engine.Close()
+	defer func() { _ = engine.Close() }()
 
 	start := time.Now()
 	generated, err := engine.Generate(req)

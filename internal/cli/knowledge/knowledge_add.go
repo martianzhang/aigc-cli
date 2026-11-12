@@ -37,7 +37,7 @@ Use --recursive/-r to add all supported files in a directory.`,
 		if err != nil {
 			return fmt.Errorf("open store: %w", err)
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
 		embedder, err := options.BuildKBEmbedder()
@@ -129,7 +129,10 @@ func processAndStoreFile(store *knowledge.Store, chunker *knowledge.Chunker, emb
 	}
 
 	// Save raw content to docs/<sha1>.md
-	knowledge.SaveDocFile(kbBaseDir, project, docID, title, content)
+	if err := knowledge.SaveDocFile(kbBaseDir, project, docID, title, content); err != nil {
+		_ = store.DeleteDocument(docID)
+		return fmt.Errorf("save doc file: %w", err)
+	}
 
 	// Chunk
 	rawChunks := chunker.Chunk(content)
@@ -159,7 +162,7 @@ func addToVault(args []string) error {
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	v, err := vault.Open(vaultBaseDir)
 	if err != nil {

@@ -37,15 +37,20 @@ var (
 func runBackgroundInit(cmd *cobra.Command, args []string) error {
 	// ONNX Runtime (shared across all features)
 	sharedDir := filepath.Join(options.ConfigDir(), "models")
-	os.MkdirAll(sharedDir, 0755)
+	if err := os.MkdirAll(sharedDir, 0755); err != nil {
+		return fmt.Errorf("create models dir: %w", err)
+	}
 	if _, err := onnxrt.EnsureInstalled(sharedDir, bgInitForce); err != nil {
 		return err
 	}
-	onnxrt.EnsureGPUInstalled(sharedDir, bgInitForce)
+	// GPU runtime is optional: the CPU runtime is enough for local inference.
+	_ = onnxrt.EnsureGPUInstalled(sharedDir, bgInitForce)
 
 	// RMBG model
 	modelsDir := rmbgModelsDir()
-	os.MkdirAll(modelsDir, 0755)
+	if err := os.MkdirAll(modelsDir, 0755); err != nil {
+		return fmt.Errorf("create rmbg dir: %w", err)
+	}
 	modelPath := filepath.Join(modelsDir, rmbgModelFilename)
 	if _, err := os.Stat(modelPath); err == nil && !bgInitForce {
 		fmt.Printf("RMBG model already exists: %s\n  Use --force to re-download.\n", modelPath)

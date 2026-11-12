@@ -81,7 +81,9 @@ func upscaleHandler(cfg *Config) server.ToolHandlerFunc {
 		if d := options.UpscaleModelsDir(); d != "" {
 			sharedDir = d
 		}
-		os.MkdirAll(sharedDir, 0755)
+		if err := os.MkdirAll(sharedDir, 0755); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("create models dir: %v", err)), nil
+		}
 		libPath, err := onnxrt.LibPath(sharedDir)
 		if err != nil || libPath == "" {
 			libPath, err = onnxrt.EnsureInstalled(sharedDir, false)

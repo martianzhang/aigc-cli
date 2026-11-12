@@ -2,17 +2,18 @@ package service
 
 import (
 	"context"
+	"fmt"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
-	"maps"
-
-	_ "golang.org/x/image/bmp"
-	_ "golang.org/x/image/webp"
 	"io"
+	"maps"
 	"os"
 	"strings"
 	"time"
+
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/webp"
 
 	"github.com/richardwooding/c2pa"
 
@@ -110,6 +111,13 @@ func DetectImage(path string) (*DetectResult, error) {
 	}
 	defer f.Close()
 
+	rewind := func() error {
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			return fmt.Errorf("rewind %s: %w", path, err)
+		}
+		return nil
+	}
+
 	config, format, err := imgcodec.DecodeConfig(f)
 	if err != nil {
 		result.Format = "unknown"
@@ -120,7 +128,9 @@ func DetectImage(path string) (*DetectResult, error) {
 	result.Height = config.Height
 
 	// C2PA watermark detection via library (PNG & JPEG)
-	f.Seek(0, io.SeekStart)
+	if err := rewind(); err != nil {
+		return nil, err
+	}
 	var c2paInfo c2pa.Info
 	hasC2PA := false
 	var c2paVendor, c2paSw, c2paVer, c2paSource string
@@ -145,7 +155,9 @@ func DetectImage(path string) (*DetectResult, error) {
 	}
 
 	// Format-specific metadata extraction and C2PA fallback
-	f.Seek(0, io.SeekStart)
+	if err := rewind(); err != nil {
+		return nil, err
+	}
 	switch format {
 	case "png":
 		textChunks, rawC2PA := readPNGChunks(f)
@@ -203,7 +215,9 @@ func DetectImage(path string) (*DetectResult, error) {
 		}
 		// Raw byte scan for C2PA/JUMBF (no library support for GIF)
 		if !hasC2PA {
-			f.Seek(0, io.SeekStart)
+			if err := rewind(); err != nil {
+				return nil, err
+			}
 			rawC2PA := scanForC2PA(f)
 			if v, sw, ver, src := extractC2PAInfo(rawC2PA); v != "" || sw != "" {
 				hasC2PA = true
@@ -212,7 +226,9 @@ func DetectImage(path string) (*DetectResult, error) {
 		}
 
 	case "webp":
-		f.Seek(0, io.SeekStart)
+		if err := rewind(); err != nil {
+			return nil, err
+		}
 		webpData := readWebPInfo(f)
 		if webpData.comment != "" {
 			result.Comment = webpData.comment
@@ -223,7 +239,9 @@ func DetectImage(path string) (*DetectResult, error) {
 		}
 		// Fallback: raw byte scan for JUMBF/C2PA signatures
 		if !hasC2PA {
-			f.Seek(0, io.SeekStart)
+			if err := rewind(); err != nil {
+				return nil, err
+			}
 			rawC2PA := scanForC2PA(f)
 			if v, sw, ver, src := extractC2PAInfo(rawC2PA); v != "" || sw != "" {
 				hasC2PA = true

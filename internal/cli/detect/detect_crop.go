@@ -115,7 +115,9 @@ func handleCropWatermark(path string) error {
 
 	fmt.Printf("  Cropped: %dx%d -> %dx%d -> %s\n", imgW, imgH, bounds.W, bounds.H, outPath)
 	if detectPreview {
-		service.PreviewFile(outPath)
+		if err := service.PreviewFile(outPath); err != nil {
+			fmt.Fprintf(os.Stderr, "  Preview failed: %v\n", err)
+		}
 	}
 	return nil
 }

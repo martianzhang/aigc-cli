@@ -187,7 +187,7 @@ func kbFindHandler() server.ToolHandlerFunc {
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("open store: %v", err)), nil
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		results, err := store.Search(query, limit*3, "")
 		if err != nil {
@@ -283,7 +283,7 @@ func kbSearchHandler(cfg *Config) server.ToolHandlerFunc {
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("open store: %v", err)), nil
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		providerName, _ := args["provider"].(string)
 		urls, err := kbSearchURLs(cfg, query, providerName, kbSearchResultLimit)
@@ -329,7 +329,11 @@ func kbSearchHandler(cfg *Config) server.ToolHandlerFunc {
 				continue
 			}
 
-			knowledge.SaveDocFile(kbDir(), "", docID, result.Title, result.Content)
+			if err := knowledge.SaveDocFile(kbDir(), "", docID, result.Title, result.Content); err != nil {
+				fmt.Fprintf(&out, "  \u274c %s: write file error: %v\n", result.Title, err)
+				_ = store.DeleteDocument(docID)
+				continue
+			}
 
 			rawChunks := chunker.Chunk(result.Content)
 			contents := make([]string, len(rawChunks))
@@ -372,7 +376,7 @@ func kbAddHandler() server.ToolHandlerFunc {
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("open store: %v", err)), nil
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		title, content, err := knowledge.LoadFile(filePath)
 		if err != nil {
@@ -397,7 +401,10 @@ func kbAddHandler() server.ToolHandlerFunc {
 		if err := store.SaveDocument(doc); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("save doc: %v", err)), nil
 		}
-		knowledge.SaveDocFile(kbDir(), "", docID, title, content)
+		if err := knowledge.SaveDocFile(kbDir(), "", docID, title, content); err != nil {
+			_ = store.DeleteDocument(docID)
+			return mcp.NewToolResultError(fmt.Sprintf("save doc file: %v", err)), nil
+		}
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
 		embedder, err := options.BuildKBEmbedder()
@@ -442,7 +449,7 @@ func kbFetchHandler() server.ToolHandlerFunc {
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("open store: %v", err)), nil
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		docID := knowledge.Checksum(result.Content)
 		existing, _ := store.GetDocument(docID)
@@ -461,7 +468,10 @@ func kbFetchHandler() server.ToolHandlerFunc {
 		if err := store.SaveDocument(doc); err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("save: %v", err)), nil
 		}
-		knowledge.SaveDocFile(kbDir(), "", docID, result.Title, result.Content)
+		if err := knowledge.SaveDocFile(kbDir(), "", docID, result.Title, result.Content); err != nil {
+			_ = store.DeleteDocument(docID)
+			return mcp.NewToolResultError(fmt.Sprintf("save doc file: %v", err)), nil
+		}
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
 		embedder, err := options.BuildKBEmbedder()
@@ -495,7 +505,7 @@ func kbListHandler() server.ToolHandlerFunc {
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("open store: %v", err)), nil
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		docs, err := store.ListDocuments(100, 0, "")
 		if err != nil {
@@ -535,7 +545,7 @@ func kbShowHandler() server.ToolHandlerFunc {
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("open store: %v", err)), nil
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		// Try to find by prefix match
 		doc, err := findDocByIDPrefix(store, docID)
@@ -572,7 +582,7 @@ func findDocByIDPrefix(store *knowledge.Store, prefix string) (*knowledge.Docume
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var fullID string
 	if rows.Next() {
@@ -593,16 +603,18 @@ func findDocByIDPrefix(store *knowledge.Store, prefix string) (*knowledge.Docume
 func tryReadDocFile(baseDir, docID string) string {
 	docsDir := filepath.Join(baseDir, "docs")
 	var found string
-	filepath.Walk(docsDir, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(docsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
 		if strings.HasPrefix(info.Name(), docID[:12]) {
 			found = path
-			return fmt.Errorf("stop")
+			return filepath.SkipAll
 		}
 		return nil
-	})
+	}); err != nil {
+		return ""
+	}
 	if found == "" {
 		return ""
 	}

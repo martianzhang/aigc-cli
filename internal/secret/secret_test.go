@@ -5,11 +5,29 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/zalando/go-keyring"
 )
+
+// testKeyringMu serializes access to go-keyring's global mock provider. The
+// mock is not concurrency-safe, while Ensure may read and write the keyring
+// from separate goroutines.
+var testKeyringMu sync.Mutex
+
+func lockedKeyringGet(service, account string) (string, error) {
+	testKeyringMu.Lock()
+	defer testKeyringMu.Unlock()
+	return keyring.Get(service, account)
+}
+
+func lockedKeyringSet(service, account, value string) error {
+	testKeyringMu.Lock()
+	defer testKeyringMu.Unlock()
+	return keyring.Set(service, account, value)
+}
 
 // reset installs a fresh in-memory keyring, a temp lock dir, and clears the
 // process cache and lock timings.
@@ -18,8 +36,8 @@ func reset(t *testing.T) {
 	t.Setenv(EnvVar, "")
 	t.Setenv(DisableEnvVar, "")
 	keyring.MockInit()
-	keyringGet = keyring.Get
-	keyringSet = keyring.Set
+	keyringGet = lockedKeyringGet
+	keyringSet = lockedKeyringSet
 	timeout = time.Second
 	dir := t.TempDir()
 	lockDir = func() string { return dir }
@@ -29,8 +47,8 @@ func reset(t *testing.T) {
 	Reset()
 	t.Cleanup(func() {
 		keyring.MockInit()
-		keyringGet = keyring.Get
-		keyringSet = keyring.Set
+		keyringGet = lockedKeyringGet
+		keyringSet = lockedKeyringSet
 		timeout = time.Second
 		lockDir = defaultLockDir
 		lockPollInterval = 25 * time.Millisecond
@@ -105,9 +123,12 @@ func TestEnsureWaitsForConcurrentGeneration(t *testing.T) {
 	}
 	lockPollInterval = 10 * time.Millisecond
 	lockWaitTimeout = 2 * time.Second
+	set := keyringSet
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		time.Sleep(3 * lockPollInterval)
-		_ = keyringSet(Service, Account, "raced")
+		_ = set(Service, Account, "raced")
 	}()
 
 	got, created, err := Ensure(func() (string, error) {
@@ -117,6 +138,9 @@ func TestEnsureWaitsForConcurrentGeneration(t *testing.T) {
 	if err != nil || created || got != "raced" {
 		t.Fatalf("Ensure() = (%q, %v, %v), want (raced, false, nil)", got, created, err)
 	}
+	// Wait for the writer before t.Cleanup swaps the hooks, otherwise the
+	// goroutine can outlive the test and race with teardown.
+	<-done
 }
 
 func TestEnsureBreaksStaleLock(t *testing.T) {

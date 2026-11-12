@@ -51,11 +51,14 @@ func newInitCommand(deps func() Deps) *cobra.Command {
 
 func runDepthInit(_ *cobra.Command, _ []string) error {
 	sharedDir := d.ModelsDir
-	os.MkdirAll(sharedDir, 0755)
+	if err := os.MkdirAll(sharedDir, 0755); err != nil {
+		return fmt.Errorf("create models dir: %w", err)
+	}
 	if _, err := onnxrt.EnsureInstalled(sharedDir, videoInitForce); err != nil {
 		return err
 	}
-	onnxrt.EnsureGPUInstalled(sharedDir, videoInitForce)
+	// GPU runtime is optional: the CPU runtime is enough for local inference.
+	_ = onnxrt.EnsureGPUInstalled(sharedDir, videoInitForce)
 
 	ids := []string{depth.DefaultModelID}
 	if videoInitAll {
@@ -69,7 +72,9 @@ func runDepthInit(_ *cobra.Command, _ []string) error {
 	}
 
 	modelsDir := filepath.Join(sharedDir, "depth")
-	os.MkdirAll(modelsDir, 0755)
+	if err := os.MkdirAll(modelsDir, 0755); err != nil {
+		return fmt.Errorf("create depth dir: %w", err)
+	}
 	for _, id := range ids {
 		info, _ := depth.ResolveModel(id)
 		modelPath := depth.ModelPath(sharedDir, id)
@@ -106,7 +111,9 @@ func downloadSkeletonModels(sharedDir string) error {
 		file = "yolov8n-pose.onnx"
 	)
 	dir := filepath.Join(sharedDir, "skeleton")
-	os.MkdirAll(dir, 0755)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create skeleton dir: %w", err)
+	}
 	path := filepath.Join(dir, file)
 	if _, err := os.Stat(path); err == nil && !videoInitForce {
 		fmt.Printf("skeleton model already exists: %s\n", path)
@@ -128,7 +135,9 @@ func downloadFaceModels(sharedDir string) error {
 
 	dir := filepath.Join(sharedDir, "face")
 	lpsDir := filepath.Join(dir, "lps")
-	os.MkdirAll(lpsDir, 0755)
+	if err := os.MkdirAll(lpsDir, 0755); err != nil {
+		return fmt.Errorf("create face dir: %w", err)
+	}
 
 	download := func(url, path, label string) error {
 		if _, err := os.Stat(path); err == nil && !videoInitForce {

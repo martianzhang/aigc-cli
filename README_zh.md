@@ -17,7 +17,7 @@
 
 | | | |
 |---|---|---|
-| 🤖 | **MCP Server** | 内置 MCP Server，对接 Claude Desktop、Cursor、Windsurf：37 个工具、4 个工作流 Prompt、4 个只读 Resource，全部工具带 MCP annotations。AI 代理可直接在对话中生成图片/视频/音乐、运行 Midjourney、OCR、搜索知识库、检测 AIGC、查询定价。工具的 `provider` 参数仅接受 `config.yaml` 白名单中的名称，永远无法远程传入 `base_url`/`api_key`。 |
+| 🤖 | **MCP Server** | 内置 MCP Server，对接 Claude Desktop、Cursor、Windsurf：40 个工具、4 个工作流 Prompt、4 个只读 Resource，全部工具带 MCP annotations。AI 代理可直接在对话中生成图片/视频/音乐、运行 Midjourney、OCR、搜索知识库、检测 AIGC、查询定价。工具的 `provider` 参数仅接受 `config.yaml` 白名单中的名称，永远无法远程传入 `base_url`/`api_key`。 |
 | 🔬 | **AIGC 取证** | 离线多信号融合：C2PA、TC260（国标 GB 45438-2025）、SynthID、ONNX 分类器、FFT 频谱、SRM 噪声、JPEG 量化。全部本地，无需 API Key。 |
 | 🔒 | **脱敏** | 文本/Word/PDF/图片离线脱敏：身份证、手机、银行卡、邮箱、统一社会信用代码、案号；映射可逆、残留可查，可选 Ollama 或本地 ONNX 模型补机构名/别名/地址。 |
 | 🔌 | **多协议支持** | 不止 OpenAI——同时支持 Anthropic Messages API、Ollama、本地 ONNX 模型和任意 OpenAI 兼容端点。 |
@@ -90,7 +90,7 @@ aigc-cli chat --message "Hello"
 }
 ```
 
-AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney、OCR、搜索灵感库与知识库、查询模型定价、检测 AIGC——共 37 个工具、4 个工作流 Prompt、4 个只读 Resource（全部工具带 MCP annotations）。工具的 `provider` 参数仅接受 `config.providers` 白名单中的名称，任何工具都不接受 `base_url` 或 `api_key`。详见 [docs/zh/guide-mcp.md](docs/zh/guide-mcp.md)。
+AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney、OCR、搜索灵感库与知识库、查询模型定价、检测 AIGC——共 40 个工具、4 个工作流 Prompt、4 个只读 Resource（全部工具带 MCP annotations）。工具的 `provider` 参数仅接受 `config.providers` 白名单中的名称，任何工具都不接受 `base_url` 或 `api_key`。详见 [docs/zh/guide-mcp.md](docs/zh/guide-mcp.md)。
 
 ---
 
@@ -98,7 +98,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 
 | | 能力 | 说明 |
 |---|---|---|
-| 🤖 | **MCP Server** | 内置 MCP 协议支持，含 37 个工具、4 个工作流 Prompt、4 个只读 Resource 与 MCP annotations；Claude Desktop / Cursor / Windsurf / VS Code 开箱即用 |
+| 🤖 | **MCP Server** | 内置 MCP 协议支持，含 40 个工具、4 个工作流 Prompt、4 个只读 Resource 与 MCP annotations；Claude Desktop / Cursor / Windsurf / VS Code 开箱即用 |
 | 🔬 | **AIGC 检测引擎** | C2PA / TC260 / SynthID / ONNX / FFT / SRM 噪声 / JPEG 量化，离线运行，emoji 输出 |
 | 🔌 | **多 Provider 统一入口** | 改一个 `base_url` 切换 Provider，命令不变 |
 | 🧠 | **Provider 自动适配** | OpenRouter 自动走专用图片/视频 API，零配置 |
@@ -137,7 +137,7 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 
 > 阿里云百炼目前只为 `music` 提供专门路由 —— Fun-Music 走 DashScope **原生** services 端点，与 chat 使用的 `compatible-mode` 路径不同。image / video / audio 仍走通用 OpenAI 兼容路径。
 
-> 本地模型 / 服务无需 API Key，aigc-cli 会自动豁免 API Key 检查并跳过 Authorization 头。详见 [docs/zh/installation.md](docs/zh/zh/installation.md)。
+> 本地模型 / 服务无需 API Key，aigc-cli 会自动豁免 API Key 检查并跳过 Authorization 头。详见 [docs/zh/installation.md](docs/zh/installation.md)。
 
 检测逻辑：根据 `base_url` 自动识别，也可用 `--mode sync` / `--mode async` 手动指定。
 各命令可通过 `providers` 配置独立厂商，见 [docs/zh/examples/config.yaml](docs/zh/examples/config.yaml)。
@@ -148,34 +148,34 @@ AI 代理可以在对话中直接生成图片/视频/音乐、运行 Midjourney�
 
 ```
 aigc-cli
-├── image / img   图片生成（同步/异步/OpenRouter 专用 API / Grok Edit）    →  docs/guide-image.md
+├── image / img   图片生成（同步/异步/OpenRouter 专用 API / Grok Edit）    →  docs/zh/guide-image.md
 ├── video / vid   视频生成（Agnes / OpenRouter / OpenLux + VEO3 Remix）                   →  docs/zh/guide-video.md
 ├── depth         图片/视频 → 灰度深度图（离线 ONNX，支持 V2 模型）                 →  docs/zh/guide-depth.md
 ├── upscale / sr  图像超分放大 2x/4x（离线 ONNX：Real-ESRGAN/Real-CUGAN/Swin2SR）  →  docs/zh/guide-upscale.md
-├── audio / voice 音频：文字转语音（TTS）和语音转文字（STT）              →  docs/guide-audio.md
+├── audio / voice 音频：文字转语音（TTS）和语音转文字（STT）              →  docs/zh/guide-audio.md
 │   ├── tts / speak  文字→语音（云端 API 或本地 sherpa-onnx 离线合成）
 │   ├── asr / stt    语音→文字（云端 API 或本地 sherpa-onnx 离线识别）
 │   └── init         下载本地模型（kokoro / sense-voice 等 12 种）
 ├── music          音乐生成（APIMart suno/flowmusic 异步，OpenRouter Lyria 同步流式，百炼 Fun-Music）  →  docs/zh/guide-music.md
 │   ├── generate / gen  提交音乐生成任务
 │   └── query           查询音乐任务状态并下载
-├── ocr            离线文字识别（DBNet + CRNN，ONNX 本地推理）            →  docs/guide-ocr.md
+├── ocr            离线文字识别（DBNet + CRNN，ONNX 本地推理）            →  docs/zh/guide-ocr.md
 │   ├── init        下载 OCR 模型
 │   └── scan        识别图片中的文字
 │                   --engine auto|pdf|ocr  PDF 处理模式（默认: auto）
 │                   --preview              预览识别结果
-├── background / bg  AI 背景去除（基于 RMBG 2.0 语义分割，纯离线 ONNX 推理）  →  docs/guide-background.md
-├── midjourney / mj                                                       →  docs/guide-midjourney.md
+├── background / bg  AI 背景去除（基于 RMBG 2.0 语义分割，纯离线 ONNX 推理）  →  docs/zh/guide-background.md
+├── midjourney / mj                                                       →  docs/zh/guide-midjourney.md
 │   └── mj     别名，同上
-├── chat       AI 对话 / 交互式 REPL / Agent Loop（工具调用）              →  docs/guide-chat.md
+├── chat       AI 对话 / 交互式 REPL / Agent Loop（工具调用）              →  docs/zh/guide-chat.md
 ├── ideas / idea 提示词灵感搜索（本地数据集 + 在线提示词库）              →  docs/zh/guide-ideas.md
-├── knowledgebase / kb  本地知识库（FTS5 + 语义搜索，embedding 可插拔）    →  docs/guide-knowledgebase.md
-├── models / model                                                          →  docs/guide-model.md
+├── knowledgebase / kb  本地知识库（FTS5 + 语义搜索，embedding 可插拔）    →  docs/zh/guide-knowledgebase.md
+├── models / model                                                          →  docs/zh/guide-commands.md
 │   └── --price    查看模型定价
 ├── task       查询异步任务状态（兼容 APIMart 异步任务）
 ├── balance    查询余额（APIMart / OpenRouter / DeepSeek / Moonshot）
 ├── config     读写 config.yaml（get/set/list，密钥脱敏且自动加密）              →  docs/zh/guide-commands.md
-├── preview / pr 看图 / --detail 元数据 / --describe 写说明                    →  docs/guide-preview.md
+├── preview / pr 看图 / --detail 元数据 / --describe 写说明                    →  docs/zh/guide-preview.md
 ├── detect     检测 AIGC、元数据和篡改痕迹（多信号融合 + emoji）             →  docs/zh/guide-detect.md
 ├── redact     文本/Word/PDF/图片脱敏（规则 + 校验位；可选模型）              →  docs/zh/guide-redact.md
 │   ├── scan    只识别（JSON 输出字符偏移）
@@ -185,7 +185,7 @@ aigc-cli
 │   └── rules   查看/导出当前生效规则
 ├── decision / decide  强类型决策模型（System One / Jev）：状态 + 题库 + 图片/音频/视频 → 答案   →  docs/zh/guide-decision.md
 ├── completion 生成 shell 补全脚本（bash/zsh/fish/powershell）
-├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/guide-mcp.md
+├── mcp        启动 MCP Server（AI 代理集成）                              →  docs/zh/guide-mcp.md
 │
 │   # 全局标志
 │   --dry-run      打印请求参数和等价 curl，不调用 API

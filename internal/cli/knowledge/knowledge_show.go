@@ -29,7 +29,7 @@ as shown in 'kb list'.`,
 		if err != nil {
 			return fmt.Errorf("open store: %w", err)
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		// Try as full ID, then as prefix
 		docID := args[0]
@@ -74,7 +74,7 @@ as shown in 'kb list'.`,
 		if err != nil {
 			return fmt.Errorf("query chunks: %w", err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			var (
@@ -106,7 +106,7 @@ func findDocByPrefix(store *knowledge.Store, prefix string) (*knowledge.Document
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var fullID string
 	if rows.Next() {

@@ -53,7 +53,7 @@ func NewEngine(dir, libPath string) (*Engine, error) {
 
 	e := &Engine{dir: dir, tokenizer: tok, embedder: emb}
 	if err := e.initRuntime(libPath); err != nil {
-		e.Close()
+		_ = e.Close()
 		return nil, err
 	}
 	return e, nil

@@ -128,7 +128,7 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 		if err != nil {
 			return err
 		}
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 
 		chunker := knowledge.NewChunker(knowledge.DefaultChunkOptions())
 		embedder, err := options.BuildKBEmbedder()
@@ -179,7 +179,11 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 				fmt.Fprintf(os.Stderr, "    Error saving: %v\n", err)
 				continue
 			}
-			knowledge.SaveDocFile(kbBaseDir, project, docID, result.Title, result.Content)
+			if err := knowledge.SaveDocFile(kbBaseDir, project, docID, result.Title, result.Content); err != nil {
+				fmt.Fprintf(os.Stderr, "    Error saving doc file: %v\n", err)
+				_ = store.DeleteDocument(docID)
+				continue
+			}
 
 			rawChunks := chunker.Chunk(result.Content)
 			contents := make([]string, len(rawChunks))
@@ -233,11 +237,16 @@ func findURLInStore(store *knowledge.Store, targetURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	if rows.Next() {
 		var id string
-		rows.Scan(&id)
+		if err := rows.Scan(&id); err != nil {
+			return "", err
+		}
 		return id, nil
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
 	}
 	return "", nil
 }

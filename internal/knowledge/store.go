@@ -36,11 +36,11 @@ func OpenStore(baseDir string, dim int, embedder Embedder) (*Store, error) {
 	}
 	s := &Store{db: db, dim: dim, embedder: embedder, minScore: 0.8}
 	if err := s.migrate(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("migrate store: %w", err)
 	}
 	if err := s.checkEmbedder(dim, embedder); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 	return s, nil
@@ -220,7 +220,7 @@ func (s *Store) ListDocuments(limit, offset int, project string) ([]Document, er
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var docs []Document
 	for rows.Next() {
 		var d Document
@@ -239,7 +239,7 @@ func (s *Store) DeleteDocument(id string) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Delete embeddings
 	if _, err := tx.Exec("DELETE FROM embeddings WHERE doc_id=?", id); err != nil {
@@ -273,7 +273,7 @@ func (s *Store) SaveChunks(docID string, chunks []Chunk, embeddings []Embedding,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Collect old chunk IDs for this doc before deleting
 	oldRows, err := tx.Query("SELECT id FROM chunks WHERE doc_id=?", docID)
@@ -284,16 +284,16 @@ func (s *Store) SaveChunks(docID string, chunks []Chunk, embeddings []Embedding,
 	for oldRows.Next() {
 		var id int64
 		if err := oldRows.Scan(&id); err != nil {
-			oldRows.Close()
+			_ = oldRows.Close()
 			return err
 		}
 		oldChunkIDs = append(oldChunkIDs, id)
 	}
 	if err := oldRows.Err(); err != nil {
-		oldRows.Close()
+		_ = oldRows.Close()
 		return err
 	}
-	oldRows.Close()
+	_ = oldRows.Close()
 
 	// Delete old chunks/embeddings for this doc
 	if _, err := tx.Exec("DELETE FROM embeddings WHERE doc_id=?", docID); err != nil {
@@ -304,7 +304,9 @@ func (s *Store) SaveChunks(docID string, chunks []Chunk, embeddings []Embedding,
 	}
 	// Delete FTS entries for old chunks by rowid
 	for _, id := range oldChunkIDs {
-		tx.Exec("DELETE FROM chunks_fts WHERE rowid=?", id)
+		if _, err := tx.Exec("DELETE FROM chunks_fts WHERE rowid=?", id); err != nil {
+			return fmt.Errorf("delete old fts row %d: %w", id, err)
+		}
 	}
 
 	// Insert chunks and embeddings
@@ -312,7 +314,7 @@ func (s *Store) SaveChunks(docID string, chunks []Chunk, embeddings []Embedding,
 	if err != nil {
 		return err
 	}
-	defer chunkStmt.Close()
+	defer func() { _ = chunkStmt.Close() }()
 
 	var ftsStmt *sql.Stmt
 	if !skipFTS {
@@ -320,14 +322,14 @@ func (s *Store) SaveChunks(docID string, chunks []Chunk, embeddings []Embedding,
 		if err != nil {
 			return err
 		}
-		defer ftsStmt.Close()
+		defer func() { _ = ftsStmt.Close() }()
 	}
 
 	embedStmt, err := tx.Prepare("INSERT INTO embeddings (doc_id, chunk_id, vector) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
-	defer embedStmt.Close()
+	defer func() { _ = embedStmt.Close() }()
 
 	for i := range chunks {
 		res, err := chunkStmt.Exec(docID, chunks[i].Index, chunks[i].Content, chunks[i].Heading)
@@ -368,7 +370,7 @@ func (s *Store) SaveVaultEmbeddings(docID string, embeddings []Embedding) error 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err := tx.Exec("DELETE FROM embeddings WHERE doc_id=?", docID); err != nil {
 		return err
 	}
@@ -379,12 +381,12 @@ func (s *Store) SaveVaultEmbeddings(docID string, embeddings []Embedding) error 
 	if err != nil {
 		return err
 	}
-	defer cs.Close()
+	defer func() { _ = cs.Close() }()
 	es, err := tx.Prepare("INSERT INTO embeddings (doc_id, chunk_id, vector) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
-	defer es.Close()
+	defer func() { _ = es.Close() }()
 	for i := range embeddings {
 		res, err := cs.Exec(docID, i)
 		if err != nil {
@@ -444,7 +446,7 @@ func (s *Store) SearchFTS(query string, limit int, project string) ([]SearchResu
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanResults(rows)
 }
 
@@ -479,7 +481,7 @@ func (s *Store) searchVectorGo(target Embedding, limit int, project string) ([]S
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	type scored struct {
 		result SearchResult
