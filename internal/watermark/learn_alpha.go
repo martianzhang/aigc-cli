@@ -387,8 +387,8 @@ func TrimAlphaMap(am *AlphaMap, threshold float64) (*AlphaMap, int, int, int, in
 	pad := 2
 	minX = maxInt(0, minX-pad)
 	minY = maxInt(0, minY-pad)
-	maxX = minInt(am.Width-1, maxX+pad)
-	maxY = minInt(am.Height-1, maxY+pad)
+	maxX = min(am.Width-1, maxX+pad)
+	maxY = min(am.Height-1, maxY+pad)
 	cw := maxX - minX + 1
 	ch := maxY - minY + 1
 	data := make([]float64, cw*ch)
@@ -472,8 +472,8 @@ func TrimAlphaMapMass(am *AlphaMap, fraction float64) (*AlphaMap, int, int, int,
 	pad := 2
 	left = maxInt(0, left-pad)
 	top = maxInt(0, top-pad)
-	right = minInt(am.Width-1, right+pad)
-	bot = minInt(am.Height-1, bot+pad)
+	right = min(am.Width-1, right+pad)
+	bot = min(am.Height-1, bot+pad)
 
 	cw := right - left + 1
 	ch := bot - top + 1

@@ -1,6 +1,7 @@
 package webfetch
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -236,7 +237,7 @@ func saveMedia(r io.Reader, opts Options, rawURL, finalURL, mediaType, contentTy
 	return &Document{
 		URL:         rawURL,
 		FinalURL:    finalURL,
-		ContentType: firstNonEmpty(contentType, mediaType),
+		ContentType: cmp.Or(contentType, mediaType),
 		Bytes:       written,
 		Media:       true,
 		MediaType:   mediaType,

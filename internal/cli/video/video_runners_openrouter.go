@@ -115,7 +115,7 @@ func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.Effecti
 		ui.Printf("Video result:\n%s\n\n", string(prettyResult))
 	}
 
-	savePromptFile(submitResp.ID, orReq.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "video", submitResp.ID, orReq.Prompt)
 
 	// Step 3: Download
 	if len(pollResp.UnsignedURLs) == 0 {
@@ -202,7 +202,7 @@ func runOpenRouterVideoResume(jobID string) error {
 		ui.Printf("Video status:\n%s\n\n", string(prettyStatus))
 	}
 
-	savePromptFile(info.JobID, info.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "video", info.JobID, info.Prompt)
 
 	// Download
 	if len(statusResp.UnsignedURLs) == 0 {

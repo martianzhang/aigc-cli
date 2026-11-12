@@ -311,8 +311,8 @@ func MaskValue(value, typ string, p MaskPolicy) string {
 		if n == 1 {
 			keepStart, keepEnd = 0, 0
 		} else {
-			keepStart = minInt(keepStart, n-1)
-			keepEnd = minInt(keepEnd, n-keepStart-1)
+			keepStart = min(keepStart, n-1)
+			keepEnd = min(keepEnd, n-keepStart-1)
 		}
 	}
 
@@ -466,11 +466,4 @@ func maskDateSeparated(value, sep, char string) string {
 		parts[i] = strings.Repeat(char, width)
 	}
 	return strings.Join(parts, sep)
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

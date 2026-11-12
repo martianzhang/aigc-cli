@@ -2,6 +2,7 @@ package provider
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -63,7 +64,7 @@ func GenerateSoundEffect(p *EffectiveProvider, req *SoundEffectRequest) (*SoundE
 	default:
 		return nil, fmt.Errorf(
 			"provider %q does not support sound effects; set providers.<name>.base_url to %s or %s, or use --provider local",
-			firstNonEmpty(p.Name, p.BaseURL), ElevenLabsBaseURL, StabilityBaseURL)
+			cmp.Or(p.Name, p.BaseURL), ElevenLabsBaseURL, StabilityBaseURL)
 	}
 }
 

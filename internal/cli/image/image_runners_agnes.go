@@ -74,7 +74,7 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	taskID := promptTaskID("agnes", syncResp.Created)
-	savePromptFile(taskID, req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "image", taskID, req.Prompt)
 
 	var saved []string
 	for i, img := range syncResp.Data {

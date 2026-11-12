@@ -26,7 +26,7 @@ func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 	}
 	ui.Printf("Model: %s\n", req.Model)
 	ui.Printf("Duration: %.1fs\n", time.Since(start).Seconds())
-	savePromptFile(promptTaskID("image_ollama", 0), req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "image", promptTaskID("image_ollama", 0), req.Prompt)
 	for i, f := range saved {
 		ui.Printf("Image %d: %s\n", i+1, f)
 	}

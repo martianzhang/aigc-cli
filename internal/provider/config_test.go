@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"cmp"
 	"net/http"
 	"testing"
 
@@ -347,9 +348,9 @@ func TestFirstNonEmpty(t *testing.T) {
 		{[]string{}, ""},
 	}
 	for _, tt := range tests {
-		got := firstNonEmpty(tt.input...)
+		got := cmp.Or(tt.input...)
 		if got != tt.want {
-			t.Errorf("firstNonEmpty(%v) = %q, want %q", tt.input, got, tt.want)
+			t.Errorf("cmp.Or(%v) = %q, want %q", tt.input, got, tt.want)
 		}
 	}
 }

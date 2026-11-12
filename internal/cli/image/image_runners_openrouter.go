@@ -31,7 +31,7 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest,
 	}
 	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
-	savePromptFile(promptTaskID("image", orResp.Created), req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "image", promptTaskID("image", orResp.Created), req.Prompt)
 
 	var saved []string
 	for i, img := range orResp.Data {

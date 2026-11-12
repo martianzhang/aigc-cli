@@ -333,8 +333,8 @@ func boxToRect(box [4][2]int) rect {
 func iouRect(a, b rect) float32 {
 	ix0 := maxInt(a.x0, b.x0)
 	iy0 := maxInt(a.y0, b.y0)
-	ix1 := minInt(a.x1, b.x1)
-	iy1 := minInt(a.y1, b.y1)
+	ix1 := min(a.x1, b.x1)
+	iy1 := min(a.y1, b.y1)
 	if ix0 >= ix1 || iy0 >= iy1 {
 		return 0
 	}
@@ -350,13 +350,6 @@ func iouRect(a, b rect) float32 {
 
 func maxInt(a, b int) int {
 	if a > b {
-		return a
-	}
-	return b
-}
-
-func minInt(a, b int) int {
-	if a < b {
 		return a
 	}
 	return b

@@ -106,8 +106,8 @@ func evaluateSeeds(img image.Image, cfg Config) (gray, grad []float64, seeds []s
 			searchPadY := maxInt(30, int(float64(pos.H)*0.5*arFactor))
 			bx := maxInt(0, pos.X-searchPadX)
 			by := maxInt(0, pos.Y-searchPadY)
-			bw := minInt(w, pos.W+searchPadX*2)
-			bh := minInt(h, pos.H+searchPadY*2)
+			bw := min(w, pos.W+searchPadX*2)
+			bh := min(h, pos.H+searchPadY*2)
 			if bx+bw > w {
 				bw = w - bx
 			}
@@ -134,7 +134,7 @@ func evaluateSeeds(img image.Image, cfg Config) (gray, grad []float64, seeds []s
 				rsGrad := sobelMagnitude(rsAlpha, pos.W, pos.H)
 				if cand := scoreCandidateRect(gray, grad, w, h, rsAlpha, rsGrad, pos.X, pos.Y, pos.W, pos.H); cand != nil {
 					cand.w, cand.h = pos.W, pos.H
-					cand.size = minInt(pos.W, pos.H)
+					cand.size = min(pos.W, pos.H)
 					if cand.confidence > 0.12 {
 						bestX, bestY = pos.X, pos.Y
 						bestW, bestH = pos.W, pos.H
@@ -164,12 +164,12 @@ func evaluateSeeds(img image.Image, cfg Config) (gray, grad []float64, seeds []s
 				cand := &candidate{
 					x:          pos.X,
 					y:          pos.Y,
-					size:       minInt(pos.W, pos.H),
+					size:       min(pos.W, pos.H),
 					w:          pos.W,
 					h:          pos.H,
 					confidence: fbConfidence,
 				}
-				seeds = append(seeds, seedScore{pos.X, pos.Y, minInt(pos.W, pos.H), fbConfidence, cand})
+				seeds = append(seeds, seedScore{pos.X, pos.Y, min(pos.W, pos.H), fbConfidence, cand})
 			}
 		}
 	} else {
@@ -284,11 +284,11 @@ func refinePosition(img image.Image, gray, grad []float64, seeds []seedScore, cf
 	searchPad := maxInt(100, int(float64(w)*0.10))
 	sizePad := maxInt(24, int(float64(maxSize)*0.3))
 	searchLeft := maxInt(0, minX-searchPad)
-	searchRight := minInt(w, maxX+searchPad)
+	searchRight := min(w, maxX+searchPad)
 	searchTop := maxInt(0, minY-searchPad)
-	searchBottom := minInt(h, maxY+searchPad)
+	searchBottom := min(h, maxY+searchPad)
 	searchMinSize := maxInt(20, minSize-sizePad)
-	searchMaxSize := minInt(192, maxSize+sizePad)
+	searchMaxSize := min(192, maxSize+sizePad)
 
 	const coarseStride = 8
 	var top5 []candidate
@@ -325,7 +325,7 @@ func refinePosition(img image.Image, gray, grad []float64, seeds []seedScore, cf
 
 	for _, coarse := range top5 {
 		minFS := maxInt(searchMinSize, coarse.size-fineRange)
-		maxFS := minInt(searchMaxSize, coarse.size+fineRange)
+		maxFS := min(searchMaxSize, coarse.size+fineRange)
 
 		for size := minFS; size <= maxFS; size += fineStride {
 			rsAlpha := resizeAlpha(alphaData.Data, alphaSize, alphaSize, size, size)

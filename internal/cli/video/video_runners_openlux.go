@@ -73,7 +73,7 @@ func runOpenLuxVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 	// Step 3: Download
 	ui.Println()
 	ui.Printf("Downloading video...\n")
-	savePromptFile(taskID, req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "video", taskID, req.Prompt)
 	filename, err := service.DownloadFile(videoURL, options.Shared.OutputDir, fmt.Sprintf("video_openlux_%s", taskID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to download video: %w", err)

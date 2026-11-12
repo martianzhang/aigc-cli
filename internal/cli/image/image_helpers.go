@@ -16,16 +16,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
-// savePromptFile saves the generation prompt to image_{taskID}.md.
-func savePromptFile(taskID, prompt string) {
-	if !options.Shared.SavePrompt {
-		return
-	}
-	if err := service.SavePrompt(options.Shared.OutputDir, "image", taskID, prompt); err != nil {
-		ui.Eprintf("Warning: %v\n", err)
-	}
-}
-
 // imageStamp returns the provider's created timestamp when present, otherwise
 // a millisecond clock value. Some OpenAI-compatible relays omit `created`;
 // using the zero value would collapse every file to `<prefix>_0` and overwrite

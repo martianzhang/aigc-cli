@@ -38,9 +38,9 @@ func checkOversubtraction(img image.Image, alpha []float64, ax, ay, aw, ah int, 
 	// Sample surrounding background ring (pad = 60% of height)
 	pad := maxInt(4, int(float64(ah)*0.6))
 	ry1 := maxInt(0, ay-pad)
-	ry2 := minInt(ih, ay+ah+pad)
+	ry2 := min(ih, ay+ah+pad)
 	rx1 := maxInt(0, ax-pad)
-	rx2 := minInt(iw, ax+aw+pad)
+	rx2 := min(iw, ax+aw+pad)
 	// Compute ring stats and body prediction
 	var ringSum, ringCount float64
 	var bodyDarkSum, bodyDarkCount float64
@@ -288,9 +288,9 @@ func meanBackgroundLuma(img image.Image, ax, ay, aw, ah int) float64 {
 	iw, ih := b.Dx(), b.Dy()
 	pad := maxInt(4, int(float64(ah)*0.6))
 	ry1 := maxInt(0, ay-pad)
-	ry2 := minInt(ih, ay+ah+pad)
+	ry2 := min(ih, ay+ah+pad)
 	rx1 := maxInt(0, ax-pad)
-	rx2 := minInt(iw, ax+aw+pad)
+	rx2 := min(iw, ax+aw+pad)
 
 	var sum float64
 	var count int
@@ -418,7 +418,7 @@ func textureCopyFill(src, dst *image.RGBA, alpha []float64, ax, ay, aw, ah int, 
 	// Texture band: the last bandHeight rows immediately above the watermark.
 	// Small (~ah/3) so we sample only truly-local background, not distant
 	// image content that happens to sit farther above.
-	bandHeight := maxInt(6, minInt(ah/3, ay))
+	bandHeight := maxInt(6, min(ah/3, ay))
 	bandTop := ay - bandHeight
 
 	// Vertical reflection lookup: fill row -> source y in the band.
@@ -436,7 +436,7 @@ func textureCopyFill(src, dst *image.RGBA, alpha []float64, ax, ay, aw, ah int, 
 	// Compute per-channel luma offset: match the mean of pixels the tiled
 	// texture will contribute to the mean of the band itself. Uniform offset
 	// preserves the texture's std (avoiding the "flat color block" look).
-	ringHeight := minInt(8, bandHeight)
+	ringHeight := min(8, bandHeight)
 	var ringR, ringG, ringB, ringN float64
 	var patchR, patchG, patchB, patchN float64
 	for row := range ah {
@@ -477,7 +477,7 @@ func textureCopyFill(src, dst *image.RGBA, alpha []float64, ax, ay, aw, ah int, 
 
 	// Copy the patch with per-channel offset. Feather the top rows into the
 	// natural image content above so the horizontal seam is invisible.
-	featherRows := maxInt(2, minInt(4, ah/8))
+	featherRows := maxInt(2, min(4, ah/8))
 	for row := range ah {
 		py := ay + row
 		if py < 0 || py >= imgH {

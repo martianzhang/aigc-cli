@@ -84,13 +84,13 @@ var kbPruneCmd = &cobra.Command{
 				return fmt.Errorf("list docs: %w", err)
 			}
 
-			client := &http.Client{Timeout: 10 * time.Second}
+			hc := &http.Client{Timeout: 10 * time.Second}
 			for _, d := range docs {
 				if d.URL == "" {
 					continue
 				}
-				ui.Eprintf("  Checking: %s\n", d.URL[:minInt(60, len(d.URL))])
-				resp, err := client.Head(d.URL)
+				ui.Eprintf("  Checking: %s\n", d.URL[:min(60, len(d.URL))])
+				resp, err := hc.Head(d.URL)
 				if err != nil || resp.StatusCode >= 400 {
 					code := 0
 					if resp != nil {
@@ -116,11 +116,4 @@ var kbPruneCmd = &cobra.Command{
 
 func init() {
 	kbPruneCmd.Flags().BoolVar(&kbPruneCheckURLs, "check-urls", false, "Check URL-based docs for 404 and remove dead ones")
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

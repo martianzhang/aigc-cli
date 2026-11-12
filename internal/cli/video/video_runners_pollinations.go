@@ -11,6 +11,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
@@ -46,7 +47,7 @@ func runPollinationsVideo(ctx context.Context, c *client.Client, p *provider.Eff
 	}
 
 	filename := filepath.Join(options.Shared.OutputDir, fmt.Sprintf("video_pollinations_%d%s", time.Now().Unix(), ext))
-	savePromptFile(fmt.Sprintf("pollinations_%d", time.Now().Unix()), req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "video", fmt.Sprintf("pollinations_%d", time.Now().Unix()), req.Prompt)
 	if err := fsutil.WriteFileAtomic(filename, data, 0o644); err != nil {
 		return nil, fmt.Errorf("failed to save video: %w", err)
 	}

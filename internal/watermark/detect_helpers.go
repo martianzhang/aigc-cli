@@ -38,7 +38,7 @@ func scoreCandidate(gray, grad []float64, imgW, imgH int,
 	varianceScore := 0.5 // neutral default
 	refY := cy - size
 	if refY >= 0 {
-		refH := minInt(size, cy-refY)
+		refH := min(size, cy-refY)
 		if refH > 8 {
 			wmVar := regionVariance(gray, imgW, cx, cy, size, size)
 			refVar := regionVariance(gray, imgW, cx, refY, size, refH)
@@ -107,7 +107,7 @@ func scoreCandidateRect(gray, grad []float64, imgW, imgH int,
 	varianceScore := 0.5
 	refY := cy - ah
 	if refY >= 0 {
-		refH := minInt(ah, cy-refY)
+		refH := min(ah, cy-refY)
 		if refH > 8 {
 			wmVar := regionVariance(gray, imgW, cx, cy, aw, ah)
 			refVar := regionVariance(gray, imgW, cx, refY, aw, refH)
@@ -228,12 +228,12 @@ func resizeAlpha(src []float64, sw, sh, dw, dh int) []float64 {
 	for dy := range dh {
 		sy := float64(dy) * float64(sh-1) / float64(maxInt(dh-1, 1))
 		iy0 := int(sy)
-		iy1 := minInt(iy0+1, sh-1)
+		iy1 := min(iy0+1, sh-1)
 		fy := sy - float64(iy0)
 		for dx := range dw {
 			sx := float64(dx) * float64(sw-1) / float64(maxInt(dw-1, 1))
 			ix0 := int(sx)
-			ix1 := minInt(ix0+1, sw-1)
+			ix1 := min(ix0+1, sw-1)
 			fx := sx - float64(ix0)
 
 			v00 := src[iy0*sw+ix0]

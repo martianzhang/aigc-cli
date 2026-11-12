@@ -404,8 +404,8 @@ func TestMinInt_Table(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := minInt(tc.a, tc.b); got != tc.want {
-				t.Errorf("minInt(%d,%d) = %d, want %d", tc.a, tc.b, got, tc.want)
+			if got := min(tc.a, tc.b); got != tc.want {
+				t.Errorf("min(%d,%d) = %d, want %d", tc.a, tc.b, got, tc.want)
 			}
 		})
 	}

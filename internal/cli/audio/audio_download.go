@@ -13,6 +13,8 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
+	"github.com/martianzhang/aigc-cli/internal/modelstore"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
@@ -62,32 +64,27 @@ func sanitizeModelName(name string) (string, error) {
 // A non-empty wantSHA verifies both an existing file and the fresh download;
 // mismatches remove the file instead of leaving a corrupt model behind.
 func downloadSingleFile(url, dest, label string, force bool, wantSHA string) error {
-	// For archives, check if the model directory already has content
-	if strings.HasSuffix(label, ".tar.bz2") {
-		extractedDir := strings.TrimSuffix(dest, ".tar.bz2")
-		if fi, err := os.Stat(extractedDir); err == nil && fi.IsDir() {
-			// Check if model.onnx exists inside (or any subdirectory)
-			entries, _ := os.ReadDir(extractedDir)
-			for _, e := range entries {
-				if e.IsDir() || strings.HasSuffix(e.Name(), ".onnx") {
-					if !force {
-						ui.Printf("%s: already installed (%s)\n", label, url)
-						return nil
-					}
-					break
+	// Archives need a second extraction step; plain files use the shared
+	// modelstore (Range resume + SHA256/TOFU allowlist).
+	archive := strings.HasSuffix(label, ".tar.bz2")
+	if !archive {
+		ui.Printf("Downloading %s...\n", url)
+		return modelstore.Install(options.Context(), nil, url, dest, modelstore.Options{Force: force, SHA256: wantSHA})
+	}
+
+	// For archives, check if the model directory already has content.
+	extractedDir := strings.TrimSuffix(dest, ".tar.bz2")
+	if fi, err := os.Stat(extractedDir); err == nil && fi.IsDir() {
+		entries, _ := os.ReadDir(extractedDir)
+		for _, e := range entries {
+			if e.IsDir() || strings.HasSuffix(e.Name(), ".onnx") {
+				if !force {
+					ui.Printf("%s: already installed (%s)\n", label, url)
+					return nil
 				}
+				break
 			}
 		}
-	} else if _, err := os.Stat(dest); err == nil && !force {
-		if wantSHA == "" {
-			ui.Printf("%s: already exists\n", dest)
-			return nil
-		}
-		if err := verifySHA256(dest, wantSHA); err == nil {
-			ui.Printf("%s: verified\n", dest)
-			return nil
-		}
-		ui.Printf("%s: checksum mismatch, re-downloading\n", dest)
 	}
 	ui.Printf("Downloading %s...\n", url)
 	if err := service.SaveResource(url, dest); err != nil {
@@ -99,14 +96,11 @@ func downloadSingleFile(url, dest, label string, force bool, wantSHA string) err
 			return fmt.Errorf("verify %s: %w", label, err)
 		}
 	}
-	if strings.HasSuffix(label, ".tar.bz2") {
-		extractDir := strings.TrimSuffix(dest, ".tar.bz2")
-		ui.Printf("Extracting %s...\n", label)
-		if err := extractTarBz2(dest, extractDir); err != nil {
-			return fmt.Errorf("extract: %w", err)
-		}
-		_ = os.Remove(dest)
+	ui.Printf("Extracting %s...\n", label)
+	if err := extractTarBz2(dest, extractedDir); err != nil {
+		return fmt.Errorf("extract: %w", err)
 	}
+	_ = os.Remove(dest)
 	return nil
 }
 

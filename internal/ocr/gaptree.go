@@ -211,7 +211,7 @@ func gapTreeUpdateGaps(gaps, rowGaps []gtGap, cuts []gtCut, rowIdx int) ([]gtGap
 	for i1, g1 := range gaps {
 		for i2, g2 := range rowGaps {
 			interL := maxInt(g1.l, g2.l)
-			interR := minInt(g1.r, g2.r)
+			interR := min(g1.r, g2.r)
 			if interL <= interR {
 				newGaps = append(newGaps, gtGap{l: interL, r: interR, rowBeg: g1.rowBeg})
 				flags1[i1] = true

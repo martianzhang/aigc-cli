@@ -3,6 +3,7 @@ package webfetch
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -128,9 +129,9 @@ func Fetch(ctx context.Context, rawURL string, opts Options) (*Document, error) 
 	}
 
 	headers := EffectiveHeadersWithDefaults([]Header{
-		{Name: "User-Agent", Value: firstNonEmpty(opts.UserAgent, DefaultUserAgent)},
-		{Name: "Accept", Value: firstNonEmpty(opts.Accept, DefaultAccept)},
-		{Name: "Accept-Language", Value: firstNonEmpty(opts.AcceptLanguage, DefaultAcceptLanguage)},
+		{Name: "User-Agent", Value: cmp.Or(opts.UserAgent, DefaultUserAgent)},
+		{Name: "Accept", Value: cmp.Or(opts.Accept, DefaultAccept)},
+		{Name: "Accept-Language", Value: cmp.Or(opts.AcceptLanguage, DefaultAcceptLanguage)},
 	}, opts.Headers)
 	ApplyHeaders(req, headers)
 
@@ -222,15 +223,6 @@ func decodeBody(body []byte, contentType string) []byte {
 		return body
 	}
 	return data
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 // looksLikeHTML sniffs a response body when the server omitted Content-Type.

@@ -44,7 +44,7 @@ func runAPIMartVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 	}
 
 	ui.Println()
-	savePromptFile(taskData.ID, req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "video", taskData.ID, req.Prompt)
 	out := &RunResult{}
 	if taskData.Result == nil || len(taskData.Result.Videos) == 0 {
 		return nil, fmt.Errorf("task completed but returned no videos")

@@ -83,7 +83,7 @@ func runAgnesVideo(ctx context.Context, c *client.Client, p *provider.EffectiveP
 	// Step 3: Download
 	ui.Println()
 	ui.Printf("Downloading video...\n")
-	savePromptFile(videoID, req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "video", videoID, req.Prompt)
 	filename, err := service.DownloadFile(videoURL, options.Shared.OutputDir, fmt.Sprintf("video_agnes_%s", videoID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to download video: %w", err)

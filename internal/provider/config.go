@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"cmp"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -90,11 +91,11 @@ func ResolveCmdProvider(
 ) *EffectiveProvider {
 	// 1. CLI override — if explicitly set, skip all config
 	if cli != nil && (cli.APIKey != "" || cli.BaseURL != "") {
-		baseURL := firstNonEmpty(cli.BaseURL, global.BaseURL)
+		baseURL := cmp.Or(cli.BaseURL, global.BaseURL)
 		return finalizeProvider(&EffectiveProvider{
 			APIKey:       cli.APIKey,
 			BaseURL:      baseURL,
-			HTTPProxy:    firstNonEmpty(cli.Proxy, global.Proxy),
+			HTTPProxy:    cmp.Or(cli.Proxy, global.Proxy),
 			Model:        cli.Model,
 			Type:         types.ProviderOpenAI,
 			ProviderType: Detect(baseURL),
@@ -106,12 +107,12 @@ func ResolveCmdProvider(
 		if named, ok := namedProviders[providerRef]; ok {
 			// Endpoint precedence: explicit base_url > the type's canonical
 			// hosted endpoint > global base_url > built-in default.
-			baseURL := firstNonEmpty(named.BaseURL, builtinBaseURL(named.Type), global.BaseURL)
+			baseURL := cmp.Or(named.BaseURL, builtinBaseURL(named.Type), global.BaseURL)
 			ep := &EffectiveProvider{
 				Name:         providerRef,
 				Type:         named.Type,
 				BaseURL:      baseURL,
-				HTTPProxy:    firstNonEmpty(named.HTTPProxy, global.Proxy),
+				HTTPProxy:    cmp.Or(named.HTTPProxy, global.Proxy),
 				ModelsDir:    named.ModelsDir,
 				Model:        named.Model,
 				ProviderType: Detect(baseURL),
@@ -302,11 +303,3 @@ func (p *EffectiveProvider) RequiresAPIKey() bool {
 }
 
 // firstNonEmpty returns the first non-empty string.
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}

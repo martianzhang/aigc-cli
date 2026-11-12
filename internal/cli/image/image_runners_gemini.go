@@ -29,7 +29,7 @@ func runGeminiImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 	ui.Printf("Model: %s\n", req.Model)
 	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
-	savePromptFile(promptTaskID("image", 0), req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "image", promptTaskID("image", 0), req.Prompt)
 
 	var saved []string
 	for i, img := range geminiResp.Data {

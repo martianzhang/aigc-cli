@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -150,7 +151,7 @@ func runModelsMarketplace(mediaType, base string) error {
 // runModelsPricing fetches and displays detailed pricing for a single model.
 func runModelsPricing(modelName, baseURL string) error {
 	base := mainDomain(baseURL)
-	pricingURL := base + "/api/pricing/model?model=" + modelName
+	pricingURL := base + "/api/pricing/model?model=" + url.QueryEscape(modelName)
 
 	printAPIURL(pricingURL)
 	if modelsDryRun {

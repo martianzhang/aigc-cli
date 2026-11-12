@@ -134,9 +134,9 @@ func TestMinInt(t *testing.T) {
 		{-5, -3, -5},
 	}
 	for _, tc := range tests {
-		got := minInt(tc.a, tc.b)
+		got := min(tc.a, tc.b)
 		if got != tc.want {
-			t.Errorf("minInt(%d,%d) = %d, want %d", tc.a, tc.b, got, tc.want)
+			t.Errorf("min(%d,%d) = %d, want %d", tc.a, tc.b, got, tc.want)
 		}
 	}
 }

@@ -63,7 +63,7 @@ func paragraphParse(lines []OCRLine) string {
 		// horizontal gap, they are separate UI elements — force a paragraph break.
 		sameRow := float64(bottom-top) > 0 && float64(top) < float64(paraBottom) &&
 			float64(bottom) > float64(paraTop)
-		sameRow = sameRow && float64(minInt(bottom, paraBottom)-maxInt(top, paraTop))*2 >
+		sameRow = sameRow && float64(min(bottom, paraBottom)-maxInt(top, paraTop))*2 >
 			float64(bottom-top+paraBottom-paraTop)*0.5
 		horizGap := float64(l) - float64(paraR)
 		if sameRow && horizGap > paraLineH*0.5 {

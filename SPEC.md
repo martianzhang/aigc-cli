@@ -20,13 +20,15 @@ import (
 ## 2. 错误处理
 
 - 错误包装用 `%w`，不是 `%v`
-- 错误消息首字母小写
+- 错误消息首字母小写；专有名词缩写（`API`、`TTS`、`RMBG`、`URL`、`HTTP` 等）可保留大写
 - CLI 层返回 error，由 `cmd.Execute()` 统一处理
 - 不写空 `catch` 块 / 不吞错误
 
 ## 3. SilenceUsage
 
 所有有 `RunE` 的 cobra 命令**必须**设置 `SilenceUsage: true`。因为 `RunE` 返回的错误通常是运行时错误（API 调用失败、网络超时等），不是参数解析错误。显示 Usage 会干扰用户查看真正的错误信息。
+
+根命令（`cmd/root.go`）已设置 `SilenceUsage` / `SilenceErrors`，cobra 会将其继承到子命令；新子命令仍建议显式设置，避免脱离根命令单独使用时行为变化。
 
 ```go
 // ✅ 正确

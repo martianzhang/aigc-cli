@@ -75,7 +75,7 @@ func meanEdges(img image.Image, w, h int) edgeMeans {
 			sg += float64(g >> 8)
 			sb += float64(b >> 8)
 		}
-		n := float64(minInt(stripH, h))
+		n := float64(min(stripH, h))
 		top[x] = [3]float64{sr / n, sg / n, sb / n}
 	}
 
@@ -88,7 +88,7 @@ func meanEdges(img image.Image, w, h int) edgeMeans {
 			sg += float64(g >> 8)
 			sb += float64(b >> 8)
 		}
-		n := float64(minInt(stripW, w))
+		n := float64(min(stripW, w))
 		left[y] = [3]float64{sr / n, sg / n, sb / n}
 	}
 
@@ -113,7 +113,7 @@ func fitLinear(top, left [][3]float64, _, _ int) bgModel {
 	m.baseB = (top[0][2] + left[0][2]) / 2
 
 	// Horizontal gradient from top edge: (end_avg - start_avg) / span
-	nx := minInt(nAvg, len(top)/2)
+	nx := min(nAvg, len(top)/2)
 	if nx > 1 {
 		var sR, sG, sB, eR, eG, eB float64
 		for i := range nx {
@@ -132,7 +132,7 @@ func fitLinear(top, left [][3]float64, _, _ int) bgModel {
 	}
 
 	// Vertical gradient from left edge
-	ny := minInt(nAvg, len(left)/2)
+	ny := min(nAvg, len(left)/2)
 	if ny > 1 {
 		var sR, sG, sB, eR, eG, eB float64
 		for i := range ny {
@@ -191,8 +191,8 @@ func edgeNoise(img image.Image, w, h int, m bgModel) float64 {
 
 // cornerStd computes the luminance standard deviation in the top-left 40×40 corner.
 func cornerStd(img image.Image, w, h int) float64 {
-	sampleW := minInt(40, w)
-	sampleH := minInt(40, h)
+	sampleW := min(40, w)
+	sampleH := min(40, h)
 	var sum, sumSq float64
 	var n float64
 	for y := range sampleH {
@@ -346,8 +346,8 @@ func AssessSeedQuality(black, gray image.Image) SeedQuality {
 // cornerLum returns the mean luminance in the top-left 40x40 area.
 func cornerLum(img image.Image, w, h int) float64 {
 	var sum, n float64
-	for y := 0; y < minInt(40, h); y++ {
-		for x := 0; x < minInt(40, w); x++ {
+	for y := 0; y < min(40, h); y++ {
+		for x := 0; x < min(40, w); x++ {
 			r, g, b, _ := img.At(x, y).RGBA()
 			sum += (float64(r>>8) + float64(g>>8) + float64(b>>8)) / 3.0
 			n++

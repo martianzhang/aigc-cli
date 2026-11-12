@@ -84,7 +84,7 @@ func runVideoRemix(cmd *cobra.Command) error {
 	}
 
 	ui.Println()
-	savePromptFile(taskData.ID, req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "video", taskData.ID, req.Prompt)
 	var saved []string
 	if taskData.Result == nil || len(taskData.Result.Videos) == 0 {
 		return fmt.Errorf("task completed but returned no videos")

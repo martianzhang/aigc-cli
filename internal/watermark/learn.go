@@ -346,7 +346,7 @@ func RegisterLearnResult(lr *LearnResult) {
 	// Detect alpha map shape. Square-ish (< 2:1 aspect ratio) means
 	// sparkle-like → use direct NCC path (no PositionResolver).
 	// Rectangular (≥ 2:1) means text-like → use binary mask + NCC path.
-	ratio := float64(maxInt(alphaW, alphaH)) / float64(minInt(alphaW, alphaH))
+	ratio := float64(maxInt(alphaW, alphaH)) / float64(min(alphaW, alphaH))
 	// Per-type alpha gains: text watermarks need stronger removal because
 	// the two-capture method systematically underestimates their alpha.
 	// Assign alpha gain profile based on watermark shape
@@ -359,13 +359,13 @@ func RegisterLearnResult(lr *LearnResult) {
 		// Sparkle-like: use direct NCC matching (no PositionResolver).
 		// Position is computed from margins in detectWatermark's fallback.
 		cfg.NativeWidth = nativeW
-		cfg.DefaultSize = minInt(alphaW, alphaH)
+		cfg.DefaultSize = min(alphaW, alphaH)
 		cfg.DefaultMarginX = int(math.Round(float64(nativeW) * marginXFrac))
 		cfg.DefaultMarginY = int(math.Round(float64(nativeW) * marginYFrac))
 	} else {
 		// Text-like: use PositionResolver for binary mask + NCC path.
 		cfg.NativeWidth = nativeW
-		cfg.DefaultSize = minInt(alphaW, alphaH)
+		cfg.DefaultSize = min(alphaW, alphaH)
 		cfg.DefaultMarginX = int(math.Round(float64(nativeW) * marginXFrac))
 		cfg.DefaultMarginY = int(math.Round(float64(nativeW) * marginYFrac))
 		cfg.MinSizeScale = 0.5

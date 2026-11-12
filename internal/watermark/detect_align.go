@@ -67,9 +67,9 @@ func alignByNCC(mask []float64, maskW, maskH, maskX, maskY int,
 
 		// Fine search (stride 1, ±4 around best)
 		fineMinX := maxInt(0, coarseBX-4)
-		fineMaxX := minInt(maskW-aw, coarseBX+4)
+		fineMaxX := min(maskW-aw, coarseBX+4)
 		fineMinY := maxInt(0, coarseBY-4)
-		fineMaxY := minInt(maskH-ah, coarseBY+4)
+		fineMaxY := min(maskH-ah, coarseBY+4)
 		for my := fineMinY; my <= fineMaxY; my++ {
 			for mx := fineMinX; mx <= fineMaxX; mx++ {
 				score := nccRegionFast(mask, maskW, mx, my, aw, ah, rsSil, tMean, tStd)

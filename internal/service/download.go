@@ -274,6 +274,24 @@ func SaveBase64Fallback(outputDir, prefix, raw string, index int) string {
 
 // SavePrompt writes the generation prompt alongside result files as
 // <kind>_<taskID>.md (kind is "image" or "video").
+// SavePromptIfEnabled applies the save_prompt setting before writing. Callers
+// pass options.Shared.SavePrompt and OutputDir so this helper stays free of
+// CLI globals.
+func SavePromptIfEnabled(enabled bool, outputDir, kind, taskID, prompt string) error {
+	if !enabled {
+		return nil
+	}
+	return SavePrompt(outputDir, kind, taskID, prompt)
+}
+
+// SavePromptBestEffort is SavePromptIfEnabled for non-fatal generation paths:
+// a prompt-file write failure never fails the actual generation.
+func SavePromptBestEffort(enabled bool, outputDir, kind, taskID, prompt string) {
+	if err := SavePromptIfEnabled(enabled, outputDir, kind, taskID, prompt); err != nil {
+		ui.Eprintf("Warning: %v\n", err)
+	}
+}
+
 func SavePrompt(outputDir, kind, taskID, prompt string) error {
 	if prompt == "" {
 		return nil

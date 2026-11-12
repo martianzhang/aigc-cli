@@ -554,8 +554,8 @@ func expandBox(box [4][2]int, imgW, imgH int, ratio float64) [4][2]int {
 	// Clamp to image bounds
 	exMinX := maxInt(minX-padX, 0)
 	exMinY := maxInt(minY-padY, 0)
-	exMaxX := minInt(maxX+padX, imgW)
-	exMaxY := minInt(maxY+padY, imgH)
+	exMaxX := min(maxX+padX, imgW)
+	exMaxY := min(maxY+padY, imgH)
 
 	return [4][2]int{
 		{exMinX, exMinY},

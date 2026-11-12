@@ -41,7 +41,7 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	}
 
 	ui.Println()
-	savePromptFile(taskData.ID, req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "image", taskData.ID, req.Prompt)
 
 	ui.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 		taskData.ActualTime, taskData.Cost, taskData.CreditsCost)

@@ -44,7 +44,7 @@ func DetectWatermarkRegions(img image.Image) []CropRegion {
 // Watermarks typically have dense edges (text/graphic outlines).
 func detectEdgeDensityInCorners(_, grad []float64, w, h int) []CropRegion {
 	blockSize := 32
-	margin := float64(minInt(w, h)) * 0.15 // corners = 15% of image
+	margin := float64(min(w, h)) * 0.15 // corners = 15% of image
 
 	var regions []CropRegion
 
@@ -74,8 +74,8 @@ func detectEdgeDensityInCorners(_, grad []float64, w, h int) []CropRegion {
 		// Scan blocks in this corner
 		for by := corner.startY; by < corner.endY; by += blockSize {
 			for bx := corner.startX; bx < corner.endX; bx += blockSize {
-				endX := minInt(bx+blockSize, w)
-				endY := minInt(by+blockSize, h)
+				endX := min(bx+blockSize, w)
+				endY := min(by+blockSize, h)
 
 				// Compute block edge density
 				blockSum := 0.0
@@ -113,7 +113,7 @@ func detectEdgeDensityInCorners(_, grad []float64, w, h int) []CropRegion {
 // Watermarks (especially white/gray text) often create brightness anomalies.
 func detectBrightnessAnomalyInCorners(gray []float64, w, h int) []CropRegion {
 	blockSize := 32
-	margin := float64(minInt(w, h)) * 0.15
+	margin := float64(min(w, h)) * 0.15
 
 	// Compute global mean brightness
 	globalSum := 0.0
@@ -140,8 +140,8 @@ func detectBrightnessAnomalyInCorners(gray []float64, w, h int) []CropRegion {
 	for _, corner := range corners {
 		for by := corner.startY; by < corner.endY; by += blockSize {
 			for bx := corner.startX; bx < corner.endX; bx += blockSize {
-				endX := minInt(bx+blockSize, w)
-				endY := minInt(by+blockSize, h)
+				endX := min(bx+blockSize, w)
+				endY := min(by+blockSize, h)
 
 				// Compute block mean brightness
 				blockSum := 0.0
@@ -207,8 +207,8 @@ func mergeCropRegions(regions []CropRegion) []CropRegion {
 			// Check if regions overlap or are adjacent
 			if regionsOverlap(group, regions[j]) {
 				// Merge: expand bounding box
-				newX := minInt(group.X, regions[j].X)
-				newY := minInt(group.Y, regions[j].Y)
+				newX := min(group.X, regions[j].X)
+				newY := min(group.Y, regions[j].Y)
 				newRight := maxInt(group.X+group.W, regions[j].X+regions[j].W)
 				newBottom := maxInt(group.Y+group.H, regions[j].Y+regions[j].H)
 

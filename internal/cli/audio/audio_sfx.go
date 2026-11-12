@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cliutil"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
@@ -115,7 +116,7 @@ func runAudioSFX(cmd *cobra.Command, _ []string) error {
 	}
 
 	if options.Shared.Verbose {
-		ui.Printf("Provider: %s (%s)\n", firstNonEmpty(p.Name, p.ProviderType.String()), p.BaseURL)
+		ui.Printf("Provider: %s (%s)\n", cliutil.FirstNonBlank(p.Name, p.ProviderType.String()), p.BaseURL)
 		ui.Printf("Model: %s\n", req.Model)
 		ui.Printf("Prompt: %d chars, duration=%.1fs\n", len(req.Prompt), req.DurationSeconds)
 	}
@@ -199,7 +200,7 @@ func resolveSFXProvider() *provider.EffectiveProvider {
 	name := strings.ToLower(strings.TrimSpace(sfxProviderName()))
 	switch name {
 	case "elevenlabs":
-		key := firstNonEmpty(providerKey(p), os.Getenv("ELEVENLABS_API_KEY"))
+		key := cliutil.FirstNonBlank(providerKey(p), os.Getenv("ELEVENLABS_API_KEY"))
 		return &provider.EffectiveProvider{
 			Name:         "elevenlabs",
 			Type:         types.ProviderOpenAI,
@@ -208,7 +209,7 @@ func resolveSFXProvider() *provider.EffectiveProvider {
 			ProviderType: provider.ElevenLabs,
 		}
 	case "stability":
-		key := firstNonEmpty(providerKey(p), os.Getenv("STABILITY_API_KEY"))
+		key := cliutil.FirstNonBlank(providerKey(p), os.Getenv("STABILITY_API_KEY"))
 		return &provider.EffectiveProvider{
 			Name:         "stability",
 			Type:         types.ProviderOpenAI,
@@ -247,15 +248,6 @@ func providerKey(p *provider.EffectiveProvider) string {
 		return ""
 	}
 	return p.APIKey
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 // buildSFXRequest applies config defaults and validates vendor limits.
@@ -321,7 +313,7 @@ func buildSFXCurl(p *provider.EffectiveProvider, req *provider.SoundEffectReques
 		if format == "wav" {
 			outputFormat = "wav_44100"
 		}
-		payload, err := provider.ElevenLabsSFXPayload(req, firstNonEmpty(req.Model, provider.DefaultSFXModelElevenLabs))
+		payload, err := provider.ElevenLabsSFXPayload(req, cliutil.FirstNonBlank(req.Model, provider.DefaultSFXModelElevenLabs))
 		if err != nil {
 			return fmt.Sprintf("# %v", err)
 		}
@@ -338,7 +330,7 @@ func buildSFXCurl(p *provider.EffectiveProvider, req *provider.SoundEffectReques
 		}
 		return curl
 	case provider.Stability:
-		fields, err := provider.StabilitySFXFields(req, firstNonEmpty(req.Model, provider.DefaultSFXModelStability))
+		fields, err := provider.StabilitySFXFields(req, cliutil.FirstNonBlank(req.Model, provider.DefaultSFXModelStability))
 		if err != nil {
 			return fmt.Sprintf("# %v", err)
 		}

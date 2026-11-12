@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
@@ -28,7 +29,7 @@ func runImageEditsMultipart(c client.APIClient, req *types.GenerateRequest, ctx 
 	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
 
 	taskID := promptTaskID("image_sync", resp.Created)
-	savePromptFile(taskID, req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "image", taskID, req.Prompt)
 
 	saved, err := saveOpenAIImageResponse(resp, taskID)
 	if err != nil {

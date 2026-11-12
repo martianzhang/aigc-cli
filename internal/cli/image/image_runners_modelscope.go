@@ -229,7 +229,7 @@ done:
 	// --- Step 3: Download images ---
 	ui.Printf("Duration: %.1fs\n", time.Since(start).Seconds())
 
-	savePromptFile(promptTaskID("modelscope", 0), req.Prompt)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "image", promptTaskID("modelscope", 0), req.Prompt)
 
 	var saved []string
 	for i, imgURL := range taskResp.OutputImages {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -77,7 +78,7 @@ func getModelPricingHandler() server.ToolHandlerFunc {
 
 		// Use main domain for pricing API
 		baseURL := "https://apimart.ai"
-		url := fmt.Sprintf("%s/api/pricing/model?model=%s", baseURL, modelName)
+		url := fmt.Sprintf("%s/api/pricing/model?model=%s", baseURL, url.QueryEscape(modelName))
 
 		var result types.ModelPricingResponse
 		// Use simple HTTP call since pricing doesn't need auth
