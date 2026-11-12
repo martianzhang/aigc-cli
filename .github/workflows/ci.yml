@@ -70,8 +70,8 @@ jobs:
         run: |
           go mod tidy
           git diff --exit-code -- go.mod go.sum
-      - name: Docs links and zh/en parity
-        run: python3 scripts/check_docs.py
+      - name: Docs generation, links and zh/en parity
+        run: make docs-check
       - name: Coverage floor
         env:
           CGO_ENABLED: "0"
