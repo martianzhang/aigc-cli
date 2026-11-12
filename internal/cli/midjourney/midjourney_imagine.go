@@ -31,7 +31,7 @@ Examples:
 		}
 
 		// Merge config defaults
-		if cfg, err := config.LoadDefaults(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
+		if cfg, err := config.Load(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
 			cfg.Defaults.Midjourney.MergeIntoImagine(req)
 		}
 
@@ -184,7 +184,7 @@ Good for background replacement, style transfer, and content changes.`,
 			return fmt.Errorf("--image-url is required for edits")
 		}
 
-		if cfg, err := config.LoadDefaults(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
+		if cfg, err := config.Load(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
 			cfg.Defaults.Midjourney.MergeIntoImagine(req)
 		}
 

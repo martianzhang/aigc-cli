@@ -65,8 +65,3 @@ func Load(customPath string) (*types.Config, error) {
 	// Leave BaseURL empty when unset: there is no built-in provider default.
 	return cfg, nil
 }
-
-// LoadDefaults extracts the full Config from the config file.
-func LoadDefaults(customPath string) (*types.Config, error) {
-	return Load(customPath)
-}

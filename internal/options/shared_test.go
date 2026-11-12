@@ -374,30 +374,3 @@ func TestLookupCmdProviderAndModel_nil(t *testing.T) {
 		t.Errorf("with nil defaults: got (%q, %q), want empty", p, m)
 	}
 }
-
-func TestFirstNonEmpty(t *testing.T) {
-	tests := []struct {
-		vals []string
-		want string
-	}{
-		{[]string{"a", "b"}, "a"},
-		{[]string{"", "b"}, "b"},
-		{[]string{"", ""}, ""},
-		{nil, ""},
-	}
-	for _, tt := range tests {
-		got := firstNonEmpty(tt.vals...)
-		if got != tt.want {
-			t.Errorf("firstNonEmpty(%v) = %q, want %q", tt.vals, got, tt.want)
-		}
-	}
-}
-
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}

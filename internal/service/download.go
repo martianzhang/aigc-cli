@@ -425,10 +425,10 @@ func SaveResource(source, dest string) error {
 	return fmt.Errorf("unsupported source: %.60s", cleaned)
 }
 
-// SaveResourceWithBearer saves an HTTP resource with an optional Bearer token.
-// If token is empty, falls back to SaveResource.
-// Includes a friendlier 401 error message for HuggingFace gated models.
-func SaveResourceWithBearer(source, token, dest string) error {
+// saveResourceWithBearer saves an HTTP resource with a Bearer token. If token
+// is empty, falls back to SaveResource. Includes a friendlier 401 error message
+// for HuggingFace gated models. Callers use SaveResourceWithAuth.
+func saveResourceWithBearer(source, token, dest string) error {
 	cleaned := strings.TrimSpace(source)
 	if token == "" {
 		return SaveResource(source, dest)
@@ -471,12 +471,13 @@ func SaveResourceWithBearer(source, token, dest string) error {
 	return saveHTTPResponse(resp, dest)
 }
 
-// SaveResourceWithAuth saves an HTTP resource with an Authorization header.
-// Legacy wrapper, prefers SaveResourceWithBearer for new code.
+// SaveResourceWithAuth saves an HTTP resource, adding a Bearer header when the
+// provider requires one (OpenRouter media lives behind that auth). All other
+// URLs use the shared unauthenticated path.
 func SaveResourceWithAuth(source, apiKey, dest string) error {
 	cleaned := strings.TrimSpace(source)
 	if strings.HasPrefix(cleaned, "https://openrouter.ai/api/") {
-		return SaveResourceWithBearer(source, apiKey, dest)
+		return saveResourceWithBearer(source, apiKey, dest)
 	}
 	return SaveResource(source, dest)
 }

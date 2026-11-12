@@ -87,7 +87,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	// ----- Step 2: Merge config defaults -----
-	if cfg, err := config.LoadDefaults(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
+	if cfg, err := config.Load(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
 		cfg.Defaults.Image.MergeIntoImage(req)
 	}
 

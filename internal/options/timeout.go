@@ -64,7 +64,7 @@ func currentConfig() *types.Config {
 	if Shared.Cfg != nil {
 		return Shared.Cfg
 	}
-	cfg, err := config.LoadDefaults(Shared.CfgFile)
+	cfg, err := config.Load(Shared.CfgFile)
 	if err != nil {
 		return nil
 	}

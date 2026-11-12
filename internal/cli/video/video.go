@@ -138,7 +138,7 @@ func runVideo(cmd *cobra.Command, args []string) error {
 	}
 
 	// Merge config defaults
-	if cfg, err := config.LoadDefaults(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
+	if cfg, err := config.Load(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil {
 		cfg.Defaults.Video.MergeIntoVideo(req)
 	}
 

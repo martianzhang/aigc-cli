@@ -289,10 +289,10 @@ defaults:
 	}
 }
 
-func TestLoadDefaults(t *testing.T) {
-	cfg, err := LoadDefaults("")
+func TestLoad(t *testing.T) {
+	cfg, err := Load("")
 	if err != nil {
-		t.Fatalf("LoadDefaults() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
 	if cfg == nil {
 		t.Fatal("cfg should not be nil")

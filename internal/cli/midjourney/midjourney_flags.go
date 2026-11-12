@@ -87,7 +87,7 @@ func registerMJTaskActionSubcommand(spec mjTaskActionSpec) *cobra.Command {
 				return err
 			}
 			// Merge config defaults
-			if cfg, err := config.LoadDefaults(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Midjourney != nil {
+			if cfg, err := config.Load(options.Shared.CfgFile); err == nil && cfg != nil && cfg.Defaults != nil && cfg.Defaults.Midjourney != nil {
 				// Only speed is relevant for task actions
 				if req.Speed == "" && cfg.Defaults.Midjourney.Speed != "" {
 					req.Speed = cfg.Defaults.Midjourney.Speed
