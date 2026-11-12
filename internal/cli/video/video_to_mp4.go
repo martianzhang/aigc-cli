@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/gif"
+	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
 // convertLocalToMP4 转换单个本地媒体文件（GIF/WebP/MOV/…）为 MP4（纯本地，不调 API）。

@@ -4,34 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-// mjInjector is implemented by every MJ request body (via SetInjectJSON) so a
-// --inject-json value can be attached without a per-type switch.
-type mjInjector interface {
-	SetInjectJSON(json.RawMessage)
-}
-
 // applyMJInject attaches the --inject-json value, if any, to an MJ request.
 func applyMJInject(req any) error {
-	inject, err := service.ReadInjectJSON(mjInjectJSON)
-	if err != nil {
-		return err
-	}
-	if len(inject) == 0 {
-		return nil
-	}
-	if s, ok := req.(mjInjector); ok {
-		s.SetInjectJSON(inject)
-	}
-	return nil
+	return service.ApplyMJInject(req, mjInjectJSON)
 }
 
 func buildMJCurl(action string, reqBody any) string {
@@ -152,119 +135,6 @@ func displayMJResult(task *types.MJTaskData) {
 		fmt.Printf("Completed in %ds | Cost: $%.5f (%.4f credits)\n",
 			task.ActualTime, task.Cost, task.CreditsCost)
 	}
-}
-
-// midjourneyResultSummary returns a text summary of an MJ task result.
-// Shared by CLI and agent loop.
-func midjourneyResultSummary(task *types.MJTaskData) string {
-	if task == nil {
-		return "No result returned."
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "Action: %s | Status: %s", task.Action, task.Status)
-	if task.FailReason != "" {
-		fmt.Fprintf(&b, "\nFail reason: %s", task.FailReason)
-		return b.String()
-	}
-	if task.Status == "SUCCESS" || task.Status == "success" {
-		if task.GridImageURL != "" {
-			fmt.Fprintf(&b, "\nGrid image URL: %s", task.GridImageURL)
-		}
-		for i, u := range task.ImageURLs {
-			fmt.Fprintf(&b, "\nImage %d: %s", i+1, u)
-		}
-		if task.VideoURL != "" {
-			fmt.Fprintf(&b, "\nVideo: %s", task.VideoURL)
-		}
-		for i, u := range task.VideoURLs {
-			fmt.Fprintf(&b, "\nVideo %d: %s", i+1, u)
-		}
-		if task.Prompt != "" {
-			fmt.Fprintf(&b, "\nPrompt: %s", task.Prompt)
-		}
-		if task.Description != "" {
-			fmt.Fprintf(&b, "\nDescription: %s", task.Description)
-		}
-		if task.Cost > 0 || task.ActualTime > 0 {
-			fmt.Fprintf(&b, "\nCompleted in %ds | Cost: $%.5f (%.4f credits)", task.ActualTime, task.Cost, task.CreditsCost)
-		}
-	} else {
-		fmt.Fprintf(&b, "\nTask is in state: %s", task.Status)
-	}
-	return b.String()
-}
-
-// SubmitAndGetText submits an MJ action, polls for completion,
-// downloads results, and returns a text summary. Shared by CLI and agent loop.
-func SubmitAndGetText(c client.APIClient, action string, req any) (string, error) {
-	if err := applyMJInject(req); err != nil {
-		return "", err
-	}
-	resp, err := c.MidjourneySubmit(action, req)
-	if err != nil {
-		return "", fmt.Errorf("submission failed: %w", err)
-	}
-	if len(resp.Data) == 0 {
-		return "", fmt.Errorf("submission returned no tasks")
-	}
-
-	task := resp.Data[0]
-
-	// If the task immediately entered MODAL state, don't wait
-	if task.Status == "modal" {
-		return fmt.Sprintf("Task %s entered MODAL state. Call midjourney modal to submit parameters.", task.TaskID), nil
-	}
-
-	taskData, err := c.MidjourneyPollTask(task.TaskID, options.TaskWait(types.MediaMidjourney))
-	if err != nil {
-		return "", fmt.Errorf("polling failed: %w", err)
-	}
-
-	// Download images if available
-	var dlErr error
-	if taskData.Status == "SUCCESS" || taskData.Status == "success" {
-		if len(taskData.ImageURLs) > 0 {
-			images := make([]types.ImageResult, len(taskData.ImageURLs))
-			for i, u := range taskData.ImageURLs {
-				images[i] = types.ImageResult{URL: []string{u}}
-			}
-			saved, derr := service.DownloadImages(images, options.Shared.OutputDir, taskData.ID)
-			if derr != nil {
-				dlErr = derr
-			}
-			for _, f := range saved {
-				fmt.Printf("Saved: %s\n", f)
-			}
-		}
-		if taskData.VideoURL != "" {
-			videos := []types.VideoResult{{URL: []string{taskData.VideoURL}}}
-			saved, derr := service.DownloadVideos(videos, options.Shared.OutputDir, taskData.ID)
-			if derr != nil && dlErr == nil {
-				dlErr = derr
-			}
-			for _, f := range saved {
-				fmt.Printf("Saved: %s\n", f)
-			}
-		}
-		if len(taskData.VideoURLs) > 0 {
-			videos := make([]types.VideoResult, len(taskData.VideoURLs))
-			for i, u := range taskData.VideoURLs {
-				videos[i] = types.VideoResult{URL: []string{u}}
-			}
-			saved, derr := service.DownloadVideos(videos, options.Shared.OutputDir, taskData.ID)
-			if derr != nil && dlErr == nil {
-				dlErr = derr
-			}
-			for _, f := range saved {
-				fmt.Printf("Saved: %s\n", f)
-			}
-		}
-	}
-	if dlErr != nil {
-		return "", fmt.Errorf("download failed: %w", dlErr)
-	}
-
-	return midjourneyResultSummary(taskData), nil
 }
 
 // ============================================================================

@@ -11,10 +11,10 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/docredact"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
 	"github.com/martianzhang/aigc-cli/internal/types"

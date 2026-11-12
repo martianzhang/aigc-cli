@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
 func TestKnowledgeBaseDir_IsExpandedUnderHome(t *testing.T) {

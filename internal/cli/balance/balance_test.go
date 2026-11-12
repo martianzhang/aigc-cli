@@ -11,16 +11,6 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
-func TestProviderLabel(t *testing.T) {
-	if got := providerLabel(&provider.EffectiveProvider{Name: "siliconflow"}); got != "siliconflow" {
-		t.Errorf("providerLabel(named) = %q, want siliconflow", got)
-	}
-	got := providerLabel(&provider.EffectiveProvider{ProviderType: provider.APIMart})
-	if got != provider.APIMart.String() {
-		t.Errorf("providerLabel(typed) = %q, want %q", got, provider.APIMart.String())
-	}
-}
-
 func TestCollectProviders(t *testing.T) {
 	t.Run("none configured", func(t *testing.T) {
 		if got := collectProviders(Deps{}); got != nil {

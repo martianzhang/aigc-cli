@@ -17,8 +17,8 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/martianzhang/aigc-cli/internal/background"
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/rmbg"
 	"github.com/martianzhang/aigc-cli/internal/service"

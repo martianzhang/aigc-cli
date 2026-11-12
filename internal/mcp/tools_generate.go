@@ -10,9 +10,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/image"
-	"github.com/martianzhang/aigc-cli/internal/cli/music"
-	"github.com/martianzhang/aigc-cli/internal/cli/video"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/gif"
@@ -114,7 +111,10 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 
 		c := imageAPIClient(p)
 
-		saved, err := image.GenerateAndSave(c, p, req)
+		if cfg.Generate.Image == nil {
+			return mcp.NewToolResultError("image generation backend is not configured"), nil
+		}
+		saved, err := cfg.Generate.Image(c, p, req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -197,11 +197,13 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 		reporter.report(progressDispatch, progressDispatchMessage(p.ProviderType.String()))
 		reporter.report(progressGenerating, progressGeneratingMessage)
 
-		res, err := video.GenerateAndSave(ctx, client.NewFromProvider(p), p, req)
+		if cfg.Generate.Video == nil {
+			return mcp.NewToolResultError("video generation backend is not configured"), nil
+		}
+		saved, lastFrames, err := cfg.Generate.Video(ctx, client.NewFromProvider(p), p, req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		saved := res.Videos
 
 		lines := []string{"视频生成完成。"}
 		lines = append(lines, "")
@@ -209,9 +211,9 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 		for _, f := range saved {
 			lines = append(lines, fmt.Sprintf("  %s", f))
 		}
-		if len(res.LastFrames) > 0 {
+		if len(lastFrames) > 0 {
 			lines = append(lines, "", "已保存的尾帧图片:")
-			for _, f := range res.LastFrames {
+			for _, f := range lastFrames {
 				lines = append(lines, fmt.Sprintf("  %s", f))
 			}
 		}
@@ -311,7 +313,10 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 		reporter.report(progressDispatch, progressDispatchMessage(p.ProviderType.String()))
 		reporter.report(progressGenerating, progressGeneratingMessage)
 
-		saved, err := music.GenerateAndSave(c, p, req)
+		if cfg.Generate.Music == nil {
+			return mcp.NewToolResultError("music generation backend is not configured"), nil
+		}
+		saved, err := cfg.Generate.Music(c, p, req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}

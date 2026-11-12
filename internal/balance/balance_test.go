@@ -258,3 +258,13 @@ func TestBalanceError_notAvailable(t *testing.T) {
 		t.Errorf("balanceError(ErrNotSupported) = %q, want a console pointer", got)
 	}
 }
+
+func TestProviderLabel(t *testing.T) {
+	if got := providerLabel(&provider.EffectiveProvider{Name: "siliconflow"}); got != "siliconflow" {
+		t.Errorf("providerLabel(named) = %q, want siliconflow", got)
+	}
+	got := providerLabel(&provider.EffectiveProvider{ProviderType: provider.APIMart})
+	if got != provider.APIMart.String() {
+		t.Errorf("providerLabel(typed) = %q, want %q", got, provider.APIMart.String())
+	}
+}

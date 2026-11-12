@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
+	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
 var audioInitCmd = &cobra.Command{

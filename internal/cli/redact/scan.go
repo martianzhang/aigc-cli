@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	clioptions "github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/docredact"
+	clioptions "github.com/martianzhang/aigc-cli/internal/options"
 	redactlib "github.com/martianzhang/aigc-cli/internal/redact"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"

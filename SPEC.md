@@ -52,7 +52,7 @@ var chatCmd = &cobra.Command{
 
 **禁止**手写 `shared.Cfg != nil && shared.Cfg.Defaults != nil && shared.Cfg.Defaults.Chat != nil && ...` 这类逐级 nil 判断。
 
-一律通过访问器 / 泛型工具获取（实现在 `internal/cli/options/config_defaults.go`）：
+一律通过访问器 / 泛型工具获取（实现在 `internal/options/config_defaults.go`）：
 
 ```go
 cfg := options.ChatDefaults()      // *types.ChatDefaults，nil-safe
@@ -71,7 +71,7 @@ if cfg := options.ChatDefaults(); cfg != nil && cfg.Model != "" {
 }
 ```
 
-新增配置 section 时，在 `internal/cli/options/config_defaults.go` 用 `field` 组合添加访问器：
+新增配置 section 时，在 `internal/options/config_defaults.go` 用 `field` 组合添加访问器：
 
 ```go
 func MyDefaults() *types.MyDefaults {
@@ -79,7 +79,7 @@ func MyDefaults() *types.MyDefaults {
 }
 ```
 
-通用工具（`internal/cli/options/ptr.go`）：
+通用工具（`internal/options/ptr.go`）：
 - `field(p, f)`：单步安全导航，nil 短路，可链式组合
 - `deref(p, def)`：指针安全取值，nil 回退默认值
 
@@ -138,7 +138,7 @@ scope: `image` / `video` / `chat` / `ideas` / `midjourney` / `mcp` / `config` / 
 | `internal/wait` | context-aware 休眠（轮询/限速） |
 | `internal/imgcodec` | 图片编解码 + 解码炸弹上限 |
 | `internal/terminal` | 标题/进度条、表格渲染 |
-| `internal/cli/options` | 共享配置状态、访问器、client factory、flag 工具 |
+| `internal/options` | 共享配置状态、访问器、client factory、flag 工具 |
 
 **规则**：新增的跨命令公共函数必须放在对应 `internal/*` 包中，不要复制到某个命令目录。若一个函数不依赖具体命令的业务逻辑，它就是共享工具函数。
 

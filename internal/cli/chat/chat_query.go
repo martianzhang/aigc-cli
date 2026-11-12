@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
 // printToolArgs echoes a tool call's arguments to stderr (verbose tool-use

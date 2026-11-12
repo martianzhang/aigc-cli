@@ -3,8 +3,8 @@ package cmd
 import (
 	"path/filepath"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/cli/upscale"
+	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
 // upscaleDeps resolves the upscale command's dependencies.

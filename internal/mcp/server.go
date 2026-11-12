@@ -16,12 +16,21 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/ideas"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+// GenerateDeps lets the CLI inject its image/video/music orchestration without
+// making internal/mcp depend on internal/cli packages.
+type GenerateDeps struct {
+	Image func(client.APIClient, *provider.EffectiveProvider, *types.GenerateRequest) ([]string, error)
+	Video func(context.Context, *client.Client, *provider.EffectiveProvider, *types.VideoGenerateRequest) (videos, lastFrames []string, err error)
+	Music func(client.APIClient, *provider.EffectiveProvider, *types.MusicGenerateRequest) ([]string, error)
+}
 
 // Config holds the configuration for the MCP server.
 // It's a subset of the full CLI config, focused on what MCP tools need.
@@ -53,6 +62,10 @@ type Config struct {
 	Providers map[string]*types.NamedProvider
 	// Redact is the defaults.redact config used by redact_text/redact_check.
 	Redact *types.RedactConfig
+	// Generate holds the orchestration functions injected by the CLI. They are
+	// nil in library-only/tests contexts, and the corresponding tools then
+	// return an actionable error.
+	Generate GenerateDeps
 	// ConfigDir is the directory of config.yaml, used to resolve relative
 	// redact.dictionary_files paths.
 	ConfigDir string

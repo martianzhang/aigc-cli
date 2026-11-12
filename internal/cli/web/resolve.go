@@ -3,7 +3,7 @@ package web
 import (
 	"strings"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
 // resolveProvider applies the CLI > --json > defaults.search.provider >

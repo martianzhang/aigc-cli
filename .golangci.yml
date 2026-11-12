@@ -19,8 +19,12 @@ linters:
           deny:
             - pkg: "github.com/martianzhang/aigc-cli/internal/cli/"
               desc: "core packages must not depend on CLI/cobra packages"
-        # TODO(A1): also forbid internal/mcp -> internal/cli once the
-        # image/video/music/balance orchestration moves into service/generate.
+        no-cli-from-mcp:
+          files:
+            - "**/internal/mcp/**"
+          deny:
+            - pkg: "github.com/martianzhang/aigc-cli/internal/cli/"
+              desc: "MCP must not depend on CLI/cobra packages; inject deps instead"
     errcheck:
       # Read-side Close and CLI output writes are intentionally fire-and-forget.
       # Write-side Close/Sync is still checked explicitly in the code.

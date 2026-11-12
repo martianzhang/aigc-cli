@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/ocr"
+	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
 // newOCREngine creates an OCR engine with the standard model setup and the

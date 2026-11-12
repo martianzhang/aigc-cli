@@ -12,7 +12,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"gopkg.in/yaml.v3"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/balance"
+	"github.com/martianzhang/aigc-cli/internal/balance"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/httpx"

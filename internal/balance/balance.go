@@ -1,3 +1,5 @@
+// Package balance renders balance information for supported providers without
+// depending on the CLI/cobra layer.
 package balance
 
 import (
@@ -9,6 +11,32 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
+
+// Query renders the balance for one provider. scope is "all" (default; every
+// endpoint the provider exposes), "token" (API-key scope) or "user" (account
+// scope). Providers with a single endpoint show it regardless of scope.
+func Query(p *provider.EffectiveProvider, scope string) string {
+	label := providerLabel(p)
+
+	if p.ProviderType == provider.ModelScope {
+		return fmt.Sprintf("Token Balance (%s):\n  API-Inference is free. Quota info shown after each image generation.", label)
+	}
+
+	c := client.NewFromProvider(p)
+
+	if sections, ok := providerSections(c, p, label); ok {
+		return renderSections(sections, scope)
+	}
+
+	return genericBalance(c, label, scope)
+}
+
+func providerLabel(p *provider.EffectiveProvider) string {
+	if p.Name != "" {
+		return p.Name
+	}
+	return p.ProviderType.String()
+}
 
 // balanceSection is one labeled balance endpoint result. kind is "token"
 // (API-key scope) or "user" (account scope); a provider may expose either or

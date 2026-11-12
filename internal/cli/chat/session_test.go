@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/session"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/gif"
+	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
 // ensureFFmpegAvailable 校验 ffmpeg 可用；不可用则返回带安装提示的错误。

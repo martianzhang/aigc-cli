@@ -1,14 +1,18 @@
 package mcp
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/cli/image"
+	"github.com/martianzhang/aigc-cli/internal/cli/music"
+	"github.com/martianzhang/aigc-cli/internal/cli/video"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/mcp"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/spf13/cobra"
@@ -87,6 +91,17 @@ Example MCP host config:
 			ListTools:    listTools,
 			ListPrompts:  listPrompts,
 			CmdProviders: cmdProviders,
+			Generate: mcp.GenerateDeps{
+				Image: image.GenerateAndSave,
+				Music: music.GenerateAndSave,
+				Video: func(ctx context.Context, c *client.Client, p *provider.EffectiveProvider, req *types.VideoGenerateRequest) ([]string, []string, error) {
+					res, err := video.GenerateAndSave(ctx, c, p, req)
+					if err != nil || res == nil {
+						return nil, nil, err
+					}
+					return res.Videos, res.LastFrames, nil
+				},
+			},
 		}
 
 		if cfg != nil {

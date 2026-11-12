@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
-	"github.com/martianzhang/aigc-cli/internal/client"
+	corebalance "github.com/martianzhang/aigc-cli/internal/balance"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -21,25 +21,6 @@ type Deps struct {
 	Providers       map[string]*types.NamedProvider
 }
 
-// Query renders the balance for one provider. scope is "all" (default; every
-// endpoint the provider exposes), "token" (API-key scope) or "user" (account
-// scope). Providers with a single endpoint show it regardless of scope.
-func Query(p *provider.EffectiveProvider, scope string) string {
-	label := providerLabel(p)
-
-	if p.ProviderType == provider.ModelScope {
-		return fmt.Sprintf("Token Balance (%s):\n  API-Inference is free. Quota info shown after each image generation.", label)
-	}
-
-	c := client.NewFromProvider(p)
-
-	if sections, ok := providerSections(c, p, label); ok {
-		return renderSections(sections, scope)
-	}
-
-	return genericBalance(c, label, scope)
-}
-
 // GetText queries balance for all configured providers.
 func GetText(d Deps, scope string) (string, error) {
 	if d.ProviderSet && d.Provider != "" {
@@ -50,7 +31,7 @@ func GetText(d Deps, scope string) (string, error) {
 	providers := collectProviders(d)
 	var results []string
 	for _, p := range providers {
-		results = append(results, Query(p, scope))
+		results = append(results, corebalance.Query(p, scope))
 	}
 	if len(results) == 0 {
 		if err := options.RequireAPIKey("balance", resolveGlobal(d), d.Providers); err != nil {
@@ -106,13 +87,6 @@ func collectProviders(d Deps) []*provider.EffectiveProvider {
 	}
 
 	return result
-}
-
-func providerLabel(p *provider.EffectiveProvider) string {
-	if p.Name != "" {
-		return p.Name
-	}
-	return p.ProviderType.String()
 }
 
 // NewCommand builds the `balance` command tree. deps is resolved at run time.

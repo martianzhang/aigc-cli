@@ -9,8 +9,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -103,6 +103,17 @@ func TestGenerateImageHandler_PerCallProviderRouting(t *testing.T) {
 				BaseURL:      "https://api-inference.modelscope.cn/v1",
 				APIKey:       "ms-key",
 				ProviderType: provider.ModelScope,
+			},
+		},
+		Generate: GenerateDeps{
+			Image: func(c client.APIClient, p *provider.EffectiveProvider, req *types.GenerateRequest) ([]string, error) {
+				if p.Name != "ofox" {
+					t.Errorf("shared runner received provider %q, want ofox", p.Name)
+				}
+				if _, err := c.ImageGenerateSync(req); err != nil {
+					return nil, err
+				}
+				return []string{}, nil
 			},
 		},
 	}

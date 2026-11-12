@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/gif"
+	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
 // cropSavedVideos 把已下载的视频按 --crop-margin 裁掉水印边。
