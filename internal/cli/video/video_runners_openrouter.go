@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -101,7 +102,7 @@ func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.Effecti
 	// Step 2: Poll
 	fmt.Println("Polling for completion (this may take 30s-a few minutes)...")
 	pollStart := time.Now()
-	pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, client.DefaultPollInterval, options.TaskWait(types.MediaVideo))
+	pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, client.DefaultPollInterval, clientfactory.TaskWait(types.MediaVideo))
 	if err != nil {
 		return nil, fmt.Errorf("video polling failed: %w", err)
 	}
@@ -168,8 +169,8 @@ func runOpenRouterVideoResume(jobID string) error {
 	fmt.Printf("Model: %s | Created: %s\n", info.Model, time.Unix(info.CreatedAt, 0).Format("2006-01-02 15:04:05"))
 	fmt.Printf("Prompt: %s\n\n", info.Prompt)
 
-	c := options.NewClient("video")
-	options.ApplyTimeout(c, "video", client.VideoTimeout)
+	c := clientfactory.NewClient("video")
+	clientfactory.ApplyTimeout(c, "video", client.VideoTimeout)
 
 	// Check current status
 	statusResp, err := c.OpenRouterVideoGet(info.JobID)
@@ -189,7 +190,7 @@ func runOpenRouterVideoResume(jobID string) error {
 	default:
 		// pending / running -- poll
 		fmt.Printf("Job status: %s. Polling for completion...\n", statusResp.Status)
-		pollResp, err := c.OpenRouterVideoPollUntilComplete(info.PollingURL, client.DefaultPollInterval, options.TaskWait(types.MediaVideo))
+		pollResp, err := c.OpenRouterVideoPollUntilComplete(info.PollingURL, client.DefaultPollInterval, clientfactory.TaskWait(types.MediaVideo))
 		if err != nil {
 			return fmt.Errorf("polling failed: %w", err)
 		}

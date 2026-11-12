@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )

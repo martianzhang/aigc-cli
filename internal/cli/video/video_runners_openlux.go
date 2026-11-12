@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -31,7 +32,7 @@ func runOpenLuxVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 	// Step 2: Poll
 	fmt.Println("Polling for completion...")
 	taskID := createResp.ID
-	openluxMaxWait := options.TaskWait(types.MediaVideo)
+	openluxMaxWait := clientfactory.TaskWait(types.MediaVideo)
 	start := time.Now()
 	var videoURL string
 	for {

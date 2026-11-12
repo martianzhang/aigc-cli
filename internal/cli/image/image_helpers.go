@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -139,7 +140,7 @@ func GenerateAndSave(c client.APIClient, p *provider.EffectiveProvider, req *typ
 	}
 
 	// Set timeout
-	options.ApplyTimeout(c, "image", client.ImageTimeout)
+	clientfactory.ApplyTimeout(c, "image", client.ImageTimeout)
 
 	// Strip APIMart-only fields for non-APIMart providers.
 	if !options.IsAPIMartProvider(p) {

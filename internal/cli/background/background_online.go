@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -55,7 +56,7 @@ func generateOnlineBackground(imagePath string, p *provider.EffectiveProvider, d
 		if len(subResp.Data) == 0 {
 			return "", fmt.Errorf("submit returned no tasks")
 		}
-		taskData, err := c.PollTask(subResp.Data[0].TaskID, options.TaskWait(types.MediaImage))
+		taskData, err := c.PollTask(subResp.Data[0].TaskID, clientfactory.TaskWait(types.MediaImage))
 		if err != nil {
 			return "", fmt.Errorf("poll failed: %w", err)
 		}

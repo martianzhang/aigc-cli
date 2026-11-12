@@ -13,6 +13,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/cli/chat"
 	"github.com/martianzhang/aigc-cli/internal/cli/guidance"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/mcpcli"
@@ -197,7 +198,7 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 		// startup) share the top-level timeout instead of hardcoding their own.
 		// Downloads keep their own stall policy: a total timeout would kill
 		// large model/media downloads that are making progress.
-		requestTimeout := options.HTTPTimeout("", search.DefaultTimeout)
+		requestTimeout := clientfactory.HTTPTimeout("", search.DefaultTimeout)
 		search.SetDefaultTimeout(requestTimeout)
 		knowledge.SetFetchTimeout(requestTimeout)
 		mcpcli.SetInitTimeout(requestTimeout)

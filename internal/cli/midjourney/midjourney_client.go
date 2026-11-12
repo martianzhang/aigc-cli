@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
@@ -19,7 +20,7 @@ func NewClient() client.APIClient {
 	mjClientOnce.Do(func() {
 		p := options.Shared.ResolveProvider(options.ProviderNameMidjourney)
 		mjClientInst = client.NewFromProvider(p)
-		options.ApplyTimeout(mjClientInst, "midjourney", client.MJTimeout)
+		clientfactory.ApplyTimeout(mjClientInst, "midjourney", client.MJTimeout)
 	})
 	return mjClientInst
 }

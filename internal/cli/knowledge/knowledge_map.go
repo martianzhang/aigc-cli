@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/net/html"
 
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/knowledge"
 	"github.com/martianzhang/aigc-cli/internal/netguard"
 	"github.com/martianzhang/aigc-cli/internal/options"
@@ -47,7 +48,7 @@ allow cross-domain links. Use --limit to cap the number of URLs to fetch.`,
 
 		// Fetch the page
 		fmt.Fprintf(os.Stderr, "Fetching: %s\n", rawURL)
-		resp, err := netguard.NewGuardedClient(options.HTTPTimeout("", knowledge.DefaultFetchTimeout)).Get(rawURL)
+		resp, err := netguard.NewGuardedClient(clientfactory.HTTPTimeout("", knowledge.DefaultFetchTimeout)).Get(rawURL)
 		if err != nil {
 			return fmt.Errorf("fetch %s: %w", rawURL, err)
 		}

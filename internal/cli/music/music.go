@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 )
 
@@ -20,7 +21,7 @@ func newMusicClient() client.APIClient {
 	musicClientOnce.Do(func() {
 		p := options.Shared.ResolveProvider(options.ProviderNameMusic)
 		musicClientInst = client.NewFromProvider(p)
-		options.ApplyTimeout(musicClientInst, "music", client.MusicTimeout)
+		clientfactory.ApplyTimeout(musicClientInst, "music", client.MusicTimeout)
 	})
 	return musicClientInst
 }

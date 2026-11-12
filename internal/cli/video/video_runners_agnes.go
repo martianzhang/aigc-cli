@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -38,7 +39,7 @@ func runAgnesVideo(ctx context.Context, c *client.Client, p *provider.EffectiveP
 
 	// Step 2: Poll
 	fmt.Println("Polling for completion...")
-	agnesMaxWait := options.TaskWait(types.MediaVideo)
+	agnesMaxWait := clientfactory.TaskWait(types.MediaVideo)
 	start := time.Now()
 	var videoURL string
 	for {

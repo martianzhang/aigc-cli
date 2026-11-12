@@ -12,6 +12,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -57,7 +58,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 	}
 
 	c := client.NewFromProvider(p)
-	options.ApplyTimeout(c, "audio", client.AudioTimeout)
+	clientfactory.ApplyTimeout(c, "audio", client.AudioTimeout)
 
 	start := time.Now()
 

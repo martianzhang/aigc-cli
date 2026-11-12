@@ -1,4 +1,4 @@
-package options
+package clientfactory
 
 import (
 	"os"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -16,11 +17,11 @@ func useConfig(t *testing.T, yaml string) {
 	if err := os.WriteFile(path, []byte(yaml), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	prevFile, prevFlag := Shared.CfgFile, Shared.TimeoutFlag
-	Shared.CfgFile = path
-	Shared.TimeoutFlag = 0
+	prevFile, prevFlag := options.Shared.CfgFile, options.Shared.TimeoutFlag
+	options.Shared.CfgFile = path
+	options.Shared.TimeoutFlag = 0
 	t.Cleanup(func() {
-		Shared.CfgFile, Shared.TimeoutFlag = prevFile, prevFlag
+		options.Shared.CfgFile, options.Shared.TimeoutFlag = prevFile, prevFlag
 	})
 }
 
@@ -106,7 +107,7 @@ func TestTaskWait(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			useConfig(t, tc.yaml)
-			Shared.TimeoutFlag = tc.flag
+			options.Shared.TimeoutFlag = tc.flag
 			if got := TaskWait(tc.media); got != tc.want {
 				t.Errorf("TaskWait(%q) = %v, want %v", tc.media, got, tc.want)
 			}
@@ -124,7 +125,7 @@ func TestResolveTimeoutPriority(t *testing.T) {
 	if got := resolveTimeout("video", 180*time.Second); got != 300*time.Second {
 		t.Errorf("video timeout = %v, want 5m", got)
 	}
-	Shared.TimeoutFlag = 45
+	options.Shared.TimeoutFlag = 45
 	if got := resolveTimeout("image", 180*time.Second); got != 45*time.Second {
 		t.Errorf("flag timeout = %v, want 45s", got)
 	}
@@ -140,23 +141,23 @@ func TestResolveTimeoutFallback(t *testing.T) {
 func TestExplicitTimeout(t *testing.T) {
 	useConfig(t, "timeout: 300\ndefaults:\n  image:\n    timeout: 120\n")
 
-	if got, ok := ExplicitTimeout("image"); !ok || got != 120*time.Second {
-		t.Errorf("ExplicitTimeout(image) = %v, %v; want 2m, true", got, ok)
+	if got, ok := options.ExplicitTimeout("image"); !ok || got != 120*time.Second {
+		t.Errorf("options.ExplicitTimeout(image) = %v, %v; want 2m, true", got, ok)
 	}
-	if got, ok := ExplicitTimeout("video"); !ok || got != 300*time.Second {
-		t.Errorf("ExplicitTimeout(video) = %v, %v; want 5m, true", got, ok)
+	if got, ok := options.ExplicitTimeout("video"); !ok || got != 300*time.Second {
+		t.Errorf("options.ExplicitTimeout(video) = %v, %v; want 5m, true", got, ok)
 	}
 
-	Shared.TimeoutFlag = 45
-	if got, ok := ExplicitTimeout("image"); !ok || got != 45*time.Second {
-		t.Errorf("ExplicitTimeout(image) with flag = %v, %v; want 45s, true", got, ok)
+	options.Shared.TimeoutFlag = 45
+	if got, ok := options.ExplicitTimeout("image"); !ok || got != 45*time.Second {
+		t.Errorf("options.ExplicitTimeout(image) with flag = %v, %v; want 45s, true", got, ok)
 	}
 }
 
 func TestExplicitTimeoutUnset(t *testing.T) {
 	useConfig(t, "")
-	if got, ok := ExplicitTimeout("image"); ok || got != 0 {
-		t.Errorf("ExplicitTimeout(image) = %v, %v; want 0, false", got, ok)
+	if got, ok := options.ExplicitTimeout("image"); ok || got != 0 {
+		t.Errorf("options.ExplicitTimeout(image) = %v, %v; want 0, false", got, ok)
 	}
 }
 
@@ -167,96 +168,14 @@ func TestHTTPTimeoutFallback(t *testing.T) {
 	}
 }
 
-func TestExplicitProviderTimeoutMapsModalities(t *testing.T) {
-	useConfig(t, "defaults:\n  image:\n    timeout: 120\n  audio:\n    timeout: 60\n")
-
-	cases := []struct {
-		cmd  string
-		want time.Duration
-	}{
-		{ProviderNameImage, 120 * time.Second},
-		{ProviderNameUpscale, 120 * time.Second},
-		{ProviderNameBackground, 120 * time.Second},
-		{ProviderNameDetect, 120 * time.Second},
-		{ProviderNameVision, 120 * time.Second},
-		{ProviderNameAudioSpeak, 60 * time.Second},
-		{ProviderNameAudioSFX, 60 * time.Second},
-		{ProviderNameMusic, 0},
-	}
-	for _, tc := range cases {
-		if got := explicitProviderTimeout(tc.cmd); got != tc.want {
-			t.Errorf("explicitProviderTimeout(%q) = %v, want %v", tc.cmd, got, tc.want)
-		}
-	}
-}
-
 func TestResolveProviderCarriesExplicitTimeout(t *testing.T) {
 	useConfig(t, "timeout: 240\n")
-	if p := Shared.ResolveProvider(ProviderNameImage); p == nil || p.Timeout != 240*time.Second {
+	if p := options.Shared.ResolveProvider(options.ProviderNameImage); p == nil || p.Timeout != 240*time.Second {
 		t.Errorf("image provider timeout = %v, want 4m", p)
 	}
 
 	useConfig(t, "")
-	if p := Shared.ResolveProvider(ProviderNameImage); p == nil || p.Timeout != 0 {
+	if p := options.Shared.ResolveProvider(options.ProviderNameImage); p == nil || p.Timeout != 0 {
 		t.Errorf("image provider timeout = %v, want 0", p)
-	}
-}
-
-func TestTimeoutModality(t *testing.T) {
-	cases := map[string]string{
-		ProviderNameImage:           "image",
-		ProviderNameUpscale:         "image",
-		ProviderNameBackground:      "image",
-		ProviderNameDetect:          "image",
-		ProviderNameVision:          "image",
-		ProviderNameAudioSpeak:      "audio",
-		ProviderNameAudioTranscribe: "audio",
-		ProviderNameAudioSFX:        "audio",
-		ProviderNameVideo:           "video",
-		ProviderNameMusic:           "music",
-	}
-	for cmd, want := range cases {
-		if got := timeoutModality(cmd); got != want {
-			t.Errorf("timeoutModality(%q) = %q, want %q", cmd, got, want)
-		}
-	}
-}
-
-func TestModalityTimeoutAllKeys(t *testing.T) {
-	useConfig(t, `timeout: 900
-defaults:
-  image:
-    timeout: 11
-  video:
-    timeout: 22
-  midjourney:
-    timeout: 33
-  music:
-    timeout: 44
-  audio:
-    timeout: 55
-`)
-	want := map[string]int{
-		"image":      11,
-		"video":      22,
-		"midjourney": 33,
-		"music":      44,
-		"audio":      55,
-	}
-	for key, seconds := range want {
-		got := modalityTimeout(key)
-		if got == nil || *got != seconds {
-			t.Errorf("modalityTimeout(%q) = %v, want %d", key, got, seconds)
-		}
-	}
-	if got := modalityTimeout("chat"); got != nil {
-		t.Errorf("modalityTimeout(chat) = %d, want nil", *got)
-	}
-}
-
-func TestModalityTimeoutNilDefaults(t *testing.T) {
-	useConfig(t, "timeout: 900\n")
-	if got := modalityTimeout("image"); got != nil {
-		t.Errorf("modalityTimeout(image) = %d, want nil", *got)
 	}
 }

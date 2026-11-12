@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -183,7 +184,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 
 	// ----- Step 5: Resolve local image files (upload if needed) -----
 	c := client.NewFromProvider(p)
-	options.ApplyTimeout(c, "image", client.ImageTimeout)
+	clientfactory.ApplyTimeout(c, "image", client.ImageTimeout)
 
 	if err := plan.applyUploads(c, req); err != nil {
 		return err

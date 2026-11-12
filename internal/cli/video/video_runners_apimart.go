@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -32,7 +33,7 @@ func runAPIMartVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 	fmt.Printf("Status: %s\n\n", task.Status)
 
 	fmt.Println("Polling for completion...")
-	taskData, err := c.PollTask(task.TaskID, options.TaskWait(types.MediaVideo))
+	taskData, err := c.PollTask(task.TaskID, clientfactory.TaskWait(types.MediaVideo))
 	if err != nil {
 		return nil, fmt.Errorf("polling failed: %w", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -74,9 +75,9 @@ func GenerateAndSave(ctx context.Context, c *client.Client, p *provider.Effectiv
 		p = options.Shared.ResolveProvider(options.ProviderNameVideo)
 	}
 	if c == nil {
-		c = options.NewClient(options.ProviderNameVideo)
+		c = clientfactory.NewClient(options.ProviderNameVideo)
 	}
-	options.ApplyTimeout(c, "video", client.VideoTimeout)
+	clientfactory.ApplyTimeout(c, "video", client.VideoTimeout)
 
 	plan, err := buildVideoPlan(req, p)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -181,8 +182,8 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	c := options.NewClient(options.ProviderNameVideo)
-	options.ApplyTimeout(c, "video", client.VideoTimeout)
+	c := clientfactory.NewClient(options.ProviderNameVideo)
+	clientfactory.ApplyTimeout(c, "video", client.VideoTimeout)
 
 	// Upload local images before dispatch so the request carries public URLs.
 	if len(plan.Uploads) > 0 {

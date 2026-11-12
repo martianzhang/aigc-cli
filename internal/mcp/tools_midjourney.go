@@ -8,6 +8,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/midjourney"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -155,7 +156,7 @@ func midjourneyImagineHandler(cfg *Config) server.ToolHandlerFunc {
 			mj.MergeIntoImagine(req)
 		}
 
-		text, err := midjourney.SubmitAndGetText(c, "imagine", req, "", options.TaskWait(types.MediaMidjourney), options.Shared.OutputDir)
+		text, err := midjourney.SubmitAndGetText(c, "imagine", req, "", clientfactory.TaskWait(types.MediaMidjourney), options.Shared.OutputDir)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("midjourney imagine failed: %v", err)), nil
 		}
@@ -176,7 +177,7 @@ func midjourneyDescribeHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		req := &types.MJDescribeRequest{ImageURLs: toURLs(imageURL)}
-		text, err := midjourney.SubmitAndGetText(c, "describe", req, "", options.TaskWait(types.MediaMidjourney), options.Shared.OutputDir)
+		text, err := midjourney.SubmitAndGetText(c, "describe", req, "", clientfactory.TaskWait(types.MediaMidjourney), options.Shared.OutputDir)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("midjourney describe failed: %v", err)), nil
 		}
@@ -197,7 +198,7 @@ func midjourneyRerollHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 
 		req := &types.MJRerollRequest{TaskID: taskID}
-		text, err := midjourney.SubmitAndGetText(c, "reroll", req, "", options.TaskWait(types.MediaMidjourney), options.Shared.OutputDir)
+		text, err := midjourney.SubmitAndGetText(c, "reroll", req, "", clientfactory.TaskWait(types.MediaMidjourney), options.Shared.OutputDir)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("midjourney reroll failed: %v", err)), nil
 		}
@@ -221,7 +222,7 @@ func midjourneyVideoHandler(cfg *Config) server.ToolHandlerFunc {
 			ImageURLs: toURLs(imageURL),
 			Prompt:    request.GetString("prompt", ""),
 		}
-		text, err := midjourney.SubmitAndGetText(c, "video", req, "", options.TaskWait(types.MediaMidjourney), options.Shared.OutputDir)
+		text, err := midjourney.SubmitAndGetText(c, "video", req, "", clientfactory.TaskWait(types.MediaMidjourney), options.Shared.OutputDir)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("midjourney video failed: %v", err)), nil
 		}

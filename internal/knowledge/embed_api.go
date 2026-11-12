@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 )
 
 // EmbedConfig configures an HTTP embedding backend. The endpoint is the

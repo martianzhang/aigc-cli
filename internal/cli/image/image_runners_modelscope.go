@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/options"
@@ -107,7 +108,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	// ModelScope bypasses client.Client, so build the request client here with
 	// the effective --timeout value. A nil Transport inherits
 	// http.DefaultTransport, which carries the configured proxy.
-	hc := &http.Client{Timeout: options.HTTPTimeout("image", client.ImageTimeout)}
+	hc := &http.Client{Timeout: clientfactory.HTTPTimeout("image", client.ImageTimeout)}
 
 	// Strip version suffix from base URL for task polling endpoint.
 	baseURL := c.BaseURL()
@@ -176,7 +177,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	pollInterval := client.DefaultPollInterval
 	// ModelScope queues free-tier jobs, so the default wait is per-media
 	// (image 10m) and overridable via defaults.image.timeout.
-	maxWait := options.TaskWait(types.MediaImage)
+	maxWait := clientfactory.TaskWait(types.MediaImage)
 	deadline := time.Now().Add(maxWait)
 
 	var taskResp modelScopeTaskResponse

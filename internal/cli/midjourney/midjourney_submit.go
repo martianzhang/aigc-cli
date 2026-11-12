@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -70,7 +71,7 @@ func runMJSubmitAndPoll(c client.APIClient, action string, req any) error {
 	}
 
 	fmt.Println("Polling for completion...")
-	taskData, err := c.MidjourneyPollTask(task.TaskID, options.TaskWait(types.MediaMidjourney))
+	taskData, err := c.MidjourneyPollTask(task.TaskID, clientfactory.TaskWait(types.MediaMidjourney))
 	if err != nil {
 		return fmt.Errorf("polling failed: %w", err)
 	}

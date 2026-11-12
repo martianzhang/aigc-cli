@@ -8,15 +8,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/httpx"
-	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 // modelsHTTPClient bounds public model-discovery requests by --timeout. Nil
 // Transport inherits http.DefaultTransport, which carries the configured proxy.
 func modelsHTTPClient() *http.Client {
-	return &http.Client{Timeout: options.HTTPTimeout("models", 30*time.Second)}
+	return &http.Client{Timeout: clientfactory.HTTPTimeout("models", 30*time.Second)}
 }
 
 // runModelsMarketplace fetches models from the APIMart marketplace API.

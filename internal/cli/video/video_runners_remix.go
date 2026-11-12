@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -55,8 +56,8 @@ func runVideoRemix(cmd *cobra.Command) error {
 		fmt.Printf("Request:\n%s\n\n", string(prettyReq))
 	}
 
-	c := options.NewClient("video")
-	options.ApplyTimeout(c, "video", client.VideoTimeout)
+	c := clientfactory.NewClient("video")
+	clientfactory.ApplyTimeout(c, "video", client.VideoTimeout)
 	resp, err := c.VideoRemixSubmit(vidTaskID, req)
 	if err != nil {
 		return fmt.Errorf("remix submission failed: %w", err)
@@ -72,7 +73,7 @@ func runVideoRemix(cmd *cobra.Command) error {
 	fmt.Printf("Status: %s\n\n", task.Status)
 
 	fmt.Println("Polling for completion...")
-	taskData, err := c.PollTask(task.TaskID, options.TaskWait(types.MediaVideo))
+	taskData, err := c.PollTask(task.TaskID, clientfactory.TaskWait(types.MediaVideo))
 	if err != nil {
 		return fmt.Errorf("polling failed: %w", err)
 	}

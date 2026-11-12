@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/config"
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -61,7 +62,7 @@ func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any)
 	fmt.Printf("Status: %s\n\n", task.Status)
 
 	fmt.Println("Polling for completion...")
-	taskData, err := c.MusicPollTask(task.TaskID, options.TaskWait(types.MediaMusic))
+	taskData, err := c.MusicPollTask(task.TaskID, clientfactory.TaskWait(types.MediaMusic))
 	if err != nil {
 		return nil, fmt.Errorf("polling failed: %w", err)
 	}
@@ -156,7 +157,7 @@ func GenerateAndSave(c client.APIClient, p *provider.EffectiveProvider, req *typ
 		cfg.MergeIntoMusic(req) // nil-safe
 	}
 
-	options.ApplyTimeout(c, "music", client.MusicTimeout)
+	clientfactory.ApplyTimeout(c, "music", client.MusicTimeout)
 
 	return dispatchMusic(c, req, newMusicDispatchCtx(c, p))
 }
