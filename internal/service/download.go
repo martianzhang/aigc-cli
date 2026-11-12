@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
 )
 
@@ -170,7 +171,7 @@ func doHTTPGet(ctx context.Context, rawURL string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpx.Do(ctx, http.DefaultClient, req, httpx.DefaultPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -367,8 +368,10 @@ func SaveResource(source, dest string) error {
 
 	cleaned := strings.TrimSpace(source)
 
-	if strings.HasPrefix(cleaned, "http://") || strings.HasPrefix(cleaned, "https://") {
-		resp, err := http.DefaultClient.Get(cleaned)
+	if isHTTPURL(cleaned) {
+		ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
+		defer cancel()
+		resp, err := doHTTPGet(ctx, cleaned)
 		if err != nil {
 			return fmt.Errorf("HTTP request failed: %w", err)
 		}
@@ -412,13 +415,15 @@ func SaveResourceWithBearer(source, token, dest string) error {
 		return fmt.Errorf("create directory: %w", err)
 	}
 
-	req, err := http.NewRequest("GET", cleaned, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cleaned, nil)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpx.Do(ctx, http.DefaultClient, req, httpx.DefaultPolicy)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}

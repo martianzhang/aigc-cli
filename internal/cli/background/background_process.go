@@ -15,6 +15,7 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/martianzhang/aigc-cli/internal/background"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 )
@@ -26,7 +27,7 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 	}
 	defer f.Close()
 
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return fmt.Errorf("decode: %w", err)
 	}

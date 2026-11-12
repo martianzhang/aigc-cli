@@ -65,7 +65,7 @@ func decodeImageSafe(data []byte) (img image.Image, err error) {
 			err = fmt.Errorf("image decoder panicked: %v", rec)
 		}
 	}()
-	img, _, err = image.Decode(bytes.NewReader(data))
+	img, _, err = imgcodec.Decode(bytes.NewReader(data))
 	return img, err
 }
 

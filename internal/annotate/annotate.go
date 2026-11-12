@@ -11,6 +11,7 @@ import (
 	"slices"
 
 	"github.com/martianzhang/aigc-cli/internal/face"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/skeleton"
 )
 
@@ -124,7 +125,7 @@ func LoadImage(path string) (image.Image, error) {
 		return nil, err
 	}
 	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return nil, fmt.Errorf("decode image: %w", err)
 	}

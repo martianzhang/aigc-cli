@@ -1,11 +1,12 @@
 package vision
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/modelstore"
 )
 
 const modelsBaseURL = "https://github.com/martianzhang/aigc-cli-models/releases/download/v1"
@@ -99,7 +100,7 @@ func InitModel(modelsDir, variant string, force bool) error {
 			}
 		}
 		fmt.Printf("  Downloading %s (%s)...\n", f.Filename, f.Size)
-		if err := service.SaveResource(f.URL, targetPath); err != nil {
+		if err := modelstore.Install(context.Background(), nil, f.URL, targetPath, modelstore.Options{Force: force}); err != nil {
 			return fmt.Errorf("download %s: %w", f.Filename, err)
 		}
 		fmt.Printf("    Saved: %s\n", targetPath)

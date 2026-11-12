@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -75,7 +74,7 @@ func DecodeImageInput(content []byte, targetFormat string) ([]byte, string, erro
 		return raw, ext, nil // already in target format
 	}
 
-	img, _, err := image.Decode(bytes.NewReader(raw))
+	img, _, err := imgcodec.Decode(bytes.NewReader(raw))
 	if err != nil {
 		return nil, "", fmt.Errorf("decode image for conversion: %w", err)
 	}

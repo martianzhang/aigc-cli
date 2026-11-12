@@ -11,6 +11,8 @@ import (
 
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
+
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
 // ImageOptions 控制单张图片到深度图的转换参数。
@@ -140,7 +142,7 @@ func loadImageFile(path string) (image.Image, error) {
 		return nil, err
 	}
 	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return nil, fmt.Errorf("decode image: %w", err)
 	}

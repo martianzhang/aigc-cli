@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/sajari/fuzzy"
 )
@@ -851,7 +852,7 @@ func (e *Engine) ScanFile(path string) (*OCRResult, error) {
 	}
 	defer f.Close()
 
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return nil, fmt.Errorf("decode image: %w", err)
 	}

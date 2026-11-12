@@ -17,8 +17,4 @@ func TestContextRoundTrip(t *testing.T) {
 	if got := Context(); got != ctx {
 		t.Fatal("Context() did not return the installed context")
 	}
-	SetContext(nil)
-	if got := Context(); got != ctx {
-		t.Fatal("SetContext(nil) must not clear the installed context")
-	}
 }

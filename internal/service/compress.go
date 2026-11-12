@@ -56,7 +56,7 @@ func CompressImage(srcPath string, opts *CompressOptions) (*CompressResult, erro
 	}
 	beforeSize := srcInfo.Size()
 
-	img, _, err := image.Decode(srcFile)
+	img, _, err := imgcodec.Decode(srcFile)
 	if err != nil {
 		return nil, fmt.Errorf("decode image: %w", err)
 	}

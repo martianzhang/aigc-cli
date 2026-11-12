@@ -121,7 +121,7 @@ func runUpscale(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("open input: %w", err)
 	}
 	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return fmt.Errorf("decode input: %w", err)
 	}

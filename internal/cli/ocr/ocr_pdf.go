@@ -2,7 +2,6 @@ package ocr
 
 import (
 	"fmt"
-	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -15,6 +14,7 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/ocr"
 	"github.com/martianzhang/aigc-cli/internal/pdf"
 	"github.com/martianzhang/aigc-cli/internal/provider"
@@ -139,7 +139,7 @@ func scanPDF(cmd *cobra.Command, pdfPath string) error {
 			if err != nil {
 				return fmt.Errorf("open rendered page %d: %w", pageIdx+1, err)
 			}
-			img, _, err := image.Decode(f)
+			img, _, err := imgcodec.Decode(f)
 			f.Close()
 			if err != nil {
 				return fmt.Errorf("decode rendered page %d: %w", pageIdx+1, err)

@@ -18,6 +18,7 @@ import (
 
 	"github.com/martianzhang/aigc-cli/internal/background"
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/rmbg"
 	"github.com/martianzhang/aigc-cli/internal/service"
@@ -123,7 +124,7 @@ func runBackground(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("cannot open --replace image %s: %w", bgReplace, err)
 			}
 			defer f.Close()
-			img, _, err := image.Decode(f)
+			img, _, err := imgcodec.Decode(f)
 			if err != nil {
 				return fmt.Errorf("cannot decode --replace image %s: %w", bgReplace, err)
 			}

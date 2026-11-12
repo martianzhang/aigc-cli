@@ -9,6 +9,8 @@ import (
 
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
+
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
 // PreprocessImage decodes an image file and preprocesses it into a normalized
@@ -26,7 +28,7 @@ func PreprocessImage(path string) ([]float32, error) {
 	}
 	defer f.Close()
 
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,11 @@ import (
 	"io"
 )
 
+// DefaultMaxDecodePixels caps a decoded image at 100 MP. A crafted header can
+// claim enormous dimensions while carrying almost no data; decoding such a
+// "decode bomb" would allocate gigabytes.
+const DefaultMaxDecodePixels = 100_000_000
+
 // WASM 编解码器可能「崩溃」而非返回错误：
 //
 // gen2brain 系列解码器（webp / avif / jpegxl）在 wazero 中运行 wasm，遇到
@@ -20,6 +25,17 @@ import (
 // Decode 等价于 image.Decode，但会恢复 wasm 解码器抛出的 panic，
 // 将其转换为普通 error，避免畸形图片导致进程崩溃。
 func Decode(r io.Reader) (img image.Image, format string, err error) {
+	if rs, ok := r.(io.ReadSeeker); ok {
+		cfg, _, cfgErr := DecodeConfig(rs)
+		if cfgErr == nil && cfg.Width*cfg.Height > DefaultMaxDecodePixels {
+			return nil, "", fmt.Errorf("image too large: %dx%d (%d MP limit)", cfg.Width, cfg.Height, DefaultMaxDecodePixels/1_000_000)
+		}
+		if cfgErr == nil {
+			if _, seekErr := rs.Seek(0, io.SeekStart); seekErr != nil {
+				return nil, "", fmt.Errorf("rewind image: %w", seekErr)
+			}
+		}
+	}
 	defer func() {
 		if rec := recover(); rec != nil {
 			img, format, err = nil, "", fmt.Errorf("image decode failed: %v", rec)

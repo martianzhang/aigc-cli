@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
 // standardLumTable is the IJG-recommended luminance quantization table for quality 100.
@@ -33,7 +35,7 @@ func AddWatermarkFile(inputPath, outputPath, producer string) (*Result, error) {
 	}
 	defer f.Close()
 
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}
@@ -245,7 +247,7 @@ func RemoveFileHinted(inputPath, outputPath, producer string) (*Result, error) {
 	}
 	defer f.Close()
 
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
 	}

@@ -7,8 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/modelstore"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
-	"github.com/martianzhang/aigc-cli/internal/service"
 	up "github.com/martianzhang/aigc-cli/internal/upscale"
 )
 
@@ -92,7 +93,7 @@ func runInit(d Deps, models []string, force bool) error {
 			continue
 		}
 		fmt.Printf("Downloading %s (%s, ~%.1fMB, %s)...\n", info.Name, info.ID, info.SizeMB, info.License)
-		if err := service.SaveResource(up.URL(info), target); err != nil {
+		if err := modelstore.Install(options.Context(), nil, up.URL(info), target, modelstore.Options{Force: force}); err != nil {
 			return fmt.Errorf("download %s: %w", info.ID, err)
 		}
 		fmt.Printf("  Saved: %s\n", target)

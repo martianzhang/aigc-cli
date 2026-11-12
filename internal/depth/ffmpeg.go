@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 )
 
 const (
@@ -183,7 +185,7 @@ func loadFrame(path string) (image.Image, error) {
 		return nil, err
 	}
 	defer f.Close()
-	img, _, err := image.Decode(f)
+	img, _, err := imgcodec.Decode(f)
 	if err != nil {
 		return nil, err
 	}

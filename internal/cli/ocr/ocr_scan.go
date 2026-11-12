@@ -16,6 +16,7 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/martianzhang/aigc-cli/internal/cli/options"
+	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 )
 
@@ -33,7 +34,7 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 			return errors.New("no input file specified and stdin is a terminal\n\nUsage:\n  aigc-cli ocr scan <image>\n  cat image.png | aigc-cli ocr scan")
 		}
 		// Read image from stdin — for online OCR we need a temp file, for now fall back to local
-		img, _, err := image.Decode(os.Stdin)
+		img, _, err := imgcodec.Decode(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("decode stdin image: %w", err)
 		}
@@ -101,7 +102,7 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 	}
 	defer f.Close()
 
-	img, format, err := image.Decode(f)
+	img, format, err := imgcodec.Decode(f)
 	if err != nil {
 		return fmt.Errorf("unsupported image format: %w\n\nSupported formats: JPEG, PNG, GIF, BMP, WebP, AVIF, HEIC, JXL", err)
 	}

@@ -8,9 +8,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/options"
 	"github.com/martianzhang/aigc-cli/internal/depth"
+	"github.com/martianzhang/aigc-cli/internal/modelstore"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
-	"github.com/martianzhang/aigc-cli/internal/service"
 )
 
 const (
@@ -83,7 +84,7 @@ func runDepthInit(_ *cobra.Command, _ []string) error {
 			continue
 		}
 		fmt.Printf("Downloading %s (%s, %s)...\n", info.ID, info.Size, info.License)
-		if err := service.SaveResource(depthModelURL(id), modelPath); err != nil {
+		if err := modelstore.Install(options.Context(), nil, depthModelURL(id), modelPath, modelstore.Options{Force: videoInitForce}); err != nil {
 			return fmt.Errorf("download %s failed: %w", id, err)
 		}
 		fmt.Println("  Done.")
@@ -120,7 +121,7 @@ func downloadSkeletonModels(sharedDir string) error {
 		return nil
 	}
 	fmt.Printf("Downloading YOLOv8n-pose (skeleton, 13.5MB)...\n")
-	if err := service.SaveResource(url, path); err != nil {
+	if err := modelstore.Install(options.Context(), nil, url, path, modelstore.Options{Force: videoInitForce}); err != nil {
 		return fmt.Errorf("download skeleton model failed: %w", err)
 	}
 	fmt.Println("  Done.")
@@ -145,7 +146,7 @@ func downloadFaceModels(sharedDir string) error {
 			return nil
 		}
 		fmt.Printf("Downloading face model: %s\n", label)
-		if err := service.SaveResource(url, path); err != nil {
+		if err := modelstore.Install(options.Context(), nil, url, path, modelstore.Options{Force: videoInitForce}); err != nil {
 			return fmt.Errorf("download %s failed: %w", label, err)
 		}
 		return nil
