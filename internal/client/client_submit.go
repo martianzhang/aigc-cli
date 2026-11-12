@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"io"
 	"net/http"
 	"strings"
@@ -108,7 +109,7 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 		resp.Body.Close()
 		return nil, newAPIStatusError(resp, body)
 	}
@@ -124,7 +125,7 @@ func (c *Client) ChatCompletion(req *types.ChatRequest) (*types.ChatResponse, er
 
 	// Non-streaming — but some providers (e.g. APIMart.ai) always return SSE format
 	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

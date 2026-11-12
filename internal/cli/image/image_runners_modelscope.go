@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -153,7 +153,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	defer httpResp.Body.Close()
 
 	if httpResp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(httpResp.Body)
+		respBody, _ := httpx.ReadAllLimited(httpResp.Body, httpx.DefaultMaxBodyBytes)
 		return nil, fmt.Errorf("%s: submit returned HTTP %d: %s", label, httpResp.StatusCode, string(respBody))
 	}
 

@@ -16,6 +16,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// maxVaultEntryBytes bounds one vault archive member (64 MB).
+const maxVaultEntryBytes = 64 << 20
+
 var kbVaultCmd = &cobra.Command{
 	Use:   "vault",
 	Short: "Vault management (encrypted storage)",
@@ -141,9 +144,14 @@ var kbVaultImportCmd = &cobra.Command{
 				return fmt.Errorf("read tar: %w", err)
 			}
 
-			data, err := io.ReadAll(tr)
+			// Entries are small (identity + JSON mappings); cap each one so a
+			// crafted archive cannot inflate into an unbounded allocation.
+			data, err := io.ReadAll(io.LimitReader(tr, maxVaultEntryBytes+1))
 			if err != nil {
 				return fmt.Errorf("read %s: %w", header.Name, err)
+			}
+			if int64(len(data)) > maxVaultEntryBytes {
+				return fmt.Errorf("archive entry %s exceeds %d MB", header.Name, maxVaultEntryBytes>>20)
 			}
 
 			switch header.Name {

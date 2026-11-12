@@ -23,6 +23,9 @@ type AudioData struct {
 
 // ReadWAV decodes a WAV file and returns PCM 16-bit mono samples.
 // Multi-channel audio is averaged to mono.
+// maxStreamingPCMBytes caps streamed PCM samples (512 MB).
+const maxStreamingPCMBytes = 512 << 20
+
 func ReadWAV(path string) (*AudioData, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -75,9 +78,15 @@ func DecodeWAV(r io.Reader) (*AudioData, error) {
 	// instead of a real length, so the payload must be read until EOF.
 	var raw []byte
 	if dataSize == unknownChunkSize {
-		payload, err := io.ReadAll(r)
+		// A streaming WAV has no declared length; cap at 512 MB (roughly 45
+		// minutes of 16-bit 48 kHz stereo) so a malformed/endless stream cannot
+		// exhaust memory.
+		payload, err := io.ReadAll(io.LimitReader(r, maxStreamingPCMBytes+1))
 		if err != nil {
 			return nil, fmt.Errorf("read samples: %w", err)
+		}
+		if len(payload) > maxStreamingPCMBytes {
+			return nil, fmt.Errorf("streaming audio exceeds %d MB", maxStreamingPCMBytes>>20)
 		}
 		raw = payload
 	} else {

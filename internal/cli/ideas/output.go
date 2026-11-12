@@ -25,6 +25,7 @@ func resolveKeywords(args []string) (string, error) {
 	if (stat.Mode() & os.ModeCharDevice) != 0 {
 		return "", nil
 	}
+	// stdin is user-supplied JSON; decoded into typed structs afterwards.
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return "", fmt.Errorf("failed to read stdin: %w", err)

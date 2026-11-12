@@ -218,6 +218,7 @@ func decodeBody(body []byte, contentType string) []byte {
 	if err != nil {
 		return body
 	}
+	// converted is a charset re-encoding of body, already capped at maxBytes.
 	data, err := io.ReadAll(converted)
 	if err != nil {
 		return body

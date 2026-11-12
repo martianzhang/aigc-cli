@@ -1,6 +1,8 @@
 module github.com/martianzhang/aigc-cli
 
-go 1.25.5
+go 1.26.0
+
+toolchain go1.27.4
 
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.2
@@ -30,8 +32,8 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/sugarme/tokenizer v0.3.0
 	github.com/zalando/go-keyring v0.2.8
-	golang.org/x/image v0.43.0
-	golang.org/x/term v0.44.0
+	golang.org/x/image v0.45.0
+	golang.org/x/term v0.47.0
 	gonum.org/v1/gonum v0.17.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.54.0
@@ -126,10 +128,10 @@ require (
 	github.com/yuin/goldmark v1.8.2 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/net v0.55.0
-	golang.org/x/sys v0.46.0
-	golang.org/x/text v0.38.0
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/net v0.62.0
+	golang.org/x/sys v0.49.0
+	golang.org/x/text v0.43.0
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 

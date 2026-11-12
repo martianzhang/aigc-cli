@@ -3,7 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"io"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"maps"
 	"net/http"
 	"os"
@@ -145,7 +145,7 @@ func (c *Client) OpenRouterVideoPoll(pollingURL string) (*types.OpenRouterVideoS
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read poll response: %w", err)
 	}

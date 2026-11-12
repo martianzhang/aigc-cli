@@ -31,6 +31,23 @@ type docxPart struct {
 
 var docxTokenRe = regexp.MustCompile(`(?s)<w:t\b[^>]*>(.*?)</w:t>|</w:p>`)
 
+// maxDOCXEntryBytes bounds one OOXML part (document.xml is usually a few MB).
+// 128 MB leaves generous headroom while preventing a crafted archive from
+// exhausting memory.
+const maxDOCXEntryBytes = 128 << 20
+
+// readZipEntry reads one archive member with an explicit size cap.
+func readZipEntry(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxDOCXEntryBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxDOCXEntryBytes {
+		return nil, fmt.Errorf("archive entry exceeds %d MB", maxDOCXEntryBytes>>20)
+	}
+	return data, nil
+}
+
 func scanDOCX(ctx context.Context, input string, pipeline *redactlib.Pipeline, opts Options) (Result, error) {
 	parts, zr, err := extractDOCX(input)
 	if err != nil {
@@ -116,7 +133,7 @@ func extractDOCX(path string) ([]*docxPart, *zip.ReadCloser, error) {
 			_ = zr.Close()
 			return nil, nil, err
 		}
-		data, err := io.ReadAll(rc)
+		data, err := readZipEntry(rc)
 		_ = rc.Close()
 		if err != nil {
 			_ = zr.Close()
@@ -267,7 +284,7 @@ func rewriteDOCX(input string, parts []*docxPart, offsets []int, spans []redactl
 			_ = zw.Close()
 			return nil, err
 		}
-		data, err := io.ReadAll(rc)
+		data, err := readZipEntry(rc)
 		_ = rc.Close()
 		if err != nil {
 			_ = zw.Close()
@@ -379,7 +396,7 @@ func rewriteZip(input, outPath string, changed map[string][]byte) error {
 			_ = zw.Close()
 			return err
 		}
-		data, err := io.ReadAll(rc)
+		data, err := readZipEntry(rc)
 		_ = rc.Close()
 		if err != nil {
 			_ = zw.Close()

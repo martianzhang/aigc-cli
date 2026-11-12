@@ -10,6 +10,7 @@ import (
 // scanForC2PA does a raw byte scan for JUMBF/C2PA signatures.
 // Useful for formats like WebP, GIF, BMP that the library doesn't support.
 func scanForC2PA(r io.Reader) []byte {
+	// r is a local media file supplied by the caller; size is bounded by disk.
 	data, err := io.ReadAll(r)
 	if err != nil || len(data) == 0 {
 		return nil

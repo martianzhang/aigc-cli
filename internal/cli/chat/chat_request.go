@@ -35,6 +35,7 @@ func readStdinMessage() (string, error) {
 	if chatStdinIsTerminal() {
 		return "", nil
 	}
+	// chatStdin is the user prompt from a pipe; bounded by the shell input.
 	data, err := io.ReadAll(chatStdin)
 	if err != nil {
 		return "", fmt.Errorf("read stdin: %w", err)

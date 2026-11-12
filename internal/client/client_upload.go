@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -67,7 +68,7 @@ func (c *Client) UploadImage(filePath string) (*types.UploadResponse, error) {
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read upload response: %w", err)
 	}

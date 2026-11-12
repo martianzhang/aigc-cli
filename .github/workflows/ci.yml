@@ -70,6 +70,8 @@ jobs:
         run: |
           go mod tidy
           git diff --exit-code -- go.mod go.sum
+      - name: io.ReadAll cap/justification check
+        run: python3 scripts/check_readall.py
       - name: Docs generation, links and zh/en parity
         run: make docs-check
       - name: Coverage floor

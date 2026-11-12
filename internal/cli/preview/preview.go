@@ -93,6 +93,7 @@ func run(d Deps, args []string, detail bool, describe string) error {
 		return fmt.Errorf("no files specified: pass file paths as arguments or pipe file data to stdin")
 	}
 
+	// stdin is user-supplied image/Markdown; imgcodec applies a pixel cap.
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return fmt.Errorf("failed to read stdin: %w", err)

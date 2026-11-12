@@ -12,7 +12,7 @@ OUTPUT ?= $(BINARY)$(GOEXE)
 # Resolve golangci-lint once (empty when not installed).
 GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null)
 
-.PHONY: all build clean run install lint vet test test-race test-integration fmt cover cover-check bench bench-baseline bench-check size release help ideas docs-check docs-gen docs-gen-check tidy-check vuln pre-commit
+.PHONY: all build clean run install lint vet test test-race test-integration fmt cover cover-check bench bench-baseline bench-check size release help ideas docs-check docs-gen docs-gen-check lint-readall tidy-check vuln pre-commit
 
 all: build
 
@@ -35,9 +35,12 @@ clean: ## Remove build artifacts
 	rm -f $(sort $(OUTPUT) $(BINARY) $(BINARY).exe)
 	rm -rf $(RELEASE_DIR)
 
-lint: ## Run static analysis (go vet + golangci-lint if available)
+lint: lint-readall ## Run static analysis (go vet + golangci-lint if available)
 	$(GO) vet ./...
 	$(if $(GOLANGCI_LINT),golangci-lint run ./...,@echo "  golangci-lint not installed, skipping")
+
+lint-readall: ## Fail when io.ReadAll is neither capped nor justified
+	python3 scripts/check_readall.py
 
 vet: lint
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"io"
 	"net/http"
 	"strings"
@@ -145,7 +146,7 @@ func (c *Client) doGeminiRequest(method, path string, reqBody any) ([]byte, erro
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

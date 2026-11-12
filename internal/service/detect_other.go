@@ -102,6 +102,7 @@ type webpInfo struct {
 func readWebPInfo(r io.Reader) webpInfo {
 	var info webpInfo
 
+	// r is a local media file supplied by the caller; size is bounded by disk.
 	data, err := io.ReadAll(r)
 	if err != nil || len(data) < 12 {
 		return info

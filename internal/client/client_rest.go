@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"io"
 	"net/http"
 	"os"
@@ -129,7 +130,7 @@ func (c *Client) doJSONWithHeaders(path string, body, result any, extraHeaders m
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
@@ -179,7 +180,7 @@ func (c *Client) doBytes(method, path, contentType string, body []byte, result a
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
@@ -223,7 +224,7 @@ func (c *Client) doGetAbsolute(rawURL string, result any) error {
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
@@ -278,7 +279,7 @@ func (c *Client) doJSONAbsolute(method, rawURL string, body, result any, extraHe
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
@@ -325,7 +326,7 @@ func (c *Client) doGetWithHeaders(path string, result any, extraHeaders map[stri
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}

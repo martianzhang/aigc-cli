@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"net/http"
 	"net/url"
 
@@ -61,7 +61,7 @@ func (c *Client) OpenLuxVideoSubmit(req *types.VideoGenerateRequest) (*types.Ope
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

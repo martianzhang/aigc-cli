@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"net/http"
 	"strings"
 
@@ -63,7 +63,7 @@ func (c *Client) OpenRouterMusicGenerate(req *types.OpenRouterMusicRequest) ([]b
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 		return nil, "", fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 

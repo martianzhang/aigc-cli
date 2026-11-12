@@ -26,6 +26,7 @@ func ReadInput(input string) ([]byte, error) {
 		if err == nil && (stat.Mode()&os.ModeCharDevice) != 0 {
 			return nil, fmt.Errorf("stdin is a terminal — pipe input or use --prompt")
 		}
+		// Explicit stdin path; the user controls how much data is piped.
 		return io.ReadAll(os.Stdin)
 	case IsFile(input):
 		return os.ReadFile(input)

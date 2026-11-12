@@ -4,7 +4,7 @@
 
 ## 开发环境
 
-- Go 1.25+（见 [go.mod](go.mod)）
+- Go 1.26+（见 [go.mod](go.mod)；构建使用 toolchain go1.27.4）
 - 支持 macOS、Linux、Windows
 
 ```bash

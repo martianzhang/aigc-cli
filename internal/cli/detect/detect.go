@@ -73,6 +73,7 @@ func runDetect(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no files specified: pass file paths as arguments or pipe file data to stdin")
 	}
 
+	// stdin is user-supplied; the caller controls the pipe size.
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return fmt.Errorf("failed to read stdin: %w", err)

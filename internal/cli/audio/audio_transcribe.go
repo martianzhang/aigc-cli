@@ -47,6 +47,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 	if audioTranscribeInput == "" {
 		stat, err := os.Stdin.Stat()
 		if err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+			// stdin is user-supplied audio; the caller controls the pipe size.
 			data, err := io.ReadAll(os.Stdin)
 			if err != nil {
 				return fmt.Errorf("failed to read stdin: %w", err)

@@ -15,6 +15,9 @@ import (
 )
 
 // generateIdentity creates a new age X25519 identity string.
+// maxVaultDocBytes bounds one decrypted vault document (256 MB).
+const maxVaultDocBytes = 256 << 20
+
 func generateIdentity() (string, error) {
 	identity, err := age.GenerateX25519Identity()
 	if err != nil {
@@ -100,9 +103,14 @@ func Decrypt(ciphertext []byte) ([]byte, error) {
 		return nil, fmt.Errorf("decrypt: %w", err)
 	}
 
-	plaintext, err := io.ReadAll(r)
+	// Vault documents are user files; cap at 256 MB so a corrupted or crafted
+	// ciphertext cannot exhaust memory during decryption.
+	plaintext, err := io.ReadAll(io.LimitReader(r, maxVaultDocBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read: %w", err)
+	}
+	if len(plaintext) > maxVaultDocBytes {
+		return nil, fmt.Errorf("vault document exceeds %d MB", maxVaultDocBytes>>20)
 	}
 
 	return plaintext, nil

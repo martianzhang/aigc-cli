@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"io"
 	"net/http"
 	"strings"
@@ -44,7 +45,7 @@ func (c *Client) anthropicChatCompletion(req *types.ChatRequest) (*types.ChatRes
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 		resp.Body.Close()
 		return nil, fmt.Errorf("anthropic API request failed: %w", newAPIStatusError(resp, respBody))
 	}
@@ -60,7 +61,7 @@ func (c *Client) anthropicChatCompletion(req *types.ChatRequest) (*types.ChatRes
 
 	// Non-streaming
 	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read anthropic response: %w", err)
 	}

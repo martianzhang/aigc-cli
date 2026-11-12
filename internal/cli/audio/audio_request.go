@@ -20,6 +20,7 @@ func buildAudioSpeechRequest() (*types.AudioSpeechRequest, error) {
 	if src == "" {
 		stat, err := os.Stdin.Stat()
 		if err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+			// stdin is user-supplied prompt/audio; the caller controls the pipe size.
 			data, err := io.ReadAll(os.Stdin)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read stdin: %w", err)

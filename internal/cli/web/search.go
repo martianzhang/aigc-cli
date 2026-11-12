@@ -26,6 +26,7 @@ var stdinIsPipe = func() bool {
 }
 
 // readStdin reads the query text from stdin; overridden in tests.
+// readStdin is user-supplied query input; no remote/attacker-controlled size.
 var readStdin = func() ([]byte, error) { return io.ReadAll(os.Stdin) }
 
 const (

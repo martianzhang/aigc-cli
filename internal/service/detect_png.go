@@ -16,6 +16,11 @@ import (
 //   - c2paData: raw bytes of the first C2PA-related custom chunk (caBX, C2PA, etc.)
 //
 // The reader must be at offset 0.
+// maxPNGTextBytes caps a decompressed tEXt/iTXt/zTXt chunk. PNG text chunks
+// are metadata (a few KB); the limit stops a crafted chunk from inflating into
+// gigabytes while scanning for C2PA/TC260 labels.
+const maxPNGTextBytes = 8 << 20
+
 func readPNGChunks(r io.Reader) (textChunks map[string]string, c2paData []byte) {
 	textChunks = make(map[string]string)
 
@@ -175,8 +180,8 @@ func parsePNGCompressedText(data []byte) (key, value string, ok bool) {
 		return "", "", false
 	}
 	defer rc.Close()
-	decompressed, err := io.ReadAll(rc)
-	if err != nil {
+	decompressed, err := io.ReadAll(io.LimitReader(rc, maxPNGTextBytes+1))
+	if err != nil || len(decompressed) > maxPNGTextBytes {
 		return "", "", false
 	}
 	return key, string(decompressed), true
@@ -222,8 +227,8 @@ func parsePNGInternationalText(data []byte) (key, value string, ok bool) {
 			return "", "", false
 		}
 		defer rc.Close()
-		decompressed, err := io.ReadAll(rc)
-		if err != nil {
+		decompressed, err := io.ReadAll(io.LimitReader(rc, maxPNGTextBytes+1))
+		if err != nil || len(decompressed) > maxPNGTextBytes {
 			return "", "", false
 		}
 		value = string(decompressed)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -41,7 +42,7 @@ func (c *Client) AudioSpeech(req *types.AudioSpeechRequest) ([]byte, string, err
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to read TTS response: %w", err)
 	}
@@ -120,7 +121,7 @@ func (c *Client) AudioTranscribeMultipart(model, filePath, language string) (*ty
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read STT response: %w", err)
 	}
