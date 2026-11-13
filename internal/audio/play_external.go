@@ -9,6 +9,7 @@
 package audio
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -54,7 +55,7 @@ func PlayAudioFile(path string) error {
 			continue
 		}
 		args := append(append([]string{}, p.args...), path)
-		if err := exec.Command(p.name, args...).Run(); err != nil {
+		if err := exec.CommandContext(context.Background(), p.name, args...).Run(); err != nil {
 			failures = append(failures, fmt.Sprintf("%s: %v", p.name, err))
 			continue
 		}

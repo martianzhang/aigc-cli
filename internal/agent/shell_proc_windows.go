@@ -3,6 +3,7 @@
 package agent
 
 import (
+	"context"
 	"os/exec"
 	"strconv"
 )
@@ -17,7 +18,7 @@ func killShellProcess(cmd *exec.Cmd) error {
 	if cmd.Process == nil {
 		return nil
 	}
-	killer := exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid))
+	killer := exec.CommandContext(context.Background(), "taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid))
 	if err := killer.Run(); err == nil {
 		return nil
 	}
