@@ -33,6 +33,7 @@ echo "hello" | aigc-cli -p "en to zh"
 消息顺序固定为：`--message` / `--prompt` → 位置参数 → 管道 stdin。
 
 > `--interactive` 不能和位置参数同时使用；需要交互模式时请用 `aigc-cli --interactive` 或不传消息。
+> 非 TTY 下不会进入 TUI：空 stdin 且没有 `-p/--message` 会直接报 `no input`，不会发起请求。
 
 ## 交互式多轮（默认）
 
@@ -704,6 +705,7 @@ aigc-cli chat --message "Hello"
 | `--no-auto-compact` | 关闭自动压缩；手动 `/compact` 仍然可用 |
 | `--no-stream` | 关闭流式输出，等待完整响应 |
 | `--interactive` | 强制进入交互式多轮模式 |
+| `--no-tui` | 不进入 TUI；必须提供 `-p/--message` 或管道输入，适合 agent/CI |
 | `--json` | JSON 输入（文件、字符串或 `-` 表示 stdin）；原样转发，显式 CLI 参数覆盖对应键，未建模字段（如 `reasoning_effort`、厂商私有键）原样保留 |
 | `--inject-json` | 在 CLI 生成的最终 body 上**追加合并**一段 JSON（对象递归合并、数组拼接、标量覆盖）；用于联网搜索等厂商私有参数，优先级高于 `--json` |
 | `--dry-run` | 打印真实端点与请求体的等价 curl，不调用 API |

@@ -46,6 +46,7 @@ echo "hello" | aigc-cli -p "en to zh"
 Message order is fixed: `--message` / `--prompt` → positional args → piped stdin.
 
 > `--interactive` cannot be combined with positional args; use `aigc-cli --interactive` without a message.
+> Without a TTY the TUI never opens: empty stdin plus no `-p/--message` fails with `no input` and sends no request.
 
 ## Interactive REPL
 
@@ -493,6 +494,7 @@ aigc-cli --interactive --yes
 | `--inject-json` | Merge a JSON object **on top of** the generated body (objects recurse, arrays append, scalars overwrite). Use it for vendor-only fields (native web search, reasoning, routing); takes precedence over `--json` | — |
 | `--dry-run` | Print the equivalent curl (real endpoint + body) without calling the API | — |
 | `--yes`, `-y` | Auto-approve confirm-gated tools in both the TUI and non-interactive mode | `false` |
+| `--no-tui` | Never open the TUI; require `-p/--message` or piped input (for agents/CI) | `false` |
 | `--save` | Start a new JSONL session | off |
 | `--session-dir` | Session directory | `~/.config/aigc-cli/sessions` |
 | `--session` | Resume a session by id or JSONL path (implies saving) | — |

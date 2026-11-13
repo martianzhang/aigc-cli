@@ -127,6 +127,7 @@ Flags:
       --no-proxy                 ignore http_proxy config and HTTP_PROXY / HTTPS_PROXY for this run (direct connection)
       --no-skills                Disable skills discovery and loading
       --no-stream                Disable streaming, wait for full response
+      --no-tui                   Never open the interactive TUI; require -p/--message or piped stdin
   -o, --output string            output directory for downloaded/generated files (default ".")
       --print-config             show effective configuration and exit
   -p, --prompt stringArray       Alias for --message (repeatable; an existing file path is read)

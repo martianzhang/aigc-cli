@@ -42,6 +42,9 @@ var (
 	chatJSONFlag               string
 	chatInteractive            bool
 	chatDryRun                 bool
+	// chatNoTUI disables the interactive TUI even when stdin/stdout are
+	// terminals. Agents running under a PTY use it to force single-turn mode.
+	chatNoTUI bool
 	// chatYes auto-approves confirm-gated tools in both TUI and non-interactive
 	// mode.
 	chatYes bool
@@ -146,6 +149,9 @@ func runChat(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if err := requireChatInput(req.Messages, chatInteractive, chatNoTUI); err != nil {
+		return err
+	}
 
 	// --dry-run is single-turn: a preview must never open the interactive TUI
 	// and must never create a session file.
@@ -166,8 +172,10 @@ func runChat(cmd *cobra.Command, args []string) error {
 
 	// Interactive REPL (TUI) when no --message and not --json. Piped stdin is
 	// non-interactive: it carries the message and flows through the agent loop
-	// below, same as --message.
-	if (!messageFlagChanged(cmd) || chatInteractive) && term.IsTerminal(int(os.Stdin.Fd())) {
+	// below, same as --message. --no-tui forces the same path for agents that
+	// run under a PTY.
+	if !chatNoTUI && (!messageFlagChanged(cmd) || chatInteractive) &&
+		term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) {
 		return runChatTUI(cmd)
 	}
 
@@ -229,6 +237,28 @@ func runChat(cmd *cobra.Command, args []string) error {
 	if options.Shared.Verbose && len(history) > len(req.Messages) {
 		added := len(history) - len(req.Messages)
 		fmt.Fprintf(cliutil.Stderr(), "Agent loop completed: %d additional messages accumulated (tool calls + responses)\n", added)
+	}
+	return nil
+}
+
+// requireChatInput rejects non-interactive invocations that have nothing to
+// send. A non-TTY stdin with no --message must fail fast instead of entering
+// the TUI, waiting for input, or sending an empty request.
+func requireChatInput(messages []types.ChatMessage, interactive, noTUI bool) error {
+	stdinTTY := chatStdinIsTerminal()
+	stdoutTTY := term.IsTerminal(int(os.Stdout.Fd()))
+
+	if interactive {
+		if !stdinTTY || !stdoutTTY {
+			return fmt.Errorf("--interactive requires a terminal\nHint: pass -p/--message for single-turn input, or pipe text on stdin")
+		}
+		return nil
+	}
+	if len(messages) > 0 {
+		return nil
+	}
+	if noTUI || !stdinTTY || !stdoutTTY {
+		return fmt.Errorf("no input: pass -p/--message, pipe text on stdin, or run 'aigc-cli chat --interactive'\nHint: aigc-cli chat -p \"hello\"")
 	}
 	return nil
 }
@@ -300,6 +330,7 @@ func registerFlags(f *pflag.FlagSet) {
 	f.BoolVar(&chatNoStream, "no-stream", false, "Disable streaming, wait for full response")
 	f.StringVar(&chatJSONFlag, "json", "", "JSON file, string, or \"-\" for stdin")
 	f.BoolVar(&chatInteractive, "interactive", false, "Enter interactive multi-turn chat mode")
+	f.BoolVar(&chatNoTUI, "no-tui", false, "Never open the interactive TUI; require -p/--message or piped stdin")
 	f.BoolVar(&chatDryRun, "dry-run", false, "Print the equivalent curl without calling the API")
 	f.BoolVarP(&chatYes, "yes", "y", false, "Auto-approve confirm-gated tools in both TUI and non-interactive mode")
 	f.StringVar(&chatSearchProvider, "search-provider", "", "Third-party vendor name for the web_search/web_fetch tools: duckduckgo/firecrawl/brave/doubao/deepseek/exa/wsa (overrides defaults.search.provider)")
