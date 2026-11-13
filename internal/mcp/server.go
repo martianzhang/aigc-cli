@@ -261,7 +261,9 @@ func NewServer(cfg *Config) *server.MCPServer {
 		if desc == "" {
 			desc = info.desc
 		}
-		s.AddTool(info.newTool(desc), info.handler(cfg))
+		tool := info.newTool(desc)
+		tool.Description = describeTool(info.name, tool.Description)
+		s.AddTool(tool, info.handler(cfg))
 	}
 
 	registerPrompts(s)
@@ -359,6 +361,15 @@ func ListTools(cfg *Config, mode string) {
 			}
 		}
 		ui.Printf("  %s %-24s  %s%s\n", mark, info.name, info.desc, note)
+		if showAll {
+			if doc, ok := toolDocs[info.name]; ok {
+				ui.Printf("        when:     %s\n", doc.When)
+				ui.Printf("        requires: %s\n", doc.Requires)
+				ui.Printf("        cost:     %s\n", doc.Cost)
+				ui.Printf("        returns:  %s\n", doc.Returns)
+				ui.Printf("        example:  %s\n", doc.Example)
+			}
+		}
 	}
 
 	if len(cfg.ToolsEnable) > 0 {
