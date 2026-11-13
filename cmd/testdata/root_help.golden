@@ -6,6 +6,14 @@ Generate images, videos and music, run Midjourney, chat with tools, search the
 web, fetch pages as Markdown, search prompt ideas and knowledge bases — or
 expose all of it to AI agents via MCP.
 
+Choose by task:
+  image / video / music / audio   generate or convert media
+  image --edit / upscale          edit, inpaint, or upscale an image
+  detect / preview --detail       inspect AIGC signals and metadata
+  ocr / redact                    extract text or remove PII
+  ideas / knowledgebase           search prompts or local documents
+  chat / mcp                      chat with tools or expose tools to an agent
+
 Chat is the default command when no subcommand is given: bare aigc-cli opens
 the interactive TUI, positional text sends a single message, and chat flags
 such as -p/--save/--session work without typing the "chat" subcommand.
