@@ -60,7 +60,7 @@ Examples:
   aigc-cli image --json request.json
   aigc-cli image --json '{"prompt":"a red fox","n":4}'
   aigc-cli image --edit --prompt "Change background to starry sky" --image-url photo.jpg
-  aigc-cli image --edit --model "grok-imagine-1.5-edit-apimart" --prompt "Cyberpunk style" --image-url img.png --n 2
+  aigc-cli image --edit --model "grok-imagine-1.5-edit-apimart" --prompt "Cyberpunk style" --image-url img.png -n 2
   aigc-cli image --decode --image-url image.txt
   aigc-cli image --decode --output-format png --image-url image.txt
   aigc-cli image --edit --decode --image-url image.txt --prompt "Make it cinematic"`,

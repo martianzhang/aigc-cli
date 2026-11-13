@@ -37,7 +37,7 @@ aigc-cli image < prompt.txt
 | `--frame-count` | | GIF 帧数 2-64（需 `--output-format gif`） | OpenAI 家族（GPT Image 2.6+） |
 | `--frame-duration-ms` | | GIF 每帧时长 20-2000ms，API 按 10ms 取整（需 `--output-format gif`） | OpenAI 家族（GPT Image 2.6+） |
 | `--compress` | `-z` | 压缩目标：`800KB`/`2MB`（目标大小）或 `85%`（固定 quality） | 通用 |
-| `--n` | | 生成数量 1-4 | 通用 |
+| `--number` | `-n` | 生成数量 1-4（旧写法 `--n` 仍兼容） | 通用 |
 | `--style` | | 风格：`vivid`、`natural`（OpenAI 专用） | OpenAI |
 | `--response-format` | | 响应格式：`url`、`b64_json` | OpenAI/OpenRouter/Agnes |
 | `--resolution` | `-r` | 分辨率档：`1k`、`2k`、`4k` | APIMart |
@@ -340,7 +340,7 @@ aigc-cli image --api-base "http://localhost:8080/v1" \
 aigc-cli image --base-url "https://openrouter.ai/api/v1" \
   --model "openai/dall-e-3" \
   --prompt "A cute cat" \
-  --n 2 \
+  -n 2 \
   --style vivid
 
 # 输出示例：
@@ -504,7 +504,7 @@ aigc-cli image --edit \
 aigc-cli image --edit \
   --prompt "转换成赛博朋克风格" \
   --image-url ./img.png \
-  --n 2
+  -n 2
 
 # 指定模型（不写默认 grok-imagine-1.5-edit-apimart）
 aigc-cli image --edit \
@@ -520,7 +520,7 @@ aigc-cli image --edit \
 | `--edit` 开关 | 不带则走普通文生图/图生图流程（OpenAI 家族仍会按域名自动走 multipart edits） |
 | `--image-url` | **必填**，至少 1 张源图 |
 | `--model` | APIMart 下不指定则默认 `grok-imagine-1.5-edit-apimart` |
-| `--n` | 1-10（普通模式 1-4） |
+| `--number` / `-n` | 1-10（普通模式 1-4） |
 | 模式 | APIMart：**强制异步**；OpenAI 家族：multipart 同步 |
 | size/quality 等 | APIMart 编辑模式下不适用，自动跳过 |
 | `--json` | 单独用=逐字透传走 generations；配合 `--edit` 时键值映射为 multipart 表单字段（文件用 `-i`） |

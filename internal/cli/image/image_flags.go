@@ -47,7 +47,10 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.IntVar(&genFrameDurMs, "frame-duration-ms", 0, "GIF frame delay in ms, 20-2000 (requires --output-format gif)")
 	f.StringVarP(&genCompress, "compress", "z", "", `Compress output: target size ("800KB", "2MB") or fixed quality ("85%")`)
 	f.IntVar(&genCompression, "output-compression", 0, "Output compression level 0-100 (jpeg/webp only) (APIMart only)")
-	f.IntVar(&genN, "n", 0, "Number of images to generate (1-4)")
+	f.IntVarP(&genN, "number", "n", 0, "Number of images to generate (1-4)")
+	// Legacy long spelling (`--n`) kept working; prefer --number/-n.
+	f.IntVar(&genN, "n", 0, "Alias for --number")
+	_ = f.MarkHidden("n")
 	f.StringArrayVarP(&genImageURLs, "image-url", "i", nil, "Image input: URL or local file path (repeatable)")
 	f.BoolVarP(&genDecode, "decode", "d", false, "Decode base64 text files (data URI / raw base64) in --image-url to real images; combine with --output-format to convert format")
 	f.StringVar(&genMaskURL, "mask-url", "", "Mask image URL for inpainting (APIMart only)")

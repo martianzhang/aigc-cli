@@ -59,7 +59,7 @@ func imageFlagOverlay(cmd *cobra.Command) (map[string]any, error) {
 	if f.Changed("frame-duration-ms") {
 		set["frame_duration_ms"] = genFrameDurMs
 	}
-	if f.Changed("n") {
+	if f.Changed("number") || f.Changed("n") {
 		set["n"] = genN
 	}
 	if f.Changed("image-url") {

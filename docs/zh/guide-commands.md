@@ -426,9 +426,9 @@ Error: unknown flag: --modle
 Did you mean --mode, --model?
 Run 'aigc-cli image --help' for usage and examples.
 
-$ aigc-cli image --n abc
-Error: invalid argument "abc" for "--n" flag: strconv.ParseInt: parsing "abc": invalid syntax
-Invalid value "abc" for --n: expected an integer, such as 1.
+$ aigc-cli image -n abc
+Error: invalid argument "abc" for "-n, --number" flag: strconv.ParseInt: parsing "abc": invalid syntax
+Invalid value "abc" for "-n, --number": expected an integer, such as 1.
 Run 'aigc-cli image --help' for usage and examples.
 ```
 

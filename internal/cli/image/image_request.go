@@ -88,7 +88,7 @@ func buildImageRequest(cmd *cobra.Command) (*types.GenerateRequest, error) {
 		v := genFrameDurMs
 		req.FrameDurationMs = &v
 	}
-	if cmd.Flags().Changed("n") {
+	if cmd.Flags().Changed("number") || cmd.Flags().Changed("n") {
 		v := genN
 		req.N = &v
 	}

@@ -71,6 +71,9 @@ func buildModelScopeImageBody(req *types.GenerateRequest) (map[string]any, error
 	if req.Size != "" {
 		body["size"] = req.Size
 	}
+	if req.N != nil {
+		body["n"] = *req.N
+	}
 	if len(req.ImageURLs) == 0 {
 		return body, nil
 	}
@@ -259,6 +262,9 @@ done:
 
 	if len(saved) == 0 {
 		return nil, fmt.Errorf("modelscope returned no images to save")
+	}
+	if req.N != nil && *req.N > len(saved) {
+		ui.Eprintf("Warning: requested %d images, provider returned %d (the model may cap n)\n", *req.N, len(saved))
 	}
 	postProcessImages(saved)
 	return saved, nil

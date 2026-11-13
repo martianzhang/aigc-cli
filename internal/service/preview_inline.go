@@ -103,15 +103,48 @@ func tryInlineImage(path string) bool {
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(payload)
-	// The payload already carries the preview pixel size, so no width/height
-	// argument is needed: the terminal draws it at its native size.
+	// Pass an explicit cell box: iTerm2 otherwise draws at the image's native
+	// pixel size, which on a HiDPI display can fill the window (and scroll the
+	// image, leaving blank rows below). The box is capped to the same 60%
+	// terminal budget used for the pixel resize, so both commands render the
+	// same file identically regardless of where the cursor is.
 	header := fmt.Sprintf("\033]1337;File=inline=1;preserveAspectRatio=1;mimeType=%s:", mime)
+	if cols, rows, ok := previewCellSize(payload); ok {
+		header = fmt.Sprintf("\033]1337;File=inline=1;preserveAspectRatio=1;width=%d;height=%d;mimeType=%s:", cols, rows, mime)
+	}
 	// Start on a fresh line before the protocol escape, so the image renders
 	// at a predictable position regardless of prior text output on stdout.
 	if _, err := fmt.Fprintf(previewInlineWriter, "\n%s%s\a\n", header, encoded); err != nil {
 		return false
 	}
 	return true
+}
+
+// previewCellSize returns the terminal cell box to request for an already
+// preview-sized payload. Cells are derived from the payload pixels (at the
+// same 8x16 estimate used for sizing) and capped to the 60% preview budget, so
+// a HiDPI terminal cannot draw the image larger than the intended area.
+func previewCellSize(payload []byte) (cols, rows int, ok bool) {
+	cfg, _, err := imgcodec.DecodeConfig(bytes.NewReader(payload))
+	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+		return 0, 0, false
+	}
+	cols = (cfg.Width + previewCellWidthPx - 1) / previewCellWidthPx
+	rows = (cfg.Height + previewCellHeightPx - 1) / previewCellHeightPx
+	maxCols, maxRows := previewCellBox()
+	if cols > maxCols {
+		cols = maxCols
+	}
+	if rows > maxRows {
+		rows = maxRows
+	}
+	if cols < 1 {
+		cols = 1
+	}
+	if rows < 1 {
+		rows = 1
+	}
+	return cols, rows, true
 }
 
 // buildInlinePayload returns the image bytes to embed in an inline-image escape
