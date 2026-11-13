@@ -303,40 +303,44 @@ func AssessSeedQuality(black, gray image.Image) SeedQuality {
 	}
 
 	// Background score
-	if bLum < 5 && gLum > 115 && gLum < 140 {
+	switch {
+	case bLum < 5 && gLum > 115 && gLum < 140:
 		q.BGScore = SeedGood
-	} else if bLum < 15 || (gLum > 100 && gLum < 160) {
+	case bLum < 15 || (gLum > 100 && gLum < 160):
 		q.BGScore = SeedWarn
-	} else {
+	default:
 		q.BGScore = SeedFail
 	}
 
 	// Gradient score
 	gradMag := math.Sqrt(gx*gx + gy*gy)
-	if gradMag < 0.01 {
+	switch {
+	case gradMag < 0.01:
 		q.GradientScore = SeedGood
-	} else if gradMag < 0.05 {
+	case gradMag < 0.05:
 		q.GradientScore = SeedWarn
-	} else {
+	default:
 		q.GradientScore = SeedFail
 	}
 
 	// Noise score (use larger of the two)
 	noise := maxFloat(bNoise, gNoise)
-	if noise < 5 {
+	switch {
+	case noise < 5:
 		q.NoiseScore = SeedGood
-	} else if noise < 15 {
+	case noise < 15:
 		q.NoiseScore = SeedWarn
-	} else {
+	default:
 		q.NoiseScore = SeedFail
 	}
 
 	// Signal score
-	if signalMax > 50 {
+	switch {
+	case signalMax > 50:
 		q.SignalScore = SeedGood
-	} else if signalMax > 20 {
+	case signalMax > 20:
 		q.SignalScore = SeedWarn
-	} else {
+	default:
 		q.SignalScore = SeedFail
 	}
 

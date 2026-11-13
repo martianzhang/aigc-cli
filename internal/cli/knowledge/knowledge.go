@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -190,7 +191,7 @@ func detectProject(cmd *cobra.Command) string {
 // "git@github.com:martianzhang/aigc-cli.git" → "github.com/martianzhang/aigc-cli"
 // "https://github.com/org/repo.git" → "github.com/org/repo"
 func gitProjectID() (string, error) {
-	cmd := exec.Command("git", "remote", "get-url", "origin")
+	cmd := exec.CommandContext(context.Background(), "git", "remote", "get-url", "origin")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

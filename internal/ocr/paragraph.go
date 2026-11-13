@@ -142,17 +142,18 @@ func paragraphParse(lines []OCRLine) string {
 			}
 		}
 
-		if upFlag && downFlag {
+		switch {
+		case upFlag && downFlag:
 			if float64(top-paras[i-1].units[len(paras[i-1].units)-1].y2) < float64(paras[i+1].units[0].y0-bottom) {
 				paras[i-1].units = append(paras[i-1].units, u)
 			} else {
 				paras[i+1].units = append([]*ppUnit{u}, paras[i+1].units...)
 			}
 			paras = append(paras[:i], paras[i+1:]...)
-		} else if upFlag {
+		case upFlag:
 			paras[i-1].units = append(paras[i-1].units, u)
 			paras = append(paras[:i], paras[i+1:]...)
-		} else if downFlag {
+		case downFlag:
 			paras[i+1].units = append([]*ppUnit{u}, paras[i+1].units...)
 			paras = append(paras[:i], paras[i+1:]...)
 		}

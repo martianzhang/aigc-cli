@@ -1,6 +1,7 @@
 package depth
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"os"
@@ -40,7 +41,7 @@ func probeVideo(input string, haveFFprobe bool) (*videoInfo, error) {
 		ui.Println("  (ffprobe not found; assuming 30 fps)")
 		return info, nil
 	}
-	out, err := exec.Command("ffprobe", "-v", "error",
+	out, err := exec.CommandContext(context.Background(), "ffprobe", "-v", "error",
 		"-select_streams", "v:0",
 		"-show_entries", "stream=width,height,r_frame_rate",
 		"-of", "csv=p=0", input).Output()
@@ -98,7 +99,7 @@ func extractFrames(input, tmpDir string, info *videoInfo, startTime, endTime str
 	if verbose {
 		ui.Printf("  ffmpeg %s\n", strings.Join(args, " "))
 	}
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.CommandContext(context.Background(), "ffmpeg", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("ffmpeg frame extraction failed: %w\n%s", err, string(out))
 	}
@@ -119,7 +120,7 @@ func encodeDepthVideo(tmpDir, outPath, inputPath string, info *videoInfo, startS
 	if verbose {
 		ui.Printf("  ffmpeg %s\n", strings.Join(args, " "))
 	}
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.CommandContext(context.Background(), "ffmpeg", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("ffmpeg encode failed: %w\n%s", err, string(out))
 	}
@@ -139,7 +140,7 @@ func encodeDepthVideo(tmpDir, outPath, inputPath string, info *videoInfo, startS
 	}
 	muxArgs = append(muxArgs, "-i", inputPath,
 		"-map", "0:v:0", "-map", "1:a:0?", "-c", "copy", "-shortest", outPath+".tmp.mp4")
-	if out, err := exec.Command("ffmpeg", muxArgs...).CombinedOutput(); err == nil {
+	if out, err := exec.CommandContext(context.Background(), "ffmpeg", muxArgs...).CombinedOutput(); err == nil {
 		if err := os.Rename(outPath+".tmp.mp4", outPath); err != nil {
 			return fmt.Errorf("replace video with muxed audio: %w", err)
 		}

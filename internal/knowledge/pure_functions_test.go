@@ -130,7 +130,7 @@ func TestModelFileZeroValue(t *testing.T) {
 
 func TestEmbedModelDir(t *testing.T) {
 	got := EmbedModelDir("/models")
-	want := filepath.Join("/models", EmbedModelID)
+	want := filepath.Join("/models", EmbedModelID) //nolint:gocritic // POSIX fixture path
 	if got != want {
 		t.Errorf("EmbedModelDir = %q, want %q", got, want)
 	}

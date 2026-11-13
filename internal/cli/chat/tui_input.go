@@ -183,7 +183,8 @@ func (m *chatModel) handleSuggestKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyEnter:
 		if msg.Alt {
-			return m, m.insertNewline()
+			next := m.insertNewline()
+			return m, next
 		}
 		text := strings.TrimSpace(m.input.Value())
 		if text == "" {
@@ -202,7 +203,8 @@ func (m *chatModel) handleSuggestKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.resolveConfirm(confirmDeny, "")
 		return m.cancelTurn()
 	}
-	return m, m.updateInput(msg)
+	next := m.updateInput(msg)
+	return m, next
 }
 
 // restoreDraft puts back the input-box text that the suggestion box replaced.
@@ -305,14 +307,16 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Move within a multi-line draft first; only step back into the command
 		// history from the very first line.
 		if !m.cursorOnFirstRow() {
-			return m, m.updateInput(msg)
+			next := m.updateInput(msg)
+			return m, next
 		}
 		return m.handleHistoryPrev()
 
 	case tea.KeyDown:
 		// Mirror of Up: move within the draft until the last line is reached.
 		if !m.cursorOnLastRow() {
-			return m, m.updateInput(msg)
+			next := m.updateInput(msg)
+			return m, next
 		}
 		return m.handleHistoryNext()
 
@@ -342,7 +346,8 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// submitting. Shift/Ctrl+Enter arrive here as Ctrl+J after
 		// modifiedEnterReader rewrites them.
 		if msg.Alt || m.altPending {
-			return m, m.insertNewline()
+			next := m.insertNewline()
+			return m, next
 		}
 		if m.busy || m.compacting {
 			// A turn is still running: the draft can be edited, but sending it
@@ -351,14 +356,16 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if strings.TrimSpace(m.input.Value()) == "" {
 				return m, nil
 			}
-			return m, m.insertNewline()
+			next := m.insertNewline()
+			return m, next
 		}
 		return m.handleSubmitInput()
 
 	case tea.KeyCtrlJ:
 		// Ctrl+J (= Ctrl+Enter, 0x0A line feed) → insert newline.
 		// Universally reliable on ALL terminals.
-		return m, m.insertNewline()
+		next := m.insertNewline()
+		return m, next
 
 	default:
 		// Reset completion cycle on any regular key press
@@ -374,9 +381,11 @@ func (m *chatModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// terminal is in raw mode. Running out of words simply means "go to the
 		// start of the draft", so place the cursor there ourselves.
 		if key.Matches(msg, m.input.KeyMap.WordBackward) && m.onlyWhitespaceBeforeCursor() {
-			return m, m.moveInputToBegin()
+			next := m.moveInputToBegin()
+			return m, next
 		}
-		return m, m.updateInput(msg)
+		next := m.updateInput(msg)
+		return m, next
 	}
 }
 

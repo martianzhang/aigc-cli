@@ -238,7 +238,7 @@ func TestSetOpenRouterHeaders_envNotSet(t *testing.T) {
 	os.Unsetenv("OPENAI_APP_TITLE")
 
 	c := New("test-key", "https://openrouter.ai/api/v1", "")
-	req, _ := http.NewRequest("GET", "https://example.com", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com", nil)
 	c.setOpenRouterHeaders(req)
 
 	// When env vars are not set, built-in defaults should apply.
@@ -262,7 +262,7 @@ func TestSetOpenRouterHeaders_envSet(t *testing.T) {
 	}()
 
 	c := New("test-key", "https://openrouter.ai/api/v1", "")
-	req, _ := http.NewRequest("GET", "https://example.com", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com", nil)
 	c.setOpenRouterHeaders(req)
 
 	if req.Header.Get("HTTP-Referer") != "https://myapp.com" {

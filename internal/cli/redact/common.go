@@ -412,7 +412,8 @@ func buildPipeline(f buildFlags) (*redactlib.Pipeline, *redactlib.MaskResolver, 
 		default:
 			return nil, nil, fmt.Errorf("unknown model engine %q (want auto, chatner or tokencls)", mode)
 		}
-		if useTokencls {
+		switch {
+		case useTokencls:
 			if tcCfg == nil {
 				tcCfg = &types.RedactTokenclsConfig{}
 			}
@@ -440,11 +441,11 @@ func buildPipeline(f buildFlags) (*redactlib.Pipeline, *redactlib.MaskResolver, 
 			} else {
 				engines = append(engines, eng)
 			}
-		} else if p == nil || p.BaseURL == "" {
+		case p == nil || p.BaseURL == "":
 			if engine == "model" {
 				return nil, nil, fmt.Errorf("engine=model requires a provider; set defaults.redact.provider or pass --provider")
 			}
-		} else {
+		default:
 			if !f.allowRemote && !provider.IsLocalEndpoint(p.BaseURL) {
 				return nil, nil, fmt.Errorf("model endpoint %s is not loopback; pass --allow-remote only if sending original text is acceptable", p.BaseURL)
 			}

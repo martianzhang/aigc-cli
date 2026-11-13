@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -9,7 +10,7 @@ func TestSetAttribution_OpenRouter(t *testing.T) {
 	t.Setenv("OPENAI_REFERER", "")
 	t.Setenv("OPENAI_APP_TITLE", "")
 
-	req, _ := http.NewRequest(http.MethodPost, "https://openrouter.ai/api/v1/chat/completions", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://openrouter.ai/api/v1/chat/completions", nil)
 	SetAttribution(req, "https://openrouter.ai/api/v1")
 
 	if got := req.Header.Get(HeaderReferer); got != DefaultReferer {
@@ -30,7 +31,7 @@ func TestSetAttribution_NonOpenRouter(t *testing.T) {
 	t.Setenv("OPENAI_REFERER", "")
 	t.Setenv("OPENAI_APP_TITLE", "")
 
-	req, _ := http.NewRequest(http.MethodPost, "https://api.openai.com/v1/chat/completions", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://api.openai.com/v1/chat/completions", nil)
 	SetAttribution(req, "https://api.openai.com/v1")
 
 	if got := req.Header.Get(HeaderReferer); got != "" {
@@ -51,7 +52,7 @@ func TestSetAttribution_EnvOverride(t *testing.T) {
 	t.Setenv("OPENAI_REFERER", "https://myapp.com")
 	t.Setenv("OPENAI_APP_TITLE", "MyApp")
 
-	req, _ := http.NewRequest(http.MethodPost, "https://openrouter.ai/api/v1/chat/completions", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://openrouter.ai/api/v1/chat/completions", nil)
 	SetAttribution(req, "https://openrouter.ai/api/v1")
 
 	if got := req.Header.Get(HeaderReferer); got != "https://myapp.com" {

@@ -174,7 +174,7 @@ func joinLine(spans []gopdf.TextSpan) string {
 
 // dominantFontSize returns the font size with the most characters.
 func dominantFontSize(spans []gopdf.TextSpan) float64 {
-	freq := make(map[int]int) // bucket = fontSize * 2
+	freq := make(map[int]int) // key is fontSize times 2
 	for _, s := range spans {
 		text := strings.TrimSpace(s.Text)
 		if text == "" {

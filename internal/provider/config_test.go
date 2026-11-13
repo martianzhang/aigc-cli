@@ -2,6 +2,7 @@ package provider
 
 import (
 	"cmp"
+	"context"
 	"net/http"
 	"testing"
 
@@ -326,7 +327,7 @@ func TestNewTransport_usesProxyWhenNotDirect(t *testing.T) {
 	if tr.Proxy == nil {
 		t.Fatal("NewTransport should install a Proxy func when a URL is configured")
 	}
-	req, _ := http.NewRequest("GET", "https://example.com", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com", nil)
 	u, err := tr.Proxy(req)
 	if err != nil {
 		t.Fatalf("Proxy() error: %v", err)

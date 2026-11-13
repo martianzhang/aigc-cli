@@ -3,12 +3,13 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"maps"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )

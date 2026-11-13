@@ -5,6 +5,7 @@
 package pdf
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -332,7 +333,7 @@ func renderPages(pdfPath, outputDir string, pageNums []string, dpi int) ([]strin
 		args = append(args, pageNums...)
 	}
 
-	cmd := exec.Command(mutoolPath, args...)
+	cmd := exec.CommandContext(context.Background(), mutoolPath, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("mutool draw: %w: %s", err, strings.TrimSpace(string(out)))
 	}

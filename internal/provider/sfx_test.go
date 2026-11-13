@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"mime"
@@ -261,7 +262,7 @@ func TestDoSFXRequestHonorsProviderTimeout(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	req, err := http.NewRequest(http.MethodPost, srv.URL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL, nil)
 	if err != nil {
 		t.Fatalf("NewRequest() error = %v", err)
 	}

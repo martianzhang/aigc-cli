@@ -1,6 +1,7 @@
 package gif
 
 import (
+	"context"
 	"image"
 	_ "image/gif" // 注册 GIF 解码器，供 image.Decode 使用
 	"os"
@@ -32,7 +33,7 @@ func TestConvertIntegration(t *testing.T) {
 	// 用 ffmpeg 自生成一张测试用短视频（纯色，1 秒 6 帧）。
 	dir := t.TempDir()
 	in := filepath.Join(dir, "in.mp4")
-	if err := exec.Command("ffmpeg", "-y",
+	if err := exec.CommandContext(context.Background(), "ffmpeg", "-y",
 		"-f", "lavfi", "-i", "color=c=red:s=64x64:d=1:r=6",
 		"-pix_fmt", "yuv420p", in).Run(); err != nil {
 		t.Fatalf("failed to generate test video: %v", err)
@@ -61,7 +62,7 @@ func TestConvertCropMargin(t *testing.T) {
 	}
 	dir := t.TempDir()
 	in := filepath.Join(dir, "in.mp4")
-	if err := exec.Command("ffmpeg", "-y",
+	if err := exec.CommandContext(context.Background(), "ffmpeg", "-y",
 		"-f", "lavfi", "-i", "color=c=red:s=64x64:d=1:r=6",
 		"-pix_fmt", "yuv420p", in).Run(); err != nil {
 		t.Fatalf("failed to generate test video: %v", err)
@@ -92,7 +93,7 @@ func TestConvertCropMarginTooLarge(t *testing.T) {
 	}
 	dir := t.TempDir()
 	in := filepath.Join(dir, "in.mp4")
-	if err := exec.Command("ffmpeg", "-y",
+	if err := exec.CommandContext(context.Background(), "ffmpeg", "-y",
 		"-f", "lavfi", "-i", "color=c=red:s=64x64:d=1:r=6",
 		"-pix_fmt", "yuv420p", in).Run(); err != nil {
 		t.Fatalf("failed to generate test video: %v", err)

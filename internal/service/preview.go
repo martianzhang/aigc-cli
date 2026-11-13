@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -95,11 +96,11 @@ func openSystemDefault(path string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", path)
+		cmd = exec.CommandContext(context.Background(), "open", path)
 	case "linux":
-		cmd = exec.Command("xdg-open", path)
+		cmd = exec.CommandContext(context.Background(), "xdg-open", path)
 	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", path)
+		cmd = exec.CommandContext(context.Background(), "cmd", "/c", "start", "", path)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}

@@ -30,7 +30,7 @@ func listModelsHandler() server.ToolHandlerFunc {
 		// The list_models tool is backed by APIMart's public marketplace: that
 		// endpoint is APIMart-specific, so pin it explicitly instead of relying
 		// on a global default API base.
-		models, err := fetchModels("https://api.apimart.ai", mediaType, "")
+		models, err := fetchModels(ctx, "https://api.apimart.ai", mediaType, "")
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to fetch models: %v", err)), nil
 		}
@@ -81,8 +81,12 @@ func getModelPricingHandler() server.ToolHandlerFunc {
 		url := fmt.Sprintf("%s/api/pricing/model?model=%s", baseURL, url.QueryEscape(modelName))
 
 		var result types.ModelPricingResponse
-		// Use simple HTTP call since pricing doesn't need auth
-		resp, err := http.DefaultClient.Get(url)
+		// Use simple HTTP call since pricing doesn't need auth.
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to build pricing request: %v", err)), nil
+		}
+		resp, err := http.DefaultClient.Do(httpReq)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to fetch pricing: %v", err)), nil
 		}
@@ -274,7 +278,7 @@ func handleMCPGetAPIMartTask(c client.APIClient, taskID, outputDir string) (*mcp
 }
 
 // fetchModels gets models from the marketplace API.
-func fetchModels(baseURL, mediaType, _ string) ([]types.MarketplaceModel, error) {
+func fetchModels(ctx context.Context, baseURL, mediaType, _ string) ([]types.MarketplaceModel, error) {
 	if baseURL == "" {
 		return nil, fmt.Errorf("marketplace base URL is required")
 	}
@@ -294,7 +298,11 @@ func fetchModels(baseURL, mediaType, _ string) ([]types.MarketplaceModel, error)
 			u += "&type=" + mediaType
 		}
 
-		resp, err := c.Get(u)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build models request (page %d): %w", page, err)
+		}
+		resp, err := c.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch models (page %d): %w", page, err)
 		}

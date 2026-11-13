@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )

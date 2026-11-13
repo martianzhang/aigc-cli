@@ -1,6 +1,7 @@
 package netguard
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/url"
@@ -127,7 +128,7 @@ func TestNewGuardedClient(t *testing.T) {
 }
 
 func TestCheckRedirect(t *testing.T) {
-	publicReq, err := http.NewRequest("GET", "http://93.184.216.34/", nil)
+	publicReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://93.184.216.34/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +136,7 @@ func TestCheckRedirect(t *testing.T) {
 		t.Errorf("checkRedirect(public) = %v, want nil", err)
 	}
 
-	blockedReq, err := http.NewRequest("GET", "http://127.0.0.1/", nil)
+	blockedReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://127.0.0.1/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -75,11 +75,9 @@ func tokenizeFTS(q string) []string {
 		case ' ', '\t', '\n':
 			if inQuote {
 				buf.WriteRune(r)
-			} else {
-				if buf.Len() > 0 {
-					terms = append(terms, buf.String())
-					buf.Reset()
-				}
+			} else if buf.Len() > 0 {
+				terms = append(terms, buf.String())
+				buf.Reset()
 			}
 		default:
 			buf.WriteRune(r)
@@ -177,13 +175,13 @@ func (s *Store) Search(query string, limit int, project string) (SearchResults, 
 				if vr.Score > existing.score {
 					existing.score = vr.Score + 0.2
 				} else {
-					existing.score = existing.score + 0.2
+					existing.score += 0.2
 				}
 			} else {
 				if s.minScore > 0 && vr.Score < s.minScore {
 					continue
 				}
-				vr.Score = vr.Score * 0.5
+				vr.Score *= 0.5
 				chunkMap[vr.Chunk.ID] = &scored{result: vr, score: vr.Score}
 			}
 		}

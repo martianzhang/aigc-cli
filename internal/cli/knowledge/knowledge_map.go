@@ -238,7 +238,7 @@ func resolveURL(base, href string) (string, error) {
 
 // findURLInStore checks if a URL already exists in the store and returns its doc ID.
 func findURLInStore(store *knowledge.Store, targetURL string) (string, error) {
-	rows, err := store.DB().Query("SELECT id FROM documents WHERE url=?", targetURL)
+	rows, err := store.DB().QueryContext(options.Context(), "SELECT id FROM documents WHERE url=?", targetURL)
 	if err != nil {
 		return "", err
 	}

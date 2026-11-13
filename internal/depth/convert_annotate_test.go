@@ -1,6 +1,7 @@
 package depth
 
 import (
+	"context"
 	"image"
 	"os"
 	"os/exec"
@@ -29,7 +30,7 @@ func TestConvertAnnotateCallback(t *testing.T) {
 	tmp := t.TempDir()
 	src := filepath.Join(tmp, "src.mp4")
 	// 生成 1 秒 10fps 的纯色测试视频。
-	cmd := exec.Command("ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=blue:s=128x72:d=1:r=10", "-c:v", "libx264", "-pix_fmt", "yuv420p", src)
+	cmd := exec.CommandContext(context.Background(), "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=blue:s=128x72:d=1:r=10", "-c:v", "libx264", "-pix_fmt", "yuv420p", src)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("ffmpeg gen: %v\n%s", err, out)
 	}
@@ -73,7 +74,7 @@ func TestConvertAnnotateCallback(t *testing.T) {
 
 	// 输出视频首帧应为红色（标注帧），验证替换生效。
 	frame := filepath.Join(tmp, "frame.png")
-	cmd = exec.Command("ffmpeg", "-y", "-i", outPath, "-frames:v", "1", frame)
+	cmd = exec.CommandContext(context.Background(), "ffmpeg", "-y", "-i", outPath, "-frames:v", "1", frame)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("ffmpeg extract: %v\n%s", err, out)
 	}

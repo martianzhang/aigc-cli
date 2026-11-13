@@ -64,12 +64,12 @@ func NewTokenClassifier(cfg *types.RedactTokenclsConfig, modelsDir string) (*Tok
 		dir = filepath.Join(modelsDir, "redact", name)
 	}
 	modelPath := filepath.Join(dir, "model.onnx")
-	if _, err := os.Stat(modelPath); err != nil {
+	if _, err := os.Stat(modelPath); err != nil { // #nosec G703 -- model path comes from local config
 		return nil, fmt.Errorf("tokencls model not found at %s: %w", modelPath, err)
 	}
 	cfgPath := filepath.Join(dir, "config.json")
 	tokPath := filepath.Join(dir, "tokenizer.json")
-	cfgData, err := os.ReadFile(cfgPath)
+	cfgData, err := os.ReadFile(cfgPath) // #nosec G703 -- model path comes from local config
 	if err != nil {
 		return nil, fmt.Errorf("read tokencls config: %w", err)
 	}

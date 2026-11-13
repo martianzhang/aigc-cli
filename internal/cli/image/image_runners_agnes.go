@@ -78,7 +78,8 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 
 	var saved []string
 	for i, img := range syncResp.Data {
-		if img.B64JSON != "" {
+		switch {
+		case img.B64JSON != "":
 			filename, err := service.SaveBase64Image(options.Shared.OutputDir, taskID, img.B64JSON, i)
 			if err != nil {
 				ui.Eprintf("Warning: failed to save image %d: %v\n", i, err)
@@ -86,7 +87,7 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 			}
 			ui.Printf("Image %d: %s\n", i+1, filename)
 			saved = append(saved, filename)
-		} else if img.URL != "" {
+		case img.URL != "":
 			filename, err := service.DownloadFile(img.URL, options.Shared.OutputDir, fmt.Sprintf("%s_%d", taskID, i))
 			if err != nil {
 				ui.Eprintf("Warning: failed to download image %d: %v\n", i, err)
@@ -94,7 +95,7 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 			}
 			ui.Printf("Image %d: %s\n", i+1, filename)
 			saved = append(saved, filename)
-		} else {
+		default:
 			ui.Printf("Image %d: <no data>\n", i+1)
 			continue
 		}

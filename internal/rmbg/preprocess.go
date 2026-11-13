@@ -87,11 +87,12 @@ func Preprocess(img image.Image, targetSize int) []float32 {
 func Sigmoid(data []float32) []float32 {
 	out := make([]float32, len(data))
 	for i, v := range data {
-		if v < -20 {
+		switch {
+		case v < -20:
 			out[i] = 0
-		} else if v > 20 {
+		case v > 20:
 			out[i] = 1
-		} else {
+		default:
 			out[i] = 1.0 / (1.0 + float32(math.Exp(float64(-v))))
 		}
 	}

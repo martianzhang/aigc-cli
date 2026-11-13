@@ -68,7 +68,7 @@ func TestDownloadTokenclsFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, body := range files {
-		got, err := os.ReadFile(filepath.Join(dir, strings.TrimPrefix(name, "/")))
+		got, err := os.ReadFile(filepath.Join(dir, strings.TrimPrefix(name, "/"))) //nolint:gocritic // POSIX fixture path
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -133,7 +133,7 @@ func TestInstallTokenclsModelInfo(t *testing.T) {
 	if err := installTokenclsModelInfo(&out, &progress, info, root, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(root, "redact/test/model.onnx")); err != nil {
+	if _, err := os.Stat(filepath.Join(root, "redact/test/model.onnx")); err != nil { //nolint:gocritic // fixture path
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Source:   https://example.com/upstream") ||

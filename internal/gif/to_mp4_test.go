@@ -1,6 +1,7 @@
 package gif
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,8 +15,8 @@ func TestDefaultMP4Output(t *testing.T) {
 		input string
 		want  string
 	}{
-		{name: "gif in dir", input: "/tmp/anim.gif", want: filepath.Join("/tmp", "anim.mp4")},
-		{name: "mov in dir", input: "/tmp/clip.mov", want: filepath.Join("/tmp", "clip.mp4")},
+		{name: "gif in dir", input: "/tmp/anim.gif", want: filepath.Join("/tmp", "anim.mp4")}, //nolint:gocritic // POSIX fixture path
+		{name: "mov in dir", input: "/tmp/clip.mov", want: filepath.Join("/tmp", "clip.mp4")}, //nolint:gocritic // POSIX fixture path
 		{name: "plain name", input: "clip.webm", want: "clip.mp4"},
 	}
 	for _, tt := range tests {
@@ -64,7 +65,7 @@ func TestToMP4RejectsMP4Input(t *testing.T) {
 	}
 	dir := t.TempDir()
 	in := filepath.Join(dir, "clip.mp4")
-	if err := exec.Command("ffmpeg", "-y",
+	if err := exec.CommandContext(context.Background(), "ffmpeg", "-y",
 		"-f", "lavfi", "-i", "color=c=red:s=64x64:d=1:r=6",
 		"-pix_fmt", "yuv420p", in).Run(); err != nil {
 		t.Fatalf("failed to generate test video: %v", err)
@@ -88,7 +89,7 @@ func TestToMP4IntegrationGIF(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "anim.gif")
 	// 64x63：奇数高度，覆盖"去奇"路径。
-	if err := exec.Command("ffmpeg", "-y",
+	if err := exec.CommandContext(context.Background(), "ffmpeg", "-y",
 		"-f", "lavfi", "-i", "color=c=red:s=64x63:d=1:r=6", in).Run(); err != nil {
 		t.Fatalf("failed to generate test gif: %v", err)
 	}
@@ -127,7 +128,7 @@ func TestToMP4KeepsAudio(t *testing.T) {
 	}
 	dir := t.TempDir()
 	in := filepath.Join(dir, "clip.mov")
-	if err := exec.Command("ffmpeg", "-y",
+	if err := exec.CommandContext(context.Background(), "ffmpeg", "-y",
 		"-f", "lavfi", "-i", "color=c=blue:s=64x64:d=1:r=6",
 		"-f", "lavfi", "-i", "sine=frequency=440:duration=1",
 		"-c:v", "libx264", "-c:a", "aac", "-shortest", in).Run(); err != nil {
@@ -138,7 +139,7 @@ func TestToMP4KeepsAudio(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToMP4 failed: %v", err)
 	}
-	probe, err := exec.Command("ffprobe", "-v", "error",
+	probe, err := exec.CommandContext(context.Background(), "ffprobe", "-v", "error",
 		"-select_streams", "a",
 		"-show_entries", "stream=codec_type",
 		"-of", "csv=p=0", out).Output()

@@ -2,6 +2,7 @@ package models
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -426,7 +427,11 @@ func trimPrice(v float64) string {
 
 // fetchOpenRouterModels performs the GET and normalizes transport/HTTP errors.
 func fetchOpenRouterModels(endpoint string) ([]byte, error) {
-	resp, err := modelsHTTPClient().Get(endpoint)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build models request: %w", err)
+	}
+	resp, err := modelsHTTPClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}

@@ -1,6 +1,7 @@
 package depth
 
 import (
+	"context"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -51,7 +52,7 @@ func perfCoreCount() int {
 	if runtime.GOOS != "darwin" {
 		return 0
 	}
-	out, err := exec.Command("sysctl", "-n", "hw.perflevel0.logicalcpu").Output()
+	out, err := exec.CommandContext(context.Background(), "sysctl", "-n", "hw.perflevel0.logicalcpu").Output()
 	if err != nil {
 		return 0
 	}

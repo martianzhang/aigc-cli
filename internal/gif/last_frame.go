@@ -1,6 +1,7 @@
 package gif
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -39,7 +40,7 @@ func ExtractLastFrame(opts ExtractLastFrameOptions) (string, error) {
 
 	ui.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
 
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.CommandContext(context.Background(), "ffmpeg", args...)
 	if outBuf, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("ffmpeg last-frame extraction failed: %w\n%s", err, string(outBuf))
 	}

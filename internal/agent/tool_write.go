@@ -67,7 +67,7 @@ func EditFile(argsJSON string) string {
 	}
 
 	updated := strings.Replace(content, args.OldString, args.NewString, 1)
-	if err := os.WriteFile(args.Filepath, []byte(updated), 0o644); err != nil {
+	if err := os.WriteFile(args.Filepath, []byte(updated), 0o644); err != nil { // #nosec G703 -- agent file tool writes the user-supplied path by design
 		return fmt.Sprintf("Error: cannot write %s: %v", args.Filepath, err)
 	}
 	return fmt.Sprintf("Edited %s", args.Filepath)

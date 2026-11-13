@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,7 +26,7 @@ type imageSpan struct {
 
 // markdownImageRe matches `![alt](url)` and `![alt](<url>)` for http(s) URLs.
 // Group 1 is the angle-bracket form, group 2 the plain form.
-var markdownImageRe = regexp.MustCompile(`!\[[^\]\r\n]*\]\(\s*(?:<(https?://[^>\r\n]+)>|(https?://[^\s)\r\n]+))`)
+var markdownImageRe = regexp.MustCompile(`!\[[^\]\r\n]*\]\(\s*(?:<(https?://[^>\r\n]+)>|(https?://[^\s)]+))`)
 
 // htmlImageRe matches `src="http…"` / `src='http…'` on <img> tags. RE2 has no
 // backreferences, so each quote style is its own group.
@@ -161,7 +162,11 @@ func fetchImage(client *http.Client, rawURL string) ([]byte, error) {
 
 // downloadImage performs one GET and reports whether the failure is transient.
 func downloadImage(client *http.Client, rawURL string) ([]byte, bool, error) {
-	resp, err := client.Get(rawURL)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, false, err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, true, err
 	}

@@ -33,8 +33,8 @@ func TestComputeCropBounds(t *testing.T) {
 				{X: 1800, Y: 1000, W: 100, H: 60, Confidence: 0.8},
 			},
 			wantValid: true,
-			wantW:     1790, // minX - margin = 1800 - 10
-			wantH:     990,  // minY - margin = 1000 - 10
+			wantW:     1790, // minX minus margin (1800 - 10)
+			wantH:     990,  // minY minus margin (1000 - 10)
 		},
 		{
 			name: "bottom-left corner watermark",
@@ -44,8 +44,8 @@ func TestComputeCropBounds(t *testing.T) {
 				{X: 20, Y: 1000, W: 100, H: 60, Confidence: 0.8},
 			},
 			wantValid: true,
-			wantW:     1790, // imgW - (maxX + margin) = 1920 - 130
-			wantH:     990,  // minY - margin = 1000 - 10
+			wantW:     1790, // imgW minus (maxX + margin), 1920 - 130
+			wantH:     990,  // minY minus margin (1000 - 10)
 		},
 		{
 			name: "top-right corner watermark",
@@ -55,8 +55,8 @@ func TestComputeCropBounds(t *testing.T) {
 				{X: 1800, Y: 20, W: 100, H: 60, Confidence: 0.8},
 			},
 			wantValid: true,
-			wantW:     1790, // minX - margin = 1800 - 10
-			wantH:     990,  // imgH - (maxY + margin) = 1080 - 90
+			wantW:     1790, // minX minus margin (1800 - 10)
+			wantH:     990,  // imgH minus (maxY + margin), 1080 - 90
 		},
 		{
 			name: "top-left corner watermark",
@@ -66,8 +66,8 @@ func TestComputeCropBounds(t *testing.T) {
 				{X: 20, Y: 20, W: 100, H: 60, Confidence: 0.8},
 			},
 			wantValid: true,
-			wantW:     1790, // imgW - (maxX + margin) = 1920 - 130
-			wantH:     990,  // imgH - (maxY + margin) = 1080 - 90
+			wantW:     1790, // imgW minus (maxX + margin), 1920 - 130
+			wantH:     990,  // imgH minus (maxY + margin), 1080 - 90
 		},
 		{
 			name: "center watermark returns invalid",
@@ -92,8 +92,8 @@ func TestComputeCropBounds(t *testing.T) {
 				{X: 0, Y: 1023, W: 160, H: 129, Confidence: 0.51},
 			},
 			wantValid: true,
-			wantW:     725,  // minX - margin = 735 - 10
-			wantH:     1013, // minY - margin = 1023 - 10
+			wantW:     725,  // minX minus margin (735 - 10)
+			wantH:     1013, // minY minus margin (1023 - 10)
 		},
 		{
 			name: "multiple regions merged",

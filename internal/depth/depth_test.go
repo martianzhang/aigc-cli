@@ -171,7 +171,7 @@ func TestResolveModel(t *testing.T) {
 		t.Fatal("ResolveModel(bogus) should return ok=false")
 	}
 	// ModelPath falls back to default for unknown IDs.
-	wantFallback := filepath.Join("/models", "depth", "depth-anything-v2-small.onnx")
+	wantFallback := filepath.Join("/models", "depth", "depth-anything-v2-small.onnx") //nolint:gocritic // POSIX fixture path
 	if got := ModelPath("/models", "bogus"); got != wantFallback {
 		t.Errorf("ModelPath fallback = %q, want %q", got, wantFallback)
 	}

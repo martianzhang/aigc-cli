@@ -320,11 +320,12 @@ func (e *Engine) dpWordSplit(text string) string {
 			score := dp[j] + wordPenalty
 			lower := strings.ToLower(word)
 
-			if e.isKnownWord(word) || (len(word) >= 3 && e.wsWordSet[lower]) {
+			switch {
+			case e.isKnownWord(word) || (len(word) >= 3 && e.wsWordSet[lower]):
 				score += float64(len(word)) * float64(len(word))
-			} else if isAllDigitsOrPunct(word) {
+			case isAllDigitsOrPunct(word):
 				score += float64(len(word)) * float64(len(word)) * 0.5
-			} else {
+			default:
 				score += float64(len(word)) * penaltyPerChar
 			}
 

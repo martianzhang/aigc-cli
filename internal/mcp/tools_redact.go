@@ -177,7 +177,8 @@ func (cfg *Config) redactPipeline(req mcp.CallToolRequest) (*redactlib.Pipeline,
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		if useTokencls {
+		switch {
+		case useTokencls:
 			eng, err := cfg.tokenclsEngine(redactCfg, p)
 			switch {
 			case err == nil:
@@ -185,11 +186,11 @@ func (cfg *Config) redactPipeline(req mcp.CallToolRequest) (*redactlib.Pipeline,
 			case engine == "model":
 				return nil, nil, nil, err
 			}
-		} else if p == nil || p.BaseURL == "" {
+		case p == nil || p.BaseURL == "":
 			if engine == "model" {
 				return nil, nil, nil, fmt.Errorf("engine=model requires a provider; set defaults.redact.provider or pass provider")
 			}
-		} else {
+		default:
 			if !req.GetBool("allow_remote", false) && !provider.IsLocalEndpoint(p.BaseURL) {
 				return nil, nil, nil, fmt.Errorf("model endpoint %s is not loopback; pass allow_remote=true only if sending original text is acceptable", p.BaseURL)
 			}

@@ -5,10 +5,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 
 	"github.com/martianzhang/aigc-cli/internal/jsonmerge"
 	"github.com/martianzhang/aigc-cli/internal/types"
@@ -371,11 +372,9 @@ func (c *Client) handleResponsesSSE(resp *http.Response, w io.Writer) (*types.Ch
 					if fc, ok := funcCalls[event.ItemID]; ok {
 						fc.arguments += event.Delta
 						lastFuncCallID = event.ItemID
-					} else {
-						// Unknown item_id: append to last seen function_call
-						if lastFuncCallID != "" {
-							funcCalls[lastFuncCallID].arguments += event.Delta
-						}
+					} else if lastFuncCallID != "" {
+						// Unknown item_id: append to last seen function_call.
+						funcCalls[lastFuncCallID].arguments += event.Delta
 					}
 				} else if lastFuncCallID != "" && funcCalls != nil {
 					funcCalls[lastFuncCallID].arguments += event.Delta

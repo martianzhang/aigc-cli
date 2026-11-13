@@ -1,6 +1,7 @@
 package gif
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,9 +14,9 @@ func TestDefaultCropOutput(t *testing.T) {
 		input string
 		want  string
 	}{
-		{name: "mp4 in dir", input: "/tmp/org.mp4", want: filepath.Join("/tmp", "org_crop.mp4")},
+		{name: "mp4 in dir", input: "/tmp/org.mp4", want: filepath.Join("/tmp", "org_crop.mp4")}, //nolint:gocritic // POSIX fixture path
 		{name: "plain name", input: "clip.mov", want: "clip_crop.mov"},
-		{name: "no extension", input: "dir/raw", want: filepath.Join("dir", "raw_crop")},
+		{name: "no extension", input: "dir/raw", want: filepath.Join("dir", "raw_crop")}, //nolint:gocritic // POSIX fixture path
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -33,7 +34,7 @@ func TestCropVideoIntegration(t *testing.T) {
 	}
 	dir := t.TempDir()
 	in := filepath.Join(dir, "in.mp4")
-	if err := exec.Command("ffmpeg", "-y",
+	if err := exec.CommandContext(context.Background(), "ffmpeg", "-y",
 		"-f", "lavfi", "-i", "color=c=red:s=640x360:d=1:r=6",
 		"-pix_fmt", "yuv420p", in).Run(); err != nil {
 		t.Fatalf("failed to generate test video: %v", err)

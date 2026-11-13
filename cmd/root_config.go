@@ -87,13 +87,14 @@ func runPrintConfig(cmd *cobra.Command) {
 	var configNote, proxyNote string
 
 	// Config file path
-	if shared.CfgFile != "" {
+	switch {
+	case shared.CfgFile != "":
 		if configFound {
 			configNote = fmt.Sprintf("# config: %s (explicit)", shared.CfgFile)
 		} else {
 			configNote = fmt.Sprintf("# config: %s (explicit, not found)", shared.CfgFile)
 		}
-	} else if configFound {
+	case configFound:
 		if cfg != nil {
 			home, _ := os.UserHomeDir()
 			candidates := []string{
@@ -109,7 +110,7 @@ func runPrintConfig(cmd *cobra.Command) {
 		if configNote == "" {
 			configNote = "# config: found"
 		}
-	} else {
+	default:
 		configNote = "# config: not found (env vars / code defaults)"
 	}
 
@@ -135,22 +136,20 @@ func runPrintConfig(cmd *cobra.Command) {
 		key, _, _ := strings.Cut(trimmed, ":")
 
 		// Track YAML section context for nested override annotations
-		if trimmed == "defaults:" {
+		switch {
+		case trimmed == "defaults:":
 			defaultsSection = "root"
-		} else if defaultsSection != "" && indent == 4 && strings.HasSuffix(trimmed, ":") {
+		case defaultsSection != "" && indent == 4 && strings.HasSuffix(trimmed, ":"):
 			defaultsSection = strings.TrimSuffix(trimmed, ":")
-		} else if indent < 2 {
+		case indent < 2:
 			defaultsSection = ""
 		}
 
 		var annotation string
-		switch key {
-		default:
-			// Generic override annotation for any defaults field
-			if defaultsSection != "" {
-				if note, ok := overrides[defaultsSection+"."+key]; ok {
-					annotation = note
-				}
+		// Generic override annotation for any defaults field.
+		if defaultsSection != "" {
+			if note, ok := overrides[defaultsSection+"."+key]; ok {
+				annotation = note
 			}
 		}
 		if annotation != "" {

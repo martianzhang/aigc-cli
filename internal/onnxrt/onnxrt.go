@@ -237,16 +237,20 @@ func extractZip(archivePath, modelsDir, internalPath, libName string) error {
 		if err != nil {
 			return err
 		}
-		defer rc.Close()
 
 		out, err := os.Create(target)
 		if err != nil {
+			_ = rc.Close()
 			return err
 		}
-		defer out.Close()
 
-		_, err = io.Copy(out, rc)
-		return err
+		_, copyErr := io.Copy(out, rc)
+		_ = rc.Close()
+		closeErr := out.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		return closeErr
 	}
 	return fmt.Errorf("library not found in archive: %s", internalPath)
 }
@@ -283,10 +287,13 @@ func extractTGZ(archivePath, modelsDir, internalPath, libName string) error {
 		if err != nil {
 			return err
 		}
-		defer out.Close()
 
-		_, err = io.Copy(out, tarr)
-		return err
+		_, copyErr := io.Copy(out, tarr)
+		closeErr := out.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		return closeErr
 	}
 	return fmt.Errorf("library not found in archive: %s", internalPath)
 }

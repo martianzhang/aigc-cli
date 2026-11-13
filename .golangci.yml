@@ -5,6 +5,10 @@ linters:
     - errcheck
     - staticcheck
     - depguard
+    - bodyclose
+    - noctx
+    - gocritic
+    - gosec
   settings:
     depguard:
       rules:
@@ -25,6 +29,15 @@ linters:
           deny:
             - pkg: "github.com/martianzhang/aigc-cli/internal/cli/"
               desc: "MCP must not depend on CLI/cobra packages; inject deps instead"
+    gocritic:
+      enabled-tags:
+        - diagnostic
+      disabled-checks:
+        # Style preference only; if/else is often clearer than a switch here.
+        - ifElseChain
+    gosec:
+      severity: high
+      confidence: high
     errcheck:
       # Read-side Close and CLI output writes are intentionally fire-and-forget.
       # Write-side Close/Sync is still checked explicitly in the code.
@@ -45,6 +58,12 @@ linters:
       - path: _test\.go
         linters:
           - errcheck
+      # The SQLite store is local and its methods do not take a context yet.
+      # Database cancellation is a separate refactor; keep noctx for HTTP/exec.
+      - path: internal/knowledge/(store|id)\.go
+        linters:
+          - noctx
+        text: "database/sql"
 formatters:
   enable:
     - gofmt

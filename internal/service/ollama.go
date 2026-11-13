@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -57,7 +58,7 @@ func OllamaGenerateImages(baseURL string, req *types.GenerateRequest, outputDir 
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 	hc := &http.Client{Timeout: timeout}
-	httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
+	httpReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ollama request: %w", err)
 	}

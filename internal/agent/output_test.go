@@ -29,7 +29,11 @@ func TestCapToolOutputRuneBoundary(t *testing.T) {
 		t.Fatalf("expected truncation")
 	}
 	// The cut must not leave a partial UTF-8 sequence before the marker.
-	body := got[:strings.Index(got, "\n\n[output truncated:")]
+	idx := strings.Index(got, "\n\n[output truncated:")
+	if idx < 0 {
+		t.Fatal("truncation marker missing")
+	}
+	body := got[:idx]
 	if !utf8.ValidString(body) {
 		t.Errorf("CapToolOutput split a multi-byte rune")
 	}

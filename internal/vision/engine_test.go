@@ -51,12 +51,12 @@ func TestVariantDir(t *testing.T) {
 		variant   string
 		want      string
 	}{
-		{"absolute", "/models", "base-int8", filepath.Join("/models", "vision", "base-int8")},
-		{"relative", "models", "base-int8", filepath.Join("models", "vision", "base-int8")},
-		{"trailing slash", "/models/", "base-int8", filepath.Join("/models/", "vision", "base-int8")},
-		{"empty variant", "/models", "", filepath.Join("/models", "vision")},
-		{"empty modelsDir", "", "base-int8", filepath.Join("", "vision", "base-int8")},
-		{"nested variant", "/m", "a/b", filepath.Join("/m", "vision", "a/b")},
+		{"absolute", "/models", "base-int8", filepath.Join("/models", "vision", "base-int8")},         //nolint:gocritic // POSIX fixture path
+		{"relative", "models", "base-int8", filepath.Join("models", "vision", "base-int8")},           //nolint:gocritic // POSIX fixture path
+		{"trailing slash", "/models/", "base-int8", filepath.Join("/models/", "vision", "base-int8")}, //nolint:gocritic // POSIX fixture path
+		{"empty variant", "/models", "", filepath.Join("/models", "vision")},                          //nolint:gocritic // POSIX fixture path
+		{"empty modelsDir", "", "base-int8", filepath.Join("", "vision", "base-int8")},                //nolint:gocritic // POSIX fixture path
+		{"nested variant", "/m", "a/b", filepath.Join("/m", "vision", "a/b")},                         //nolint:gocritic // POSIX fixture path
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -78,13 +78,13 @@ func TestModelPath(t *testing.T) {
 		filename  string
 		want      string
 	}{
-		{"absolute", "/models", "base-int8", "vision_encoder.onnx", filepath.Join("/models", "vision", "base-int8", "vision_encoder.onnx")},
-		{"relative", "models", "base-int8", "embed_tokens.onnx", filepath.Join("models", "vision", "base-int8", "embed_tokens.onnx")},
-		{"trailing slash dir", "/models/", "base-int8", "encoder_model.onnx", filepath.Join("/models/", "vision", "base-int8", "encoder_model.onnx")},
-		{"empty filename", "/models", "base-int8", "", filepath.Join("/models", "vision", "base-int8")},
-		{"empty variant", "/models", "", "decoder_model.onnx", filepath.Join("/models", "vision", "decoder_model.onnx")},
+		{"absolute", "/models", "base-int8", "vision_encoder.onnx", filepath.Join("/models", "vision", "base-int8", "vision_encoder.onnx")},           //nolint:gocritic // POSIX fixture path
+		{"relative", "models", "base-int8", "embed_tokens.onnx", filepath.Join("models", "vision", "base-int8", "embed_tokens.onnx")},                 //nolint:gocritic // POSIX fixture path
+		{"trailing slash dir", "/models/", "base-int8", "encoder_model.onnx", filepath.Join("/models/", "vision", "base-int8", "encoder_model.onnx")}, //nolint:gocritic // POSIX fixture path
+		{"empty filename", "/models", "base-int8", "", filepath.Join("/models", "vision", "base-int8")},                                               //nolint:gocritic // POSIX fixture path
+		{"empty variant", "/models", "", "decoder_model.onnx", filepath.Join("/models", "vision", "decoder_model.onnx")},                              //nolint:gocritic // POSIX fixture path
 		{"empty all", "", "", "", "vision"},
-		{"nested filename", "/m", "v", filepath.Join("sub", "file.onnx"), filepath.Join("/m", "vision", "v", "sub", "file.onnx")},
+		{"nested filename", "/m", "v", filepath.Join("sub", "file.onnx"), filepath.Join("/m", "vision", "v", "sub", "file.onnx")}, //nolint:gocritic // POSIX fixture path
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

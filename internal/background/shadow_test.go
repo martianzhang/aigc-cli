@@ -50,7 +50,7 @@ func TestParseShadowConfig_custom(t *testing.T) {
 	if cfg.col.R != 255 || cfg.col.G != 0 || cfg.col.B != 0 {
 		t.Errorf("color got (%d,%d,%d)", cfg.col.R, cfg.col.G, cfg.col.B)
 	}
-	// Opacity: 75/100 * 255 = 191
+	// Opacity is 75% of 255 = 191
 	if cfg.col.A != 191 {
 		t.Errorf("opacity got %d, want 191", cfg.col.A)
 	}

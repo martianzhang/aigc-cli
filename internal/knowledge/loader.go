@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -143,7 +144,7 @@ func RunExternalLoader(cmdTemplate, filePath string) (string, string, error) {
 	if len(parts) == 0 {
 		return "", "", fmt.Errorf("empty loader command")
 	}
-	cmd := exec.Command(parts[0], parts[1:]...)
+	cmd := exec.CommandContext(context.Background(), parts[0], parts[1:]...)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", "", fmt.Errorf("loader %q: %w", cmdStr, err)

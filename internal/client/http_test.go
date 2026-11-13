@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"testing"
@@ -11,7 +12,7 @@ import (
 func TestConfigureDefaultClient_setsProxy(t *testing.T) {
 	ConfigureDefaultClient("http://proxy.example.com:8080")
 
-	req, _ := http.NewRequest("GET", "http://example.com", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
 	proxyURL, err := http.DefaultClient.Transport.(*http.Transport).Proxy(req)
 	if err != nil {
 		t.Fatalf("Proxy() returned error: %v", err)
@@ -37,7 +38,7 @@ func TestConfigureDefaultClient_emptyProxy(t *testing.T) {
 
 	ConfigureDefaultClient("")
 
-	req, _ := http.NewRequest("GET", "http://example.com", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
 	proxyURL, err := http.DefaultClient.Transport.(*http.Transport).Proxy(req)
 	if err != nil {
 		t.Fatalf("Proxy() returned error: %v", err)
@@ -55,7 +56,7 @@ func TestConfigureDefaultClient_invalidProxy(t *testing.T) {
 		t.Log("invalid proxy URL: transport.Proxy is nil (expected)")
 		return
 	}
-	req, _ := http.NewRequest("GET", "http://example.com", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
 	proxyURL, err := tr.Proxy(req)
 	if err != nil {
 		t.Logf("Proxy() error: %v (expected due to invalid proxy)", err)
@@ -77,7 +78,7 @@ func TestConfigureDefaultClient_syncsDefaultTransport(t *testing.T) {
 	}
 	// Ad-hoc clients build &http.Client{} with no Transport and inherit this
 	// one, so it must carry the same proxy as DefaultClient.
-	req, _ := http.NewRequest("GET", "http://example.com", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
 	u, err := tr.Proxy(req)
 	if err != nil {
 		t.Fatalf("Proxy() error: %v", err)
@@ -97,7 +98,7 @@ func TestConfigureDefaultClient_directModeBypassesEnvProxy(t *testing.T) {
 	// Even an explicit proxy URL must be ignored while direct mode is on.
 	ConfigureDefaultClient("http://cli-proxy:8080")
 
-	req, _ := http.NewRequest("GET", "https://example.com", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "https://example.com", nil)
 	for name, rt := range map[string]http.RoundTripper{
 		"DefaultClient":    http.DefaultClient.Transport,
 		"DefaultTransport": http.DefaultTransport,

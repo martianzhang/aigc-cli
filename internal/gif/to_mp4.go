@@ -1,6 +1,7 @@
 package gif
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -54,7 +55,7 @@ func ToMP4(opts ToMP4Options) (string, error) {
 	// 把命令行回显到 stdout，用户可直接复制复现。
 	ui.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
 
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.CommandContext(context.Background(), "ffmpeg", args...)
 	if outBuf, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("ffmpeg mp4 conversion failed: %w\n%s%s", err, string(outBuf), decodeHint(opts.Input))
 	}

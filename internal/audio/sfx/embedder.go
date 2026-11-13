@@ -24,7 +24,7 @@ type secondsEmbedder struct {
 }
 
 func loadSecondsEmbedder(path string) (*secondsEmbedder, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G703 -- model path comes from local config
 	if err != nil {
 		return nil, fmt.Errorf("read seconds embedder: %w", err)
 	}

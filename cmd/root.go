@@ -223,12 +223,12 @@ func Execute() {
 	// waiting for them to finish. The context is installed process-wide so
 	// clients created deep inside commands inherit it.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	options.SetContext(ctx)
 	provider.SetContext(ctx)
 	search.SetContext(ctx)
 
 	executed, err := rootCmd.ExecuteContextC(ctx)
+	stop() // os.Exit below skips defers, so release the signal handler first.
 	// Clear the tab progress indicator before any exit path, including errors.
 	terminal.Default().Finish("")
 	if err != nil {

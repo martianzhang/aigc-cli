@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	ort "github.com/amikos-tech/pure-onnx/ort"
@@ -361,7 +362,7 @@ func (e *Engine) generate(path, prompt string) (string, error) {
 	}
 
 	// 5. Concat: [image_features; text_embeds]
-	fullEmbeds := append(imageFeatures, textEmbeds...)
+	fullEmbeds := slices.Concat(imageFeatures, textEmbeds)
 
 	// 6. Run encoder_model
 	totalSeqLen := ImageSeqLength + len(inputIDs)

@@ -5,10 +5,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 
 	"github.com/martianzhang/aigc-cli/internal/jsonmerge"
 	"github.com/martianzhang/aigc-cli/internal/types"

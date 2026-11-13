@@ -63,7 +63,7 @@ func TestApplyRestoreCheckFlow(t *testing.T) {
 	}
 
 	// Append a leftover phone: check must report it and expose exit code 2.
-	if err := os.WriteFile(safe, append(redacted, []byte("漏了13812345678\n")...), 0o644); err != nil {
+	if err := os.WriteFile(safe, append(redacted, []byte("漏了13812345678\n")...), 0o644); err != nil { // #nosec G703 -- test fixture path
 		t.Fatal(err)
 	}
 	_, err = runCommand(t, Deps{OutputDir: dir}, "check", safe, "--mapping", mapping)

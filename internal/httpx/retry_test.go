@@ -21,7 +21,7 @@ func TestDoRetriesSafeRequest(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
 	resp, err := Do(context.Background(), srv.Client(), req, Policy{
 		MaxAttempts: 3,
 		BaseDelay:   time.Millisecond,
@@ -47,7 +47,7 @@ func TestDoDoesNotRetryPost(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	req, _ := http.NewRequest(http.MethodPost, srv.URL, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL, nil)
 	resp, err := Do(context.Background(), srv.Client(), req, Policy{
 		MaxAttempts: 3,
 		BaseDelay:   time.Millisecond,
@@ -70,7 +70,11 @@ func TestDoStopsOnContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
-	if _, err := Do(ctx, srv.Client(), req, Policy{MaxAttempts: 3, BaseDelay: time.Minute}); err == nil {
+	resp, err := Do(ctx, srv.Client(), req, Policy{MaxAttempts: 3, BaseDelay: time.Minute})
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	if err == nil {
 		t.Fatal("Do() error = nil, want context cancellation")
 	}
 }

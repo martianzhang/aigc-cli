@@ -142,8 +142,7 @@ func overrideStruct(fs, inherited *pflag.FlagSet, structPtr any, section string,
 				field.SetString(val)
 			}
 		case reflect.Pointer:
-			switch field.Type().Elem().Kind() {
-			case reflect.Int:
+			if field.Type().Elem().Kind() == reflect.Int {
 				if val, err := source.GetInt(flagName); err == nil {
 					ptr := reflect.New(field.Type().Elem())
 					ptr.Elem().SetInt(int64(val))

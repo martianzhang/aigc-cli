@@ -2,6 +2,7 @@ package knowledge
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -90,7 +91,7 @@ func (e *APIEmbedder) EmbedBatch(texts []string) ([]Embedding, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal embedding request: %w", err)
 	}
-	req, err := http.NewRequest(http.MethodPost, e.url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, e.url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create embedding request: %w", err)
 	}

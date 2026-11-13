@@ -172,18 +172,19 @@ func tokenize(text string) []string {
 	var buf []rune
 	for _, r := range text {
 		// ASCII letter/digit -> fast path, no unicode table lookup
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+		switch {
+		case r >= 'a' && r <= 'z' || r >= '0' && r <= '9':
 			buf = append(buf, r)
-		} else if r >= 'A' && r <= 'Z' {
+		case r >= 'A' && r <= 'Z':
 			buf = append(buf, r+32) // inline lowercase
-		} else if r < 0x80 {
+		case r < 0x80:
 			if len(buf) > 0 {
 				tokens = append(tokens, splitTokens(buf)...)
 				buf = buf[:0]
 			}
-		} else if unicode.IsLetter(r) || unicode.IsDigit(r) {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
 			buf = append(buf, unicode.ToLower(r))
-		} else if len(buf) > 0 {
+		case len(buf) > 0:
 			tokens = append(tokens, splitTokens(buf)...)
 			buf = buf[:0]
 		}

@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -79,7 +80,7 @@ func copySherpaLib(sherpaDir, name, dst string) bool {
 		for _, e := range entries {
 			if e.IsDir() && strings.Contains(e.Name(), archSubstr) {
 				src := filepath.Join(libDir, e.Name(), name)
-				if data, err := os.ReadFile(src); err == nil {
+				if data, err := os.ReadFile(src); err == nil { // #nosec G703 -- library path from the local sherpa cache
 					if err := os.WriteFile(dst, data, 0755); err != nil {
 						return false
 					}
@@ -93,7 +94,7 @@ func copySherpaLib(sherpaDir, name, dst string) bool {
 	for _, e := range entries {
 		if e.IsDir() {
 			src := filepath.Join(libDir, e.Name(), name)
-			if data, err := os.ReadFile(src); err == nil {
+			if data, err := os.ReadFile(src); err == nil { // #nosec G703 -- library path from the local sherpa cache
 				if err := os.WriteFile(dst, data, 0755); err != nil {
 					return false
 				}
@@ -144,7 +145,7 @@ func findSherpaDir() string {
 	}
 	goos := map[string]string{"darwin": "macos", "linux": "linux", "windows": "windows"}[runtime.GOOS]
 	dir := filepath.Join(gmc, "github.com", "k2-fsa", fmt.Sprintf("sherpa-onnx-go-%s@v1.13.4", goos))
-	if _, err := os.Stat(filepath.Join(dir, "c-api.h")); err == nil {
+	if _, err := os.Stat(filepath.Join(dir, "c-api.h")); err == nil { // #nosec G703 -- module cache path
 		return dir
 	}
 	// Try with different version
@@ -153,7 +154,7 @@ func findSherpaDir() string {
 	for _, e := range entries {
 		if strings.Contains(e.Name(), "sherpa-onnx-go-"+goos) {
 			p := filepath.Join(filepath.Dir(dir), e.Name())
-			if _, err := os.Stat(filepath.Join(p, "c-api.h")); err == nil {
+			if _, err := os.Stat(filepath.Join(p, "c-api.h")); err == nil { // #nosec G703 -- module cache path
 				return p
 			}
 		}
@@ -173,7 +174,7 @@ func findSherpaLibDir(sherpaDir string) string {
 }
 
 func runCmd(name string, args ...string) error {
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(context.Background(), name, args...)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

@@ -185,7 +185,7 @@ func slugify(s string) string {
 // DDGSearchURLs performs a DuckDuckGo HTML search and returns result URLs.
 func DDGSearchURLs(query string) ([]string, error) {
 	searchURL := fmt.Sprintf("https://html.duckduckgo.com/html/?q=%s", url.QueryEscape(query))
-	req, err := http.NewRequest("GET", searchURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, searchURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}

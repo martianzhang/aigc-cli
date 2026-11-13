@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"net/http"
 	"net/url"
+
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )

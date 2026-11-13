@@ -2,11 +2,12 @@ package client
 
 import (
 	"fmt"
-	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 
 	"github.com/martianzhang/aigc-cli/internal/types"
 )

@@ -120,7 +120,7 @@ func TestApplyRepetitionPenalty_negative(t *testing.T) {
 	s := &Sampler{RepetitionPenalty: 2.0}
 	logits := []float32{-1.0, -2.0, -3.0}
 	s.applyRepetitionPenalty(logits, []int64{0}) // token 0 appeared, logit is -1
-	// negative * 2.0 = -2.0
+	// negative value times 2.0 equals -2.0
 	if logits[0] != -2.0 {
 		t.Errorf("repetition penalty on negative: got %v, want -2.0", logits[0])
 	}

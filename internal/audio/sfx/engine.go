@@ -62,7 +62,7 @@ func NewEngine(dir, libPath string) (*Engine, error) {
 func checkBundle(dir string) error {
 	for _, name := range RequiredFiles {
 		path := filepath.Join(dir, name)
-		info, err := os.Stat(path)
+		info, err := os.Stat(path) // #nosec G703 -- model path comes from local config
 		if err != nil {
 			return fmt.Errorf("model file %s is missing: %w", name, err)
 		}

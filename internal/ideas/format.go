@@ -8,7 +8,7 @@ import (
 // FormatResultsMarkdown renders ideas as markdown string.
 func FormatResultsMarkdown(results []SearchResult, keywords string, total int) string {
 	var b strings.Builder
-	header := fmt.Sprintf("Found %d result(s) for \"%s\"", total, keywords)
+	header := fmt.Sprintf("Found %d result(s) for %q", total, keywords)
 	if total > len(results) {
 		header += fmt.Sprintf(" (showing %d/%d)", len(results), total)
 	}

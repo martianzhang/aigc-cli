@@ -179,9 +179,10 @@ func evaluateSeeds(img image.Image, cfg Config) (gray, grad []float64, seeds []s
 		// regardless of how the alpha map was obtained (learned or
 		// hardcoded).  Always use the catalog for Gemini.
 		// Other learned watermarks use their NativeWidth-scaled position.
-		if cfg.Name == "gemini" {
+		switch {
+		case cfg.Name == "gemini":
 			seedEntries = resolveWatermarkConfigs(w, h)
-		} else if cfg.NativeWidth > 0 {
+		case cfg.NativeWidth > 0:
 			sz := int(math.Round(float64(cfg.DefaultSize) * float64(w) / float64(cfg.NativeWidth)))
 			mx := int(math.Round(float64(cfg.DefaultMarginX) * float64(w) / float64(cfg.NativeWidth)))
 			my := int(math.Round(float64(cfg.DefaultMarginY) * float64(w) / float64(cfg.NativeWidth)))
@@ -199,7 +200,7 @@ func evaluateSeeds(img image.Image, cfg Config) (gray, grad []float64, seeds []s
 					name: cfg.Name,
 				}}
 			}
-		} else {
+		default:
 			seedEntries = resolveWatermarkConfigs(w, h)
 		}
 

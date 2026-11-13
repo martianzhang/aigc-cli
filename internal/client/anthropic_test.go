@@ -113,10 +113,8 @@ func TestBuildAnthropicRequest_temperature(t *testing.T) {
 				if *got.Temperature != tt.wantValue {
 					t.Errorf("Temperature = %v, want %v", *got.Temperature, tt.wantValue)
 				}
-			} else {
-				if got.Temperature != nil {
-					t.Errorf("Temperature = %v, want nil", *got.Temperature)
-				}
+			} else if got.Temperature != nil {
+				t.Errorf("Temperature = %v, want nil", *got.Temperature)
 			}
 		})
 	}

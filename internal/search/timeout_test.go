@@ -1,6 +1,7 @@
 package search
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -37,7 +38,11 @@ func TestHTTPClientHonorsTimeout(t *testing.T) {
 	defer srv.Close()
 
 	start := time.Now()
-	resp, err := httpClient().Get(srv.URL)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := httpClient().Do(req)
 	if resp != nil {
 		resp.Body.Close()
 	}

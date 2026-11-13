@@ -53,11 +53,11 @@ func docxText(t *testing.T, path string) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer rc.Close()
 		var b bytes.Buffer
 		if _, err := b.ReadFrom(rc); err != nil {
 			t.Fatal(err)
 		}
+		_ = rc.Close()
 		return b.String()
 	}
 	t.Fatal("word/document.xml missing")
@@ -163,11 +163,11 @@ func docxPartText(t *testing.T, path, part string) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer rc.Close()
 		var b bytes.Buffer
 		if _, err := b.ReadFrom(rc); err != nil {
 			t.Fatal(err)
 		}
+		_ = rc.Close()
 		return b.String()
 	}
 	t.Fatalf("%s missing", part)

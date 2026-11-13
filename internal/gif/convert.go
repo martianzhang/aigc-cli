@@ -1,6 +1,7 @@
 package gif
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -49,7 +50,7 @@ func Convert(opts ConvertOptions) (string, error) {
 	// 把命令行回显到 stdout，用户可直接复制复现。
 	ui.Printf("ffmpeg %s\n", strings.Join(quoteAll(args), " "))
 
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.CommandContext(context.Background(), "ffmpeg", args...)
 	if outBuf, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("ffmpeg gif conversion failed: %w\n%s", err, string(outBuf))
 	}
@@ -72,7 +73,7 @@ func probeVideoSize(input string) (int, int) {
 	if _, err := exec.LookPath("ffprobe"); err != nil {
 		return 0, 0
 	}
-	out, err := exec.Command("ffprobe", "-v", "error",
+	out, err := exec.CommandContext(context.Background(), "ffprobe", "-v", "error",
 		"-select_streams", "v:0",
 		"-show_entries", "stream=width,height",
 		"-of", "csv=p=0", input).Output()

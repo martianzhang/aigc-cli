@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -149,7 +150,7 @@ func TestNewFromProvider(t *testing.T) {
 			}
 
 			// Verify the client can make requests to the test server.
-			req, err := http.NewRequest("GET", c.baseURL+"/models", nil)
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, c.baseURL+"/models", nil)
 			if err != nil {
 				t.Fatalf("NewRequest() error = %v", err)
 			}
@@ -172,7 +173,7 @@ func TestNewFromProvider(t *testing.T) {
 					t.Fatal("transport.Proxy is nil")
 				}
 				// Proxy bypasses localhost/127.0.0.1, so verify with a non-localhost URL.
-				proxyReq, _ := http.NewRequest("GET", "http://example.com", nil)
+				proxyReq, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com", nil)
 				proxyURL, err := tr.Proxy(proxyReq)
 				if err != nil {
 					t.Fatalf("Proxy() error = %v", err)

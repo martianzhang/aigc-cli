@@ -67,7 +67,7 @@ func Do(ctx context.Context, client *http.Client, req *http.Request, policy Poli
 	var lastErr error
 	for attempt := 1; attempt <= policy.MaxAttempts; attempt++ {
 		attemptReq := req.Clone(ctx)
-		resp, err := client.Do(attemptReq)
+		resp, err := client.Do(attemptReq) // #nosec G704 -- generic retry helper; callers validate URLs (netguard)
 		if err == nil {
 			if !shouldRetryStatus(resp.StatusCode) || !safe || attempt == policy.MaxAttempts {
 				return resp, nil

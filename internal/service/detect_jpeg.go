@@ -179,8 +179,6 @@ func readExifSoftware(exifData []byte) string {
 	offset := ifdOffset + 2
 	for i := 0; i < numEntries && offset+12 <= len(exifData); i++ {
 		tag := order.Uint16(exifData[offset : offset+2])
-		// typeField := order.Uint16(exifData[offset+2 : offset+4])
-		// count := order.Uint32(exifData[offset+4 : offset+8])
 		valueOffset := order.Uint32(exifData[offset+8 : offset+12])
 
 		if tag == 0x0131 { // Software

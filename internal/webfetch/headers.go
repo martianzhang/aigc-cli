@@ -80,7 +80,7 @@ func EffectiveHeaders(user []Header) []Header {
 // result preserves the default ordering and appends user-only headers in input
 // order.
 func EffectiveHeadersWithDefaults(defaults, user []Header) []Header {
-	canonical := func(name string) string { return textproto.CanonicalMIMEHeaderKey(name) }
+	canonical := textproto.CanonicalMIMEHeaderKey
 	overrides := make(map[string]Header, len(user))
 	for _, h := range user {
 		overrides[canonical(h.Name)] = Header{Name: canonical(h.Name), Value: h.Value}

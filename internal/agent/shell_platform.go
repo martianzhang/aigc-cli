@@ -121,8 +121,8 @@ func windowsPOSIXCandidates() []string {
 	for _, env := range []string{"LOCALAPPDATA", "USERPROFILE"} {
 		if base := os.Getenv(env); base != "" {
 			candidates = append(candidates,
-				filepath.Join(base, `Programs\Git\bin\bash.exe`),
-				filepath.Join(base, `scoop\apps\git\current\bin\bash.exe`),
+				filepath.Join(base, "Programs", "Git", "bin", "bash.exe"),
+				filepath.Join(base, "scoop", "apps", "git", "current", "bin", "bash.exe"),
 			)
 		}
 	}

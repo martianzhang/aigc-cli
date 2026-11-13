@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
@@ -134,7 +135,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to marshal request: %w", label, err)
 	}
-	httpReq, err := http.NewRequest("POST", submitURL, bytes.NewReader(bodyBytes))
+	httpReq, err := http.NewRequestWithContext(options.Context(), http.MethodPost, submitURL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to create submit request: %w", label, err)
 	}
@@ -190,7 +191,7 @@ func runModelScopeImage(c client.APIClient, req *types.GenerateRequest, ctx *ima
 		}
 
 		pollURL := fmt.Sprintf("%s/v1/tasks/%s", baseURL, taskID)
-		pollReq, err := http.NewRequest("GET", pollURL, nil)
+		pollReq, err := http.NewRequestWithContext(options.Context(), http.MethodGet, pollURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("%s: failed to create poll request: %w", label, err)
 		}

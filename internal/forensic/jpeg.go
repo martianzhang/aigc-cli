@@ -99,7 +99,6 @@ func AnalyzeJPEGDoubleQuant(path string) float64 {
 					break
 				}
 				tableInfo := segData[offset]
-				// tableID := tableInfo & 0x0F
 				precision := (tableInfo >> 4) & 0x0F // 0=8-bit, 1=16-bit
 				tableData := segData[offset+1 : offset+65]
 

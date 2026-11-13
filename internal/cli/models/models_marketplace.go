@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -52,7 +53,11 @@ func runModelsMarketplace(mediaType, base string) error {
 			url += "&type=" + mediaType
 		}
 
-		resp, err := modelsHTTPClient().Get(url)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+		if err != nil {
+			return fmt.Errorf("failed to build models request (page %d): %w", page, err)
+		}
+		resp, err := modelsHTTPClient().Do(req)
 		if err != nil {
 			return fmt.Errorf("failed to fetch models (page %d): %w", page, err)
 		}
@@ -159,7 +164,11 @@ func runModelsPricing(modelName, baseURL string) error {
 		return nil
 	}
 
-	resp, err := modelsHTTPClient().Get(pricingURL)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, pricingURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to build pricing request: %w", err)
+	}
+	resp, err := modelsHTTPClient().Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch pricing: %w", err)
 	}

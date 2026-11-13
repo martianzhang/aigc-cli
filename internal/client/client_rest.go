@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 )
 
 // ErrNotSupported marks HTTP 404/405/501 responses, meaning the provider has no

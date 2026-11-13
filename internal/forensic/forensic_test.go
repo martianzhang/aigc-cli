@@ -547,7 +547,7 @@ func TestIsStandardTable_Luminance(t *testing.T) {
 		49, 64, 78, 87, 103, 121, 120, 101,
 		72, 92, 95, 98, 112, 100, 103, 99,
 	}
-	if !isStandardTable(table[:], 0) {
+	if !isStandardTable(table[:], 0) { //nolint:gocritic // array-to-slice conversion is required
 		t.Error("standard luminance table should be recognized")
 	}
 }
@@ -563,7 +563,7 @@ func TestIsStandardTable_Chrominance(t *testing.T) {
 		99, 99, 99, 99, 99, 99, 99, 99,
 		99, 99, 99, 99, 99, 99, 99, 99,
 	}
-	if !isStandardTable(table[:], 0) {
+	if !isStandardTable(table[:], 0) { //nolint:gocritic // array-to-slice conversion is required
 		t.Error("standard chrominance table should be recognized")
 	}
 }
@@ -573,7 +573,7 @@ func TestIsStandardTable_NonStandard(t *testing.T) {
 	for i := range table {
 		table[i] = 1
 	}
-	if isStandardTable(table[:], 0) {
+	if isStandardTable(table[:], 0) { //nolint:gocritic // array-to-slice conversion is required
 		t.Error("constant-1 table should not be recognized as standard")
 	}
 }

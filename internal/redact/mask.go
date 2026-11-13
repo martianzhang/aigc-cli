@@ -110,7 +110,8 @@ func NewMaskResolver(cfg *types.RedactConfig) (*MaskResolver, error) {
 	}
 	r := &MaskResolver{global: global, byType: map[string]MaskPolicy{}}
 	if cfg == nil || cfg.Mask == nil {
-		return r, r.compileAll()
+		nextErr := r.compileAll()
+		return r, nextErr
 	}
 	for typ, override := range cfg.Mask.Overrides {
 		if override == nil {
@@ -121,7 +122,8 @@ func NewMaskResolver(cfg *types.RedactConfig) (*MaskResolver, error) {
 		applyMaskConfig(&p, override)
 		r.byType[key] = p
 	}
-	return r, r.compileAll()
+	nextErr := r.compileAll()
+	return r, nextErr
 }
 
 func (r *MaskResolver) compileAll() error {
@@ -284,12 +286,12 @@ func MaskValue(value, typ string, p MaskPolicy) string {
 	}
 
 	if p.prefixRe != nil && p.Strategy != "address" {
-		if loc := p.prefixRe.FindStringIndex(value); loc != nil && loc[0] == 0 {
+		if loc := p.prefixRe.FindStringIndex(value); len(loc) == 2 && loc[0] == 0 {
 			keepStart = utf8.RuneCountInString(value[:loc[1]])
 		}
 	}
 	if p.suffixRe != nil {
-		if loc := p.suffixRe.FindStringIndex(value); loc != nil && loc[1] == len(value) {
+		if loc := p.suffixRe.FindStringIndex(value); len(loc) == 2 && loc[1] == len(value) {
 			keepEnd = utf8.RuneCountInString(value[loc[0]:])
 		}
 	}

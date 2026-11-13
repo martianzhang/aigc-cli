@@ -165,7 +165,7 @@ func (h *HashEmbedder) hashToVector(ngram string) []float32 {
 		z := state
 		z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
 		z = (z ^ (z >> 27)) * 0x94d049bb133111eb
-		z = z ^ (z >> 31)
+		z ^= z >> 31
 		// Map to {-1, 0, +1} randomly
 		vec[i] = float32(int64(z)%3 - 1)
 	}

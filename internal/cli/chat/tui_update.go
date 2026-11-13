@@ -194,7 +194,7 @@ func (m *chatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// provided by the user, not as an instruction-level directive.
 		m.history = append(m.history, types.ChatMessage{
 			Role:    "user",
-			Content: fmt.Sprintf("(I ran the shell command `%s` and got:\n%s)", msg.cmdLine, msg.result),
+			Content: fmt.Sprintf("(I ran the shell command %#q and got:\n%s)", msg.cmdLine, msg.result),
 		})
 		for i, tm := range slices.Backward(m.messages) {
 			if tm.role == "tool" && tm.tool == "shell" {
