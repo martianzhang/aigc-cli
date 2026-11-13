@@ -89,7 +89,7 @@ cover-check: fmt ## Fail when hermetic (-short) coverage drops below COVER_MIN (
 	awk -v total="$$total" -v min="$(COVER_MIN)" 'BEGIN { if (total + 0 < min + 0) { print "coverage is below the floor"; exit 1 } }'
 	@rm -f coverage.out
 
-docs-gen: ## Regenerate docs/reference/mcp-tools.md
+docs-gen: ## Regenerate the MCP tool catalog
 	$(GO) run ./scripts/gen-mcp-tools > docs/reference/mcp-tools.md
 
 docs-gen-check: ## Fail when the generated MCP tool catalog is stale
