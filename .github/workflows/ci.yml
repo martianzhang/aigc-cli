@@ -111,7 +111,10 @@ jobs:
       - name: Build
         env:
           CGO_ENABLED: "0"
-        run: go build -ldflags="-s -w" -o aigc-cli .
+        run: |
+          go build -trimpath \
+            -ldflags="-s -w -X github.com/martianzhang/aigc-cli/cmd.Version=$(git describe --tags --always)" \
+            -o aigc-cli .
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -159,7 +162,11 @@ jobs:
           go mod download
           bash scripts/build-helper.sh
           name="aigc-cli-${{ matrix.label }}.exe"
-          go build -ldflags="-s -w" -o "$name" .
+          go build -trimpath \
+            -ldflags="-s -w -X github.com/martianzhang/aigc-cli/cmd.Version=${GITHUB_REF_NAME}" \
+            -o "$name" .
+          got=$("./$name" version)
+          [ "$got" = "${GITHUB_REF_NAME}" ] || { echo "binary version = '$got', want '${GITHUB_REF_NAME}'"; exit 1; }
           go version -m "$name" > "SBOM-${{ matrix.label }}.txt"
           dll_dir=$(go env GOMODCACHE)/github.com/k2-fsa/sherpa-onnx-go-windows@v1.13.4/lib
           for arch in x86_64-pc-windows-gnu i686-pc-windows-gnu; do
@@ -180,7 +187,11 @@ jobs:
           go mod download
           bash scripts/build-helper.sh
           name="aigc-cli-${{ matrix.label }}"
-          go build -ldflags="-s -w" -o "$name" .
+          go build -trimpath \
+            -ldflags="-s -w -X github.com/martianzhang/aigc-cli/cmd.Version=${GITHUB_REF_NAME}" \
+            -o "$name" .
+          got=$("./$name" version)
+          [ "$got" = "${GITHUB_REF_NAME}" ] || { echo "binary version = '$got', want '${GITHUB_REF_NAME}'"; exit 1; }
           go version -m "$name" > "SBOM-${{ matrix.label }}.txt"
           # Pick the sherpa-onnx runtime libs for the build's own architecture.
           # Never use `ls $sherpa_dir/lib | head -1`: it sorts aarch64 first and
