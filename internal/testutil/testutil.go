@@ -6,7 +6,6 @@ package testutil
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -122,10 +121,4 @@ func Eventually(t *testing.T, timeout time.Duration, cond func() bool) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("condition not met within %s", timeout)
-}
-
-// ReadAllString is a test-only convenience wrapper.
-func ReadAllString(r io.Reader) (string, error) {
-	data, err := io.ReadAll(r)
-	return string(data), err
 }

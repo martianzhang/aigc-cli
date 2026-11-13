@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 	"time"
 )
@@ -89,11 +88,4 @@ func TestGoldenRoundTrip(t *testing.T) {
 	Golden(t, "sample.txt", []byte("hello"))
 	t.Setenv("UPDATE_GOLDEN", "")
 	Golden(t, "sample.txt", []byte("hello"))
-}
-
-func TestReadAllString(t *testing.T) {
-	got, err := ReadAllString(strings.NewReader("hi"))
-	if err != nil || got != "hi" {
-		t.Fatalf("ReadAllString() = (%q, %v)", got, err)
-	}
 }
