@@ -122,3 +122,15 @@ func Eventually(t *testing.T, timeout time.Duration, cond func() bool) {
 	}
 	t.Fatalf("condition not met within %s", timeout)
 }
+
+// AbsPath returns the platform-native absolute path for assertions that compare
+// footer output. Tests should use this instead of hard-coding "/tmp/..." so
+// they also pass on Windows.
+func AbsPath(t *testing.T, path string) string {
+	t.Helper()
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatalf("AbsPath(%q): %v", path, err)
+	}
+	return abs
+}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/testutil"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
@@ -14,13 +15,14 @@ func TestPrintBackgroundResultLocal(t *testing.T) {
 	restore := ui.SetOut(&buf)
 	defer restore()
 
-	printBackgroundResult("/tmp/out/cat_removebg.png", nil)
+	f := testutil.AbsPath(t, "/tmp/out/cat_removebg.png")
+	printBackgroundResult(f, nil)
 
 	out := buf.String()
 	for _, want := range []string{
-		"Saved:", "/tmp/out/cat_removebg.png",
+		"Saved:", f,
 		"Model: local: rmbg-2.0",
-		"Next: aigc-cli preview /tmp/out/cat_removebg.png",
+		"Next: aigc-cli preview " + f,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q:\n%s", want, out)

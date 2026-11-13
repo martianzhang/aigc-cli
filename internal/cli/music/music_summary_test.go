@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/testutil"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
@@ -16,11 +17,12 @@ func TestPrintMusicResultAPIMart(t *testing.T) {
 	defer restore()
 
 	req := &types.MusicGenerateRequest{Model: "suno"}
-	printMusicResult(req, provider.APIMart, []string{"/tmp/out/music_task_1_0.mp3"}, "task_1")
+	f := testutil.AbsPath(t, "/tmp/out/music_task_1_0.mp3")
+	printMusicResult(req, provider.APIMart, []string{f}, "task_1")
 
 	out := buf.String()
 	for _, want := range []string{
-		"Saved:", "/tmp/out/music_task_1_0.mp3",
+		"Saved:", f,
 		"Model: suno (apimart)",
 		"Task: task_1",
 		"Next: aigc-cli task task_1",
@@ -37,13 +39,14 @@ func TestPrintMusicResultOpenRouterHasNoTaskCommand(t *testing.T) {
 	defer restore()
 
 	req := &types.MusicGenerateRequest{Model: "google/lyria-3"}
-	printMusicResult(req, provider.OpenRouter, []string{"/tmp/out/music_1.mp3"}, "")
+	f := testutil.AbsPath(t, "/tmp/out/music_1.mp3")
+	printMusicResult(req, provider.OpenRouter, []string{f}, "")
 
 	out := buf.String()
 	if strings.Contains(out, "aigc-cli task") {
 		t.Errorf("OpenRouter has no task command, got:\n%s", out)
 	}
-	if !strings.Contains(out, "Next: aigc-cli preview /tmp/out/music_1.mp3") {
+	if !strings.Contains(out, "Next: aigc-cli preview "+f) {
 		t.Errorf("missing preview fallback:\n%s", out)
 	}
 }

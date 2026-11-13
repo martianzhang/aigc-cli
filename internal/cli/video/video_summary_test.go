@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/testutil"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
@@ -17,11 +18,12 @@ func TestPrintVideoResult(t *testing.T) {
 
 	req := &types.VideoGenerateRequest{Model: "veo-3.1"}
 	p := &provider.EffectiveProvider{ProviderType: provider.APIMart}
-	printVideoResult(req, p, []string{"/tmp/out/video_task_1_0.mp4"}, "task_1")
+	f := testutil.AbsPath(t, "/tmp/out/video_task_1_0.mp4")
+	printVideoResult(req, p, []string{f}, "task_1")
 
 	out := buf.String()
 	for _, want := range []string{
-		"Saved:", "/tmp/out/video_task_1_0.mp4",
+		"Saved:", f,
 		"Model: veo-3.1 (apimart)",
 		"Task: task_1",
 		"Next: aigc-cli task task_1",

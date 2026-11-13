@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/martianzhang/aigc-cli/internal/testutil"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
@@ -13,13 +14,14 @@ func TestPrintAudioResultCloud(t *testing.T) {
 	restore := ui.SetOut(&buf)
 	defer restore()
 
-	printAudioResult([]string{"/tmp/out/speech_1.mp3"}, "gpt-4o-mini-tts", "openai")
+	f := testutil.AbsPath(t, "/tmp/out/speech_1.mp3")
+	printAudioResult([]string{f}, "gpt-4o-mini-tts", "openai")
 
 	out := buf.String()
 	for _, want := range []string{
-		"Saved:", "/tmp/out/speech_1.mp3",
+		"Saved:", f,
 		"Model: gpt-4o-mini-tts (openai)",
-		"Next: aigc-cli preview /tmp/out/speech_1.mp3",
+		"Next: aigc-cli preview " + f,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q:\n%s", want, out)

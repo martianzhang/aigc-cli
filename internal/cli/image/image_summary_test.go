@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/testutil"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
@@ -22,13 +23,15 @@ func TestPrintImageSummary(t *testing.T) {
 	}
 	req := &types.GenerateRequest{Model: "gpt-image-2"}
 	ctx := newImageDispatchCtx(p, req, false)
-	printImageSummary(ctx, req, []string{"/tmp/a.png", "/tmp/b.png"}, "task_1", 0.08)
+	a := testutil.AbsPath(t, "/tmp/a.png")
+	b := testutil.AbsPath(t, "/tmp/b.png")
+	printImageSummary(ctx, req, []string{a, b}, "task_1", 0.08)
 
 	out := buf.String()
 	for _, want := range []string{
 		"Saved:",
-		"/tmp/a.png",
-		"/tmp/b.png",
+		a,
+		b,
 		"Model: gpt-image-2 (apimart)",
 		"Task: task_1",
 		"Cost: $0.0800",
@@ -73,13 +76,14 @@ func TestPrintImageSummaryModelScopeUsesPreviewNotTask(t *testing.T) {
 	}
 	req := &types.GenerateRequest{Model: "MiniMax/MiniMax-H3-Image"}
 	ctx := newImageDispatchCtx(p, req, false)
-	printImageSummary(ctx, req, []string{"/tmp/a.png"}, "6aba753c-75e8-4568-ab3a-66935e7321f2", 0)
+	a := testutil.AbsPath(t, "/tmp/a.png")
+	printImageSummary(ctx, req, []string{a}, "6aba753c-75e8-4568-ab3a-66935e7321f2", 0)
 
 	out := buf.String()
 	if strings.Contains(out, "aigc-cli task") {
 		t.Errorf("ModelScope has no task command, got:\n%s", out)
 	}
-	if !strings.Contains(out, "Next: aigc-cli preview /tmp/a.png") {
+	if !strings.Contains(out, "Next: aigc-cli preview "+a) {
 		t.Errorf("missing preview fallback:\n%s", out)
 	}
 	if !strings.Contains(out, "Task: 6aba753c-75e8-4568-ab3a-66935e7321f2") {
