@@ -1,6 +1,6 @@
 # Preview
 
-使用 `aigc-cli preview`（别名 `pr`）查看图片、Markdown/文本文件、读取元数据并生成图片描述。
+使用 `aigc-cli preview`（别名 `pr`）查看图片、Markdown/文本文件、PDF/EPUB/DOCX/HTML 文档，读取元数据并生成图片描述。
 
 ## 用法
 
@@ -19,6 +19,9 @@ aigc-cli preview ocr_notes.md
 
 # 预览纯文本（超长自动分页）
 aigc-cli preview notes.txt
+
+# 预览文档（PDF/EPUB/DOCX/HTML）
+aigc-cli preview paper.pdf
 ```
 
 ## Markdown 预览
@@ -51,6 +54,27 @@ aigc-cli preview notes.md --raw | grep TODO
 - 远程和 `data:` 图片会先下载到临时文件，预览后立即删除。
 - 终端不支持内联图片、或设置了 `--no-inline-preview` / `AIGC_CLI_NO_INLINE_PREVIEW` 时，不会下载远程图片，图片引用保留为文本。
 - 代码块、行内代码和链接里的图片不会被抽出渲染，避免破坏原有结构。
+
+## 文档格式（PDF / EPUB / DOCX / HTML）
+
+`preview` 会先把文档转成 Markdown，再走上面同一套渲染与分页：
+
+- **PDF**：只在 Markdown 能如实表达时输出文本（单栏、有可提取的文本层）。以下情况直接交给系统默认应用打开，不在终端里硬凑：
+  - 多栏排版：线性化会把左右栏交错
+  - 旋转页面：文字方向和阅读顺序会丢失
+  - 部分页面没有文本层（混合扫描版）：缺失内容无法补回
+  - 字形无法映射成 Unicode（乱码）
+  - 整个文档没有文本层（纯扫描版）
+  标题、列表、加粗/斜体和普通表格不算复杂——Markdown 能表示，仍会文本预览。
+- **EPUB**：按 OPF spine 顺序读取章节 XHTML，经 readability 转 Markdown。
+- **DOCX**：解析 `word/document.xml`，保留标题、列表和简单表格。
+- **HTML**：与 `fetch` 相同的 readability → Markdown 流程。
+
+注意：
+
+- 文档内的图片不会内联显示；公式、分栏、字体等版式信息可能丢失。
+- 复杂/扫描版 PDF 在管道或重定向输出时不会弹出应用，只返回原因。
+- 转换后的内容与 Markdown 一样支持长文自动分页。
 
 ## 分页
 

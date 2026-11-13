@@ -1,6 +1,6 @@
 # Preview
 
-Use `aigc-cli preview` (alias `pr`) to view images, Markdown and text files, inspect metadata, and generate descriptions.
+Use `aigc-cli preview` (alias `pr`) to view images, Markdown and text files, PDF/EPUB/DOCX/HTML documents, inspect metadata, and generate descriptions.
 
 ## Usage
 
@@ -19,6 +19,9 @@ aigc-cli preview ocr_notes.md
 
 # Preview plain text (paged automatically when long)
 aigc-cli preview notes.txt
+
+# Preview documents (PDF/EPUB/DOCX/HTML)
+aigc-cli preview paper.pdf
 ```
 
 ## Markdown Preview
@@ -51,6 +54,27 @@ On terminals with inline image support (iTerm2 / Kitty / Sixel), images referenc
 - Remote and `data:` images are downloaded into a temporary file and deleted right after the preview.
 - When the terminal does not support inline images, or `--no-inline-preview` / `AIGC_CLI_NO_INLINE_PREVIEW` is set, remote images are not downloaded and the reference stays as text.
 - Images inside code blocks, inline code spans and links are left alone so the document structure is not broken.
+
+## Documents (PDF / EPUB / DOCX / HTML)
+
+`preview` converts these documents to Markdown first, then uses the same renderer and pager:
+
+- **PDF**: text is shown only when Markdown can represent it faithfully (single column, extractable text layer). The system default application opens the file instead when:
+  - the page is multi-column (linearizing interleaves the columns),
+  - pages are rotated (text direction and reading order are lost),
+  - some pages have no text layer (mixed scans; the content cannot be recovered),
+  - glyphs do not map to Unicode (garbled text),
+  - the whole document has no text layer (pure scan).
+  Headings, lists, bold/italic and ordinary tables are not "complex" — Markdown represents them, so they still preview as text.
+- **EPUB**: chapters are read in OPF spine order and converted from XHTML through the readability pipeline.
+- **DOCX**: `word/document.xml` is parsed for headings, lists and simple tables.
+- **HTML**: the same readability → Markdown flow as `fetch`.
+
+Notes:
+
+- Images inside these documents are not inlined; formulas, columns and font layout may be lost.
+- For complex or scanned PDFs, piped or redirected output returns the reason without opening a GUI.
+- Converted documents are paged like Markdown when long.
 
 ## Paging
 

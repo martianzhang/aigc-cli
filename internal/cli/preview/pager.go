@@ -106,12 +106,28 @@ func pagerCommand() ([]string, bool) {
 	return nil, false
 }
 
-// runPagerProcess starts the pager and feeds content to its stdin. It reports
-// whether the process started: once it did, quitting early (q) is a normal exit
-// and must not make the caller dump the whole text again.
+// runPagerProcess writes content to a temp file and hands that file to the
+// pager, leaving stdin attached to the terminal. Feeding content through stdin
+// works for less (it reopens /dev/tty for keys) but not for `more` on Windows,
+// where redirected stdin breaks interactive paging.
 func runPagerProcess(argv []string, content string) (bool, error) {
-	cmd := exec.CommandContext(context.Background(), argv[0], argv[1:]...)
-	cmd.Stdin = strings.NewReader(content)
+	file, err := os.CreateTemp("", "aigc-cli-pager-*.txt")
+	if err != nil {
+		return false, err
+	}
+	name := file.Name()
+	defer func() { _ = os.Remove(name) }()
+	if _, err := file.WriteString(content); err != nil {
+		_ = file.Close()
+		return false, err
+	}
+	if err := file.Close(); err != nil {
+		return false, err
+	}
+
+	args := append(append([]string{}, argv[1:]...), name)
+	cmd := exec.CommandContext(context.Background(), argv[0], args...)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = ui.Out()
 	cmd.Stderr = ui.Err()
 	if os.Getenv("LESS") == "" {

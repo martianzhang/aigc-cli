@@ -19,17 +19,23 @@ type Deps struct {
 	ReadInput func(string) ([]byte, error)
 }
 
+// commandOptions collects the preview flags so run takes one value instead of a
+// growing parameter list.
+type commandOptions struct {
+	detail   bool
+	describe string
+	raw      bool
+	noPager  bool
+}
+
 // NewCommand builds the `preview` command. deps is resolved at run time.
 func NewCommand(deps func() Deps) *cobra.Command {
-	var detail bool
-	var describe string
-	var raw bool
-	var noPager bool
+	var opts commandOptions
 
 	cmd := &cobra.Command{
 		Use:          "preview <file...>",
 		Aliases:      []string{"pr"},
-		Short:        "Preview images, videos and Markdown (also: pr, --detail for metadata, --describe to set caption)",
+		Short:        "Preview images, videos, Markdown and documents (also: pr, --detail for metadata, --describe to set caption)",
 		SilenceUsage: true,
 		Long: `Preview images, videos, Markdown and text files.
 
@@ -43,34 +49,42 @@ inline rendering entirely.
 Markdown files (.md/.markdown) are rendered with the same renderer as the chat
 TUI when stdout is a real terminal, and the images they reference are inlined on
 terminals that support Kitty/Sixel. Plain text files (.txt/.text/.log) are shown
-as-is. Output taller than the terminal is paged (like bat): $PAGER when set, then
-less -R, then more. Pass --no-pager to print directly. Piped or redirected output
-keeps the raw source, and --raw forces raw source even in a terminal.
+as-is. EPUB, DOCX and local HTML documents are converted to Markdown first
+(images inside them are not rendered).
+
+PDFs are only shown as text when Markdown can represent their layout. Simple
+text-layer PDFs are converted to Markdown; multi-column, rotated, partly scanned,
+garbled or otherwise unrepresentable PDFs are opened with the system default
+application instead. Output taller than the terminal is paged (like bat): $PAGER
+when set, then less -R, then more. Pass --no-pager to print directly. Piped or
+redirected output keeps Markdown source, and --raw forces it even in a terminal.
 
 Examples:
   aigc-cli preview image_12345_0.png
   aigc-cli preview video_67890_0.mp4
   aigc-cli preview ocr_notes.md
   aigc-cli preview notes.txt
+  aigc-cli preview book.epub
+  aigc-cli preview paper.pdf
   aigc-cli preview *.png
   cat image.png | aigc-cli preview`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(deps(), args, detail, describe, raw, noPager)
+			return run(deps(), args, opts)
 		},
 	}
 
-	cmd.Flags().BoolVarP(&detail, "detail", "d", false, "show image details (C2PA, TC260, caption)")
-	cmd.Flags().StringVar(&describe, "describe", "", "write caption to image (reads from file if path exists, else uses as text)")
-	cmd.Flags().BoolVar(&raw, "raw", false, "print Markdown/text source without styling")
-	cmd.Flags().BoolVar(&noPager, "no-pager", false, "print directly instead of paging long output")
+	cmd.Flags().BoolVarP(&opts.detail, "detail", "d", false, "show image details (C2PA, TC260, caption)")
+	cmd.Flags().StringVar(&opts.describe, "describe", "", "write caption to image (reads from file if path exists, else uses as text)")
+	cmd.Flags().BoolVar(&opts.raw, "raw", false, "print Markdown/text source without styling")
+	cmd.Flags().BoolVar(&opts.noPager, "no-pager", false, "print directly instead of paging long output")
 	return cmd
 }
 
-func run(d Deps, args []string, detail bool, describe string, raw bool, noPager bool) error {
+func run(d Deps, args []string, opts commandOptions) error {
 	if len(args) > 0 {
 		for _, arg := range args {
-			if describe != "" {
-				caption, err := d.ReadInput(describe)
+			if opts.describe != "" {
+				caption, err := d.ReadInput(opts.describe)
 				if err != nil {
 					ui.Eprintf("Error reading caption: %v\n", err)
 					continue
@@ -80,17 +94,21 @@ func run(d Deps, args []string, detail bool, describe string, raw bool, noPager 
 					continue
 				}
 			}
-			if detail {
+			if opts.detail {
 				showDetail(arg)
 			}
-			if describe == "" {
+			if opts.describe == "" {
 				switch {
 				case isMarkdownPath(arg):
-					if err := previewMarkdown(arg, raw, noPager); err != nil {
+					if err := previewMarkdown(arg, opts.raw, opts.noPager); err != nil {
 						ui.Eprintf("Warning: %v\n", err)
 					}
 				case isTextPath(arg):
-					if err := previewText(arg, noPager); err != nil {
+					if err := previewText(arg, opts.noPager); err != nil {
+						ui.Eprintf("Warning: %v\n", err)
+					}
+				case isDocumentPath(arg):
+					if err := previewDocument(arg, opts); err != nil {
 						ui.Eprintf("Warning: %v\n", err)
 					}
 				default:
@@ -103,7 +121,7 @@ func run(d Deps, args []string, detail bool, describe string, raw bool, noPager 
 		return nil
 	}
 
-	if describe != "" {
+	if opts.describe != "" {
 		return fmt.Errorf("--describe requires a file path, not stdin")
 	}
 
@@ -133,7 +151,7 @@ func run(d Deps, args []string, detail bool, describe string, raw bool, noPager 
 	}
 	tmpFile.Close()
 
-	if detail {
+	if opts.detail {
 		showDetail(tmpFile.Name())
 	}
 	return service.PreviewFile(tmpFile.Name())

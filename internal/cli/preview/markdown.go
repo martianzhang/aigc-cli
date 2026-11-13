@@ -73,8 +73,9 @@ var markdownRenderAllowed = func(raw bool) bool {
 
 // stdoutIsTerminal reports whether the current ui.Out() writer is a terminal.
 // The writer is inspected instead of os.Stdout so tests and MCP output
-// redirection are handled consistently.
-func stdoutIsTerminal() bool {
+// redirection are handled consistently. It is a variable so tests can simulate
+// a terminal without a pty.
+var stdoutIsTerminal = func() bool {
 	file, ok := ui.Out().(*os.File)
 	return ok && term.IsTerminal(int(file.Fd()))
 }
