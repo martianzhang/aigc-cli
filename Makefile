@@ -80,10 +80,10 @@ cover: fmt ## Run tests with coverage report
 	$(GO) tool cover -func=coverage.out | tail -1
 	@rm -f coverage.out
 
-COVER_MIN ?= 58
+COVER_MIN ?= 50
 
-cover-check: fmt ## Fail when total coverage drops below COVER_MIN (default 58%)
-	$(GO) test ./... -coverprofile=coverage.out -count=1
+cover-check: fmt ## Fail when hermetic (-short) coverage drops below COVER_MIN (default 50%)
+	$(GO) test ./... -short -coverprofile=coverage.out -count=1
 	@total=$$($(GO) tool cover -func=coverage.out | tail -1 | awk '{print $$3}' | tr -d '%'); \
 	echo "total coverage: $$total% (floor: $(COVER_MIN)%)"; \
 	awk -v total="$$total" -v min="$(COVER_MIN)" 'BEGIN { if (total + 0 < min + 0) { print "coverage is below the floor"; exit 1 } }'
