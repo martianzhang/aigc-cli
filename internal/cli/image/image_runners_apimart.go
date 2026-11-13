@@ -13,7 +13,7 @@ import (
 )
 
 // runAsyncImage handles APIMart-compatible asynchronous (task-based) image generation.
-func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
+func runAsyncImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	resp, err := c.Submit(req)
 	if err != nil {
 		return nil, fmt.Errorf("submission failed: %w", err)
@@ -27,12 +27,13 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	ui.Printf("Model: %s\n", req.Model)
 	ui.Printf("Response code: %d\n", resp.Code)
 	ui.Printf("Task ID: %s\n", task.TaskID)
+	ui.Printf("Resume: aigc-cli task %s\n", task.TaskID)
 	ui.Printf("Status: %s\n\n", task.Status)
 
 	ui.Println("Polling for completion...")
 	taskData, err := c.PollTask(task.TaskID, clientfactory.TaskWait(types.MediaImage))
 	if err != nil {
-		return nil, fmt.Errorf("polling failed: %w", err)
+		return nil, fmt.Errorf("polling failed: %w%s", err, service.TaskResume(task.TaskID))
 	}
 
 	if options.Shared.Verbose {
@@ -54,5 +55,6 @@ func runAsyncImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 		return nil, fmt.Errorf("image download failed: %w", err)
 	}
 	postProcessImages(saved)
+	printImageSummary(ctx, req, saved, taskData.ID, taskData.Cost)
 	return saved, nil
 }

@@ -38,6 +38,7 @@ func runImageEditsMultipart(c client.APIClient, req *types.GenerateRequest, ctx 
 
 	postProcessImages(saved)
 	service.PrintUsage(resp.Usage)
+	printImageSummary(ctx, req, saved, "", usageCost(resp.Usage))
 
 	return saved, nil
 }

@@ -55,7 +55,7 @@ func prepareAgnesImageRequest(req *types.GenerateRequest) error {
 //   - image URLs go in extra_body.image (not top-level image_urls)
 //   - response_format must be in extra_body (handled in image.go transform)
 //   - 2.1 Flash supports ratio for tiered sizing (e.g. "2K" + "16:9")
-func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
+func runAgnesImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	if err := prepareAgnesImageRequest(req); err != nil {
 		return nil, err
 	}
@@ -109,5 +109,6 @@ func runAgnesImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispa
 	}
 	postProcessImages(saved)
 	service.PrintUsage(syncResp.Usage)
+	printImageSummary(ctx, req, saved, "", usageCost(syncResp.Usage))
 	return saved, nil
 }

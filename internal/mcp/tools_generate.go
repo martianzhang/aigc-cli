@@ -14,6 +14,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/fsutil"
 	"github.com/martianzhang/aigc-cli/internal/gif"
 	"github.com/martianzhang/aigc-cli/internal/provider"
+	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -39,6 +40,40 @@ func parseImageURLs(raw string) []string {
 	return urls
 }
 
+// withMCPResultFooter appends the same self-describing footer the CLI prints,
+// so an MCP client gets paths/model/provider/task/cost without a second call.
+func withMCPResultFooter(text string, files []string, model, provider, taskID string, cost float64, next string) string {
+	footer := service.ResultSummaryText(service.ResultSummary{
+		Files:    files,
+		Model:    model,
+		Provider: provider,
+		TaskID:   taskID,
+		Cost:     cost,
+		HasCost:  cost > 0,
+		Next:     next,
+	})
+	if footer == "" {
+		return text
+	}
+	return text + "\n\n" + footer
+}
+
+// mcpTaskNext returns a resume command only for providers that expose one.
+// ModelScope, Agnes and OpenLux have no task-query command.
+func mcpTaskNext(p *provider.EffectiveProvider, taskID string) string {
+	if p == nil || taskID == "" {
+		return ""
+	}
+	switch p.ProviderType {
+	case provider.APIMart:
+		return "aigc-cli task " + taskID
+	case provider.OpenRouter:
+		return "aigc-cli video --job-id " + taskID
+	default:
+		return ""
+	}
+}
+
 // generateImageHandler creates the handler for generate_image, capturing the config.
 // Delegates dispatch to the shared image runner so every supported provider is covered.
 func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
@@ -48,12 +83,12 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError(providerErr), nil
 		}
 		if p.RequiresAPIKey() {
-			return mcp.NewToolResultError("API Key not configured"), nil
+			return mcp.NewToolResultError("API Key not configured\nHint: set OPENAI_API_KEY or run 'aigc-cli --print-config'; local providers need no key"), nil
 		}
 
 		prompt, err := request.RequireString("prompt")
 		if err != nil {
-			return mcp.NewToolResultError("prompt is required"), nil
+			return mcp.NewToolResultError("prompt is required\nHint: pass prompt in the tool arguments"), nil
 		}
 
 		req := &types.GenerateRequest{
@@ -123,7 +158,7 @@ func generateImageHandler(cfg *Config) server.ToolHandlerFunc {
 		for _, f := range saved {
 			lines = append(lines, fmt.Sprintf("  %s", f))
 		}
-		return toolResultTextWithMedia(strings.Join(lines, "\n"), saved...), nil
+		return toolResultTextWithMedia(withMCPResultFooter(strings.Join(lines, "\n"), saved, req.Model, p.ProviderType.String(), "", 0, ""), saved...), nil
 	}
 }
 
@@ -133,12 +168,12 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		p := cfg.cmdProvider("video")
 		if p.RequiresAPIKey() {
-			return mcp.NewToolResultError("API Key not configured"), nil
+			return mcp.NewToolResultError("API Key not configured\nHint: set OPENAI_API_KEY or run 'aigc-cli --print-config'; local providers need no key"), nil
 		}
 
 		prompt, err := request.RequireString("prompt")
 		if err != nil {
-			return mcp.NewToolResultError("prompt is required"), nil
+			return mcp.NewToolResultError("prompt is required\nHint: pass prompt in the tool arguments"), nil
 		}
 
 		req := &types.VideoGenerateRequest{
@@ -200,7 +235,7 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 		if cfg.Generate.Video == nil {
 			return mcp.NewToolResultError("video generation backend is not configured"), nil
 		}
-		saved, lastFrames, err := cfg.Generate.Video(ctx, client.NewFromProvider(p), p, req)
+		saved, lastFrames, taskID, err := cfg.Generate.Video(ctx, client.NewFromProvider(p), p, req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -230,7 +265,7 @@ func generateVideoHandler(cfg *Config) server.ToolHandlerFunc {
 			}
 		}
 
-		return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
+		return mcp.NewToolResultText(withMCPResultFooter(strings.Join(lines, "\n"), saved, req.Model, p.ProviderType.String(), taskID, 0, mcpTaskNext(p, taskID))), nil
 	}
 }
 
@@ -274,12 +309,12 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError(providerErr), nil
 		}
 		if p.RequiresAPIKey() {
-			return mcp.NewToolResultError("API Key not configured"), nil
+			return mcp.NewToolResultError("API Key not configured\nHint: set OPENAI_API_KEY or run 'aigc-cli --print-config'; local providers need no key"), nil
 		}
 
 		prompt, err := request.RequireString("prompt")
 		if err != nil {
-			return mcp.NewToolResultError("prompt is required"), nil
+			return mcp.NewToolResultError("prompt is required\nHint: pass prompt in the tool arguments"), nil
 		}
 
 		req := &types.MusicGenerateRequest{
@@ -316,7 +351,7 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 		if cfg.Generate.Music == nil {
 			return mcp.NewToolResultError("music generation backend is not configured"), nil
 		}
-		saved, err := cfg.Generate.Music(c, p, req)
+		saved, taskID, err := cfg.Generate.Music(c, p, req)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -327,7 +362,7 @@ func generateMusicHandler(cfg *Config) server.ToolHandlerFunc {
 		for _, f := range saved {
 			lines = append(lines, fmt.Sprintf("  %s", f))
 		}
-		return mcp.NewToolResultText(strings.Join(lines, "\n")), nil
+		return mcp.NewToolResultText(withMCPResultFooter(strings.Join(lines, "\n"), saved, req.Model, p.ProviderType.String(), taskID, 0, mcpTaskNext(p, taskID))), nil
 	}
 }
 
@@ -352,12 +387,12 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError(providerErr), nil
 		}
 		if p.RequiresAPIKey() {
-			return mcp.NewToolResultError("API Key not configured"), nil
+			return mcp.NewToolResultError("API Key not configured\nHint: set OPENAI_API_KEY or run 'aigc-cli --print-config'; local providers need no key"), nil
 		}
 
 		input, err := request.RequireString("input")
 		if err != nil {
-			return mcp.NewToolResultError("input is required"), nil
+			return mcp.NewToolResultError("input is required\nHint: pass input in the tool arguments"), nil
 		}
 
 		format := strings.ToLower(request.GetString("format", "mp3"))
@@ -404,8 +439,9 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to save audio: %v", err)), nil
 		}
 
-		return toolResultTextWithMedia(fmt.Sprintf("Speech saved: %s\nFormat: %s\nSize: %d bytes\nModel: %s\nVoice: %s",
-			filename, req.ResponseFormat, len(audioData), req.Model, req.Voice), filename), nil
+		text := fmt.Sprintf("Speech saved: %s\nFormat: %s\nSize: %d bytes\nModel: %s\nVoice: %s",
+			filename, req.ResponseFormat, len(audioData), req.Model, req.Voice)
+		return toolResultTextWithMedia(withMCPResultFooter(text, []string{filename}, req.Model, p.ProviderType.String(), "", 0, ""), filename), nil
 	}
 }
 
@@ -417,12 +453,12 @@ func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError(providerErr), nil
 		}
 		if p.RequiresAPIKey() {
-			return mcp.NewToolResultError("API Key not configured"), nil
+			return mcp.NewToolResultError("API Key not configured\nHint: set OPENAI_API_KEY or run 'aigc-cli --print-config'; local providers need no key"), nil
 		}
 
 		filePath, err := request.RequireString("file_path")
 		if err != nil {
-			return mcp.NewToolResultError("file_path is required"), nil
+			return mcp.NewToolResultError("file_path is required\nHint: pass an absolute file_path in the tool arguments"), nil
 		}
 
 		overridden := cfg.providerOverridden("audio.transcribe", p)

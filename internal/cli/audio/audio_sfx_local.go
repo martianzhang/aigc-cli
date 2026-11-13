@@ -132,6 +132,7 @@ func runLocalSFX(prompt string, p *provider.EffectiveProvider, inject json.RawMe
 	ui.Printf("Seed: %d\n", generated.Seed)
 	ui.Printf("Inference: %.1fs\n", elapsed.Seconds())
 	ui.Printf("Saved: %s\n", filename)
+	printAudioResult([]string{filename}, "local: "+modelID, "")
 
 	if sfxPlay {
 		if err := service.PreviewFile(filename); err != nil {

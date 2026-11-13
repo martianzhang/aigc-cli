@@ -134,3 +134,20 @@ func TestRequireAPIKeyProviderClause(t *testing.T) {
 		}
 	})
 }
+
+func TestRequireAPIKeyIncludesHint(t *testing.T) {
+	err := RequireAPIKey("image", &provider.EffectiveProvider{BaseURL: "https://api.example.com/v1", Type: types.ProviderOpenAI}, nil)
+	if err == nil || !strings.Contains(err.Error(), "Hint: ") {
+		t.Fatalf("RequireAPIKey() = %v, want Hint", err)
+	}
+	if !strings.Contains(err.Error(), "OPENAI_API_KEY") {
+		t.Fatalf("RequireAPIKey() = %q, want env var hint", err)
+	}
+}
+
+func TestRequireBaseURLIncludesHint(t *testing.T) {
+	err := RequireBaseURL("image", &provider.EffectiveProvider{Type: types.ProviderOpenAI})
+	if err == nil || !strings.Contains(err.Error(), "Hint: aigc-cli models --list-providers") {
+		t.Fatalf("RequireBaseURL() = %v, want provider listing hint", err)
+	}
+}

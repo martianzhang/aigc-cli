@@ -104,7 +104,7 @@ func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.Effecti
 	pollStart := time.Now()
 	pollResp, err := c.OpenRouterVideoPollUntilComplete(submitResp.PollingURL, client.DefaultPollInterval, clientfactory.TaskWait(types.MediaVideo))
 	if err != nil {
-		return nil, fmt.Errorf("video polling failed: %w", err)
+		return nil, fmt.Errorf("video polling failed: %w%s", err, service.JobResume(submitResp.ID))
 	}
 
 	elapsed := time.Since(pollStart).Seconds()
@@ -154,7 +154,7 @@ func runOpenRouterVideo(_ context.Context, c *client.Client, p *provider.Effecti
 		ui.Println()
 	}
 
-	return &RunResult{Videos: saved}, nil
+	return &RunResult{Videos: saved, TaskID: submitResp.ID}, nil
 }
 
 // runOpenRouterVideoResume resumes a previously-submitted OpenRouter video job.
@@ -192,7 +192,7 @@ func runOpenRouterVideoResume(jobID string) error {
 		ui.Printf("Job status: %s. Polling for completion...\n", statusResp.Status)
 		pollResp, err := c.OpenRouterVideoPollUntilComplete(info.PollingURL, client.DefaultPollInterval, clientfactory.TaskWait(types.MediaVideo))
 		if err != nil {
-			return fmt.Errorf("polling failed: %w", err)
+			return fmt.Errorf("polling failed: %w%s", err, service.JobResume(info.JobID))
 		}
 		statusResp = pollResp
 	}

@@ -21,6 +21,19 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
+// printBackgroundResult writes the H3 result footer for local and online runs.
+func printBackgroundResult(filePath string, bgProvider *provider.EffectiveProvider) {
+	summary := service.ResultSummary{Files: []string{filePath}, Model: "local: rmbg-2.0"}
+	if bgProvider != nil {
+		summary.Model = bgProvider.Model
+		if summary.Model == "" {
+			summary.Model = "background"
+		}
+		summary.Provider = bgProvider.ProviderType.String()
+	}
+	service.PrintResultSummary(summary)
+}
+
 func processOneFile(path, outDir string, opts background.Options, doReplace bool, repColor color.Color, repImg image.Image, runOnlineBG bool, bgProvider *provider.EffectiveProvider) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -49,6 +62,7 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 			return fmt.Errorf("online generation failed: %w", err)
 		}
 		ui.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(onlineOut))
+		printBackgroundResult(onlineOut, bgProvider)
 		return nil
 	}
 
@@ -62,6 +76,7 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 			return err
 		}
 		ui.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
+		printBackgroundResult(outPath, nil)
 		return nil
 	}
 
@@ -75,6 +90,7 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 			return err
 		}
 		ui.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
+		printBackgroundResult(outPath, nil)
 		if bgPreview {
 			if err := service.PreviewFile(outPath); err != nil {
 				ui.Eprintf("Warning: preview failed: %v\n", err)
@@ -101,6 +117,7 @@ func processOneFile(path, outDir string, opts background.Options, doReplace bool
 			return err
 		}
 		ui.Printf("Saved: %s → %s\n", filepath.Base(path), filepath.Base(outPath))
+		printBackgroundResult(outPath, nil)
 		if bgPreview {
 			if err := service.PreviewFile(outPath); err != nil {
 				ui.Eprintf("Warning: preview failed: %v\n", err)

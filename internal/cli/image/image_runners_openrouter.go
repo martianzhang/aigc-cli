@@ -15,7 +15,7 @@ import (
 // dedicated Image API (POST /v1/images). Used for GPT Image, DALL-E, and
 // most dedicated image models on OpenRouter. Returns standard OpenAI-compatible
 // response with b64_json images.
-func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
+func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 
 	orResp, err := c.OpenRouterDedicatedImage(req)
@@ -64,6 +64,7 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest,
 	}
 	postProcessImages(saved)
 	service.PrintUsage(orResp.Usage)
+	printImageSummary(ctx, req, saved, "", usageCost(orResp.Usage))
 
 	return saved, nil
 }

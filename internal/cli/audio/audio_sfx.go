@@ -146,6 +146,7 @@ func runAudioSFX(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to save audio: %w", err)
 	}
 	ui.Printf("Saved: %s\n", filename)
+	printAudioResult([]string{filename}, req.Model, p.ProviderType.String())
 
 	if sfxPlay {
 		if err := service.PreviewFile(filename); err != nil {

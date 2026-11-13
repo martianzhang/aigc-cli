@@ -68,7 +68,7 @@ func TestGenerateAndSave_ExplicitProviderSkipsDefaultModel(t *testing.T) {
 	}
 	rec := &recordingMusicClient{baseURL: openrouter.BaseURL}
 
-	if _, err := GenerateAndSave(rec, openrouter, &types.MusicGenerateRequest{
+	if _, _, err := GenerateAndSave(rec, openrouter, &types.MusicGenerateRequest{
 		Model:  "google/lyria-3-pro-preview",
 		Prompt: "p",
 	}); err != nil {
@@ -94,7 +94,7 @@ func TestGenerateAndSave_DefaultProviderKeepsConfigModel(t *testing.T) {
 	configured := options.Shared.ResolveProvider(options.ProviderNameMusic)
 	rec := &recordingMusicClient{baseURL: configured.BaseURL}
 
-	if _, err := GenerateAndSave(rec, configured, &types.MusicGenerateRequest{
+	if _, _, err := GenerateAndSave(rec, configured, &types.MusicGenerateRequest{
 		Prompt: "p",
 	}); err != nil {
 		t.Fatalf("GenerateAndSave() error = %v", err)

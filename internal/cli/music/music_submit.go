@@ -12,6 +12,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/options"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
+	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
@@ -38,10 +39,10 @@ func buildMusicCurl(baseURL, apiKey string, body any) string {
 
 // runMusicSubmitAndPoll submits a music body, polls, and displays results.
 // --dry-run short-circuits here (mirrors runMJSubmitAndPoll).
-func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any) ([]string, error) {
+func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any) ([]string, string, error) {
 	if musicDryRun {
 		ui.Println(buildMusicCurl(baseURL, apiKey, body))
-		return nil, nil
+		return nil, "", nil
 	}
 
 	if options.Shared.Verbose {
@@ -51,32 +52,33 @@ func runMusicSubmitAndPoll(c client.APIClient, baseURL, apiKey string, body any)
 
 	resp, err := c.MusicSubmit(body)
 	if err != nil {
-		return nil, fmt.Errorf("submission failed: %w", err)
+		return nil, "", fmt.Errorf("submission failed: %w", err)
 	}
 	if len(resp.Data) == 0 {
-		return nil, fmt.Errorf("submission returned no tasks")
+		return nil, "", fmt.Errorf("submission returned no tasks")
 	}
 
 	task := resp.Data[0]
 	ui.Printf("Response code: %d\n", resp.Code)
 	ui.Printf("Task ID: %s\n", task.TaskID)
+	ui.Printf("Resume: aigc-cli task %s\n", task.TaskID)
 	ui.Printf("Status: %s\n\n", task.Status)
 
 	ui.Println("Polling for completion...")
 	taskData, err := c.MusicPollTask(task.TaskID, clientfactory.TaskWait(types.MediaMusic))
 	if err != nil {
-		return nil, fmt.Errorf("polling failed: %w", err)
+		return nil, "", fmt.Errorf("polling failed: %w%s", err, service.TaskResume(task.TaskID))
 	}
 
 	displayMusicResult(taskData)
 	if taskData.Result != nil && len(taskData.Result.Music) > 0 {
 		saved, err := downloadMusics(taskData.Result.Music, taskData.ID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to download music: %w", err)
+			return nil, "", fmt.Errorf("failed to download music: %w", err)
 		}
-		return saved, nil
+		return saved, taskData.ID, nil
 	}
-	return nil, nil
+	return nil, "", nil
 }
 
 // displayMusicResult prints a music task result in a human-readable format.
@@ -133,9 +135,9 @@ func displayMusicResult(task *types.MusicTaskData) {
 // endpoint describe the same backend. When the caller explicitly selected a
 // provider other than defaults.music.provider, that default block is not
 // applied: its model (e.g. suno) belongs to a different backend.
-func GenerateAndSave(c client.APIClient, p *provider.EffectiveProvider, req *types.MusicGenerateRequest) ([]string, error) {
+func GenerateAndSave(c client.APIClient, p *provider.EffectiveProvider, req *types.MusicGenerateRequest) ([]string, string, error) {
 	if req == nil {
-		return nil, fmt.Errorf("music request is required")
+		return nil, "", fmt.Errorf("music request is required")
 	}
 
 	configured := options.Shared.ResolveProvider(options.ProviderNameMusic)

@@ -268,5 +268,6 @@ done:
 		ui.Eprintf("Warning: requested %d images, provider returned %d (the model may cap n)\n", *req.N, len(saved))
 	}
 	postProcessImages(saved)
+	printImageSummary(ctx, req, saved, taskID, 0)
 	return saved, nil
 }

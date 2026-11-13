@@ -313,6 +313,8 @@ aigc-cli task --provider apimart task_01KV4KD9FBH3AZ4DE18A7Y17S3
 
 返回完整的任务信息（状态、进度、耗时、费用、结果 URL 等）。图片任务完成后自动下载图片到 `--output` 目录。
 
+异步命令提交后会打印 `Task:` / `Resume: aigc-cli task <id>`；轮询超时或中断后，可凭这行 id 恢复。OpenRouter 视频用 `aigc-cli video --job-id <id>` 恢复。
+
 ## 查询余额
 
 查询支持余额接口的 Provider：APIMart（及兼容中转）、OpenRouter、DeepSeek、Moonshot（Kimi）、OfoxAI、SoMark（按页计的解析额度），以及 new-api / one-api 系中转（aibase、agnes、openlux 等，只暴露“已用金额”）。其他 Provider 无公开余额接口，请到其控制台查看。
@@ -416,6 +418,24 @@ aigc-cli version
 aigc-cli --version
 ```
 
+## 结果 footer
+
+生成/转换命令成功后，会在原有输出后追加一段自描述 footer（不需要 `-v`）：
+
+```text
+Saved:
+  /abs/path/image_task_01_0.png
+Model: gpt-image-2 (apimart)
+Task: task_01...
+Cost: $0.0800
+Next: aigc-cli preview /abs/path/image_task_01_0.png
+```
+
+- 路径一律为绝对路径；`Task` / `Cost` 只有异步任务或 Provider 返回成本时才出现。
+- `Next` 只在 Provider 有恢复命令时指向任务（APIMart → `aigc-cli task <id>`，OpenRouter 视频 → `aigc-cli video --job-id <id>`）；ModelScope 等没有任务查询命令的 Provider 回退到 `aigc-cli preview <file>`。
+- 本地命令会写成 `Model: local: <model>`，不打印 `Cost`。
+- 失败时不打印 footer，错误行会带 `Hint:`；旧的输出行保持不变。
+
 ## 错误提示
 
 参数错误不再打印整页 usage，而是给出可直接照做的短提示：
@@ -435,7 +455,7 @@ Run 'aigc-cli image --help' for usage and examples.
 - 长参数拼错时，按编辑距离（相邻字母颠倒算一次编辑）提示最多 3 个最接近的参数；未知短参数会列出当前命令实际可用的短参数。
 - 类型错误按参数类型给出示例：整数、浮点数、布尔值、时长、可重复参数。
 - 提示始终指向出错命令自己的 `--help`，不会退回根命令。
-- 运行时错误（API、网络、任务失败）保持简短，不会被当作参数错误追加提示。
+- 运行时错误（API、网络、任务失败）保持简短；401/403/429 等常见失败会额外给一行 `Hint:`（检查 key/provider 或改用备用 provider），不会被当作参数错误追加提示。
 - 下载与保存的生成结果（图片、视频、音频、base64 解码输入）先写入目标目录的临时文件，成功后再原子重命名；下载或写入失败时，原路径上的旧文件保持不变。
 
 ## API 参考

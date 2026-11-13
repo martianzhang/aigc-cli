@@ -461,7 +461,7 @@ func splitValues(raw string) []string {
 func resolveRedactPath(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return "", fmt.Errorf("file_path is required")
+		return "", fmt.Errorf("file_path is required\nHint: pass an absolute file_path in the tool arguments")
 	}
 	if raw == "~" || strings.HasPrefix(raw, "~/") {
 		home, err := os.UserHomeDir()

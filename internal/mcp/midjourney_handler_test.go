@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -107,7 +108,7 @@ func TestMidjourneyImagineHandler_missingPrompt(t *testing.T) {
 	if !res.IsError {
 		t.Error("expected IsError=true for missing prompt")
 	}
-	if got := toolResultText(t, res); got != "prompt is required" {
+	if got := toolResultText(t, res); !strings.Contains(got, "prompt is required") {
 		t.Errorf("message = %q", got)
 	}
 }
@@ -134,7 +135,7 @@ func TestMidjourneyHandlers_missingAPIKey(t *testing.T) {
 		if !res.IsError {
 			t.Errorf("%s: expected IsError=true when API key is missing", handler.name)
 		}
-		if got := toolResultText(t, res); got != "API Key not configured" {
+		if got := toolResultText(t, res); !strings.Contains(got, "API Key not configured") {
 			t.Errorf("%s: message = %q", handler.name, got)
 		}
 	}

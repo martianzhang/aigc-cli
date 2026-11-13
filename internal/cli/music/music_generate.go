@@ -74,8 +74,13 @@ func musicPromptStyle(req *types.MusicGenerateRequest) string {
 // baseURL/apiKey come from the resolved provider so --dry-run renders the
 // request against the actual endpoint.
 func runMusic(c client.APIClient, p *provider.EffectiveProvider, req *types.MusicGenerateRequest) error {
-	_, err := dispatchMusic(c, req, newMusicDispatchCtx(c, p))
-	return err
+	ctx := newMusicDispatchCtx(c, p)
+	saved, taskID, err := dispatchMusic(c, req, ctx)
+	if err != nil {
+		return err
+	}
+	printMusicResult(req, ctx.providerType, saved, taskID)
+	return nil
 }
 
 // buildMusicGenerateReq builds a typed music request from flags, config

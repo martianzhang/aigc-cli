@@ -87,7 +87,7 @@ aigc-cli models --type image --dry-run
 
 ## task
 
-Query async task status (APIMart compatible):
+Query async task status (APIMart compatible). Async commands print `Task:` / `Resume: aigc-cli task <id>`; use that id to recover after a timeout or interruption. OpenRouter video resumes with `aigc-cli video --job-id <id>`.
 
 ```bash
 # Use the globally configured provider
@@ -459,6 +459,24 @@ aigc-cli completion powershell > aigc-cli.ps1
 from the current `web_search.*` config; `fetch` only suggests fetch-capable
 providers.
 
+## Result footer
+
+Successful generate/transform commands append a self-describing footer (no `-v` needed):
+
+```text
+Saved:
+  /abs/path/image_task_01_0.png
+Model: gpt-image-2 (apimart)
+Task: task_01...
+Cost: $0.0800
+Next: aigc-cli preview /abs/path/image_task_01_0.png
+```
+
+- Paths are always absolute; `Task` / `Cost` appear only for async jobs or when the provider reports cost.
+- `Next` points at a task command only when the provider supports it (APIMart → `aigc-cli task <id>`, OpenRouter video → `aigc-cli video --job-id <id>`); providers such as ModelScope that have no task query fall back to `aigc-cli preview <file>`.
+- Local commands print `Model: local: <model>` and omit `Cost`.
+- Failures print no footer; the error line carries `Hint:`. Existing output lines are preserved.
+
 ## Error hints
 
 Usage errors get a short, command-scoped explanation instead of a full usage dump:
@@ -478,7 +496,7 @@ Run 'aigc-cli image --help' for usage and examples.
 - Misspelled long flags suggest up to three close names (adjacent transpositions count as one edit); an unknown shorthand lists the shorthands the command actually defines.
 - Wrong-typed values show a concrete example for integers, numbers, booleans, durations, and repeatable flags.
 - Hints always point at the failing command's own `--help`, never the root command.
-- Runtime errors (API, network, task failures) stay concise and do not gain usage hints.
+- Runtime errors (API, network, task failures) stay concise. Common failures such as 401/403/429 add one `Hint:` line (check the key/provider or switch providers) without treating the error as a usage error.
 - Downloaded and generated results (images, videos, audio, base64-decoded input) are written to a temporary file in the destination directory and renamed into place. If a download or write fails, an existing file at that path is left unchanged.
 
 ## Global Flags

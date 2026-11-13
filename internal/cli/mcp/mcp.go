@@ -94,12 +94,12 @@ Example MCP host config:
 			Generate: mcp.GenerateDeps{
 				Image: image.GenerateAndSave,
 				Music: music.GenerateAndSave,
-				Video: func(ctx context.Context, c *client.Client, p *provider.EffectiveProvider, req *types.VideoGenerateRequest) ([]string, []string, error) {
+				Video: func(ctx context.Context, c *client.Client, p *provider.EffectiveProvider, req *types.VideoGenerateRequest) ([]string, []string, string, error) {
 					res, err := video.GenerateAndSave(ctx, c, p, req)
 					if err != nil || res == nil {
-						return nil, nil, err
+						return nil, nil, "", err
 					}
-					return res.Videos, res.LastFrames, nil
+					return res.Videos, res.LastFrames, res.TaskID, nil
 				},
 			},
 		}

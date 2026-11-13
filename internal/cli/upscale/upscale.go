@@ -16,6 +16,7 @@ import (
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/hint"
 	"github.com/martianzhang/aigc-cli/internal/imgcodec"
 	"github.com/martianzhang/aigc-cli/internal/onnxrt"
 	"github.com/martianzhang/aigc-cli/internal/options"
@@ -132,7 +133,7 @@ func runUpscale(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("onnxruntime not found: %w\n  run 'aigc-cli upscale init' first", err)
 	}
 	if _, err := os.Stat(modelPath); err != nil {
-		return fmt.Errorf("model not found: %s\n  run 'aigc-cli upscale init --model %s' first", modelPath, info.ID)
+		return hint.MissingLocalModel("upscale", info.ID, modelPath)
 	}
 
 	det, err := up.NewDetector(libPath, modelPath, info.Scale, info.Input(), info.Output())
@@ -158,6 +159,7 @@ func runUpscale(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("encode output: %w", err)
 	}
 	ui.Printf("Saved: %s (%dx%d)\n", outPath, out.Bounds().Dx(), out.Bounds().Dy())
+	printUpscaleResult(outPath, info.ID)
 
 	if upPreview {
 		if err := service.PreviewFile(outPath); err != nil {

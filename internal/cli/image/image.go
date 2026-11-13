@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/hint"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/config"
@@ -106,7 +107,7 @@ func runImageGenerate(cmd *cobra.Command, args []string) error {
 		if genEdit && isAPIMart {
 			req.Model = "grok-imagine-1.5-edit-apimart"
 		} else {
-			return fmt.Errorf("model is required: set via --model flag or defaults.image.model in config.yaml")
+			return hint.MissingModel("image", p)
 		}
 	}
 	if req.Size == "" && !genEdit {

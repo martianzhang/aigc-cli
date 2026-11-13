@@ -184,6 +184,7 @@ func runDepthImage(_ *cobra.Command) error {
 		return err
 	}
 	ui.Printf("Depth image saved: %s\n", out)
+	printDepthResult(out, modelInfo.ID)
 	if depthPreview && !depthSkeleton && !depthFace {
 		if err := service.PreviewFile(out); err != nil {
 			ui.Eprintf("Warning: preview failed: %v\n", err)

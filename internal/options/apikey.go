@@ -31,9 +31,11 @@ func RequireAPIKey(cmdName string, p *provider.EffectiveProvider, providers map[
 	base := p.BaseURL
 
 	msg := fmt.Sprintf("no API key for %s (resolved base URL: %s)\n", target, base)
-	msg += "fix: use --provider <name> or pass --api-key / set OPENAI_API_KEY"
+	msg += "Hint: use --provider <name> or pass --api-key / set OPENAI_API_KEY"
 	msg += providerKeyClause(providers)
-	msg += "\n" + apiKeyNote(cmdName)
+	if note := apiKeyNote(cmdName); note != "" {
+		msg += "\n" + note
+	}
 	return errors.New(msg)
 }
 
@@ -48,7 +50,7 @@ func RequireBaseURL(cmdName string, p *provider.EffectiveProvider) error {
 		target = fmt.Sprintf("provider %q", p.Name)
 	}
 	return fmt.Errorf(
-		"no API base URL for %s: pass --api-base, set OPENAI_BASE_URL, or add base_url under providers.<name> in config.yaml",
+		"no API base URL for %s: pass --api-base, set OPENAI_BASE_URL, or add base_url under providers.<name> in config.yaml\nHint: aigc-cli models --list-providers",
 		target,
 	)
 }
@@ -88,6 +90,6 @@ func apiKeyNote(cmdName string) string {
 	case "decision":
 		return "note: Ollama runs decision models (tev1/nimble) locally with no API key"
 	default:
-		return "note: --type and --price listings need no API key"
+		return ""
 	}
 }

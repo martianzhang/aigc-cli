@@ -69,7 +69,7 @@ func generateSFXHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		input, err := request.RequireString("input")
 		if err != nil {
-			return mcp.NewToolResultError("input is required"), nil
+			return mcp.NewToolResultError("input is required\nHint: pass input in the tool arguments"), nil
 		}
 
 		p, providerErr := cfg.resolveProviderRef("audio.sfx", request.GetString("provider", ""))
@@ -117,7 +117,7 @@ func parseInjectJSON(raw string) (json.RawMessage, error) {
 
 func generateOnlineSFX(cfg *Config, request mcp.CallToolRequest, p *provider.EffectiveProvider, prompt, model string, duration float64, extra json.RawMessage) (*mcp.CallToolResult, error) {
 	if p.RequiresAPIKey() {
-		return mcp.NewToolResultError("API Key not configured"), nil
+		return mcp.NewToolResultError("API Key not configured\nHint: set OPENAI_API_KEY or run 'aigc-cli --print-config'; local providers need no key"), nil
 	}
 
 	format := strings.ToLower(request.GetString("format", ""))
@@ -170,9 +170,10 @@ func generateOnlineSFX(cfg *Config, request mcp.CallToolRequest, p *provider.Eff
 	if err := fsutil.WriteFileAtomic(filename, res.Data, 0644); err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to save audio: %v", err)), nil
 	}
-	return toolResultTextWithMedia(fmt.Sprintf(
+	text := fmt.Sprintf(
 		"Sound effect saved: %s\nFormat: %s\nSize: %d bytes\nModel: %s",
-		filename, format, len(res.Data), req.Model), filename), nil
+		filename, format, len(res.Data), req.Model)
+	return toolResultTextWithMedia(withMCPResultFooter(text, []string{filename}, req.Model, p.ProviderType.String(), "", 0, ""), filename), nil
 }
 
 func generateLocalSFX(cfg *Config, p *provider.EffectiveProvider, request mcp.CallToolRequest, prompt, model string, duration float64, extra json.RawMessage) (*mcp.CallToolResult, error) {
@@ -240,7 +241,8 @@ func generateLocalSFX(cfg *Config, p *provider.EffectiveProvider, request mcp.Ca
 	if err := fsutil.WriteFileAtomic(filename, wav, 0644); err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to save audio: %v", err)), nil
 	}
-	return toolResultTextWithMedia(fmt.Sprintf(
+	text := fmt.Sprintf(
 		"Sound effect saved: %s\nFormat: wav %dHz %dch\nDuration: %.2fs\nSeed: %d",
-		filename, generated.SampleRate, generated.Channels, generated.Duration(), generated.Seed), filename), nil
+		filename, generated.SampleRate, generated.Channels, generated.Duration(), generated.Seed)
+	return toolResultTextWithMedia(withMCPResultFooter(text, []string{filename}, "local: "+model, "", "", 0, ""), filename), nil
 }

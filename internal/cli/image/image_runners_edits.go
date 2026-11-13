@@ -42,6 +42,7 @@ func runImageEditsJSON(c client.APIClient, req *types.GenerateRequest, ctx *imag
 
 	postProcessImages(saved)
 	service.PrintUsage(resp.Usage)
+	printImageSummary(ctx, req, saved, "", usageCost(resp.Usage))
 
 	return saved, nil
 }

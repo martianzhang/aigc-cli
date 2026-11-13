@@ -104,6 +104,7 @@ func runDepthVideo(_ *cobra.Command) error {
 		return err
 	}
 	ui.Printf("\nDepth video saved: %s\n", out)
+	printDepthResult(out, modelInfo.ID)
 	if depthPreview {
 		if err := service.PreviewFile(out); err != nil {
 			ui.Eprintf("Warning: preview failed: %v\n", err)

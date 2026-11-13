@@ -92,5 +92,5 @@ func runAgnesVideo(ctx context.Context, c *client.Client, p *provider.EffectiveP
 
 	elapsed := time.Since(start).Seconds()
 	ui.Printf("Completed in %.0fs\n", elapsed)
-	return &RunResult{Videos: []string{filename}}, nil
+	return &RunResult{Videos: []string{filename}, TaskID: videoID}, nil
 }

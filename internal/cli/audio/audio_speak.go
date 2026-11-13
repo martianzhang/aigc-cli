@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
+	"github.com/martianzhang/aigc-cli/internal/cli/hint"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
@@ -97,6 +98,7 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save audio: %w", err)
 	}
 	ui.Printf("Saved: %s\n", filename)
+	printAudioResult([]string{filename}, req.Model, p.ProviderType.String())
 
 	if audioSpeechPlay {
 		if err := service.PreviewFile(filename); err != nil {
@@ -145,7 +147,7 @@ func runLocalAudioSpeak(_ *cobra.Command) error {
 
 	modelDir := filepath.Join(audioModelsDir(), modelID)
 	if _, err := os.Stat(modelDir); err != nil {
-		return fmt.Errorf("model %q not found at %s\nRun 'aigc-cli audio init --model %s' to download it", modelID, modelDir, modelID)
+		return hint.MissingLocalModel("audio", modelID, modelDir)
 	}
 
 	if options.Shared.Verbose {
@@ -177,6 +179,7 @@ func runLocalAudioSpeak(_ *cobra.Command) error {
 		return fmt.Errorf("failed to save audio: %w", err)
 	}
 	ui.Printf("Saved: %s\n", filename)
+	printAudioResult([]string{filename}, "local: "+modelID, "")
 
 	if audioSpeechPlay {
 		if err := service.PreviewFile(filename); err != nil {

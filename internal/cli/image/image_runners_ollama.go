@@ -18,7 +18,7 @@ func ollamaGenerateImages(baseURL string, req *types.GenerateRequest) ([]string,
 }
 
 // runOllamaImage handles image generation via Ollama's native /api/generate endpoint.
-func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
+func runOllamaImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 	saved, err := ollamaGenerateImages(c.BaseURL(), req)
 	if err != nil {
@@ -31,5 +31,6 @@ func runOllamaImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 		ui.Printf("Image %d: %s\n", i+1, f)
 	}
 	postProcessImages(saved)
+	printImageSummary(ctx, req, saved, "", 0)
 	return saved, nil
 }

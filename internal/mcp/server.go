@@ -30,8 +30,8 @@ import (
 // making internal/mcp depend on internal/cli packages.
 type GenerateDeps struct {
 	Image func(client.APIClient, *provider.EffectiveProvider, *types.GenerateRequest) ([]string, error)
-	Video func(context.Context, *client.Client, *provider.EffectiveProvider, *types.VideoGenerateRequest) (videos, lastFrames []string, err error)
-	Music func(client.APIClient, *provider.EffectiveProvider, *types.MusicGenerateRequest) ([]string, error)
+	Video func(context.Context, *client.Client, *provider.EffectiveProvider, *types.VideoGenerateRequest) (videos, lastFrames []string, taskID string, err error)
+	Music func(client.APIClient, *provider.EffectiveProvider, *types.MusicGenerateRequest) ([]string, string, error)
 }
 
 // Config holds the configuration for the MCP server.
@@ -630,7 +630,7 @@ func detectHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
-			return mcp.NewToolResultError("file_path is required"), nil
+			return mcp.NewToolResultError("file_path is required\nHint: pass an absolute file_path in the tool arguments"), nil
 		}
 		if !isLocalImageFile(path) {
 			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil
@@ -773,7 +773,7 @@ func captionImageHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
-			return mcp.NewToolResultError("file_path is required"), nil
+			return mcp.NewToolResultError("file_path is required\nHint: pass an absolute file_path in the tool arguments"), nil
 		}
 		if !isLocalImageFile(path) {
 			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp) are supported."), nil

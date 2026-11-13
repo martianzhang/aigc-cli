@@ -126,7 +126,7 @@ func midjourneyClient(cfg *Config, providerRef string) (*client.Client, *mcp.Cal
 		return nil, mcp.NewToolResultError(errMsg)
 	}
 	if p.RequiresAPIKey() {
-		return nil, mcp.NewToolResultError("API Key not configured")
+		return nil, mcp.NewToolResultError("API Key not configured\nHint: set OPENAI_API_KEY or run 'aigc-cli --print-config'; local providers need no key")
 	}
 	return client.NewFromProvider(p), nil
 }
@@ -140,7 +140,7 @@ func midjourneyImagineHandler(cfg *Config) server.ToolHandlerFunc {
 		}
 		prompt, err := request.RequireString("prompt")
 		if err != nil {
-			return mcp.NewToolResultError("prompt is required"), nil
+			return mcp.NewToolResultError("prompt is required\nHint: pass prompt in the tool arguments"), nil
 		}
 
 		req := &types.MJImagineRequest{

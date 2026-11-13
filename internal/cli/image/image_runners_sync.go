@@ -39,6 +39,7 @@ func runSyncImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDisp
 
 	postProcessImages(saved)
 	service.PrintUsage(syncResp.Usage)
+	printImageSummary(ctx, req, saved, "", usageCost(syncResp.Usage))
 
 	return saved, nil
 }

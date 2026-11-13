@@ -15,6 +15,7 @@ import (
 type RunResult struct {
 	Videos     []string // 已保存的视频文件路径
 	LastFrames []string // 已保存的尾帧图片路径（return_last_frame 时）
+	TaskID     string   // Provider task/job id, when the backend is async
 }
 
 // wantsLastFrame reports whether the request asked for a last-frame image.

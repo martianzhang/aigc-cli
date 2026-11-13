@@ -264,7 +264,7 @@ func redactInput(req mcp.CallToolRequest) (string, string, string, func(), error
 	noop := func() {}
 	raw, err := req.RequireString("file_path")
 	if err != nil {
-		return "", "", "", noop, fmt.Errorf("file_path is required")
+		return "", "", "", noop, fmt.Errorf("file_path is required\nHint: pass an absolute file_path in the tool arguments")
 	}
 	input, err := resolveRedactPath(raw)
 	if err != nil {

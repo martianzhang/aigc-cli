@@ -59,7 +59,7 @@ func recognizeTextHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		filePath, err := req.RequireString("file_path")
 		if err != nil {
-			return mcp.NewToolResultError("file_path is required"), nil
+			return mcp.NewToolResultError("file_path is required\nHint: pass an absolute file_path in the tool arguments"), nil
 		}
 		if !filepath.IsAbs(filePath) {
 			abs, err := filepath.Abs(filePath)

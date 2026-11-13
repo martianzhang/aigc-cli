@@ -20,7 +20,7 @@ type musicDispatchCtx struct {
 // musicStrategy is one dispatch rule. run returns paths of saved audio files.
 type musicStrategy struct {
 	match func(*musicDispatchCtx) bool
-	run   func(client.APIClient, *types.MusicGenerateRequest, *musicDispatchCtx) ([]string, error)
+	run   func(client.APIClient, *types.MusicGenerateRequest, *musicDispatchCtx) ([]string, string, error)
 }
 
 // musicStrategies is the ordered dispatch table; first match wins.
@@ -47,20 +47,20 @@ func newMusicDispatchCtx(c client.APIClient, p *provider.EffectiveProvider) *mus
 }
 
 // dispatchMusic runs the first matching strategy.
-func dispatchMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *musicDispatchCtx) ([]string, error) {
+func dispatchMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *musicDispatchCtx) ([]string, string, error) {
 	for _, s := range musicStrategies {
 		if s.match(ctx) {
 			return s.run(c, req, ctx)
 		}
 	}
-	return nil, fmt.Errorf("no music strategy for provider %s", ctx.providerType)
+	return nil, "", fmt.Errorf("no music strategy for provider %s", ctx.providerType)
 }
 
 // runAPIMartMusic runs the APIMart async submit/poll path (suno / flowmusic).
-func runAPIMartMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *musicDispatchCtx) ([]string, error) {
+func runAPIMartMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *musicDispatchCtx) ([]string, string, error) {
 	body, err := buildMusicBody(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	return runMusicSubmitAndPoll(c, ctx.baseURL, ctx.apiKey, body)
 }

@@ -370,7 +370,7 @@ func kbAddHandler() server.ToolHandlerFunc {
 		}
 		filePath, _ := args["file_path"].(string)
 		if filePath == "" {
-			return mcp.NewToolResultError("file_path is required"), nil
+			return mcp.NewToolResultError("file_path is required\nHint: pass an absolute file_path in the tool arguments"), nil
 		}
 
 		store, err := openKBStore()

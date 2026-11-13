@@ -30,12 +30,13 @@ func runAPIMartVideo(ctx context.Context, c *client.Client, p *provider.Effectiv
 	ui.Printf("Model: %s\n", req.Model)
 	ui.Printf("Response code: %d\n", resp.Code)
 	ui.Printf("Task ID: %s\n", task.TaskID)
+	ui.Printf("Resume: aigc-cli task %s\n", task.TaskID)
 	ui.Printf("Status: %s\n\n", task.Status)
 
 	ui.Println("Polling for completion...")
 	taskData, err := c.PollTask(task.TaskID, clientfactory.TaskWait(types.MediaVideo))
 	if err != nil {
-		return nil, fmt.Errorf("polling failed: %w", err)
+		return nil, fmt.Errorf("polling failed: %w%s", err, service.TaskResume(task.TaskID))
 	}
 
 	if options.Shared.Verbose {

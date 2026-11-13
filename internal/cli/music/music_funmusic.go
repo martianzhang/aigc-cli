@@ -104,15 +104,15 @@ func buildFunMusicCurl(baseURL, apiKey string, body any) string {
 }
 
 // runFunMusicMusic runs the DashScope-native synchronous Fun-Music path.
-func runFunMusicMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *musicDispatchCtx) ([]string, error) {
+func runFunMusicMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *musicDispatchCtx) ([]string, string, error) {
 	body, err := BuildFunMusicBody(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	if musicDryRun {
 		ui.Println(buildFunMusicCurl(ctx.baseURL, ctx.apiKey, body))
-		return nil, nil
+		return nil, "", nil
 	}
 
 	if options.Shared.Verbose {
@@ -122,7 +122,7 @@ func runFunMusicMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *
 
 	resp, err := c.FunMusicGenerate(body)
 	if err != nil {
-		return nil, fmt.Errorf("fun-music generation failed: %w", err)
+		return nil, "", fmt.Errorf("fun-music generation failed: %w", err)
 	}
 
 	track := resp.Track()
@@ -141,5 +141,6 @@ func runFunMusicMusic(c client.APIClient, req *types.MusicGenerateRequest, ctx *
 	if label == "" {
 		label = resp.RequestID
 	}
-	return downloadMusics([]types.MusicTrack{track}, label)
+	saved, err := downloadMusics([]types.MusicTrack{track}, label)
+	return saved, "", err
 }

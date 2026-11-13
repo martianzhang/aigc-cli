@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -246,7 +247,13 @@ func Execute() {
 			code = ec.ExitCode()
 		}
 		if code == 1 {
-			for _, line := range guidance.Explain(executed, err) {
+			lines := guidance.Explain(executed, err)
+			if len(lines) == 0 && !strings.Contains(err.Error(), "Hint:") {
+				if h := runtimeHint(err); h != "" {
+					fmt.Fprintln(os.Stderr, "Hint: "+h)
+				}
+			}
+			for _, line := range lines {
 				fmt.Fprintln(os.Stderr, line)
 			}
 		}

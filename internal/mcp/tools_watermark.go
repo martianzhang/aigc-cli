@@ -47,7 +47,7 @@ func removeWatermarkHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
-			return mcp.NewToolResultError("file_path is required"), nil
+			return mcp.NewToolResultError("file_path is required\nHint: pass an absolute file_path in the tool arguments"), nil
 		}
 		if !isLocalImageFile(path) {
 			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp/.avif/.heic/.jxl) are supported."), nil
@@ -95,7 +95,7 @@ func addWatermarkHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
-			return mcp.NewToolResultError("file_path is required"), nil
+			return mcp.NewToolResultError("file_path is required\nHint: pass an absolute file_path in the tool arguments"), nil
 		}
 		if !isLocalImageFile(path) {
 			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp/.avif/.heic/.jxl) are supported."), nil
@@ -150,7 +150,7 @@ func cropWatermarkHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
-			return mcp.NewToolResultError("file_path is required"), nil
+			return mcp.NewToolResultError("file_path is required\nHint: pass an absolute file_path in the tool arguments"), nil
 		}
 		if !isLocalImageFile(path) {
 			return mcp.NewToolResultText("Only image files (.jpg/.jpeg/.png/.webp/.gif/.bmp/.avif/.heic/.jxl) are supported."), nil

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/martianzhang/aigc-cli/internal/audio"
+	"github.com/martianzhang/aigc-cli/internal/cli/hint"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
@@ -95,6 +96,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to save transcription: %w", err)
 		}
 		ui.Printf("Saved: %s\n", filename)
+		printAudioResult([]string{filename}, audioTranscribeModel, p.ProviderType.String())
 		return nil
 	}
 
@@ -149,6 +151,7 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save transcription: %w", err)
 	}
 	ui.Printf("Saved: %s\n", filename)
+	printAudioResult([]string{filename}, audioTranscribeModel, p.ProviderType.String())
 	return nil
 }
 
@@ -183,7 +186,7 @@ func runLocalAudioTranscribe(_ *cobra.Command) error {
 
 	modelDir := filepath.Join(audioModelsDir(), modelID)
 	if _, err := os.Stat(modelDir); err != nil {
-		return fmt.Errorf("model %q not found at %s\nRun 'aigc-cli audio init --model %s' to download it", modelID, modelDir, modelID)
+		return hint.MissingLocalModel("audio", modelID, modelDir)
 	}
 
 	if options.Shared.Verbose {
@@ -213,5 +216,6 @@ func runLocalAudioTranscribe(_ *cobra.Command) error {
 		return fmt.Errorf("failed to save transcription: %w", err)
 	}
 	ui.Printf("Saved: %s\n", filename)
+	printAudioResult([]string{filename}, "local: "+modelID, "")
 	return nil
 }

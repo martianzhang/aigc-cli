@@ -1,6 +1,7 @@
 package gif
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -13,34 +14,16 @@ func Available() bool {
 	return err == nil
 }
 
-// MissingHint returns an error describing how to install ffmpeg on this platform.
+// MissingHint returns a two-line, copy-pasteable error. Keep it short: the CLI
+// prints "Error: <line 1>" and "Hint: <line 2>", and agents should not need to
+// scroll through per-platform install guides.
 func MissingHint() error {
-	return &missingFFmpegError{}
+	return fmt.Errorf("ffmpeg not found in PATH\nHint: install ffmpeg (macOS: brew install ffmpeg; Ubuntu/Debian: sudo apt install ffmpeg; Windows: winget install Gyan.FFmpeg)")
 }
 
 // SplitExtraArgs 把空格分隔的额外 ffmpeg 参数拆为切片（支持引号包裹的值）。
 func SplitExtraArgs(s string) []string {
 	return argutil.Split(s)
-}
-
-// missingFFmpegError 标记 ffmpeg 未安装这一可识别错误。
-type missingFFmpegError struct{}
-
-func (e *missingFFmpegError) Error() string {
-	return `ffmpeg not found in PATH.
-
-Media conversion requires ffmpeg (aigc-cli does NOT bundle it).
-Install it on your platform:
-
-  macOS:    brew install ffmpeg
-  Ubuntu:   sudo apt install ffmpeg
-  Debian:   sudo apt-get install ffmpeg
-  Fedora:   sudo dnf install ffmpeg
-  Arch:     sudo pacman -S ffmpeg
-  Windows:  winget install Gyan.FFmpeg
-            # or: choco install ffmpeg
-
-Verify with: ffmpeg -version`
 }
 
 // quote 给含空格/引号的参数加引号，用于可读的 stdout 回显。

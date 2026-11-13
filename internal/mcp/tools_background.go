@@ -66,7 +66,7 @@ func removeBackgroundHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		path, err := req.RequireString("file_path")
 		if err != nil {
-			return mcp.NewToolResultError("file_path is required"), nil
+			return mcp.NewToolResultError("file_path is required\nHint: pass an absolute file_path in the tool arguments"), nil
 		}
 		if !filepath.IsAbs(path) {
 			abs, err := filepath.Abs(path)

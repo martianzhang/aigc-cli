@@ -16,7 +16,7 @@ import (
 )
 
 // runGeminiImage handles image generation via Gemini native generateContent API.
-func runGeminiImage(c client.APIClient, req *types.GenerateRequest, _ *imageDispatchCtx) ([]string, error) {
+func runGeminiImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 
 	geminiResp, err := c.GeminiImageGenerate(req)
@@ -71,5 +71,6 @@ func runGeminiImage(c client.APIClient, req *types.GenerateRequest, _ *imageDisp
 		return nil, fmt.Errorf("gemini returned no images to save")
 	}
 	postProcessImages(saved)
+	printImageSummary(ctx, req, saved, "", 0)
 	return saved, nil
 }

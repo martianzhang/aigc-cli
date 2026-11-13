@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/martianzhang/aigc-cli/internal/cli/hint"
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/config"
@@ -142,9 +143,16 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		cfg.Defaults.Video.MergeIntoVideo(req)
 	}
 
+	// Resolve provider first so the missing-model hint names the correct
+	// catalog (models --proxy without --provider is ambiguous).
+	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
+	if err := options.RequireBaseURL("video", p); err != nil {
+		return err
+	}
+
 	// Apply defaults for remaining empty fields
 	if req.Model == "" {
-		return fmt.Errorf("model is required: set via --model flag or defaults.video.model in config.yaml")
+		return hint.MissingModel("video", p)
 	}
 	if req.Size == "" {
 		req.Size = "16:9"
@@ -153,12 +161,7 @@ func runVideo(cmd *cobra.Command, args []string) error {
 		req.Resolution = "480p"
 	}
 
-	// Resolve provider (named provider > global > builtin). Building the plan
-	// is pure, so --dry-run stays network-free.
-	p := options.Shared.ResolveProvider(options.ProviderNameVideo)
-	if err := options.RequireBaseURL("video", p); err != nil {
-		return err
-	}
+	// Building the plan is pure, so --dry-run stays network-free.
 	plan, err := buildVideoPlan(req, p)
 	if err != nil {
 		return err
@@ -208,8 +211,10 @@ func runVideo(cmd *cobra.Command, args []string) error {
 				saveLastFrames(out)
 			}
 			saved := []string(nil)
+			taskID := ""
 			if out != nil {
 				saved = out.Videos
+				taskID = out.TaskID
 			}
 			if err == nil && vidGIF {
 				if conv, cerr := convertSavedToGIF(saved); cerr != nil {
@@ -224,6 +229,9 @@ func runVideo(cmd *cobra.Command, args []string) error {
 				} else {
 					saved = cropped
 				}
+			}
+			if err == nil {
+				printVideoResult(req, p, saved, taskID)
 			}
 			if err == nil && vidPreview {
 				for _, f := range saved {

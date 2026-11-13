@@ -134,7 +134,7 @@ func getBalanceHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		p := cfg.cmdProvider("balance")
 		if p.RequiresAPIKey() {
-			return mcp.NewToolResultError("API Key not configured"), nil
+			return mcp.NewToolResultError("API Key not configured\nHint: set OPENAI_API_KEY or run 'aigc-cli --print-config'; local providers need no key"), nil
 		}
 		scope := request.GetString("scope", "all")
 		return mcp.NewToolResultText(balance.Query(p, scope)), nil
@@ -146,7 +146,7 @@ func getBalanceHandler(cfg *Config) server.ToolHandlerFunc {
 func getTaskHandler(cfg *Config) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if cfg.APIKey == "" {
-			return mcp.NewToolResultError("API Key not configured"), nil
+			return mcp.NewToolResultError("API Key not configured\nHint: set OPENAI_API_KEY or run 'aigc-cli --print-config'; local providers need no key"), nil
 		}
 
 		taskID, err := request.RequireString("task_id")
