@@ -244,11 +244,11 @@ func TestTryInlineImageWritesOSC1337(t *testing.T) {
 		t.Fatal("tryInlineImage with a capable terminal should succeed")
 	}
 	out := buf.String()
-	cols, rows, ok := previewCellSize(want)
+	w, h, ok := previewPayloadPixels(want)
 	if !ok {
-		t.Fatal("previewCellSize(payload) = !ok")
+		t.Fatal("previewPayloadPixels(payload) = !ok")
 	}
-	prefix := fmt.Sprintf("\n\033]1337;File=inline=1;preserveAspectRatio=1;width=%d;height=%d;mimeType=image/png:", cols, rows)
+	prefix := fmt.Sprintf("\n\033]1337;File=inline=1;preserveAspectRatio=1;width=%dpx;height=%dpx;mimeType=image/png:", w, h)
 	if !strings.HasPrefix(out, prefix) {
 		t.Fatalf("output does not start with the inline-image header: %q", out[:min(len(out), 80)])
 	}
@@ -293,23 +293,25 @@ func TestHasTransparency(t *testing.T) {
 	}
 }
 
-func TestPreviewCellSizeIsCappedToBudget(t *testing.T) {
-	// A 1024x768 payload maps to a box larger than a small terminal's 60%
-	// budget; the cap keeps HiDPI terminals from filling the window.
+func TestPreviewPayloadPixelsMatchResizedImage(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "big.png")
 	img := image.NewRGBA(image.Rect(0, 0, 1024, 768))
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		t.Fatal(err)
 	}
-	cols, rows, ok := previewCellSize(buf.Bytes())
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	payload, _, ok := buildInlinePayload(path)
 	if !ok {
-		t.Fatal("previewCellSize() = !ok")
+		t.Fatal("buildInlinePayload() = !ok")
 	}
-	maxCols, maxRows := previewCellBox()
-	if cols > maxCols || rows > maxRows {
-		t.Fatalf("cell box %dx%d exceeds preview budget %dx%d", cols, rows, maxCols, maxRows)
+	w, h, ok := previewPayloadPixels(payload)
+	if !ok || w <= 0 || h <= 0 {
+		t.Fatalf("previewPayloadPixels() = (%d,%d,%v)", w, h, ok)
 	}
-	if cols <= 0 || rows <= 0 {
-		t.Fatalf("cell box = %dx%d, want positive", cols, rows)
+	if w > maxPreviewWidthPx || h > maxPreviewHeightPx {
+		t.Fatalf("payload %dx%d exceeds preview caps", w, h)
 	}
 }

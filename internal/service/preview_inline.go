@@ -103,14 +103,14 @@ func tryInlineImage(path string) bool {
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(payload)
-	// Pass an explicit cell box: iTerm2 otherwise draws at the image's native
-	// pixel size, which on a HiDPI display can fill the window (and scroll the
-	// image, leaving blank rows below). The box is capped to the same 60%
-	// terminal budget used for the pixel resize, so both commands render the
-	// same file identically regardless of where the cursor is.
+	// Pass the payload's own pixel dimensions. With a bare `inline=1` iTerm2
+	// draws at native size and, on HiDPI, can fill the window; with cell units
+	// the reserved area (cells x cell-height) rarely matches the image aspect
+	// exactly, leaving a blank band under it. Pixel units reserve exactly the
+	// image rectangle, so the preview hugs the content.
 	header := fmt.Sprintf("\033]1337;File=inline=1;preserveAspectRatio=1;mimeType=%s:", mime)
-	if cols, rows, ok := previewCellSize(payload); ok {
-		header = fmt.Sprintf("\033]1337;File=inline=1;preserveAspectRatio=1;width=%d;height=%d;mimeType=%s:", cols, rows, mime)
+	if w, h, ok := previewPayloadPixels(payload); ok {
+		header = fmt.Sprintf("\033]1337;File=inline=1;preserveAspectRatio=1;width=%dpx;height=%dpx;mimeType=%s:", w, h, mime)
 	}
 	// Start on a fresh line before the protocol escape, so the image renders
 	// at a predictable position regardless of prior text output on stdout.
@@ -120,31 +120,15 @@ func tryInlineImage(path string) bool {
 	return true
 }
 
-// previewCellSize returns the terminal cell box to request for an already
-// preview-sized payload. Cells are derived from the payload pixels (at the
-// same 8x16 estimate used for sizing) and capped to the 60% preview budget, so
-// a HiDPI terminal cannot draw the image larger than the intended area.
-func previewCellSize(payload []byte) (cols, rows int, ok bool) {
+// previewPayloadPixels returns the pixel dimensions of an already preview-sized
+// payload. The inline escape requests exactly this rectangle, so the terminal
+// reserves no extra rows (which show up as blank/black bands under the image).
+func previewPayloadPixels(payload []byte) (width, height int, ok bool) {
 	cfg, _, err := imgcodec.DecodeConfig(bytes.NewReader(payload))
 	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
 		return 0, 0, false
 	}
-	cols = (cfg.Width + previewCellWidthPx - 1) / previewCellWidthPx
-	rows = (cfg.Height + previewCellHeightPx - 1) / previewCellHeightPx
-	maxCols, maxRows := previewCellBox()
-	if cols > maxCols {
-		cols = maxCols
-	}
-	if rows > maxRows {
-		rows = maxRows
-	}
-	if cols < 1 {
-		cols = 1
-	}
-	if rows < 1 {
-		rows = 1
-	}
-	return cols, rows, true
+	return cfg.Width, cfg.Height, true
 }
 
 // buildInlinePayload returns the image bytes to embed in an inline-image escape
