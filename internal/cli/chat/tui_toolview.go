@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/martianzhang/aigc-cli/internal/agent"
+	"github.com/martianzhang/aigc-cli/internal/mdrender"
 )
 
 const (
@@ -414,7 +415,7 @@ func (m *chatModel) renderToolDetail(detail string, width int) string {
 	lines := strings.Split(strings.TrimRight(detail, "\n"), "\n")
 	out := make([]string, 0, len(lines))
 	for i, line := range lines {
-		wrapped, _ := wrapANSI(line, max(width-4, 10))
+		wrapped, _ := mdrender.WrapANSI(line, max(width-4, 10))
 		for j, row := range strings.Split(wrapped, "\n") {
 			prefix := "    "
 			if i == 0 && j == 0 {

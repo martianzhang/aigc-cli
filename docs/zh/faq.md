@@ -137,6 +137,7 @@ aigc-cli chat --message "hello" -v
 
 ```bash
 AIGC_CLI_NO_INLINE_PREVIEW=1 aigc-cli image ... --preview   # 一律用系统看图器
+aigc-cli image ... --preview --no-inline-preview            # 同上，命令行开关
 TERM_PROGRAM=none aigc-cli image ... --preview              # 同上，适合只想临时绕过的场景
 ```
 

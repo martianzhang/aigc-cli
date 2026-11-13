@@ -83,6 +83,24 @@ func TestInlinePreviewAllowed(t *testing.T) {
 	}
 }
 
+func TestInlinePreviewDisabledByFlag(t *testing.T) {
+	setPreviewStdoutTerminal(t, true)
+	t.Cleanup(func() { SetInlinePreviewDisabled(false) })
+
+	SetInlinePreviewDisabled(true)
+	if inlinePreviewAllowed() {
+		t.Error("inlinePreviewAllowed() = true after SetInlinePreviewDisabled(true)")
+	}
+	if InlinePreviewAvailable() {
+		t.Error("InlinePreviewAvailable() = true after SetInlinePreviewDisabled(true)")
+	}
+
+	SetInlinePreviewDisabled(false)
+	if !inlinePreviewAllowed() {
+		t.Error("inlinePreviewAllowed() = false after re-enabling")
+	}
+}
+
 func TestBuildInlinePayloadSmallPNGPassthrough(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "small.png")
 	createTestPNG(t, path)

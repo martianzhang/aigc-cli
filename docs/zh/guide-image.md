@@ -54,11 +54,11 @@ aigc-cli image < prompt.txt
 | `--verbose` | `-v` | 显示请求 JSON 和完整响应（全局 flag） | 通用 |
 | `--mode` | | 强制指定模式：`auto`、`sync`、`async` | 通用 |
 | `--dry-run` | | 打印等价 curl（上传型 provider 会先打印每个本地参考图的上传 curl），不调用 API | 通用 |
-| `--preview` | | 生成后在终端内联显示（需 iTerm2/Kitty/Sixel，且 `stdout` 是终端），不支持时用系统默认程序打开；`AIGC_CLI_NO_INLINE_PREVIEW=1` 强制只用系统看图器 | 通用 |
+| `--preview` | | 生成后在终端内联显示（需 iTerm2/Kitty/Sixel，且 `stdout` 是终端），不支持时用系统默认程序打开；`--no-inline-preview` 或 `AIGC_CLI_NO_INLINE_PREVIEW=1` 强制只用系统看图器 | 通用 |
 
 > 标注了厂商名的参数只在对应 provider 生效；其它厂商私有字段（如 `style_preset`、`seed`）直接放进 `--inject-json`，不会再新增 CLI 参数。
 
-> 💡 **`--preview` 与 base64**：`--preview` 在 iTerm2 / Kitty / Sixel 终端里是通过往 `stdout` 写图片转义序列实现的。CLI 只在 **`stdout` 是真实终端** 时才内联渲染——输出被管道、重定向、日志或 IDE/TUI 捕获时一律不写，否则那串 base64 会当作普通文本打在屏幕上。内联 payload 永远是预览尺寸的副本（照片转 JPEG、带透明度转 PNG），上限 512KB，超过上限（例如超大 GIF）直接用系统看图器打开；`AIGC_CLI_NO_INLINE_PREVIEW=1` 可完全关闭内联渲染。
+> 💡 **`--preview` 与 base64**：`--preview` 在 iTerm2 / Kitty / Sixel 终端里是通过往 `stdout` 写图片转义序列实现的。CLI 只在 **`stdout` 是真实终端** 时才内联渲染——输出被管道、重定向、日志或 IDE/TUI 捕获时一律不写，否则那串 base64 会当作普通文本打在屏幕上。内联 payload 永远是预览尺寸的副本（照片转 JPEG、带透明度转 PNG），上限 512KB，超过上限（例如超大 GIF）直接用系统看图器打开；`--no-inline-preview` 或 `AIGC_CLI_NO_INLINE_PREVIEW=1` 可完全关闭内联渲染。
 
 > ⚠️ **--size 格式因厂商而异**：`--size` 支持四种写法：`<ratio>`（如 `16:9`）、`<pixels>`（如 `1024x1024`）、`<tier>`（如 `2K`），以及新的组合形式 `<tier>@<ratio>`（如 `2K@16:9`）。`@` 前为分辨率档位，`@` 后为宽高比；CLI 会自动拆成 `size` + `ratio`，不含 `@` 的值行为不变。
 

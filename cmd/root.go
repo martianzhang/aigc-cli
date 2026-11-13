@@ -23,6 +23,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/search"
 	"github.com/martianzhang/aigc-cli/internal/secret"
+	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/terminal"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/vault"
@@ -31,6 +32,10 @@ import (
 // shared aliases the options package's shared config (same pointer), so existing
 // call sites keep working while subpackages read options.Shared.
 var shared = options.Shared
+
+// noInlinePreview is the --no-inline-preview global opt-out; it is applied to
+// the service layer in PersistentPreRunE.
+var noInlinePreview bool
 
 // rootCmd represents the base command.
 var rootCmd = &cobra.Command{
@@ -136,6 +141,10 @@ Guides: docs/zh/ (中文) and docs/en/ (English) are authoritative. Run
 		shared.ProviderSet = hasFlagChanged(cmd, "provider")
 		shared.ZDRSet = hasFlagChanged(cmd, "zdr")
 		shared.HTTPProxySet = hasFlagChanged(cmd, "http-proxy")
+
+		// --no-inline-preview mirrors AIGC_CLI_NO_INLINE_PREVIEW; apply it before
+		// any command can render a preview.
+		service.SetInlinePreviewDisabled(noInlinePreview)
 
 		// --no-proxy is a hard bypass: mixing it with an explicit proxy URL is
 		// ambiguous, so reject the combination instead of silently picking one.
@@ -288,6 +297,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&shared.HTTPProxy, "http-proxy", "", "HTTP proxy URL (env: HTTP_PROXY / HTTPS_PROXY / NO_PROXY)")
 	rootCmd.PersistentFlags().BoolVar(&shared.NoProxy, "no-proxy", false, "ignore http_proxy config and HTTP_PROXY / HTTPS_PROXY for this run (direct connection)")
 	rootCmd.PersistentFlags().StringVarP(&shared.Model, "model", "m", "", "Model name (overrides defaults.{cmd}.model; required by image/video when unset)")
+	rootCmd.PersistentFlags().BoolVar(&noInlinePreview, "no-inline-preview", false, "disable inline terminal image rendering (same as AIGC_CLI_NO_INLINE_PREVIEW)")
 	rootCmd.PersistentFlags().StringVarP(&shared.Provider, "provider", "P", "", "Named provider from config.providers (overrides defaults.{cmd}.provider)")
 	rootCmd.PersistentFlags().StringVarP(&shared.OutputDir, "output", "o", ".", "output directory for downloaded/generated files")
 	rootCmd.PersistentFlags().BoolVarP(&shared.Verbose, "verbose", "v", false, "verbose debug output")

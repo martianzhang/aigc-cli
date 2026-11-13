@@ -58,7 +58,7 @@ func registerImageGenerateFlags(cmd *cobra.Command) {
 	f.StringVar(&genResponseFmt, "response-format", "", "Response format: url, b64_json (OpenAI/OpenRouter/Agnes)")
 	f.BoolVar(&genDryRun, "dry-run", false, "Print request parameters without calling API")
 	f.BoolVar(&genEdit, "edit", false, "Edit mode: force the provider's image-edit protocol (APIMart Grok / OpenAI-family multipart /images/edits / ZeekAI); requires --image-url")
-	f.BoolVar(&genPreview, "preview", false, "Open generated image inline in the terminal when supported, else with the system viewer (opt out: AIGC_CLI_NO_INLINE_PREVIEW)")
+	f.BoolVar(&genPreview, "preview", false, "Open generated image inline in the terminal when supported, else with the system viewer (opt out: --no-inline-preview or AIGC_CLI_NO_INLINE_PREVIEW)")
 	f.StringVar(&options.Shared.JSONInput, "json", "", "JSON file path, JSON string, or \"-\" for stdin")
 	f.StringVar(&options.Shared.InjectJSON, "inject-json", "", "JSON object merged additively into the request body (arrays append, scalars overwrite); use it for vendor-private fields; JSON string or file path")
 	f.StringVar(&options.Shared.Mode, "mode", "", "Generation mode: auto (detect), sync, async (default: auto)")

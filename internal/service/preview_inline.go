@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/mattn/go-sixel"
 	"golang.org/x/term"
@@ -45,15 +46,45 @@ var previewStdoutIsTerminal = func() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
+// inlinePreviewDisabled is the CLI-flag counterpart of EnvNoInlinePreview. The
+// root command sets it from --no-inline-preview; keeping it in the service
+// package covers every caller of PreviewFile in one place.
+var inlinePreviewDisabled atomic.Bool
+
+// SetInlinePreviewDisabled turns inline image rendering off (or back on) for
+// this process. It mirrors EnvNoInlinePreview so CLI flags and environment
+// opt-outs behave identically.
+func SetInlinePreviewDisabled(disabled bool) { inlinePreviewDisabled.Store(disabled) }
+
 // inlinePreviewAllowed reports whether an inline-image escape may be written.
 // stdout must be a terminal — a pipe, a redirected log, or output captured by
 // an IDE/TUI would otherwise receive the escape as literal base64 text — and the
-// user must not have opted out via AIGC_CLI_NO_INLINE_PREVIEW.
+// user must not have opted out via --no-inline-preview or
+// AIGC_CLI_NO_INLINE_PREVIEW.
 func inlinePreviewAllowed() bool {
-	if os.Getenv(EnvNoInlinePreview) != "" {
+	if inlinePreviewDisabled.Load() || os.Getenv(EnvNoInlinePreview) != "" {
 		return false
 	}
 	return previewStdoutIsTerminal()
+}
+
+// InlinePreviewAvailable reports whether images can be shown as inline escapes
+// on the current terminal. Callers that would have to fetch or prepare an image
+// should check this first so the work is skipped on unsupported terminals.
+func InlinePreviewAvailable() bool { return inlinePreviewAllowed() }
+
+// InlinePreviewFile writes an inline image escape for path when the terminal
+// supports one. It reports whether the image was rendered; false means the
+// caller should fall back to a text representation (unsupported terminal,
+// unsupported format, decode failure, or the AIGC_CLI_NO_INLINE_PREVIEW opt-out).
+func InlinePreviewFile(path string) bool {
+	if !inlinePreviewAllowed() || !isImageFile(path) {
+		return false
+	}
+	if trySixelImage(path) {
+		return true
+	}
+	return tryInlineImage(path)
 }
 
 // trySixelImage attempts to display an image inline using the Sixel protocol.

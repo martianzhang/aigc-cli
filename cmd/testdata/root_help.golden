@@ -98,7 +98,7 @@ Available Commands:
   models        List available AI models (also: model)
   music         AI music generation (APIMart suno/flowmusic, OpenRouter Lyria-3, Bailian Fun-Music)
   ocr           OCR text recognition (offline ONNX or online document parser)
-  preview       Preview images and videos (also: pr, --detail for metadata, --describe to set caption)
+  preview       Preview images, videos and Markdown (also: pr, --detail for metadata, --describe to set caption)
   redact        Detect and redact PII in text, Word, PDF and images
   search        Search the web and print the provider's raw JSON response
   task          Query task status and result
@@ -124,6 +124,7 @@ Flags:
   -m, --model string             Model name (overrides defaults.{cmd}.model; required by image/video when unset)
       --name string              Session name (requires --save or --session; renames on resume)
       --no-auto-compact          Disable automatic context compaction (manual /compact still works)
+      --no-inline-preview        disable inline terminal image rendering (same as AIGC_CLI_NO_INLINE_PREVIEW)
       --no-proxy                 ignore http_proxy config and HTTP_PROXY / HTTPS_PROXY for this run (direct connection)
       --no-skills                Disable skills discovery and loading
       --no-stream                Disable streaming, wait for full response

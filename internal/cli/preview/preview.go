@@ -23,36 +23,50 @@ type Deps struct {
 func NewCommand(deps func() Deps) *cobra.Command {
 	var detail bool
 	var describe string
+	var raw bool
+	var noPager bool
 
 	cmd := &cobra.Command{
 		Use:          "preview <file...>",
 		Aliases:      []string{"pr"},
-		Short:        "Preview images and videos (also: pr, --detail for metadata, --describe to set caption)",
+		Short:        "Preview images, videos and Markdown (also: pr, --detail for metadata, --describe to set caption)",
 		SilenceUsage: true,
-		Long: `Preview images and videos by opening them with the system default application.
+		Long: `Preview images, videos, Markdown and text files.
 
-For image files, also attempts inline terminal display when the terminal is
-supported (iTerm2/Kitty or Sixel) and stdout is a real terminal. The inline
-payload is a preview-sized copy, and images that cannot be shrunk small enough
-are handed to the system viewer instead. Set AIGC_CLI_NO_INLINE_PREVIEW to skip
+Images and videos open in the system default application. For image files, also
+attempts inline terminal display when the terminal is supported (iTerm2/Kitty or
+Sixel) and stdout is a real terminal. The inline payload is a preview-sized copy,
+and images that cannot be shrunk small enough are handed to the system viewer
+instead. Set AIGC_CLI_NO_INLINE_PREVIEW or pass --no-inline-preview to skip
 inline rendering entirely.
+
+Markdown files (.md/.markdown) are rendered with the same renderer as the chat
+TUI when stdout is a real terminal, and the images they reference are inlined on
+terminals that support Kitty/Sixel. Plain text files (.txt/.text/.log) are shown
+as-is. Output taller than the terminal is paged (like bat): $PAGER when set, then
+less -R, then more. Pass --no-pager to print directly. Piped or redirected output
+keeps the raw source, and --raw forces raw source even in a terminal.
 
 Examples:
   aigc-cli preview image_12345_0.png
   aigc-cli preview video_67890_0.mp4
+  aigc-cli preview ocr_notes.md
+  aigc-cli preview notes.txt
   aigc-cli preview *.png
   cat image.png | aigc-cli preview`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(deps(), args, detail, describe)
+			return run(deps(), args, detail, describe, raw, noPager)
 		},
 	}
 
 	cmd.Flags().BoolVarP(&detail, "detail", "d", false, "show image details (C2PA, TC260, caption)")
 	cmd.Flags().StringVar(&describe, "describe", "", "write caption to image (reads from file if path exists, else uses as text)")
+	cmd.Flags().BoolVar(&raw, "raw", false, "print Markdown/text source without styling")
+	cmd.Flags().BoolVar(&noPager, "no-pager", false, "print directly instead of paging long output")
 	return cmd
 }
 
-func run(d Deps, args []string, detail bool, describe string) error {
+func run(d Deps, args []string, detail bool, describe string, raw bool, noPager bool) error {
 	if len(args) > 0 {
 		for _, arg := range args {
 			if describe != "" {
@@ -70,11 +84,16 @@ func run(d Deps, args []string, detail bool, describe string) error {
 				showDetail(arg)
 			}
 			if describe == "" {
-				if strings.HasSuffix(strings.ToLower(arg), ".md") {
-					if err := previewMarkdown(arg); err != nil {
+				switch {
+				case isMarkdownPath(arg):
+					if err := previewMarkdown(arg, raw, noPager); err != nil {
 						ui.Eprintf("Warning: %v\n", err)
 					}
-				} else {
+				case isTextPath(arg):
+					if err := previewText(arg, noPager); err != nil {
+						ui.Eprintf("Warning: %v\n", err)
+					}
+				default:
 					if err := service.PreviewFile(arg); err != nil {
 						ui.Eprintf("Warning: %v\n", err)
 					}
@@ -118,20 +137,6 @@ func run(d Deps, args []string, detail bool, describe string) error {
 		showDetail(tmpFile.Name())
 	}
 	return service.PreviewFile(tmpFile.Name())
-}
-
-func previewMarkdown(path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read file: %w", err)
-	}
-	if _, err := os.Stdout.Write(data); err != nil {
-		return fmt.Errorf("write stdout: %w", err)
-	}
-	if len(data) > 0 && data[len(data)-1] != '\n' {
-		ui.Println()
-	}
-	return nil
 }
 
 // showDetail prints the detect result and caption for an image file.

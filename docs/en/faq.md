@@ -76,6 +76,7 @@ To always skip inline rendering:
 
 ```bash
 AIGC_CLI_NO_INLINE_PREVIEW=1 aigc-cli image ... --preview
+aigc-cli image ... --preview --no-inline-preview
 ```
 
 See [Preview](guide-preview.md) for details.

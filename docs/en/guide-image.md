@@ -21,7 +21,7 @@ aigc-cli image --model "dall-e-3" --size "1024x1024" --prompt "a cat"
 | `--size` | Image size: aspect ratio (`16:9`), pixels (`1024x1024`), tier (`2K`), or compound (`2K@16:9`) | varies by model |
 | `--output-format` / `-f` | Output format: `png`, `jpeg`, `webp` (plus `gif` on GPT Image 2.6+) | `png` |
 | `--number` / `-n` | Number of images to generate (1-4); the legacy `--n` spelling still works | 1 |
-| `--preview` | Show the result inline in the terminal (iTerm2/Kitty/Sixel and a real terminal on stdout), otherwise open it with the system viewer. The payload is downscaled and capped at 512 KB; `AIGC_CLI_NO_INLINE_PREVIEW=1` always uses the system viewer (see [Preview](guide-preview.md)) | off |
+| `--preview` | Show the result inline in the terminal (iTerm2/Kitty/Sixel and a real terminal on stdout), otherwise open it with the system viewer. The payload is downscaled and capped at 512 KB; `--no-inline-preview` or `AIGC_CLI_NO_INLINE_PREVIEW=1` always uses the system viewer (see [Preview](guide-preview.md)) | off |
 
 ### Provider-specific parameters
 

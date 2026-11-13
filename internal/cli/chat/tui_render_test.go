@@ -9,12 +9,23 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/martianzhang/aigc-cli/internal/mdrender"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
 var ansiEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
 func stripANSI(s string) string { return ansiEscape.ReplaceAllString(s, "") }
+
+// widestLine returns the display width of the widest line of s, which must
+// already be ANSI-free (callers pass stripANSI output).
+func widestLine(s string) int {
+	widest := 0
+	for _, line := range strings.Split(s, "\n") {
+		widest = max(widest, lipgloss.Width(line))
+	}
+	return widest
+}
 
 // TestRenderMessageBlockFullHeightBar guards that the coloured left bar runs
 // down every line of a message, not just the role label, and that multi-line
@@ -185,7 +196,7 @@ func TestBodyWidthUnset(t *testing.T) {
 	if got := m.bodyWidth(); got != 0 {
 		t.Errorf("bodyWidth = %d, want 0", got)
 	}
-	if got, _ := wrapANSI("abc", m.bodyWidth()); got != "abc" {
+	if got, _ := mdrender.WrapANSI("abc", m.bodyWidth()); got != "abc" {
 		t.Errorf("wrapANSI = %q, want it unchanged", got)
 	}
 }
@@ -193,7 +204,7 @@ func TestBodyWidthUnset(t *testing.T) {
 // TestWrapANSIWrapsCJK guards that long runs without spaces (Chinese text,
 // URLs) are broken instead of being truncated by the viewport.
 func TestWrapANSIWrapsCJK(t *testing.T) {
-	got, _ := wrapANSI(strings.Repeat("很长的中文说明", 12), 20)
+	got, _ := mdrender.WrapANSI(strings.Repeat("很长的中文说明", 12), 20)
 	lines := strings.Split(got, "\n")
 	if len(lines) < 2 {
 		t.Fatalf("long CJK text was not wrapped: %q", got)
@@ -208,7 +219,7 @@ func TestWrapANSIWrapsCJK(t *testing.T) {
 // TestWrapANSIKeepsColour guards that the active style is re-applied after an
 // inserted break, so wrapped text does not turn uncoloured.
 func TestWrapANSIKeepsColour(t *testing.T) {
-	got, _ := wrapANSI("\x1b[31m"+strings.Repeat("红色中文", 10)+"\x1b[0m", 10)
+	got, _ := mdrender.WrapANSI("\x1b[31m"+strings.Repeat("红色中文", 10)+"\x1b[0m", 10)
 	lines := strings.Split(got, "\n")
 	if len(lines) < 2 {
 		t.Fatalf("styled text was not wrapped: %q", got)
@@ -375,8 +386,8 @@ func TestRenderMarkdownWrapsWideTable(t *testing.T) {
 	body := "| a | b |\n|---|---|\n| 1 | " + strings.Repeat("很长的说明 ", 20) + " |\n"
 
 	rendered := stripANSI(m.renderMarkdown(body))
-	if widest := widestLine(rendered); widest > m.tableWidth() {
-		t.Errorf("wide table rendered %d columns wide, want <= %d:\n%s", widest, m.tableWidth(), rendered)
+	if widest := widestLine(rendered); widest > max(m.bodyWidth(), 20) {
+		t.Errorf("wide table rendered %d columns wide, want <= %d:\n%s", widest, max(m.bodyWidth(), 20), rendered)
 	}
 	if lines := strings.Split(rendered, "\n"); len(lines) < 3 {
 		t.Errorf("wide table lost its rows:\n%s", rendered)
@@ -392,71 +403,6 @@ func TestRenderMarkdownIgnoresTableInCodeFence(t *testing.T) {
 	rendered := stripANSI(m.renderMarkdown(body))
 	if !strings.Contains(rendered, "|---|---|") {
 		t.Errorf("fenced table was rendered instead of kept verbatim:\n%s", rendered)
-	}
-}
-
-// TestSplitMarkdownTables guards the segmentation the table rendering relies on.
-func TestSplitMarkdownTables(t *testing.T) {
-	cases := []struct {
-		name string
-		src  string
-		want []mdSegment
-	}{
-		{
-			name: "prose and table",
-			src:  "前文\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n后文",
-			want: []mdSegment{
-				{src: "前文\n"},
-				{src: "| a | b |\n|---|---|\n| 1 | 2 |", table: true},
-				{src: "\n后文"},
-			},
-		},
-		{
-			name: "table inside a list item stays put",
-			src:  "1. 步骤：\n   | a | b |\n   |---|---|\n2. 下一步",
-			want: []mdSegment{{src: "1. 步骤：\n   | a | b |\n   |---|---|\n2. 下一步"}},
-		},
-		{
-			name: "table glued to a paragraph stays put",
-			src:  "看这个\n| a | b |\n|---|---|",
-			want: []mdSegment{{src: "看这个\n| a | b |\n|---|---|"}},
-		},
-		{
-			name: "table inside a code fence stays put",
-			src:  "```\n| a | b |\n|---|---|\n```",
-			want: []mdSegment{{src: "```\n| a | b |\n|---|---|\n```"}},
-		},
-		{
-			name: "two tables",
-			src:  "| a | b |\n|---|---|\n\n中间\n\n| c | d |\n|---|---|",
-			want: []mdSegment{
-				{src: "| a | b |\n|---|---|", table: true},
-				{src: "\n中间\n"},
-				{src: "| c | d |\n|---|---|", table: true},
-			},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := splitMarkdownTables(tc.src)
-			if len(got) != len(tc.want) {
-				t.Fatalf("segments = %d (%+v), want %d (%+v)", len(got), got, len(tc.want), tc.want)
-			}
-			for i := range tc.want {
-				if got[i] != tc.want[i] {
-					t.Errorf("segment %d = %+v, want %+v", i, got[i], tc.want[i])
-				}
-			}
-		})
-	}
-}
-
-// TestTrimMarkdownPaddingKeepsIndent guards that the leading spaces glamour
-// uses to line up a table's first row survive the padding cleanup.
-func TestTrimMarkdownPaddingKeepsIndent(t *testing.T) {
-	got := trimMarkdownPadding("\n\n  a  \n  b  \n\n")
-	if want := "  a\n  b"; stripANSI(got) != want {
-		t.Errorf("trimMarkdownPadding = %q, want %q", stripANSI(got), want)
 	}
 }
 
