@@ -15,6 +15,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/types"
 	"github.com/martianzhang/aigc-cli/internal/ui"
@@ -58,6 +59,12 @@ func runAudioTranscribe(cmd *cobra.Command, args []string) error {
 	}
 	if audioTranscribeInput == "" {
 		return fmt.Errorf("audio input is required: set via --input flag, file path, or stdin")
+	}
+
+	// DeepSeek ASR uploads the file as multipart/form-data and has no
+	// model/language parameters; base64 JSON input is not supported.
+	if provider.IsDeepSeekProvider(p) {
+		return runDeepSeekAudioTranscribe(cmd, p, audioTranscribeInput)
 	}
 
 	c := client.NewFromProvider(p)

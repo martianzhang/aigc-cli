@@ -13,6 +13,7 @@ const (
 	ProviderAnthropic             ProviderType = "anthropic"               // Anthropic Messages API
 	ProviderLocal                 ProviderType = "local"                   // Local ONNX models (ocr/vision/detect/background)
 	ProviderSomark                ProviderType = "somark"                  // SoMark / OXR document-parse API (/parse/sync, multipart)
+	ProviderDeepSeek              ProviderType = "deepseek"                // DeepSeek API (OpenAI-compatible chat + /v1/tools/{ocr,asr,tts})
 )
 
 // There is deliberately no built-in API base URL: the CLI supports many
@@ -26,7 +27,7 @@ const (
 func (pt ProviderType) DetectProvider() bool {
 	switch pt {
 	case ProviderOpenAI, ProviderOpenAIChatCompletions, ProviderOpenAIResponses,
-		ProviderOllama, ProviderAnthropic, ProviderGemini:
+		ProviderOllama, ProviderAnthropic, ProviderGemini, ProviderDeepSeek:
 		return true
 	default:
 		return false

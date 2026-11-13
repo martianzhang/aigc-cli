@@ -221,6 +221,37 @@ providers:
 
 ---
 
+## 5.6 DeepSeek 应用 API（OCR / ASR / TTS）
+
+DeepSeek 的 chat 仍走 OpenAI 兼容的 `/chat/completions`，但 OCR / ASR / TTS 是独立 tools 端点，**不是** OpenAI 兼容协议。`type: deepseek` 或 `api.deepseek.com` 域名会被识别为 DeepSeek，CLI 自动改走对应端点。
+
+| 端点 | 用途 | 请求 | 响应 |
+|---|---|---|---|
+| `POST /v1/tools/ocr` | PDF / Word / PPT / 图片文字识别 | multipart：`file` + `purpose` | 逐页 `pages[].text` |
+| `POST /v1/tools/asr` | 语音转文字 | multipart：`file` | `{text, duration_ms}` |
+| `POST /v1/tools/tts` | 文字转语音 | JSON：`text` / `voice_id` / `format` / `filter_markdown` | 原始音频流 |
+
+鉴权为 `Authorization: Bearer`。限制：OCR 100 MiB / 1,000 页 / 180 秒；ASR 仅 16 位 PCM WAV 或 Ogg Opus，8 MiB / 120 秒；TTS 单次 10,000 计费字符 / 64 KiB，最多 30 分钟音频。
+
+```yaml
+providers:
+  deepseek:
+    type: deepseek      # 省略 base_url 时默认 https://api.deepseek.com
+    api_key: "sk-xxx"
+
+defaults:
+  ocr: { provider: deepseek }
+  audio:
+    speak: { provider: deepseek }
+    transcribe: { provider: deepseek }
+```
+
+也可以不写配置：`--provider deepseek` + `DEEPSEEK_API_KEY`。
+
+> 代码实现：`internal/provider/deepseek_tools.go`（`DeepSeekOCR` / `DeepSeekTranscribe` / `DeepSeekTTS`）；路由判定 `provider.IsDeepSeekProvider`。
+
+---
+
 ## 6. Provider 检测机制
 
 `internal/provider/detect.go` 负责根据 `base_url` 自动识别 Provider：
@@ -230,6 +261,7 @@ APIMart:    域名包含 apimart.ai / apib.ai / aiuxu.com / aishuch.com
 OpenRouter: 域名包含 openrouter.ai
 OpenLux:    域名包含 openlux.ai
 Somark:     域名包含 somark.ai / somark.cn / somark.tech（走 POST /parse/sync 文档解析，不是 chat）
+DeepSeek:   域名包含 api.deepseek.com（chat 走 OpenAI 兼容；OCR/ASR/TTS 走 /v1/tools/*）
 MiMo:       域名包含 xiaomimimo.com / mimo.mi.com（chat 用量报告 web_search_usage）
 Zeekai:     域名包含 zeekai.cc（图生图自动改走 POST /images/edits）
 OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io

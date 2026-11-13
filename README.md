@@ -126,6 +126,7 @@ The same `image` / `video` / `audio` / `music` / `models` command automatically 
 | Provider | Image | Video | Audio | Music | Models |
 |---|---|---|---|---|---|
 | **OpenAI** | `POST /v1/images/generations` (sync) | — | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | — | `GET /v1/models` |
+| **DeepSeek** | — | — | `POST /v1/tools/tts` + `POST /v1/tools/asr` (dedicated tools); `ocr scan` → `POST /v1/tools/ocr` | — | `GET /v1/models` (OpenAI-compatible chat) |
 | **OpenRouter** | `POST /api/v1/images` (dedicated image API) | `POST /api/v1/videos` async → poll → download + `--job-id` resume | `POST /api/v1/audio/speech` + `POST /api/v1/audio/transcriptions` (10+ TTS model aggregation) | `POST /api/v1/chat/completions` (`modalities: text+audio`) sync streaming — Lyria-3 | `GET /api/v1/images/models` / `GET /api/v1/videos/models` (auth-free) |
 | **APIMart** | Async task submit → poll → download | Async task + VEO3 Remix (extend video) | `POST /v1/audio/speech` + `POST /v1/audio/transcriptions` | `POST /v1/music/generations` async → poll (`GET /v1/music/tasks/{id}`) — suno / flowmusic | Marketplace API + model pricing query |
 | **Alibaba Cloud Bailian** | — | — | — | `POST /api/v1/services/audio/music/generation` sync (DashScope native) — fun-music-v1 / fun-music-preview | — |
@@ -162,12 +163,13 @@ aigc-cli
 ├── music      AI music generation (APIMart suno/flowmusic async, OpenRouter Lyria sync, Bailian Fun-Music)  →  docs/en/guide-music.md
 │   ├── generate / gen  Submit a music generation task
 │   └── query           Query music task status and result
-├── ocr            Text recognition: local ONNX or online document parser (SoMark/OXR) →  docs/en/guide-ocr.md
+├── ocr            Text recognition: local ONNX, DeepSeek, or online document parser (SoMark/OXR) →  docs/en/guide-ocr.md
 │   ├── init        Download OCR models
 │   └── scan        Recognize text in images / parse PDFs
 │                   --engine auto|pdf|ocr  PDF processing mode (default: auto)
 │                   --preview              Preview recognized text
 │                   --provider <name>      type: somark provider: layout, tables, formulas, reading order
+│                   --purpose text_recognition|rich_layout_recognition   DeepSeek OCR mode
 ├── background / bg AI background removal (RMBG 2.0 semantic segmentation, offline ONNX)  →  docs/en/guide-background.md
 ├── midjourney / mj                                                                  →  docs/en/guide-midjourney.md
 │   └── mj     Alias for midjourney

@@ -395,6 +395,11 @@ func generateSpeechHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError("input is required\nHint: pass input in the tool arguments"), nil
 		}
 
+		// DeepSeek TTS uses its own voice set (stella/tide) and formats (wav/pcm).
+		if provider.IsDeepSeekProvider(p) {
+			return deepSeekSpeechResult(cfg, p, input, request.GetString("voice", ""), request.GetString("format", ""))
+		}
+
 		format := strings.ToLower(request.GetString("format", "mp3"))
 		if err := validateSpeechFormat(format); err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
@@ -461,6 +466,11 @@ func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 			return mcp.NewToolResultError("file_path is required\nHint: pass an absolute file_path in the tool arguments"), nil
 		}
 
+		// DeepSeek ASR takes a multipart upload and auto-detects the language.
+		if provider.IsDeepSeekProvider(p) {
+			return deepSeekTranscribeResult(p, filePath)
+		}
+
 		overridden := cfg.providerOverridden("audio.transcribe", p)
 		model := request.GetString("model", "")
 		if model == "" {
@@ -492,4 +502,44 @@ func transcribeAudioHandler(cfg *Config) server.ToolHandlerFunc {
 
 		return mcp.NewToolResultText(detail), nil
 	}
+}
+
+// deepSeekSpeechResult runs generate_speech against DeepSeek's /v1/tools/tts.
+// Its voice set and formats differ from OpenAI's, so the request is passed
+// through unchanged and validated by the provider layer.
+func deepSeekSpeechResult(cfg *Config, p *provider.EffectiveProvider, input, voice, format string) (*mcp.CallToolResult, error) {
+	format = strings.ToLower(strings.TrimSpace(format))
+	if format == "" {
+		format = "wav"
+	}
+	audioData, _, err := provider.DeepSeekTTS(p, input, voice, format, nil)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("TTS failed: %v", err)), nil
+	}
+
+	filename := filepath.Join(cfg.Output, fmt.Sprintf("speech_%d.%s", time.Now().Unix(), format))
+	if err := fsutil.WriteFileAtomic(filename, audioData, 0644); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to save audio: %v", err)), nil
+	}
+
+	if voice == "" {
+		voice = provider.DeepSeekDefaultVoice
+	}
+	text := fmt.Sprintf("Speech saved: %s\nFormat: %s\nSize: %d bytes\nModel: deepseek-tts\nVoice: %s",
+		filename, format, len(audioData), voice)
+	return toolResultTextWithMedia(withMCPResultFooter(text, []string{filename}, "deepseek-tts", p.ProviderType.String(), "", 0, ""), filename), nil
+}
+
+// deepSeekTranscribeResult runs transcribe_audio against /v1/tools/asr.
+func deepSeekTranscribeResult(p *provider.EffectiveProvider, filePath string) (*mcp.CallToolResult, error) {
+	resp, err := provider.DeepSeekTranscribe(p, filePath)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("STT failed: %v", err)), nil
+	}
+	detail := "Model: deepseek-asr\n"
+	if resp.DurationMS > 0 {
+		detail += fmt.Sprintf("Audio: %.1fs\n", float64(resp.DurationMS)/1000)
+	}
+	detail += "\n" + resp.Text
+	return mcp.NewToolResultText(detail), nil
 }

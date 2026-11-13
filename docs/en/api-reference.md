@@ -25,6 +25,7 @@ Provider detection uses `base_url` pattern matching:
 | `openai.com`, `openai.azure.com`, `ofox.ai`, `ofox.run`, `ofox.io` | OpenAI-family (image input auto-routes to multipart `POST /images/edits`) |
 | `openlux.ai` (in URL) | OpenLux |
 | `somark.ai`, `somark.cn`, `somark.tech` | SoMark / OXR document parse (`POST /parse/sync`, not chat) |
+| `api.deepseek.com` | DeepSeek (OpenAI-compatible chat; OCR/ASR/TTS via `/v1/tools/*`) |
 | `localhost` or `127.0.0.1` | Local (no API Key) |
 
 ## Chat Protocol
@@ -61,6 +62,41 @@ with json).
 Errors also come back as HTTP 200 with `code != 0` (e.g. `{"code":1107,"message":"Invalid API key.","data":""}`). OXR ignores unsupported `enable_*` flags and lists them in `warnings` instead of failing.
 
 Implementation: `internal/provider/somark.go` (`ParseDocument`, `SomarkParseURL`); routing via `provider.IsDocumentProvider` (explicit `type: somark` or a SoMark host). Select it with `--provider <name>` or `defaults.ocr.provider`; its API parameters are passed with the shared `--json` / `--inject-json` flags (see the [OCR guide](guide-ocr.md)).
+
+## DeepSeek Application APIs (OCR / ASR / TTS)
+
+DeepSeek chat stays OpenAI-compatible (`/chat/completions`), but OCR / ASR /
+TTS are dedicated tool endpoints and **not** OpenAI-compatible. A
+`type: deepseek` provider or an `api.deepseek.com` host is detected as DeepSeek
+and routed to those endpoints automatically.
+
+| Endpoint | Purpose | Request | Response |
+|---|---|---|---|
+| `POST /v1/tools/ocr` | PDF / Word / PPT / image OCR | multipart: `file` + `purpose` | per-page `pages[].text` |
+| `POST /v1/tools/asr` | Speech-to-text | multipart: `file` | `{text, duration_ms}` |
+| `POST /v1/tools/tts` | Text-to-speech | JSON: `text` / `voice_id` / `format` / `filter_markdown` | raw audio stream |
+
+Auth is `Authorization: Bearer`. Limits: OCR 100 MiB / 1,000 pages / 180s; ASR
+16-bit PCM WAV or Ogg Opus only, 8 MiB / 120s; TTS 10,000 billed characters
+(64 KiB) per request, up to 30 minutes of audio.
+
+```yaml
+providers:
+  deepseek:
+    type: deepseek      # base_url defaults to https://api.deepseek.com
+    api_key: "sk-xxx"
+
+defaults:
+  ocr: { provider: deepseek }
+  audio:
+    speak: { provider: deepseek }
+    transcribe: { provider: deepseek }
+```
+
+No config is required either: `--provider deepseek` plus `DEEPSEEK_API_KEY`.
+
+> Implementation: `internal/provider/deepseek_tools.go` (`DeepSeekOCR` /
+> `DeepSeekTranscribe` / `DeepSeekTTS`); routing via `provider.IsDeepSeekProvider`.
 
 ## Strategy Routing
 

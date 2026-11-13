@@ -22,9 +22,9 @@ var audioCmd = &cobra.Command{
 
 First use: run 'aigc-cli audio init' to download local TTS/ASR models.
 
-Supports OpenAI, OpenRouter, and APIMart providers with automatic detection.
-All providers use the OpenAI-compatible endpoints. Local inference via
-'-P local' uses ONNX models downloaded with 'audio init'.
+Supports OpenAI-compatible providers (OpenAI / OpenRouter / APIMart) and
+DeepSeek's dedicated /v1/tools/{tts,asr} endpoints with automatic detection.
+Local inference via '-P local' uses ONNX models downloaded with 'audio init'.
 
 Subcommands:
   speak / tts       Convert text to speech audio
@@ -37,6 +37,8 @@ Subcommands:
   aigc-cli audio speak --input text.txt --voice nova --play
   aigc-cli audio sfx --input "heavy metal door slam" --duration 1.5
   aigc-cli audio transcribe --input recording.wav
+  aigc-cli audio speak --provider deepseek --input "你好" --voice stella
+  aigc-cli audio transcribe --provider deepseek --input speech.wav
   aigc-cli audio init --list`,
 }
 

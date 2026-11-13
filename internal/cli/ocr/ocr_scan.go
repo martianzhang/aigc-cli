@@ -54,6 +54,13 @@ func runOCRScan(cmd *cobra.Command, args []string) error {
 		return scanWithSomark(cmd, docProvider, inputPath)
 	}
 
+	// ── DeepSeek OCR API ──
+	// The server accepts images, PDFs and Office documents directly, so this
+	// runs before local PDF extraction and returns per-page text.
+	if deepSeekProvider := options.Shared.ResolveProvider(options.ProviderNameOCR); provider.IsDeepSeekProvider(deepSeekProvider) {
+		return scanWithDeepSeek(cmd, deepSeekProvider, inputPath)
+	}
+
 	// Handle PDF input — skip online OCR, use text extraction or scan
 	if strings.EqualFold(filepath.Ext(inputPath), ".pdf") {
 		return scanPDF(cmd, inputPath)

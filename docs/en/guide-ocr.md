@@ -78,6 +78,45 @@ print it to stdout instead and write no file:
 aigc-cli ocr scan page.png -o - | pbcopy
 ```
 
+### DeepSeek OCR (dedicated tool endpoint)
+
+DeepSeek's OCR is `POST /v1/tools/ocr`: the server recognises PDFs, Word,
+PowerPoint and images directly and returns text per page. It is not a vision
+chat endpoint, so `--model` / `--prompt` do not apply.
+
+```yaml
+providers:
+  deepseek:
+    type: deepseek
+    api_key: "sk-xxx"        # base_url defaults to https://api.deepseek.com
+
+defaults:
+  ocr:
+    provider: "deepseek"
+```
+
+You can also skip config entirely: `--provider deepseek` plus
+`DEEPSEEK_API_KEY`.
+
+```bash
+aigc-cli ocr scan report.pdf --provider deepseek
+aigc-cli ocr scan report.pdf --provider deepseek --purpose rich_layout_recognition
+aigc-cli ocr scan invoice.png --provider deepseek -o -
+```
+
+- `--purpose text_recognition` (default): Word/PPT files without images are
+  text-extracted directly; everything else is recognised page by page.
+- `--purpose rich_layout_recognition`: every file is recognised page by page;
+  output keeps `<|ref|>` / `<|box|>` markers and 0–1000 normalised coordinates
+  so you can locate and crop regions.
+- Formats: PDF / DOC / DOCX / PPT / PPTX / PNG / JPEG / WebP / GIF / BMP / TIFF,
+  up to 100 MiB and 1,000 pages per file.
+- `--model` / `--prompt` / `--lang` / `--engine` / `--pages` / `--json` /
+  `--inject-json` have no effect (a warning is printed when explicitly set).
+  `--pages` cannot apply because the server recognises the whole file at once.
+- Output is still `<name>.md` (page texts separated by a blank line); `-o -`
+  prints to stdout.
+
 ### Document parsing (SoMark / OXR)
 
 For PDFs and full pages you want **layout, tables, formulas and reading

@@ -151,6 +151,35 @@ aigc-cli ocr scan test.png --provider ollama --model deepseek-ocr -p "Free OCR."
 | **minicpm-ocr** | 公式识别（输出 LaTeX） | `Formula Recognition:` |
 | **通用模型** (gpt-4o, llava 等) | 自定义描述 | `请识别图中的文字`（中文）或自由输入 |
 
+### DeepSeek OCR（专用 tools 端点）
+
+DeepSeek 的 OCR 走 `POST /v1/tools/ocr`：服务端直接识别 PDF、Word、PowerPoint 和图片并返回逐页文本。它不是 vision chat，因此不需要 `--model` / `--prompt`。
+
+```yaml
+providers:
+  deepseek:
+    type: deepseek
+    api_key: "sk-xxx"        # 省略 base_url 时默认 https://api.deepseek.com
+
+defaults:
+  ocr:
+    provider: "deepseek"
+```
+
+也可以不写配置，直接用 `--provider deepseek` + 环境变量 `DEEPSEEK_API_KEY`。
+
+```bash
+aigc-cli ocr scan report.pdf --provider deepseek
+aigc-cli ocr scan report.pdf --provider deepseek --purpose rich_layout_recognition
+aigc-cli ocr scan invoice.png --provider deepseek -o -
+```
+
+- `--purpose text_recognition`（默认）：不含图片的 Word/PPT 直接抽取文字，其他文件逐页识别。
+- `--purpose rich_layout_recognition`：所有文件逐页做富版面识别；输出保留 `<|ref|>` / `<|box|>` 标记与 0–1000 归一化坐标，便于定位文字、自行裁图。
+- 支持 PDF / DOC / DOCX / PPT / PPTX / PNG / JPEG / WebP / GIF / BMP / TIFF；单文件最大 100 MiB、最多 1,000 页。
+- `--model` / `--prompt` / `--lang` / `--engine` / `--pages` / `--json` / `--inject-json` 对该端点无效，显式使用会提示忽略（`--pages` 不生效是因为服务端一次识别整份文件）。
+- 输出仍写 `<name>.md`（逐页文本以空行分隔），`-o -` 打印到 stdout。
+
 ### 文档解析（SoMark / OXR）
 
 PDF 或整页文档真正需要的是**版面 + 表格 + 公式 + 阅读顺序**，不是逐行文字。这类需求走 SoMark / OXR 文档解析 API：服务端做版面分析，直接返回带标题层级、Markdown 表格和 LaTeX 公式的完整 Markdown，比逐页 OCR 再拼接更准。

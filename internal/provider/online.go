@@ -38,6 +38,19 @@ func OCRImage(p *EffectiveProvider, imagePath, customPrompt string) (string, err
 		}
 		return strings.TrimSpace(result.Markdown), nil
 	}
+	// DeepSeek exposes OCR as a dedicated tool endpoint, not a vision chat.
+	// Its prompt is ignored there: recognition is driven by `purpose`.
+	if IsDeepSeekProvider(p) {
+		result, err := DeepSeekOCR(p, imagePath, DeepSeekOCRTextRecognition)
+		if err != nil {
+			return "", err
+		}
+		text := result.Text()
+		if text == "" {
+			text = "(no text detected)"
+		}
+		return text, nil
+	}
 	prompt := customPrompt
 	if prompt == "" {
 		prompt = "请识别图中的文字"
@@ -152,7 +165,11 @@ func ollamaNativeChat(p *EffectiveProvider, b64Image, textPrompt string) (string
 func openaiCompatVisionChat(p *EffectiveProvider, dataURL, textPrompt string) (string, error) {
 	model := p.Model
 	if model == "" {
-		model = "gpt-4o"
+		if IsDeepSeekProvider(p) {
+			model = "deepseek-flash"
+		} else {
+			model = "gpt-4o"
+		}
 	}
 
 	payload := map[string]any{

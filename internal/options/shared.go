@@ -120,6 +120,29 @@ func (s *SharedConfig) ResolveProvider(cmdName string) *provider.EffectiveProvid
 		return ep
 	}
 
+	// Built-in alias: --provider deepseek works without a providers entry, using
+	// DEEPSEEK_API_KEY and the canonical endpoint. An explicitly configured
+	// providers.deepseek (handled above) always takes precedence.
+	if providerRef == "deepseek" && providerMap(s.Cfg)[providerRef] == nil {
+		ep := provider.BuiltinDeepSeekProvider()
+		ep.Model = defaultsModel
+		if s.Cfg != nil {
+			ep.HTTPProxy = s.Cfg.HTTPProxy
+		}
+		if s.HTTPProxySet && !s.NoProxy {
+			ep.HTTPProxy = s.HTTPProxy
+		}
+		if ep.APIKey == "" && s.Cfg != nil {
+			ep.APIKey = s.Cfg.APIKey
+		}
+		ep.ZDR = s.resolveZDR(ep)
+		ep.Timeout = explicitProviderTimeout(cmdName)
+		if s.Model != "" {
+			ep.Model = s.Model
+		}
+		return ep
+	}
+
 	global := &provider.GlobalConfig{
 		APIKey:  cfgString(s.Cfg, func(c *types.Config) string { return c.APIKey }),
 		BaseURL: cfgString(s.Cfg, func(c *types.Config) string { return c.BaseURL }),

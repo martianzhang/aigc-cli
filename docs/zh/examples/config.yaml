@@ -140,6 +140,7 @@ base_url: "https://api.apimart.ai"
 #   responses — OpenAI Responses API（chat 专用；解决部分推理模型在 /v1/chat/completions 上拒绝工具调用的问题）
 #   local     — 本地 ONNX 模型（OCR / Vision / Detect / Background）
 #   somark    — SoMark / OXR 文档解析（POST /parse/sync，返回 Markdown + JSON；OCR 专用）
+#   deepseek  — DeepSeek API（chat 走 OpenAI 兼容；OCR/ASR/TTS 走 /v1/tools/{ocr,asr,tts}）
 #
 # 可选：为单个 Provider 设置 `zdr: true`，让它走零数据保留请求。
 # 目前仅 OpenRouter 的 chat/music 支持，其他 Provider/端点忽略该项。
@@ -191,6 +192,14 @@ providers:
 # oxr-local:
 #   type: somark
 #   base_url: "http://gpu-box:8000/v1"
+
+# 示例：DeepSeek（chat 走 OpenAI 兼容；OCR/ASR/TTS 走专用 tools 端点）
+# 省略 base_url 时默认 https://api.deepseek.com
+# 也可不写 providers，直接 `--provider deepseek` + 环境变量 DEEPSEEK_API_KEY。
+# deepseek:
+#   type: deepseek
+#   api_key: "sk-xxx"
+#   model: "deepseek-flash"        # chat 默认模型，ocr/audio 不需要
 
 # 示例：通过 OpenRouter 使用 Anthropic 协议
 # openrouter-anthropic:

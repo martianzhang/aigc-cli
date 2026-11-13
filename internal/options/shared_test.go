@@ -374,3 +374,56 @@ func TestLookupCmdProviderAndModel_nil(t *testing.T) {
 		t.Errorf("with nil defaults: got (%q, %q), want empty", p, m)
 	}
 }
+
+func TestResolveProvider_DeepSeekAlias(t *testing.T) {
+	t.Setenv("DEEPSEEK_API_KEY", "sk-env")
+	defer setSharedForTest(&SharedConfig{
+		ProviderSet: true,
+		Provider:    "deepseek",
+		Model:       "deepseek-flash",
+	})()
+
+	ep := Shared.ResolveProvider(ProviderNameOCR)
+	if ep.Name != "deepseek" {
+		t.Errorf("Name = %q, want deepseek", ep.Name)
+	}
+	if ep.Type != types.ProviderDeepSeek {
+		t.Errorf("Type = %q, want %q", ep.Type, types.ProviderDeepSeek)
+	}
+	if ep.BaseURL != provider.DeepSeekBaseURL {
+		t.Errorf("BaseURL = %q, want %q", ep.BaseURL, provider.DeepSeekBaseURL)
+	}
+	if ep.APIKey != "sk-env" {
+		t.Errorf("APIKey = %q, want the DEEPSEEK_API_KEY value", ep.APIKey)
+	}
+	if ep.Model != "deepseek-flash" {
+		t.Errorf("Model = %q, want deepseek-flash", ep.Model)
+	}
+	if !provider.IsDeepSeekProvider(ep) {
+		t.Error("IsDeepSeekProvider = false")
+	}
+}
+
+func TestResolveProvider_ConfiguredDeepSeekWins(t *testing.T) {
+	t.Setenv("DEEPSEEK_API_KEY", "sk-env")
+	defer setSharedForTest(&SharedConfig{
+		ProviderSet: true,
+		Provider:    "deepseek",
+		Cfg: &types.Config{
+			Providers: map[string]*types.NamedProvider{
+				"deepseek": {Type: types.ProviderOpenAI, BaseURL: "https://relay.example.com/v1", APIKey: "sk-cfg"},
+			},
+		},
+	})()
+
+	ep := Shared.ResolveProvider(ProviderNameOCR)
+	if ep.BaseURL != "https://relay.example.com/v1" {
+		t.Errorf("BaseURL = %q, want the configured relay", ep.BaseURL)
+	}
+	if ep.APIKey != "sk-cfg" {
+		t.Errorf("APIKey = %q, want the configured key", ep.APIKey)
+	}
+	if ep.Type != types.ProviderOpenAI {
+		t.Errorf("Type = %q, want openai", ep.Type)
+	}
+}

@@ -460,3 +460,21 @@ func TestDetectAudioVendors(t *testing.T) {
 		}
 	}
 }
+
+func TestDetect_DeepSeek(t *testing.T) {
+	for _, url := range []string{
+		"https://api.deepseek.com",
+		"https://api.deepseek.com/v1",
+		"https://deepseek.com/v1",
+	} {
+		if got := Detect(url); got != DeepSeek {
+			t.Errorf("Detect(%q) = %v, want DeepSeek", url, got)
+		}
+		if !IsDeepSeek(url) {
+			t.Errorf("IsDeepSeek(%q) = false", url)
+		}
+	}
+	if IsDeepSeek("https://notdeepseek.example.com") {
+		t.Error("IsDeepSeek matched an unrelated host")
+	}
+}

@@ -14,6 +14,7 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/clientfactory"
 	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/service"
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
@@ -43,6 +44,12 @@ func runAudioSpeak(cmd *cobra.Command, args []string) error {
 		if req.ResponseFormat == "" {
 			req.ResponseFormat = cfg.SpeakFormat()
 		}
+	}
+
+	// DeepSeek TTS is a dedicated tool endpoint with its own voice/format set,
+	// so it validates and defaults those values itself.
+	if provider.IsDeepSeekProvider(p) {
+		return runDeepSeekAudioSpeak(cmd, p, req)
 	}
 
 	if req.Model == "" {

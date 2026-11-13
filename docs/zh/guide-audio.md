@@ -17,6 +17,7 @@
 | **OpenAI** | `POST /v1/audio/speech` | `POST /v1/audio/transcriptions` | 基准实现 |
 | **OpenRouter** | `POST /api/v1/audio/speech` | `POST /api/v1/audio/transcriptions` | OpenAI 完全兼容，SDK 直连 |
 | **APIMart** | `POST /v1/audio/speech` | `POST /v1/audio/transcriptions` | OpenAI 兼容 |
+| **DeepSeek** | `POST /v1/tools/tts` | `POST /v1/tools/asr` | 专用协议（非 OpenAI 兼容），`--provider deepseek` 自动切换 |
 | **OpenLux** | ❌ 未发现 | ❌ 未发现 | — |
 | **本地 TTS 服务** | `POST /v1/audio/speech` | — | 见下方"本地 TTS 方案" |
 
@@ -109,6 +110,33 @@ OpenRouter 透传 OpenAI 格式，额外支持 Provider 专属参数：
 | `voice` | string | 是 | 6 种：`alloy`、`echo`、`fable`、`onyx`、`nova`、`shimmer` |
 | `response_format` | string | 否 | `wav`（默认）、`opus`、`aac`、`flac`、`pcm` |
 | `speed` | number | 否 | 0.25-4.0，默认 1.0 |
+
+### DeepSeek TTS / ASR 参数
+
+DeepSeek 的语音能力走独立的 tools 端点，不是 OpenAI 兼容协议；`--provider deepseek`（或 `type: deepseek` 的命名 Provider）会自动切换，无需额外参数。
+
+```bash
+export DEEPSEEK_API_KEY="sk-xxx"        # 也可以写在 providers.deepseek.api_key
+aigc-cli audio speak --provider deepseek --input "你好，我是 DeepSeek。" --voice stella
+aigc-cli audio transcribe --provider deepseek --input speech.wav
+```
+
+TTS（`POST /v1/tools/tts`）：
+
+| 参数 | 说明 |
+|---|---|
+| `text` | 要朗读的文本；最多 10,000 个计费字符、请求体 64 KiB |
+| `voice_id` | `stella`（女声，默认）/ `tide`（男声），对应 `--voice` |
+| `format` | `wav`（默认）/ `pcm`（24 kHz、16 位、单声道），对应 `--format` |
+| `filter_markdown` | 朗读前是否去除 Markdown，默认开启 |
+
+- 不支持调节语速或语气：`--speed`、`--instructions`、`--model` 会被忽略并提示。
+- 单次请求最多返回 30 分钟音频；音频边合成边返回。
+
+ASR（`POST /v1/tools/asr`）：
+
+- 只接受 16 位 PCM WAV 或 Ogg Opus（8 / 16 / 22.05 / 24 / 32 / 44.1 / 48 kHz，单/双声道），最大 8 MiB、120 秒。
+- 语种自动识别，`--model` / `--language` 不生效；必须传本地文件，base64/stdin 输入不支持。
 
 ---
 

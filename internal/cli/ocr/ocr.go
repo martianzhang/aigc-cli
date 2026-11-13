@@ -24,7 +24,8 @@ Local (default): DBNet detection + CRNN/SVTR recognition on ONNX Runtime,
 fully offline. Run 'aigc-cli ocr init' once to download the models.
 
 Online: any OpenAI-compatible or Ollama vision model via
-defaults.ocr.provider, or a document-parse provider — a config entry with
+defaults.ocr.provider, DeepSeek's POST /v1/tools/ocr (server-side OCR for
+PDF, Word, PowerPoint and images), or a document-parse provider — a config entry with
 type: somark (hosted SoMark, free OXR, or self-hosted OXR) that turns a whole
 PDF into layout-aware Markdown with tables, formulas and reading order. Its API
 parameters (output_formats, element_formats, feature_config, extra) are passed
@@ -34,7 +35,8 @@ through --json / --inject-json like every other provider request.`,
   aigc-cli ocr scan report.pdf --pages "1-3"    # PDF pages, --engine auto|pdf|ocr
   aigc-cli ocr scan paper.pdf --provider somark # type: somark provider from config
   aigc-cli ocr scan paper.pdf --provider somark \
-    --inject-json '{"feature_config":{"enable_title_level_recognition":true}}'`,
+    --inject-json '{"feature_config":{"enable_title_level_recognition":true}}'
+  aigc-cli ocr scan report.pdf --provider deepseek --purpose rich_layout_recognition`,
 }
 
 // ocrInitCmd represents `aigc-cli ocr init`.
@@ -75,6 +77,8 @@ var ocrScanPrompt string // --prompt for custom OCR prompt
 
 var ocrScanEngine string // --engine: auto, pdf, ocr
 
+var ocrScanPurpose string // --purpose for DeepSeek OCR
+
 func init() {
 	ocrInitCmd.Flags().Bool("list", false, "List available model packs")
 	ocrInitCmd.Flags().Bool("list-installed", false, "List installed model packs")
@@ -96,6 +100,7 @@ Examples:
   --prompt "请识别图中的文字"                               (general vision models)`)
 	ocrScanCmd.Flags().StringVar(&ocrScanPrompt, "ask", "", "Alias for --prompt")
 	ocrScanCmd.Flags().StringVar(&ocrScanEngine, "engine", "auto", "Processing engine: auto, pdf (rule-based), ocr")
+	ocrScanCmd.Flags().StringVar(&ocrScanPurpose, "purpose", "text_recognition", "DeepSeek OCR purpose: text_recognition or rich_layout_recognition")
 	ocrScanCmd.Flags().StringVar(&options.Shared.JSONInput, "json", "", "Document-parser request body (inline JSON string or a file path)")
 	ocrScanCmd.Flags().StringVar(&options.Shared.InjectJSON, "inject-json", "", "JSON object merged additively into the document-parser request body (inline JSON string or a file path)")
 	ocrCmd.AddCommand(ocrInitCmd)

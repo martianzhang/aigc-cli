@@ -10,7 +10,8 @@ import "github.com/martianzhang/aigc-cli/internal/types"
 // Adding a provider type that ships with a public endpoint is a single line
 // here — ResolveCmdProvider stays free of per-type branches.
 var builtinBaseURLs = map[types.ProviderType]string{
-	types.ProviderSomark: SomarkBaseURL,
+	types.ProviderSomark:   SomarkBaseURL,
+	types.ProviderDeepSeek: DeepSeekBaseURL,
 }
 
 // builtinBaseURL returns the canonical endpoint for a provider type, or ""

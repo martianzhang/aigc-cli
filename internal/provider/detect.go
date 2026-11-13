@@ -27,6 +27,7 @@ const (
 	ElevenLabs
 	Stability
 	Somark
+	DeepSeek
 )
 
 var names = map[Type]string{
@@ -45,6 +46,7 @@ var names = map[Type]string{
 	ElevenLabs:   "ElevenLabs",
 	Stability:    "Stability AI",
 	Somark:       "SoMark",
+	DeepSeek:     "DeepSeek",
 }
 
 func (t Type) String() string {
@@ -304,6 +306,11 @@ func Detect(baseURL string) Type {
 		if matchDomain(baseURL, d) {
 			return Somark
 		}
+	}
+	// DeepSeek is OpenAI-compatible for chat while exposing its own tool
+	// endpoints (/v1/tools/ocr|asr|tts), so commands route by ProviderType.
+	if IsDeepSeek(baseURL) {
+		return DeepSeek
 	}
 	// Default to OpenAI-compatible for everything else
 	return OpenAI

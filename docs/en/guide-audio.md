@@ -24,7 +24,15 @@ aigc-cli audio speak --prompt "Hello world" --voice alloy   # alias for --input
 # OpenRouter (10+ TTS models aggregated)
 export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
 aigc-cli audio speak -i "Hello world" --model "openai/tts-1"
+
+# DeepSeek (dedicated /v1/tools/tts; voices stella/tide, formats wav/pcm)
+export DEEPSEEK_API_KEY="sk-xxx"
+aigc-cli audio speak --provider deepseek -i "Hello from DeepSeek" --voice stella
 ```
+
+DeepSeek TTS ignores `--model`, `--speed` and `--instructions`, defaults to
+`--voice stella --format wav`, and accepts at most 10,000 billed characters
+(64 KiB) per request.
 
 ## Local TTS (sherpa-onnx)
 
@@ -169,7 +177,14 @@ aigc-cli audio transcribe -i speech.mp3
 # OpenRouter
 export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
 aigc-cli audio transcribe -i speech.mp3
+
+# DeepSeek (dedicated /v1/tools/asr; language auto-detected)
+aigc-cli audio transcribe --provider deepseek -i speech.wav
 ```
+
+DeepSeek ASR accepts 16-bit PCM WAV or Ogg Opus only, up to 8 MiB / 120
+seconds. `--model` and `--language` do not apply, and base64/stdin input is not
+supported — pass a local file.
 
 ## Local STT (sherpa-onnx)
 

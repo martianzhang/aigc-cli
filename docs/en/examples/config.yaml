@@ -146,6 +146,7 @@ base_url: "https://api.apimart.ai"
 #   responses — OpenAI Responses API (chat only; fixes reasoning models that reject tools on /v1/chat/completions)
 #   local     — Local ONNX models (OCR / Vision / Detect / Background)
 #   somark    — SoMark / OXR document parsing (POST /parse/sync → Markdown + JSON; ocr only)
+#   deepseek  — DeepSeek API (OpenAI-compatible chat; OCR/ASR/TTS via /v1/tools/{ocr,asr,tts})
 #
 # Optional per-provider `zdr: true` opts that provider into zero-data-retention
 # requests. Only OpenRouter chat/music honor it; ignored elsewhere. Unset inherits
@@ -198,6 +199,14 @@ providers:
   # oxr-local:
   #   type: somark
   #   base_url: "http://gpu-box:8000/v1"
+
+  # Example: DeepSeek (OpenAI-compatible chat; OCR/ASR/TTS use dedicated tool endpoints)
+  # base_url defaults to https://api.deepseek.com when omitted.
+  # You can also skip providers entirely: `--provider deepseek` + DEEPSEEK_API_KEY.
+  # deepseek:
+  #   type: deepseek
+  #   api_key: "sk-xxx"
+  #   model: "deepseek-flash"        # chat default; ocr/audio ignore it
 
   # Example: Anthropic protocol via OpenRouter
   # openrouter-anthropic:
