@@ -3,6 +3,7 @@ package preview
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -200,4 +201,32 @@ func stubInline(t *testing.T, fn func(string) bool) {
 		inlinePreviewAvailable = oldAvailable
 		inlinePreviewFile = oldFile
 	})
+}
+
+func TestWindowsFileURLPath(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows file URL forms only resolve on Windows")
+	}
+	cases := []struct {
+		target string
+		want   string
+		ok     bool
+	}{
+		{`file://C:\dir\a b.png`, filepath.Clean(`C:\dir\a b.png`), true},
+		{`file:///C:/dir/a%20b.png`, filepath.Clean(`C:\dir\a b.png`), true},
+		{`file://localhost/C:/dir/a.png`, filepath.Clean(`C:\dir\a.png`), true},
+		{`file://server/share/a b.png`, filepath.Clean(`\\server\share\a b.png`), true},
+		{"https://example.com/a.png", "", false},
+		{"file://", "", false},
+	}
+	for _, tc := range cases {
+		got, ok := windowsFileURLPath(tc.target)
+		if ok != tc.ok {
+			t.Errorf("windowsFileURLPath(%q) ok = %v, want %v", tc.target, ok, tc.ok)
+			continue
+		}
+		if ok && got != tc.want {
+			t.Errorf("windowsFileURLPath(%q) = %q, want %q", tc.target, got, tc.want)
+		}
+	}
 }

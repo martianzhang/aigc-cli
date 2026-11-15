@@ -302,6 +302,11 @@ func localMarkdownImagePath(target, baseDir string) (string, bool) {
 	if filepath.IsAbs(target) {
 		return filepath.Clean(target), true
 	}
+	if runtime.GOOS == "windows" {
+		if path, ok := windowsFileURLPath(target); ok {
+			return path, true
+		}
+	}
 	parsed, err := url.Parse(target)
 	if err != nil {
 		return "", false
@@ -321,6 +326,33 @@ func localMarkdownImagePath(target, baseDir string) (string, bool) {
 		path = target
 	}
 	return filepath.Join(baseDir, path), true
+}
+
+// windowsFileURLPath resolves the file URL forms Windows Markdown commonly
+// contains. net/url treats `file://C:\dir\a.png` as an authority rather than a
+// path, so those forms must be handled before url.Parse.
+func windowsFileURLPath(target string) (string, bool) {
+	const prefix = "file://"
+	if len(target) < len(prefix) || !strings.EqualFold(target[:len(prefix)], prefix) {
+		return "", false
+	}
+	rest := target[len(prefix):]
+	if decoded, err := url.PathUnescape(rest); err == nil {
+		rest = decoded
+	}
+	rest = strings.TrimPrefix(strings.ReplaceAll(rest, `\`, "/"), "/")
+	if strings.HasPrefix(strings.ToLower(rest), "localhost/") {
+		rest = rest[len("localhost/"):]
+	}
+	switch {
+	case len(rest) >= 2 && rest[1] == ':':
+		return filepath.Clean(filepath.FromSlash(rest)), true
+	case rest != "":
+		// UNC form: the file URL's host becomes the server share.
+		return filepath.Clean(`\\` + filepath.FromSlash(rest)), true
+	default:
+		return "", false
+	}
 }
 
 // downloadMarkdownImage fetches a remote or data: image into a temp file.
