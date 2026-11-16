@@ -90,8 +90,20 @@ func (c *Client) doJSON(path string, body, result any) error {
 	return c.doJSONWithHeaders(path, body, result, nil)
 }
 
+// doJSONLimit is doJSON with an explicit response body cap, for endpoints that
+// return base64-encoded media instead of small metadata.
+func (c *Client) doJSONLimit(path string, body, result any, maxBody int64) error {
+	return c.doJSONWithHeadersLimit(path, body, result, nil, maxBody)
+}
+
 // doJSONWithHeaders is like doJSON but with additional HTTP headers.
 func (c *Client) doJSONWithHeaders(path string, body, result any, extraHeaders map[string]string) error {
+	return c.doJSONWithHeadersLimit(path, body, result, extraHeaders, httpx.DefaultMaxBodyBytes)
+}
+
+// doJSONWithHeadersLimit is doJSONWithHeaders with a caller-chosen response
+// body cap. Image generation passes httpx.ImageBodyLimit().
+func (c *Client) doJSONWithHeadersLimit(path string, body, result any, extraHeaders map[string]string, maxBody int64) error {
 	if err := c.requireBaseURL(); err != nil {
 		return err
 	}
@@ -131,9 +143,9 @@ func (c *Client) doJSONWithHeaders(path string, body, result any, extraHeaders m
 	}
 	defer resp.Body.Close()
 
-	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
+	respBody, err := httpx.ReadAllLimited(resp.Body, maxBody)
 	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
+		return readBodyError(err)
 	}
 	// Accept any 2xx as success. Async providers (e.g. OpenRouter video submit)
 	// return 202 Accepted with the job payload rather than 200.
@@ -149,11 +161,26 @@ func (c *Client) doJSONWithHeaders(path string, body, result any, extraHeaders m
 	return nil
 }
 
+// readBodyError explains a body-cap violation: the generation may already have
+// run (and been billed) even though the response never reached us.
+func readBodyError(err error) error {
+	if errors.Is(err, httpx.ErrBodyTooLarge) {
+		return fmt.Errorf("failed to read response: %w (the image may already have been generated and billed; raise %s to allow a larger body)", err, httpx.ImageBodyEnv)
+	}
+	return fmt.Errorf("failed to read response: %w", err)
+}
+
 // doBytes sends a pre-serialized request body with an explicit Content-Type and
 // unmarshals a JSON response. It is the escape hatch for multipart/form-data
 // bodies that doJSON (JSON-only) cannot express. extraHeaders are applied on top
 // of the client's default headers.
 func (c *Client) doBytes(method, path, contentType string, body []byte, result any, extraHeaders map[string]string) error {
+	return c.doBytesLimit(method, path, contentType, body, result, extraHeaders, httpx.DefaultMaxBodyBytes)
+}
+
+// doBytesLimit is doBytes with an explicit response body cap, for media
+// endpoints whose base64 payload can be far larger than a text API response.
+func (c *Client) doBytesLimit(method, path, contentType string, body []byte, result any, extraHeaders map[string]string, maxBody int64) error {
 	if err := c.requireBaseURL(); err != nil {
 		return err
 	}
@@ -181,9 +208,9 @@ func (c *Client) doBytes(method, path, contentType string, body []byte, result a
 	}
 	defer resp.Body.Close()
 
-	respBody, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
+	respBody, err := httpx.ReadAllLimited(resp.Body, maxBody)
 	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
+		return readBodyError(err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return newAPIStatusError(resp, respBody)

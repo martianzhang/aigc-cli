@@ -28,6 +28,7 @@ const (
 	Stability
 	Somark
 	DeepSeek
+	Tencent
 )
 
 var names = map[Type]string{
@@ -47,6 +48,7 @@ var names = map[Type]string{
 	Stability:    "Stability AI",
 	Somark:       "SoMark",
 	DeepSeek:     "DeepSeek",
+	Tencent:      "Tencent TokenHub",
 }
 
 func (t Type) String() string {
@@ -221,6 +223,14 @@ var pollinationsDomains = []string{
 	"pollinations.ai",
 }
 
+// tencentDomains lists hosts where Tencent Cloud TokenHub serves its native
+// model APIs. Hy-World panorama/3D endpoints live under
+// /v1/wand/{hunyuan-image,hunyuan-video}/..., not the OpenAI-compatible
+// /v1/images/generations path, so they need a dedicated strategy.
+var tencentDomains = []string{
+	"tencentcloudmaas.com",
+}
+
 // matchDomain checks that host is the domain d or a subdomain of d.
 // Uses url.Parse + u.Host to compare domains accurately and avoid
 // false positives like "x.evil.com" matching "evil.com".
@@ -307,6 +317,11 @@ func Detect(baseURL string) Type {
 			return Somark
 		}
 	}
+	for _, d := range tencentDomains {
+		if matchDomain(baseURL, d) {
+			return Tencent
+		}
+	}
 	// DeepSeek is OpenAI-compatible for chat while exposing its own tool
 	// endpoints (/v1/tools/ocr|asr|tts), so commands route by ProviderType.
 	if IsDeepSeek(baseURL) {
@@ -345,6 +360,10 @@ func IsZeekai(baseURL string) bool { return Detect(baseURL) == Zeekai }
 
 // IsPollinations is a convenience wrapper around Detect.
 func IsPollinations(baseURL string) bool { return Detect(baseURL) == Pollinations }
+
+// IsTencent reports whether baseURL is Tencent Cloud TokenHub, whose Hy-World
+// panorama/3D APIs use native paths rather than OpenAI-compatible routes.
+func IsTencent(baseURL string) bool { return Detect(baseURL) == Tencent }
 
 // IsSomark reports whether baseURL is a SoMark / OXR document-parse endpoint.
 // Those endpoints expose /parse/sync and reject OpenAI chat-completions calls.

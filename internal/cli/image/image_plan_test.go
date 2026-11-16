@@ -449,3 +449,42 @@ func TestBuildImagePlanJSONWithoutEditStaysGenerations(t *testing.T) {
 		t.Errorf("URL = %q, want /images/generations", pl.URL)
 	}
 }
+
+func TestBuildImagePlanTencentPanorama(t *testing.T) {
+	p := &provider.EffectiveProvider{
+		BaseURL:      "https://tokenhub-intl.tencentcloudmaas.com",
+		APIKey:       "k",
+		ProviderType: provider.Tencent,
+	}
+
+	t.Run("text-to-panorama targets the native path", func(t *testing.T) {
+		pl := mustBuildPlan(t, &types.GenerateRequest{Prompt: "p"}, p)
+		want := "https://tokenhub-intl.tencentcloudmaas.com/v1/wand/hunyuan-image/world2-panorama"
+		if pl.URL != want {
+			t.Errorf("URL = %q, want %q", pl.URL, want)
+		}
+		body := planBodyJSON(t, pl.Body)
+		if !strings.Contains(body, `"model":"hy-world2-panorama"`) {
+			t.Errorf("body = %s, want the default model", body)
+		}
+		if strings.Contains(body, `"size"`) || strings.Contains(body, `"quality"`) {
+			t.Errorf("body = %s, must not carry OpenAI size/quality fields", body)
+		}
+	})
+
+	t.Run("public reference image is kept", func(t *testing.T) {
+		req := &types.GenerateRequest{Prompt: "p", ImageURLs: []string{"https://example.com/a.png"}}
+		pl := mustBuildPlan(t, req, p)
+		if !strings.Contains(planBodyJSON(t, pl.Body), `"images":["https://example.com/a.png"]`) {
+			t.Errorf("body = %s, want the public image url", planBodyJSON(t, pl.Body))
+		}
+	})
+
+	t.Run("local reference image is rejected", func(t *testing.T) {
+		local := writeLocalPNG(t, t.TempDir())
+		req := &types.GenerateRequest{Prompt: "p", ImageURLs: []string{local}}
+		if _, err := buildImagePlan(req, p); err == nil || !strings.Contains(err.Error(), "public image URL") {
+			t.Fatalf("error = %v, want a public-URL rejection", err)
+		}
+	})
+}

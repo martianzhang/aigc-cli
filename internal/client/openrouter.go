@@ -111,7 +111,7 @@ func (c *Client) OpenRouterDedicatedImage(req *types.GenerateRequest) (*types.Op
 	if err != nil {
 		return nil, err
 	}
-	if err := c.doJSONWithHeaders(OpenRouterImagesPath, body, &result, headers); err != nil {
+	if err := c.doJSONWithHeadersLimit(OpenRouterImagesPath, body, &result, headers, httpx.ImageBodyLimit()); err != nil {
 		return nil, err
 	}
 	return &result, nil

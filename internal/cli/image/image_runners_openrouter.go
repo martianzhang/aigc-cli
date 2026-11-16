@@ -2,6 +2,8 @@ package image
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
@@ -18,7 +20,12 @@ import (
 func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
 	start := time.Now()
 
-	orResp, err := c.OpenRouterDedicatedImage(req)
+	filtered, err := openRouterCapabilityFiltered(req, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	orResp, err := c.OpenRouterDedicatedImage(filtered)
 	if err != nil {
 		return nil, fmt.Errorf("OpenRouter image generation failed: %w", err)
 	}
@@ -67,4 +74,58 @@ func runOpenRouterDedicatedImage(c client.APIClient, req *types.GenerateRequest,
 	printImageSummary(ctx, req, saved, "", usageCost(orResp.Usage))
 
 	return saved, nil
+}
+
+// openRouterCapabilityFiltered drops request fields the model does not declare
+// in supported_parameters. The lookup is best-effort: an unreachable discovery
+// endpoint leaves the request unchanged, and the API then reports the problem.
+func openRouterCapabilityFiltered(req *types.GenerateRequest, ctx *imageDispatchCtx) (*types.GenerateRequest, error) {
+	p := ctx.providerFor()
+	params, ok := client.OpenRouterImageParams(p.BaseURL, req.Model)
+	if !ok {
+		return req, nil
+	}
+	filtered, err := client.FilterOpenRouterImageRequest(req, params)
+	if err != nil {
+		return nil, err
+	}
+	if options.Shared.Verbose {
+		logDroppedOpenRouterFields(req, filtered)
+	}
+	return filtered, nil
+}
+
+// logDroppedOpenRouterFields reports, in verbose mode only, which fields the
+// capability filter removed so -v explains why a flag had no effect.
+func logDroppedOpenRouterFields(before, after *types.GenerateRequest) {
+	var dropped []string
+	add := func(name, value string) {
+		if value != "" {
+			dropped = append(dropped, name+"="+value)
+		}
+	}
+	if before.Size != after.Size {
+		add("size", before.Size)
+	}
+	if before.Ratio != after.Ratio {
+		add("aspect_ratio", before.Ratio)
+	}
+	if before.Quality != after.Quality {
+		add("quality", before.Quality)
+	}
+	if before.OutputFormat != after.OutputFormat {
+		add("output_format", before.OutputFormat)
+	}
+	if before.Background != after.Background {
+		add("background", before.Background)
+	}
+	if before.Resolution != after.Resolution {
+		add("resolution", before.Resolution)
+	}
+	if before.N != nil && after.N == nil {
+		add("n", strconv.Itoa(*before.N))
+	}
+	if len(dropped) > 0 {
+		ui.Eprintf("[image] openrouter: dropped unsupported %s\n", strings.Join(dropped, ", "))
+	}
 }

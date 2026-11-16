@@ -11,6 +11,7 @@ This document lists the API specification sources used by aigc-cli's provider de
 | APIMart | `https://api.apimart.ai` | Async task | Async task + VEO3 Remix | `POST /v1/music/generations` (async, suno/flowmusic via `model`) |
 | ZeekAI | detector | `POST /v1/images/generations` (text) / `POST /v1/images/edits` (image-to-image) | — | — |
 | OpenLux | https://api.openlux.ai/v1 | — | POST /v1/video/create + GET /v1/video/query | — |
+| Tencent TokenHub | `https://tokenhub-intl.tencentcloudmaas.com` | `POST /v1/wand/hunyuan-image/world2-panorama` (native 360° panorama) | — | — |
 
 ## Detection Logic
 
@@ -26,6 +27,7 @@ Provider detection uses `base_url` pattern matching:
 | `openlux.ai` (in URL) | OpenLux |
 | `somark.ai`, `somark.cn`, `somark.tech` | SoMark / OXR document parse (`POST /parse/sync`, not chat) |
 | `api.deepseek.com` | DeepSeek (OpenAI-compatible chat; OCR/ASR/TTS via `/v1/tools/*`) |
+| `tencentcloudmaas.com` | Tencent TokenHub (native Hy-World panorama/3D paths, not `/images/generations`) |
 | `localhost` or `127.0.0.1` | Local (no API Key) |
 
 ## Chat Protocol
@@ -98,18 +100,42 @@ No config is required either: `--provider deepseek` plus `DEEPSEEK_API_KEY`.
 > Implementation: `internal/provider/deepseek_tools.go` (`DeepSeekOCR` /
 > `DeepSeekTranscribe` / `DeepSeekTTS`); routing via `provider.IsDeepSeekProvider`.
 
+## Tencent Cloud TokenHub (Hy-World Panorama)
+
+Tencent Cloud TokenHub serves the Hy-World family on **native, non-OpenAI synchronous paths**. A `*.tencentcloudmaas.com` base URL or `type: tencent` selects this provider.
+
+| Endpoint | Purpose | Request | Response |
+|---|---|---|---|
+| `POST /v1/wand/hunyuan-image/world2-panorama` | Text-to-panorama / image-to-panorama | JSON: `model` (`hy-world2-panorama`), `prompt` (≤600 chars), `images` (public URLs, optional) | `status` + `data[].super_resolution_image_url` (primary) / `cover_image_url` + `tokenhub_usage.total_tokens` |
+
+- One call returns one 2:1 equirectangular panorama; there is no polling step.
+- `images` accepts **public URLs only**; local files and data URIs are rejected before sending.
+- The CLI maps `super_resolution_image_url` onto the shared image download path and saves it to `-o`.
+- OpenAI-only fields (`size`, `quality`, `output_format`, …) are never sent.
+
+```yaml
+providers:
+  tencent:
+    type: tencent      # base_url defaults to https://tokenhub-intl.tencentcloudmaas.com
+    api_key: "your-tokenhub-key"
+```
+
+> Implementation: `internal/client/tencent.go` (`TencentPanoramaBody` / `TencentPanoramaGenerate`); routing in `internal/cli/image/image_runners_tencent.go`.
+
 ## Strategy Routing
 
 aigc-cli uses a `match-run` dispatch pattern:
 
 ```
 imageStrategies:
-  - match: sync mode, OpenAI-compatible
-    run: POST /v1/images/generations
   - match: OpenRouter detected
-    run: POST /api/v1/images (dedicated API)
-  - match: APIMart detected
-    run: Async task submit → poll → download
+    run: POST /api/v1/images (dedicated API; unsupported fields filtered by model capabilities)
+  - match: Tencent TokenHub detected
+    run: POST /v1/wand/hunyuan-image/world2-panorama (native panorama)
+  - match: Agnes / Gemini / ModelScope / APIMart / Ollama / ZeekAI / OpenAI-family edits
+    run: provider-specific protocol
+  - match: default
+    run: POST /v1/images/generations (OpenAI-compatible sync)
 ```
 
 `music` does not use a table; it dispatches directly on the detected provider: OpenRouter → sync streaming `POST /v1/chat/completions` (`modalities: ["text","audio"]`, `stream: true`), otherwise APIMart async `POST /v1/music/generations` → `GET /v1/music/tasks/{task_id}`.

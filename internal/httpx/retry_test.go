@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -89,6 +90,27 @@ func TestReadAllLimited(t *testing.T) {
 	}
 	if _, err := ReadAllLimited(strings.NewReader("0123456789"), 4); err == nil {
 		t.Fatal("ReadAllLimited() error = nil, want size limit error")
+	} else if !errors.Is(err, ErrBodyTooLarge) {
+		t.Fatalf("ReadAllLimited() error = %v, want ErrBodyTooLarge", err)
+	} else if !strings.Contains(err.Error(), "response exceeds") {
+		t.Fatalf("ReadAllLimited() error = %q, want a size-cap message", err)
+	}
+}
+
+func TestImageBodyLimit(t *testing.T) {
+	t.Setenv(ImageBodyEnv, "")
+	if got := ImageBodyLimit(); got != ImageMaxBodyBytes {
+		t.Errorf("ImageBodyLimit() = %d, want default %d", got, ImageMaxBodyBytes)
+	}
+	t.Setenv(ImageBodyEnv, "8")
+	if got := ImageBodyLimit(); got != 8<<20 {
+		t.Errorf("ImageBodyLimit() with override = %d, want %d", got, int64(8<<20))
+	}
+	for _, bad := range []string{"nope", "0", "-3"} {
+		t.Setenv(ImageBodyEnv, bad)
+		if got := ImageBodyLimit(); got != ImageMaxBodyBytes {
+			t.Errorf("ImageBodyLimit() with %q = %d, want default %d", bad, got, ImageMaxBodyBytes)
+		}
 	}
 }
 

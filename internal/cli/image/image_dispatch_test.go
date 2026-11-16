@@ -19,6 +19,7 @@ func TestImageStrategyDispatch_AllProviders(t *testing.T) {
 	}{
 		{"APIMart uses async task API", noImage, &imageDispatchCtx{isAPIMart: true}, "runAsyncImage"},
 		{"OpenRouter uses dedicated image API", noImage, &imageDispatchCtx{isOpenRouter: true}, "runOpenRouterDedicatedImage"},
+		{"Tencent uses native panorama API", noImage, &imageDispatchCtx{isTencent: true}, "runTencentPanoramaImage"},
 		{"Agnes uses sync API", noImage, &imageDispatchCtx{isAgnes: true}, "runAgnesImage"},
 		{"ModelScope uses async task API", noImage, &imageDispatchCtx{isModelScope: true}, "runModelScopeImage"},
 		{"Gemini uses native generateContent API", noImage, &imageDispatchCtx{isGemini: true}, "runGeminiImage"},

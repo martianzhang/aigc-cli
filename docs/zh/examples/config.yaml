@@ -15,6 +15,7 @@ api_key: enc:v1:xTvA5Luio1XZRZZOdCye7wfFfsMKCYgQGvTdFjBPxzFlHdxCwxZJKL1BCR9Q
 # ── 按 Provider 取消注释 ──
 # OpenAI:    https://api.openai.com/v1
 # OpenRouter: https://openrouter.ai/api/v1
+# Tencent TokenHub: https://tokenhub-intl.tencentcloudmaas.com
 # APIMart:    https://api.apimart.ai
 # Ollama:    http://localhost:11434 （无需 API Key）
 # 任意中转:   https://your-relay.com/v1
@@ -158,6 +159,13 @@ providers:
 #   models:                      # 按模型覆盖窗口
 #     anthropic/claude-sonnet-4:
 #       context_window: 200000
+
+# 示例：腾讯云 TokenHub（Hy-World 360° 全景）
+# type: tencent 可省略 base_url（默认 https://tokenhub-intl.tencentcloudmaas.com）
+# tencent:
+#   type: tencent
+#   api_key: "your-tokenhub-key"
+#   model: "hy-world2-panorama"
 
 # 示例：音效生成（audio sfx）— ElevenLabs / Stability AI
 # 也可以不写这里，直接设 ELEVENLABS_API_KEY / STABILITY_API_KEY 并用 --provider elevenlabs|stability

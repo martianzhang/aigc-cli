@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
 
@@ -49,7 +50,7 @@ func (c *Client) ImageGenerateEdits(req *types.GenerateRequest) (*types.OpenAIIm
 	if err != nil {
 		return nil, err
 	}
-	if err := c.doJSON(ImageEditsPath, body, &result); err != nil {
+	if err := c.doJSONLimit(ImageEditsPath, body, &result, httpx.ImageBodyLimit()); err != nil {
 		return nil, err
 	}
 	return &result, nil

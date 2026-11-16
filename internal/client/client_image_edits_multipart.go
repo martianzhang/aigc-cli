@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/jsonmerge"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/reqbuild"
@@ -35,7 +36,7 @@ func (c *Client) ImageGenerateEditsMultipart(req *types.GenerateRequest) (*types
 		return nil, err
 	}
 	var result types.OpenAIImageResponse
-	if err := c.doBytes(http.MethodPost, ImageEditsPath, contentType, body, &result, provider.ImageEditsHeaders(c.baseURL, req.Model)); err != nil {
+	if err := c.doBytesLimit(http.MethodPost, ImageEditsPath, contentType, body, &result, provider.ImageEditsHeaders(c.baseURL, req.Model), httpx.ImageBodyLimit()); err != nil {
 		return nil, err
 	}
 	return &result, nil

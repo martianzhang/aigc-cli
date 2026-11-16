@@ -12,6 +12,48 @@ aigc-cli image --prompt "a cat under the stars"
 aigc-cli image --model "dall-e-3" --size "1024x1024" --prompt "a cat"
 ```
 
+## 360° Panoramas (equirectangular)
+
+A panorama model returns one **2:1 equirectangular** image per request: the left and right edges wrap seamlessly, the poles meet at the top and bottom centre, and the result works directly as a skybox, a VR backdrop, or the first stage of a 3D world pipeline.
+
+| Provider | Model | Notes |
+|---|---|---|
+| OpenRouter | `tencent/hy-world-2.1-panorama` | Tencent HY-World 2.1, ~$0.77 per panorama; prompts are capped at 600 characters, one image per request |
+| Tencent Cloud TokenHub | `hy-world2-panorama` | Native synchronous API; also supports image-to-panorama via `--image-url` and returns the super-resolution PNG URL |
+
+```bash
+# OpenRouter (zero config: the CLI drops size/quality/output_format the model does not declare)
+aigc-cli img -P openrouter -m tencent/hy-world-2.1-panorama \
+  -p "equirectangular 360 panorama, a quiet lakeside at sunrise, snow-capped mountains, morning mist" \
+  -o ./pano
+
+# Tencent Cloud TokenHub (needs a TokenHub API key)
+aigc-cli img -P tencent -m hy-world2-panorama \
+  -p "equirectangular 360 panorama, a modern art museum interior, soft natural light" \
+  -o ./pano
+
+# Image-to-panorama: TokenHub accepts public URLs only (local files / data URIs are rejected)
+aigc-cli img -P tencent -m hy-world2-panorama \
+  -p "extend this photo into a full 360 panorama" \
+  -i https://example.com/room.jpg -o ./pano
+```
+
+> 💡 **OpenRouter parameter filtering**: each model declares a different `supported_parameters` set. Before sending, the CLI reads `GET /v1/images/models` and drops any `size` / `aspect_ratio` / `resolution` / `quality` / `output_format` / `background` field the model does not declare (`-v` prints what was dropped). HY-World declares only `n`, so a configured default `size` no longer breaks the request. A verbatim `--json` body is still forwarded untouched and is never filtered.
+
+> ⚠️ **Response size**: panoramas are usually 4K/8K, so the base64 payload easily exceeds the 32 MiB text-API cap. Image generation reads up to **256 MiB**; raise it with `AIGC_CLI_IMAGE_MAX_BODY_MB=512`. If the cap is still hit, the error says the image may already have been generated and billed — raise the limit and retry instead of resubmitting blindly.
+
+> `providers` entry for Tencent TokenHub:
+>
+> ```yaml
+> providers:
+>   tencent:
+>     type: tencent
+>     api_key: "your-tokenhub-key"
+>     # base_url is optional: type: tencent defaults to https://tokenhub-intl.tencentcloudmaas.com
+> ```
+
+Other panorama models (HY-Pano 2.0, DiT360, Qwen 360 Diffusion, Skybox AI, …) are self-hosted or use private protocols, so the CLI does not integrate them. Run their own inference code / ComfyUI, or reach a compatible relay with `--json`.
+
 ## Parameters
 
 | Parameter | Description | Default |
@@ -43,7 +85,8 @@ The `--size` flag accepts four forms: `<ratio>` (e.g. `16:9`), `<pixels>` (e.g. 
 | Provider | Accepted `--size` values | Notes |
 |---|---|---|
 | OpenAI / generic OpenAI-compatible | `16:9`, `1024x1024` | single value: ratio or pixels |
-| OpenRouter | `16:9`, `1024x1024`, `2K`, `2K@16:9` | compound maps to `size` + `aspect_ratio`; which tiers a model supports depends on that model's `supported_parameters`. Example: Recraft V4.1 only declares `aspect_ratio` (1:1/4:3/3:4/16:9/9:16/auto), so `--size 2K` returns HTTP 400 — use `--size 16:9` (ratio only) for it |
+| OpenRouter | `16:9`, `1024x1024`, `2K`, `2K@16:9` | compound maps to `size` + `aspect_ratio`; the CLI automatically drops fields the model does not declare in `supported_parameters`. Example: Recraft V4.1 only declares `aspect_ratio` (1:1/4:3/3:4/16:9/9:16/auto), so `--size 2K` is dropped — use `--size 16:9` (ratio only) when you want an aspect ratio |
+| Tencent TokenHub | ignored | the native panorama API accepts only `model` / `prompt` / `images` and always returns a 2:1 panorama, so `--size` and friends are never sent |
 | Agnes image 2.0 | `1024x768` (pixels) | 2.0 needs pixel dimensions; see the [Agnes Image docs](https://agnes-ai.com/zh-Hans/docs/agnes-image-20-flash) |
 | Agnes image 2.1 Flash | `2K@16:9` (or `--size 2K --ratio 16:9`) | 2.1 supports tiered sizing: tier + ratio |
 | ModelScope | `1024x768` (pixels) | pixels only |
@@ -69,16 +112,17 @@ aigc-cli image --provider agnes --model agnes-image-2.0-flash \
 Accepted size syntax differs per vendor and per model, and a wrong value usually returns HTTP 400. When a failure looks size-related, the CLI **appends a provider-specific `--size` hint automatically**, so you do not have to look it up first:
 
 ```text
-Error: OpenRouter image generation failed: API returned status 400: {"error":{"message":"Novita cannot send size \"16:9\""}}
+Error: OpenRouter image generation failed: API returned status 400: {"error":{"message":"Recraft cannot send resolution \"2K\""}}
 
   --size hint (OpenRouter):
-    model "inclusionai/ming-image-0.1-design" declares no size parameter — remove --size / --ratio.
+    aspect ratio (--ratio): 1:1 | 4:3 | 3:4 | 16:9 | 9:16 | auto
+    this model declares no resolution tier — pass the ratio alone, e.g. --size 16:9.
     inspect: aigc-cli models --api-base https://openrouter.ai/api/v1 --type image
 ```
 
-- **OpenRouter**: reads `supported_parameters` from `GET /v1/images/models` and lists only what the model actually declares — `aspect_ratio` (use `--ratio`) and/or `resolution` (use `--size` or `--resolution`). It suggests `--size <tier>@<ratio>` only when both exist, tells you to pass the ratio alone when only `aspect_ratio` is declared, and tells you to drop `--size` / `--ratio` when the model declares no size parameter at all.
+- **OpenRouter**: reads `supported_parameters` from `GET /v1/images/models` and, before sending, **drops** every `size` / `aspect_ratio` / `resolution` / `quality` / `output_format` / `background` field the model does not declare (`-v` prints what was dropped). On failure it lists only the declared size parameters — `aspect_ratio` (`--ratio`) and/or `resolution` (`--size` / `--resolution`) — and suggests `--size <tier>@<ratio>` only when both exist. A verbatim `--json` body is never filtered.
 - **Other providers**: prints that provider's documented `--size` cheat sheet (e.g. APIMart's `--resolution 1k/2k/4k`, Agnes 2.1's `2K@16:9`, ModelScope's pixels-only).
-- The hint only fires **on failure**, so the success path makes no extra request. Capability lookup is best-effort (5s timeout) and degrades to static guidance when unavailable.
+- Capability lookup is best-effort (5s timeout). A successful result is cached in-process for 24 hours and a miss for 5 minutes; an unavailable discovery endpoint never blocks the request and simply falls back to sending the body unchanged.
 - The hint is **suppressed for clearly non-size failures** (e.g. a content-safety / moderation rejection). Only errors whose message actually looks size-related trigger it, so a `content safety policy` error never suggests changing `--size`.
 
 > **Note:** Agnes has no image upload endpoint; local `--image-url` files are automatically converted to base64 Data URIs and embedded directly — no public URL needed.

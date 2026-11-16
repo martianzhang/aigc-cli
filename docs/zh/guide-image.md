@@ -22,6 +22,48 @@ echo "赛博朋克城市夜景" | aigc-cli image
 aigc-cli image < prompt.txt
 ```
 
+## 360° 全景图（equirectangular）
+
+全景模型一次输出一张 **2:1 等距圆柱投影** 图：左右边缘可无缝衔接，上下极点为球面极点，可直接用作 skybox、VR 场景底图或 3D 世界生成的起点。
+
+| Provider | 模型 | 说明 |
+|---|---|---|
+| OpenRouter | `tencent/hy-world-2.1-panorama` | 腾讯 HY-World 2.1，约 $0.77/张；prompt ≤600 字符，每次 1 张 |
+| 腾讯云 TokenHub | `hy-world2-panorama` | 官方同步接口；除文生全景外还支持 `--image-url` 图生全景，返回超分后的原图 URL |
+
+```bash
+# OpenRouter（零配置：CLI 会自动丢弃该模型不支持的 size/quality/output_format）
+aigc-cli img -P openrouter -m tencent/hy-world-2.1-panorama \
+  -p "equirectangular 360 panorama, a quiet lakeside at sunrise, snow-capped mountains, morning mist" \
+  -o ./pano
+
+# 腾讯云 TokenHub（需要 TokenHub API Key）
+aigc-cli img -P tencent -m hy-world2-panorama \
+  -p "equirectangular 360 panorama, a modern art museum interior, soft natural light" \
+  -o ./pano
+
+# 图生全景：TokenHub 只接受公网 URL（本地文件 / data URI 会直接报错）
+aigc-cli img -P tencent -m hy-world2-panorama \
+  -p "extend this photo into a full 360 panorama" \
+  -i https://example.com/room.jpg -o ./pano
+```
+
+> 💡 **OpenRouter 参数自动裁剪**：不同模型声明的 `supported_parameters` 不同。CLI 在发送前读取 `GET /v1/images/models`，自动丢弃该模型未声明的 `size` / `aspect_ratio` / `resolution` / `quality` / `output_format` / `background` 等字段（`-v` 会打印被丢弃的字段）。HY-World 只声明 `n`，因此即使配置里有默认 `size` 也能直接跑；`--json` 仍然逐字透传，不做裁剪。
+
+> ⚠️ **响应体大小**：全景图常见 4K/8K，base64 后很容易超过默认 32 MiB。图片生成路径的读取上限是 **256 MiB**，可用 `AIGC_CLI_IMAGE_MAX_BODY_MB=512` 调整。若仍超限，错误会提示“生成可能已计费”——调高上限后重试即可，不要盲目重复提交。
+
+> Tencent TokenHub 的 `providers` 配置示例：
+>
+> ```yaml
+> providers:
+>   tencent:
+>     type: tencent
+>     api_key: "your-tokenhub-key"
+>     # base_url 可省略：type: tencent 默认使用 https://tokenhub-intl.tencentcloudmaas.com
+> ```
+
+其他全景模型（HY-Pano 2.0、DiT360、Qwen 360 Diffusion、Skybox AI 等）属于自部署或私有协议，CLI 未内置接入；需要时请使用各自的推理代码 / ComfyUI，或通过 `--json` 调用兼容的中转。
+
 ## 参数
 
 | 参数 | 短参 | 说明 | 适用 |
@@ -65,7 +107,8 @@ aigc-cli image < prompt.txt
 | Provider | 接受的 `--size` 值 | 说明 |
 |---|---|---|
 | OpenAI / 通用 OpenAI 兼容 | `16:9`、`1024x1024` | 单值：宽高比或像素 |
-| OpenRouter | `16:9`、`1024x1024`、`2K`、`2K@16:9` | 组合形式映射为 `size` + `aspect_ratio`；具体模型支持哪些档位取决于该模型的 `supported_parameters`。例如 Recraft V4.1 只声明了 `aspect_ratio`（1:1/4:3/3:4/16:9/9:16/auto），因此 `--size 2K` 会返回 HTTP 400，应使用 `--size 16:9`（仅宽高比） |
+| OpenRouter | `16:9`、`1024x1024`、`2K`、`2K@16:9` | 组合形式映射为 `size` + `aspect_ratio`；CLI 会按该模型的 `supported_parameters` 自动裁剪其未声明的字段。例如 Recraft V4.1 只声明 `aspect_ratio`（1:1/4:3/3:4/16:9/9:16/auto），`--size 2K` 会被自动丢弃；需要档位时改用 `--size 16:9`（仅宽高比） |
+| Tencent TokenHub | 忽略 | 原生全景接口只接受 `model` / `prompt` / `images`，固定输出 2:1 全景；`--size` 等字段不会发送 |
 | Agnes image 2.0 | `1024x768`（像素） | 2.0 需要像素尺寸 |
 | Agnes image 2.1 Flash | `2K@16:9`（或 `--size 2K --ratio 16:9`） | 2.1 支持档位化尺寸：档位 + 宽高比 |
 | ModelScope | `1024x768`（像素） | 仅像素 |
@@ -91,16 +134,17 @@ aigc-cli image --provider agnes --model agnes-image-2.0-flash \
 不同厂商/模型接受的尺寸写法不同，写错时大多数 API 会返回 400。CLI 检测到「尺寸相关」的失败后，会**自动补一段该 Provider 的 `--size` 建议**，无需先查文档：
 
 ```text
-Error: OpenRouter image generation failed: API returned status 400: {"error":{"message":"Novita cannot send size \"16:9\""}}
+Error: OpenRouter image generation failed: API returned status 400: {"error":{"message":"Recraft cannot send resolution \"2K\""}}
 
   --size hint (OpenRouter):
-    model "inclusionai/ming-image-0.1-design" declares no size parameter — remove --size / --ratio.
+    aspect ratio (--ratio): 1:1 | 4:3 | 3:4 | 16:9 | 9:16 | auto
+    this model declares no resolution tier — pass the ratio alone, e.g. --size 16:9.
     inspect: aigc-cli models --api-base https://openrouter.ai/api/v1 --type image
 ```
 
-- **OpenRouter**：读取 `GET /v1/images/models` 的 `supported_parameters`，只列出该模型实际声明的参数——`aspect_ratio`（用 `--ratio`）和/或 `resolution`（用 `--size` 或 `--resolution`）；两者都存在时才建议用 `--size <tier>@<ratio>` 组合，只有 `aspect_ratio` 时提示单独用比例；若该模型不声明任何尺寸参数，则提示删除 `--size` / `--ratio`。
+- **OpenRouter**：读取 `GET /v1/images/models` 的 `supported_parameters`，在真实请求前**自动丢弃**该模型未声明的 `size` / `aspect_ratio` / `resolution` / `quality` / `output_format` / `background` 等字段（`-v` 会打印被丢弃的字段）；失败时只列出该模型实际声明的尺寸参数——`aspect_ratio`（`--ratio`）和/或 `resolution`（`--size` / `--resolution`），两者都存在时才建议 `--size <tier>@<ratio>` 组合。`--json` 正文逐字透传，不参与裁剪。
 - **其他 Provider**：给出该 Provider 文档化的 `--size` 写法速查（如 APIMart 的 `--resolution 1k/2k/4k`、Agnes 2.1 的 `2K@16:9`、ModelScope 的纯像素）。
-- 提示只在**失败时**触发，成功路径零额外请求；能力查询是 best-effort（5s 超时），查询失败会退化为静态建议。
+- 能力查询是 best-effort（5s 超时），成功结果进程内缓存 24 小时、未找到缓存 5 分钟；查询失败不会阻断请求，只会退回“原样发送 + API 报错”的旧行为。
 - **明确非尺寸类的报错不会触发提示**（如内容安全 / 审核拒绝）：只有消息本身看起来与尺寸相关的错误才提示，因此 `content safety policy` 这类报错不会再误导你改 `--size`。
 
 > ⚠️ **Agnes 没有图片上传端点**：本地 `--image-url` 文件（如 `-i photo.png`）会自动转为 base64 Data URI 内嵌，无需公网 URL。

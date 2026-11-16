@@ -478,3 +478,21 @@ func TestDetect_DeepSeek(t *testing.T) {
 		t.Error("IsDeepSeek matched an unrelated host")
 	}
 }
+
+func TestDetect_Tencent(t *testing.T) {
+	for _, url := range []string{
+		"https://tokenhub-intl.tencentcloudmaas.com",
+		"https://tokenhub-intl.tencentcloudmaas.com/v1",
+		"https://tokenhub.tencentcloudmaas.com/v1",
+	} {
+		if got := Detect(url); got != Tencent {
+			t.Errorf("Detect(%q) = %v, want Tencent", url, got)
+		}
+		if !IsTencent(url) {
+			t.Errorf("IsTencent(%q) = false", url)
+		}
+	}
+	if IsTencent("https://nottencent.example.com") {
+		t.Error("IsTencent matched an unrelated host")
+	}
+}

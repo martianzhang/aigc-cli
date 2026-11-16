@@ -1,0 +1,45 @@
+package image
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/martianzhang/aigc-cli/internal/client"
+	"github.com/martianzhang/aigc-cli/internal/options"
+	"github.com/martianzhang/aigc-cli/internal/service"
+	"github.com/martianzhang/aigc-cli/internal/types"
+	"github.com/martianzhang/aigc-cli/internal/ui"
+)
+
+// runTencentPanoramaImage handles Tencent Cloud TokenHub's synchronous Hy-World
+// panorama API. The response carries image URLs (super-resolution first), which
+// go through the shared download/save path.
+func runTencentPanoramaImage(c client.APIClient, req *types.GenerateRequest, ctx *imageDispatchCtx) ([]string, error) {
+	start := time.Now()
+
+	resp, err := c.TencentPanoramaGenerate(req)
+	if err != nil {
+		return nil, fmt.Errorf("tencent panorama generation failed: %w", err)
+	}
+	elapsed := time.Since(start)
+
+	ui.Printf("Model: %s\n", req.Model)
+	if resp.Created > 0 {
+		ui.Printf("Created: %s\n", time.Unix(resp.Created, 0).Format("2006-01-02 15:04:05"))
+	}
+	ui.Printf("Duration: %.1fs\n", elapsed.Seconds())
+
+	taskID := promptTaskID("image_tencent", resp.Created)
+	service.SavePromptBestEffort(options.Shared.SavePrompt, options.Shared.OutputDir, "image", taskID, req.Prompt)
+
+	saved, err := saveOpenAIImageResponse(resp, taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	postProcessImages(saved)
+	service.PrintUsage(resp.Usage)
+	printImageSummary(ctx, req, saved, "", usageCost(resp.Usage))
+
+	return saved, nil
+}

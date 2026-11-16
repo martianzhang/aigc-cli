@@ -1,23 +1,14 @@
 package image
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/martianzhang/aigc-cli/internal/client"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
-
-// sizeHintTimeout bounds the best-effort capability lookup performed while
-// building a failure hint. The lookup is purely advisory, so it must never
-// make a failed command hang.
-const sizeHintTimeout = 5 * time.Second
 
 // sizeErrorKeywords mark an API failure as (probably) size-related. Matching is
 // case-insensitive. Kept narrow so unrelated 400s do not get noise appended:
@@ -75,7 +66,7 @@ func looksLikeSizeError(err error, req *types.GenerateRequest) bool {
 // accepts, or that it declares none at all.
 func openRouterSizeHint(p *provider.EffectiveProvider, req *types.GenerateRequest) string {
 	base := client.NormalizeBaseURL(p.BaseURL)
-	params, found := fetchOpenRouterImageParams(base, req.Model)
+	params, found := client.OpenRouterImageParams(p.BaseURL, req.Model)
 
 	var b strings.Builder
 	b.WriteString("\n\n  --size hint (OpenRouter):")
@@ -89,7 +80,9 @@ func openRouterSizeHint(p *provider.EffectiveProvider, req *types.GenerateReques
 		_, hasSize := params["size"]
 		switch {
 		case !hasAspect && !hasTier && !hasSize:
-			fmt.Fprintf(&b, "\n    model %q declares no size parameter — remove --size / --ratio.", req.Model)
+			fmt.Fprintf(&b, "\n    model %q declares no size parameter.", req.Model)
+			b.WriteString("\n    --size / --ratio / --quality / --output_format are dropped")
+			b.WriteString("\n    automatically before sending, so this error is not a size problem.")
 		default:
 			if hasAspect {
 				fmt.Fprintf(&b, "\n    aspect ratio (--ratio): %s", strings.Join(aspects, " | "))
@@ -155,45 +148,5 @@ func staticSizeForms(t provider.Type) string {
 	}
 }
 
-// fetchOpenRouterImageParams returns the model's supported_parameters from
-// OpenRouter's public image model discovery. found is false when the endpoint
-// or model is unavailable, so the caller falls back to generic guidance.
-func fetchOpenRouterImageParams(base, model string) (map[string]types.OpenRouterParamDescriptor, bool) {
-	if base == "" || model == "" {
-		return nil, false
-	}
-	body, err := hintGet(strings.TrimRight(base, "/") + "/images/models")
-	if err != nil {
-		return nil, false
-	}
-	var list types.OpenRouterMediaModelList
-	if err := json.Unmarshal(body, &list); err != nil {
-		return nil, false
-	}
-	for _, m := range list.Data {
-		if m.ID == model {
-			return m.SupportedParameters, true
-		}
-	}
-	return nil, false
-}
-
-// hintGet performs a short, unauthenticated GET for advisory capability data.
-// It uses http.DefaultClient so the configured proxy transport is honored.
-func hintGet(rawURL string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), sizeHintTimeout)
-	defer cancel()
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := http.DefaultClient.Do(httpReq)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status %d", resp.StatusCode)
-	}
-	return io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-}
+// fetchOpenRouterImageParams and the advisory GET live in
+// client.OpenRouterImageParams, shared by the real request path and this hint.

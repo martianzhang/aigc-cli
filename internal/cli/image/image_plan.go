@@ -77,11 +77,32 @@ func buildImagePlan(req *types.GenerateRequest, p *provider.EffectiveProvider) (
 		if err := encodeLocalImages(req); err != nil {
 			return nil, err
 		}
-		body, err := client.OpenRouterImageBody(req)
+		previewReq := req
+		note := ""
+		if params, ok := client.CachedOpenRouterImageParams(base, req.Model); ok {
+			filtered, err := client.FilterOpenRouterImageRequest(req, params)
+			if err != nil {
+				return nil, err
+			}
+			previewReq = filtered
+		} else {
+			// The real request filters against live capabilities; the preview
+			// cannot, because --dry-run must stay offline.
+			note = "parameters this model does not declare are dropped at send time"
+		}
+		body, err := client.OpenRouterImageBody(previewReq)
 		if err != nil {
 			return nil, err
 		}
-		return newImagePlan(base+client.OpenRouterImagesPath, body), nil
+		pl := newImagePlan(base+client.OpenRouterImagesPath, body)
+		pl.Note = note
+		return pl, nil
+	case provider.Tencent:
+		body, err := client.TencentPanoramaBody(req)
+		if err != nil {
+			return nil, err
+		}
+		return newImagePlan(base+client.TencentPanoramaPath, body), nil
 	case provider.Gemini:
 		if err := encodeLocalImages(req); err != nil {
 			return nil, err

@@ -18,6 +18,7 @@ api_key: "your-api-key-here"
 # ── Uncomment per provider ──
 # OpenAI:    https://api.openai.com/v1
 # OpenRouter: https://openrouter.ai/api/v1
+# Tencent TokenHub: https://tokenhub-intl.tencentcloudmaas.com
 # APIMart:    https://api.apimart.ai
 # Ollama:    http://localhost:11434 (no API Key needed)
 # Any relay: https://your-relay.com/v1
@@ -164,6 +165,13 @@ providers:
   #   models:                      # Per-model window overrides
   #     anthropic/claude-sonnet-4:
   #       context_window: 200000
+
+  # Example: Tencent Cloud TokenHub (Hy-World 360° panorama)
+  # type: tencent implies base_url https://tokenhub-intl.tencentcloudmaas.com
+  # tencent:
+  #   type: tencent
+  #   api_key: "your-tokenhub-key"
+  #   model: "hy-world2-panorama"
 
   # Example: sound effects (audio sfx) — ElevenLabs / Stability AI
   # You can also skip this and just set ELEVENLABS_API_KEY / STABILITY_API_KEY with --provider elevenlabs|stability

@@ -252,6 +252,35 @@ defaults:
 
 ---
 
+## 5.7 腾讯云 TokenHub（Hy-World 全景）
+
+Tencent Cloud TokenHub 的 Hy-World 模型走**原生同步接口**，不是 OpenAI 兼容协议。`*.tencentcloudmaas.com` 域名或 `type: tencent` 会被识别为 Tencent TokenHub。
+
+| 端点 | 用途 | 请求 | 响应 |
+|---|---|---|---|
+| `POST /v1/wand/hunyuan-image/world2-panorama` | 文生 / 图生 360° 全景 | JSON：`model`（`hy-world2-panorama`）/ `prompt`（≤600 字符）/ `images`（公网 URL 数组，可选） | `status` + `data[].super_resolution_image_url`（主输出）/ `cover_image_url` + `tokenhub_usage.total_tokens` |
+
+- 一次调用返回一张 2:1 等距圆柱全景，**无需轮询**。
+- `images` 只接受**公网可访问的 URL**；本地文件 / data URI 会在发送前报错。
+- CLI 将 `super_resolution_image_url` 映射为统一的图片下载流程，自动保存到 `-o` 目录。
+- **不发送** `size` / `quality` / `output_format` 等 OpenAI 字段（接口会拒绝未声明的参数）。
+
+```yaml
+providers:
+  tencent:
+    type: tencent      # 省略 base_url 时默认 https://tokenhub-intl.tencentcloudmaas.com
+    api_key: "your-tokenhub-key"
+```
+
+```bash
+aigc-cli img -P tencent -m hy-world2-panorama -p "a 360 panorama of a museum interior"
+aigc-cli img -P tencent -m hy-world2-panorama -p "extend this photo" -i https://example.com/room.jpg
+```
+
+> 代码实现：`internal/client/tencent.go`（`TencentPanoramaBody` / `TencentPanoramaGenerate`）；路由 `internal/cli/image/image_runners_tencent.go`。
+
+---
+
 ## 6. Provider 检测机制
 
 `internal/provider/detect.go` 负责根据 `base_url` 自动识别 Provider：
@@ -262,6 +291,7 @@ OpenRouter: 域名包含 openrouter.ai
 OpenLux:    域名包含 openlux.ai
 Somark:     域名包含 somark.ai / somark.cn / somark.tech（走 POST /parse/sync 文档解析，不是 chat）
 DeepSeek:   域名包含 api.deepseek.com（chat 走 OpenAI 兼容；OCR/ASR/TTS 走 /v1/tools/*）
+Tencent:    域名包含 tencentcloudmaas.com（TokenHub 原生 Hy-World 全景接口，不走 /images/generations）
 MiMo:       域名包含 xiaomimimo.com / mimo.mi.com（chat 用量报告 web_search_usage）
 Zeekai:     域名包含 zeekai.cc（图生图自动改走 POST /images/edits）
 OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io
@@ -285,10 +315,16 @@ OpenAI 家族: openai.com / openai.azure.com / ofox.ai / ofox.run / ofox.io
 
 | 优先级 | 匹配条件 | 路由目标 | 使用的端点 |
 |---|---|---|---|
-| 1 | OpenRouter + 非 DALL-E/GPT-Image 模型 | Responses API | `POST /v1/responses` |
-| 2 | OpenRouter + 其他 | 专用 Image API | `POST /v1/images` |
-| 3 | APIMart 域名 | 异步任务 | `POST /v1/images/generations` (async) |
-| 4 | 默认（兜底） | OpenAI 兼容同步 | `POST /v1/images/generations` (sync) |
+| 1 | OpenRouter + 非 edit | 专用 Image API | `POST /v1/images` |
+| 2 | Tencent TokenHub | Hy-World 全景同步接口 | `POST /v1/wand/hunyuan-image/world2-panorama` |
+| 3 | Agnes | 专用同步 API（`extra_body`） | `POST /v1/images/generations` |
+| 4 | Gemini | 原生 interactions | `POST /v1/interactions` |
+| 5 | ModelScope | 异步任务 | `POST /v1/images/generations` (async) |
+| 6 | APIMart | 异步任务 | `POST /v1/images/generations` (async) |
+| 7 | Ollama / 本地 | 原生 generate | `POST /api/generate` |
+| 8 | ZeekAI + 参考图 | edits JSON | `POST /v1/images/edits` |
+| 9 | OpenAI 家族 + 参考图 | multipart edits | `POST /v1/images/edits` (multipart) |
+| 10 | 默认（兜底） | OpenAI 兼容同步 | `POST /v1/images/generations` (sync) |
 
 ### `video` 策略表（`internal/cli/video/video_dispatch.go`）
 

@@ -30,6 +30,9 @@ func (m *mockAPIClient) ImageGenerateEdits(req *types.GenerateRequest) (*types.O
 func (m *mockAPIClient) ImageGenerateEditsMultipart(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
 	return nil, nil
 }
+func (m *mockAPIClient) TencentPanoramaGenerate(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
+	return nil, nil
+}
 func (m *mockAPIClient) PollTask(taskID string, maxWait time.Duration) (*types.TaskData, error) {
 	return nil, nil
 }

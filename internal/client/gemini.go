@@ -147,9 +147,9 @@ func (c *Client) doGeminiRequest(method, path string, reqBody any) ([]byte, erro
 	}
 	defer resp.Body.Close()
 
-	body, err := httpx.ReadAllLimited(resp.Body, httpx.DefaultMaxBodyBytes)
+	body, err := httpx.ReadAllLimited(resp.Body, httpx.ImageBodyLimit())
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		return nil, readBodyError(err)
 	}
 
 	if resp.StatusCode != http.StatusOK {

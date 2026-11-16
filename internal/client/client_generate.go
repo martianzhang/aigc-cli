@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/martianzhang/aigc-cli/internal/httpx"
 	"github.com/martianzhang/aigc-cli/internal/provider"
 	"github.com/martianzhang/aigc-cli/internal/types"
 )
@@ -48,7 +49,7 @@ func (c *Client) IsOpenRouterProvider() bool {
 func (c *Client) ImageGenerateSync(req *types.GenerateRequest) (*types.OpenAIImageResponse, error) {
 	cleanReq := c.sanitizeImageRequest(req)
 	var result types.OpenAIImageResponse
-	if err := c.doJSON(ImageSubmitPath, cleanReq, &result); err != nil {
+	if err := c.doJSONLimit(ImageSubmitPath, cleanReq, &result, httpx.ImageBodyLimit()); err != nil {
 		return nil, err
 	}
 	return &result, nil

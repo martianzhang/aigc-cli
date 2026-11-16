@@ -12,6 +12,7 @@ import "github.com/martianzhang/aigc-cli/internal/types"
 var builtinBaseURLs = map[types.ProviderType]string{
 	types.ProviderSomark:   SomarkBaseURL,
 	types.ProviderDeepSeek: DeepSeekBaseURL,
+	types.ProviderTencent:  TencentBaseURL,
 }
 
 // builtinBaseURL returns the canonical endpoint for a provider type, or ""

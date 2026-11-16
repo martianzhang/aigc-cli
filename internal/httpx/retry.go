@@ -8,13 +8,47 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // DefaultMaxBodyBytes caps a buffered HTTP response body (32 MiB). API
 // responses are small; this only guards against a misbehaving endpoint.
 const DefaultMaxBodyBytes int64 = 32 << 20
+
+// ImageMaxBodyBytes caps a buffered image-generation response body (256 MiB).
+// Image APIs return the picture base64-encoded inside JSON, so one 8K
+// equirectangular PNG can exceed the text-API cap several times over.
+const ImageMaxBodyBytes int64 = 256 << 20
+
+// ImageBodyEnv overrides ImageMaxBodyBytes with a size in MiB.
+const ImageBodyEnv = "AIGC_CLI_IMAGE_MAX_BODY_MB"
+
+// ErrBodyTooLarge marks a body that exceeded ReadAllLimited's cap, so callers
+// can distinguish a truncation guard from a transport failure.
+var ErrBodyTooLarge = errors.New("response body exceeds limit")
+
+// bodyTooLargeError carries the limit so the message names the actual cap.
+type bodyTooLargeError struct{ max int64 }
+
+func (e *bodyTooLargeError) Error() string {
+	return fmt.Sprintf("response exceeds %d MB", e.max>>20)
+}
+
+func (e *bodyTooLargeError) Unwrap() error { return ErrBodyTooLarge }
+
+// ImageBodyLimit returns the effective cap for image responses, honoring
+// AIGC_CLI_IMAGE_MAX_BODY_MB when it parses to a positive integer.
+func ImageBodyLimit() int64 {
+	if raw := strings.TrimSpace(os.Getenv(ImageBodyEnv)); raw != "" {
+		if mb, err := strconv.ParseInt(raw, 10, 64); err == nil && mb > 0 {
+			return mb << 20
+		}
+	}
+	return ImageMaxBodyBytes
+}
 
 // ReadAllLimited reads at most max bytes and reports an error when the body is
 // larger, instead of silently truncating it.
@@ -27,7 +61,7 @@ func ReadAllLimited(r io.Reader, max int64) ([]byte, error) {
 		return nil, err
 	}
 	if int64(len(data)) > max {
-		return nil, fmt.Errorf("response exceeds %d MB", max>>20)
+		return nil, &bodyTooLargeError{max: max}
 	}
 	return data, nil
 }

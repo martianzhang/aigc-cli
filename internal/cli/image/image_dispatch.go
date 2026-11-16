@@ -25,6 +25,7 @@ type imageDispatchCtx struct {
 	isAgnes       bool
 	isGemini      bool
 	isZeekai      bool
+	isTencent     bool
 	isMultipart   bool // OpenAI-family /images/edits (multipart/form-data)
 	genEdit       bool
 	isOllama      bool
@@ -48,6 +49,7 @@ func newImageDispatchCtx(p *provider.EffectiveProvider, req *types.GenerateReque
 		isModelScope:  p.ProviderType == provider.ModelScope,
 		isGemini:      p.ProviderType == provider.Gemini,
 		isZeekai:      p.ProviderType == provider.Zeekai,
+		isTencent:     p.ProviderType == provider.Tencent,
 		isMultipart:   useMultipartImageEdits(p, req),
 		genEdit:       genEdit,
 		modelScopeKey: p.APIKey,
@@ -133,6 +135,14 @@ var imageStrategies = []imageStrategy{
 			return ctx.isOpenRouter && !ctx.genEdit
 		},
 		run: runOpenRouterDedicatedImage,
+	},
+	{
+		// Tencent TokenHub: Hy-World panorama native synchronous API
+		// (POST /v1/wand/hunyuan-image/world2-panorama).
+		match: func(req *types.GenerateRequest, ctx *imageDispatchCtx) bool {
+			return ctx.isTencent
+		},
+		run: runTencentPanoramaImage,
 	},
 	{
 		// Agnes: dedicated sync API with extra_body.image for img2img and ratio for 2.1

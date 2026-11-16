@@ -51,4 +51,7 @@ type APIClient interface {
 
 	// Gemini native API
 	GeminiImageGenerate(req *types.GenerateRequest) (*types.OpenAIImageResponse, error)
+
+	// Tencent TokenHub native Hy-World panorama API
+	TencentPanoramaGenerate(req *types.GenerateRequest) (*types.OpenAIImageResponse, error)
 }
