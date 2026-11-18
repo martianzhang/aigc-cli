@@ -129,6 +129,8 @@ aigc-cli detect init --force
 
 `init` 在 Linux x64 / Windows x64 上会自动同时下载 CPU 和 GPU 版 ONNX Runtime。运行时优先加载 `_gpu` 变体（如有 CUDA），否则回退 CPU。
 
+ONNX Runtime 压缩包从项目镜像（`aigc-cli-models` release）下载，并按二进制内置的 **SHA-256** 校验后才解压：摘要不匹配会直接报错并丢弃文件，未验证的原生库不会被加载；当前没有发布包的平台会明确报错而不是无校验下载。
+
 ### 检测优先级
 
 当两个模型都存在时，优先使用大模型：

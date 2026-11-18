@@ -503,6 +503,8 @@ aigc-cli audio init --url https://example.com/model.tar.bz2 --name my-model
 aigc-cli audio init --list-installed
 ```
 
+本地 TTS/ASR 首次运行会下载 sherpa-onnx 运行时（helper + 原生库）。这些原生库同样按二进制内置的 **SHA-256** 校验，摘要不匹配会报错且不落盘；镜像上没有固定摘要的资源会拒绝下载（此时回退到 Go module 缓存里的副本或本地编译 helper），不会加载未验证的库。
+
 ### 语音合成
 
 ```bash

@@ -12,6 +12,24 @@ import (
 	"github.com/martianzhang/aigc-cli/internal/ui"
 )
 
+// audioRuntimeSHA256 pins the SHA-256 of every native runtime asset downloaded
+// from the mirror (URL basenames). The values are the mirror's published GitHub
+// release asset digests, tied to sherpa-onnx-go v1.13.4 and onnxrt.Version.
+//
+// Names missing here are never downloaded — the helper is then compiled locally
+// and the library is copied from the Go module cache, which go.sum already
+// verifies. Verify a new asset before adding it: a native library is loaded
+// into this process and must not come from unverified bytes.
+var audioRuntimeSHA256 = map[string]string{
+	"libaigc-sherpa-helper.dylib": "4be51299ee1942957b96a5451ba40c1c8ac341fb70462169be7310e4b46dcc17",
+	"libaigc-sherpa-helper.so":    "ffb56d5c4cb33acd559f24a1de410b93535f573b8e2185e3892af0a83688a816",
+	"aigc-sherpa-helper.dll":      "0163cb6967a254c7f715e2be2b13814d228115796a7c5dc7f0533b66a8cfe394",
+	"libsherpa-onnx-c-api.dylib":  "ae58033302867116ed8c04f7d36ee06e89d89d2313f98dec384960db13ccc0bb",
+	"libsherpa-onnx-c-api.so":     "2cd381b094dae40d750df4eb0308a96a75b9dd452bb4c3b0fce10fb59e7123ff",
+	"sherpa-onnx-c-api.dll":       "614878147c05121aeb1514ec4fb3e48b89751591532eca9208235b9ab868306a",
+	"onnxruntime.dll":             "daa77083a45bf525da0dde9e87f85d8eb146f58f9c9aa7124ca84545e1c0f148",
+}
+
 // ensureAudioRuntime ensures the helper library and sherpa-onnx libs are available.
 func ensureAudioRuntime() error {
 	modelsDir := filepath.Dir(audioModelsDir())

@@ -4,8 +4,13 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -449,5 +454,197 @@ func TestExtractAllZip(t *testing.T) {
 	}
 	if string(got) != "cuda" {
 		t.Fatalf("provider dll content = %q, want %q", got, "cuda")
+	}
+}
+
+// --- pinned digest verification ---
+
+func sha256Hex(b []byte) string {
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
+}
+
+func TestPinnedArchiveDigests(t *testing.T) {
+	if len(ortAssetSHA256) == 0 {
+		t.Fatal("ortAssetSHA256 is empty: no runtime archive could be installed")
+	}
+	for name, sum := range ortAssetSHA256 {
+		if len(sum) != 64 {
+			t.Errorf("%s: digest %q is not 64 hex chars", name, sum)
+		}
+		if _, err := hex.DecodeString(sum); err != nil {
+			t.Errorf("%s: digest %q is not hex: %v", name, sum, err)
+		}
+		if sum != strings.ToLower(sum) {
+			t.Errorf("%s: digest %q must be lowercase", name, sum)
+		}
+		if !strings.Contains(name, Version) {
+			t.Errorf("%s: archive name must carry the pinned version %s", name, Version)
+		}
+		if !strings.HasSuffix(name, ".tgz") && !strings.HasSuffix(name, ".zip") {
+			t.Errorf("%s: unexpected archive extension", name)
+		}
+	}
+}
+
+func TestGetORTDownloadInfo_usesPinnedDigest(t *testing.T) {
+	info := getORTDownloadInfo()
+	published := map[string]bool{
+		"darwin/arm64":  true,
+		"linux/amd64":   true,
+		"windows/amd64": true,
+	}
+	key := runtime.GOOS + "/" + runtime.GOARCH
+
+	if published[key] {
+		if info.sha256 == "" {
+			t.Fatalf("%s is published but getORTDownloadInfo() has no pinned digest", key)
+		}
+		if got := ortAssetSHA256[path.Base(info.url)]; got != info.sha256 {
+			t.Errorf("sha256 = %q, want table entry %q for %s", info.sha256, got, path.Base(info.url))
+		}
+		return
+	}
+	if info.sha256 != "" {
+		t.Errorf("%s has no published archive, but digest %q was pinned", key, info.sha256)
+	}
+}
+
+func TestInstallArchive_rejectsUnpinnedArchive(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		_, _ = w.Write([]byte("unverified"))
+	}))
+	defer srv.Close()
+
+	info := ortDownloadInfo{
+		url:         srv.URL + "/onnxruntime-test.tgz",
+		archiveName: "runtime.tgz",
+		libName:     "libtest.so",
+	}
+	err := installArchive(t.TempDir(), info, false, extractCPUArchive)
+	if err == nil {
+		t.Fatal("expected error for an archive without a pinned digest")
+	}
+	if !strings.Contains(err.Error(), "pinned SHA-256") {
+		t.Fatalf("error = %q, want it to mention the missing pinned SHA-256", err)
+	}
+	if hits != 0 {
+		t.Fatalf("server received %d requests, want 0: unverified archives must not be downloaded", hits)
+	}
+}
+
+func TestInstallArchive_rejectsTamperedArchive(t *testing.T) {
+	dir := t.TempDir()
+	modelsDir := t.TempDir()
+	internalPath := "onnxruntime-test/lib/libtest.so"
+
+	archive := filepath.Join(dir, "runtime.tgz")
+	makeTGZ(t, archive, []tgzEntry{{name: internalPath, content: testLibContent}})
+	payload, err := os.ReadFile(archive)
+	if err != nil {
+		t.Fatalf("read archive: %v", err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("tampered payload"))
+	}))
+	defer srv.Close()
+
+	info := ortDownloadInfo{
+		url:          srv.URL + "/onnxruntime-test.tgz",
+		archiveName:  "runtime.tgz",
+		libName:      "libtest.so",
+		internalPath: internalPath,
+		sha256:       sha256Hex(payload), // digest of the real archive, not the served bytes
+	}
+	err = installArchive(modelsDir, info, false, extractCPUArchive)
+	if err == nil {
+		t.Fatal("expected checksum error for a tampered archive")
+	}
+	if !strings.Contains(err.Error(), "checksum mismatch") {
+		t.Fatalf("error = %q, want a checksum mismatch", err)
+	}
+	if entries := countDirEntries(t, modelsDir); entries != 0 {
+		t.Fatalf("models dir has %d entries after a rejected archive, want 0", entries)
+	}
+}
+
+func TestInstallArchive_verifiedDownloadExtractsAndCleansUp(t *testing.T) {
+	dir := t.TempDir()
+	modelsDir := t.TempDir()
+	internalPath := "onnxruntime-test/lib/libtest.so"
+
+	archive := filepath.Join(dir, "runtime.tgz")
+	makeTGZ(t, archive, []tgzEntry{
+		{name: internalPath, content: testLibContent},
+		{name: "onnxruntime-test/README.md", content: "docs"},
+	})
+	payload, err := os.ReadFile(archive)
+	if err != nil {
+		t.Fatalf("read archive: %v", err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(payload)
+	}))
+	defer srv.Close()
+
+	info := ortDownloadInfo{
+		url:          srv.URL + "/onnxruntime-test.tgz",
+		archiveName:  "runtime.tgz",
+		libName:      "libtest.so",
+		internalPath: internalPath,
+		sha256:       sha256Hex(payload),
+	}
+	if err := installArchive(modelsDir, info, false, extractCPUArchive); err != nil {
+		t.Fatalf("installArchive: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(modelsDir, "libtest.so"))
+	if err != nil {
+		t.Fatalf("extracted library missing: %v", err)
+	}
+	if string(got) != testLibContent {
+		t.Fatalf("extracted content = %q, want %q", got, testLibContent)
+	}
+	for _, leftover := range []string{"runtime.tgz", "runtime.tgz.part", "runtime.tgz.sha256"} {
+		if _, err := os.Stat(filepath.Join(modelsDir, leftover)); err == nil {
+			t.Errorf("%s should be removed after a successful install", leftover)
+		}
+	}
+}
+
+func TestInstallArchive_gpuExtractor(t *testing.T) {
+	dir := t.TempDir()
+	modelsDir := t.TempDir()
+
+	archive := filepath.Join(dir, "runtime-gpu.tgz")
+	makeTGZ(t, archive, []tgzEntry{
+		{name: "pkg/lib/libonnxruntime.so", content: "runtime"},
+		{name: "pkg/lib/libonnxruntime_providers_cuda.so", content: "cuda"},
+	})
+	payload, err := os.ReadFile(archive)
+	if err != nil {
+		t.Fatalf("read archive: %v", err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(payload)
+	}))
+	defer srv.Close()
+
+	info := ortDownloadInfo{
+		url:         srv.URL + "/onnxruntime-gpu-test.tgz",
+		archiveName: "runtime-gpu.tgz",
+		libName:     "libonnxruntime_providers_cuda.so",
+		sha256:      sha256Hex(payload),
+	}
+	if err := installArchive(modelsDir, info, false, extractGPUArchive); err != nil {
+		t.Fatalf("installArchive: %v", err)
+	}
+	if got := countDirEntries(t, modelsDir); got != 2 {
+		t.Fatalf("models dir has %d entries, want 2 provider libs", got)
 	}
 }

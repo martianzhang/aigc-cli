@@ -98,6 +98,8 @@ aigc-cli upscale init --model real-cugan-2x --model swin2sr-lightweight-x2
 
 模型下载到 `<models_dir>/upscale/`（默认 `~/.config/aigc-cli/models/upscale/`）。ONNX Runtime 与其它本地命令**共用**（`<models_dir>/libonnxruntime.*`），只下载一次。`init` 会遵循配置里的 `http_proxy`。
 
+共用的 ONNX Runtime 压缩包按二进制内置的 **SHA-256** 校验后才解压：摘要不匹配会报错并丢弃文件，未验证的原生库不会被加载。
+
 ## 配置
 
 `upscale` 是**纯本地**命令，通过命名 provider 指定（`type: local`），与 `ocr` 一致——`models_dir` 由 provider 提供，不在 `upscale` 段里单独配置：

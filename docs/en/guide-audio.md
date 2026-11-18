@@ -49,6 +49,12 @@ aigc-cli audio speak -P local -i "Hello world" --voice zf_xiaoxiao
 aigc-cli audio speak -P local -i "Hello world" --dry-run
 ```
 
+The first local run also downloads the sherpa-onnx runtime (helper plus native
+libraries). Those libraries are verified against **SHA-256** digests pinned in
+the binary before they are installed; a mismatch fails and discards the file.
+Assets without a pinned digest are never downloaded — the library is copied from
+the Go module cache or the helper is compiled locally instead.
+
 Supported voices include Chinese, English, Japanese, Korean, and French.
 
 ## Sound effects (SFX)

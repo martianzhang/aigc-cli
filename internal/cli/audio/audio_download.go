@@ -195,11 +195,29 @@ func extractTar(tarr *tar.Reader, extractDir string) error {
 }
 
 func downloadAsset(baseURL, name, dir string) error {
-	url := baseURL + "/" + name
 	dest := filepath.Join(dir, name)
 	if _, err := os.Stat(dest); err == nil {
 		return nil
 	}
+	want, ok := audioRuntimeSHA256[name]
+	if !ok {
+		// Fail closed: an unpublished/unpinned native library stays absent
+		// rather than being downloaded unverified.
+		return fmt.Errorf("no pinned SHA-256 for %s; refusing unverified download", name)
+	}
+	url := baseURL + "/" + name
 	ui.Printf("Downloading %s...\n", url)
-	return service.SaveResource(url, dest)
+	return downloadVerified(url, dest, want)
+}
+
+// downloadVerified fetches url to dest and verifies its SHA-256 before the file
+// is visible under its final name (modelstore downloads to a .part fragment).
+func downloadVerified(url, dest, wantSHA string) error {
+	if err := modelstore.Install(options.Context(), nil, url, dest, modelstore.Options{SHA256: wantSHA}); err != nil {
+		return err
+	}
+	// The digest lives in the binary; the sidecar would only clutter the models
+	// directory next to the shared runtime libraries.
+	_ = os.Remove(dest + ".sha256")
+	return nil
 }

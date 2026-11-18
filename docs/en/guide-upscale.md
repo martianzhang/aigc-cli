@@ -113,6 +113,10 @@ Models are downloaded to `<models_dir>/upscale/` (default
 other local commands (`<models_dir>/libonnxruntime.*`) and downloaded once.
 `init` respects the configured `http_proxy`.
 
+The shared ONNX Runtime archive is verified against a **SHA-256** digest pinned
+in the binary before extraction: a mismatch fails the install and discards the
+file, so unverified native code never reaches the loader.
+
 ## Configuration
 
 `upscale` is fully local and is configured through a named provider (`type: local`),
